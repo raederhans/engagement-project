@@ -1,0 +1,6 @@
+- City CARTO reachable
+- Police Districts GeoJSON reachable
+- Points requests are time-windowed and bbox-limited
+- Debounce ≥ 300ms applied to all controls
+- ≥ 20k points triggers cluster/zoom prompt
+- README includes UCR/100-block disclaimer

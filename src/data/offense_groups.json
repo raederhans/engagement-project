@@ -1,0 +1,25 @@
+{
+  "Assault_Gun": [
+    "Aggravated Assault Firearm",
+    "Aggravated Assault No Firearm"
+  ],
+  "Burglary": [
+    "Burglary Non-Residential",
+    "Burglary Residential"
+  ],
+  "Property": [
+    "Thefts"
+  ],
+  "Robbery_Gun": [
+    "Robbery Firearm",
+    "Robbery No Firearm"
+  ],
+  "Vandalism_Other": [
+    "Narcotic / Drug Law Violations",
+    "Vandalism/Criminal Mischief"
+  ],
+  "Vehicle": [
+    "Motor Vehicle Theft",
+    "Theft from Vehicle"
+  ]
+}

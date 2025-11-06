@@ -1,0 +1,288 @@
+BUILD PLAN — RENTER-ORIENTED CRIME DASHBOARD (JavaScript)
+Authoring target: GitHub Copilot (code assistant)
+Format: plain text (ready to paste into tasks or tickets)
+
+================================================================================
+0) PROJECT ROOT & RUNTIME
+================================================================================
+Project root (Windows):
+C:\Users\44792\Desktop\essay help master\6920Java\dashboard-project-Ryan
+
+Runtime:
+- Node.js LTS (18+)
+- Dev server/bundler: Vite (or similar)
+- Map rendering: MapLibre GL JS (no token required)
+- Spatial utilities: Turf.js (buffering, point-in-polygon), optional H3
+- Date/time: Day.js + timezone plugin (or Luxon)
+
+Base folders:
+  public/
+    index.html
+  src/
+    api/          (all remote fetchers + SQL builders)
+    data/         (optional cached JSON: districts/tracts/ACS)
+    map/          (map modules)
+    charts/       (time-series, top-N, 7x24 heatmap)
+    state/        (global store; debounced queries)
+    utils/        (proj transforms, joins, colors, debounce)
+  README.md
+
+================================================================================
+1) DATASETS, URLS, DOCS (PRIMARY SOURCES)
+================================================================================
+1.1 Crime Incidents (main facts; 2006–present; we use 2015+)
+Dataset landing (OpenDataPhilly):
+https://opendataphilly.org/datasets/crime-incidents/
+
+City visualization page (official disclaimer: locations rounded to 100‑block; UCR categories generalized; counts may not equal UCR reports):
+https://www.phillypolice.com/district/district-gis/
+
+CARTO SQL API (v2) docs:
+https://cartodb.github.io/developers/sql-api/
+(We query the City CARTO instance: https://phl.carto.com/api/v2/sql )
+
+Key fields to use:
+- dispatch_date_time (timestamp)
+- text_general_code (human-readable offense category)
+- ucr_general (generalized UCR code)
+- dc_dist (police district code e.g., “01”, “02”, …)
+- the_geom (Web Mercator geometry; EPSG:3857)
+- location_block (string, 100‑block address)
+
+1.2 Police Districts (boundary; recommended for V1 choropleth)
+ArcGIS MapServer layer (DIST_NUMC, supports GeoJSON output via “query”):
+Service landing:
+https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1
+
+1.3 Census Tracts (statistical boundary; add in V1.1)
+ArcGIS Online FeatureServer (2020 Tracts; filter to state 42, county 101):
+Service landing:
+https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer
+
+1.4 ACS 2023 5‑Year (population & renter‑relevant indicators)
+ACS 5‑Year overview:
+https://www.census.gov/data/developers/data-sets/acs-5year.html
+ACS 2023 dataset page:
+https://api.census.gov/data/2023/acs/acs5.html
+ACS API usage overview:
+https://www.census.gov/programs-surveys/acs/data/data-via-api.html
+
+Variables used:
+- Total population (denominator): B01003_001E
+- Tenure: renters B25003_003E, total occupied B25003_001E
+- Median household income: B19013_001E
+- Poverty rate: S1701_C03_001E (subject table)
+(See variable docs via the pages above.)
+
+================================================================================
+2) FULL API URLS (COPY/PASTE), WITH PLACEHOLDERS
+================================================================================
+Notes:
+- Always enforce the historical floor in WHERE: dispatch_date_time >= '2015-01-01'.
+- For a rolling 6‑month window, compute {START} and {END} in JS (UTC ISO).
+- Replace {XMIN},{YMIN},{XMAX},{YMAX} by map bbox in EPSG:3857.
+- For buffer queries, provide {X},{Y} as EPSG:3857 and {RADIUS_M} in meters.
+- Use encodeURIComponent to safely pass SQL in the URL.
+
+2.1 Crime points (GeoJSON) — time window + optional types + optional bbox
+GET https://phl.carto.com/api/v2/sql?format=GeoJSON&q=
+SELECT the_geom, dispatch_date_time, text_general_code, ucr_general, dc_dist, location_block
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  {AND text_general_code IN ('THEFT FROM VEHICLE','ROBBERY FIREARM',...)}
+  {AND the_geom && ST_MakeEnvelope({XMIN},{YMIN},{XMAX},{YMAX}, 3857)}
+
+2.2 Crime monthly series — citywide
+GET https://phl.carto.com/api/v2/sql?q=
+SELECT date_trunc('month', dispatch_date_time) AS m, COUNT(*) AS n
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  {AND text_general_code IN (...)}
+GROUP BY 1 ORDER BY 1
+
+2.3 Crime monthly series — within buffer A
+GET https://phl.carto.com/api/v2/sql?q=
+SELECT date_trunc('month', dispatch_date_time) AS m, COUNT(*) AS n
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  {AND text_general_code IN (...)}
+  AND ST_DWithin(the_geom, ST_SetSRID(ST_Point({X},{Y}), 3857), {RADIUS_M})
+GROUP BY 1 ORDER BY 1
+
+2.4 Crime Top‑N offense types — within buffer A
+GET https://phl.carto.com/api/v2/sql?q=
+SELECT text_general_code, COUNT(*) AS n
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  AND ST_DWithin(the_geom, ST_SetSRID(ST_Point({X},{Y}), 3857), {RADIUS_M})
+GROUP BY 1 ORDER BY n DESC LIMIT 12
+
+2.5 Crime heatmap 7×24 (weekday × hour) — buffer A
+GET https://phl.carto.com/api/v2/sql?q=
+SELECT EXTRACT(DOW  FROM dispatch_date_time AT TIME ZONE 'America/New_York') AS dow,
+       EXTRACT(HOUR FROM dispatch_date_time AT TIME ZONE 'America/New_York') AS hr,
+       COUNT(*) AS n
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  {AND text_general_code IN (...)}
+  AND ST_DWithin(the_geom, ST_SetSRID(ST_Point({X},{Y}), 3857), {RADIUS_M})
+GROUP BY 1,2 ORDER BY 1,2
+
+2.6 Aggregation by Police District (fast choropleth path)
+GET https://phl.carto.com/api/v2/sql?q=
+SELECT dc_dist, COUNT(*) AS n
+FROM incidents_part1_part2
+WHERE dispatch_date_time >= '2015-01-01'
+  AND dispatch_date_time >= '{START}' AND dispatch_date_time < '{END}'
+  {AND text_general_code IN (...)}
+GROUP BY 1 ORDER BY 1
+
+Police Districts GeoJSON (one-time fetch at startup):
+https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1=1&outFields=*&f=geojson
+
+2.7 Census Tracts (Philadelphia only; GeoJSON)
+https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0/query?where=STATE_FIPS='42'%20AND%20COUNTY_FIPS='101'&outFields=FIPS,STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION_2020&f=geojson
+
+2.8 ACS 2023 5‑Year (tract stats)
+Population + tenure + income:
+https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E,B25003_001E,B25003_003E,B19013_001E&for=tract:*&in=state:42%20county:101
+
+Poverty rate (subject table):
+https://api.census.gov/data/2023/acs/acs5/subject?get=NAME,S1701_C03_001E&for=tract:*&in=state:42%20county:101
+
+================================================================================
+3) EXECUTION ORDER (WHAT TO BUILD, STEP BY STEP)
+================================================================================
+Step A — Bootstrap & config
+- Initialize project with Vite.
+- Install deps: maplibre-gl, @turf/turf, dayjs + timezone.
+- Create src/state/store.ts: global state { addressA, addressB, radius (400|800), timeWindow (3|6|12 months, default 6), selectedTypes (group + fine), adminLevel (“districts”|“tracts”), mapBbox }.
+- Create src/utils/dates.ts: compute {START, END} for timeWindow; enforce >= 2015‑01‑01.
+- Create src/utils/debounce.ts.
+
+Step B — API layer (pure fetchers; no rendering)
+- crime.fetchPoints({start,end,types,bbox}) → GeoJSON (2.1).
+- crime.fetchMonthlySeriesCity({start,end,types}) → [{m,n}] (2.2).
+- crime.fetchMonthlySeriesBuffer({start,end,types,center3857,radiusM}) → [{m,n}] (2.3).
+- crime.fetchTopTypesBuffer({start,end,center3857,radiusM}) → [{text_general_code,n}] (2.4).
+- crime.fetch7x24Buffer({start,end,types,center3857,radiusM}) → [{dow,hr,n}] (2.5).
+- crime.fetchByDistrict({start,end,types}) → [{dc_dist,n}] (2.6).
+- boundaries.fetchPoliceDistricts() → GeoJSON (2.6 URL).
+- boundaries.fetchTracts() → GeoJSON (2.7 URL).
+- acs.fetchTractStats() → array rows with GEO ctx (2.8 URLs; merge into {GEOID, pop, renter_share, med_income, poverty_pct}).
+
+Step C — Spatial helpers
+- proj.ts: lon/lat ↔ EPSG:3857 conversion helpers for buffers and ST_DWithin.
+- joins.ts: joinDistrictCountsToGeoJSON(districtsGeoJSON, [{dc_dist,n}]) matching dc_dist ⇄ DIST_NUMC.
+- (V1.1) tractsAgg.ts: point-in-tract accumulation for small result sets (fallback if no server-side join).
+
+Step D — Maps
+- Map A (points): source = GeJSON from crime.fetchPoints; include bbox + time window + type filters; cluster at low zoom; single points at high zoom.
+- Map B (choropleth): start with Police Districts; on V1.1 add Tracts (with per‑10k rendering when ACS is loaded).
+
+Step E — Charts
+- Monthly line: buffer A vs citywide overlay (two API calls: 2.3 + 2.2).
+- Top‑N bar: buffer A (2.4).
+- 7×24 heatmap: buffer A (2.5).
+
+Step F — Controls (left panel)
+- Address A (and optional B); radius toggle 400m/800m.
+- Time window 3/6/12 months (default 6).
+- Admin level selector: Citywide overlay + “Police Districts” (default in V1) + “Census Tracts” (V1.1).
+- Offense type selector: 6 groups + drilldown into top text_general_code.
+- Counts vs per‑10k toggle (enabled when “Tracts” is active).
+
+Step G — AB compare
+- Duplicate buffer pipeline for B. Same filters.
+- Output card: Total, per‑10k (tracts), Top‑3 types, last 30 vs prior 30 days deltas.
+
+Step H — README & compliance
+- Cite sources and link docs (dataset landing, CARTO SQL API docs, Police Districts service, Tracts service, ACS docs).
+- Include limitations: “UCR categories are generalized; incident locations are rounded to the 100‑block; counts may not match official UCR reports.”
+
+================================================================================
+4) METRICS, DENOMINATORS, AND JOIN KEYS
+================================================================================
+- Per‑10k rate (tracts):
+  rate_per_10k = 10000 * count / B01003_001E
+  Mask tracts with population < 500 (show “insufficient population”).
+- Renter share (context for A/B card):
+  renter_share = B25003_003E / B25003_001E
+- Median household income: B19013_001E (contextual, not used for rate).
+- Poverty rate: S1701_C03_001E (contextual).
+
+Join keys:
+- District choropleth: dc_dist (crime) ⇄ DIST_NUMC (district polygons).
+- Tract choropleth: census GEOID from ACS (= state:42 + county:101 + tract:*). The ArcGIS Tracts layer exposes TRACT_FIPS and county/state fields; reconcile to GEOID as needed for joining ACS rows to polygons.
+
+================================================================================
+5) PERFORMANCE RULES (MUST)
+================================================================================
+- Never load the full incidents table to the client.
+- All points requests include time window and (when map is visible) the current bbox (ST_MakeEnvelope in 3857).
+- All charts/aggregations executed server‑side (SQL in URL) rather than client filtering.
+- Debounce all control changes (≥ 300 ms).
+- If point count > 20,000, switch to clusters/heat summary and prompt user to zoom.
+- Cache static boundaries in memory (districts, tracts) and ACS rows for the session.
+
+================================================================================
+6) WHAT TO PRE-DOWNLOAD OR CACHE LOCALLY (OPTIONAL)
+================================================================================
+Recommended local copies for offline/dev speed (place in /public/data or /src/data):
+- Police Districts GeoJSON (stable): police_districts.geojson
+  Live: https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1=1&outFields=*&f=geojson
+- Census Tracts (Philadelphia subset) GeoJSON: tracts_phila_2020.geojson
+  Live: see 2.7 URL with state=42 & county=101 filter
+- ACS 2023 5‑Year (Philadelphia tracts) flat JSON: acs_tracts_2023_pa101.json
+  Live: see 2.8 URLs (fetch once at startup and persist to memory or local file)
+
+================================================================================
+7) SANITY-TEST URLS (PASTE IN BROWSER BEFORE CODING)
+================================================================================
+- 6‑month sample (GeoJSON points; replace dates):
+https://phl.carto.com/api/v2/sql?format=GeoJSON&q=SELECT%20the_geom,dispatch_date_time,text_general_code,ucr_general,dc_dist,location_block%20FROM%20incidents_part1_part2%20WHERE%20dispatch_date_time%20%3E%3D%20'2015-01-01'%20AND%20dispatch_date_time%20%3E%3D%20'2025-04-13'%20AND%20dispatch_date_time%20%3C%20'2025-10-14'%20LIMIT%201000
+
+- Police Districts GeoJSON:
+https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1=1&outFields=*&f=geojson
+
+- Tracts GeoJSON (Philadelphia only):
+https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0/query?where=STATE_FIPS='42'%20AND%20COUNTY_FIPS='101'&outFields=FIPS,STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION_2020&f=geojson
+
+- ACS (population/tenure/income):
+https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E,B25003_001E,B25003_003E,B19013_001E&for=tract:*&in=state:42%20county:101
+
+- ACS (poverty rate):
+https://api.census.gov/data/2023/acs/acs5/subject?get=NAME,S1701_C03_001E&for=tract:*&in=state:42%20county:101
+
+================================================================================
+8) VIEW DEFINITIONS (HOW EACH VIEW QUERIES)
+================================================================================
+Points map (A): crime.fetchPoints with {start,end,types,bbox}
+Monthly line: crime.fetchMonthlySeriesBuffer(A) vs crime.fetchMonthlySeriesCity
+Top‑N bar: crime.fetchTopTypesBuffer(A)
+7×24 heatmap: crime.fetch7x24Buffer(A)
+Choropleth (Districts): crime.fetchByDistrict + boundaries.fetchPoliceDistricts + attribute join
+Choropleth (Tracts, V1.1): boundaries.fetchTracts + acs.fetchTractStats + counts per tract (server‑side preferred; client fallback for small sets) + per‑10k rate
+
+================================================================================
+9) UX COPY & DISCLAIMERS (ADD TO README/ABOUT)
+================================================================================
+- Source: “Crime Incidents” via OpenDataPhilly; queried through CARTO SQL API.
+- Limitations (required): UCR categories are generalized; incident locations are rounded to the hundred block; counts may not match official UCR reports.
+- Update cadence: crime incidents update daily; occasional delays or backfills are possible.
+
+================================================================================
+10) DEFAULTS & TUNABLES
+================================================================================
+- Default time window: last 6 months (toggle 3/12).
+- Default radius: 400 m (toggle 800 m).
+- Default admin level for choropleth: Police Districts (V1) → Census Tracts (V1.1).
+- Type selector: 6 renter‑relevant groups + drilldown into top text_general_code.
+- A/B compare: identical filters; display Total, per‑10k (tracts), Top‑3, and recent‑30 vs prior‑30 deltas.
+
+END OF PLAN

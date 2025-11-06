@@ -1,0 +1,4 @@
+- Stall if: no TODO.md change + no new logs for 15 min ⇒ relaunch.
+- After 3 stalls, re-bootstrap task from scratch.
+- If "Session limit reached" appears, sleep 20–30 min and resume.
+- Respect "# STOP" flag in TODO.md.
