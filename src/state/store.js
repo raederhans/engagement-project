@@ -45,6 +45,10 @@ export const store = /** @type {Store} */ ({
   selectedTractGEOID: null,
   overlayTractsLines: false, // Show tract boundaries overlay in district mode
   didAutoAlignAdmin: false, // One-time auto-align flag for Tract mode → adminLevel 'tracts'
+  // [DIARY_FLAG] Route Safety Diary placeholder state (M1 prep, no behavior yet)
+  diaryMode: false,        // Whether diary mode is active
+  userHash: null,          // Anonymous user hash (M2)
+  myRoutes: [],            // Saved routes (M3)
   // Choropleth classification
   classMethod: 'quantile',
   classBins: 5,

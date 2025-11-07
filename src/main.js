@@ -50,6 +50,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Initialize about panel (top slide-down)
       initAboutPanel();
 
+      // [DIARY_FLAG] Route Safety Diary feature entry (no-op placeholder for M1 prep)
+      if (import.meta?.env?.VITE_FEATURE_DIARY === '1') {
+        console.info('[Diary] Feature flag is ON — scaffolding present; implementation to be added by Codex (M1).');
+        // TODO: Uncomment when implementing M1
+        // import('./routes_diary/index.js').then(({ initDiaryMode }) => {
+        //   initDiaryMode(map);
+        // });
+      }
+
       // Render districts (legend updated inside)
       renderDistrictChoropleth(map, merged);
       attachHover(map, 'districts-fill');

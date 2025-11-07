@@ -1,0 +1,80 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "seg_001",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-75.1900, 39.9520],
+          [-75.1890, 39.9525]
+        ]
+      },
+      "properties": {
+        "segment_id": "seg_001",
+        "name": "Main St",
+        "length_m": 120,
+        "rating": 3.5,
+        "n_eff": 30,
+        "trend_30d": 0.2,
+        "top_tags": [
+          { "tag": "poor lighting", "count": 5 },
+          { "tag": "low foot traffic", "count": 3 }
+        ],
+        "total_reports": 12,
+        "last_updated": 1699305600000
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "seg_002",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-75.1890, 39.9525],
+          [-75.1880, 39.9530]
+        ]
+      },
+      "properties": {
+        "segment_id": "seg_002",
+        "name": "Main St",
+        "length_m": 180,
+        "rating": 2.8,
+        "n_eff": 20,
+        "trend_30d": -0.3,
+        "top_tags": [
+          { "tag": "cars too close", "count": 8 },
+          { "tag": "poor lighting", "count": 4 }
+        ],
+        "total_reports": 18,
+        "last_updated": 1699291200000
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "seg_003",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-75.1895, 39.9515],
+          [-75.1890, 39.9525]
+        ]
+      },
+      "properties": {
+        "segment_id": "seg_003",
+        "name": "Side St",
+        "length_m": 95,
+        "rating": 4.2,
+        "n_eff": 45,
+        "trend_30d": 0.6,
+        "top_tags": [
+          { "tag": "well lit", "count": 12 },
+          { "tag": "high foot traffic", "count": 8 }
+        ],
+        "total_reports": 35,
+        "last_updated": 1699320000000
+      }
+    }
+  ]
+}

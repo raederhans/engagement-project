@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
+
+**Status:** ✅ M1 prep complete — Repository ready for Codex implementation
+
+### Changes (Additive Only)
+
+**Documentation (5 files, 148 KB):**
+- [docs/DIARY_EXEC_PLAN_M1.md](./DIARY_EXEC_PLAN_M1.md) — M1 execution plan (5 phases, acceptance criteria)
+- [docs/ALGO_REQUIREMENTS_M1.md](./ALGO_REQUIREMENTS_M1.md) — Algorithm specifications (map-matching, decay, A*)
+- [docs/SCENARIO_MAPPING.md](./SCENARIO_MAPPING.md) — React UI → Vanilla JS mapping (4 scenarios)
+- [docs/API_DIARY.md](./API_DIARY.md) — API contracts with JSON schemas
+- [docs/DEV_ENV_README.md](./DEV_ENV_README.md) — Development environment setup guide
+
+**Scaffolding (8 files, ~1,110 LOC):**
+- `src/routes_diary/index.js` — Main orchestrator (TODOs for Phases 1-5)
+- `src/routes_diary/form_submit.js` — Rating modal UI & validation (AJV schema)
+- `src/routes_diary/my_routes.js` — Saved routes (M3 deferred)
+- `src/map/segments_layer.js` — Segment visualization (MapLibre vector layer)
+- `src/map/routing_overlay.js` — Safer route overlay (A* stub)
+- `src/api/diary.js` — Diary API client (mock responses for M1)
+- `src/utils/match.js` — GPS map-matching algorithm (stub)
+- `src/utils/decay.js` — Time-decay & Bayesian shrinkage (complete formulas)
+
+**Server Stubs (3 endpoints):**
+- `server/api/diary/submit.js` — Returns 501 Not Implemented
+- `server/api/diary/segments.js` — Returns 501 Not Implemented
+- `server/api/diary/route.js` — Returns 501 Not Implemented
+
+**Data & Scripts:**
+- `data/segments_phl.dev.geojson` — 3 seed segments (Main St × 2, Side St)
+- `scripts/setup_diary_env.sh` — Bash setup script (install deps, create .env.example)
+- `scripts/setup_diary_env.ps1` — PowerShell setup script (Windows)
+
+**Configuration:**
+- `package.json` — Added dependency: `ajv@^8.12.0`, added scripts: `setup:diary:sh`, `setup:diary:ps`
+- `src/state/store.js` — Added diary state placeholders (diaryMode, userHash, myRoutes)
+- `src/main.js` — Added feature flag check with console log (commented dynamic import)
+
+### Verification
+
+- ✅ Build succeeds with `VITE_FEATURE_DIARY=0` (default, no runtime impact)
+- ✅ Build succeeds with `VITE_FEATURE_DIARY=1` (logs message, no errors)
+- ✅ All scaffolding files have valid syntax (TODOs, no executable logic)
+- ✅ No secrets or sensitive data in any file
+- ✅ Existing features (buffer/district/tract) unaffected
+
+### Evidence
+
+- [logs/M1_PREP_2025-11-07T140000.md](../logs/M1_PREP_2025-11-07T140000.md) — Complete evidence log with file trees, commands, outputs
+
+### Next Steps
+
+1. Enable feature flag: `echo "VITE_FEATURE_DIARY=1" > .env.local`
+2. Start M1 implementation: Follow [docs/DIARY_EXEC_PLAN_M1.md](./DIARY_EXEC_PLAN_M1.md)
+3. Reference [docs/SCENARIO_MAPPING.md](./SCENARIO_MAPPING.md) for UI patterns
+
+---
+
 ## 2025-11-07 14:00 — Discovery: repo audit + 4 UI scenarios inventoried (no runtime changes)
 
 ## 2025-11-07 10:43 — Discovery: dev bootstrap & 4 diary UI scenarios reviewed (no runtime changes)
