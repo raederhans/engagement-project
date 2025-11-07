@@ -6,8 +6,36 @@
  * See: docs/ALGO_REQUIREMENTS_M1.md (Section 2)
  */
 
-// TODO: Import dependencies when implementing
-// import dayjs from 'dayjs';
+export function weightFor(sampleTimestamp, nowTimestamp, halfLifeDays = 21) {
+  const sample = Number(sampleTimestamp);
+  const now = Number(nowTimestamp);
+  if (!Number.isFinite(sample) || !Number.isFinite(now) || halfLifeDays <= 0) {
+    return 1;
+  }
+  const dtDays = Math.max(0, (now - sample) / 86400000);
+  return Math.pow(2, -dtDays / halfLifeDays);
+}
+
+export function bayesianShrink(mean, n, priorMean = 3.0, priorN = 5) {
+  const observedMean = Number.isFinite(mean) ? mean : priorMean;
+  const observedN = Math.max(0, Number.isFinite(n) ? n : 0);
+  const numerator = priorMean * priorN + observedMean * observedN;
+  const denominator = Math.max(1e-6, priorN + observedN);
+  return numerator / denominator;
+}
+
+export function effectiveSampleFromWeights(weights) {
+  return Math.max(0, weights.reduce((sum, w) => sum + Math.max(0, w), 0));
+}
+
+export function effectiveN(sumW) {
+  return Math.max(0, Number.isFinite(sumW) ? sumW : 0);
+}
+
+export function clampMean(value) {
+  const numeric = Number.isFinite(value) ? value : 3;
+  return Math.min(5, Math.max(1, numeric));
+}
 
 /**
  * Calculate time-decayed mean rating
@@ -45,15 +73,7 @@ export function decayedMean(samples, now, halfLifeDays = 90) {
  * @returns {number} Shrunk mean rating (1-5)
  */
 export function bayesianShrinkage(observedMean, observedN, priorMean = 3.0, priorN = 5) {
-  // TODO: Implement Bayesian shrinkage
-  // Formula: shrunk_mean = (priorMean * priorN + observedMean * observedN) / (priorN + observedN)
-  // Purpose: Prevent overconfidence from small samples
-  // Example: 1 rating of 5.0 → shrinks toward 3.0
-  //          50 ratings of 4.5 → barely shrinks
-
-  const numerator = priorMean * priorN + observedMean * observedN;
-  const denominator = priorN + observedN;
-  return numerator / denominator;
+  return bayesianShrink(observedMean, observedN, priorMean, priorN);
 }
 
 /**
@@ -63,7 +83,7 @@ export function bayesianShrinkage(observedMean, observedN, priorMean = 3.0, prio
  * @param {number} halfLifeDays - Half-life in days (default: 90)
  * @returns {number} Effective sample size (n_eff)
  */
-export function effectiveN(samples, now, halfLifeDays = 90) {
+export function effectiveNFromSamples(samples, now, halfLifeDays = 90) {
   // TODO: Implement effective sample size
   // Formula: n_eff = Σ weight_i
   // Purpose: Represents "equivalent number of fresh ratings"
@@ -157,7 +177,7 @@ export function calculateSegmentStats(samples, now, opts = {}) {
   const observedMean = decayedMean(samples, now, halfLifeDays);
 
   // 2. Calculate effective N
-  const observedN = effectiveN(samples, now, halfLifeDays);
+  const observedN = effectiveNFromSamples(samples, now, halfLifeDays);
 
   // 3. Apply Bayesian shrinkage
   const rating = bayesianShrinkage(observedMean, observedN, priorMean, priorN);

@@ -12,6 +12,7 @@
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer } from '../map/segments_layer.js';
 import { drawRouteOverlay, clearRouteOverlay } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
+import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -50,6 +51,11 @@ let toastEl = null;
 let toastTimer = null;
 const USER_HASH_KEY = 'diary_demo_user_hash';
 let cachedUserHash = null;
+const localAgg = new Map();
+let baseSegmentsFC = null;
+const HALF_LIFE_DAYS = 21;
+const PRIOR_MEAN = 3.0;
+const PRIOR_N = 5;
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -171,6 +177,40 @@ function ensureRouteIndex(routes) {
       routeById.set(id, feature);
     }
   });
+}
+
+function initLocalAggFromSegments(featureCollection) {
+  localAgg.clear();
+  baseSegmentsFC = clone(featureCollection);
+  if (!featureCollection || !Array.isArray(featureCollection.features)) return;
+  featureCollection.features.forEach((feature) => {
+    const props = feature.properties || {};
+    const id = props.segment_id;
+    if (!id) return;
+    const mean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
+    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : 1;
+    const delta = Number.isFinite(props.delta_30d) ? props.delta_30d : 0;
+    const tags = Array.isArray(props.top_tags) ? props.top_tags : [];
+    localAgg.set(id, {
+      mean,
+      sumW: Math.max(0, nEff),
+      n_eff: Math.max(0, nEff),
+      top_tags: tags,
+      tagCounts: toCounts(tags),
+      updated: new Date().toISOString(),
+      win30: { sum: mean * Math.max(1, nEff), w: Math.max(1, nEff) },
+      delta_30d: delta,
+    });
+  });
+}
+
+function toCounts(tagPairs) {
+  const map = Object.create(null);
+  for (const pair of tagPairs) {
+    if (!pair || !pair.tag) continue;
+    map[pair.tag] = Math.max(1, map[pair.tag] || 0);
+  }
+  return map;
 }
 
 function diaryFlagOff() {
@@ -384,11 +424,125 @@ function openRouteRating() {
     segmentLookup,
     userHash: getUserHash(),
     onSuccess: ({ payload, response }) => {
-      showToast('Thanks — your feedback has been recorded for this demo.');
-      console.info('[Diary] submit payload', payload);
-      console.info('[Diary] stub response', response);
+      handleDiarySubmissionSuccess(payload, response);
     },
   });
+}
+
+function handleDiarySubmissionSuccess(payload, response) {
+  if (!payload) return;
+  applyDiarySubmissionToAgg(payload);
+  const refreshed = buildSegmentsFCFromBase();
+  if (refreshed && mapRef) {
+    updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
+    lastLoadedSegments = refreshed;
+  }
+  showToast('Thanks — your feedback has been recorded for this demo.');
+  console.info('[Diary] submit payload', payload);
+  console.info('[Diary] stub response', response);
+}
+
+function applyDiarySubmissionToAgg(payload) {
+  if (!payload || !Array.isArray(payload.segment_ids)) return;
+  const now = Date.now();
+  const overall = Number(payload.overall_rating);
+  const tags = Array.isArray(payload.tags) ? payload.tags : [];
+  const overrides = normalizeOverrides(payload.segment_overrides);
+  for (const segId of payload.segment_ids) {
+    const rating = overrides.has(segId) ? overrides.get(segId) : overall;
+    if (!Number.isFinite(rating)) continue;
+    if (!localAgg.has(segId)) {
+      localAgg.set(segId, {
+        mean: 3,
+        sumW: 0,
+        n_eff: 0,
+        top_tags: [],
+        tagCounts: Object.create(null),
+        updated: new Date(now).toISOString(),
+        win30: { sum: 0, w: 0 },
+        delta_30d: 0,
+      });
+    }
+    const record = localAgg.get(segId);
+    decayAggRecord(record, now);
+    const wNew = 1;
+    const sumW = record.sumW + wNew;
+    const meanRaw = (record.mean * record.sumW + rating * wNew) / Math.max(1e-6, sumW);
+    const shrunk = clampMean(bayesianShrink(meanRaw, sumW, PRIOR_MEAN, PRIOR_N));
+    const prevWinMean = record.win30.w > 0 ? record.win30.sum / record.win30.w : record.mean;
+    record.sumW = sumW;
+    record.mean = shrunk;
+    record.n_eff = effectiveN(sumW);
+    record.updated = new Date(now).toISOString();
+    for (const tag of tags) {
+      if (!record.tagCounts[tag]) record.tagCounts[tag] = 0;
+      record.tagCounts[tag] += 1;
+    }
+    const totalTag = Object.values(record.tagCounts).reduce((sum, val) => sum + val, 0);
+    record.top_tags = totalTag > 0
+      ? Object.entries(record.tagCounts)
+          .map(([tag, count]) => ({ tag, p: Number((count / totalTag).toFixed(2)) }))
+          .sort((a, b) => b.p - a.p)
+          .slice(0, 5)
+      : [];
+    record.win30.sum = record.win30.sum + shrunk;
+    record.win30.w = Math.min(100, record.win30.w + 1);
+    record.delta_30d = Number((shrunk - prevWinMean).toFixed(2));
+  }
+}
+
+function decayAggRecord(record, now) {
+  if (!record) return;
+  const last = Date.parse(record.updated || now);
+  const factor = weightFor(last || now, now, HALF_LIFE_DAYS);
+  if (Number.isFinite(factor) && factor > 0 && factor <= 1) {
+    record.sumW *= factor;
+    record.win30.sum *= factor;
+    record.win30.w *= factor;
+  }
+}
+
+function buildSegmentsFCFromBase() {
+  if (!baseSegmentsFC) return null;
+  const fc = clone(baseSegmentsFC);
+  fc.features = fc.features.map((feature) => {
+    const f = clone(feature);
+    const props = { ...(f.properties || {}) };
+    const agg = localAgg.get(props.segment_id);
+    if (agg) {
+      props.decayed_mean = agg.mean;
+      props.n_eff = agg.n_eff;
+      props.top_tags = agg.top_tags;
+      props.delta_30d = agg.delta_30d;
+      props.updated = agg.updated;
+    }
+    f.properties = props;
+    return f;
+  });
+  return fc;
+}
+
+function normalizeOverrides(list) {
+  const map = new Map();
+  if (!list) return map;
+  if (Array.isArray(list)) {
+    list.forEach((entry) => {
+      if (!entry || !entry.segment_id) return;
+      const value = Number(entry.rating);
+      if (!Number.isFinite(value)) return;
+      map.set(entry.segment_id, value);
+    });
+    return map;
+  }
+  if (typeof list === 'object') {
+    Object.entries(list).forEach(([segmentId, rating]) => {
+      const value = Number(rating);
+      if (segmentId && Number.isFinite(value)) {
+        map.set(segmentId, value);
+      }
+    });
+  }
+  return map;
 }
 
 function getUserHash() {
@@ -477,7 +631,7 @@ export async function initDiaryMode(map) {
 
   try {
     const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
-    lastLoadedSegments = segments;
+    lastLoadedSegments = hydratedSegments;
     lastLoadedRoutes = routes;
     stats.segmentsCount = segments.features.length;
     stats.routesCount = routes.features.length;
@@ -486,11 +640,13 @@ export async function initDiaryMode(map) {
     logMissingSegments(routes, segments);
     buildSegmentLookup(segments);
     ensureRouteIndex(routes);
+    initLocalAggFromSegments(segments);
+    const hydratedSegments = buildSegmentsFCFromBase() || segments;
 
     if (layerMounted) {
-      updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, segments);
+      updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, hydratedSegments);
     } else {
-      mountSegmentsLayer(mapRef, SEGMENT_SOURCE_ID, segments);
+      mountSegmentsLayer(mapRef, SEGMENT_SOURCE_ID, hydratedSegments);
       layerMounted = true;
     }
 

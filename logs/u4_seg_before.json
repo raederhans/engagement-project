@@ -1,0 +1,14 @@
+{
+  "segment_id": "seg_002",
+  "street": "Market St",
+  "length_m": 160,
+  "decayed_mean": 2.6,
+  "n_eff": 3,
+  "top_tags": [
+    {
+      "tag": "poor_lighting",
+      "p": 0.5
+    }
+  ],
+  "delta_30d": -0.1
+}
