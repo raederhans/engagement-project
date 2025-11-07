@@ -11,6 +11,7 @@
 
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer } from '../map/segments_layer.js';
 import { drawRouteOverlay, clearRouteOverlay } from '../map/routing_overlay.js';
+import { openRatingModal, closeRatingModal } from './form_submit.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -43,7 +44,12 @@ let routeById = new Map();
 let diaryPanelEl = null;
 let routeSelectEl = null;
 let summaryStripEl = null;
+let rateButtonEl = null;
 let currentRoute = null;
+let toastEl = null;
+let toastTimer = null;
+const USER_HASH_KEY = 'diary_demo_user_hash';
+let cachedUserHash = null;
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -243,6 +249,28 @@ function ensureDiaryPanel(routes) {
     summaryStripEl.textContent = 'Select a route to see its details.';
     panel.appendChild(summaryStripEl);
 
+    rateButtonEl = document.createElement('button');
+    rateButtonEl.type = 'button';
+    rateButtonEl.textContent = 'Rate this route';
+    rateButtonEl.style.marginTop = '12px';
+    rateButtonEl.style.width = '100%';
+    rateButtonEl.style.padding = '10px 12px';
+    rateButtonEl.style.border = 'none';
+    rateButtonEl.style.borderRadius = '8px';
+    rateButtonEl.style.fontWeight = '600';
+    rateButtonEl.style.fontSize = '13px';
+    rateButtonEl.style.background = '#0f172a';
+    rateButtonEl.style.color = '#fff';
+    rateButtonEl.style.cursor = 'pointer';
+    rateButtonEl.disabled = true;
+    rateButtonEl.style.opacity = '0.6';
+    rateButtonEl.addEventListener('click', () => {
+      if (!rateButtonEl.disabled) {
+        openRouteRating();
+      }
+    });
+    panel.appendChild(rateButtonEl);
+
     document.body.appendChild(panel);
     diaryPanelEl = panel;
   }
@@ -301,6 +329,10 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   if (routeSelectEl && routeSelectEl.value !== routeId) {
     routeSelectEl.value = routeId;
   }
+  if (rateButtonEl) {
+    rateButtonEl.disabled = false;
+    rateButtonEl.style.opacity = '1';
+  }
   if (mapRef) {
     drawRouteOverlay(mapRef, ROUTE_OVERLAY_SOURCE_ID, feature, { color: '#312e81', width: 5, dasharray: [0.3, 1], opacity: 0.85 });
     if (fitBounds) {
@@ -343,6 +375,68 @@ function extractLineCoordinates(geometry) {
     return (geometry.coordinates || []).flat();
   }
   return [];
+}
+
+function openRouteRating() {
+  if (!currentRoute) return;
+  openRatingModal({
+    routeFeature: currentRoute,
+    segmentLookup,
+    userHash: getUserHash(),
+    onSuccess: ({ payload, response }) => {
+      showToast('Thanks — your feedback has been recorded for this demo.');
+      console.info('[Diary] submit payload', payload);
+      console.info('[Diary] stub response', response);
+    },
+  });
+}
+
+function getUserHash() {
+  if (cachedUserHash) return cachedUserHash;
+  try {
+    const existing = window?.sessionStorage?.getItem(USER_HASH_KEY);
+    if (existing) {
+      cachedUserHash = existing;
+      return cachedUserHash;
+    }
+  } catch {}
+  cachedUserHash = `demo_${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    window?.sessionStorage?.setItem(USER_HASH_KEY, cachedUserHash);
+  } catch {}
+  return cachedUserHash;
+}
+
+function showToast(message, duration = 2600) {
+  if (typeof document === 'undefined') return;
+  if (toastEl) {
+    toastEl.remove();
+    toastEl = null;
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+  }
+  const wrapper = document.createElement('div');
+  wrapper.textContent = message;
+  wrapper.style.position = 'fixed';
+  wrapper.style.top = '24px';
+  wrapper.style.left = '50%';
+  wrapper.style.transform = 'translateX(-50%)';
+  wrapper.style.background = '#0f172a';
+  wrapper.style.color = '#fff';
+  wrapper.style.padding = '10px 16px';
+  wrapper.style.borderRadius = '999px';
+  wrapper.style.boxShadow = '0 12px 30px rgba(15,23,42,0.25)';
+  wrapper.style.font = '13px/1.4 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  wrapper.style.zIndex = '2000';
+  document.body.appendChild(wrapper);
+  toastEl = wrapper;
+  toastTimer = setTimeout(() => {
+    wrapper.remove();
+    toastEl = null;
+    toastTimer = null;
+  }, duration);
 }
 
 export async function loadDemoSegments({ force = false } = {}) {
@@ -426,13 +520,23 @@ export function teardownDiaryMode(map) {
   removeSegmentsLayer(targetMap, SEGMENT_SOURCE_ID);
   clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
   layerMounted = false;
+  closeRatingModal();
   if (diaryPanelEl) {
     diaryPanelEl.remove();
     diaryPanelEl = null;
     routeSelectEl = null;
     summaryStripEl = null;
+    rateButtonEl = null;
   }
   currentRoute = null;
+  if (toastEl) {
+    toastEl.remove();
+    toastEl = null;
+  }
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
   console.info('[Diary] Teardown complete.');
 }
 
@@ -484,19 +588,6 @@ function populateInsightsPanel(updatedSegments) {
   // TODO: Render top tags chart (3 horizontal bars)
   // TODO: Render 7x24 heatmap
   // See: docs/DIARY_EXEC_PLAN_M1.md (Phase 4)
-}
-
-/**
- * Show toast notification
- * @param {string} message - Message to display
- * @param {number} duration - Duration in ms (default: 2000)
- */
-function showToast(message, duration = 2000) {
-  // TODO: Create toast div (top-center, fixed position)
-  // TODO: Fade-in animation
-  // TODO: Auto-dismiss after duration
-  // TODO: Fade-out and remove from DOM
-  // See: docs/SCENARIO_MAPPING.md (Scenario 3, Toast)
 }
 
 /**
