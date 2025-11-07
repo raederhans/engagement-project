@@ -11,7 +11,11 @@
         "to":"Drexel/Penn",
         "length_m":780,
         "duration_min":12,
-        "segment_ids":["seg_001","seg_002","seg_009"]
+        "segment_ids":["seg_001","seg_002","seg_009"],
+        "alt_segment_ids":["seg_012","seg_011","seg_010"],
+        "alt_length_m":860,
+        "alt_duration_min":14,
+        "alt_geometry":{"type":"LineString","coordinates":[[-75.1815,39.9555],[-75.1840,39.9545],[-75.1885,39.9535],[-75.1910,39.9518]]}
       },
       "geometry":{"type":"LineString","coordinates":[[-75.1815,39.9555],[-75.1778,39.9539],[-75.1910,39.9518]]}
     },
@@ -25,7 +29,11 @@
         "to":"Drexel Quad",
         "length_m":960,
         "duration_min":15,
-        "segment_ids":["seg_007","seg_008","seg_010"]
+        "segment_ids":["seg_007","seg_008","seg_010"],
+        "alt_segment_ids":["seg_005","seg_006","seg_004"],
+        "alt_length_m":1040,
+        "alt_duration_min":17,
+        "alt_geometry":{"type":"LineString","coordinates":[[-75.1808,39.9529],[-75.1835,39.9515],[-75.1880,39.9529]]}
       },
       "geometry":{"type":"LineString","coordinates":[[-75.1808,39.9529],[-75.1780,39.9518],[-75.1880,39.9529]]}
     },
@@ -39,7 +47,11 @@
         "to":"Clark Park",
         "length_m":1150,
         "duration_min":8,
-        "segment_ids":["seg_006","seg_005","seg_003","seg_004"]
+        "segment_ids":["seg_006","seg_005","seg_003","seg_004"],
+        "alt_segment_ids":["seg_007","seg_008","seg_003","seg_004"],
+        "alt_length_m":1280,
+        "alt_duration_min":10,
+        "alt_geometry":{"type":"LineString","coordinates":[[-75.1927,39.9490],[-75.1900,39.9505],[-75.1850,39.9500],[-75.1834,39.9496]]}
       },
       "geometry":{"type":"LineString","coordinates":[[-75.1927,39.9490],[-75.1998,39.9495],[-75.1905,39.9503],[-75.1834,39.9496]]}
     }

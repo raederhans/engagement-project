@@ -16,6 +16,7 @@ import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
+const ALT_ROUTE_SOURCE_ID = 'diary-alt-route';
 const SEGMENT_URL_CANDIDATES = [
   '/data/segments_phl.demo.geojson',
   new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
@@ -46,6 +47,8 @@ let diaryPanelEl = null;
 let routeSelectEl = null;
 let summaryStripEl = null;
 let rateButtonEl = null;
+let altToggleEl = null;
+let altSummaryEl = null;
 let currentRoute = null;
 let toastEl = null;
 let toastTimer = null;
@@ -56,6 +59,7 @@ let baseSegmentsFC = null;
 const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
+const LOW_RATING_THRESHOLD = 2.6;
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -289,6 +293,36 @@ function ensureDiaryPanel(routes) {
     summaryStripEl.textContent = 'Select a route to see its details.';
     panel.appendChild(summaryStripEl);
 
+    const altToggleRow = document.createElement('label');
+    altToggleRow.style.display = 'flex';
+    altToggleRow.style.alignItems = 'center';
+    altToggleRow.style.gap = '8px';
+    altToggleRow.style.marginTop = '12px';
+    altToggleRow.style.fontSize = '12px';
+    altToggleRow.style.color = '#475569';
+    altToggleEl = document.createElement('input');
+    altToggleEl.type = 'checkbox';
+    altToggleEl.style.cursor = 'pointer';
+    altToggleEl.addEventListener('change', () => {
+      updateAlternativeRoute();
+    });
+    const altToggleText = document.createElement('span');
+    altToggleText.textContent = 'Show alternative route';
+    altToggleRow.appendChild(altToggleEl);
+    altToggleRow.appendChild(altToggleText);
+    panel.appendChild(altToggleRow);
+
+    altSummaryEl = document.createElement('div');
+    altSummaryEl.style.marginTop = '8px';
+    altSummaryEl.style.borderRadius = '10px';
+    altSummaryEl.style.background = '#f1f5f9';
+    altSummaryEl.style.border = '1px solid #dbeafe';
+    altSummaryEl.style.padding = '10px';
+    altSummaryEl.style.fontSize = '12px';
+    altSummaryEl.style.color = '#334155';
+    altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
+    panel.appendChild(altSummaryEl);
+
     rateButtonEl = document.createElement('button');
     rateButtonEl.type = 'button';
     rateButtonEl.textContent = 'Rate this route';
@@ -379,6 +413,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
       fitMapToRoute(feature);
     }
   }
+  updateAlternativeRoute();
 }
 
 function fitMapToRoute(route) {
@@ -437,6 +472,7 @@ function handleDiarySubmissionSuccess(payload, response) {
     updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
   }
+  updateAlternativeRoute({ refreshOnly: true });
   showToast('Thanks — your feedback has been recorded for this demo.');
   console.info('[Diary] submit payload', payload);
   console.info('[Diary] stub response', response);
@@ -543,6 +579,158 @@ function normalizeOverrides(list) {
     });
   }
   return map;
+}
+
+function updateAlternativeRoute({ refreshOnly = false } = {}) {
+  if (!mapRef) return;
+  if (!currentRoute) {
+    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
+    renderAltSummary(null, { reason: 'no-route' });
+    return;
+  }
+  const shouldShow = altToggleEl?.checked;
+  const altInfo = resolveAlternativeForRoute(currentRoute);
+  if (!shouldShow) {
+    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
+    renderAltSummary(currentRoute, null);
+    return;
+  }
+  if (!altInfo) {
+    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
+    renderAltSummary(currentRoute, null);
+    return;
+  }
+  if (!refreshOnly) {
+    drawRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID, altInfo.feature, {
+      color: '#0ea5e9',
+      width: 4,
+      opacity: 0.7,
+      dasharray: [0.5, 1],
+    });
+  }
+  renderAltSummary(currentRoute, altInfo);
+}
+
+function resolveAlternativeForRoute(routeFeature) {
+  if (!routeFeature) return null;
+  const props = routeFeature.properties || {};
+  const altIds = Array.isArray(props.alt_segment_ids) && props.alt_segment_ids.length > 0 ? props.alt_segment_ids : props.segment_ids || [];
+  const altLength = Number.isFinite(props.alt_length_m) ? props.alt_length_m : props.length_m;
+  const altDuration = Number.isFinite(props.alt_duration_min) ? props.alt_duration_min : props.duration_min;
+  let geometry = props.alt_geometry;
+  if (!geometry && altIds.length > 0) {
+    geometry = buildGeometryFromSegments(altIds);
+  }
+  if (!geometry) return null;
+  return {
+    feature: {
+      type: 'Feature',
+      geometry,
+      properties: {
+        route_id: `${props.route_id || 'route'}_alt`,
+      },
+    },
+    meta: {
+      segment_ids: altIds,
+      alt_length_m: Number(altLength),
+      alt_duration_min: Number(altDuration),
+    },
+  };
+}
+
+function buildGeometryFromSegments(segmentIds) {
+  if (!segmentIds || segmentIds.length === 0) return null;
+  const coords = [];
+  segmentIds.forEach((id, idx) => {
+    const feature = segmentLookup.get(id);
+    if (!feature || !feature.geometry) {
+      console.warn('[Diary] Missing geometry for alt segment', id);
+      return;
+    }
+    const lineCoords = extractLineCoordinates(feature.geometry);
+    if (lineCoords.length === 0) return;
+    if (coords.length === 0) {
+      coords.push(...lineCoords);
+    } else {
+      const last = coords[coords.length - 1];
+      const first = lineCoords[0];
+      if (last && first && last[0] === first[0] && last[1] === first[1]) {
+        coords.push(...lineCoords.slice(1));
+      } else {
+        coords.push(...lineCoords);
+      }
+    }
+  });
+  return coords.length >= 2 ? { type: 'LineString', coordinates: coords } : null;
+}
+
+function renderAltSummary(route, altInfo) {
+  if (!altSummaryEl) return;
+  if (!route) {
+    altSummaryEl.textContent = 'Select a route to compare alternatives.';
+    return;
+  }
+  if (!altToggleEl || !altToggleEl.checked) {
+    altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
+    return;
+  }
+  if (!altInfo) {
+    altSummaryEl.textContent = 'Current route is best for now.';
+    return;
+  }
+  const summary = summarizeAltBenefit(route, altInfo.meta);
+  if (!summary) {
+    altSummaryEl.textContent = 'Alternative data unavailable.';
+    return;
+  }
+  const avoided = summary.pLow - summary.aLow;
+  if (avoided <= 0) {
+    altSummaryEl.textContent = 'Current route is best for now.';
+    return;
+  }
+  const deltaLabel = summary.deltaMin > 0 ? `+${summary.deltaMin} min` : `${summary.deltaMin} min`;
+  const pctLabel = `≈${summary.overheadPct.toFixed(1)}%`;
+  altSummaryEl.innerHTML = `
+    <div style="font-weight:600;color:#0f172a;font-size:12px;">Alternative benefit</div>
+    <div style="font-size:12px;color:#334155;">${deltaLabel}, ${pctLabel}, avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'}.</div>
+  `;
+}
+
+function summarizeAltBenefit(primaryRoute, altMeta) {
+  if (!primaryRoute || !altMeta) return null;
+  const primaryIds = primaryRoute.properties?.segment_ids || [];
+  const altIds = altMeta.segment_ids || [];
+  const primaryLow = countLowRated(primaryIds);
+  const altLow = countLowRated(altIds);
+  const primaryLength = Number(primaryRoute.properties?.length_m) || 0;
+  const altLength = Number(altMeta.alt_length_m ?? primaryLength) || primaryLength;
+  const primaryDuration = Number(primaryRoute.properties?.duration_min) || 0;
+  const altDuration = Number(altMeta.alt_duration_min ?? primaryDuration) || primaryDuration;
+  const overheadPct = primaryLength > 0 ? ((altLength - primaryLength) / primaryLength) * 100 : 0;
+  const deltaMin = Number((altDuration - primaryDuration).toFixed(1));
+  return {
+    pLow: primaryLow,
+    aLow: altLow,
+    overheadPct,
+    deltaMin,
+  };
+}
+
+function countLowRated(segmentIds) {
+  if (!segmentIds) return 0;
+  return segmentIds.reduce((sum, id) => {
+    const rating = getCurrentSegmentMean(id);
+    return sum + (rating < LOW_RATING_THRESHOLD ? 1 : 0);
+  }, 0);
+}
+
+function getCurrentSegmentMean(segId) {
+  if (localAgg.has(segId)) {
+    return localAgg.get(segId).mean;
+  }
+  const feature = segmentLookup.get(segId);
+  const props = feature?.properties || {};
+  return Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
 }
 
 function getUserHash() {
@@ -675,6 +863,7 @@ export function teardownDiaryMode(map) {
   if (!targetMap) return;
   removeSegmentsLayer(targetMap, SEGMENT_SOURCE_ID);
   clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
+  clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
   layerMounted = false;
   closeRatingModal();
   if (diaryPanelEl) {
@@ -683,6 +872,8 @@ export function teardownDiaryMode(map) {
     routeSelectEl = null;
     summaryStripEl = null;
     rateButtonEl = null;
+    altToggleEl = null;
+    altSummaryEl = null;
   }
   currentRoute = null;
   if (toastEl) {
