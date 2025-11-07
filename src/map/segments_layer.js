@@ -1,149 +1,232 @@
+import maplibregl from 'maplibre-gl';
+
 /**
  * Route Safety Diary - Segments Layer
  *
  * Purpose: Render street segments with rating colors and confidence widths.
- * Status: [TODO] Implementation needed for M1
- * See: docs/DIARY_EXEC_PLAN_M1.md (Phase 1)
  */
+
+const COLOR_BINS = [
+  { max: 1.8, color: '#d73027' },
+  { max: 2.6, color: '#fc8d59' },
+  { max: 3.4, color: '#fee08b' },
+  { max: 4.2, color: '#91cf60' },
+  { max: Infinity, color: '#1a9850' },
+];
+
+const hoverRegistrations = new Map();
 
 /**
  * Mount segments layer on map (MapLibre vector layer)
- * @param {MapLibreMap} map - MapLibre GL map instance
- * @param {string} sourceId - Source ID (e.g., 'diary-segments')
- * @param {object} data - GeoJSON FeatureCollection with segment data
  */
 export function mountSegmentsLayer(map, sourceId, data) {
-  // TODO: Add GeoJSON source
-  // map.addSource(sourceId, {
-  //   type: 'geojson',
-  //   data: data
-  // });
+  if (!map) return;
+  const prepared = prepareFeatureCollection(data);
+  const source = map.getSource(sourceId);
+  if (!source) {
+    map.addSource(sourceId, { type: 'geojson', data: prepared });
+  } else {
+    source.setData(prepared);
+  }
 
-  // TODO: Add line layer with data-driven styling
-  // map.addLayer({
-  //   id: `${sourceId}-line`,
-  //   type: 'line',
-  //   source: sourceId,
-  //   paint: {
-  //     'line-color': [
-  //       'interpolate',
-  //       ['linear'],
-  //       ['get', 'rating'],
-  //       1, '#FFA500',  // Amber
-  //       3, '#FFD700',  // Yellow
-  //       5, '#32CD32'   // Lime green
-  //     ],
-  //     'line-width': [
-  //       'interpolate',
-  //       ['linear'],
-  //       ['get', 'n_eff'],
-  //       0, 2,    // Min confidence → 2px
-  //       100, 8   // Max confidence → 8px
-  //     ],
-  //     'line-opacity': 0.8
-  //   }
-  // });
+  const layerId = `${sourceId}-line`;
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  }
 
-  // TODO: Add hover handler (change cursor)
-  // map.on('mouseenter', `${sourceId}-line`, () => {
-  //   map.getCanvas().style.cursor = 'pointer';
-  // });
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-opacity': 0.85,
+      'line-color': buildColorExpression(),
+      'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
+      'line-blur': 0.4,
+    },
+  });
 
-  // TODO: Add click handler (emit custom event)
-  // map.on('click', `${sourceId}-line`, (e) => {
-  //   const feature = e.features[0];
-  //   window.dispatchEvent(new CustomEvent('segment-click', {
-  //     detail: { segmentId: feature.properties.segment_id, lngLat: e.lngLat }
-  //   }));
-  // });
-
-  // See: docs/SCENARIO_MAPPING.md (Scenario 1, MapCanvas → MapLibre)
+  registerHoverHandlers(map, layerId);
 }
 
 /**
  * Update segment data after new ratings submitted
- * @param {MapLibreMap} map - MapLibre map instance
- * @param {string} sourceId - Source ID
- * @param {Array} updatedSegments - Segments with new rating/n_eff values
  */
-export function updateSegments(map, sourceId, updatedSegments) {
-  // TODO: Get current source data
-  // const source = map.getSource(sourceId);
-  // const data = source._data;
-
-  // TODO: Update properties for updated segments
-  // data.features.forEach(feature => {
-  //   const update = updatedSegments.find(u => u.segment_id === feature.properties.segment_id);
-  //   if (update) {
-  //     feature.properties.rating = update.rating;
-  //     feature.properties.n_eff = update.n_eff;
-  //     feature.properties.last_updated = Date.now();
-  //   }
-  // });
-
-  // TODO: Refresh source
-  // source.setData(data);
-
-  // TODO: Animate glow for updated segments
-  // updatedSegments.forEach(seg => glowSegment(map, sourceId, seg.segment_id));
-
-  // See: docs/DIARY_EXEC_PLAN_M1.md (Phase 4)
+export function updateSegmentsData(map, sourceId, featureCollection) {
+  if (!map) return;
+  const source = map.getSource(sourceId);
+  if (!source) {
+    mountSegmentsLayer(map, sourceId, featureCollection);
+    return;
+  }
+  source.setData(prepareFeatureCollection(featureCollection));
 }
 
 /**
- * Animate segment glow effect (2-second pulse)
- * @param {MapLibreMap} map - MapLibre map instance
- * @param {string} sourceId - Source ID
- * @param {string} segmentId - Segment ID to glow
- * @param {number} duration - Animation duration in ms (default: 2000)
+ * Animate segment glow effect (placeholder for future phases)
  */
 function glowSegment(map, sourceId, segmentId, duration = 2000) {
-  // TODO: Implement glow animation using requestAnimationFrame
-  // Animate line-width: base + 3px glow → base (over 2 seconds)
-  // Use map.setFilter() to isolate segment during animation
-  // See: docs/SCENARIO_MAPPING.md (Scenario 3, Segment Glow Animation)
+  void map;
+  void sourceId;
+  void segmentId;
+  void duration;
+  // TODO (Phase 3+): Implement glow animation using requestAnimationFrame
 }
 
 /**
  * Remove segments layer from map
- * @param {MapLibreMap} map - MapLibre map instance
- * @param {string} sourceId - Source ID
  */
 export function removeSegmentsLayer(map, sourceId) {
-  // TODO: Remove layer if exists
-  // if (map.getLayer(`${sourceId}-line`)) {
-  //   map.removeLayer(`${sourceId}-line`);
-  // }
-
-  // TODO: Remove source if exists
-  // if (map.getSource(sourceId)) {
-  //   map.removeSource(sourceId);
-  // }
+  if (!map) return;
+  const layerId = `${sourceId}-line`;
+  cleanupHoverHandlers(map, layerId);
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  }
 }
 
-/**
- * Get color for segment rating (1-5)
- * @param {number} mean - Rating mean (1-5)
- * @returns {string} RGB color string
- */
 export function colorForMean(mean) {
-  // TODO: Implement color interpolation
-  // 1.0 → #FFA500 (amber)
-  // 3.0 → #FFD700 (yellow)
-  // 5.0 → #32CD32 (lime green)
-  // Linear interpolation between stops
-  // See: docs/ALGO_REQUIREMENTS_M1.md (Section 5: Color Scale)
-  return '#FFD700'; // Placeholder
+  const value = Number.isFinite(mean) ? mean : 3;
+  for (const bin of COLOR_BINS) {
+    if (value <= bin.max) {
+      return bin.color;
+    }
+  }
+  return COLOR_BINS[COLOR_BINS.length - 1].color;
 }
 
-/**
- * Get line width for confidence (n_eff)
- * @param {number} n_eff - Effective sample size (0-100)
- * @returns {number} Line width in pixels (2-8px)
- */
-export function widthForNEff(n_eff) {
-  // TODO: Map n_eff (0-100) → width (2-8px)
-  // width = 2 + (n_eff / 100) * 6
-  // Clamp to max 8px
-  return Math.min(8, 2 + (n_eff / 100) * 6);
+export function widthForNEff(nEff) {
+  const value = Math.max(0, Number.isFinite(nEff) ? nEff : 0);
+  const px = 1 + 0.15 * Math.sqrt(value);
+  return Math.max(1, Math.min(4, px));
 }
+
+function prepareFeatureCollection(collection) {
+  const base = collection && collection.type === 'FeatureCollection' ? clone(collection) : { type: 'FeatureCollection', features: [] };
+  base.features = (base.features || []).map((feature, idx) => {
+    const f = clone(feature);
+    const props = { ...(f.properties || {}) };
+    const mean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
+    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : 1;
+    const delta = Number.isFinite(props.delta_30d) ? props.delta_30d : 0;
+    const tags = Array.isArray(props.top_tags) ? props.top_tags : [];
+    f.properties = {
+      ...props,
+      segment_id: typeof props.segment_id === 'string' ? props.segment_id : `seg_${idx + 1}`,
+      decayed_mean: Math.min(5, Math.max(1, mean)),
+      n_eff: Math.max(0, nEff),
+      delta_30d: delta,
+      top_tags: tags,
+      line_width_px: widthForNEff(nEff),
+    };
+    return f;
+  });
+  return base;
+}
+
+function buildColorExpression() {
+  const expression = ['step', ['coalesce', ['get', 'decayed_mean'], 3], COLOR_BINS[0].color];
+  for (let i = 0; i < COLOR_BINS.length - 1; i += 1) {
+    expression.push(COLOR_BINS[i].max, COLOR_BINS[i + 1].color);
+  }
+  return expression;
+}
+
+function buildWidthExpression() {
+  return ['min', 4, ['max', 1, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', 'n_eff'], 0], 0]]]]]];
+}
+
+function registerHoverHandlers(map, layerId) {
+  cleanupHoverHandlers(map, layerId);
+  if (!map || !layerId) return;
+
+  const popup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    className: 'diary-hover-card',
+    offset: 12,
+  });
+
+  let popupVisible = false;
+
+  const moveHandler = (event) => {
+    const feature = event.features && event.features[0];
+    if (!feature) return;
+    const props = feature.properties || {};
+    const html = buildHoverHtml(props);
+    if (!popupVisible) {
+      popup.addTo(map);
+      popupVisible = true;
+    }
+    popup.setLngLat(event.lngLat).setHTML(html);
+    if (map.getCanvas()) {
+      map.getCanvas().style.cursor = 'pointer';
+    }
+  };
+
+  const leaveHandler = () => {
+    if (popupVisible) {
+      popup.remove();
+      popupVisible = false;
+    }
+    if (map.getCanvas()) {
+      map.getCanvas().style.cursor = '';
+    }
+  };
+
+  map.on('mousemove', layerId, moveHandler);
+  map.on('mouseleave', layerId, leaveHandler);
+
+  hoverRegistrations.set(layerId, { moveHandler, leaveHandler, popup });
+}
+
+function cleanupHoverHandlers(map, layerId) {
+  const entry = hoverRegistrations.get(layerId);
+  if (!entry || !map) return;
+  map.off('mousemove', layerId, entry.moveHandler);
+  map.off('mouseleave', layerId, entry.leaveHandler);
+  entry.popup?.remove();
+  hoverRegistrations.delete(layerId);
+}
+
+function buildHoverHtml(props) {
+  const mean = Number(props.decayed_mean ?? 3).toFixed(1);
+  const nEff = Number(props.n_eff ?? 1).toFixed(1);
+  const delta = Number(props.delta_30d ?? 0).toFixed(2);
+  const tags = formatTags(props.top_tags);
+  const street = props.street || props.segment_id || 'Segment';
+  return `
+    <div style="min-width:220px;font:12px/1.4 system-ui;color:#111;">
+      <div style="font-weight:600;margin-bottom:4px;">${street}</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:11px;">
+        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Mean</div><div style="font-size:16px;font-weight:600;color:${colorForMean(Number(props.decayed_mean))};">${mean}</div></div>
+        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">n_eff</div><div style="font-size:16px;font-weight:600;">${nEff}</div></div>
+        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Δ30d</div><div style="font-size:13px;font-weight:600;color:${Number(delta) >= 0 ? '#059669' : '#b91c1c'};">${delta}</div></div>
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:#374151;">Top tags: ${tags}</div>
+      <div style="margin-top:4px;font-size:10px;color:#6b7280;">Community perception (unverified)</div>
+    </div>
+  `;
+}
+
+function formatTags(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) return 'none';
+  return tags
+    .slice(0, 4)
+    .map((tag) => {
+      if (typeof tag === 'string') return `${tag}(1.00)`;
+      const label = tag?.tag || 'unknown';
+      const prob = Number.isFinite(tag?.p) ? Number(tag.p) : 0;
+      return `${label}(${prob.toFixed(2)})`;
+    })
+    .join(', ');
+}
+
+const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
