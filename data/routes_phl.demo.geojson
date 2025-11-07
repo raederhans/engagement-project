@@ -1,0 +1,47 @@
+{
+  "type":"FeatureCollection",
+  "features":[
+    {
+      "type":"Feature",
+      "properties":{
+        "route_id":"route_A",
+        "name":"30th St Station → University City",
+        "mode":"walk",
+        "from":"30th St Station",
+        "to":"Drexel/Penn",
+        "length_m":780,
+        "duration_min":12,
+        "segment_ids":["seg_001","seg_002","seg_009"]
+      },
+      "geometry":{"type":"LineString","coordinates":[[-75.1815,39.9555],[-75.1778,39.9539],[-75.1910,39.9518]]}
+    },
+    {
+      "type":"Feature",
+      "properties":{
+        "route_id":"route_B",
+        "name":"Rittenhouse → Drexel Quad",
+        "mode":"walk",
+        "from":"Rittenhouse Sq",
+        "to":"Drexel Quad",
+        "length_m":960,
+        "duration_min":15,
+        "segment_ids":["seg_007","seg_008","seg_010"]
+      },
+      "geometry":{"type":"LineString","coordinates":[[-75.1808,39.9529],[-75.1780,39.9518],[-75.1880,39.9529]]}
+    },
+    {
+      "type":"Feature",
+      "properties":{
+        "route_id":"route_C",
+        "name":"Penn Museum → Clark Park",
+        "mode":"bike",
+        "from":"Penn Museum",
+        "to":"Clark Park",
+        "length_m":1150,
+        "duration_min":8,
+        "segment_ids":["seg_006","seg_005","seg_003","seg_004"]
+      },
+      "geometry":{"type":"LineString","coordinates":[[-75.1927,39.9490],[-75.1998,39.9495],[-75.1905,39.9503],[-75.1834,39.9496]]}
+    }
+  ]
+}

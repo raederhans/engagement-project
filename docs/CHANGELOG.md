@@ -62,7 +62,13 @@ All notable changes to this project will be documented in this file.
 
 ## 2025-11-07 14:00 — Discovery: repo audit + 4 UI scenarios inventoried (no runtime changes)
 
+## 2025-11-07 12:45 — Diary demo dataset refreshed for U0/U1 (segments/routes)
+
+## 2025-11-07 12:21 — Diary demo dataset seeded for U0/U1 (segments/routes)
+
 ## 2025-11-07 10:43 — Discovery: dev bootstrap & 4 diary UI scenarios reviewed (no runtime changes)
+
+## 2025-11-07 12:16 — Diary demo dataset seeded for U0/U1
 
 ## 2025-10-23 11:03 — Census Tract Comprehensive Audit: UI, Visibility, Analytics ✅
 
@@ -523,3 +529,7 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 2025-10-20T12:09:39.6438250-04:00 - Default time window aligned to dataset coverage (auto from MAX date).
 2025-10-20T12:09:39.6468266-04:00 - Charts guarded until center is chosen (status tip shown).
 2025-10-20T12:09:39.6491974-04:00 - Districts empty-window banner implemented.
+
+
+
+## 2025-11-07 12:45 — Diary demo dataset refreshed for U0/U1 (segments/routes)

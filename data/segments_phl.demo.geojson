@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"segment_id":"seg_001","street":"Market St","length_m":150,"decayed_mean":3.0,"n_eff":2,"top_tags":[],"delta_30d":0},"geometry":{"type":"LineString","coordinates":[[-75.1815,39.9555],[-75.1778,39.9539]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_002","street":"Market St","length_m":160,"decayed_mean":2.6,"n_eff":3,"top_tags":[{"tag":"poor_lighting","p":0.5}],"delta_30d":-0.1},"geometry":{"type":"LineString","coordinates":[[-75.1778,39.9539],[-75.1744,39.9527]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_003","street":"Walnut St","length_m":140,"decayed_mean":3.8,"n_eff":1,"top_tags":[],"delta_30d":0.1},"geometry":{"type":"LineString","coordinates":[[-75.1905,39.9503],[-75.1870,39.9499]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_004","street":"Walnut St","length_m":150,"decayed_mean":3.2,"n_eff":2,"top_tags":[{"tag":"cars_too_close","p":0.4}],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1870,39.9499],[-75.1834,39.9496]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_005","street":"Spruce St","length_m":120,"decayed_mean":2.4,"n_eff":2,"top_tags":[{"tag":"low_foot_traffic","p":0.6}],"delta_30d":-0.2},"geometry":{"type":"LineString","coordinates":[[-75.1998,39.9495],[-75.1963,39.9492]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_006","street":"Spruce St","length_m":130,"decayed_mean":3.5,"n_eff":1,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1963,39.9492],[-75.1927,39.9490]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_007","street":"Chestnut St","length_m":110,"decayed_mean":3.1,"n_eff":2,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1808,39.9529],[-75.1780,39.9518]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_008","street":"Chestnut St","length_m":115,"decayed_mean":2.9,"n_eff":2,"top_tags":[{"tag":"poor_lighting","p":0.4}],"delta_30d":-0.05},"geometry":{"type":"LineString","coordinates":[[-75.1780,39.9518],[-75.1754,39.9509]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_009","street":"S 34th St","length_m":90,"decayed_mean":3.9,"n_eff":1,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1928,39.9536],[-75.1910,39.9518]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_010","street":"S 33rd St","length_m":95,"decayed_mean":3.0,"n_eff":2,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1898,39.9547],[-75.1880,39.9529]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_011","street":"S 32nd St","length_m":100,"decayed_mean":2.7,"n_eff":1,"top_tags":[{"tag":"dogs","p":0.3}],"delta_30d":-0.05},"geometry":{"type":"LineString","coordinates":[[-75.1875,39.9556],[-75.1857,39.9538]]}},
+    {"type":"Feature","properties":{"segment_id":"seg_012","street":"S 31st St","length_m":105,"decayed_mean":3.6,"n_eff":2,"top_tags":[],"delta_30d":0.05},"geometry":{"type":"LineString","coordinates":[[-75.1849,39.9562],[-75.1832,39.9545]]}}
+  ]
+}
