@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-11-07 14:00 — Discovery: repo audit + 4 UI scenarios inventoried (no runtime changes)
+
+## 2025-11-07 10:43 — Discovery: dev bootstrap & 4 diary UI scenarios reviewed (no runtime changes)
+
 ## 2025-10-23 11:03 — Census Tract Comprehensive Audit: UI, Visibility, Analytics ✅
 
 **Status:** ✅ Audit complete — Read-only analysis of tract implementation
