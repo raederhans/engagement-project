@@ -1,34 +1,199 @@
 /**
  * Route Safety Diary - Main Orchestrator
  *
- * Purpose: Initialize diary mode, wire UI components, manage diary state.
- * Status: [TODO] Implementation needed for M1
- * See: docs/DIARY_EXEC_PLAN_M1.md (Phase 1-5)
+ * Responsibilities implemented for M1 U0/U1:
+ *  - Load demo segments/routes when the diary flag is on
+ *  - Log dataset counts (for preflight validation)
+ *  - Mount the baseline segments layer with hover affordances
+ *
+ * Remaining TODOs (Recorder dock, modal wiring, etc.) stay below for the next packet.
  */
 
-// TODO: Import dependencies when implementing
-// import { mountSegmentsLayer, removeSegmentsLayer } from '../map/segments_layer.js';
-// import { openRatingModal } from './form_submit.js';
-// import { getStore } from '../state/store.js';
+import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer } from '../map/segments_layer.js';
+
+const SEGMENT_SOURCE_ID = 'diary-segments';
+const SEGMENT_URL_CANDIDATES = [
+  '/data/segments_phl.demo.geojson',
+  new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
+];
+const ROUTE_URL_CANDIDATES = [
+  '/data/routes_phl.demo.geojson',
+  new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
+];
+
+const DEFAULT_SEGMENT_PROPS = {
+  decayed_mean: 3,
+  n_eff: 1,
+  delta_30d: 0,
+  top_tags: [],
+};
+
+let cachedSegments = null;
+let cachedRoutes = null;
+let mapRef = null;
+let layerMounted = false;
+
+const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
+
+async function fetchJsonWithFallback(label, urls) {
+  let lastError;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok) {
+        throw new Error(`${label} request failed (${res.status})`);
+      }
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error(`${label} data unavailable`);
+}
+
+function ensureFeatureCollection(payload, label) {
+  if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
+    throw new Error(`[Diary] Invalid ${label} file — expected FeatureCollection`);
+  }
+  return payload;
+}
+
+function normalizeTopTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .map((tag) => {
+      if (typeof tag === 'string') return { tag, p: 1 };
+      if (tag && typeof tag.tag === 'string') {
+        return { tag: tag.tag, p: Number.isFinite(tag.p) ? Number(tag.p) : 0 };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function normalizeSegmentsCollection(collection) {
+  const fc = clone(collection);
+  fc.features = (fc.features || []).map((feature, idx) => {
+    const f = clone(feature);
+    const props = { ...(f.properties || {}) };
+    const segmentId = typeof props.segment_id === 'string' && props.segment_id.trim() ? props.segment_id.trim() : `seg_demo_${idx + 1}`;
+    const decayedMean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : DEFAULT_SEGMENT_PROPS.decayed_mean;
+    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : DEFAULT_SEGMENT_PROPS.n_eff;
+    const delta30d = Number.isFinite(props.delta_30d) ? props.delta_30d : DEFAULT_SEGMENT_PROPS.delta_30d;
+    const topTags = normalizeTopTags(props.top_tags ?? DEFAULT_SEGMENT_PROPS.top_tags);
+    f.properties = {
+      ...props,
+      segment_id: segmentId,
+      street: props.street || 'Unknown',
+      decayed_mean: Math.min(5, Math.max(1, decayedMean)),
+      n_eff: Math.max(0, nEff),
+      delta_30d: delta30d,
+      top_tags: topTags,
+    };
+    return f;
+  });
+  return fc;
+}
+
+function normalizeRoutesCollection(collection) {
+  const fc = clone(collection);
+  fc.features = (fc.features || []).map((feature, idx) => {
+    const f = clone(feature);
+    const props = { ...(f.properties || {}) };
+    const ids = Array.isArray(props.segment_ids) ? props.segment_ids.map((id) => String(id)) : [];
+    if (ids.length === 0) {
+      throw new Error(`[Diary] Route feature at index ${idx} is missing segment_ids array.`);
+    }
+    f.properties = {
+      route_id: typeof props.route_id === 'string' ? props.route_id : `route_demo_${idx + 1}`,
+      name: props.name || 'Demo route',
+      mode: props.mode || 'walk',
+      from: props.from || 'Unknown',
+      to: props.to || 'Unknown',
+      length_m: Number(props.length_m) || 0,
+      duration_min: Number(props.duration_min) || 0,
+      segment_ids: ids,
+    };
+    return f;
+  });
+  return fc;
+}
+
+function logMissingSegments(routes, segments) {
+  const segmentIds = new Set((segments.features || []).map((f) => f?.properties?.segment_id));
+  const issues = [];
+  for (const route of routes.features || []) {
+    const missing = route.properties.segment_ids.filter((id) => !segmentIds.has(id));
+    if (missing.length) {
+      issues.push(`${route.properties.route_id}: ${missing.join(', ')}`);
+    }
+  }
+  if (issues.length) {
+    console.warn('[Diary] Route seed references missing segments:', issues.join(' | '));
+  }
+}
+
+function diaryFlagOff() {
+  console.warn('[Diary] Feature flag is OFF. Set VITE_FEATURE_DIARY=1 to enable.');
+}
+
+function ensureMap(message) {
+  if (!mapRef) {
+    throw new Error(message || '[Diary] Map instance missing');
+  }
+  return mapRef;
+}
+
+export async function loadDemoSegments({ force = false } = {}) {
+  if (cachedSegments && !force) {
+    return clone(cachedSegments);
+  }
+  const payload = await fetchJsonWithFallback('segments', SEGMENT_URL_CANDIDATES);
+  cachedSegments = normalizeSegmentsCollection(ensureFeatureCollection(payload, 'segments'));
+  return clone(cachedSegments);
+}
+
+export async function loadDemoRoutes({ force = false } = {}) {
+  if (cachedRoutes && !force) {
+    return clone(cachedRoutes);
+  }
+  const payload = await fetchJsonWithFallback('routes', ROUTE_URL_CANDIDATES);
+  cachedRoutes = normalizeRoutesCollection(ensureFeatureCollection(payload, 'routes'));
+  return clone(cachedRoutes);
+}
 
 /**
  * Initialize Route Safety Diary mode
  * @param {MapLibreMap} map - MapLibre GL map instance
  */
-export function initDiaryMode(map) {
-  // TODO: Check feature flag
+export async function initDiaryMode(map) {
   if (import.meta?.env?.VITE_FEATURE_DIARY !== '1') {
-    console.warn('[Diary] Feature flag is OFF. Set VITE_FEATURE_DIARY=1 to enable.');
+    diaryFlagOff();
     return;
   }
 
-  console.info('[Diary] Initializing Route Safety Diary mode...');
+  if (!map) {
+    console.warn('[Diary] initDiaryMode called without a MapLibre instance.');
+    return;
+  }
 
-  // TODO: Load seed segments data
-  // TODO: Mount segments layer (Phase 1)
-  // TODO: Create RecorderDock UI (Phase 2)
-  // TODO: Add mode switcher (optional)
-  // TODO: Wire segment click handlers (Phase 4)
+  mapRef = map;
+
+  try {
+    const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
+    console.info('[Diary] segments loaded:', segments.features.length);
+    console.info('[Diary] routes loaded:', routes.features.length);
+    logMissingSegments(routes, segments);
+
+    if (layerMounted) {
+      updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, segments);
+    } else {
+      mountSegmentsLayer(mapRef, SEGMENT_SOURCE_ID, segments);
+      layerMounted = true;
+    }
+  } catch (err) {
+    console.error('Demo data missing; please ensure files exist under /data/*.demo.geojson.', err);
+  }
 }
 
 /**
@@ -36,9 +201,10 @@ export function initDiaryMode(map) {
  * @param {MapLibreMap} map - MapLibre GL map instance
  */
 export function teardownDiaryMode(map) {
-  // TODO: Remove segments layer
-  // TODO: Remove RecorderDock
-  // TODO: Clean up event listeners
+  const targetMap = map || mapRef;
+  if (!targetMap) return;
+  removeSegmentsLayer(targetMap, SEGMENT_SOURCE_ID);
+  layerMounted = false;
   console.info('[Diary] Teardown complete.');
 }
 

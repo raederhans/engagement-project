@@ -530,6 +530,6 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 2025-10-20T12:09:39.6468266-04:00 - Charts guarded until center is chosen (status tip shown).
 2025-10-20T12:09:39.6491974-04:00 - Districts empty-window banner implemented.
 
-
-
 ## 2025-11-07 12:45 — Diary demo dataset refreshed for U0/U1 (segments/routes)
+
+## 2025-11-07 13:05 — Diary U0: feature-flag bootstrap and demo data loaders
