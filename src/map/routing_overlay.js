@@ -9,60 +9,57 @@
 // TODO: Import dependencies when implementing
 // import * as turf from '@turf/turf';
 
-/**
- * Draw safer alternative route on map
- * @param {MapLibreMap} map - MapLibre map instance
- * @param {object} geojsonLine - GeoJSON Feature with LineString geometry
- * @param {object} meta - Route metadata {timeDiff, avoidedSegments}
- */
-export function drawSaferRoute(map, geojsonLine, meta) {
-  // TODO: Add route source and layer
-  // map.addSource('safer-route', {
-  //   type: 'geojson',
-  //   data: geojsonLine
-  // });
+export function drawRouteOverlay(map, sourceId, lineFeature, opts = {}) {
+  if (!map || !lineFeature) return;
+  const geojson = normalizeFeature(lineFeature);
+  const source = map.getSource(sourceId);
+  if (!source) {
+    map.addSource(sourceId, {
+      type: 'geojson',
+      data: geojson,
+    });
+  } else {
+    source.setData(geojson);
+  }
 
-  // TODO: Add animated line layer
-  // map.addLayer({
-  //   id: 'safer-route-line',
-  //   type: 'line',
-  //   source: 'safer-route',
-  //   paint: {
-  //     'line-color': '#2196F3',  // Blue
-  //     'line-width': 4,
-  //     'line-opacity': 0.8
-  //   }
-  // });
+  const layerId = `${sourceId}-line`;
+  const paint = {
+    'line-color': opts.color || '#0ea5e9',
+    'line-width': opts.width || 4,
+    'line-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
+    'line-blur': typeof opts.blur === 'number' ? opts.blur : 0.2,
+  };
+  if (opts.dasharray) {
+    paint['line-dasharray'] = opts.dasharray;
+  }
 
-  // TODO: Create "Safer alternative" strip (top-right overlay)
-  // const strip = createSaferRouteStrip(meta);
-  // document.body.appendChild(strip);
-
-  // TODO: Zoom map to fit route bounds
-  // const bounds = turf.bbox(geojsonLine);
-  // map.fitBounds(bounds, { padding: 50 });
-
-  // See: docs/SCENARIO_MAPPING.md (Scenario 3, Safer Alternative Strip)
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => {
+      map.setPaintProperty(layerId, key, value);
+    });
+  } else {
+    map.addLayer({
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint,
+    });
+  }
 }
 
-/**
- * Remove safer route overlay from map
- * @param {MapLibreMap} map - MapLibre map instance
- */
-export function removeSaferRoute(map) {
-  // TODO: Remove route layer
-  // if (map.getLayer('safer-route-line')) {
-  //   map.removeLayer('safer-route-line');
-  // }
-
-  // TODO: Remove route source
-  // if (map.getSource('safer-route')) {
-  //   map.removeSource('safer-route');
-  // }
-
-  // TODO: Remove strip UI
-  // const strip = document.getElementById('safer-route-strip');
-  // if (strip) strip.remove();
+export function clearRouteOverlay(map, sourceId) {
+  if (!map) return;
+  const layerId = `${sourceId}-line`;
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  }
 }
 
 /**
@@ -79,6 +76,19 @@ function createSaferRouteStrip(meta) {
   // TODO: Add dismiss (X) button
   // TODO: Slide-in animation from right
   // TODO: Return strip element
+}
+
+function normalizeFeature(feature) {
+  if (!feature) {
+    return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
+  }
+  if (feature.type === 'Feature') {
+    return feature;
+  }
+  if (feature.type && feature.coordinates) {
+    return { type: 'Feature', geometry: feature, properties: {} };
+  }
+  return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
 }
 
 /**
