@@ -534,4 +534,6 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-07 13:05 — Diary U0: feature-flag bootstrap and demo data loaders
 
+## 2025-11-07 15:05 — Diary W0: wire initDiaryMode into main under feature flag
+
 ## 2025-11-07 13:35 — Diary U1: baseline segment rendering with hover card

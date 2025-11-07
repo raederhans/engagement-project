@@ -50,13 +50,24 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Initialize about panel (top slide-down)
       initAboutPanel();
 
-      // [DIARY_FLAG] Route Safety Diary feature entry (no-op placeholder for M1 prep)
+      // [DIARY_FLAG] Route Safety Diary bootstrap
       if (import.meta?.env?.VITE_FEATURE_DIARY === '1') {
-        console.info('[Diary] Feature flag is ON — scaffolding present; implementation to be added by Codex (M1).');
-        // TODO: Uncomment when implementing M1
-        // import('./routes_diary/index.js').then(({ initDiaryMode }) => {
-        //   initDiaryMode(map);
-        // });
+        import('./routes_diary/index.js')
+          .then(async (mod) => {
+            if (typeof mod?.initDiaryMode !== 'function') {
+              console.warn('[Diary] initDiaryMode missing from module export.');
+              return;
+            }
+            try {
+              const stats = await mod.initDiaryMode(map);
+              console.info('[Diary] wired in:', stats);
+            } catch (err) {
+              console.error('[Diary] init failed:', err);
+            }
+          })
+          .catch((err) => {
+            console.error('[Diary] init loader failed:', err);
+          });
       }
 
       // Render districts (legend updated inside)

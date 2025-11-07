@@ -32,6 +32,8 @@ let cachedSegments = null;
 let cachedRoutes = null;
 let mapRef = null;
 let layerMounted = false;
+let lastLoadedSegments = null;
+let lastLoadedRoutes = null;
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -167,22 +169,27 @@ export async function loadDemoRoutes({ force = false } = {}) {
  * @param {MapLibreMap} map - MapLibre GL map instance
  */
 export async function initDiaryMode(map) {
+  const stats = { segmentsCount: 0, routesCount: 0 };
   if (import.meta?.env?.VITE_FEATURE_DIARY !== '1') {
     diaryFlagOff();
-    return;
+    return stats;
   }
 
   if (!map) {
     console.warn('[Diary] initDiaryMode called without a MapLibre instance.');
-    return;
+    return stats;
   }
 
   mapRef = map;
 
   try {
     const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
-    console.info('[Diary] segments loaded:', segments.features.length);
-    console.info('[Diary] routes loaded:', routes.features.length);
+    lastLoadedSegments = segments;
+    lastLoadedRoutes = routes;
+    stats.segmentsCount = segments.features.length;
+    stats.routesCount = routes.features.length;
+    console.info('[Diary] segments loaded:', stats.segmentsCount);
+    console.info('[Diary] routes loaded:', stats.routesCount);
     logMissingSegments(routes, segments);
 
     if (layerMounted) {
@@ -194,6 +201,8 @@ export async function initDiaryMode(map) {
   } catch (err) {
     console.error('Demo data missing; please ensure files exist under /data/*.demo.geojson.', err);
   }
+
+  return stats;
 }
 
 /**
