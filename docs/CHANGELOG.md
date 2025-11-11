@@ -546,4 +546,6 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-07 16:10 — Diary U6: recording simulator with play/pause/finish→rate
 
+## 2025-11-07 16:25 — Diary U7: community interactions (Agree and Feels safer now)
+
 ## 2025-11-07 13:35 — Diary U1: baseline segment rendering with hover card

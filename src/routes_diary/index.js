@@ -9,7 +9,7 @@
  * Remaining TODOs (Recorder dock, modal wiring, etc.) stay below for the next packet.
  */
 
-import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer } from '../map/segments_layer.js';
+import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler } from '../map/segments_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
@@ -65,6 +65,7 @@ const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
+const sessionVotes = new Set();
 const sim = {
   routeId: null,
   coords: [],
@@ -230,6 +231,21 @@ function toCounts(tagPairs) {
     map[pair.tag] = Math.max(1, map[pair.tag] || 0);
   }
   return map;
+}
+
+function getVoteKey(segmentId, action) {
+  const user = getUserHash() || 'demo';
+  return `${user}:${segmentId}:${action}`;
+}
+
+function hasSessionVote(segmentId, action) {
+  if (!segmentId || !action) return false;
+  return sessionVotes.has(getVoteKey(segmentId, action));
+}
+
+function markSessionVote(segmentId, action) {
+  if (!segmentId || !action) return;
+  sessionVotes.add(getVoteKey(segmentId, action));
 }
 
 function exposeDebugAPI() {
@@ -603,6 +619,40 @@ function applyDiarySubmissionToAgg(payload) {
   }
 }
 
+function handleSegmentAction(payload) {
+  if (!payload || !payload.action || !payload.segmentId) return;
+  const { action, segmentId } = payload;
+  if (hasSessionVote(segmentId, action)) {
+    showToast('Thanks — already recorded.');
+    return;
+  }
+  const record = ensureAggRecord(segmentId);
+  if (!record) return;
+  let updated = false;
+  if (action === 'agree') {
+    record.sumW = Math.min(50, (record.sumW || 0) + 0.3);
+    record.n_eff = Math.min(50, record.sumW);
+    updated = true;
+    showToast('Confidence increased.');
+  } else if (action === 'safer') {
+    const base = Math.max(0.5, record.sumW || 1);
+    record.mean = clampMean(bayesianShrink(record.mean + 0.1, base, PRIOR_MEAN, PRIOR_N));
+    record.delta_30d = Number((record.delta_30d + 0.03).toFixed(2));
+    updated = true;
+    showToast('Marked as feeling safer.');
+  }
+  if (!updated) return;
+  record.updated = new Date().toISOString();
+  markSessionVote(segmentId, action);
+  exposeDebugAPI();
+  const refreshed = buildSegmentsFCFromBase();
+  if (refreshed && mapRef) {
+    updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
+    lastLoadedSegments = refreshed;
+  }
+  updateAlternativeRoute({ refreshOnly: true });
+}
+
 function decayAggRecord(record, now) {
   if (!record) return;
   const last = Date.parse(record.updated || now);
@@ -628,6 +678,10 @@ function buildSegmentsFCFromBase() {
       props.delta_30d = agg.delta_30d;
       props.updated = agg.updated;
     }
+    props.__diaryVotes = {
+      agreeDisabled: hasSessionVote(props.segment_id, 'agree'),
+      saferDisabled: hasSessionVote(props.segment_id, 'safer'),
+    };
     f.properties = props;
     return f;
   });
@@ -655,6 +709,23 @@ function normalizeOverrides(list) {
     });
   }
   return map;
+}
+
+function ensureAggRecord(segmentId) {
+  if (!segmentId) return null;
+  if (!localAgg.has(segmentId)) {
+    localAgg.set(segmentId, {
+      mean: 3,
+      sumW: 0,
+      n_eff: 0,
+      top_tags: [],
+      tagCounts: Object.create(null),
+      updated: new Date().toISOString(),
+      win30: { sum: 0, w: 0 },
+      delta_30d: 0,
+    });
+  }
+  return localAgg.get(segmentId);
 }
 
 function updateAlternativeRoute({ refreshOnly = false } = {}) {
@@ -1092,6 +1163,8 @@ export function teardownDiaryMode(map) {
   }
   console.info('[Diary] Teardown complete.');
 }
+
+registerSegmentActionHandler(handleSegmentAction);
 
 /**
  * Create RecorderDock UI (floating bottom-right)

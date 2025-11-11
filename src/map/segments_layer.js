@@ -15,6 +15,11 @@ const COLOR_BINS = [
 ];
 
 const hoverRegistrations = new Map();
+let hoverActionHandler = null;
+
+export function registerSegmentActionHandler(handler) {
+  hoverActionHandler = handler;
+}
 
 /**
  * Mount segments layer on map (MapLibre vector layer)
@@ -153,6 +158,7 @@ function registerHoverHandlers(map, layerId) {
     className: 'diary-hover-card',
     offset: 12,
   });
+  wirePopupInteractions(popup);
 
   let popupVisible = false;
 
@@ -196,14 +202,43 @@ function cleanupHoverHandlers(map, layerId) {
   hoverRegistrations.delete(layerId);
 }
 
+function wirePopupInteractions(popup) {
+  if (!popup || !popup.getElement) return;
+  const el = popup.getElement();
+  const content = el?.querySelector('.maplibregl-popup-content');
+  if (!content || content.__diaryBound) return;
+  content.__diaryBound = true;
+  content.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-diary-action]');
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const disabled = target.hasAttribute('disabled');
+    if (disabled) return;
+    const action = target.getAttribute('data-diary-action');
+    const segmentId = target.getAttribute('data-segment-id');
+    target.setAttribute('disabled', 'disabled');
+    target.style.cursor = 'not-allowed';
+    if (typeof hoverActionHandler === 'function' && action && segmentId) {
+      hoverActionHandler({ action, segmentId });
+    }
+  });
+}
+
 function buildHoverHtml(props) {
   const mean = Number(props.decayed_mean ?? 3).toFixed(1);
   const nEff = Number(props.n_eff ?? 1).toFixed(1);
   const delta = Number(props.delta_30d ?? 0).toFixed(2);
   const tags = formatTags(props.top_tags);
   const street = props.street || props.segment_id || 'Segment';
+  const votes = props.__diaryVotes || {};
+  const segmentId = props.segment_id || '';
+  const agreeDisabled = votes.agreeDisabled ? 'disabled' : '';
+  const saferDisabled = votes.saferDisabled ? 'disabled' : '';
+  const agreeTitle = votes.agreeDisabled ? 'Thanks for your feedback' : 'Agree with this rating';
+  const saferTitle = votes.saferDisabled ? 'Thanks for your feedback' : 'Flag as feeling safer';
   return `
-    <div style="min-width:220px;font:12px/1.4 system-ui;color:#111;">
+    <div style="min-width:240px;font:12px/1.4 system-ui;color:#111;">
       <div style="font-weight:600;margin-bottom:4px;">${street}</div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:11px;">
         <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Mean</div><div style="font-size:16px;font-weight:600;color:${colorForMean(Number(props.decayed_mean))};">${mean}</div></div>
@@ -211,6 +246,10 @@ function buildHoverHtml(props) {
         <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Δ30d</div><div style="font-size:13px;font-weight:600;color:${Number(delta) >= 0 ? '#059669' : '#b91c1c'};">${delta}</div></div>
       </div>
       <div style="margin-top:6px;font-size:11px;color:#374151;">Top tags: ${tags}</div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled} title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree</button>
+        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled} title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.saferDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer</button>
+      </div>
       <div style="margin-top:4px;font-size:10px;color:#6b7280;">Community perception (unverified)</div>
     </div>
   `;
