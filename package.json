@@ -10,7 +10,9 @@
     "setup:diary:sh": "bash scripts/setup_diary_env.sh",
     "setup:diary:ps": "powershell -ExecutionPolicy Bypass -File scripts/setup_diary_env.ps1",
     "data:gen": "node scripts/generate_demo_data.mjs --seed=20251111 --segments=64 --routes=5",
-    "data:check": "node scripts/validate_demo_data.mjs"
+    "data:check": "node scripts/validate_demo_data.mjs",
+    "test:diary:math": "node scripts/tests/diary_math.mjs",
+    "test:diary:agg": "node scripts/tests/aggregator_update.mjs"
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",

@@ -22,6 +22,11 @@ All notable changes to this project will be documented in this file.
 - `scripts/generate_demo_data.mjs` + `scripts/validate_demo_data.mjs` now own reproducible 64-segment / 5-route demo datasets (seed = 20251111) and enforce Philly bbox + referential integrity.
 - Refreshed `data/segments_phl.demo.geojson` and `data/routes_phl.demo.geojson`; documented workflow in `docs/TEST_DATA_README.md`.
 
+## 2025-11-11 16:05 — Diary tests: math and aggregator verification scripts
+
+- Added `npm run test:diary:math` + `npm run test:diary:agg` to guard decay helpers and the local aggregator pipeline; both emit concise PASS banners.
+- Wired the scripts folder structure plus npm aliases so contributors can run the suite before committing data/logic changes.
+
 ## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
 
 **Status:** ✅ M1 prep complete — Repository ready for Codex implementation
