@@ -12,16 +12,7 @@
 export function drawRouteOverlay(map, sourceId, lineFeature, opts = {}) {
   if (!map || !lineFeature) return;
   const geojson = normalizeFeature(lineFeature);
-  const source = map.getSource(sourceId);
-  if (!source) {
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: geojson,
-    });
-  } else {
-    source.setData(geojson);
-  }
-
+  ensureSource(map, sourceId, geojson);
   const layerId = `${sourceId}-line`;
   const paint = {
     'line-color': opts.color || '#0ea5e9',
@@ -32,23 +23,7 @@ export function drawRouteOverlay(map, sourceId, lineFeature, opts = {}) {
   if (opts.dasharray) {
     paint['line-dasharray'] = opts.dasharray;
   }
-
-  if (map.getLayer(layerId)) {
-    Object.entries(paint).forEach(([key, value]) => {
-      map.setPaintProperty(layerId, key, value);
-    });
-  } else {
-    map.addLayer({
-      id: layerId,
-      type: 'line',
-      source: sourceId,
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round',
-      },
-      paint,
-    });
-  }
+  ensureLineLayer(map, layerId, sourceId, paint);
 }
 
 export function clearRouteOverlay(map, sourceId) {
@@ -69,12 +44,7 @@ export function drawSimPoint(map, sourceId, coord, opts = {}) {
     geometry: { type: 'Point', coordinates: coord },
     properties: {},
   };
-  const source = map.getSource(sourceId);
-  if (!source) {
-    map.addSource(sourceId, { type: 'geojson', data: feature });
-  } else {
-    source.setData(feature);
-  }
+  ensureSource(map, sourceId, feature);
   const layerId = `${sourceId}-circle`;
   const paint = {
     'circle-radius': opts.radius || 6,
@@ -83,11 +53,7 @@ export function drawSimPoint(map, sourceId, coord, opts = {}) {
     'circle-stroke-color': opts.strokeColor || '#ffffff',
     'circle-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
   };
-  if (map.getLayer(layerId)) {
-    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
-  } else {
-    map.addLayer({ id: layerId, type: 'circle', source: sourceId, paint });
-  }
+  ensureCircleLayer(map, layerId, sourceId, paint);
 }
 
 export function clearSimPoint(map, sourceId) {
@@ -196,6 +162,51 @@ function heuristic(nodeA, nodeB) {
 function reconstructPath(cameFrom, current) {
   // TODO: Backtrack from goal to start using cameFrom map
   return [];
+}
+
+function ensureSource(map, id, data) {
+  if (!map || !id) return null;
+  const normalized = data?.type ? data : { type: 'FeatureCollection', features: [] };
+  const existing = map.getSource(id);
+  if (existing) {
+    existing.setData(normalized);
+    return existing;
+  }
+  map.addSource(id, { type: 'geojson', data: normalized });
+  return map.getSource(id);
+}
+
+function ensureLineLayer(map, layerId, sourceId, paint = {}) {
+  if (!map || !layerId || !sourceId) return;
+  const layout = {
+    'line-cap': 'round',
+    'line-join': 'round',
+  };
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
+    return;
+  }
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout,
+    paint,
+  });
+}
+
+function ensureCircleLayer(map, layerId, sourceId, paint = {}) {
+  if (!map || !layerId || !sourceId) return;
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
+    return;
+  }
+  map.addLayer({
+    id: layerId,
+    type: 'circle',
+    source: sourceId,
+    paint,
+  });
 }
 
 /**

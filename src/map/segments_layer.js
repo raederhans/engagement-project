@@ -27,32 +27,13 @@ export function registerSegmentActionHandler(handler) {
 export function mountSegmentsLayer(map, sourceId, data) {
   if (!map) return;
   const prepared = prepareFeatureCollection(data);
-  const source = map.getSource(sourceId);
-  if (!source) {
-    map.addSource(sourceId, { type: 'geojson', data: prepared });
-  } else {
-    source.setData(prepared);
-  }
-
+  ensureSource(map, sourceId, prepared);
   const layerId = `${sourceId}-line`;
-  if (map.getLayer(layerId)) {
-    map.removeLayer(layerId);
-  }
-
-  map.addLayer({
-    id: layerId,
-    type: 'line',
-    source: sourceId,
-    layout: {
-      'line-cap': 'round',
-      'line-join': 'round',
-    },
-    paint: {
-      'line-opacity': 0.85,
-      'line-color': buildColorExpression(),
-      'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
-      'line-blur': 0.4,
-    },
+  ensureLineLayer(map, layerId, sourceId, {
+    'line-opacity': 0.85,
+    'line-color': buildColorExpression(),
+    'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
+    'line-blur': 0.4,
   });
 
   registerHoverHandlers(map, layerId);
@@ -65,7 +46,7 @@ export function updateSegmentsData(map, sourceId, featureCollection) {
   if (!map) return;
   const source = map.getSource(sourceId);
   if (!source) {
-    mountSegmentsLayer(map, sourceId, featureCollection);
+    console.warn('[Diary] segments source missing; update skipped.');
     return;
   }
   source.setData(prepareFeatureCollection(featureCollection));
@@ -266,6 +247,45 @@ function formatTags(tags) {
       return `${label}(${prob.toFixed(2)})`;
     })
     .join(', ');
+}
+
+function ensureSource(map, id, data) {
+  if (!map || !id) return null;
+  const normalized = Array.isArray(data?.features) ? data : prepareFeatureCollection(data);
+  const existing = map.getSource(id);
+  if (existing) {
+    existing.setData(normalized);
+    return existing;
+  }
+  map.addSource(id, { type: 'geojson', data: normalized });
+  return map.getSource(id);
+}
+
+function ensureLineLayer(map, layerId, sourceId, paint = {}) {
+  if (!map || !layerId || !sourceId) return;
+  const basePaint = {
+    'line-opacity': 0.85,
+    'line-color': '#0ea5e9',
+    'line-width': 2,
+    'line-blur': 0,
+    ...paint,
+  };
+  if (map.getLayer(layerId)) {
+    Object.entries(basePaint).forEach(([key, value]) => {
+      map.setPaintProperty(layerId, key, value);
+    });
+    return;
+  }
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: basePaint,
+  });
 }
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));

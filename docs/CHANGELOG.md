@@ -12,6 +12,11 @@ All notable changes to this project will be documented in this file.
 - Persist Agree/Feels safer throttles per-session via `sessionStorage`, so refreshes keep buttons disabled after the first tap.
 - Updated hover card buttons to match storyboard labels/emojis while keeping instant in-memory aggregate updates.
 
+## 2025-11-11 15:50 — Diary arch: idempotent sources/layers, lifecycle cleanup, debug accessors
+
+- Added `ensureSource`/`ensureLineLayer` helpers plus centralized `teardownDiaryTransient()` so rapid toggles never leak MapLibre sources or timers.
+- Expanded `window.__diary_debug` to expose cloned segment props, source/layer lists, and simulator state for audits.
+
 ## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
 
 **Status:** ✅ M1 prep complete — Repository ready for Codex implementation

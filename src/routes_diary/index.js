@@ -301,15 +301,30 @@ function exposeDebugAPI() {
       const agg = localAgg.get(segmentId);
       return agg ? JSON.parse(JSON.stringify(agg)) : null;
     },
-    simState: () => ({
-      routeId: sim.routeId,
-      idx: sim.idx,
-      coords: sim.coords.length,
-      active: sim.active,
-      paused: sim.paused,
-      hasStarted: sim.hasStarted,
-      playedOnce: sim.playedOnce,
-    }),
+    listSources: () => {
+      const map = mapRef;
+      if (!map || typeof map.getStyle !== 'function') return [];
+      const style = map.getStyle() || {};
+      return Object.keys(style.sources || {});
+    },
+    listLayers: () => {
+      const map = mapRef;
+      if (!map || typeof map.getStyle !== 'function') return [];
+      const style = map.getStyle() || {};
+      return (style.layers || []).map((layer) => layer.id);
+    },
+    simState: () =>
+      JSON.parse(
+        JSON.stringify({
+          routeId: sim.routeId,
+          idx: sim.idx,
+          coords: sim.coords.length,
+          active: sim.active,
+          paused: sim.paused,
+          hasStarted: sim.hasStarted,
+          playedOnce: sim.playedOnce,
+        })
+      ),
   });
 }
 
@@ -531,7 +546,7 @@ function renderRouteSummary(route) {
 function selectRoute(routeId, { fitBounds = false } = {}) {
   if (!routeId || !routeById.has(routeId)) return;
   if (!currentRoute || currentRoute.properties?.route_id !== routeId) {
-    teardownSim();
+    teardownDiaryTransient(mapRef, { silent: true });
   }
   const feature = routeById.get(routeId);
   currentRoute = feature;
@@ -961,7 +976,7 @@ function ensureSimLifecycleHooks() {
   }
   if (typeof window !== 'undefined' && !simLifecycleFlags.pagehide) {
     const handlePageHide = () => {
-      teardownSim({ silent: true });
+      teardownDiaryTransient(mapRef, { silent: true });
     };
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('beforeunload', handlePageHide);
@@ -1081,6 +1096,26 @@ function teardownSim({ silent = false } = {}) {
     clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
   }
   cleanupSimLifecycleHooks();
+  if (!silent) {
+    updateSimButtons();
+  }
+}
+
+function stopAllTimersAndListeners({ silent = false } = {}) {
+  teardownSim({ silent: true });
+  if (!silent) {
+    updateSimButtons();
+  }
+}
+
+function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
+  const targetMap = map || mapRef;
+  stopAllTimersAndListeners({ silent: true });
+  if (targetMap) {
+    clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
+    clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
+    clearSimPoint(targetMap, SIM_POINT_SOURCE_ID);
+  }
   if (!silent) {
     updateSimButtons();
   }
@@ -1236,10 +1271,8 @@ export function teardownDiaryMode(map) {
   const targetMap = map || mapRef;
   if (!targetMap) return;
   removeSegmentsLayer(targetMap, SEGMENT_SOURCE_ID);
-  clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
-  clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
+  teardownDiaryTransient(targetMap, { silent: true });
   layerMounted = false;
-  teardownSim();
   closeRatingModal();
   if (diaryPanelEl) {
     diaryPanelEl.remove();
