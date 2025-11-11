@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 - Auto-pause the recorder when the tab goes hidden and tear down markers/timers on unload to prevent ghost animations.
 - Added silent teardown path plus cleanup guards so repeated route switches never leak `diary-sim-point` sources.
 
+## 2025-11-11 12:00 — Diary U7: community interactions (Agree / Feels safer now)
+
+- Persist Agree/Feels safer throttles per-session via `sessionStorage`, so refreshes keep buttons disabled after the first tap.
+- Updated hover card buttons to match storyboard labels/emojis while keeping instant in-memory aggregate updates.
+
 ## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
 
 **Status:** ✅ M1 prep complete — Repository ready for Codex implementation

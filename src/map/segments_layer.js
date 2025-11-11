@@ -247,8 +247,8 @@ function buildHoverHtml(props) {
       </div>
       <div style="margin-top:6px;font-size:11px;color:#374151;">Top tags: ${tags}</div>
       <div style="margin-top:8px;display:flex;gap:8px;">
-        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled} title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree</button>
-        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled} title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.saferDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer</button>
+        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled} title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree 👍</button>
+        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled} title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.saferDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer ✨</button>
       </div>
       <div style="margin-top:4px;font-size:10px;color:#6b7280;">Community perception (unverified)</div>
     </div>

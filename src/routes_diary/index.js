@@ -66,6 +66,8 @@ const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
 const sessionVotes = new Set();
+const SESSION_VOTE_STORAGE_KEY = 'diary_session_votes';
+let sessionVotesHydrated = false;
 const sim = {
   routeId: null,
   coords: [],
@@ -245,7 +247,37 @@ function toCounts(tagPairs) {
   return map;
 }
 
+function hydrateSessionVotes() {
+  if (sessionVotesHydrated) return;
+  sessionVotesHydrated = true;
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.sessionStorage?.getItem(SESSION_VOTE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      parsed.forEach((key) => {
+        if (typeof key === 'string' && key.length) {
+          sessionVotes.add(key);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[Diary] Unable to hydrate session votes', err);
+  }
+}
+
+function persistSessionVotes() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage?.setItem(SESSION_VOTE_STORAGE_KEY, JSON.stringify(Array.from(sessionVotes)));
+  } catch (err) {
+    console.warn('[Diary] Unable to persist session votes', err);
+  }
+}
+
 function getVoteKey(segmentId, action) {
+  hydrateSessionVotes();
   const user = getUserHash() || 'demo';
   return `${user}:${segmentId}:${action}`;
 }
@@ -258,6 +290,7 @@ function hasSessionVote(segmentId, action) {
 function markSessionVote(segmentId, action) {
   if (!segmentId || !action) return;
   sessionVotes.add(getVoteKey(segmentId, action));
+  persistSessionVotes();
 }
 
 function exposeDebugAPI() {
@@ -678,6 +711,7 @@ function decayAggRecord(record, now) {
 
 function buildSegmentsFCFromBase() {
   if (!baseSegmentsFC) return null;
+  hydrateSessionVotes();
   const fc = clone(baseSegmentsFC);
   fc.features = fc.features.map((feature) => {
     const f = clone(feature);
