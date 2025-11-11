@@ -76,6 +76,8 @@ const sim = {
   hasStarted: false,
   playedOnce: false,
 };
+const simLifecycleFlags = { visibility: false, pagehide: false };
+const simCleanupFns = new Set();
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -145,6 +147,10 @@ function normalizeRoutesCollection(collection) {
     const f = clone(feature);
     const props = { ...(f.properties || {}) };
     const ids = Array.isArray(props.segment_ids) ? props.segment_ids.map((id) => String(id)) : [];
+    const altIds = Array.isArray(props.alt_segment_ids) ? props.alt_segment_ids.map((id) => String(id)).filter(Boolean) : [];
+    const altLength = Number(props.alt_length_m);
+    const altDuration = Number(props.alt_duration_min);
+    const altGeometry = props.alt_geometry && typeof props.alt_geometry === 'object' ? clone(props.alt_geometry) : null;
     if (ids.length === 0) {
       throw new Error(`[Diary] Route feature at index ${idx} is missing segment_ids array.`);
     }
@@ -157,7 +163,13 @@ function normalizeRoutesCollection(collection) {
       length_m: Number(props.length_m) || 0,
       duration_min: Number(props.duration_min) || 0,
       segment_ids: ids,
+      alt_segment_ids: altIds,
+      alt_length_m: Number.isFinite(altLength) ? altLength : undefined,
+      alt_duration_min: Number.isFinite(altDuration) ? altDuration : undefined,
     };
+    if (altGeometry) {
+      f.properties.alt_geometry = altGeometry;
+    }
     return f;
   });
   return fc;
@@ -880,6 +892,54 @@ function getCurrentSegmentMean(segId) {
   return Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
 }
 
+function registerSimCleanup(fn) {
+  if (typeof fn === 'function') {
+    simCleanupFns.add(fn);
+  }
+}
+
+function cleanupSimLifecycleHooks() {
+  simCleanupFns.forEach((cleanup) => {
+    try {
+      cleanup();
+    } catch (err) {
+      console.warn('[Diary] Unable to remove simulator lifecycle hook', err);
+    }
+  });
+  simCleanupFns.clear();
+  simLifecycleFlags.visibility = false;
+  simLifecycleFlags.pagehide = false;
+}
+
+function ensureSimLifecycleHooks() {
+  if (typeof document !== 'undefined' && !simLifecycleFlags.visibility) {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        pauseSim();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    registerSimCleanup(() => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      simLifecycleFlags.visibility = false;
+    });
+    simLifecycleFlags.visibility = true;
+  }
+  if (typeof window !== 'undefined' && !simLifecycleFlags.pagehide) {
+    const handlePageHide = () => {
+      teardownSim({ silent: true });
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
+    registerSimCleanup(() => {
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
+      simLifecycleFlags.pagehide = false;
+    });
+    simLifecycleFlags.pagehide = true;
+  }
+}
+
 function ensureSimCoords(route) {
   if (!route || !route.geometry) {
     sim.coords = [];
@@ -928,6 +988,7 @@ function startSim() {
   if (sim.timer) {
     clearInterval(sim.timer);
   }
+  ensureSimLifecycleHooks();
   sim.active = true;
   sim.paused = false;
   sim.hasStarted = true;
@@ -970,7 +1031,7 @@ function finishSim({ openModal = true } = {}) {
   }
 }
 
-function teardownSim() {
+function teardownSim({ silent = false } = {}) {
   if (sim.timer) {
     clearInterval(sim.timer);
     sim.timer = null;
@@ -985,7 +1046,10 @@ function teardownSim() {
   if (mapRef) {
     clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
   }
-  updateSimButtons();
+  cleanupSimLifecycleHooks();
+  if (!silent) {
+    updateSimButtons();
+  }
 }
 
 function updateSimButtons() {
@@ -1094,8 +1158,6 @@ export async function initDiaryMode(map) {
 
   try {
     const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
-    lastLoadedSegments = hydratedSegments;
-    lastLoadedRoutes = routes;
     stats.segmentsCount = segments.features.length;
     stats.routesCount = routes.features.length;
     console.info('[Diary] segments loaded:', stats.segmentsCount);
@@ -1106,6 +1168,8 @@ export async function initDiaryMode(map) {
     initLocalAggFromSegments(segments);
     exposeDebugAPI();
     const hydratedSegments = buildSegmentsFCFromBase() || segments;
+    lastLoadedSegments = hydratedSegments;
+    lastLoadedRoutes = routes;
 
     if (layerMounted) {
       updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, hydratedSegments);
