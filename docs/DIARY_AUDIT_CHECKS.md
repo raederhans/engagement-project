@@ -290,6 +290,145 @@
 
 ---
 
+## M1 Closure: Full U0-U7 Verification
+
+**Purpose:** Comprehensive end-to-end audit covering all M1 features (U0 through U7) including recent polish (U6 simulator lifecycle, U7 session throttle)
+
+**Audit Date:** 2025-11-11
+**Branch:** feat/diary-u6-u7
+**Commits:** U4 (dfd662e), U5 (9399dc8), U6 (8f4e051), U7 (03f8e65)
+
+### M1.A: Environment Verification
+- [x] Branch: feat/diary-u6-u7
+- [x] Commit: 03f8e65 (U7)
+- [x] Git status: Clean
+- [x] Node: v22.18.0, npm: 10.9.3
+- [x] Build: Success (4.20s, 0 errors)
+- [x] Bundle: 159.94 KB (+7.93 KB from U4-U5 audit)
+- **Result:** ✅ PASS
+
+### M1.B: Feature Flag Gating
+- [x] Flag OFF → No diary UI, no console logs
+- [x] Flag ON → Console: `[Diary] wired in: { segmentsCount: 12, routesCount: 3 }`
+- [x] Error handling around dynamic import
+- **Result:** ✅ PASS
+
+### M1.C: Dataset Integrity + Alt Metadata Preservation
+- [x] Validation script: `node validate_datasets.mjs` → 0 errors
+- [x] 12 segments, 3 routes
+- [x] All segment_ids and alt_segment_ids cross-references valid
+- [x] All numeric fields (length_m, duration_min, alt_*) are numbers
+- [x] Alt metadata preserved in normalizeRoutesCollection() (lines 146-176)
+- [x] All 3 routes have alt_geometry
+- **Result:** ✅ PASS
+- **Evidence:** validate_datasets.mjs, src/routes_diary/index.js:146-176
+
+### M1.D: U4 Instant Update Performance
+- [x] Latency: ~570ms (8.8x faster than 5s requirement)
+- [x] Aggregation: <10ms for typical route
+- [x] GeoJSON rebuild: <5ms
+- [x] MapLibre setData: <50ms
+- [x] Evidence: u4_seg_before.json → u4_seg_after.json
+  - mean: 2.6 → 3.1 (+0.5)
+  - n_eff: 3 → 3.7 (+0.7)
+  - delta_30d: -0.1 → 0.25 (+0.35)
+- **Result:** ✅ PASS
+- **Evidence:** logs/u4_seg_*.json, logs/screenshots/u4_*.png
+
+### M1.E: U5 Alt Overlay with Live Aggregates
+- [x] Toggle control (checkbox) in diary panel
+- [x] Dashed overlay rendering (dasharray: [0.5, 1])
+- [x] Benefit summary calculates overhead % and avoided segments
+- [x] Dynamic calculation uses localAgg (not static seed data)
+- [x] getCurrentSegmentMean() reads from localAgg (line 727-734)
+- [x] Recalculates after each submission (updateAlternativeRoute)
+- [x] All 3 routes under 15% overhead (10.3%, 8.3%, 11.3%)
+- **Result:** ✅ PASS
+- **Evidence:** logs/screenshots/u5_*.png, src/routes_diary/index.js:727-734
+
+### M1.F: U6 Simulator Lifecycle and Cleanup
+- [x] Play/Pause/Finish controls working
+- [x] Finish opens rating modal prefilled with route
+- [x] Lifecycle hooks: visibilitychange → auto-pause
+- [x] Page unload hooks: pagehide/beforeunload → teardownSim
+- [x] Cleanup registry: simCleanupFns.clear() removes event listeners
+- [x] drawSimPoint() idempotent (updates existing source/layer)
+- [x] clearSimPoint() removes layer before source
+- [x] No duplicate `diary-sim-point` layers after repeated cycles
+- [x] Route switch teardowns old simulator state
+- **Result:** ✅ PASS
+- **Evidence:** logs/screenshots/u6_*.png, src/routes_diary/index.js:929-1015, src/map/routing_overlay.js:65-102
+
+### M1.G: U7 Micro-Interactions with Session Throttle
+- [x] "Agree 👍" button increases n_eff (+0.3)
+- [x] "Feels safer ✨" button nudges mean (+0.1) and delta_30d (+0.03)
+- [x] Session throttling via sessionStorage (key: `userHash:segmentId:action`)
+- [x] Buttons disable after click, persist disabled state after reload
+- [x] Instant map refresh (color/width change visible)
+- [x] Evidence: u7_segment_before.json → u7_segment_after.json
+  - mean: 3.0 → 3.1 (+0.1)
+  - n_eff: 2 → 2.3 (+0.3)
+  - delta_30d: 0 → 0.03 (+0.03)
+- [x] Vote hydration reads from sessionStorage on page load
+- **Result:** ✅ PASS
+- **Evidence:** logs/u7_segment_*.json, logs/screenshots/u7_*.png, src/routes_diary/index.js:250-295,667-699
+
+### M1.H: Idempotence & Memory
+- [x] Rapid route switching (15 cycles) → no layer/source growth
+- [x] Alt toggle (20 cycles) → idempotent
+- [x] Simulator cycles (10 cycles) → single source/layer throughout
+- [x] Hover handler cleanup removes event listeners and popup DOM
+- [x] Lifecycle hook cleanup clears simCleanupFns registry
+- [x] Layers removed before sources (correct order)
+- [x] setInterval handles cleared in teardownSim()
+- **Result:** ✅ PASS
+- **Evidence:** src/map/segments_layer.js:190-197, src/routes_diary/index.js:935-946
+
+### M1.I: Error Handling & Stub Resilience
+- [x] 12 try/catch blocks across diary code
+- [x] Feature flag init error → dashboard continues
+- [x] Demo data loading error → graceful fallback
+- [x] Session storage error → generates fallback user hash
+- [x] Defensive coding: null checks, type guards, fallback values
+- [x] Mock API never rejects (demo-friendly)
+- [x] Client aggregation independent of API success
+- **Result:** ✅ PASS
+- **Evidence:** src/main.js:61-66, src/routes_diary/index.js:1112-1117,1176-1207
+
+### M1.J: Docs and Logs Consistency
+- [x] CHANGELOG entries: U6 (2025-11-11 11:40), U7 (2025-11-11 12:00)
+- [x] M1 worklog sections: U4, U5, U6, U7, polish notes
+- [x] Screenshots: 8 files (u1-u7, before/after pairs)
+- [x] JSON evidence: 4 files (u4_seg_*, u7_segment_*)
+- [x] Cross-references validated: CHANGELOG → screenshots, worklog → code
+- [x] No documentation gaps
+- **Result:** ✅ PASS
+- **Evidence:** docs/CHANGELOG.md:5,10; logs/M1_DIARY_20251107T171518Z.md:100-127
+
+### M1.K: M1 Acceptance Criteria
+- [x] AC1: Instant update <5s → ✅ 570ms (8.8x margin)
+- [x] AC2: Segments have expected fields → ✅ All present
+- [x] AC3: Safer routes <15% overhead → ✅ All routes 8-11%
+- [x] U0-U3: No regressions (data loaders, segments layer, picker, modal)
+- [x] U4: Client aggregation verified
+- [x] U5: Dynamic alt benefit calculation verified
+- [x] U6: Simulator with lifecycle management verified
+- [x] U7: Community interactions with session throttle verified
+- [x] Build: Success (0 errors)
+- [x] Memory: No leaks, idempotent layers
+- **Result:** ✅ PASS - READY TO MERGE
+
+### M1 Summary
+- **Sections:** 11/11 PASS
+- **Issues:** 0 blockers, 0 critical, 0 major, 0 minor
+- **Performance:** All targets met or exceeded
+- **Documentation:** Complete and consistent
+- **Recommendation:** ✅ **MERGE to main** (No blocking risks)
+
+**Audit Report:** logs/AGENTM_AUDIT_M1_CLOSURE_2025-11-11T122604.md
+
+---
+
 ## Final Sign-Off
 
 - [ ] All sections A-K completed
