@@ -10,13 +10,15 @@
  */
 
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer } from '../map/segments_layer.js';
-import { drawRouteOverlay, clearRouteOverlay } from '../map/routing_overlay.js';
+import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
 const ALT_ROUTE_SOURCE_ID = 'diary-alt-route';
+const SIM_POINT_SOURCE_ID = 'diary-sim-point';
+const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
   '/data/segments_phl.demo.geojson',
   new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
@@ -49,6 +51,9 @@ let summaryStripEl = null;
 let rateButtonEl = null;
 let altToggleEl = null;
 let altSummaryEl = null;
+let playButtonEl = null;
+let pauseButtonEl = null;
+let finishButtonEl = null;
 let currentRoute = null;
 let toastEl = null;
 let toastTimer = null;
@@ -60,6 +65,16 @@ const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
+const sim = {
+  routeId: null,
+  coords: [],
+  idx: 0,
+  timer: null,
+  active: false,
+  paused: true,
+  hasStarted: false,
+  playedOnce: false,
+};
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -217,6 +232,26 @@ function toCounts(tagPairs) {
   return map;
 }
 
+function exposeDebugAPI() {
+  if (typeof window === 'undefined') return;
+  window.__diary_debug = Object.freeze({
+    segmentProps: (segmentId) => {
+      if (!segmentId) return null;
+      const agg = localAgg.get(segmentId);
+      return agg ? JSON.parse(JSON.stringify(agg)) : null;
+    },
+    simState: () => ({
+      routeId: sim.routeId,
+      idx: sim.idx,
+      coords: sim.coords.length,
+      active: sim.active,
+      paused: sim.paused,
+      hasStarted: sim.hasStarted,
+      playedOnce: sim.playedOnce,
+    }),
+  });
+}
+
 function diaryFlagOff() {
   console.warn('[Diary] Feature flag is OFF. Set VITE_FEATURE_DIARY=1 to enable.');
 }
@@ -323,6 +358,31 @@ function ensureDiaryPanel(routes) {
     altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
     panel.appendChild(altSummaryEl);
 
+    const simControls = document.createElement('div');
+    simControls.style.display = 'flex';
+    simControls.style.gap = '8px';
+    simControls.style.marginTop = '12px';
+
+    playButtonEl = document.createElement('button');
+    styleSimButton(playButtonEl);
+    playButtonEl.textContent = 'Play';
+    playButtonEl.addEventListener('click', () => startSim());
+    simControls.appendChild(playButtonEl);
+
+    pauseButtonEl = document.createElement('button');
+    styleSimButton(pauseButtonEl);
+    pauseButtonEl.textContent = 'Pause';
+    pauseButtonEl.addEventListener('click', () => pauseSim());
+    simControls.appendChild(pauseButtonEl);
+
+    finishButtonEl = document.createElement('button');
+    styleSimButton(finishButtonEl);
+    finishButtonEl.textContent = 'Finish → Rate';
+    finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
+    simControls.appendChild(finishButtonEl);
+
+    panel.appendChild(simControls);
+
     rateButtonEl = document.createElement('button');
     rateButtonEl.type = 'button';
     rateButtonEl.textContent = 'Rate this route';
@@ -350,6 +410,18 @@ function ensureDiaryPanel(routes) {
   }
 
   populateRouteOptions(routes);
+  updateSimButtons();
+}
+
+function styleSimButton(btn) {
+  btn.style.flex = '1';
+  btn.style.padding = '8px 10px';
+  btn.style.borderRadius = '8px';
+  btn.style.border = '1px solid #cbd5f5';
+  btn.style.background = '#fff';
+  btn.style.cursor = 'pointer';
+  btn.style.fontSize = '12px';
+  btn.style.fontWeight = '600';
 }
 
 function populateRouteOptions(routes) {
@@ -397,6 +469,9 @@ function renderRouteSummary(route) {
 
 function selectRoute(routeId, { fitBounds = false } = {}) {
   if (!routeId || !routeById.has(routeId)) return;
+  if (!currentRoute || currentRoute.properties?.route_id !== routeId) {
+    teardownSim();
+  }
   const feature = routeById.get(routeId);
   currentRoute = feature;
   renderRouteSummary(feature);
@@ -414,6 +489,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     }
   }
   updateAlternativeRoute();
+  updateSimButtons();
 }
 
 function fitMapToRoute(route) {
@@ -733,6 +809,134 @@ function getCurrentSegmentMean(segId) {
   return Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
 }
 
+function ensureSimCoords(route) {
+  if (!route || !route.geometry) {
+    sim.coords = [];
+    return;
+  }
+  const base = extractLineCoordinates(route.geometry) || [];
+  const result = [];
+  for (let i = 0; i < base.length; i += 1) {
+    const current = base[i];
+    if (!current) continue;
+    if (result.length === 0) {
+      result.push(current);
+      continue;
+    }
+    const prev = result[result.length - 1];
+    const steps = Math.max(1, Math.ceil(distanceBetween(prev, current) / 0.0002));
+    for (let step = 1; step <= steps; step += 1) {
+      const t = step / steps;
+      const lng = prev[0] + (current[0] - prev[0]) * t;
+      const lat = prev[1] + (current[1] - prev[1]) * t;
+      result.push([lng, lat]);
+    }
+  }
+  sim.coords = result;
+  sim.idx = 0;
+  sim.routeId = route.properties?.route_id || null;
+  sim.active = false;
+  sim.paused = true;
+  sim.hasStarted = false;
+  sim.playedOnce = false;
+}
+
+function distanceBetween(a, b) {
+  if (!a || !b) return 0;
+  const dx = (b[0] - a[0]) * Math.cos(((a[1] + b[1]) / 2) * (Math.PI / 180));
+  const dy = b[1] - a[1];
+  return Math.hypot(dx, dy);
+}
+
+function startSim() {
+  if (!currentRoute || !mapRef) return;
+  if (!sim.coords.length || sim.routeId !== currentRoute.properties?.route_id) {
+    ensureSimCoords(currentRoute);
+  }
+  if (!sim.coords.length) return;
+  if (sim.timer) {
+    clearInterval(sim.timer);
+  }
+  sim.active = true;
+  sim.paused = false;
+  sim.hasStarted = true;
+  sim.playedOnce = true;
+  drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
+  sim.timer = setInterval(stepSim, SIM_INTERVAL_MS);
+  updateSimButtons();
+}
+
+function stepSim() {
+  if (!sim.active || sim.paused) return;
+  sim.idx += 1;
+  if (sim.idx >= sim.coords.length) {
+    finishSim({ openModal: true });
+    return;
+  }
+  drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
+}
+
+function pauseSim() {
+  if (!sim.hasStarted) return;
+  if (sim.timer) {
+    clearInterval(sim.timer);
+    sim.timer = null;
+  }
+  sim.paused = true;
+  sim.active = false;
+  updateSimButtons();
+}
+
+function finishSim({ openModal = true } = {}) {
+  if (!sim.hasStarted) return;
+  pauseSim();
+  sim.idx = 0;
+  sim.hasStarted = false;
+  clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
+  updateSimButtons();
+  if (openModal) {
+    openRouteRating();
+  }
+}
+
+function teardownSim() {
+  if (sim.timer) {
+    clearInterval(sim.timer);
+    sim.timer = null;
+  }
+  sim.active = false;
+  sim.paused = true;
+  sim.hasStarted = false;
+  sim.playedOnce = false;
+  sim.coords = [];
+  sim.routeId = null;
+  sim.idx = 0;
+  if (mapRef) {
+    clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
+  }
+  updateSimButtons();
+}
+
+function updateSimButtons() {
+  const hasRoute = Boolean(currentRoute);
+  if (playButtonEl) {
+    playButtonEl.disabled = !hasRoute;
+    playButtonEl.style.opacity = playButtonEl.disabled ? '0.6' : '1';
+  }
+  if (pauseButtonEl) {
+    pauseButtonEl.disabled = !hasRoute || !sim.hasStarted || sim.paused;
+    pauseButtonEl.style.opacity = pauseButtonEl.disabled ? '0.6' : '1';
+  }
+  if (finishButtonEl) {
+    finishButtonEl.disabled = !hasRoute || !sim.hasStarted;
+    finishButtonEl.style.opacity = finishButtonEl.disabled ? '0.6' : '1';
+  }
+  if (rateButtonEl) {
+    rateButtonEl.disabled = !hasRoute || !sim.playedOnce;
+    rateButtonEl.style.opacity = rateButtonEl.disabled ? '0.6' : '1';
+  }
+}
+
 function getUserHash() {
   if (cachedUserHash) return cachedUserHash;
   try {
@@ -829,6 +1033,7 @@ export async function initDiaryMode(map) {
     buildSegmentLookup(segments);
     ensureRouteIndex(routes);
     initLocalAggFromSegments(segments);
+    exposeDebugAPI();
     const hydratedSegments = buildSegmentsFCFromBase() || segments;
 
     if (layerMounted) {
@@ -865,6 +1070,7 @@ export function teardownDiaryMode(map) {
   clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
   clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
   layerMounted = false;
+  teardownSim();
   closeRatingModal();
   if (diaryPanelEl) {
     diaryPanelEl.remove();

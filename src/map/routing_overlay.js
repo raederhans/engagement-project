@@ -62,6 +62,45 @@ export function clearRouteOverlay(map, sourceId) {
   }
 }
 
+export function drawSimPoint(map, sourceId, coord, opts = {}) {
+  if (!map || !coord) return;
+  const feature = {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: coord },
+    properties: {},
+  };
+  const source = map.getSource(sourceId);
+  if (!source) {
+    map.addSource(sourceId, { type: 'geojson', data: feature });
+  } else {
+    source.setData(feature);
+  }
+  const layerId = `${sourceId}-circle`;
+  const paint = {
+    'circle-radius': opts.radius || 6,
+    'circle-color': opts.color || '#22d3ee',
+    'circle-stroke-width': opts.strokeWidth || 1,
+    'circle-stroke-color': opts.strokeColor || '#ffffff',
+    'circle-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
+  };
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
+  } else {
+    map.addLayer({ id: layerId, type: 'circle', source: sourceId, paint });
+  }
+}
+
+export function clearSimPoint(map, sourceId) {
+  if (!map) return;
+  const layerId = `${sourceId}-circle`;
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  }
+}
+
 /**
  * Create "Safer alternative" strip UI (top-right)
  * @param {object} meta - Route metadata
