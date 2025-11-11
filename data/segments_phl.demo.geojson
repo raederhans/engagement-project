@@ -1,17 +1,1823 @@
 {
   "type": "FeatureCollection",
   "features": [
-    {"type":"Feature","properties":{"segment_id":"seg_001","street":"Market St","length_m":150,"decayed_mean":3.0,"n_eff":2,"top_tags":[],"delta_30d":0},"geometry":{"type":"LineString","coordinates":[[-75.1815,39.9555],[-75.1778,39.9539]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_002","street":"Market St","length_m":160,"decayed_mean":2.6,"n_eff":3,"top_tags":[{"tag":"poor_lighting","p":0.5}],"delta_30d":-0.1},"geometry":{"type":"LineString","coordinates":[[-75.1778,39.9539],[-75.1744,39.9527]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_003","street":"Walnut St","length_m":140,"decayed_mean":3.8,"n_eff":1,"top_tags":[],"delta_30d":0.1},"geometry":{"type":"LineString","coordinates":[[-75.1905,39.9503],[-75.1870,39.9499]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_004","street":"Walnut St","length_m":150,"decayed_mean":3.2,"n_eff":2,"top_tags":[{"tag":"cars_too_close","p":0.4}],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1870,39.9499],[-75.1834,39.9496]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_005","street":"Spruce St","length_m":120,"decayed_mean":2.4,"n_eff":2,"top_tags":[{"tag":"low_foot_traffic","p":0.6}],"delta_30d":-0.2},"geometry":{"type":"LineString","coordinates":[[-75.1998,39.9495],[-75.1963,39.9492]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_006","street":"Spruce St","length_m":130,"decayed_mean":3.5,"n_eff":1,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1963,39.9492],[-75.1927,39.9490]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_007","street":"Chestnut St","length_m":110,"decayed_mean":3.1,"n_eff":2,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1808,39.9529],[-75.1780,39.9518]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_008","street":"Chestnut St","length_m":115,"decayed_mean":2.9,"n_eff":2,"top_tags":[{"tag":"poor_lighting","p":0.4}],"delta_30d":-0.05},"geometry":{"type":"LineString","coordinates":[[-75.1780,39.9518],[-75.1754,39.9509]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_009","street":"S 34th St","length_m":90,"decayed_mean":3.9,"n_eff":1,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1928,39.9536],[-75.1910,39.9518]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_010","street":"S 33rd St","length_m":95,"decayed_mean":3.0,"n_eff":2,"top_tags":[],"delta_30d":0.0},"geometry":{"type":"LineString","coordinates":[[-75.1898,39.9547],[-75.1880,39.9529]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_011","street":"S 32nd St","length_m":100,"decayed_mean":2.7,"n_eff":1,"top_tags":[{"tag":"dogs","p":0.3}],"delta_30d":-0.05},"geometry":{"type":"LineString","coordinates":[[-75.1875,39.9556],[-75.1857,39.9538]]}},
-    {"type":"Feature","properties":{"segment_id":"seg_012","street":"S 31st St","length_m":105,"decayed_mean":3.6,"n_eff":2,"top_tags":[],"delta_30d":0.05},"geometry":{"type":"LineString","coordinates":[[-75.1849,39.9562],[-75.1832,39.9545]]}}
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_001",
+        "street": "Locust St",
+        "length_m": 233,
+        "decayed_mean": 2.6,
+        "n_eff": 4,
+        "top_tags": [],
+        "delta_30d": 0.1,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16907492849998,
+            39.94517957194987
+          ],
+          [
+            -75.17175039549124,
+            39.945610552475316
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_002",
+        "street": "Sansom St",
+        "length_m": 175,
+        "decayed_mean": 1.9,
+        "n_eff": 25,
+        "top_tags": [],
+        "delta_30d": 0.18,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.176946976237,
+            39.93644799282844
+          ],
+          [
+            -75.17854798881272,
+            39.937431723506656
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_003",
+        "street": "Chestnut St",
+        "length_m": 399,
+        "decayed_mean": 1.3,
+        "n_eff": 8,
+        "top_tags": [
+          {
+            "tag": "cars_too_close",
+            "p": 0.59
+          },
+          {
+            "tag": "other",
+            "p": 0.72
+          }
+        ],
+        "delta_30d": 0,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16297030043812,
+            39.951204265601
+          ],
+          [
+            -75.16372598428978,
+            39.94766569106327
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_004",
+        "street": "Locust St",
+        "length_m": 334,
+        "decayed_mean": 2.5,
+        "n_eff": 2,
+        "top_tags": [],
+        "delta_30d": -0.02,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17280068181526,
+            39.93817035489809
+          ],
+          [
+            -75.1751673079894,
+            39.935779170401304
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_005",
+        "street": "Locust St",
+        "length_m": 198,
+        "decayed_mean": 2.8,
+        "n_eff": 4,
+        "top_tags": [],
+        "delta_30d": -0.05,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16031404154748,
+            39.94553420503088
+          ],
+          [
+            -75.16261201174511,
+            39.945815608069765
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_006",
+        "street": "S 32nd St",
+        "length_m": 460,
+        "decayed_mean": 2.5,
+        "n_eff": 21,
+        "top_tags": [],
+        "delta_30d": 0.12,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17467537708046,
+            39.92903404788627
+          ],
+          [
+            -75.17129931716184,
+            39.92581141541741
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_007",
+        "street": "Market St",
+        "length_m": 462,
+        "decayed_mean": 4.7,
+        "n_eff": 12,
+        "top_tags": [],
+        "delta_30d": 0.19,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.18807793960347,
+            39.96035860881955
+          ],
+          [
+            -75.18620447586328,
+            39.964257017438115
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_008",
+        "street": "Market St",
+        "length_m": 414,
+        "decayed_mean": 1.7,
+        "n_eff": 8,
+        "top_tags": [],
+        "delta_30d": -0.12,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.18594198749587,
+            39.94604052555561
+          ],
+          [
+            -75.18859546325952,
+            39.94916129066199
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_009",
+        "street": "Market St",
+        "length_m": 257,
+        "decayed_mean": 3.9,
+        "n_eff": 11,
+        "top_tags": [
+          {
+            "tag": "construction_blockage",
+            "p": 0.63
+          },
+          {
+            "tag": "other",
+            "p": 0.7
+          }
+        ],
+        "delta_30d": -0.17,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17037042121473,
+            39.93169643904734
+          ],
+          [
+            -75.17020592283467,
+            39.934003837568966
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_010",
+        "street": "S 34th St",
+        "length_m": 325,
+        "decayed_mean": 3.4,
+        "n_eff": 5,
+        "top_tags": [
+          {
+            "tag": "construction_blockage",
+            "p": 0.55
+          },
+          {
+            "tag": "dogs",
+            "p": 0.58
+          }
+        ],
+        "delta_30d": 0.11,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16193207587953,
+            39.951937633984954
+          ],
+          [
+            -75.16568217976345,
+            39.951394878909454
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_011",
+        "street": "S 33rd St",
+        "length_m": 350,
+        "decayed_mean": 2.7,
+        "n_eff": 19,
+        "top_tags": [
+          {
+            "tag": "construction_blockage",
+            "p": 0.64
+          },
+          {
+            "tag": "low_foot_traffic",
+            "p": 0.53
+          }
+        ],
+        "delta_30d": 0.06,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19277906489745,
+            39.95577866322547
+          ],
+          [
+            -75.1968695851162,
+            39.95607778465003
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_012",
+        "street": "Pine St",
+        "length_m": 536,
+        "decayed_mean": 2.5,
+        "n_eff": 24,
+        "top_tags": [],
+        "delta_30d": -0.14,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16221561332955,
+            39.956763649960514
+          ],
+          [
+            -75.16642068667663,
+            39.953175209448204
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_013",
+        "street": "Chestnut St",
+        "length_m": 476,
+        "decayed_mean": 3.4,
+        "n_eff": 13,
+        "top_tags": [
+          {
+            "tag": "other",
+            "p": 0.51
+          },
+          {
+            "tag": "construction_blockage",
+            "p": 0.55
+          }
+        ],
+        "delta_30d": -0.15,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17064412429718,
+            39.94454523554584
+          ],
+          [
+            -75.16660134883178,
+            39.94750140611874
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_014",
+        "street": "Walnut St",
+        "length_m": 232,
+        "decayed_mean": 3.1,
+        "n_eff": 22,
+        "top_tags": [
+          {
+            "tag": "low_foot_traffic",
+            "p": 0.79
+          }
+        ],
+        "delta_30d": 0.06,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.15975292417244,
+            39.949432887996544
+          ],
+          [
+            -75.15889284105552,
+            39.95140768592106
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_015",
+        "street": "Locust St",
+        "length_m": 313,
+        "decayed_mean": 3.4,
+        "n_eff": 22,
+        "top_tags": [],
+        "delta_30d": 0.01,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1718033446069,
+            39.930887104149214
+          ],
+          [
+            -75.16814163681727,
+            39.93108698011181
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_016",
+        "street": "S 33rd St",
+        "length_m": 252,
+        "decayed_mean": 3.6,
+        "n_eff": 5,
+        "top_tags": [],
+        "delta_30d": 0.16,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16555204676442,
+            39.93842835547403
+          ],
+          [
+            -75.1640734756873,
+            39.94039181259415
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_017",
+        "street": "Walnut St",
+        "length_m": 575,
+        "decayed_mean": 1.9,
+        "n_eff": 1,
+        "top_tags": [],
+        "delta_30d": -0.05,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19338156311959,
+            39.94642545155063
+          ],
+          [
+            -75.19666992042809,
+            39.950942761532964
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_018",
+        "street": "Market St",
+        "length_m": 257,
+        "decayed_mean": 2.1,
+        "n_eff": 7,
+        "top_tags": [],
+        "delta_30d": -0.15,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16919058546587,
+            39.939796308157966
+          ],
+          [
+            -75.16624727272252,
+            39.940281767542565
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_019",
+        "street": "Spruce St",
+        "length_m": 267,
+        "decayed_mean": 3.2,
+        "n_eff": 15,
+        "top_tags": [
+          {
+            "tag": "cars_too_close",
+            "p": 0.68
+          }
+        ],
+        "delta_30d": -0.15,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16932512259135,
+            39.93738753191149
+          ],
+          [
+            -75.1713508100436,
+            39.939222379048076
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_020",
+        "street": "Pine St",
+        "length_m": 215,
+        "decayed_mean": 2.1,
+        "n_eff": 16,
+        "top_tags": [],
+        "delta_30d": 0.09,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1659699476196,
+            39.9360073747891
+          ],
+          [
+            -75.16681612128477,
+            39.937828704006876
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_021",
+        "street": "S 31st St",
+        "length_m": 336,
+        "decayed_mean": 3.6,
+        "n_eff": 14,
+        "top_tags": [],
+        "delta_30d": 0.13,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.18549540643767,
+            39.947376432858405
+          ],
+          [
+            -75.18628696945459,
+            39.9444119445011
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_022",
+        "street": "Walnut St",
+        "length_m": 418,
+        "decayed_mean": 1.7,
+        "n_eff": 5,
+        "top_tags": [],
+        "delta_30d": -0.01,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1977682677731,
+            39.958862081948666
+          ],
+          [
+            -75.19492865150721,
+            39.95579332000464
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_023",
+        "street": "Market St",
+        "length_m": 480,
+        "decayed_mean": 2.6,
+        "n_eff": 14,
+        "top_tags": [
+          {
+            "tag": "low_foot_traffic",
+            "p": 0.58
+          }
+        ],
+        "delta_30d": -0.02,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19331346846373,
+            39.94768251587823
+          ],
+          [
+            -75.19720188911707,
+            39.94456076232642
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_024",
+        "street": "S 33rd St",
+        "length_m": 260,
+        "decayed_mean": 3.7,
+        "n_eff": 13,
+        "top_tags": [],
+        "delta_30d": 0.13,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16704261602973,
+            39.9500941238522
+          ],
+          [
+            -75.16401494796527,
+            39.950403731152875
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_025",
+        "street": "Market St",
+        "length_m": 154,
+        "decayed_mean": 2.4,
+        "n_eff": 19,
+        "top_tags": [],
+        "delta_30d": -0.2,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16259927019267,
+            39.94532355985185
+          ],
+          [
+            -75.16439721675171,
+            39.945451998159754
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_026",
+        "street": "Sansom St",
+        "length_m": 311,
+        "decayed_mean": 3.7,
+        "n_eff": 3,
+        "top_tags": [],
+        "delta_30d": 0,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1745292317716,
+            39.93555427128822
+          ],
+          [
+            -75.17183829082708,
+            39.93367128608963
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_027",
+        "street": "S 33rd St",
+        "length_m": 332,
+        "decayed_mean": 2,
+        "n_eff": 16,
+        "top_tags": [
+          {
+            "tag": "dogs",
+            "p": 0.75
+          }
+        ],
+        "delta_30d": 0.11,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16877543814364,
+            39.934892843117005
+          ],
+          [
+            -75.17012050718526,
+            39.932087678511344
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_028",
+        "street": "Market St",
+        "length_m": 212,
+        "decayed_mean": 2.7,
+        "n_eff": 5,
+        "top_tags": [],
+        "delta_30d": -0.1,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16974572729342,
+            39.95381792939547
+          ],
+          [
+            -75.17126491422904,
+            39.95230852763401
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_029",
+        "street": "S 34th St",
+        "length_m": 123,
+        "decayed_mean": 2,
+        "n_eff": 14,
+        "top_tags": [
+          {
+            "tag": "other",
+            "p": 0.65
+          },
+          {
+            "tag": "construction_blockage",
+            "p": 0.67
+          }
+        ],
+        "delta_30d": -0.09,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1613283796832,
+            39.954348846864185
+          ],
+          [
+            -75.16260780031932,
+            39.95383910660492
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_030",
+        "street": "Locust St",
+        "length_m": 373,
+        "decayed_mean": 3.7,
+        "n_eff": 7,
+        "top_tags": [],
+        "delta_30d": -0.16,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.18329977575317,
+            39.95754154185206
+          ],
+          [
+            -75.18526274612695,
+            39.95454637901038
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_031",
+        "street": "Pine St",
+        "length_m": 454,
+        "decayed_mean": 2.1,
+        "n_eff": 20,
+        "top_tags": [],
+        "delta_30d": 0.06,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17177492615906,
+            39.9565761015627
+          ],
+          [
+            -75.17537811572802,
+            39.959583429143294
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_032",
+        "street": "S 34th St",
+        "length_m": 163,
+        "decayed_mean": 3.4,
+        "n_eff": 20,
+        "top_tags": [],
+        "delta_30d": 0.13,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16680836623023,
+            39.930269521162145
+          ],
+          [
+            -75.16753958269814,
+            39.93161959186336
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_033",
+        "street": "Pine St",
+        "length_m": 271,
+        "decayed_mean": 4.1,
+        "n_eff": 14,
+        "top_tags": [],
+        "delta_30d": 0.17,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.15888740030141,
+            39.9455543215042
+          ],
+          [
+            -75.15856172342552,
+            39.947980769798626
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_034",
+        "street": "S 32nd St",
+        "length_m": 354,
+        "decayed_mean": 3.5,
+        "n_eff": 5,
+        "top_tags": [],
+        "delta_30d": -0.13,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19240331587568,
+            39.959419122554365
+          ],
+          [
+            -75.1943551838711,
+            39.956610313336554
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_035",
+        "street": "Pine St",
+        "length_m": 344,
+        "decayed_mean": 4.5,
+        "n_eff": 24,
+        "top_tags": [],
+        "delta_30d": 0.15,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17627568435647,
+            39.92956545268744
+          ],
+          [
+            -75.17855361522894,
+            39.9321212876155
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_036",
+        "street": "Sansom St",
+        "length_m": 447,
+        "decayed_mean": 3.9,
+        "n_eff": 1,
+        "top_tags": [],
+        "delta_30d": 0.07,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16809740345249,
+            39.95005924896383
+          ],
+          [
+            -75.16514387364639,
+            39.953384374544484
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_037",
+        "street": "Sansom St",
+        "length_m": 246,
+        "decayed_mean": 2,
+        "n_eff": 12,
+        "top_tags": [],
+        "delta_30d": 0.14,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.15984103862219,
+            39.9507284106249
+          ],
+          [
+            -75.15909918089164,
+            39.94859196727024
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_038",
+        "street": "Market St",
+        "length_m": 253,
+        "decayed_mean": 2.8,
+        "n_eff": 11,
+        "top_tags": [
+          {
+            "tag": "dogs",
+            "p": 0.68
+          }
+        ],
+        "delta_30d": -0.1,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16971767671919,
+            39.940227882293286
+          ],
+          [
+            -75.16741180760125,
+            39.9416627482011
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_039",
+        "street": "Locust St",
+        "length_m": 290,
+        "decayed_mean": 2.4,
+        "n_eff": 18,
+        "top_tags": [],
+        "delta_30d": 0.07,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19435731593147,
+            39.957476258791985
+          ],
+          [
+            -75.19229162796289,
+            39.9554084151432
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_040",
+        "street": "S 33rd St",
+        "length_m": 497,
+        "decayed_mean": 4.1,
+        "n_eff": 14,
+        "top_tags": [],
+        "delta_30d": -0.07,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1917019446306,
+            39.95339084964991
+          ],
+          [
+            -75.19542758606225,
+            39.949953069226446
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_041",
+        "street": "S 32nd St",
+        "length_m": 345,
+        "decayed_mean": 3,
+        "n_eff": 11,
+        "top_tags": [
+          {
+            "tag": "other",
+            "p": 0.61
+          },
+          {
+            "tag": "dogs",
+            "p": 0.51
+          }
+        ],
+        "delta_30d": -0.02,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19349469729886,
+            39.951755711629986
+          ],
+          [
+            -75.19728790252954,
+            39.95068536140174
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_042",
+        "street": "S 31st St",
+        "length_m": 397,
+        "decayed_mean": 2.3,
+        "n_eff": 15,
+        "top_tags": [],
+        "delta_30d": 0.2,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19465457673371,
+            39.95943941162154
+          ],
+          [
+            -75.19921071708947,
+            39.96017998306006
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_043",
+        "street": "Chestnut St",
+        "length_m": 326,
+        "decayed_mean": 3.3,
+        "n_eff": 3,
+        "top_tags": [
+          {
+            "tag": "cars_too_close",
+            "p": 0.63
+          }
+        ],
+        "delta_30d": 0.08,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17695145934006,
+            39.93621088246117
+          ],
+          [
+            -75.17623292760113,
+            39.93909493869087
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_044",
+        "street": "Sansom St",
+        "length_m": 421,
+        "decayed_mean": 3.7,
+        "n_eff": 20,
+        "top_tags": [],
+        "delta_30d": 0.04,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17111195663153,
+            39.93845678294637
+          ],
+          [
+            -75.17069034942845,
+            39.942227825052946
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_045",
+        "street": "Spruce St",
+        "length_m": 483,
+        "decayed_mean": 4.2,
+        "n_eff": 18,
+        "top_tags": [
+          {
+            "tag": "cars_too_close",
+            "p": 0.51
+          },
+          {
+            "tag": "construction_blockage",
+            "p": 0.63
+          }
+        ],
+        "delta_30d": -0.06,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16667538033822,
+            39.958083550271574
+          ],
+          [
+            -75.16964128942742,
+            39.95438147036777
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_046",
+        "street": "S 31st St",
+        "length_m": 402,
+        "decayed_mean": 2.7,
+        "n_eff": 6,
+        "top_tags": [
+          {
+            "tag": "cars_too_close",
+            "p": 0.47
+          }
+        ],
+        "delta_30d": 0.12,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16776268227609,
+            39.930353292531805
+          ],
+          [
+            -75.16757045592527,
+            39.93396122086784
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_047",
+        "street": "S 32nd St",
+        "length_m": 221,
+        "decayed_mean": 3.1,
+        "n_eff": 11,
+        "top_tags": [],
+        "delta_30d": -0.07,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17551953933459,
+            39.93085799446982
+          ],
+          [
+            -75.17353128885487,
+            39.932129059775086
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_048",
+        "street": "Pine St",
+        "length_m": 103,
+        "decayed_mean": 2.6,
+        "n_eff": 12,
+        "top_tags": [],
+        "delta_30d": -0.16,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17035665279627,
+            39.93057317488338
+          ],
+          [
+            -75.17156166908006,
+            39.93048473940631
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_049",
+        "street": "Market St",
+        "length_m": 161,
+        "decayed_mean": 2.6,
+        "n_eff": 3,
+        "top_tags": [],
+        "delta_30d": 0,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17009697808605,
+            39.92862020647316
+          ],
+          [
+            -75.16994780351381,
+            39.93006640778324
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_050",
+        "street": "S 32nd St",
+        "length_m": 139,
+        "decayed_mean": 4.5,
+        "n_eff": 11,
+        "top_tags": [],
+        "delta_30d": -0.17,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1659779392269,
+            39.93277723219665
+          ],
+          [
+            -75.16448333405714,
+            39.9322887758567
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_051",
+        "street": "Market St",
+        "length_m": 272,
+        "decayed_mean": 4,
+        "n_eff": 14,
+        "top_tags": [
+          {
+            "tag": "low_foot_traffic",
+            "p": 0.58
+          },
+          {
+            "tag": "poor_lighting",
+            "p": 0.67
+          }
+        ],
+        "delta_30d": 0.03,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1667631212608,
+            39.93265225761407
+          ],
+          [
+            -75.16365875460366,
+            39.93320356021663
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_052",
+        "street": "Sansom St",
+        "length_m": 117,
+        "decayed_mean": 2.2,
+        "n_eff": 16,
+        "top_tags": [],
+        "delta_30d": 0.12,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16878523571556,
+            39.95606156985904
+          ],
+          [
+            -75.16991885192645,
+            39.956662745282514
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_053",
+        "street": "S 34th St",
+        "length_m": 269,
+        "decayed_mean": 1.6,
+        "n_eff": 14,
+        "top_tags": [],
+        "delta_30d": 0.2,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1666546354862,
+            39.93993622824154
+          ],
+          [
+            -75.16822505704621,
+            39.942030373580664
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_054",
+        "street": "S 32nd St",
+        "length_m": 80,
+        "decayed_mean": 2.9,
+        "n_eff": 18,
+        "top_tags": [
+          {
+            "tag": "poor_lighting",
+            "p": 0.45
+          },
+          {
+            "tag": "other",
+            "p": 0.53
+          }
+        ],
+        "delta_30d": -0.02,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16836253216863,
+            39.930210900147216
+          ],
+          [
+            -75.16798067847947,
+            39.930664179713936
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_055",
+        "street": "S 32nd St",
+        "length_m": 161,
+        "decayed_mean": 1.5,
+        "n_eff": 9,
+        "top_tags": [],
+        "delta_30d": -0.13,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16421561053163,
+            39.95142086747731
+          ],
+          [
+            -75.16542839629902,
+            39.950316012189255
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_056",
+        "street": "Walnut St",
+        "length_m": 132,
+        "decayed_mean": 1.3,
+        "n_eff": 20,
+        "top_tags": [
+          {
+            "tag": "other",
+            "p": 0.56
+          },
+          {
+            "tag": "dogs",
+            "p": 0.44
+          }
+        ],
+        "delta_30d": -0.19,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.18567283218727,
+            39.96178058002889
+          ],
+          [
+            -75.1870230252102,
+            39.96120532905311
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_057",
+        "street": "Market St",
+        "length_m": 374,
+        "decayed_mean": 4.8,
+        "n_eff": 23,
+        "top_tags": [],
+        "delta_30d": 0.05,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16688957282412,
+            39.93386381753628
+          ],
+          [
+            -75.16691750463704,
+            39.930504250700686
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_058",
+        "street": "Walnut St",
+        "length_m": 306,
+        "decayed_mean": 2.2,
+        "n_eff": 3,
+        "top_tags": [
+          {
+            "tag": "dogs",
+            "p": 0.7
+          }
+        ],
+        "delta_30d": -0.19,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16855685786321,
+            39.936234126886355
+          ],
+          [
+            -75.16608222374181,
+            39.93423638866684
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_059",
+        "street": "Chestnut St",
+        "length_m": 177,
+        "decayed_mean": 4.1,
+        "n_eff": 2,
+        "top_tags": [
+          {
+            "tag": "construction_blockage",
+            "p": 0.64
+          }
+        ],
+        "delta_30d": -0.12,
+        "neighborhood": "Center City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16356538897868,
+            39.9514512626715
+          ],
+          [
+            -75.16564180965675,
+            39.951446728870735
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_060",
+        "street": "Chestnut St",
+        "length_m": 398,
+        "decayed_mean": 1.9,
+        "n_eff": 6,
+        "top_tags": [],
+        "delta_30d": -0.03,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.16519042034122,
+            39.93565042723925
+          ],
+          [
+            -75.16370884405832,
+            39.93225405746242
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_061",
+        "street": "S 33rd St",
+        "length_m": 417,
+        "decayed_mean": 2.5,
+        "n_eff": 2,
+        "top_tags": [],
+        "delta_30d": -0.14,
+        "neighborhood": "University City"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.19187460302935,
+            39.951169674560425
+          ],
+          [
+            -75.19647973297388,
+            39.94991500312537
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_062",
+        "street": "S 31st St",
+        "length_m": 263,
+        "decayed_mean": 2.6,
+        "n_eff": 14,
+        "top_tags": [],
+        "delta_30d": -0.03,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17706768306415,
+            39.93191653608066
+          ],
+          [
+            -75.17449456552724,
+            39.93322599428436
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_063",
+        "street": "Spruce St",
+        "length_m": 269,
+        "decayed_mean": 2.8,
+        "n_eff": 3,
+        "top_tags": [
+          {
+            "tag": "poor_lighting",
+            "p": 0.55
+          }
+        ],
+        "delta_30d": 0.17,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.17416223145254,
+            39.93376036073268
+          ],
+          [
+            -75.17145176815252,
+            39.93252615898391
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "segment_id": "seg_064",
+        "street": "Locust St",
+        "length_m": 255,
+        "decayed_mean": 4.4,
+        "n_eff": 6,
+        "top_tags": [
+          {
+            "tag": "dogs",
+            "p": 0.55
+          }
+        ],
+        "delta_30d": 0.01,
+        "neighborhood": "South Philly"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -75.1701646681456,
+            39.940823846233776
+          ],
+          [
+            -75.17213197252016,
+            39.94255111695072
+          ]
+        ]
+      }
+    }
   ]
 }

@@ -17,6 +17,11 @@ All notable changes to this project will be documented in this file.
 - Added `ensureSource`/`ensureLineLayer` helpers plus centralized `teardownDiaryTransient()` so rapid toggles never leak MapLibre sources or timers.
 - Expanded `window.__diary_debug` to expose cloned segment props, source/layer lists, and simulator state for audits.
 
+## 2025-11-11 15:58 — Diary data: deterministic generator and validator, expanded segments/routes
+
+- `scripts/generate_demo_data.mjs` + `scripts/validate_demo_data.mjs` now own reproducible 64-segment / 5-route demo datasets (seed = 20251111) and enforce Philly bbox + referential integrity.
+- Refreshed `data/segments_phl.demo.geojson` and `data/routes_phl.demo.geojson`; documented workflow in `docs/TEST_DATA_README.md`.
+
 ## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
 
 **Status:** ✅ M1 prep complete — Repository ready for Codex implementation

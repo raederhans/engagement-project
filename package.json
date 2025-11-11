@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "setup:diary:sh": "bash scripts/setup_diary_env.sh",
-    "setup:diary:ps": "powershell -ExecutionPolicy Bypass -File scripts/setup_diary_env.ps1"
+    "setup:diary:ps": "powershell -ExecutionPolicy Bypass -File scripts/setup_diary_env.ps1",
+    "data:gen": "node scripts/generate_demo_data.mjs --seed=20251111 --segments=64 --routes=5",
+    "data:check": "node scripts/validate_demo_data.mjs"
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",
