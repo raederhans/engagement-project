@@ -674,4 +674,157 @@
 
 ---
 
+## P1–P2 Integration: Mode Toggle, Panel Mount, Route Picker, Alt Toggle, Benefit Summary
+
+**Purpose:** Verify Phase 1 (mode toggle + panel skeleton) and Phase 2 (route picker + alt toggle + benefit summary) integration
+
+**Audit Date:** 2025-11-12
+**Branch:** feat/diary-phase2-routes
+**Commits:** Phase 1 (d95a33b, 86064a1), Phase 2 (ee5fdc4, 5d5fada)
+**Auditor:** Agent-M (monitor-only, read-only audit)
+
+### P1P2.A: Environment & Provenance
+- [x] Branch: feat/diary-phase2-routes
+- [x] Commit: 5d5fada (Phase 2 evidence)
+- [x] Git status: Clean
+- [x] Node: v22.18.0, npm: 10.9.3
+- [x] Phase 1 commits present: d95a33b, 86064a1
+- [x] Phase 2 commits present: ee5fdc4, 5d5fada
+- [x] Feature flag VITE_FEATURE_DIARY=1 in .env.local
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section A)
+
+### P1P2.B: Screenshots & CHANGELOG Verification
+- [x] p1_crime.png exists
+- [x] p1_diary_skeleton.png exists
+- [x] p2_route_main.png exists
+- [x] p2_route_alt_on.png exists
+- [x] p2_route_alt_off.png exists
+- [x] p2_summary_after_submit.png exists
+- [x] CHANGELOG Phase 1 entry: "2025-11-11 18:10 — Phase 1. Mode toggle integrated and Diary panel skeleton mounted behind feature flag"
+- [x] CHANGELOG Phase 2 entry: "2025-11-12 16:32 — Phase 2. Diary route picker, alt toggle, and live benefit summary in panel"
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section B)
+
+### P1P2.C: Data Integrity
+- [x] `npm run data:check` passes: "OK — 64 segments / 5 routes validated"
+- [x] 5 routes in data/routes_phl.demo.geojson
+- [x] All routes have segment_ids arrays
+- [x] All routes have alt_segment_ids, alt_length_m, alt_duration_min
+- [x] 3 routes have alt_geometry (route_A, route_B, route_C)
+- [x] 2 routes missing alt_geometry handled by buildGeometryFromSegments()
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section C)
+
+### P1P2.D: Phase 1 — Feature Flag & Mode Toggle
+- [x] Feature flag reads VITE_FEATURE_DIARY from environment (store.js:8)
+- [x] Mode toggle buttons (Crime / Diary) in control panel (panel.js:65-132)
+- [x] readModeFromURL() reads ?mode= query param (panel.js:453-457)
+- [x] writeModeToURL() updates URL with history.replaceState (panel.js:459-467)
+- [x] URL sync on load (main.js:41-42)
+- [x] Dynamic module loading with loadDiaryModule() (main.js:27-33)
+- [x] Race protection with viewModeToken (main.js:234-241)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section D)
+
+### P1P2.E: Phase 1 — Panel Container Mount
+- [x] Panel container created in initPanel() (panel.js:38-49)
+- [x] Mount point returned as { diaryMount } (panel.js:450)
+- [x] Passed to initDiaryMode(map, { mountInto }) (main.js:243)
+- [x] Diary module handles both mountInto and legacy floating panel (diary/index.js:344-393)
+- [x] Panel skeleton contains title, route selector, summary strip (diary/index.js:398-442)
+- [x] Teardown clears container: diaryMount.innerHTML = '' (main.js:266)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Sections D4-D6)
+
+### P1P2.F: Phase 2 — Route Picker
+- [x] Route select element created (diary/index.js:415-428)
+- [x] populateRouteOptions() populates with 5 routes (diary/index.js:554-573)
+- [x] selectRoute() handler with fitBounds option (diary/index.js:598-622)
+- [x] renderRouteSummary() displays name, from/to, mode, length, duration (diary/index.js:575-596)
+- [x] setSelectedRouteId() persists to store (store.js:133-142)
+- [x] Route selection rehydrated from store on init (diary/index.js:527-539)
+- [x] Overlay drawn with drawRouteOverlay() (diary/index.js:615)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section E1-E4)
+
+### P1P2.G: Phase 2 — Alternative Route Toggle
+- [x] Alt toggle checkbox created (diary/index.js:443-461)
+- [x] Checkbox persists to store with setDiaryAltEnabled() (store.js:144-153)
+- [x] Checkbox state rehydrated from store (diary/index.js:524-526)
+- [x] Toggle calls updateAlternativeRoute() (diary/index.js:455)
+- [x] resolveAlternativeForRoute() reads alt data from route properties (diary/index.js:869-894)
+- [x] buildGeometryFromSegments() handles missing alt_geometry (diary/index.js:896-920)
+- [x] Alternative overlay drawn with dashed line style (diary/index.js:860-865)
+- [x] clearRouteOverlay() removes layer and source when toggled off (routing_overlay.js:29-38)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section E3-E5)
+
+### P1P2.H: Phase 2 — Idempotent Overlay Implementation
+- [x] ensureSource() checks if source exists before adding (routing_overlay.js:167-177)
+- [x] ensureSource() uses setData() to update existing source
+- [x] ensureLineLayer() checks if layer exists before adding (routing_overlay.js:179-196)
+- [x] ensureLineLayer() uses setPaintProperty() to update existing layer
+- [x] ensureCircleLayer() follows same pattern (routing_overlay.js:198-210)
+- [x] drawRouteOverlay() uses idempotent helpers (routing_overlay.js:12-27)
+- [x] Debug API window.__diary_debug.listSources() available (diary/index.js:306-311)
+- [x] Debug API window.__diary_debug.listLayers() available (diary/index.js:312-317)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section E4, Section H)
+
+### P1P2.I: Phase 2 — Benefit Summary Calculation
+- [x] renderAltSummary() displays delta time, overhead %, avoided segments (diary/index.js:922-951)
+- [x] summarizeAltBenefit() calculates all metrics correctly (diary/index.js:953-971)
+- [x] Δtime = alt_duration_min - base_duration_min (line 964)
+- [x] overhead% = (alt_length_m - base_length_m) / base_length_m × 100 (line 963)
+- [x] countLowRated() uses LOW_RATING_THRESHOLD = 2.6 (diary/index.js:973-979)
+- [x] getCurrentSegmentMean() reads from localAgg first (diary/index.js:981-988)
+- [x] Benefit summary format: "+X.X min • ≈X.X% distance" (line 938-939)
+- [x] Avoided segments format: "avoids N low-rated segment(s) tonight" (line 942)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section E6)
+
+### P1P2.J: Phase 2 — Live Recompute After Rating
+- [x] handleDiarySubmissionSuccess() calls applyDiarySubmissionToAgg() (diary/index.js:672-684)
+- [x] applyDiarySubmissionToAgg() updates localAgg.get(segId).mean (diary/index.js:686-733)
+- [x] handleDiarySubmissionSuccess() calls updateAlternativeRoute({ refreshOnly: true }) (line 680)
+- [x] updateAlternativeRoute() calls renderAltSummary() (line 854)
+- [x] renderAltSummary() calls summarizeAltBenefit() (line 932)
+- [x] summarizeAltBenefit() calls countLowRated() which reads from localAgg (line 976)
+- [x] Live recompute chain confirmed: submit → update localAgg → recompute summary
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section E7)
+
+### P1P2.K: State Persistence
+- [x] store.selectedRouteId field exists (store.js:56)
+- [x] store.diaryAltEnabled field exists (store.js:57)
+- [x] setSelectedRouteId() helper persists and notifies (store.js:133-142)
+- [x] setDiaryAltEnabled() helper persists and notifies (store.js:144-153)
+- [x] Route selection rehydrated on init (diary/index.js:527-539)
+- [x] Alt toggle state rehydrated on init (diary/index.js:524-526)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section F)
+
+### P1P2.L: Teardown & Baseline Restoration
+- [x] teardownDiaryTransient() removes all overlays (diary/index.js:1271-1308)
+- [x] clearRouteOverlay() removes layer before source (routing_overlay.js:29-38)
+- [x] clearSimPoint() removes layer before source (routing_overlay.js:59-68)
+- [x] Teardown clears currentRoute and resets state (diary/index.js:1301-1302)
+- [x] Teardown on mode switch: main.js:250-267
+- [x] Container cleared: diaryMount.innerHTML = '' (main.js:266)
+- **Result:** ✅ PASS
+- **Evidence:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md (Section H)
+
+### P1P2 Summary
+- **Sections:** 12/12 PASS
+- **Issues:** 0 critical, 0 high, 0 medium, 3 low (non-blocking, deferred to M2)
+- **Phase 1:** Mode toggle, URL sync, panel mount all verified
+- **Phase 2:** Route picker, alt toggle, benefit summary, live recompute all verified
+- **Documentation:** All screenshots and CHANGELOG entries present
+- **Recommendation:** ✅ **APPROVED — Ready for M2 implementation**
+
+**Audit Report:** logs/AGENTM_AUDIT_P1P2_20251112_114814.md
+
+---
+
 **End of Checklist**
