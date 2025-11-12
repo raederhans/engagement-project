@@ -7,8 +7,8 @@ import { drawLegend } from './map/ui_legend.js';
 import { attachHover } from './map/ui_tooltip.js';
 import { wirePoints } from './map/wire_points.js';
 import { updateAllCharts } from './charts/index.js';
-import { store, initCoverageAndDefaults } from './state/store.js';
-import { initPanel } from './ui/panel.js';
+import { store, initCoverageAndDefaults, setViewMode, onViewModeChange } from './state/store.js';
+import { initPanel, readModeFromURL, writeModeToURL } from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
 import { refreshPoints } from './map/points.js';
 import { updateCompare } from './compare/card.js';
@@ -21,12 +21,25 @@ import { initLegend } from './map/legend.js';
 import { upsertTractsOutline } from './map/tracts_layers.js';
 import { fetchTractsCachedFirst } from './api/boundaries.js';
 
+const diaryFeatureEnabled = store.diaryFeatureOn;
+let diaryModulePromise = null;
+
+function loadDiaryModule() {
+  if (!diaryFeatureEnabled) return null;
+  if (!diaryModulePromise) {
+    diaryModulePromise = import('./routes_diary/index.js');
+  }
+  return diaryModulePromise;
+}
+
 window.__dashboard = {
   setChoropleth: (/* future hook */) => {},
 };
 
 window.addEventListener('DOMContentLoaded', async () => {
   const map = initMap();
+  const initialMode = setViewMode(readModeFromURL(), { silent: true });
+  writeModeToURL(initialMode);
 
   // Align defaults with dataset coverage
   try {
@@ -49,26 +62,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
       // Initialize about panel (top slide-down)
       initAboutPanel();
-
-      // [DIARY_FLAG] Route Safety Diary bootstrap
-      if (import.meta?.env?.VITE_FEATURE_DIARY === '1') {
-        import('./routes_diary/index.js')
-          .then(async (mod) => {
-            if (typeof mod?.initDiaryMode !== 'function') {
-              console.warn('[Diary] initDiaryMode missing from module export.');
-              return;
-            }
-            try {
-              const stats = await mod.initDiaryMode(map);
-              console.info('[Diary] wired in:', stats);
-            } catch (err) {
-              console.error('[Diary] init failed:', err);
-            }
-          })
-          .catch((err) => {
-            console.error('[Diary] init loader failed:', err);
-          });
-      }
 
       // Render districts (legend updated inside)
       renderDistrictChoropleth(map, merged);
@@ -125,7 +118,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let _tractClickWired = false;
   let _districtClickWired = false;
   async function refreshAll() {
-    const { start, end, types, drilldownCodes, queryMode, selectedDistrictCode, selectedTractGEOID } = store.getFilters();
+  const { start, end, types, drilldownCodes, queryMode, selectedDistrictCode, selectedTractGEOID } = store.getFilters();
     try {
       if (store.adminLevel === 'tracts') {
         const merged = await getTractsMerged({ per10k: store.per10k, windowStart: start, windowEnd: end });
@@ -223,7 +216,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  initPanel(store, {
+  const { diaryMount } = initPanel(store, {
     onChange: refreshAll,
     getMapCenter: () => map.getCenter(),
     onTractsOverlayToggle: (visible) => {
@@ -233,6 +226,51 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     },
   });
+
+  let diaryActive = false;
+  let viewModeToken = 0;
+  const handleViewModeChange = async (mode) => {
+    writeModeToURL(mode);
+    viewModeToken += 1;
+    const token = viewModeToken;
+    if (mode === 'diary' && diaryFeatureEnabled) {
+      try {
+        const modPromise = loadDiaryModule();
+        if (!modPromise) return;
+        const mod = await modPromise;
+        if (token !== viewModeToken) return;
+        if (typeof mod?.initDiaryMode === 'function') {
+          await mod.initDiaryMode(map, { mountInto: diaryMount || null });
+        }
+        diaryActive = true;
+      } catch (err) {
+        console.error('[Diary] init failed:', err);
+      }
+    } else {
+      if (diaryActive) {
+        try {
+          const modPromise = loadDiaryModule();
+          if (modPromise) {
+            const mod = await modPromise;
+            if (typeof mod?.teardownDiaryTransient === 'function') {
+              mod.teardownDiaryTransient(map, { silent: true });
+            } else if (typeof mod?.teardownDiaryMode === 'function') {
+              mod.teardownDiaryMode(map);
+            }
+          }
+        } catch (err) {
+          console.error('[Diary] teardown failed:', err);
+        }
+      }
+      diaryActive = false;
+      if (diaryMount) diaryMount.innerHTML = '';
+    }
+  };
+
+  onViewModeChange((mode) => {
+    void handleViewModeChange(mode);
+  });
+  void handleViewModeChange(store.viewMode);
 
   // Selection mode: click to set A and update buffer circle
   function updateBuffer() {

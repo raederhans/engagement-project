@@ -5,6 +5,9 @@ import dayjs from 'dayjs';
 import { expandGroupsToCodes } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
 
+const diaryFeatureOn = typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1';
+const viewModeListeners = new Set();
+
 /**
  * @typedef {object} Store
  * @property {string|null} addressA
@@ -49,6 +52,8 @@ export const store = /** @type {Store} */ ({
   diaryMode: false,        // Whether diary mode is active
   userHash: null,          // Anonymous user hash (M2)
   myRoutes: [],            // Saved routes (M3)
+  diaryFeatureOn,
+  viewMode: 'crime',
   // Choropleth classification
   classMethod: 'quantile',
   classBins: 5,
@@ -90,6 +95,35 @@ export const store = /** @type {Store} */ ({
     this.centerLonLat = [lng, lat];
   },
 });
+
+export function setViewMode(mode, { silent = false } = {}) {
+  let normalized = mode === 'diary' ? 'diary' : 'crime';
+  if (normalized === 'diary' && !diaryFeatureOn) {
+    normalized = 'crime';
+  }
+  if (store.viewMode === normalized) {
+    store.diaryMode = normalized === 'diary';
+    return normalized;
+  }
+  store.viewMode = normalized;
+  store.diaryMode = normalized === 'diary';
+  if (!silent) {
+    for (const listener of viewModeListeners) {
+      try {
+        listener(normalized);
+      } catch (err) {
+        console.warn('[store] viewMode listener failed:', err);
+      }
+    }
+  }
+  return normalized;
+}
+
+export function onViewModeChange(listener) {
+  if (typeof listener !== 'function') return () => {};
+  viewModeListeners.add(listener);
+  return () => viewModeListeners.delete(listener);
+}
 
 /**
  * Probe coverage and set default window to last 12 months ending at coverage max.

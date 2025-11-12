@@ -1108,7 +1108,7 @@ function stopAllTimersAndListeners({ silent = false } = {}) {
   }
 }
 
-function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
+export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
   const targetMap = map || mapRef;
   stopAllTimersAndListeners({ silent: true });
   if (targetMap) {
@@ -1211,8 +1211,12 @@ export async function loadDemoRoutes({ force = false } = {}) {
  * Initialize Route Safety Diary mode
  * @param {MapLibreMap} map - MapLibre GL map instance
  */
-export async function initDiaryMode(map) {
+export async function initDiaryMode(map, options = {}) {
+  const mountTarget = options?.mountInto || null;
   const stats = { segmentsCount: 0, routesCount: 0 };
+  if (mountTarget) {
+    mountTarget.setAttribute('data-diary-mounted', 'true');
+  }
   if (import.meta?.env?.VITE_FEATURE_DIARY !== '1') {
     diaryFlagOff();
     return stats;
