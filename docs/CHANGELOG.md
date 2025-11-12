@@ -580,4 +580,6 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-12 19:45 — Phase 3. Panel Rate flow + Simulator controls + audit probes (idempotence/perf)
 
+## 2025-11-12 22:05 — Phase 4. Hover-card CTA UI parity, session throttling hints, state persistence, stress probe
+
 ## 2025-11-12 11:54 — Audit P1–P2. Mode toggle, panel mount, route picker, alt toggle, and summary verified
