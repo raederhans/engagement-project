@@ -7,6 +7,7 @@ import { fetchCoverage } from '../api/meta.js';
 
 const diaryFeatureOn = typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1';
 const viewModeListeners = new Set();
+const diaryStateListeners = new Set();
 
 /**
  * @typedef {object} Store
@@ -50,6 +51,10 @@ export const store = /** @type {Store} */ ({
   didAutoAlignAdmin: false, // One-time auto-align flag for Tract mode → adminLevel 'tracts'
   // [DIARY_FLAG] Route Safety Diary placeholder state (M1 prep, no behavior yet)
   diaryMode: false,        // Whether diary mode is active
+  diaryFeatureOn,
+  viewMode: 'crime',       // 'crime' | 'diary'
+  selectedRouteId: null,
+  diaryAltEnabled: false,
   userHash: null,          // Anonymous user hash (M2)
   myRoutes: [],            // Saved routes (M3)
   diaryFeatureOn,
@@ -123,6 +128,34 @@ export function onViewModeChange(listener) {
   if (typeof listener !== 'function') return () => {};
   viewModeListeners.add(listener);
   return () => viewModeListeners.delete(listener);
+}
+
+export function setSelectedRouteId(routeId) {
+  store.selectedRouteId = routeId || null;
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('route', store.selectedRouteId);
+    } catch (err) {
+      console.warn('[store] diary route listener failed:', err);
+    }
+  }
+}
+
+export function setDiaryAltEnabled(enabled) {
+  store.diaryAltEnabled = !!enabled;
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('alt', store.diaryAltEnabled);
+    } catch (err) {
+      console.warn('[store] diary alt listener failed:', err);
+    }
+  }
+}
+
+export function onDiaryStateChange(listener) {
+  if (typeof listener !== 'function') return () => {};
+  diaryStateListeners.add(listener);
+  return () => diaryStateListeners.delete(listener);
 }
 
 /**

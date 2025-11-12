@@ -13,6 +13,7 @@ import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSe
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
+import { store, setSelectedRouteId, setDiaryAltEnabled } from '../state/store.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -51,6 +52,7 @@ let summaryStripEl = null;
 let rateButtonEl = null;
 let altToggleEl = null;
 let altSummaryEl = null;
+let diaryPanelFloating = false;
 let playButtonEl = null;
 let pauseButtonEl = null;
 let finishButtonEl = null;
@@ -339,32 +341,66 @@ function ensureMap(message) {
   return mapRef;
 }
 
-function ensureDiaryPanel(routes) {
+function ensureDiaryPanel(routes, options = {}) {
   if (typeof document === 'undefined') return;
   if (!routes) return;
+  const mountTarget = options?.mountInto || null;
+
+  if (mountTarget && diaryPanelEl !== mountTarget) {
+    diaryPanelEl = mountTarget;
+    diaryPanelEl.innerHTML = '';
+    diaryPanelFloating = false;
+    routeSelectEl = null;
+    summaryStripEl = null;
+    altToggleEl = null;
+    altSummaryEl = null;
+    playButtonEl = null;
+    pauseButtonEl = null;
+    finishButtonEl = null;
+    rateButtonEl = null;
+  }
 
   if (!diaryPanelEl) {
-    const panel = document.createElement('div');
-    panel.id = 'diary-route-panel';
-    panel.style.position = 'absolute';
-    panel.style.top = '88px';
-    panel.style.left = '24px';
-    panel.style.width = '280px';
-    panel.style.zIndex = '20';
-    panel.style.background = 'rgba(255,255,255,0.95)';
-    panel.style.border = '1px solid #e5e7eb';
-    panel.style.borderRadius = '12px';
-    panel.style.boxShadow = '0 10px 30px rgba(15,23,42,0.08)';
-    panel.style.padding = '16px';
-    panel.style.font = '13px/1.4 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    panel.style.color = '#0f172a';
+    const panel = mountTarget || document.createElement('div');
+    if (!mountTarget) {
+      panel.id = 'diary-route-panel';
+      panel.style.position = 'absolute';
+      panel.style.top = '88px';
+      panel.style.left = '24px';
+      panel.style.width = '280px';
+      panel.style.zIndex = '20';
+      panel.style.background = 'rgba(255,255,255,0.95)';
+      panel.style.border = '1px solid #e5e7eb';
+      panel.style.borderRadius = '12px';
+      panel.style.boxShadow = '0 10px 30px rgba(15,23,42,0.08)';
+      panel.style.padding = '16px';
+      panel.style.font = '13px/1.4 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      panel.style.color = '#0f172a';
+      panel.setAttribute('data-diary-floating', 'true');
+      document.body.appendChild(panel);
+      diaryPanelFloating = true;
+    } else {
+      panel.style.position = 'relative';
+      panel.style.background = '#fff';
+      panel.style.border = '1px solid #e2e8f0';
+      panel.style.borderRadius = '12px';
+      panel.style.padding = '16px';
+      panel.style.boxShadow = 'inset 0 0 0 1px rgba(148,163,184,0.2)';
+      panel.style.minHeight = '220px';
+      diaryPanelFloating = false;
+    }
+    diaryPanelEl = panel;
+  }
+
+  if (!routeSelectEl || !routeSelectEl.isConnected) {
+    diaryPanelEl.innerHTML = '';
 
     const title = document.createElement('div');
     title.textContent = 'Route Safety Diary (demo)';
     title.style.fontWeight = '600';
     title.style.fontSize = '14px';
     title.style.marginBottom = '8px';
-    panel.appendChild(title);
+    diaryPanelEl.appendChild(title);
 
     const selectLabel = document.createElement('label');
     selectLabel.textContent = 'Choose a demo route';
@@ -374,7 +410,7 @@ function ensureDiaryPanel(routes) {
     selectLabel.style.letterSpacing = '0.05em';
     selectLabel.style.color = '#64748b';
     selectLabel.style.marginBottom = '4px';
-    panel.appendChild(selectLabel);
+    diaryPanelEl.appendChild(selectLabel);
 
     routeSelectEl = document.createElement('select');
     routeSelectEl.style.width = '100%';
@@ -389,7 +425,7 @@ function ensureDiaryPanel(routes) {
         selectRoute(routeId, { fitBounds: true });
       }
     });
-    panel.appendChild(routeSelectEl);
+    diaryPanelEl.appendChild(routeSelectEl);
 
     summaryStripEl = document.createElement('div');
     summaryStripEl.id = 'diary-route-summary';
@@ -402,7 +438,7 @@ function ensureDiaryPanel(routes) {
     summaryStripEl.style.flexDirection = 'column';
     summaryStripEl.style.gap = '4px';
     summaryStripEl.textContent = 'Select a route to see its details.';
-    panel.appendChild(summaryStripEl);
+    diaryPanelEl.appendChild(summaryStripEl);
 
     const altToggleRow = document.createElement('label');
     altToggleRow.style.display = 'flex';
@@ -415,13 +451,14 @@ function ensureDiaryPanel(routes) {
     altToggleEl.type = 'checkbox';
     altToggleEl.style.cursor = 'pointer';
     altToggleEl.addEventListener('change', () => {
+      setDiaryAltEnabled(altToggleEl.checked);
       updateAlternativeRoute();
     });
     const altToggleText = document.createElement('span');
     altToggleText.textContent = 'Show alternative route';
     altToggleRow.appendChild(altToggleEl);
     altToggleRow.appendChild(altToggleText);
-    panel.appendChild(altToggleRow);
+    diaryPanelEl.appendChild(altToggleRow);
 
     altSummaryEl = document.createElement('div');
     altSummaryEl.style.marginTop = '8px';
@@ -432,7 +469,7 @@ function ensureDiaryPanel(routes) {
     altSummaryEl.style.fontSize = '12px';
     altSummaryEl.style.color = '#334155';
     altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
-    panel.appendChild(altSummaryEl);
+    diaryPanelEl.appendChild(altSummaryEl);
 
     const simControls = document.createElement('div');
     simControls.style.display = 'flex';
@@ -457,7 +494,7 @@ function ensureDiaryPanel(routes) {
     finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
     simControls.appendChild(finishButtonEl);
 
-    panel.appendChild(simControls);
+    diaryPanelEl.appendChild(simControls);
 
     rateButtonEl = document.createElement('button');
     rateButtonEl.type = 'button';
@@ -479,14 +516,28 @@ function ensureDiaryPanel(routes) {
         openRouteRating();
       }
     });
-    panel.appendChild(rateButtonEl);
-
-    document.body.appendChild(panel);
-    diaryPanelEl = panel;
+    diaryPanelEl.appendChild(rateButtonEl);
   }
 
   populateRouteOptions(routes);
   updateSimButtons();
+  if (altToggleEl) {
+    altToggleEl.checked = !!store.diaryAltEnabled;
+  }
+  let desiredRouteId = store.selectedRouteId || null;
+  if (!desiredRouteId) {
+    const first = routes.features?.[0]?.properties?.route_id;
+    if (first) {
+      desiredRouteId = first;
+    }
+  }
+  if (desiredRouteId && routeById.has(desiredRouteId)) {
+    if (routeSelectEl) {
+      routeSelectEl.value = desiredRouteId;
+    }
+    selectRoute(desiredRouteId, { fitBounds: false });
+  }
+  updateAlternativeRoute({ refreshOnly: true });
 }
 
 function styleSimButton(btn) {
@@ -515,8 +566,9 @@ function populateRouteOptions(routes) {
     option.textContent = props.name || props.route_id;
     routeSelectEl.appendChild(option);
   });
-  if (previous) {
-    routeSelectEl.value = previous;
+  const desired = store.selectedRouteId || previous;
+  if (desired) {
+    routeSelectEl.value = desired;
   }
 }
 
@@ -550,6 +602,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   }
   const feature = routeById.get(routeId);
   currentRoute = feature;
+  setSelectedRouteId(routeId);
   renderRouteSummary(feature);
   if (routeSelectEl && routeSelectEl.value !== routeId) {
     routeSelectEl.value = routeId;
@@ -798,14 +851,9 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
   }
   const shouldShow = altToggleEl?.checked;
   const altInfo = resolveAlternativeForRoute(currentRoute);
-  if (!shouldShow) {
+  renderAltSummary(currentRoute, altInfo || null);
+  if (!shouldShow || !altInfo) {
     clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
-    renderAltSummary(currentRoute, null);
-    return;
-  }
-  if (!altInfo) {
-    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
-    renderAltSummary(currentRoute, null);
     return;
   }
   if (!refreshOnly) {
@@ -816,7 +864,6 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
       dasharray: [0.5, 1],
     });
   }
-  renderAltSummary(currentRoute, altInfo);
 }
 
 function resolveAlternativeForRoute(routeFeature) {
@@ -878,12 +925,8 @@ function renderAltSummary(route, altInfo) {
     altSummaryEl.textContent = 'Select a route to compare alternatives.';
     return;
   }
-  if (!altToggleEl || !altToggleEl.checked) {
-    altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
-    return;
-  }
   if (!altInfo) {
-    altSummaryEl.textContent = 'Current route is best for now.';
+    altSummaryEl.textContent = 'Alternative data unavailable.';
     return;
   }
   const summary = summarizeAltBenefit(route, altInfo.meta);
@@ -891,16 +934,19 @@ function renderAltSummary(route, altInfo) {
     altSummaryEl.textContent = 'Alternative data unavailable.';
     return;
   }
-  const avoided = summary.pLow - summary.aLow;
-  if (avoided <= 0) {
-    altSummaryEl.textContent = 'Current route is best for now.';
-    return;
+  const avoided = Math.max(0, summary.pLow - summary.aLow);
+  const deltaLabel = summary.deltaMin > 0 ? `+${summary.deltaMin.toFixed(1)} min` : `${summary.deltaMin.toFixed(1)} min`;
+  const pctLabel = `≈${summary.overheadPct.toFixed(1)}% distance`;
+  let reason = 'Current route is best for now.';
+  if (avoided > 0) {
+    reason = `avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'} tonight`;
+  } else if (summary.overheadPct <= 0) {
+    reason = 'No distance penalty tonight';
   }
-  const deltaLabel = summary.deltaMin > 0 ? `+${summary.deltaMin} min` : `${summary.deltaMin} min`;
-  const pctLabel = `≈${summary.overheadPct.toFixed(1)}%`;
   altSummaryEl.innerHTML = `
-    <div style="font-weight:600;color:#0f172a;font-size:12px;">Alternative benefit</div>
-    <div style="font-size:12px;color:#334155;">${deltaLabel}, ${pctLabel}, avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'}.</div>
+    <div style="font-weight:600;color:#0f172a;font-size:12px;">Alternative comparison</div>
+    <div style="font-size:12px;color:#334155;margin-top:2px;">${deltaLabel} • ${pctLabel}</div>
+    <div style="font-size:12px;color:#475569;margin-top:4px;">${reason}</div>
   `;
 }
 
@@ -1279,13 +1325,18 @@ export function teardownDiaryMode(map) {
   layerMounted = false;
   closeRatingModal();
   if (diaryPanelEl) {
-    diaryPanelEl.remove();
+    if (diaryPanelFloating) {
+      diaryPanelEl.remove();
+    } else {
+      diaryPanelEl.innerHTML = '';
+    }
     diaryPanelEl = null;
     routeSelectEl = null;
     summaryStripEl = null;
     rateButtonEl = null;
     altToggleEl = null;
     altSummaryEl = null;
+    diaryPanelFloating = false;
   }
   currentRoute = null;
   if (toastEl) {
