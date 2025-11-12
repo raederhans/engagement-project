@@ -575,3 +575,5 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-07 13:35 — Diary U1: baseline segment rendering with hover card
 ## 2025-11-11 18:10 — Phase 1. Mode toggle integrated and Diary panel skeleton mounted behind feature flag
+
+## 2025-11-12 16:32 — Phase 2. Diary route picker, alt toggle, and live benefit summary in panel
