@@ -165,8 +165,9 @@ for (let i = 0; i < routeCount; i += 1) {
       alt_duration_min: Math.max(5, Math.round(altLength / (mode === 'bike' ? 210 : 95))),
     },
   };
-  if (i < 3) {
-    routeFeature.properties.alt_geometry = stitchGeometry(altSegments);
+  const altGeom = stitchGeometry(altSegments);
+  if (altGeom) {
+    routeFeature.properties.alt_geometry = altGeom;
   }
   routes.push(routeFeature);
 }

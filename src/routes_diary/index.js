@@ -13,7 +13,7 @@ import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSe
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
-import { store, setSelectedRouteId, setDiaryAltEnabled } from '../state/store.js';
+import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState } from '../state/store.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -52,6 +52,8 @@ let summaryStripEl = null;
 let rateButtonEl = null;
 let altToggleEl = null;
 let altSummaryEl = null;
+let panelNoticeEl = null;
+let panelNoticeTimer = null;
 let diaryPanelFloating = false;
 let playButtonEl = null;
 let pauseButtonEl = null;
@@ -63,6 +65,8 @@ const USER_HASH_KEY = 'diary_demo_user_hash';
 let cachedUserHash = null;
 const localAgg = new Map();
 let baseSegmentsFC = null;
+let perfLastSubmit = { ms: null, at: null };
+const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
@@ -303,18 +307,8 @@ function exposeDebugAPI() {
       const agg = localAgg.get(segmentId);
       return agg ? JSON.parse(JSON.stringify(agg)) : null;
     },
-    listSources: () => {
-      const map = mapRef;
-      if (!map || typeof map.getStyle !== 'function') return [];
-      const style = map.getStyle() || {};
-      return Object.keys(style.sources || {});
-    },
-    listLayers: () => {
-      const map = mapRef;
-      if (!map || typeof map.getStyle !== 'function') return [];
-      const style = map.getStyle() || {};
-      return (style.layers || []).map((layer) => layer.id);
-    },
+    listSources: () => captureMapState().sources,
+    listLayers: () => captureMapState().layers,
     simState: () =>
       JSON.parse(
         JSON.stringify({
@@ -325,8 +319,11 @@ function exposeDebugAPI() {
           paused: sim.paused,
           hasStarted: sim.hasStarted,
           playedOnce: sim.playedOnce,
+          stored: store.simState || {},
         })
       ),
+    runP3IdempotenceCycles: (opts) => runP3IdempotenceCycles(opts),
+    getPerfSnapshot: () => ({ ...getPerfSnapshot() }),
   });
 }
 
@@ -354,6 +351,7 @@ function ensureDiaryPanel(routes, options = {}) {
     summaryStripEl = null;
     altToggleEl = null;
     altSummaryEl = null;
+    panelNoticeEl = null;
     playButtonEl = null;
     pauseButtonEl = null;
     finishButtonEl = null;
@@ -451,8 +449,7 @@ function ensureDiaryPanel(routes, options = {}) {
     altToggleEl.type = 'checkbox';
     altToggleEl.style.cursor = 'pointer';
     altToggleEl.addEventListener('change', () => {
-      setDiaryAltEnabled(altToggleEl.checked);
-      updateAlternativeRoute();
+      applyAltToggleState(altToggleEl.checked);
     });
     const altToggleText = document.createElement('span');
     altToggleText.textContent = 'Show alternative route';
@@ -470,6 +467,38 @@ function ensureDiaryPanel(routes, options = {}) {
     altSummaryEl.style.color = '#334155';
     altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
     diaryPanelEl.appendChild(altSummaryEl);
+
+    panelNoticeEl = document.createElement('div');
+    panelNoticeEl.style.marginTop = '10px';
+    panelNoticeEl.style.borderRadius = '8px';
+    panelNoticeEl.style.padding = '8px 10px';
+    panelNoticeEl.style.fontSize = '12px';
+    panelNoticeEl.style.display = 'none';
+    panelNoticeEl.style.background = '#ecfdf5';
+    panelNoticeEl.style.color = '#065f46';
+    diaryPanelEl.appendChild(panelNoticeEl);
+
+    rateButtonEl = document.createElement('button');
+    rateButtonEl.type = 'button';
+    rateButtonEl.textContent = 'Rate this route';
+    rateButtonEl.style.marginTop = '12px';
+    rateButtonEl.style.width = '100%';
+    rateButtonEl.style.padding = '10px 12px';
+    rateButtonEl.style.border = 'none';
+    rateButtonEl.style.borderRadius = '8px';
+    rateButtonEl.style.fontWeight = '600';
+    rateButtonEl.style.fontSize = '13px';
+    rateButtonEl.style.background = '#0f172a';
+    rateButtonEl.style.color = '#fff';
+    rateButtonEl.style.cursor = 'pointer';
+    rateButtonEl.disabled = true;
+    rateButtonEl.style.opacity = '0.6';
+    rateButtonEl.addEventListener('click', () => {
+      if (!rateButtonEl.disabled) {
+        openRouteRating();
+      }
+    });
+    diaryPanelEl.appendChild(rateButtonEl);
 
     const simControls = document.createElement('div');
     simControls.style.display = 'flex';
@@ -495,35 +524,10 @@ function ensureDiaryPanel(routes, options = {}) {
     simControls.appendChild(finishButtonEl);
 
     diaryPanelEl.appendChild(simControls);
-
-    rateButtonEl = document.createElement('button');
-    rateButtonEl.type = 'button';
-    rateButtonEl.textContent = 'Rate this route';
-    rateButtonEl.style.marginTop = '12px';
-    rateButtonEl.style.width = '100%';
-    rateButtonEl.style.padding = '10px 12px';
-    rateButtonEl.style.border = 'none';
-    rateButtonEl.style.borderRadius = '8px';
-    rateButtonEl.style.fontWeight = '600';
-    rateButtonEl.style.fontSize = '13px';
-    rateButtonEl.style.background = '#0f172a';
-    rateButtonEl.style.color = '#fff';
-    rateButtonEl.style.cursor = 'pointer';
-    rateButtonEl.disabled = true;
-    rateButtonEl.style.opacity = '0.6';
-    rateButtonEl.addEventListener('click', () => {
-      if (!rateButtonEl.disabled) {
-        openRouteRating();
-      }
-    });
-    diaryPanelEl.appendChild(rateButtonEl);
   }
 
   populateRouteOptions(routes);
   updateSimButtons();
-  if (altToggleEl) {
-    altToggleEl.checked = !!store.diaryAltEnabled;
-  }
   let desiredRouteId = store.selectedRouteId || null;
   if (!desiredRouteId) {
     const first = routes.features?.[0]?.properties?.route_id;
@@ -537,7 +541,8 @@ function ensureDiaryPanel(routes, options = {}) {
     }
     selectRoute(desiredRouteId, { fitBounds: false });
   }
-  updateAlternativeRoute({ refreshOnly: true });
+  applyAltToggleState(store.diaryAltEnabled, { update: true });
+  hydrateSimulatorFromPrefs();
 }
 
 function styleSimButton(btn) {
@@ -603,6 +608,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   const feature = routeById.get(routeId);
   currentRoute = feature;
   setSelectedRouteId(routeId);
+  setSimPanelState({ playing: false, progress: 0, routeId });
   renderRouteSummary(feature);
   if (routeSelectEl && routeSelectEl.value !== routeId) {
     routeSelectEl.value = routeId;
@@ -671,6 +677,7 @@ function openRouteRating() {
 
 function handleDiarySubmissionSuccess(payload, response) {
   if (!payload) return;
+  const perfStart = nowMs();
   applyDiarySubmissionToAgg(payload);
   const refreshed = buildSegmentsFCFromBase();
   if (refreshed && mapRef) {
@@ -679,6 +686,10 @@ function handleDiarySubmissionSuccess(payload, response) {
   }
   updateAlternativeRoute({ refreshOnly: true });
   showToast('Thanks — your feedback has been recorded for this demo.');
+  const affectedCount = new Set(payload.segment_ids || []).size || 1;
+  showPanelNotice(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
+  perfLastSubmit = { ms: Math.max(0, Math.round(nowMs() - perfStart)), at: new Date().toISOString() };
+  console.info('[Diary] repaint latency (ms):', perfLastSubmit.ms);
   console.info('[Diary] submit payload', payload);
   console.info('[Diary] stub response', response);
 }
@@ -849,7 +860,7 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
     renderAltSummary(null, { reason: 'no-route' });
     return;
   }
-  const shouldShow = altToggleEl?.checked;
+  const shouldShow = !!store.diaryAltEnabled;
   const altInfo = resolveAlternativeForRoute(currentRoute);
   renderAltSummary(currentRoute, altInfo || null);
   if (!shouldShow || !altInfo) {
@@ -950,6 +961,19 @@ function renderAltSummary(route, altInfo) {
   `;
 }
 
+function applyAltToggleState(enabled, { update = true } = {}) {
+  const next = !!enabled;
+  if (altToggleEl) {
+    altToggleEl.checked = next;
+  }
+  setDiaryAltEnabled(next);
+  if (update) {
+    updateAlternativeRoute({ refreshOnly: false });
+  } else {
+    updateAlternativeRoute({ refreshOnly: true });
+  }
+}
+
 function summarizeAltBenefit(primaryRoute, altMeta) {
   if (!primaryRoute || !altMeta) return null;
   const primaryIds = primaryRoute.properties?.segment_ids || [];
@@ -970,6 +994,59 @@ function summarizeAltBenefit(primaryRoute, altMeta) {
   };
 }
 
+const delay = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function captureMapState() {
+  if (!mapRef || typeof mapRef.getStyle !== 'function') {
+    return { sources: [], layers: [] };
+  }
+  const style = mapRef.getStyle() || {};
+  return {
+    sources: Object.keys(style.sources || {}),
+    layers: (style.layers || []).map((layer) => layer.id),
+  };
+}
+
+const getPerfSnapshot = () => ({
+  ms: perfLastSubmit.ms,
+  at: perfLastSubmit.at,
+  text: perfLastSubmit.ms == null ? 'n/a' : `${perfLastSubmit.ms} ms (submit → repaint)`,
+});
+
+async function runP3IdempotenceCycles({ cycles = 20, delayMs = 75 } = {}) {
+  if (!mapRef) {
+    return { stable: false, reason: 'map-not-ready', duplicates: [] };
+  }
+  const routeIds = Array.from(routeById.keys());
+  if (!routeIds.length) {
+    return { stable: false, reason: 'no-routes', duplicates: [] };
+  }
+  const duplicates = [];
+  for (let i = 0; i < cycles; i += 1) {
+    const routeId = routeIds[i % routeIds.length];
+    selectRoute(routeId, { fitBounds: false });
+    await delay(delayMs);
+    applyAltToggleState(true);
+    await delay(delayMs);
+    applyAltToggleState(false);
+    await delay(delayMs);
+    const snapshot = captureMapState();
+    if (new Set(snapshot.sources).size !== snapshot.sources.length) {
+      duplicates.push({ cycle: i, type: 'sources', snapshot: snapshot.sources.slice() });
+    }
+    if (new Set(snapshot.layers).size !== snapshot.layers.length) {
+      duplicates.push({ cycle: i, type: 'layers', snapshot: snapshot.layers.slice() });
+    }
+  }
+  const finalSnapshot = captureMapState();
+  return {
+    stable: duplicates.length === 0,
+    sources: finalSnapshot.sources,
+    layers: finalSnapshot.layers,
+    duplicates,
+  };
+}
+
 function countLowRated(segmentIds) {
   if (!segmentIds) return 0;
   return segmentIds.reduce((sum, id) => {
@@ -985,6 +1062,19 @@ function getCurrentSegmentMean(segId) {
   const feature = segmentLookup.get(segId);
   const props = feature?.properties || {};
   return Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
+}
+
+function getSimProgressRatio() {
+  if (!sim.coords || sim.coords.length <= 1) return 0;
+  return Math.min(1, sim.idx / (sim.coords.length - 1));
+}
+
+function persistSimProgress(playing) {
+  setSimPanelState({
+    playing: !!playing,
+    progress: getSimProgressRatio(),
+    routeId: currentRoute?.properties?.route_id || null,
+  });
 }
 
 function registerSimCleanup(fn) {
@@ -1091,6 +1181,7 @@ function startSim() {
   drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
   sim.timer = setInterval(stepSim, SIM_INTERVAL_MS);
   updateSimButtons();
+  persistSimProgress(true);
 }
 
 function stepSim() {
@@ -1101,6 +1192,7 @@ function stepSim() {
     return;
   }
   drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
+  persistSimProgress(true);
 }
 
 function pauseSim() {
@@ -1112,6 +1204,7 @@ function pauseSim() {
   sim.paused = true;
   sim.active = false;
   updateSimButtons();
+  persistSimProgress(false);
 }
 
 function finishSim({ openModal = true } = {}) {
@@ -1121,6 +1214,7 @@ function finishSim({ openModal = true } = {}) {
   sim.hasStarted = false;
   clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
   updateSimButtons();
+  persistSimProgress(false);
   if (openModal) {
     openRouteRating();
   }
@@ -1142,6 +1236,7 @@ function teardownSim({ silent = false } = {}) {
     clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
   }
   cleanupSimLifecycleHooks();
+  setSimPanelState({ playing: false, progress: 0, routeId: null });
   if (!silent) {
     updateSimButtons();
   }
@@ -1170,7 +1265,7 @@ export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
 function updateSimButtons() {
   const hasRoute = Boolean(currentRoute);
   if (playButtonEl) {
-    playButtonEl.disabled = !hasRoute;
+    playButtonEl.disabled = !hasRoute || (sim.active && !sim.paused);
     playButtonEl.style.opacity = playButtonEl.disabled ? '0.6' : '1';
   }
   if (pauseButtonEl) {
@@ -1182,9 +1277,28 @@ function updateSimButtons() {
     finishButtonEl.style.opacity = finishButtonEl.disabled ? '0.6' : '1';
   }
   if (rateButtonEl) {
-    rateButtonEl.disabled = !hasRoute || !sim.playedOnce;
+    rateButtonEl.disabled = !hasRoute;
     rateButtonEl.style.opacity = rateButtonEl.disabled ? '0.6' : '1';
   }
+}
+
+function hydrateSimulatorFromPrefs() {
+  const prefs = store.simState || {};
+  const matchesRoute = currentRoute && prefs.routeId === currentRoute.properties?.route_id;
+  if (!matchesRoute || !prefs.progress) {
+    sim.hasStarted = false;
+    sim.playedOnce = false;
+    sim.active = false;
+    sim.paused = true;
+    sim.idx = 0;
+    updateSimButtons();
+    return;
+  }
+  sim.hasStarted = true;
+  sim.playedOnce = true;
+  sim.active = false;
+  sim.paused = true;
+  updateSimButtons();
 }
 
 function getUserHash() {
@@ -1233,6 +1347,35 @@ function showToast(message, duration = 2600) {
     toastEl = null;
     toastTimer = null;
   }, duration);
+}
+
+function showPanelNotice(message, tone = 'success', duration = 3000) {
+  if (!panelNoticeEl) return;
+  const palette = tone === 'error'
+    ? { bg: '#fee2e2', fg: '#991b1b' }
+    : tone === 'info'
+      ? { bg: '#eff6ff', fg: '#1e3a8a' }
+      : { bg: '#ecfdf5', fg: '#065f46' };
+  panelNoticeEl.style.background = palette.bg;
+  panelNoticeEl.style.color = palette.fg;
+  panelNoticeEl.textContent = message;
+  panelNoticeEl.style.display = 'block';
+  if (panelNoticeTimer) {
+    clearTimeout(panelNoticeTimer);
+  }
+  panelNoticeTimer = setTimeout(() => {
+    hidePanelNotice();
+  }, duration);
+}
+
+function hidePanelNotice() {
+  if (panelNoticeTimer) {
+    clearTimeout(panelNoticeTimer);
+    panelNoticeTimer = null;
+  }
+  if (panelNoticeEl) {
+    panelNoticeEl.style.display = 'none';
+  }
 }
 
 export async function loadDemoSegments({ force = false } = {}) {
@@ -1336,6 +1479,8 @@ export function teardownDiaryMode(map) {
     rateButtonEl = null;
     altToggleEl = null;
     altSummaryEl = null;
+    hidePanelNotice();
+    panelNoticeEl = null;
     diaryPanelFloating = false;
   }
   currentRoute = null;

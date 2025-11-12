@@ -8,6 +8,44 @@ import { fetchCoverage } from '../api/meta.js';
 const diaryFeatureOn = typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1';
 const viewModeListeners = new Set();
 const diaryStateListeners = new Set();
+const PANEL_STATE_KEY = 'diary_panel_state';
+
+function getDefaultPanelPrefs() {
+  return {
+    viewMode: 'crime',
+    selectedRouteId: null,
+    diaryAltEnabled: false,
+    simState: { playing: false, progress: 0, routeId: null },
+  };
+}
+
+function loadPanelPrefs() {
+  const defaults = getDefaultPanelPrefs();
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return defaults;
+  }
+  try {
+    const raw = window.sessionStorage.getItem(PANEL_STATE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaults,
+      ...parsed,
+      simState: { ...defaults.simState, ...(parsed.simState || {}) },
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+let panelPrefs = loadPanelPrefs();
+
+function persistPanelPrefs() {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  try {
+    window.sessionStorage.setItem(PANEL_STATE_KEY, JSON.stringify(panelPrefs));
+  } catch {}
+}
 
 /**
  * @typedef {object} Store
@@ -52,13 +90,12 @@ export const store = /** @type {Store} */ ({
   // [DIARY_FLAG] Route Safety Diary placeholder state (M1 prep, no behavior yet)
   diaryMode: false,        // Whether diary mode is active
   diaryFeatureOn,
-  viewMode: 'crime',       // 'crime' | 'diary'
-  selectedRouteId: null,
-  diaryAltEnabled: false,
+  viewMode: panelPrefs.viewMode,
+  selectedRouteId: panelPrefs.selectedRouteId,
+  diaryAltEnabled: panelPrefs.diaryAltEnabled,
+  simState: { ...panelPrefs.simState },
   userHash: null,          // Anonymous user hash (M2)
   myRoutes: [],            // Saved routes (M3)
-  diaryFeatureOn,
-  viewMode: 'crime',
   // Choropleth classification
   classMethod: 'quantile',
   classBins: 5,
@@ -112,6 +149,8 @@ export function setViewMode(mode, { silent = false } = {}) {
   }
   store.viewMode = normalized;
   store.diaryMode = normalized === 'diary';
+  panelPrefs.viewMode = normalized;
+  persistPanelPrefs();
   if (!silent) {
     for (const listener of viewModeListeners) {
       try {
@@ -132,6 +171,8 @@ export function onViewModeChange(listener) {
 
 export function setSelectedRouteId(routeId) {
   store.selectedRouteId = routeId || null;
+  panelPrefs.selectedRouteId = store.selectedRouteId;
+  persistPanelPrefs();
   for (const listener of diaryStateListeners) {
     try {
       listener('route', store.selectedRouteId);
@@ -143,6 +184,8 @@ export function setSelectedRouteId(routeId) {
 
 export function setDiaryAltEnabled(enabled) {
   store.diaryAltEnabled = !!enabled;
+  panelPrefs.diaryAltEnabled = store.diaryAltEnabled;
+  persistPanelPrefs();
   for (const listener of diaryStateListeners) {
     try {
       listener('alt', store.diaryAltEnabled);
@@ -156,6 +199,12 @@ export function onDiaryStateChange(listener) {
   if (typeof listener !== 'function') return () => {};
   diaryStateListeners.add(listener);
   return () => diaryStateListeners.delete(listener);
+}
+
+export function setSimPanelState(partial = {}) {
+  panelPrefs.simState = { ...panelPrefs.simState, ...partial };
+  store.simState = { ...panelPrefs.simState };
+  persistPanelPrefs();
 }
 
 /**
