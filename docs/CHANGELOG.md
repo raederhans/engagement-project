@@ -577,3 +577,7 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 ## 2025-11-11 18:10 — Phase 1. Mode toggle integrated and Diary panel skeleton mounted behind feature flag
 
 ## 2025-11-12 16:32 — Phase 2. Diary route picker, alt toggle, and live benefit summary in panel
+
+## 2025-11-12 19:45 — Phase 3. Panel Rate flow + Simulator controls + audit probes (idempotence/perf)
+
+## 2025-11-12 11:54 — Audit P1–P2. Mode toggle, panel mount, route picker, alt toggle, and summary verified
