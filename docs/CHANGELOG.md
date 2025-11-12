@@ -574,3 +574,4 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 ## 2025-11-07 16:25 — Diary U7: community interactions (Agree and Feels safer now)
 
 ## 2025-11-07 13:35 — Diary U1: baseline segment rendering with hover card
+## 2025-11-11 18:10 — Phase 1. Mode toggle integrated and Diary panel skeleton mounted behind feature flag
