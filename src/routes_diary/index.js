@@ -71,9 +71,9 @@ const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
-const sessionVotes = new Set();
-const SESSION_VOTE_STORAGE_KEY = 'diary_session_votes';
-let sessionVotesHydrated = false;
+const CTA_KINDS = ['agree', 'safer'];
+const CTA_VOTE_PREFIX = 'diary:voted';
+const ctaSessionFlags = new Map();
 const sim = {
   routeId: null,
   coords: [],
@@ -253,54 +253,66 @@ function toCounts(tagPairs) {
   return map;
 }
 
-function hydrateSessionVotes() {
-  if (sessionVotesHydrated) return;
-  sessionVotesHydrated = true;
-  if (typeof window === 'undefined') return;
+function voteStorageKey(segmentId, kind) {
+  return `${CTA_VOTE_PREFIX}:${kind}:${segmentId}`;
+}
+
+function getVoteFlag(segmentId, kind) {
+  if (!segmentId || !kind) return null;
   try {
-    const raw = window.sessionStorage?.getItem(SESSION_VOTE_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      parsed.forEach((key) => {
-        if (typeof key === 'string' && key.length) {
-          sessionVotes.add(key);
-        }
-      });
-    }
-  } catch (err) {
-    console.warn('[Diary] Unable to hydrate session votes', err);
+    return window?.sessionStorage?.getItem(voteStorageKey(segmentId, kind)) || null;
+  } catch {
+    return null;
   }
 }
 
-function persistSessionVotes() {
-  if (typeof window === 'undefined') return;
+function setVoteFlag(segmentId, kind) {
+  if (!segmentId || !kind) return;
   try {
-    window.sessionStorage?.setItem(SESSION_VOTE_STORAGE_KEY, JSON.stringify(Array.from(sessionVotes)));
-  } catch (err) {
-    console.warn('[Diary] Unable to persist session votes', err);
+    window?.sessionStorage?.setItem(voteStorageKey(segmentId, kind), new Date().toISOString());
+  } catch {}
+  hydrateCtaState(segmentId);
+}
+
+function hydrateCtaState(segmentId) {
+  if (!segmentId) return;
+  const entry = ctaSessionFlags.get(segmentId) || { agree: null, safer: null };
+  CTA_KINDS.forEach((kind) => {
+    entry[kind] = getVoteFlag(segmentId, kind);
+  });
+  ctaSessionFlags.set(segmentId, entry);
+}
+
+function getCtaState(segmentId) {
+  if (!segmentId) {
+    return { agreeDisabled: false, saferDisabled: false, agreeTimestamp: null, saferTimestamp: null };
   }
+  if (!ctaSessionFlags.has(segmentId)) {
+    hydrateCtaState(segmentId);
+  }
+  const entry = ctaSessionFlags.get(segmentId) || {};
+  return {
+    agreeDisabled: Boolean(entry.agree),
+    saferDisabled: Boolean(entry.safer),
+    agreeTimestamp: entry.agree || null,
+    saferTimestamp: entry.safer || null,
+  };
 }
 
-function getVoteKey(segmentId, action) {
-  hydrateSessionVotes();
-  const user = getUserHash() || 'demo';
-  return `${user}:${segmentId}:${action}`;
+function isThrottled(segmentId, kind) {
+  const state = getCtaState(segmentId);
+  return kind === 'agree' ? state.agreeDisabled : state.saferDisabled;
 }
 
-function hasSessionVote(segmentId, action) {
-  if (!segmentId || !action) return false;
-  return sessionVotes.has(getVoteKey(segmentId, action));
-}
-
-function markSessionVote(segmentId, action) {
-  if (!segmentId || !action) return;
-  sessionVotes.add(getVoteKey(segmentId, action));
-  persistSessionVotes();
+function exposeCtaHelpers() {
+  if (typeof window === 'undefined') return;
+  window.__diary_hydrateCtaState = hydrateCtaState;
+  window.__diary_getCtaState = (segmentId) => getCtaState(segmentId);
 }
 
 function exposeDebugAPI() {
   if (typeof window === 'undefined') return;
+  exposeCtaHelpers();
   window.__diary_debug = Object.freeze({
     segmentProps: (segmentId) => {
       if (!segmentId) return null;
@@ -323,6 +335,7 @@ function exposeDebugAPI() {
         })
       ),
     runP3IdempotenceCycles: (opts) => runP3IdempotenceCycles(opts),
+    runP4Stress: (opts) => runP4Stress(opts),
     getPerfSnapshot: () => ({ ...getPerfSnapshot() }),
   });
 }
@@ -743,38 +756,60 @@ function applyDiarySubmissionToAgg(payload) {
   }
 }
 
-function handleSegmentAction(payload) {
-  if (!payload || !payload.action || !payload.segmentId) return;
-  const { action, segmentId } = payload;
-  if (hasSessionVote(segmentId, action)) {
-    showToast('Thanks — already recorded.');
-    return;
-  }
+function bumpConfidenceLocal(segmentId) {
   const record = ensureAggRecord(segmentId);
-  if (!record) return;
-  let updated = false;
-  if (action === 'agree') {
-    record.sumW = Math.min(50, (record.sumW || 0) + 0.3);
-    record.n_eff = Math.min(50, record.sumW);
-    updated = true;
-    showToast('Confidence increased.');
-  } else if (action === 'safer') {
-    const base = Math.max(0.5, record.sumW || 1);
-    record.mean = clampMean(bayesianShrink(record.mean + 0.1, base, PRIOR_MEAN, PRIOR_N));
-    record.delta_30d = Number((record.delta_30d + 0.03).toFixed(2));
-    updated = true;
-    showToast('Marked as feeling safer.');
-  }
-  if (!updated) return;
+  if (!record) return false;
+  record.sumW = Math.min(50, (record.sumW || 0) + 0.3);
+  record.n_eff = Math.min(50, record.sumW);
   record.updated = new Date().toISOString();
-  markSessionVote(segmentId, action);
-  exposeDebugAPI();
+  return true;
+}
+
+function nudgeMeanSaferLocal(segmentId) {
+  const record = ensureAggRecord(segmentId);
+  if (!record) return false;
+  const base = Math.max(0.5, record.sumW || 1);
+  record.mean = clampMean(bayesianShrink(record.mean + 0.1, base, PRIOR_MEAN, PRIOR_N));
+  record.delta_30d = Number((record.delta_30d + 0.03).toFixed(2));
+  record.updated = new Date().toISOString();
+  return true;
+}
+
+function refreshAfterCta(message) {
   const refreshed = buildSegmentsFCFromBase();
   if (refreshed && mapRef) {
     updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
   }
   updateAlternativeRoute({ refreshOnly: true });
+  if (message) {
+    showToast(message);
+  }
+  exposeDebugAPI();
+}
+
+async function onAgreeClick(segmentId) {
+  if (!segmentId) return;
+  if (isThrottled(segmentId, 'agree')) {
+    showToast('Recorded for this session');
+    return;
+  }
+  const updated = bumpConfidenceLocal(segmentId);
+  if (!updated) return;
+  setVoteFlag(segmentId, 'agree');
+  refreshAfterCta('Thanks — confidence increased');
+}
+
+async function onFeelsSaferClick(segmentId) {
+  if (!segmentId) return;
+  if (isThrottled(segmentId, 'safer')) {
+    showToast('Recorded for this session');
+    return;
+  }
+  const updated = nudgeMeanSaferLocal(segmentId);
+  if (!updated) return;
+  setVoteFlag(segmentId, 'safer');
+  refreshAfterCta('Noted — feels safer now');
 }
 
 function decayAggRecord(record, now) {
@@ -790,7 +825,6 @@ function decayAggRecord(record, now) {
 
 function buildSegmentsFCFromBase() {
   if (!baseSegmentsFC) return null;
-  hydrateSessionVotes();
   const fc = clone(baseSegmentsFC);
   fc.features = fc.features.map((feature) => {
     const f = clone(feature);
@@ -803,9 +837,12 @@ function buildSegmentsFCFromBase() {
       props.delta_30d = agg.delta_30d;
       props.updated = agg.updated;
     }
+    const cta = getCtaState(props.segment_id);
     props.__diaryVotes = {
-      agreeDisabled: hasSessionVote(props.segment_id, 'agree'),
-      saferDisabled: hasSessionVote(props.segment_id, 'safer'),
+      agreeDisabled: cta.agreeDisabled,
+      saferDisabled: cta.saferDisabled,
+      agreeTimestamp: cta.agreeTimestamp,
+      saferTimestamp: cta.saferTimestamp,
     };
     f.properties = props;
     return f;
@@ -1044,6 +1081,62 @@ async function runP3IdempotenceCycles({ cycles = 20, delayMs = 75 } = {}) {
     sources: finalSnapshot.sources,
     layers: finalSnapshot.layers,
     duplicates,
+  };
+}
+
+async function runP4Stress({ cycles = 20, pick = 3, delayMs = 60 } = {}) {
+  if (!currentRoute) {
+    return { stable: false, reason: 'no-route', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
+  }
+  const segmentIds = currentRoute.properties?.segment_ids || [];
+  if (!segmentIds.length) {
+    return { stable: false, reason: 'no-segments', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
+  }
+  const duplicates = [];
+  const acted = new Set();
+  let throttled = 0;
+  for (let i = 0; i < cycles; i += 1) {
+    const picks = [];
+    for (let j = 0; j < Math.min(pick, segmentIds.length); j += 1) {
+      picks.push(segmentIds[(i + j) % segmentIds.length]);
+    }
+    for (const segId of picks) {
+      if (!isThrottled(segId, 'agree')) {
+        await onAgreeClick(segId);
+        acted.add(`${segId}:agree`);
+        await delay(delayMs);
+      } else {
+        throttled += 1;
+      }
+      if (!isThrottled(segId, 'safer')) {
+        await onFeelsSaferClick(segId);
+        acted.add(`${segId}:safer`);
+        await delay(delayMs);
+      } else {
+        throttled += 1;
+      }
+    }
+    applyAltToggleState(true);
+    await delay(delayMs);
+    applyAltToggleState(false);
+    await delay(delayMs);
+    const snapshot = captureMapState();
+    if (new Set(snapshot.sources).size !== snapshot.sources.length) {
+      duplicates.push({ cycle: i, type: 'sources', snapshot: snapshot.sources.slice() });
+    }
+    if (new Set(snapshot.layers).size !== snapshot.layers.length) {
+      duplicates.push({ cycle: i, type: 'layers', snapshot: snapshot.layers.slice() });
+    }
+  }
+  const finalSnapshot = captureMapState();
+  return {
+    stable: duplicates.length === 0,
+    sources: finalSnapshot.sources,
+    layers: finalSnapshot.layers,
+    duplicates,
+    throttledCount: throttled,
+    actedSegments: Array.from(acted),
+    at: new Date().toISOString(),
   };
 }
 
@@ -1417,6 +1510,7 @@ export async function initDiaryMode(map, options = {}) {
   }
 
   mapRef = map;
+  exposeCtaHelpers();
 
   try {
     const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
@@ -1495,7 +1589,14 @@ export function teardownDiaryMode(map) {
   console.info('[Diary] Teardown complete.');
 }
 
-registerSegmentActionHandler(handleSegmentAction);
+registerSegmentActionHandler((payload) => {
+  if (!payload || !payload.action || !payload.segmentId) return;
+  if (payload.action === 'agree') {
+    onAgreeClick(payload.segmentId);
+  } else if (payload.action === 'safer') {
+    onFeelsSaferClick(payload.segmentId);
+  }
+});
 
 /**
  * Create RecorderDock UI (floating bottom-right)

@@ -212,12 +212,24 @@ function buildHoverHtml(props) {
   const delta = Number(props.delta_30d ?? 0).toFixed(2);
   const tags = formatTags(props.top_tags);
   const street = props.street || props.segment_id || 'Segment';
-  const votes = props.__diaryVotes || {};
   const segmentId = props.segment_id || '';
-  const agreeDisabled = votes.agreeDisabled ? 'disabled' : '';
-  const saferDisabled = votes.saferDisabled ? 'disabled' : '';
-  const agreeTitle = votes.agreeDisabled ? 'Thanks for your feedback' : 'Agree with this rating';
-  const saferTitle = votes.saferDisabled ? 'Thanks for your feedback' : 'Flag as feeling safer';
+  if (segmentId && typeof window !== 'undefined' && typeof window.__diary_hydrateCtaState === 'function') {
+    try {
+      window.__diary_hydrateCtaState(segmentId);
+    } catch {}
+  }
+  let ctaState = props.__diaryVotes || {};
+  if (segmentId && typeof window !== 'undefined' && typeof window.__diary_getCtaState === 'function') {
+    try {
+      const latest = window.__diary_getCtaState(segmentId);
+      if (latest) ctaState = latest;
+    } catch {}
+  }
+  const agreeDisabled = ctaState.agreeDisabled;
+  const saferDisabled = ctaState.saferDisabled;
+  const agreeTitle = agreeDisabled ? 'Recorded for this session' : 'Agree with this rating';
+  const saferTitle = saferDisabled ? 'Recorded for this session' : 'Flag as feeling safer';
+  const hint = agreeDisabled || saferDisabled ? '<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Recorded for this session</div>' : '';
   return `
     <div style="min-width:240px;font:12px/1.4 system-ui;color:#111;">
       <div style="font-weight:600;margin-bottom:4px;">${street}</div>
@@ -228,9 +240,10 @@ function buildHoverHtml(props) {
       </div>
       <div style="margin-top:6px;font-size:11px;color:#374151;">Top tags: ${tags}</div>
       <div style="margin-top:8px;display:flex;gap:8px;">
-        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled} title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree 👍</button>
-        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled} title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${votes.saferDisabled ? '#e2e8f0' : '#fff'};cursor:${votes.saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer ✨</button>
+        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled ? 'disabled' : ''} aria-disabled="${agreeDisabled}" title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree 👍</button>
+        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${saferDisabled ? '#e2e8f0' : '#fff'};cursor:${saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer ✨</button>
       </div>
+      ${hint}
       <div style="margin-top:4px;font-size:10px;color:#6b7280;">Community perception (unverified)</div>
     </div>
   `;
