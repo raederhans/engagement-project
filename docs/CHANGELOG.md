@@ -582,4 +582,6 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-12 22:05 — Phase 4. Hover-card CTA UI parity, session throttling hints, state persistence, stress probe
 
+## 2025-11-14 19:55 — Diary autostart scripts (Windows/macOS/Linux) + URL override for ?mode=diary
+
 ## 2025-11-12 11:54 — Audit P1–P2. Mode toggle, panel mount, route picker, alt toggle, and summary verified

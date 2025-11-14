@@ -15,3 +15,4 @@ timeout 10s npm run diary:qs:sh (success, dev server launched)
 Removed .env.local, ran npm run data:gen && npm run data:check && npm run build
 timeout 5s npm run preview (served http://localhost:4173)
 Screenshots saved: logs/screenshots/autostart_diary_panel.png, logs/screenshots/preview_url_override.png
+Added console capture placeholder: logs/screenshots/autostart_console.png
