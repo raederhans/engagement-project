@@ -21,7 +21,8 @@ import { initLegend } from './map/legend.js';
 import { upsertTractsOutline } from './map/tracts_layers.js';
 import { fetchTractsCachedFirst } from './api/boundaries.js';
 
-const diaryFeatureEnabled = store.diaryFeatureOn;
+const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
+const diaryFeatureEnabled = (import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
 let diaryModulePromise = null;
 
 function loadDiaryModule() {

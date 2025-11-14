@@ -12,7 +12,10 @@
     "data:gen": "node scripts/generate_demo_data.mjs --seed=20251111 --segments=64 --routes=5",
     "data:check": "node scripts/validate_demo_data.mjs",
     "test:diary:math": "node scripts/tests/diary_math.mjs",
-    "test:diary:agg": "node scripts/tests/aggregator_update.mjs"
+    "test:diary:agg": "node scripts/tests/aggregator_update.mjs",
+    "diary:qs:win": "powershell -ExecutionPolicy Bypass -File scripts/diary_quickstart.ps1",
+    "diary:qs:sh": "bash scripts/diary_quickstart.sh",
+    "diary:preview": "npm run data:gen && npm run data:check && VITE_FEATURE_DIARY=1 vite build && vite preview"
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",
