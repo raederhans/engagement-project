@@ -235,6 +235,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     viewModeToken += 1;
     const token = viewModeToken;
     if (mode === 'diary' && diaryFeatureEnabled) {
+      if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {
+        map.once('load', () => handleViewModeChange(mode));
+        return;
+      }
       try {
         const modPromise = loadDiaryModule();
         if (!modPromise) return;
