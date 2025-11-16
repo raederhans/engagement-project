@@ -5,7 +5,11 @@ import dayjs from 'dayjs';
 import { expandGroupsToCodes } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
 
-const diaryFeatureOn = typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1';
+const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
+const diaryFeatureOn = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
+if (typeof console !== 'undefined' && typeof console.info === 'function') {
+  console.info('[Diary] store gating', { env: import.meta?.env?.VITE_FEATURE_DIARY, urlMode: qs.get('mode'), enabled: diaryFeatureOn });
+}
 const viewModeListeners = new Set();
 const diaryStateListeners = new Set();
 const PANEL_STATE_KEY = 'diary_panel_state';

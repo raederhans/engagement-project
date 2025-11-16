@@ -584,4 +584,21 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-14 19:55 — Diary autostart scripts (Windows/macOS/Linux) + URL override for ?mode=diary
 
+## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary
+
+- Fixed `store.js` to honor `?mode=diary` URL parameter alongside `VITE_FEATURE_DIARY` env var
+- Panel Diary button now enables when URL contains `?mode=diary` even without env var set
+- Added debug logging: `console.info('[Diary] store gating', {env, urlMode, enabled})`
+- Root cause: panel.js used `store.diaryFeatureOn` which only checked env var, not URL parameter
+- Evidence: `logs/AGENTM_FIX_PANEL_GATING_20251114_201500.md`
+
+## 2025-11-16 16:20 — Diary fix: panel UI mounting, full controls now visible in ?mode=diary
+
+- Fixed `routes_diary/index.js` to pass `mountTarget` parameter to `ensureDiaryPanel()`
+- Diary panel now renders inside integrated control panel (not floating div)
+- Full UI visible: route picker (5 routes), alt toggle, summary strip, Rate button, simulator controls
+- Added debug logging: `console.info('[Diary] initDiaryMode called', {hasMount, mountId})`
+- Root cause: `ensureDiaryPanel(routes)` was missing `{ mountInto: mountTarget }` parameter
+- Evidence: `logs/AGENTM_DIARY_PANEL_FIX_20251116T161957.md`
+
 ## 2025-11-12 11:54 — Audit P1–P2. Mode toggle, panel mount, route picker, alt toggle, and summary verified

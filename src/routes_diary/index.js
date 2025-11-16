@@ -1496,6 +1496,9 @@ export async function loadDemoRoutes({ force = false } = {}) {
 export async function initDiaryMode(map, options = {}) {
   const mountTarget = options?.mountInto || null;
   const stats = { segmentsCount: 0, routesCount: 0 };
+  if (typeof console !== 'undefined' && typeof console.info === 'function') {
+    console.info('[Diary] initDiaryMode called', { hasMount: !!mountTarget, mountId: mountTarget?.id || 'none' });
+  }
   if (mountTarget) {
     mountTarget.setAttribute('data-diary-mounted', 'true');
   }
@@ -1535,7 +1538,7 @@ export async function initDiaryMode(map, options = {}) {
     }
 
     routesRef = routes;
-    ensureDiaryPanel(routes);
+    ensureDiaryPanel(routes, { mountInto: mountTarget });
     const defaultRoute = routes.features?.[0];
     if (defaultRoute?.properties?.route_id) {
       if (routeSelectEl) {
