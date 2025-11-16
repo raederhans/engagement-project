@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -71,32 +71,60 @@ function sampleTags(random) {
   return shuffled.slice(0, count).map((tag) => ({ tag, p: +(0.4 + random() * 0.4).toFixed(2) }));
 }
 
+function getBaseSegments() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const preparedPath = resolve(__dirname, '..', 'data', 'streets_phl.prepared.geojson');
+  try {
+    if (existsSync(preparedPath)) {
+      const raw = readFileSync(preparedPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      const features = Array.isArray(parsed?.features) ? parsed.features : [];
+      console.info(`[Diary] Prepared street file detected (${features.length} features). TODO: integrate fields for demo generator.`);
+      return { type: 'FeatureCollection', features };
+    }
+  } catch (err) {
+    console.warn('[Diary] Unable to read prepared street file; using synthetic demo segments.', err?.message || err);
+  }
+  return null;
+}
+
 const seed = Number(parseArg('--seed', 20251111));
 const segmentCount = Number(parseArg('--segments', 64));
 const routeCount = Number(parseArg('--routes', 5));
 const rand = rng(seed);
 
-const segments = [];
-for (let i = 0; i < segmentCount; i += 1) {
-  const hood = pickRand(rand, NEIGHBORHOODS);
-  const start = jitterCoord(rand, hood.center, hood.radius);
-  const end = jitterCoord(rand, start, hood.radius * 0.6);
-  const length = Math.max(80, distanceMeters(start, end));
-  const segmentId = `seg_${String(i + 1).padStart(3, '0')}`;
-  segments.push({
-    id: segmentId,
-    street: pickRand(rand, STREET_NAMES),
-    length_m: length,
-    decayed_mean: sampleMean(rand),
-    n_eff: Math.max(1, Math.round(rand() * 24) + 1),
-    top_tags: sampleTags(rand),
-    delta_30d: +((rand() - 0.5) * 0.4).toFixed(2),
-    geometry: {
-      type: 'LineString',
-      coordinates: [start, end],
-    },
-    neighborhood: hood.name,
-  });
+function generateSyntheticSegments(random, count) {
+  const list = [];
+  for (let i = 0; i < count; i += 1) {
+    const hood = pickRand(random, NEIGHBORHOODS);
+    const start = jitterCoord(random, hood.center, hood.radius);
+    const end = jitterCoord(random, start, hood.radius * 0.6);
+    const length = Math.max(80, distanceMeters(start, end));
+    const segmentId = `seg_${String(i + 1).padStart(3, '0')}`;
+    list.push({
+      id: segmentId,
+      street: pickRand(random, STREET_NAMES),
+      length_m: length,
+      decayed_mean: sampleMean(random),
+      n_eff: Math.max(1, Math.round(random() * 24) + 1),
+      top_tags: sampleTags(random),
+      delta_30d: +((random() - 0.5) * 0.4).toFixed(2),
+      geometry: {
+        type: 'LineString',
+        coordinates: [start, end],
+      },
+      neighborhood: hood.name,
+    });
+  }
+  return list;
+}
+
+const preparedSegments = getBaseSegments();
+const syntheticSegments = generateSyntheticSegments(rand, segmentCount);
+const segments = preparedSegments?.features?.length ? syntheticSegments : syntheticSegments;
+if (preparedSegments?.features?.length) {
+  console.info('[Diary] Prepared street file present; synthetic demo output preserved for now (TODO: swap provider).');
 }
 
 function stitchGeometry(ids) {

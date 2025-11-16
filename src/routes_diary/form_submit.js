@@ -39,12 +39,58 @@ const ratingSchema = {
 
 const validatePayload = ajv.compile(ratingSchema);
 
+let modalStylesInjected = false;
 let activeBackdrop = null;
 let activeModal = null;
 let errorEl = null;
 let submitBtn = null;
 let escapeHandler = null;
 let currentState = null;
+
+function injectModalStyles() {
+  if (modalStylesInjected || typeof document === 'undefined') return;
+  const style = document.createElement('style');
+  style.textContent = `
+    .diary-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2500;
+    }
+    .diary-modal-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.35);
+      border: 1px solid #e2e8f0;
+      width: min(540px, 92vw);
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #0f172a;
+      position: relative;
+    }
+    .diary-modal-card .diary-modal-body {
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .diary-modal-close {
+      border: none;
+      background: transparent;
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      color: #475569;
+    }
+  `;
+  document.head.appendChild(style);
+  modalStylesInjected = true;
+}
 
 export function openRatingModal({ routeFeature, segmentLookup, userHash, onSuccess }) {
   if (!routeFeature) return;
@@ -62,28 +108,14 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     onSuccess,
   };
 
+  injectModalStyles();
+
   const backdrop = document.createElement('div');
-  backdrop.style.position = 'fixed';
-  backdrop.style.inset = '0';
-  backdrop.style.background = 'rgba(15,23,42,0.45)';
-  backdrop.style.backdropFilter = 'blur(4px)';
-  backdrop.style.zIndex = '2500';
+  backdrop.className = 'diary-modal-backdrop';
   backdrop.addEventListener('click', closeRatingModal);
 
   const modal = document.createElement('div');
-  modal.style.position = 'fixed';
-  modal.style.top = '50%';
-  modal.style.left = '50%';
-  modal.style.transform = 'translate(-50%, -50%)';
-  modal.style.width = 'min(520px, 92vw)';
-  modal.style.maxHeight = '85vh';
-  modal.style.overflowY = 'auto';
-  modal.style.background = '#fff';
-  modal.style.borderRadius = '16px';
-  modal.style.boxShadow = '0 30px 70px rgba(15,23,42,0.35)';
-  modal.style.padding = '24px';
-  modal.style.font = '14px/1.45 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  modal.style.color = '#0f172a';
+  modal.className = 'diary-modal-card';
   modal.addEventListener('click', (e) => e.stopPropagation());
 
   const header = document.createElement('div');
@@ -97,10 +129,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = '×';
-  closeBtn.style.border = 'none';
-  closeBtn.style.background = 'transparent';
-  closeBtn.style.fontSize = '20px';
-  closeBtn.style.cursor = 'pointer';
+  closeBtn.className = 'diary-modal-close';
   closeBtn.addEventListener('click', closeRatingModal);
   header.appendChild(title);
   header.appendChild(closeBtn);
@@ -117,6 +146,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   form.style.display = 'flex';
   form.style.flexDirection = 'column';
   form.style.gap = '16px';
+  form.className = 'diary-modal-body';
 
   form.appendChild(createStarSelector(currentState));
   form.appendChild(createTagSelector(currentState));

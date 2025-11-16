@@ -586,6 +586,8 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-16 15:50 — Diary UI: integrated & demo panels render full M1 controls with demo data
 
+## 2025-11-16 17:30 — Diary UI polish: modal overlay + Insights demo panel + street network prep
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
 ## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary

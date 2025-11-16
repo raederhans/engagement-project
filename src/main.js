@@ -20,6 +20,7 @@ import { upsertSelectedDistrict, clearSelectedDistrict, upsertSelectedTract, cle
 import { initLegend } from './map/legend.js';
 import { upsertTractsOutline } from './map/tracts_layers.js';
 import { fetchTractsCachedFirst } from './api/boundaries.js';
+import { createDiaryInsightsController } from './charts/diary_insights.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryFeatureEnabled = (import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
@@ -39,6 +40,11 @@ window.__dashboard = {
 
 window.addEventListener('DOMContentLoaded', async () => {
   const map = initMap();
+  const chartsPane = document.getElementById('charts');
+  const diaryInsightsRoot = document.createElement('div');
+  diaryInsightsRoot.id = 'diary-insights-root';
+  document.body.appendChild(diaryInsightsRoot);
+  const diaryInsights = createDiaryInsightsController(diaryInsightsRoot);
   const initialMode = setViewMode(readModeFromURL(), { silent: true });
   writeModeToURL(initialMode);
 
@@ -235,6 +241,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     viewModeToken += 1;
     const token = viewModeToken;
     if (mode === 'diary' && diaryFeatureEnabled) {
+      if (chartsPane) chartsPane.style.display = 'none';
+      diaryInsights?.show();
+      diaryInsights?.setCollapsed(true);
       if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {
         map.once('load', () => handleViewModeChange(mode));
         return;
@@ -252,6 +261,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.error('[Diary] init failed:', err);
       }
     } else {
+      diaryInsights?.hide();
+      if (chartsPane) chartsPane.style.display = '';
       if (diaryActive) {
         try {
           const modPromise = loadDiaryModule();
