@@ -6,9 +6,12 @@ import { expandGroupsToCodes } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
-const diaryFeatureOn = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
+const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+const diaryFeatureOn = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1')
+  || (qs.get('mode') === 'diary')
+  || path.includes('diary-demo');
 if (typeof console !== 'undefined' && typeof console.info === 'function') {
-  console.info('[Diary] store gating', { env: import.meta?.env?.VITE_FEATURE_DIARY, urlMode: qs.get('mode'), enabled: diaryFeatureOn });
+  console.info('[Diary] store gating', { env: import.meta?.env?.VITE_FEATURE_DIARY, urlMode: qs.get('mode'), path, enabled: diaryFeatureOn });
 }
 const viewModeListeners = new Set();
 const diaryStateListeners = new Set();

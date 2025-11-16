@@ -86,6 +86,16 @@ const sim = {
 };
 const simLifecycleFlags = { visibility: false, pagehide: false };
 const simCleanupFns = new Set();
+const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
+const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+
+function diaryFeatureEnabled() {
+  if (store?.diaryFeatureOn) return true;
+  if (import.meta?.env?.VITE_FEATURE_DIARY === '1') return true;
+  if (diaryQs.get('mode') === 'diary') return true;
+  if (diaryPath.includes('diary-demo')) return true;
+  return false;
+}
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
@@ -341,7 +351,7 @@ function exposeDebugAPI() {
 }
 
 function diaryFlagOff() {
-  console.warn('[Diary] Feature flag is OFF. Set VITE_FEATURE_DIARY=1 to enable.');
+  console.warn('[Diary] Feature flag is OFF. Enable via VITE_FEATURE_DIARY=1 or load with ?mode=diary/diary-demo.');
 }
 
 function ensureMap(message) {
@@ -1502,7 +1512,7 @@ export async function initDiaryMode(map, options = {}) {
   if (mountTarget) {
     mountTarget.setAttribute('data-diary-mounted', 'true');
   }
-  if (import.meta?.env?.VITE_FEATURE_DIARY !== '1') {
+  if (!diaryFeatureEnabled()) {
     diaryFlagOff();
     return stats;
   }
