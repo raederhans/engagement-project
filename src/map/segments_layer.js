@@ -29,14 +29,21 @@ export function mountSegmentsLayer(map, sourceId, data) {
   const prepared = prepareFeatureCollection(data);
   ensureSource(map, sourceId, prepared);
   const layerId = `${sourceId}-line`;
+  const hitLayerId = `${sourceId}-hit`;
+  ensureLineLayer(map, hitLayerId, sourceId, {
+    'line-opacity': 0.05,
+    'line-color': '#0f172a',
+    'line-width': 12,
+    'line-blur': 0,
+  });
   ensureLineLayer(map, layerId, sourceId, {
     'line-opacity': 0.85,
     'line-color': buildColorExpression(),
     'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
-    'line-blur': 0.4,
+    'line-blur': 0.15,
   });
 
-  registerHoverHandlers(map, layerId);
+  registerHoverHandlers(map, hitLayerId);
 }
 
 /**
@@ -69,9 +76,12 @@ function glowSegment(map, sourceId, segmentId, duration = 2000) {
 export function removeSegmentsLayer(map, sourceId) {
   if (!map) return;
   const layerId = `${sourceId}-line`;
-  cleanupHoverHandlers(map, layerId);
-  if (map.getLayer(layerId)) {
-    map.removeLayer(layerId);
+  const hitLayerId = `${sourceId}-hit`;
+  cleanupHoverHandlers(map, hitLayerId);
+  for (const id of [layerId, hitLayerId]) {
+    if (map.getLayer(id)) {
+      map.removeLayer(id);
+    }
   }
   if (map.getSource(sourceId)) {
     map.removeSource(sourceId);
@@ -126,7 +136,7 @@ function buildColorExpression() {
 }
 
 function buildWidthExpression() {
-  return ['min', 4, ['max', 1, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', 'n_eff'], 0], 0]]]]]];
+  return ['min', 4, ['max', 1.5, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', 'n_eff'], 0], 0]]]]]];
 }
 
 function registerHoverHandlers(map, layerId) {

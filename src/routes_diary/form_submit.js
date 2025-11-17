@@ -1,7 +1,22 @@
 import Ajv from 'ajv';
 import { submitDiary } from '../api/diary.js';
 
-const TAG_OPTIONS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'dogs', 'construction_blockage', 'other'];
+const ALL_TAGS = [
+  'poor_lighting',
+  'low_foot_traffic',
+  'cars_too_close',
+  'construction_blockage',
+  'strangers_loitering',
+  'no_sidewalk',
+  'bike_conflict',
+  'speeding_cars',
+  'blocked_crosswalk',
+  'potholes',
+  'other',
+  'dogs',
+];
+const DEFAULT_TAG_CHIPS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'construction_blockage', 'dogs', 'other'];
+const TAG_OPTIONS = ALL_TAGS;
 
 const ajv = new Ajv({ allErrors: true });
 const ratingSchema = {
@@ -54,7 +69,7 @@ function injectModalStyles() {
     .diary-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.35);
+      background: rgba(15, 23, 42, 0.32);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -66,7 +81,7 @@ function injectModalStyles() {
       box-shadow: 0 30px 70px rgba(15, 23, 42, 0.35);
       border: 1px solid #e2e8f0;
       width: min(540px, 92vw);
-      max-height: 85vh;
+      max-height: 82vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -78,6 +93,7 @@ function injectModalStyles() {
     .diary-modal-card .diary-modal-body {
       overflow-y: auto;
       padding-right: 2px;
+      max-height: calc(82vh - 140px);
     }
     .diary-modal-close {
       border: none;
@@ -147,6 +163,8 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   form.style.flexDirection = 'column';
   form.style.gap = '16px';
   form.className = 'diary-modal-body';
+  form.style.maxHeight = 'calc(82vh - 140px)';
+  form.style.paddingRight = '2px';
 
   form.appendChild(createStarSelector(currentState));
   form.appendChild(createTagSelector(currentState));
@@ -274,38 +292,122 @@ function createTagSelector(state) {
   chips.style.flexWrap = 'wrap';
   chips.style.gap = '8px';
   chips.style.marginTop = '8px';
+  chips.style.maxHeight = '120px';
+  chips.style.overflowY = 'auto';
 
-  TAG_OPTIONS.forEach((tag) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.textContent = tag.replace('_', ' ');
-    chip.style.border = '1px solid #cbd5f5';
-    chip.style.borderRadius = '999px';
-    chip.style.padding = '4px 10px';
-    chip.style.fontSize = '12px';
-    chip.style.cursor = 'pointer';
-    const updateStyle = () => {
-      const active = state.tags.has(tag);
-      chip.style.background = active ? '#0f172a' : '#fff';
-      chip.style.color = active ? '#fff' : '#0f172a';
-    };
-    chip.addEventListener('click', () => {
-      if (state.tags.has(tag)) {
-        state.tags.delete(tag);
-      } else {
-        if (state.tags.size >= 3) {
-          setError('Select at most three tags.');
-          return;
+  function renderChips() {
+    chips.innerHTML = '';
+    const picked = state.tags;
+    DEFAULT_TAG_CHIPS.forEach((tag) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = tag.replace(/_/g, ' ');
+      chip.style.border = '1px solid #cbd5f5';
+      chip.style.borderRadius = '999px';
+      chip.style.padding = '4px 10px';
+      chip.style.fontSize = '12px';
+      chip.style.cursor = 'pointer';
+      const updateStyle = () => {
+        const active = picked.has(tag);
+        chip.style.background = active ? '#0f172a' : '#fff';
+        chip.style.color = active ? '#fff' : '#0f172a';
+      };
+      chip.addEventListener('click', () => {
+        if (picked.has(tag)) {
+          picked.delete(tag);
+        } else {
+          if (picked.size >= 3) {
+            setError('Select at most three tags.');
+            return;
+          }
+          picked.add(tag);
         }
-        state.tags.add(tag);
-      }
-      setError('');
+        setError('');
+        updateStyle();
+        refreshSelect();
+      });
       updateStyle();
+      chips.appendChild(chip);
     });
-    updateStyle();
-    chips.appendChild(chip);
+
+    // render any extra selected tags not in default chips
+    Array.from(picked).forEach((tag) => {
+      if (DEFAULT_TAG_CHIPS.includes(tag)) return;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = tag.replace(/_/g, ' ');
+      chip.style.border = '1px solid #cbd5f5';
+      chip.style.borderRadius = '999px';
+      chip.style.padding = '4px 10px';
+      chip.style.fontSize = '12px';
+      chip.style.cursor = 'pointer';
+      chip.style.background = '#0f172a';
+      chip.style.color = '#fff';
+      chip.addEventListener('click', () => {
+        picked.delete(tag);
+        refreshSelect();
+        renderChips();
+      });
+      chips.appendChild(chip);
+    });
+  }
+
+  const selectWrap = document.createElement('div');
+  selectWrap.style.display = 'flex';
+  selectWrap.style.alignItems = 'center';
+  selectWrap.style.gap = '8px';
+  selectWrap.style.marginTop = '8px';
+  const selectLabel = document.createElement('div');
+  selectLabel.textContent = 'More tags';
+  selectLabel.style.fontSize = '12px';
+  selectLabel.style.color = '#475569';
+  const select = document.createElement('select');
+  select.style.flex = '1';
+  select.style.padding = '6px 8px';
+  select.style.border = '1px solid #cbd5f5';
+  select.style.borderRadius = '8px';
+  select.style.fontSize = '12px';
+
+  function refreshSelect() {
+    const picked = state.tags;
+    const unused = ALL_TAGS.filter((tag) => !picked.has(tag));
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = unused.length ? 'Add a tag…' : 'All tags selected';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    unused.forEach((tag) => {
+      const opt = document.createElement('option');
+      opt.value = tag;
+      opt.textContent = tag.replace(/_/g, ' ');
+      select.appendChild(opt);
+    });
+    select.disabled = unused.length === 0 || picked.size >= 3;
+  }
+
+  select.addEventListener('change', () => {
+    const value = select.value;
+    if (!value) return;
+    if (state.tags.size >= 3) {
+      setError('Select at most three tags.');
+      select.value = '';
+      return;
+    }
+    state.tags.add(value);
+    setError('');
+    select.value = '';
+    refreshSelect();
+    renderChips();
   });
+
   wrapper.appendChild(chips);
+  selectWrap.appendChild(selectLabel);
+  selectWrap.appendChild(select);
+  wrapper.appendChild(selectWrap);
+  refreshSelect();
+  renderChips();
   return wrapper;
 }
 

@@ -588,6 +588,8 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-16 17:30 — Diary UI polish: modal overlay + Insights demo panel + street network prep
 
+## 2025-11-17 00:00 — Diary UI polish: lighter Rate modal, scoped Insights toggles, wider segment hit area, tag dropdown, road network stubs
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
 ## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary

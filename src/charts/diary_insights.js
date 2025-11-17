@@ -1,9 +1,75 @@
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
-const demoTags = [
-  { label: 'poor lighting', value: 12 },
-  { label: 'low foot traffic', value: 8 },
-  { label: 'cars too close', value: 6 },
-];
+
+const DEMO_TAGS = {
+  route: {
+    '7d': [
+      { label: 'poor lighting', value: 4 },
+      { label: 'low foot traffic', value: 3 },
+      { label: 'cars too close', value: 2 },
+    ],
+    '30d': [
+      { label: 'poor lighting', value: 12 },
+      { label: 'low foot traffic', value: 8 },
+      { label: 'cars too close', value: 6 },
+    ],
+    '90d': [
+      { label: 'poor lighting', value: 18 },
+      { label: 'low foot traffic', value: 14 },
+      { label: 'speeding cars', value: 7 },
+    ],
+    all: [
+      { label: 'poor lighting', value: 32 },
+      { label: 'low foot traffic', value: 24 },
+      { label: 'cars too close', value: 18 },
+    ],
+  },
+  area: {
+    '7d': [
+      { label: 'low foot traffic', value: 6 },
+      { label: 'poor lighting', value: 5 },
+      { label: 'construction blockage', value: 3 },
+    ],
+    '30d': [
+      { label: 'low foot traffic', value: 14 },
+      { label: 'poor lighting', value: 11 },
+      { label: 'construction blockage', value: 9 },
+    ],
+    '90d': [
+      { label: 'low foot traffic', value: 20 },
+      { label: 'poor lighting', value: 18 },
+      { label: 'speeding cars', value: 10 },
+    ],
+    all: [
+      { label: 'low foot traffic', value: 32 },
+      { label: 'poor lighting', value: 28 },
+      { label: 'construction blockage', value: 16 },
+    ],
+  },
+  city: {
+    '7d': [
+      { label: 'speeding cars', value: 10 },
+      { label: 'cars too close', value: 8 },
+      { label: 'poor lighting', value: 8 },
+    ],
+    '30d': [
+      { label: 'speeding cars', value: 26 },
+      { label: 'cars too close', value: 20 },
+      { label: 'poor lighting', value: 18 },
+    ],
+    '90d': [
+      { label: 'speeding cars', value: 48 },
+      { label: 'cars too close', value: 38 },
+      { label: 'poor lighting', value: 34 },
+    ],
+    all: [
+      { label: 'speeding cars', value: 76 },
+      { label: 'cars too close', value: 60 },
+      { label: 'poor lighting', value: 46 },
+    ],
+  },
+};
+
+const insightsState = { scope: 'route', window: '30d' };
 const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const heatmapWindows = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Late', 'Overnight'];
 const heatmapValues = [
@@ -49,7 +115,8 @@ function renderTrend(container) {
     const bar = document.createElement('div');
     bar.style.flex = '1';
     bar.style.borderRadius = '6px 6px 4px 4px';
-    bar.style.background = 'linear-gradient(180deg, #0ea5e9, #0f172a)';
+    bar.style.background = 'linear-gradient(180deg, #d6f0ff, #7bc8f6)';
+    bar.style.border = '1px solid #bfdbfe';
     bar.style.height = `${Math.max(24, (v / max) * 60)}px`;
     bar.title = v.toFixed(1);
     chart.appendChild(bar);
@@ -85,39 +152,123 @@ function renderTags(container) {
   subtitle.style.marginBottom = '8px';
   container.appendChild(subtitle);
 
-  const max = Math.max(...demoTags.map((t) => t.value));
-  demoTags.forEach((tag) => {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '8px';
-    row.style.marginBottom = '8px';
-    const label = document.createElement('div');
-    label.textContent = tag.label;
-    label.style.flex = '1';
-    label.style.font = '13px/1.3 "Inter", system-ui';
-    label.style.color = '#0f172a';
-    const barWrap = document.createElement('div');
-    barWrap.style.flex = '2';
-    barWrap.style.background = '#f8fafc';
-    barWrap.style.border = '1px solid #e2e8f0';
-    barWrap.style.borderRadius = '999px';
-    barWrap.style.height = '10px';
-    barWrap.style.overflow = 'hidden';
-    const bar = document.createElement('div');
-    bar.style.height = '100%';
-    bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
-    bar.style.background = 'linear-gradient(90deg, #22c55e, #0ea5e9)';
-    barWrap.appendChild(bar);
-    const value = document.createElement('div');
-    value.textContent = tag.value;
-    value.style.font = '12px/1.2 "Inter", system-ui';
-    value.style.color = '#0f172a';
-    row.appendChild(label);
-    row.appendChild(barWrap);
-    row.appendChild(value);
-    container.appendChild(row);
+  const controls = document.createElement('div');
+  controls.style.display = 'flex';
+  controls.style.flexWrap = 'wrap';
+  controls.style.gap = '6px';
+  controls.style.marginBottom = '8px';
+  controls.style.alignItems = 'center';
+
+  const scopes = [
+    { value: 'route', label: 'This route' },
+    { value: 'area', label: 'Nearby area' },
+    { value: 'city', label: 'Citywide' },
+  ];
+  scopes.forEach((scope) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = scope.label;
+    btn.style.border = '1px solid #dbeafe';
+    btn.style.borderRadius = '999px';
+    btn.style.padding = '4px 10px';
+    btn.style.font = '12px/1.3 "Inter", system-ui';
+    btn.style.cursor = 'pointer';
+    const sync = () => {
+      const active = insightsState.scope === scope.value;
+      btn.style.background = active ? '#0ea5e9' : '#fff';
+      btn.style.color = active ? '#fff' : '#0f172a';
+    };
+    btn.addEventListener('click', () => {
+      insightsState.scope = scope.value;
+      syncAll();
+      renderBars();
+    });
+    scope.btn = btn;
+    controls.appendChild(btn);
+    sync();
   });
+
+  const windowSelect = document.createElement('select');
+  windowSelect.style.border = '1px solid #dbeafe';
+  windowSelect.style.borderRadius = '8px';
+  windowSelect.style.padding = '6px 8px';
+  windowSelect.style.font = '12px/1.3 "Inter", system-ui';
+  ['7d', '30d', '90d', 'all'].forEach((value) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent =
+      value === '7d'
+        ? 'Last week'
+        : value === '30d'
+          ? 'Last 30d'
+          : value === '90d'
+            ? 'Last 90d'
+            : 'All time';
+    windowSelect.appendChild(opt);
+  });
+  windowSelect.value = insightsState.window;
+  windowSelect.addEventListener('change', () => {
+    insightsState.window = windowSelect.value;
+    renderBars();
+  });
+
+  controls.appendChild(windowSelect);
+  container.appendChild(controls);
+
+  const barsWrap = document.createElement('div');
+  barsWrap.style.display = 'flex';
+  barsWrap.style.flexDirection = 'column';
+  barsWrap.style.gap = '8px';
+  container.appendChild(barsWrap);
+
+  const syncAll = () => {
+    scopes.forEach((scope) => {
+      if (scope.btn) {
+        const active = insightsState.scope === scope.value;
+        scope.btn.style.background = active ? '#0ea5e9' : '#fff';
+        scope.btn.style.color = active ? '#fff' : '#0f172a';
+      }
+    });
+  };
+
+  function renderBars() {
+    const dataset = (DEMO_TAGS[insightsState.scope] && DEMO_TAGS[insightsState.scope][insightsState.window]) || [];
+    barsWrap.innerHTML = '';
+    const max = Math.max(...dataset.map((t) => t.value), 1);
+    dataset.forEach((tag) => {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
+      const label = document.createElement('div');
+      label.textContent = tag.label;
+      label.style.flex = '1';
+      label.style.font = '13px/1.3 "Inter", system-ui';
+      label.style.color = '#0f172a';
+      const barWrap = document.createElement('div');
+      barWrap.style.flex = '2';
+      barWrap.style.background = '#f8fafc';
+      barWrap.style.border = '1px solid #e2e8f0';
+      barWrap.style.borderRadius = '999px';
+      barWrap.style.height = '10px';
+      barWrap.style.overflow = 'hidden';
+      const bar = document.createElement('div');
+      bar.style.height = '100%';
+      bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
+      bar.style.background = 'linear-gradient(90deg, #a5f3fc, #38bdf8)';
+      barWrap.appendChild(bar);
+      const value = document.createElement('div');
+      value.textContent = tag.value;
+      value.style.font = '12px/1.2 "Inter", system-ui';
+      value.style.color = '#0f172a';
+      row.appendChild(label);
+      row.appendChild(barWrap);
+      row.appendChild(value);
+      barsWrap.appendChild(row);
+    });
+  }
+
+  renderBars();
 }
 
 function renderHeatmap(container) {
@@ -135,10 +286,18 @@ function renderHeatmap(container) {
   subtitle.style.marginBottom = '8px';
   container.appendChild(subtitle);
 
+  const scroller = document.createElement('div');
+  scroller.style.maxHeight = '220px';
+  scroller.style.overflow = 'auto';
+  scroller.style.border = '1px solid #e2e8f0';
+  scroller.style.borderRadius = '12px';
+  scroller.style.padding = '8px';
+  scroller.style.background = '#f8fafc';
+
   const grid = document.createElement('div');
   grid.style.display = 'grid';
   grid.style.gridTemplateColumns = `80px repeat(${heatmapWindows.length}, 1fr)`;
-  grid.style.gap = '4px';
+  grid.style.gap = '6px';
   grid.style.alignItems = 'center';
 
   const empty = document.createElement('div');
@@ -170,7 +329,8 @@ function renderHeatmap(container) {
     });
   });
 
-  container.appendChild(grid);
+  scroller.appendChild(grid);
+  container.appendChild(scroller);
 }
 
 export function createDiaryInsightsController(root) {
@@ -197,7 +357,7 @@ export function createDiaryInsightsController(root) {
     if (built) return;
     root.innerHTML = '';
     const card = document.createElement('div');
-    card.style.cssText = `${cardStyle} box-shadow:0 10px 24px rgba(15,23,42,0.18);`;
+    card.style.cssText = `${cardStyle} box-shadow:0 10px 24px rgba(15,23,42,0.12); background:linear-gradient(180deg,#ffffff,#f8fbff);`;
 
     const header = document.createElement('div');
     header.style.display = 'flex';
