@@ -17,6 +17,8 @@
     "diary:qs:sh": "bash scripts/diary_quickstart.sh",
     "diary:preview": "npm run data:gen && npm run data:check && VITE_FEATURE_DIARY=1 vite build && vite preview",
     "data:streets:plan": "node scripts/fetch_philly_streets.mjs --source=opendata",
+    "data:fetch:streets": "node scripts/fetch_streets_phl.mjs",
+    "data:segment:streets": "node scripts/segment_streets_phl.mjs",
     "streets:fetch": "node scripts/fetch_streets_phl.mjs",
     "streets:segment": "node scripts/segment_streets_phl.mjs"
   },

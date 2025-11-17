@@ -592,6 +592,8 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-17 02:40 — Diary M3: click-to-pin segment cards + playback/demo controls in panel
 
+## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created

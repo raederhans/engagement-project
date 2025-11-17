@@ -2,6 +2,11 @@
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import * as turf from '@turf/turf';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const dataDir = resolve(__dirname, '..', 'data');
 
 const TAGS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'dogs', 'construction_blockage', 'other'];
 const NEIGHBORHOODS = [
@@ -72,9 +77,7 @@ function sampleTags(random) {
 }
 
 function getBaseSegments() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const preparedPath = resolve(__dirname, '..', 'data', 'streets_phl.prepared.geojson');
+  const preparedPath = resolve(dataDir, 'streets_phl.prepared.geojson');
   try {
     if (existsSync(preparedPath)) {
       const raw = readFileSync(preparedPath, 'utf-8');
@@ -122,17 +125,49 @@ function generateSyntheticSegments(random, count) {
 
 const preparedSegments = getBaseSegments();
 const syntheticSegments = generateSyntheticSegments(rand, segmentCount);
-const segments = preparedSegments?.features?.length ? syntheticSegments : syntheticSegments;
-if (preparedSegments?.features?.length) {
-  console.info('[Diary] Prepared street file present; synthetic demo output preserved for now (TODO: swap provider).');
+let segments = syntheticSegments;
+if (existsSync(resolve(dataDir, 'segments_phl.network.geojson'))) {
+  try {
+    const networkRaw = JSON.parse(readFileSync(resolve(dataDir, 'segments_phl.network.geojson'), 'utf-8'));
+    if (Array.isArray(networkRaw.features) && networkRaw.features.length) {
+      segments = networkRaw.features.slice(0, segmentCount).map((f, idx) => {
+        const lenM = turf.length(f, { units: 'kilometers' }) * 1000;
+        return {
+          id: f.properties?.segment_id || `seg_${String(idx + 1).padStart(3, '0')}`,
+          street: f.properties?.street_name || f.properties?.name || `Street ${idx + 1}`,
+          length_m: Math.max(20, Math.round(lenM)),
+          decayed_mean: sampleMean(rand),
+          n_eff: Math.max(1, Math.round(rand() * 24) + 1),
+          top_tags: sampleTags(rand),
+          delta_30d: +((rand() - 0.5) * 0.4).toFixed(2),
+          geometry: f.geometry,
+          class: Number(f.properties?.class) || 3,
+        };
+      });
+      console.info(`[Diary] Using network segments (${segments.length}) from segments_phl.network.geojson`);
+    }
+  } catch (err) {
+    console.warn('[Diary] Failed to load network segments; falling back to synthetic.', err?.message || err);
+    segments = syntheticSegments;
+  }
 }
 
 function stitchGeometry(ids) {
   const coords = [];
-  ids.forEach((id, idx) => {
+  ids.forEach((id) => {
     const seg = segments.find((s) => s.id === id);
     if (!seg) return;
-    const line = seg.geometry.coordinates;
+    let line = seg.geometry.coordinates;
+    if (coords.length > 0) {
+      const last = coords[coords.length - 1];
+      const start = line[0];
+      const end = line[line.length - 1];
+      const distStart = turf.distance(last, start, { units: 'meters' });
+      const distEnd = turf.distance(last, end, { units: 'meters' });
+      if (distEnd < distStart) {
+        line = [...line].reverse();
+      }
+    }
     if (coords.length === 0) {
       coords.push(...line);
     } else {
@@ -165,13 +200,45 @@ const ROUTE_NAMES = [
 ];
 
 const routes = [];
+const nodeKey = (coord) => coord ? `${coord[0].toFixed(5)},${coord[1].toFixed(5)}` : null;
+const adjacency = new Map();
+segments.forEach((seg) => {
+  if (!seg.geometry?.coordinates?.length) return;
+  const coords = seg.geometry.coordinates;
+  const a = nodeKey(coords[0]);
+  const b = nodeKey(coords[coords.length - 1]);
+  if (a && b) {
+    if (!adjacency.has(a)) adjacency.set(a, []);
+    if (!adjacency.has(b)) adjacency.set(b, []);
+    adjacency.get(a).push(seg);
+    adjacency.get(b).push(seg);
+  }
+});
+
+function buildRoute(maxSegments = 10) {
+  const keys = Array.from(adjacency.keys());
+  if (!keys.length) return [];
+  const startKey = keys[Math.floor(rand() * keys.length)];
+  const path = [];
+  const visited = new Set();
+  let currentKey = startKey;
+  for (let i = 0; i < maxSegments; i += 1) {
+    const options = (adjacency.get(currentKey) || []).filter((seg) => !visited.has(seg.id));
+    if (!options.length) break;
+    const nextSeg = options[Math.floor(rand() * options.length)];
+    visited.add(nextSeg.id);
+    path.push(nextSeg.id);
+    const coords = nextSeg.geometry.coordinates;
+    const endA = nodeKey(coords[0]);
+    const endB = nodeKey(coords[coords.length - 1]);
+    currentKey = currentKey === endA ? endB : endA;
+  }
+  return path;
+}
+
 for (let i = 0; i < routeCount; i += 1) {
-  const minSegments = 8;
-  const span = minSegments + Math.floor(rand() * 5);
-  const startIdx = Math.floor(rand() * Math.max(1, segmentCount - span - 1));
-  const primarySegments = segments.slice(startIdx, startIdx + span).map((s) => s.id);
-  const altStart = (startIdx + Math.max(4, Math.floor(rand() * 10))) % Math.max(1, segmentCount - span);
-  const altSegments = segments.slice(altStart, altStart + span).map((s) => s.id);
+  const primarySegments = buildRoute(10);
+  const altSegments = buildRoute(10);
   const [fromLabel, toLabel] = ROUTE_NAMES[i % ROUTE_NAMES.length];
   const primaryLength = collectLength(primarySegments);
   const altLength = collectLength(altSegments);
@@ -213,6 +280,7 @@ const segmentsFC = {
       top_tags: segment.top_tags,
       delta_30d: segment.delta_30d,
       neighborhood: segment.neighborhood,
+      class: segment.class || 3,
     },
     geometry: segment.geometry,
   })),
@@ -223,9 +291,6 @@ const routesFC = {
   features: routes,
 };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const dataDir = resolve(__dirname, '..', 'data');
 mkdirSync(dataDir, { recursive: true });
 writeFileSync(resolve(dataDir, 'segments_phl.demo.geojson'), `${JSON.stringify(segmentsFC, null, 2)}\n`);
 writeFileSync(resolve(dataDir, 'routes_phl.demo.geojson'), `${JSON.stringify(routesFC, null, 2)}\n`);

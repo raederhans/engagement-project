@@ -108,6 +108,14 @@ export function widthForNEff(nEff) {
   return Math.max(1, Math.min(4, px));
 }
 
+function classWidth(classValue) {
+  const cls = Number(classValue);
+  if (cls === 1) return 3.8;
+  if (cls === 2) return 3.0;
+  if (cls === 3) return 2.2;
+  return 1.5;
+}
+
 function prepareFeatureCollection(collection) {
   const base = collection && collection.type === 'FeatureCollection' ? clone(collection) : { type: 'FeatureCollection', features: [] };
   base.features = (base.features || []).map((feature, idx) => {
@@ -124,7 +132,8 @@ function prepareFeatureCollection(collection) {
       n_eff: Math.max(0, nEff),
       delta_30d: delta,
       top_tags: tags,
-      line_width_px: widthForNEff(nEff),
+      line_width_px: Math.min(4, widthForNEff(nEff) + (classWidth(props.class) - 1.5)),
+      class: props.class ?? 3,
     };
     return f;
   });

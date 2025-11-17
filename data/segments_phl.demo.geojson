@@ -11,7 +11,8 @@
         "n_eff": 4,
         "top_tags": [],
         "delta_30d": 0.1,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -37,7 +38,8 @@
         "n_eff": 25,
         "top_tags": [],
         "delta_30d": 0.18,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -72,7 +74,8 @@
           }
         ],
         "delta_30d": 0,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -98,7 +101,8 @@
         "n_eff": 2,
         "top_tags": [],
         "delta_30d": -0.02,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -124,7 +128,8 @@
         "n_eff": 4,
         "top_tags": [],
         "delta_30d": -0.05,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -150,7 +155,8 @@
         "n_eff": 21,
         "top_tags": [],
         "delta_30d": 0.12,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -176,7 +182,8 @@
         "n_eff": 12,
         "top_tags": [],
         "delta_30d": 0.19,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -202,7 +209,8 @@
         "n_eff": 8,
         "top_tags": [],
         "delta_30d": -0.12,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -237,7 +245,8 @@
           }
         ],
         "delta_30d": -0.17,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -272,7 +281,8 @@
           }
         ],
         "delta_30d": 0.11,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -307,7 +317,8 @@
           }
         ],
         "delta_30d": 0.06,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -333,7 +344,8 @@
         "n_eff": 24,
         "top_tags": [],
         "delta_30d": -0.14,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -368,7 +380,8 @@
           }
         ],
         "delta_30d": -0.15,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -399,7 +412,8 @@
           }
         ],
         "delta_30d": 0.06,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -425,7 +439,8 @@
         "n_eff": 22,
         "top_tags": [],
         "delta_30d": 0.01,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -451,7 +466,8 @@
         "n_eff": 5,
         "top_tags": [],
         "delta_30d": 0.16,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -477,7 +493,8 @@
         "n_eff": 1,
         "top_tags": [],
         "delta_30d": -0.05,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -503,7 +520,8 @@
         "n_eff": 7,
         "top_tags": [],
         "delta_30d": -0.15,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -534,7 +552,8 @@
           }
         ],
         "delta_30d": -0.15,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -560,7 +579,8 @@
         "n_eff": 16,
         "top_tags": [],
         "delta_30d": 0.09,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -586,7 +606,8 @@
         "n_eff": 14,
         "top_tags": [],
         "delta_30d": 0.13,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -612,7 +633,8 @@
         "n_eff": 5,
         "top_tags": [],
         "delta_30d": -0.01,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -643,7 +665,8 @@
           }
         ],
         "delta_30d": -0.02,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -669,7 +692,8 @@
         "n_eff": 13,
         "top_tags": [],
         "delta_30d": 0.13,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -695,7 +719,8 @@
         "n_eff": 19,
         "top_tags": [],
         "delta_30d": -0.2,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -721,7 +746,8 @@
         "n_eff": 3,
         "top_tags": [],
         "delta_30d": 0,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -752,7 +778,8 @@
           }
         ],
         "delta_30d": 0.11,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -778,7 +805,8 @@
         "n_eff": 5,
         "top_tags": [],
         "delta_30d": -0.1,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -813,7 +841,8 @@
           }
         ],
         "delta_30d": -0.09,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -839,7 +868,8 @@
         "n_eff": 7,
         "top_tags": [],
         "delta_30d": -0.16,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -865,7 +895,8 @@
         "n_eff": 20,
         "top_tags": [],
         "delta_30d": 0.06,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -891,7 +922,8 @@
         "n_eff": 20,
         "top_tags": [],
         "delta_30d": 0.13,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -917,7 +949,8 @@
         "n_eff": 14,
         "top_tags": [],
         "delta_30d": 0.17,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -943,7 +976,8 @@
         "n_eff": 5,
         "top_tags": [],
         "delta_30d": -0.13,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -969,7 +1003,8 @@
         "n_eff": 24,
         "top_tags": [],
         "delta_30d": 0.15,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -995,7 +1030,8 @@
         "n_eff": 1,
         "top_tags": [],
         "delta_30d": 0.07,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1021,7 +1057,8 @@
         "n_eff": 12,
         "top_tags": [],
         "delta_30d": 0.14,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1052,7 +1089,8 @@
           }
         ],
         "delta_30d": -0.1,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1078,7 +1116,8 @@
         "n_eff": 18,
         "top_tags": [],
         "delta_30d": 0.07,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1104,7 +1143,8 @@
         "n_eff": 14,
         "top_tags": [],
         "delta_30d": -0.07,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1139,7 +1179,8 @@
           }
         ],
         "delta_30d": -0.02,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1165,7 +1206,8 @@
         "n_eff": 15,
         "top_tags": [],
         "delta_30d": 0.2,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1196,7 +1238,8 @@
           }
         ],
         "delta_30d": 0.08,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1222,7 +1265,8 @@
         "n_eff": 20,
         "top_tags": [],
         "delta_30d": 0.04,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1257,7 +1301,8 @@
           }
         ],
         "delta_30d": -0.06,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1288,7 +1333,8 @@
           }
         ],
         "delta_30d": 0.12,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1314,7 +1360,8 @@
         "n_eff": 11,
         "top_tags": [],
         "delta_30d": -0.07,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1340,7 +1387,8 @@
         "n_eff": 12,
         "top_tags": [],
         "delta_30d": -0.16,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1366,7 +1414,8 @@
         "n_eff": 3,
         "top_tags": [],
         "delta_30d": 0,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1392,7 +1441,8 @@
         "n_eff": 11,
         "top_tags": [],
         "delta_30d": -0.17,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1427,7 +1477,8 @@
           }
         ],
         "delta_30d": 0.03,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1453,7 +1504,8 @@
         "n_eff": 16,
         "top_tags": [],
         "delta_30d": 0.12,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1479,7 +1531,8 @@
         "n_eff": 14,
         "top_tags": [],
         "delta_30d": 0.2,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1514,7 +1567,8 @@
           }
         ],
         "delta_30d": -0.02,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1540,7 +1594,8 @@
         "n_eff": 9,
         "top_tags": [],
         "delta_30d": -0.13,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1575,7 +1630,8 @@
           }
         ],
         "delta_30d": -0.19,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1601,7 +1657,8 @@
         "n_eff": 23,
         "top_tags": [],
         "delta_30d": 0.05,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1632,7 +1689,8 @@
           }
         ],
         "delta_30d": -0.19,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1663,7 +1721,8 @@
           }
         ],
         "delta_30d": -0.12,
-        "neighborhood": "Center City"
+        "neighborhood": "Center City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1689,7 +1748,8 @@
         "n_eff": 6,
         "top_tags": [],
         "delta_30d": -0.03,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1715,7 +1775,8 @@
         "n_eff": 2,
         "top_tags": [],
         "delta_30d": -0.14,
-        "neighborhood": "University City"
+        "neighborhood": "University City",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1741,7 +1802,8 @@
         "n_eff": 14,
         "top_tags": [],
         "delta_30d": -0.03,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1772,7 +1834,8 @@
           }
         ],
         "delta_30d": 0.17,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
@@ -1803,7 +1866,8 @@
           }
         ],
         "delta_30d": 0.01,
-        "neighborhood": "South Philly"
+        "neighborhood": "South Philly",
+        "class": 3
       },
       "geometry": {
         "type": "LineString",
