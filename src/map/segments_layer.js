@@ -15,6 +15,9 @@ const COLOR_BINS = [
 ];
 
 const hoverRegistrations = new Map();
+const clickRegistrations = new Map();
+let activePinnedPopup = null;
+let activePinnedSegmentId = null;
 let hoverActionHandler = null;
 
 export function registerSegmentActionHandler(handler) {
@@ -43,7 +46,7 @@ export function mountSegmentsLayer(map, sourceId, data) {
     'line-blur': 0.15,
   });
 
-  registerHoverHandlers(map, hitLayerId);
+  registerClickHandlers(map, hitLayerId);
 }
 
 /**
@@ -78,6 +81,7 @@ export function removeSegmentsLayer(map, sourceId) {
   const layerId = `${sourceId}-line`;
   const hitLayerId = `${sourceId}-hit`;
   cleanupHoverHandlers(map, hitLayerId);
+  cleanupClickHandlers(map, hitLayerId);
   for (const id of [layerId, hitLayerId]) {
     if (map.getLayer(id)) {
       map.removeLayer(id);
@@ -157,7 +161,7 @@ function registerHoverHandlers(map, layerId) {
     const feature = event.features && event.features[0];
     if (!feature) return;
     const props = feature.properties || {};
-    const html = buildHoverHtml(props);
+    const html = buildSegmentCardHtml(props);
     if (!popupVisible) {
       popup.addTo(map);
       popupVisible = true;
@@ -182,6 +186,101 @@ function registerHoverHandlers(map, layerId) {
   map.on('mouseleave', layerId, leaveHandler);
 
   hoverRegistrations.set(layerId, { moveHandler, leaveHandler, popup });
+}
+
+function cleanupClickHandlers(map, layerId) {
+  const entry = clickRegistrations.get(layerId);
+  if (!entry || !map) return;
+  map.off('click', layerId, entry.clickHandler);
+  map.off('click', entry.mapClickHandler);
+  if (activePinnedPopup) {
+    activePinnedPopup.remove();
+    activePinnedPopup = null;
+    activePinnedSegmentId = null;
+  }
+  clickRegistrations.delete(layerId);
+}
+
+function closePinnedPopup() {
+  if (activePinnedPopup) {
+    activePinnedPopup.remove();
+    activePinnedPopup = null;
+    activePinnedSegmentId = null;
+  }
+}
+
+function focusSegment(map, feature) {
+  if (!map || !feature || !feature.geometry) return;
+  const geometry = feature.geometry;
+  const coords = geometry.type === 'LineString'
+    ? geometry.coordinates
+    : geometry.type === 'MultiLineString'
+      ? geometry.coordinates.flat()
+      : [];
+  if (coords.length >= 2) {
+    const lngs = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    const bounds = [
+      [Math.min(...lngs), Math.min(...lats)],
+      [Math.max(...lngs), Math.max(...lats)],
+    ];
+    map.fitBounds(bounds, { padding: 100, maxZoom: 16, duration: 600 });
+    return;
+  }
+  if (geometry.type === 'Point' && Array.isArray(geometry.coordinates)) {
+    map.easeTo({ center: geometry.coordinates, zoom: Math.max(map.getZoom() || 12, 15), duration: 600 });
+  }
+}
+
+function registerClickHandlers(map, layerId) {
+  cleanupClickHandlers(map, layerId);
+  if (!map || !layerId) return;
+
+  const clickHandler = (event) => {
+    const feature = event.features && event.features[0];
+    if (!feature) return;
+    const props = feature.properties || {};
+    const segmentId = props.segment_id;
+
+    if (segmentId && segmentId === activePinnedSegmentId && activePinnedPopup) {
+      return;
+    }
+
+    closePinnedPopup();
+    focusSegment(map, feature);
+
+    const popup = new maplibregl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      className: 'diary-hover-card diary-segment-card-pinned',
+      offset: 12,
+      maxWidth: '320px',
+    });
+
+    const html = buildSegmentCardHtml(props);
+    popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
+    wirePopupInteractions(popup);
+    activePinnedPopup = popup;
+    activePinnedSegmentId = segmentId || null;
+
+    popup.on('close', () => {
+      closePinnedPopup();
+    });
+  };
+
+  const mapClickHandler = (event) => {
+    if (event.originalEvent && event.originalEvent.target && event.originalEvent.target.closest('.maplibregl-popup')) {
+      return;
+    }
+    const features = map.queryRenderedFeatures(event.point, { layers: [layerId] });
+    if ((!features || features.length === 0) && activePinnedPopup) {
+      closePinnedPopup();
+    }
+  };
+
+  map.on('click', layerId, clickHandler);
+  map.on('click', mapClickHandler);
+  clickRegistrations.set(layerId, { clickHandler, mapClickHandler });
 }
 
 function cleanupHoverHandlers(map, layerId) {
@@ -216,7 +315,7 @@ function wirePopupInteractions(popup) {
   });
 }
 
-function buildHoverHtml(props) {
+function buildSegmentCardHtml(props) {
   const mean = Number(props.decayed_mean ?? 3).toFixed(1);
   const nEff = Number(props.n_eff ?? 1).toFixed(1);
   const delta = Number(props.delta_30d ?? 0).toFixed(2);
@@ -241,7 +340,7 @@ function buildHoverHtml(props) {
   const saferTitle = saferDisabled ? 'Recorded for this session' : 'Flag as feeling safer';
   const hint = agreeDisabled || saferDisabled ? '<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Recorded for this session</div>' : '';
   return `
-    <div style="min-width:240px;font:12px/1.4 system-ui;color:#111;">
+    <div style="min-width:240px;max-width:320px;max-height:400px;overflow-y:auto;font:12px/1.4 system-ui;color:#111;padding-right:2px;">
       <div style="font-weight:600;margin-bottom:4px;">${street}</div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:11px;">
         <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Mean</div><div style="font-size:16px;font-weight:600;color:${colorForMean(Number(props.decayed_mean))};">${mean}</div></div>

@@ -590,7 +590,19 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-17 00:00 — Diary UI polish: lighter Rate modal, scoped Insights toggles, wider segment hit area, tag dropdown, road network stubs
 
+## 2025-11-17 02:40 — Diary M3: click-to-pin segment cards + playback/demo controls in panel
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
+
+## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
+
+- **Diagnosed** 3 UI issues: segment cards disappearing, modal non-interactive, panel missing controls
+- **Fixed (P0)** rating modal z-index: added `z-index: 2501` to `.diary-modal-card` CSS
+- **Result:** Modal now fully interactive (stars, tags, dropdowns, segment overrides all clickable)
+- **Created** detailed diagnosis log with root cause analysis for all issues
+- **Created** comprehensive fix plan (M3) with implementation tasks for segment cards and panel controls
+- Evidence: `logs/AGENTM_DIARY_UI_DIAGNOSIS_20251117T021840.md`
+- Fix plan: `docs/DIARY_UI_FIX_PLAN_M3.md`
 
 ## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary
 

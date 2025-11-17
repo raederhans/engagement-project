@@ -13,7 +13,7 @@ import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSe
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
-import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState } from '../state/store.js';
+import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter } from '../state/store.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -547,6 +547,135 @@ function ensureDiaryPanel(routes, options = {}) {
     simControls.appendChild(finishButtonEl);
 
     diaryPanelEl.appendChild(simControls);
+
+    const extraSection = document.createElement('div');
+    extraSection.style.marginTop = '12px';
+    extraSection.style.padding = '10px';
+    extraSection.style.border = '1px solid #e2e8f0';
+    extraSection.style.borderRadius = '10px';
+    extraSection.style.background = '#f8fafc';
+    extraSection.style.display = 'flex';
+    extraSection.style.flexDirection = 'column';
+    extraSection.style.gap = '10px';
+
+    const playbackLabel = document.createElement('div');
+    playbackLabel.textContent = 'Playback speed';
+    playbackLabel.style.fontSize = '12px';
+    playbackLabel.style.fontWeight = '600';
+    playbackLabel.style.color = '#0f172a';
+    extraSection.appendChild(playbackLabel);
+
+    const playbackRow = document.createElement('div');
+    playbackRow.style.display = 'flex';
+    playbackRow.style.gap = '6px';
+    const speeds = [0.5, 1, 2];
+    const speedButtons = [];
+    speeds.forEach((value) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `${value}×`;
+      btn.style.flex = '1';
+      btn.style.padding = '6px 8px';
+      btn.style.borderRadius = '8px';
+      btn.style.border = '1px solid #dbeafe';
+      btn.style.background = '#fff';
+      btn.style.cursor = 'pointer';
+      btn.style.fontSize = '12px';
+      btn.style.fontWeight = '600';
+      const sync = () => {
+        const active = store.simPlaybackSpeed === value;
+        btn.style.background = active ? '#0ea5e9' : '#fff';
+        btn.style.color = active ? '#fff' : '#0f172a';
+      };
+      btn.addEventListener('click', () => {
+        setSimPlaybackSpeed(value);
+        speedButtons.forEach((b) => b.sync());
+      });
+      btn.sync = sync;
+      speedButtons.push(btn);
+      playbackRow.appendChild(btn);
+    });
+    speedButtons.forEach((b) => b.sync());
+    extraSection.appendChild(playbackRow);
+
+    const periodLabel = document.createElement('div');
+    periodLabel.textContent = 'Demo period';
+    periodLabel.style.fontSize = '12px';
+    periodLabel.style.fontWeight = '600';
+    periodLabel.style.color = '#0f172a';
+    extraSection.appendChild(periodLabel);
+
+    const periodSelect = document.createElement('select');
+    periodSelect.style.width = '100%';
+    periodSelect.style.padding = '8px';
+    periodSelect.style.border = '1px solid #dbeafe';
+    periodSelect.style.borderRadius = '8px';
+    periodSelect.style.fontSize = '12px';
+    [
+      { value: 'day', label: 'Single day' },
+      { value: 'week', label: 'Last 7 days' },
+      { value: 'month', label: 'Last 30 days' },
+    ].forEach((opt) => {
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      periodSelect.appendChild(option);
+    });
+    periodSelect.value = store.diaryDemoPeriod || 'day';
+    periodSelect.addEventListener('change', () => {
+      setDiaryDemoPeriod(periodSelect.value);
+    });
+    extraSection.appendChild(periodSelect);
+
+    const timeLabel = document.createElement('div');
+    timeLabel.textContent = 'Time of day';
+    timeLabel.style.fontSize = '12px';
+    timeLabel.style.fontWeight = '600';
+    timeLabel.style.color = '#0f172a';
+    extraSection.appendChild(timeLabel);
+
+    const timeSelect = document.createElement('select');
+    timeSelect.style.width = '100%';
+    timeSelect.style.padding = '8px';
+    timeSelect.style.border = '1px solid #dbeafe';
+    timeSelect.style.borderRadius = '8px';
+    timeSelect.style.fontSize = '12px';
+    [
+      { value: 'all', label: 'All hours' },
+      { value: 'day', label: 'Daytime' },
+      { value: 'evening', label: 'Evening' },
+      { value: 'night', label: 'Night' },
+    ].forEach((opt) => {
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      timeSelect.appendChild(option);
+    });
+    timeSelect.value = store.diaryTimeFilter || 'all';
+    timeSelect.addEventListener('change', () => {
+      setDiaryTimeFilter(timeSelect.value);
+    });
+    extraSection.appendChild(timeSelect);
+
+    const historyBtn = document.createElement('button');
+    historyBtn.type = 'button';
+    historyBtn.textContent = 'My routes and history (coming soon)';
+    historyBtn.style.marginTop = '4px';
+    historyBtn.style.width = '100%';
+    historyBtn.style.padding = '10px 12px';
+    historyBtn.style.border = '1px dashed #cbd5f5';
+    historyBtn.style.borderRadius = '8px';
+    historyBtn.style.background = '#fff';
+    historyBtn.style.cursor = 'not-allowed';
+    historyBtn.style.fontSize = '12px';
+    historyBtn.style.color = '#475569';
+    historyBtn.disabled = true;
+    historyBtn.addEventListener('click', () => {
+      console.info('[Diary] My routes and history is not available yet.');
+    });
+    extraSection.appendChild(historyBtn);
+
+    diaryPanelEl.appendChild(extraSection);
   }
 
   populateRouteOptions(routes);

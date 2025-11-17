@@ -89,6 +89,7 @@ function injectModalStyles() {
       font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
       color: #0f172a;
       position: relative;
+      z-index: 2501;
     }
     .diary-modal-card .diary-modal-body {
       overflow-y: auto;

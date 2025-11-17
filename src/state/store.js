@@ -23,6 +23,9 @@ function getDefaultPanelPrefs() {
     selectedRouteId: null,
     diaryAltEnabled: false,
     simState: { playing: false, progress: 0, routeId: null },
+    simPlaybackSpeed: 1,
+    diaryDemoPeriod: 'day',
+    diaryTimeFilter: 'all',
   };
 }
 
@@ -101,6 +104,9 @@ export const store = /** @type {Store} */ ({
   selectedRouteId: panelPrefs.selectedRouteId,
   diaryAltEnabled: panelPrefs.diaryAltEnabled,
   simState: { ...panelPrefs.simState },
+  simPlaybackSpeed: panelPrefs.simPlaybackSpeed || 1,
+  diaryDemoPeriod: panelPrefs.diaryDemoPeriod || 'day',
+  diaryTimeFilter: panelPrefs.diaryTimeFilter || 'all',
   userHash: null,          // Anonymous user hash (M2)
   myRoutes: [],            // Saved routes (M3)
   // Choropleth classification
@@ -206,6 +212,60 @@ export function onDiaryStateChange(listener) {
   if (typeof listener !== 'function') return () => {};
   diaryStateListeners.add(listener);
   return () => diaryStateListeners.delete(listener);
+}
+
+export function setSimPlaybackSpeed(speed) {
+  const allowed = [0.5, 1, 2];
+  const next = allowed.includes(Number(speed)) ? Number(speed) : 1;
+  store.simPlaybackSpeed = next;
+  panelPrefs.simPlaybackSpeed = next;
+  persistPanelPrefs();
+  if (typeof console !== 'undefined' && console.info) {
+    console.info('[Diary] playback speed', next);
+  }
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('playback', next);
+    } catch (err) {
+      console.warn('[store] diary playback listener failed:', err);
+    }
+  }
+}
+
+export function setDiaryDemoPeriod(period) {
+  const allowed = ['day', 'week', 'month'];
+  const next = allowed.includes(period) ? period : 'day';
+  store.diaryDemoPeriod = next;
+  panelPrefs.diaryDemoPeriod = next;
+  persistPanelPrefs();
+  if (typeof console !== 'undefined' && console.info) {
+    console.info('[Diary] demo period', next);
+  }
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('demoPeriod', next);
+    } catch (err) {
+      console.warn('[store] diary demo period listener failed:', err);
+    }
+  }
+}
+
+export function setDiaryTimeFilter(filter) {
+  const allowed = ['all', 'day', 'evening', 'night'];
+  const next = allowed.includes(filter) ? filter : 'all';
+  store.diaryTimeFilter = next;
+  panelPrefs.diaryTimeFilter = next;
+  persistPanelPrefs();
+  if (typeof console !== 'undefined' && console.info) {
+    console.info('[Diary] time filter', next);
+  }
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('timeFilter', next);
+    } catch (err) {
+      console.warn('[store] diary time filter listener failed:', err);
+    }
+  }
 }
 
 export function setSimPanelState(partial = {}) {
