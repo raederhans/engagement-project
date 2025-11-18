@@ -596,6 +596,18 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes
 
+## 2025-11-18 03:00 — Road Network: visibility audit complete, NJ route issue diagnosed, network layer visibility fixed (P1)
+
+- **Audited** network layer visibility and route geography
+- **Critical Issue:** All 5 demo routes rendering in New Jersey (Palmyra, Camden) instead of Philadelphia
+- **Root Cause:** Overpass bbox includes NJ (-75.00 east boundary), random route starts pick from entire 144k network
+- **Network Visibility Issue:** Layer color/opacity too similar to basemap → invisible to users
+- **Hotfix Applied (P1):** Updated network_layer.js styling (darker color, higher opacity, minzoom: 11, wider lines)
+- **Created** 5 realistic Philly route scenarios (30th St→Clark Park, Station→Rittenhouse, Campus→Italian Market, etc.)
+- **Created** detailed audit log: `logs/ROADNET_M3_VISIBILITY_AND_ROUTES_20251118T030000.md`
+- **Updated** ROAD_NETWORK_NOTES.md with route scenarios, current issues, and Packet A fix plan (narrow bbox to -75.135)
+- **Next:** Codex to implement Packet A (fix NJ routes), Packet C (realistic route anchoring)
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created

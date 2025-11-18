@@ -17,111 +17,249 @@
 - Class mapping: `motorway/trunk` → 1, `primary/secondary` → 2, `tertiary` → 3, others → 4. Numeric FUNC_CLASS/CLASS honored when present.
 - Demo routes now follow connected network walks targeting ~2–4 km length; alt routes picked from separate walks.
 
+## Current Issues (2025-11-18 Audit)
+
+### Issue 1: Routes Appearing in New Jersey
+**Problem:** All 5 demo routes currently render in New Jersey (Palmyra, Camden, Cherry Hill) instead of Philadelphia.
+
+**Root Cause:**
+- Overpass bbox eastern boundary extends to -75.00 longitude (includes NJ)
+- `walkRoute()` picks random start from entire 144k segment network
+- No geographic constraints → routes can start/traverse anywhere in region
+
+**Evidence:**
+- Routes bbox: [-75.0307, 39.9947] to [-74.9990, 40.0089]
+- Philadelphia City Hall: -75.16 longitude
+- Delaware River: ~-75.13 longitude
+- **Conclusion:** Routes are 0.13-0.16° east of Philadelphia (across river)
+
+**Fix Required:**
+1. Narrow Overpass bbox from -75.00 to -75.135 (exclude NJ)
+2. Add PHILLY_BBOX filter in generate_demo_data.mjs
+3. Constrain walkRoute() to only traverse Philadelphia segments
+
+### Issue 2: Background Network Invisible
+**Problem:** Users report not seeing gray network grid despite layer rendering.
+
+**Root Cause:**
+- Line color #cbd5e1 too similar to basemap roads
+- Opacity 0.4 too subtle
+- Line widths similar to basemap
+- No minzoom → too thin at low zoom
+
+**Fix Applied (2025-11-18):**
+- Darkened color to #94a3b8 (slate-400)
+- Increased opacity to 0.6
+- Increased line widths by 15-20%
+- Added minzoom: 11
+
+**Status:** Small hotfix applied by Agent-M in src/map/network_layer.js
+
+### Issue 3: No UI Toggle
+**Status:** Not yet implemented. Requires Codex packet (see Implementation Plan below).
+
+---
+
+## Target Demo Route Scenarios (Philadelphia-Only)
+
+### Geographic Constraints for All Routes
+- **Primary Bbox:** `[-75.28, 39.90, -75.135, 40.05]` (west of Delaware River)
+- **Rationale:** Exclude New Jersey (east of -75.13), focus on Philadelphia proper
+- **Coverage:** University City, Center City, Rittenhouse, South Philly, Old City
+
+### Route A: University City Commute
+- **From:** 30th Street Station (30th & Market St)
+- **To:** Clark Park (43rd & Chester Ave, West Philly)
+- **Distance:** ~2.0 km (1.2 miles)
+- **Mode:** Walk or bike
+- **Corridor:** Market St west to 36th, then Spruce or Baltimore Ave to 43rd
+- **Start Anchor:** `[-75.1815, 39.9559]` (30th St Station entrance)
+- **End Anchor:** `[-75.2075, 39.9485]` (Clark Park)
+- **Target Length:** 1,800-2,400m
+
+### Route B: Station to Rittenhouse
+- **From:** 30th Street Station
+- **To:** Rittenhouse Square (18th & Walnut)
+- **Distance:** ~2.2 km (1.4 miles)
+- **Mode:** Walk
+- **Corridor:** Market St Bridge across Schuylkill, then Walnut/Chestnut to Rittenhouse
+- **Start Anchor:** `[-75.1815, 39.9559]` (30th St Station)
+- **End Anchor:** `[-75.1720, 39.9495]` (Rittenhouse Square)
+- **Target Length:** 2,000-2,600m
+
+### Route C: Campus to Italian Market
+- **From:** Penn Campus Core (Locust Walk, 36th-38th St)
+- **To:** Italian Market (9th & Christian, South Philly)
+- **Distance:** ~4.5 km (2.8 miles)
+- **Mode:** Bike
+- **Corridor:** Pine or Spruce St east (protected bike lanes), then south on 9th/10th
+- **Start Anchor:** `[-75.1950, 39.9525]` (Penn Locust Walk)
+- **End Anchor:** `[-75.1585, 39.9390]` (9th & Christian)
+- **Target Length:** 4,000-5,000m
+
+### Route D: City Hall to Penn Campus
+- **From:** Philadelphia City Hall (Broad & Market)
+- **To:** Penn Campus Gateway (34th & Walnut)
+- **Distance:** ~2.5 km (1.6 miles)
+- **Mode:** Walk or bike
+- **Corridor:** Market St or JFK Blvd west to 34th, into campus
+- **Start Anchor:** `[-75.1635, 39.9524]` (City Hall)
+- **End Anchor:** `[-75.1925, 39.9540]` (34th & Walnut)
+- **Target Length:** 2,200-3,000m
+
+### Route E: Rittenhouse to East Passyunk
+- **From:** Rittenhouse Square
+- **To:** East Passyunk Avenue (Passyunk & Tasker, South Philly)
+- **Distance:** ~3.2 km (2.0 miles)
+- **Mode:** Bike
+- **Corridor:** Broad St south, then diagonal on East Passyunk Ave
+- **Start Anchor:** `[-75.1720, 39.9495]` (Rittenhouse Square)
+- **End Anchor:** `[-75.1640, 39.9265]` (Passyunk & Tasker)
+- **Target Length:** 2,800-3,800m
+
 ---
 
 ## Implementation Plan — Realistic Road Network (M3+)
 
 **Goal:** Transform the road network from a 4-block sample to a realistic citywide street grid with proper functional class hierarchy, background network layer, and plausible demo routes.
 
-**Current Issues (from audit 2025-11-18):**
-1. **Tiny Coverage:** Only 10 hardcoded streets covering ~4 city blocks (using fallback sample)
-2. **No Background Layer:** Only 64 rated demo segments shown, no contextual street grid
-3. **No Realistic Routes:** Routes are 1-1.5km but confined to same 4 blocks
-4. **Root Cause:** `STREETS_PHL_URL` environment variable not set → always uses fallback
+**Status Update (2025-11-18):**
+- ✅ **Network Data:** Successfully fetched 109k raw streets, 144k network segments (Overpass OSM)
+- ✅ **Background Layer:** Implemented but initially invisible (fixed with style adjustments)
+- ❌ **Routes Location:** All 5 demo routes appearing in New Jersey instead of Philadelphia
+- ❌ **Route Anchoring:** Routes use random starts instead of realistic landmarks
 
-See full diagnosis: `logs/ROADNET_AUDIT_M3_20251118T015821.md`
+See audit logs:
+- Initial diagnosis: `logs/ROADNET_AUDIT_M3_20251118T015821.md`
+- Visibility & location audit: `logs/ROADNET_M3_VISIBILITY_AND_ROUTES_20251118T030000.md`
 
 ---
 
-### Packet A: Data Source & Ingestion (P0 — Critical)
+### Packet A: Fix Route Geography (P0 — Critical)
 
-**Objective:** Replace 10-street fallback sample with real OpenDataPhilly street centerlines covering entire Philadelphia or multi-neighborhood area (5-10 km²).
+**Objective:** Constrain demo routes to Philadelphia proper (currently all 5 routes are in New Jersey).
 
-#### A.1 — Find Working Data Source
+**Current Problem:**
+- Routes bbox: [-75.03, 39.99] to [-74.99, 40.01] (Palmyra/Camden, NJ)
+- Overpass bbox extends to -75.00 longitude (includes NJ)
+- `walkRoute()` picks random start from entire 144k segment network
+- No geographic constraints
 
-**Task:** Locate current OpenDataPhilly Streets dataset URL
+#### A.1 — Narrow Overpass Bbox to Exclude New Jersey
 
-**Options:**
-1. **OpenDataPhilly Portal:** Search for "Street Centerlines" at https://opendataphilly.org
-2. **ArcGIS REST API:** City of Philadelphia Streets Department endpoint
-3. **Static Download:** Pre-exported GeoJSON from recent data dump
-4. **Fallback:** Use OSM extract for Philadelphia (Overpass API or Geofabrik)
+**File:** [scripts/fetch_streets_phl.mjs:14-16](../scripts/fetch_streets_phl.mjs#L14-L16)
 
-**Expected Fields:**
-- `SEG_ID` or unique identifier
-- `STNAME` / `name` (street name)
-- `FUNC_CLASS` / `CLASS` (functional classification: 1-4)
-- `Shape_Length` or geometry length
-- `geometry` (LineString coordinates in EPSG:4326)
-
-**Deliverable:** Working URL or static file path for full city streets (50,000-100,000 segments expected)
-
-#### A.2 — Update fetch_streets_phl.mjs
-
-**File:** [scripts/fetch_streets_phl.mjs](../scripts/fetch_streets_phl.mjs)
-
-**Changes:**
-1. Update `STREETS_PHL_URL` default value with working endpoint (lines 12-14)
-2. If using static file, update logic to copy from `data/raw/` instead of fetch
-3. Update field mapping if source schema differs (lines 72-78 likely)
-4. Verify output is valid GeoJSON with expected properties
-
-**Test:** Run `node -e "import('./scripts/fetch_streets_phl.mjs').then(m => m.fetchStreetsPhl())"` and verify `data/streets_phl.raw.geojson` contains 50k+ features (not 10).
-
-#### A.3 — Expand Study Area Bbox
-
-**File:** [scripts/segment_streets_phl.mjs:12](../scripts/segment_streets_phl.mjs#L12)
-
-**Current:** `const STUDY_BBOX = [-75.25, 39.90, -75.13, 39.97];` (Center City only)
-
-**Change:** Expand to multi-neighborhood coverage:
+**Current:**
 ```javascript
-// Option 1: Entire Philadelphia
-const STUDY_BBOX = [-75.28, 39.87, -75.00, 40.14]; // ~100 km²
-
-// Option 2: Center + adjacent neighborhoods (recommended for demo)
-const STUDY_BBOX = [-75.22, 39.92, -75.14, 39.98]; // ~5-10 km²
+const DEFAULT_OVERPASS_URL =
+  'https://overpass-api.de/api/interpreter?data=[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;';
 ```
 
-**Rationale:** Larger bbox provides:
-- Realistic route start/end pairs across neighborhoods
-- Visible functional class hierarchy (highways, arterials, local streets)
-- Better demo context (not confined to tiny cluster)
+**Change:**
+```javascript
+const DEFAULT_OVERPASS_URL =
+  'https://overpass-api.de/api/interpreter?data=[out:json];way["highway"](39.90,-75.30,40.05,-75.135);out geom;';
+  // Changed east boundary from -75.00 to -75.135 (west of Delaware River)
+```
 
-**Test:** After regeneration, verify `data/segments_phl.network.geojson` has 1,000-5,000 segments (not 185).
+**Rationale:** Delaware River is at approximately -75.13 longitude. Eastern boundary of -75.135 keeps data within Philadelphia.
 
-#### A.4 — Create Setup Documentation
+#### A.2 — Update Segmentation Bbox
 
-**Files to Create/Update:**
-1. **`.env.example`** (create if missing):
-   ```bash
-   # Feature flags
-   VITE_FEATURE_DIARY=1
+**File:** [scripts/segment_streets_phl.mjs:14](../scripts/segment_streets_phl.mjs#L14)
 
-   # Road network data source (optional override)
-   # If not set, uses fallback 10-street sample
-   STREETS_PHL_URL=https://example.com/path/to/streets.geojson
-   ```
+**Current:** `const STUDY_BBOX = [-75.28, 39.90, -75.00, 40.05];`
 
-2. **`docs/DATA_SETUP.md`** (create):
-   - Document where to find OpenDataPhilly dataset
-   - Instructions for setting `STREETS_PHL_URL`
-   - Alternative: downloading static file to `data/raw/`
-   - Expected data regeneration workflow
+**Change:**
+```javascript
+const STUDY_BBOX = [-75.28, 39.90, -75.135, 40.05];  // Exclude NJ
+```
+
+#### A.3 — Add Philadelphia Bbox Filter in Route Generator
+
+**File:** [scripts/generate_demo_data.mjs](../scripts/generate_demo_data.mjs)
+
+**Add before adjacency graph construction (line 204):**
+```javascript
+// Philadelphia-only bbox (west of Delaware River)
+const PHILLY_BBOX = [-75.28, 39.90, -75.135, 40.05];
+
+function isInPhilly(segment) {
+  const coords = segment.geometry?.coordinates || [];
+  if (!coords.length) return false;
+  const [lng, lat] = coords[0];
+  return lng >= PHILLY_BBOX[0] && lng <= PHILLY_BBOX[2]
+      && lat >= PHILLY_BBOX[1] && lat <= PHILLY_BBOX[3];
+}
+
+// Filter segments to Philadelphia only
+const phillySegments = segments.filter(isInPhilly);
+console.info(`[Diary] Filtered to ${phillySegments.length} Philadelphia segments (of ${segments.length} total)`);
+
+// Use phillySegments for adjacency graph and route generation
+const adjacency = new Map();
+phillySegments.forEach((seg) => {
+  // ... existing adjacency building code
+});
+```
+
+#### A.4 — Update walkRoute to Stay Within Bbox
+
+**File:** [scripts/generate_demo_data.mjs:225-249](../scripts/generate_demo_data.mjs#L225-L249)
+
+**Modify walkRoute to check bbox before adding segments:**
+```javascript
+function walkRoute({ minLen = 1800, maxLen = 3600, maxSegments = 80 } = {}) {
+  const keys = Array.from(adjacency.keys());
+  if (!keys.length) return [];
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const startKey = keys[Math.floor(rand() * keys.length)];
+    let currentKey = startKey;
+    const path = [];
+    const visited = new Set();
+    let total = 0;
+    for (let i = 0; i < maxSegments; i += 1) {
+      const neighbors = adjacency.get(currentKey) || [];
+      const unvisited = neighbors.filter((seg) => {
+        // ADDED: Bbox check
+        if (!isInPhilly(seg)) return false;
+        return !visited.has(seg.id);
+      });
+      const pool = unvisited.length ? unvisited : neighbors.filter(isInPhilly);
+      if (!pool.length) break;
+      const nextSeg = pool[Math.floor(rand() * pool.length)];
+      // ... rest unchanged
+    }
+  }
+}
+```
 
 **Acceptance Criteria (Packet A):**
-- [ ] Real OpenDataPhilly streets loaded (50k+ features) OR expanded study area with OSM data
-- [ ] `data/streets_phl.raw.geojson` contains realistic citywide coverage
-- [ ] `data/segments_phl.network.geojson` has 1,000+ segments across multiple neighborhoods
-- [ ] Study bbox expanded from 4 blocks to 5+ km²
-- [ ] Setup documentation created (`.env.example`, `DATA_SETUP.md`)
-- [ ] `npm run data:check` passes with new dataset
+- [ ] Overpass bbox eastern boundary changed to -75.135
+- [ ] Segmentation bbox updated to match
+- [ ] PHILLY_BBOX filter added to generate_demo_data.mjs
+- [ ] Routes regenerated with `npm run data:gen`
+- [ ] All routes have longitude >= -75.135 (verified with inspect script)
+- [ ] Routes bbox entirely within Philadelphia
+- [ ] `npm run data:check` passes
 
 ---
 
-### Packet B: Background Network Layer (P1 — High)
+### Packet B: Background Network Layer Visibility (P1 — Completed with Hotfix)
 
-**Objective:** Render full `segments_phl.network.geojson` as subtle gray background layer beneath colored safety ratings, showing functional class hierarchy.
+**Status:** ✅ Layer implemented by Codex, visibility fixed by Agent-M (2025-11-18)
+
+**Original Objective:** Render full `segments_phl.network.geojson` as subtle gray background layer beneath colored safety ratings, showing functional class hierarchy.
+
+**Issue Found:** Layer rendered but was invisible due to color/opacity too similar to basemap.
+
+**Hotfix Applied (src/map/network_layer.js:49-74):**
+- Darkened color from #cbd5e1 to #94a3b8 (slate-400)
+- Increased opacity from 0.4 to 0.6
+- Increased line widths by 15-20%
+- Added minzoom: 11 to prevent clutter at low zoom
+
+**Result:** Network layer now clearly visible as gray grid beneath demo segments.
 
 #### B.1 — Create Network Layer Module
 
