@@ -9,9 +9,11 @@ const DATA_DIR = resolve(__dirname, '..', 'data');
 const DEFAULT_OUT = resolve(DATA_DIR, 'streets_phl.raw.geojson');
 
 // If env is configured, prefer a real OpenDataPhilly endpoint; otherwise fall back to baked sample.
-const STREETS_PHL_URL =
-  process.env.STREETS_PHL_URL ||
-  'https://opendata.arcgis.com/api/v3/datasets/placeholder-street-centerlines/download?format=geojson';
+// Default to an Overpass API query for Philadelphia highways if STREETS_PHL_URL is not supplied.
+// Bbox: 39.90,-75.30 (SW) to 40.05,-75.00 (NE)
+const DEFAULT_OVERPASS_URL =
+  'https://overpass-api.de/api/interpreter?data=[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;';
+const STREETS_PHL_URL = process.env.STREETS_PHL_URL || DEFAULT_OVERPASS_URL;
 
 const SAMPLE_STREETS = {
   type: 'FeatureCollection',
@@ -70,11 +72,43 @@ const SAMPLE_STREETS = {
 };
 
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const isOverpassDefault = url === DEFAULT_OVERPASS_URL;
+  const res = await fetch(url, isOverpassDefault ? { method: 'POST', body: 'data=[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;' } : undefined);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
   return res.json();
+}
+
+function overpassToGeoJSON(json) {
+  if (!json || !Array.isArray(json.elements)) return null;
+  const nodes = new Map();
+  json.elements
+    .filter((el) => el.type === 'node')
+    .forEach((el) => nodes.set(el.id, [el.lon, el.lat]));
+  const features = [];
+  json.elements
+    .filter((el) => el.type === 'way')
+    .forEach((way) => {
+      let coords = [];
+      if (Array.isArray(way.geometry)) {
+        coords = way.geometry.map((g) => [g.lon, g.lat]).filter((pt) => pt[0] != null && pt[1] != null);
+      } else if (Array.isArray(way.nodes)) {
+        coords = way.nodes.map((id) => nodes.get(id)).filter(Boolean);
+      }
+      if (coords.length >= 2) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: {
+            name: way.tags?.name,
+            func_class: way.tags?.highway,
+            highway: way.tags?.highway,
+          },
+        });
+      }
+    });
+  return { type: 'FeatureCollection', features };
 }
 
 function writeOutput(fc, outPath) {
@@ -105,15 +139,21 @@ function writeOutput(fc, outPath) {
 export async function fetchStreetsPhl({ outPath = DEFAULT_OUT } = {}) {
   let payload = null;
   try {
-    if (process.env.STREETS_PHL_URL) {
-      console.info(`[Streets] Fetching from ${STREETS_PHL_URL}`);
-      payload = await fetchJson(STREETS_PHL_URL);
-    } else {
-      throw new Error('No STREETS_PHL_URL set; using sample fallback.');
+    console.info(`[Streets] Fetching from ${STREETS_PHL_URL}`);
+    const raw = await fetchJson(STREETS_PHL_URL);
+    if (raw?.type === 'FeatureCollection') {
+      payload = raw;
+    } else if (raw?.elements) {
+      payload = overpassToGeoJSON(raw);
     }
+    if (!payload || !Array.isArray(payload.features) || payload.features.length === 0) {
+      throw new Error('Empty or invalid payload from street source');
+    }
+    console.info(`[Streets] Fetched ${payload.features.length} features.`);
   } catch (err) {
     console.warn('[Streets] Fetch failed or URL unset; falling back to baked sample.', err?.message || err);
     payload = SAMPLE_STREETS;
+    console.warn('[Streets] Using inline sample (Center City) with 10 features.');
   }
   writeOutput(payload, outPath);
 }

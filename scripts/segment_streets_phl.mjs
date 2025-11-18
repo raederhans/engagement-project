@@ -4,25 +4,33 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const turf = await import('@turf/turf');
+console.info('[Streets] segment script start');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DEFAULT_IN = resolve(__dirname, '..', 'data', 'streets_phl.raw.geojson');
 const DEFAULT_OUT = resolve(__dirname, '..', 'data', 'segments_phl.network.geojson');
-const STUDY_BBOX = [-75.25, 39.90, -75.13, 39.97];
+// Expanded bbox to cover central Philly + adjacent neighborhoods
+const STUDY_BBOX = [-75.28, 39.90, -75.00, 40.05];
 
 function readJSON(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function toClass(props = {}) {
-  const raw = Number(props.func_class ?? props.FUNC_CLASS ?? props.CLASS ?? props.func);
-  if (Number.isFinite(raw)) {
-    if (raw <= 1) return 1;
-    if (raw <= 2) return 2;
-    if (raw <= 3) return 3;
+  const raw = props.func_class ?? props.FUNC_CLASS ?? props.CLASS ?? props.func;
+  const asNum = Number(raw);
+  if (Number.isFinite(asNum)) {
+    if (asNum <= 1) return 1;
+    if (asNum <= 2) return 2;
+    if (asNum <= 3) return 3;
     return 4;
   }
+  const highway = String(raw || props.highway || '').toLowerCase();
+  if (['motorway', 'motorway_link', 'trunk'].includes(highway)) return 1;
+  if (['primary', 'primary_link', 'secondary'].includes(highway)) return 2;
+  if (['secondary_link', 'tertiary', 'tertiary_link'].includes(highway)) return 3;
+  if (highway) return 4;
   const name = String(props.name || props.ST_NAME || '').toLowerCase();
   if (name.includes('highway') || name.includes('express') || name.includes('i-')) return 1;
   if (name.includes('blvd') || name.includes('ave') || name.includes('avenue')) return 2;
@@ -49,7 +57,9 @@ export async function segmentStreetsPhl({ inPath = DEFAULT_IN, outPath = DEFAULT
   }
   const raw = readJSON(inPath);
   const all = raw.features || [];
+  console.info(`[Streets] Raw features: ${all.length}`);
   const filtered = all.filter((f) => f?.geometry?.type?.includes('Line') && bboxFilter(f));
+  console.info(`[Streets] After bbox filter: ${filtered.length}`);
   const segments = [];
   let counter = 1;
   filtered.forEach((feature) => {
@@ -78,7 +88,9 @@ export async function segmentStreetsPhl({ inPath = DEFAULT_IN, outPath = DEFAULT
   console.info(`[Streets] Segmented ${segments.length} segments → ${outPath}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedDirectly = process.argv[1] && process.argv[1].includes('segment_streets_phl.mjs');
+if (invokedDirectly) {
+  console.info('[Streets] segment CLI invoked');
   segmentStreetsPhl().catch((err) => {
     console.error('[Diary Streets] segmentStreetsPhl failed', err);
     process.exitCode = 1;

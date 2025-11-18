@@ -594,6 +594,8 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
 
+## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes
+
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
@@ -605,6 +607,17 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 - **Created** comprehensive fix plan (M3) with implementation tasks for segment cards and panel controls
 - Evidence: `logs/AGENTM_DIARY_UI_DIAGNOSIS_20251117T021840.md`
 - Fix plan: `docs/DIARY_UI_FIX_PLAN_M3.md`
+
+## 2025-11-18 01:58 — Road Network: comprehensive audit complete, implementation plan created (M3+)
+
+- **Audited** road network pipeline: fetch → segment → generate
+- **Root Cause:** Network looks unrealistic due to 10-street fallback sample (4 blocks, no `STREETS_PHL_URL` set)
+- **Findings:** Pipeline works correctly but produces tiny coverage, no background layer, confined routes
+- **Created** diagnostic tool: `scripts/inspect_roadnet.mjs` for quick GeoJSON analysis
+- **Created** comprehensive audit log with technical details: `logs/ROADNET_AUDIT_M3_20251118T015821.md`
+- **Created** implementation plan (Packets A/B/C): data source → background layer → UI toggle + realistic routes
+- Plan: `docs/ROAD_NETWORK_NOTES.md` (section "Implementation Plan — Realistic Road Network (M3+)")
+- **Next:** Packet A (find real OpenDataPhilly URL, expand bbox to 5+ km²), then B (network layer), then C (UI + routes)
 
 ## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary
 

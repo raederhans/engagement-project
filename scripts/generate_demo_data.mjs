@@ -200,7 +200,7 @@ const ROUTE_NAMES = [
 ];
 
 const routes = [];
-const nodeKey = (coord) => coord ? `${coord[0].toFixed(5)},${coord[1].toFixed(5)}` : null;
+const nodeKey = (coord) => (coord ? `${coord[0].toFixed(5)},${coord[1].toFixed(5)}` : null);
 const adjacency = new Map();
 segments.forEach((seg) => {
   if (!seg.geometry?.coordinates?.length) return;
@@ -215,30 +215,42 @@ segments.forEach((seg) => {
   }
 });
 
-function buildRoute(maxSegments = 10) {
+function otherEnd(seg, key) {
+  const coords = seg.geometry.coordinates;
+  const a = nodeKey(coords[0]);
+  const b = nodeKey(coords[coords.length - 1]);
+  return key === a ? b : a;
+}
+
+function walkRoute({ minLen = 1800, maxLen = 3600, maxSegments = 80 } = {}) {
   const keys = Array.from(adjacency.keys());
   if (!keys.length) return [];
-  const startKey = keys[Math.floor(rand() * keys.length)];
-  const path = [];
-  const visited = new Set();
-  let currentKey = startKey;
-  for (let i = 0; i < maxSegments; i += 1) {
-    const options = (adjacency.get(currentKey) || []).filter((seg) => !visited.has(seg.id));
-    if (!options.length) break;
-    const nextSeg = options[Math.floor(rand() * options.length)];
-    visited.add(nextSeg.id);
-    path.push(nextSeg.id);
-    const coords = nextSeg.geometry.coordinates;
-    const endA = nodeKey(coords[0]);
-    const endB = nodeKey(coords[coords.length - 1]);
-    currentKey = currentKey === endA ? endB : endA;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const startKey = keys[Math.floor(rand() * keys.length)];
+    let currentKey = startKey;
+    const path = [];
+    const visited = new Set();
+    let total = 0;
+    for (let i = 0; i < maxSegments; i += 1) {
+      const neighbors = adjacency.get(currentKey) || [];
+      const unvisited = neighbors.filter((seg) => !visited.has(seg.id));
+      const pool = unvisited.length ? unvisited : neighbors;
+      if (!pool.length) break;
+      const nextSeg = pool[Math.floor(rand() * pool.length)];
+      visited.add(nextSeg.id);
+      path.push(nextSeg.id);
+      total += nextSeg.length_m || 0;
+      currentKey = otherEnd(nextSeg, currentKey) || currentKey;
+      if (total >= maxLen) break;
+    }
+    if (total >= minLen && path.length > 3) return path;
   }
-  return path;
+  return [];
 }
 
 for (let i = 0; i < routeCount; i += 1) {
-  const primarySegments = buildRoute(10);
-  const altSegments = buildRoute(10);
+  const primarySegments = walkRoute({ minLen: 2200, maxLen: 4200, maxSegments: 120 });
+  const altSegments = walkRoute({ minLen: 1800, maxLen: 3600, maxSegments: 120 });
   const [fromLabel, toLabel] = ROUTE_NAMES[i % ROUTE_NAMES.length];
   const primaryLength = collectLength(primarySegments);
   const altLength = collectLength(altSegments);

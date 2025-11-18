@@ -10,6 +10,7 @@
  */
 
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler } from '../map/segments_layer.js';
+import { addNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
@@ -1488,6 +1489,7 @@ export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
     clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
     clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
     clearSimPoint(targetMap, SIM_POINT_SOURCE_ID);
+    try { removeNetworkLayer(targetMap); } catch {}
   }
   if (!silent) {
     updateSimButtons();
@@ -1653,6 +1655,11 @@ export async function initDiaryMode(map, options = {}) {
 
   mapRef = map;
   exposeCtaHelpers();
+  try {
+    await addNetworkLayer(mapRef);
+  } catch (err) {
+    console.warn('[Diary] Network layer unavailable:', err);
+  }
 
   try {
     const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
