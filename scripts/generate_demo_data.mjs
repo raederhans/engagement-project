@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as turf from '@turf/turf';
+import { buildSegmentGraph } from './graph_pathfinder.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -190,37 +191,21 @@ function collectLength(ids) {
   }, 0);
 }
 
-const ROUTE_NAMES = [
-  ['30th St Station', 'Clark Park'],
-  ['Rittenhouse Sq', 'Schuylkill River Trail'],
-  ['Penn Museum', 'Drexel Quad'],
-  ['City Hall', 'Italian Market'],
-  ['Spring Garden', 'Fitler Square'],
-  ['Queen Village', 'University City'],
-];
-
 const ROUTE_SCENARIOS = [
-  { route_id: 'route_A', name: '30th St Station → Clark Park', start: [-75.1810, 39.9556], end: [-75.2129, 39.9493], targetKm: 2.3 },
-  { route_id: 'route_B', name: '30th St Station → Rittenhouse Sq', start: [-75.1810, 39.9556], end: [-75.1715, 39.9496], targetKm: 2.2 },
-  { route_id: 'route_C', name: 'Penn Campus → 9th & Christian', start: [-75.1932, 39.9522], end: [-75.1605, 39.9391], targetKm: 4.2 },
-  { route_id: 'route_D', name: 'City Hall → 34th & Walnut', start: [-75.1652, 39.9526], end: [-75.1905, 39.9524], targetKm: 2.2 },
-  { route_id: 'route_E', name: 'Rittenhouse Sq → Passyunk & Tasker', start: [-75.1715, 39.9496], end: [-75.1690, 39.9305], targetKm: 3.2 },
+  { route_id: 'route_A', name: '30th St Station → Clark Park', mode: 'walk', start: { lon: -75.1819, lat: 39.9558 }, end: { lon: -75.2205, lat: 39.9400 }, targetMinKm: 2.0, targetMaxKm: 3.5 },
+  { route_id: 'route_B', name: '30th St Station → Rittenhouse Sq', mode: 'walk', start: { lon: -75.1819, lat: 39.9558 }, end: { lon: -75.1480, lat: 39.9430 }, targetMinKm: 2.0, targetMaxKm: 3.5 },
+  { route_id: 'route_C', name: 'Penn Campus → 9th & Christian', mode: 'bike', start: { lon: -75.1915, lat: 39.9510 }, end: { lon: -75.1520, lat: 39.9340 }, targetMinKm: 3.0, targetMaxKm: 4.5 },
+  { route_id: 'route_D', name: 'City Hall → 34th & Walnut', mode: 'walk', start: { lon: -75.1636, lat: 39.9524 }, end: { lon: -75.2080, lat: 39.9525 }, targetMinKm: 2.0, targetMaxKm: 3.5 },
+  { route_id: 'route_E', name: 'Rittenhouse Sq → Passyunk & Tasker', mode: 'bike', start: { lon: -75.1719, lat: 39.9495 }, end: { lon: -75.1650, lat: 39.9200 }, targetMinKm: 2.5, targetMaxKm: 3.8 },
 ];
 
 const routes = [];
-const nodeKey = (coord) => (coord ? `${coord[0].toFixed(5)},${coord[1].toFixed(5)}` : null);
-const adjacency = new Map();
 const PHILLY_BBOX = [-75.28, 39.90, -75.135, 40.05];
 
 function inPhilly(feature) {
   try {
     const b = turf.bbox(feature);
-    return (
-      b[0] >= PHILLY_BBOX[0] &&
-      b[2] <= PHILLY_BBOX[2] &&
-      b[1] >= PHILLY_BBOX[1] &&
-      b[3] <= PHILLY_BBOX[3]
-    );
+    return b[0] >= PHILLY_BBOX[0] && b[2] <= PHILLY_BBOX[2] && b[1] >= PHILLY_BBOX[1] && b[3] <= PHILLY_BBOX[3];
   } catch {
     return false;
   }
@@ -232,109 +217,105 @@ if (phillySegments.length === 0) {
   console.warn('[Diary] Philly filter returned 0 segments; falling back to full set.');
 }
 
+const safetyBySegmentId = new Map();
 baseSegments.forEach((seg) => {
-  if (!seg.geometry?.coordinates?.length) return;
-  const coords = seg.geometry.coordinates;
-  const a = nodeKey(coords[0]);
-  const b = nodeKey(coords[coords.length - 1]);
-  if (a && b) {
-    if (!adjacency.has(a)) adjacency.set(a, []);
-    if (!adjacency.has(b)) adjacency.set(b, []);
-    adjacency.get(a).push(seg);
-    adjacency.get(b).push(seg);
-  }
+  const score = Number(seg.decayed_mean || seg.properties?.decayed_mean);
+  if (seg.id && Number.isFinite(score)) safetyBySegmentId.set(seg.id, score);
 });
 
-function otherEnd(seg, key) {
-  const coords = seg.geometry.coordinates;
-  const a = nodeKey(coords[0]);
-  const b = nodeKey(coords[coords.length - 1]);
-  return key === a ? b : a;
-}
+const graph = buildSegmentGraph(
+  baseSegments.map((seg) => ({
+    type: 'Feature',
+    geometry: seg.geometry,
+    properties: { segment_id: seg.id || seg.properties?.segment_id, length_m: seg.length_m, class: seg.class },
+  })),
+  { safetyBySegmentId }
+);
+const segmentById = new Map();
+baseSegments.forEach((seg) => segmentById.set(seg.id, seg));
 
-function findNearestKey(targetLngLat) {
+function findNearestNode(anchor) {
+  if (!anchor) return null;
   let best = null;
   let bestDist = Infinity;
-  adjacency.forEach((segs, key) => {
-    if (!segs.length) return;
-    const [lng, lat] = segs[0].geometry.coordinates[0];
-    const d = turf.distance([lng, lat], targetLngLat, { units: 'kilometers' });
-    if (d < bestDist) {
+  graph.nodes.forEach((coord, id) => {
+    if (Math.abs(coord.lon - anchor.lon) > 0.1 || Math.abs(coord.lat - anchor.lat) > 0.1) return;
+    const degree = graph.adj.get(id)?.length || 0;
+    if (degree < 2) return;
+    const d = turf.distance([coord.lon, coord.lat], [anchor.lon, anchor.lat], { units: 'kilometers' }) * 1000;
+    if (d < bestDist && d <= 4000) {
       bestDist = d;
-      best = key;
+      best = id;
     }
   });
   return best;
 }
 
-function walkRouteFrom(startKey, targetKm = 3.0, { maxSegments = 140, endHint } = {}) {
-  if (!startKey || !adjacency.has(startKey)) return [];
-  const path = [];
-  const visited = new Set();
-  let currentKey = startKey;
-  let total = 0;
-  for (let i = 0; i < maxSegments; i += 1) {
-    const neighbors = adjacency.get(currentKey) || [];
-    const unvisited = neighbors.filter((seg) => !visited.has(seg.id));
-    const pool = unvisited.length ? unvisited : neighbors;
-    if (!pool.length) break;
-    let nextSeg = null;
-    if (endHint) {
-      pool.sort((a, b) => {
-        const da = turf.distance(a.geometry.coordinates.at(-1), endHint, { units: 'kilometers' });
-        const db = turf.distance(b.geometry.coordinates.at(-1), endHint, { units: 'kilometers' });
-        return da - db;
-      });
-      nextSeg = pool[Math.min(pool.length - 1, Math.floor(rand() * Math.min(3, pool.length)))];
+function stitchPath(segmentIds) {
+  const coords = [];
+  segmentIds.forEach((id) => {
+    const seg = segmentById.get(id);
+    if (!seg?.geometry?.coordinates?.length) return;
+    let line = seg.geometry.coordinates;
+    if (coords.length > 0) {
+      const last = coords[coords.length - 1];
+      const dStart = turf.distance(last, line[0], { units: 'kilometers' });
+      const dEnd = turf.distance(last, line[line.length - 1], { units: 'kilometers' });
+      if (dEnd < dStart) line = [...line].reverse();
+      coords.push(...line.slice(1));
     } else {
-      nextSeg = pool[Math.floor(rand() * pool.length)];
+      coords.push(...line);
     }
-    visited.add(nextSeg.id);
-    path.push(nextSeg.id);
-    total += nextSeg.length_m || 0;
-    currentKey = otherEnd(nextSeg, currentKey) || currentKey;
-    if (total / 1000 >= targetKm * 0.9 && total / 1000 <= targetKm * 1.2) break;
-  }
-  return path;
+  });
+  return coords.length >= 2 ? { type: 'LineString', coordinates: coords } : null;
 }
 
-for (let i = 0; i < routeCount; i += 1) {
-  const scenario = ROUTE_SCENARIOS[i] || {
-    route_id: `route_${String.fromCharCode(65 + i)}`,
-    name: `Demo route ${String.fromCharCode(65 + i)}`,
-    start: null,
-    end: null,
-    targetKm: 3.0,
-  };
-  const startKey = scenario.start ? findNearestKey(scenario.start) : null;
-  const primarySegments = walkRouteFrom(startKey, scenario.targetKm || 3.0, { endHint: scenario.end });
-  const altSegments = walkRouteFrom(startKey, (scenario.targetKm || 3.0) * 0.9, { endHint: scenario.end });
+for (let i = 0; i < routeCount && i < ROUTE_SCENARIOS.length; i += 1) {
+  const scenario = ROUTE_SCENARIOS[i];
+  const startNode = findNearestNode(scenario.start);
+  const endNode = findNearestNode(scenario.end);
+  if (!startNode || !endNode) {
+    console.warn('[Diary] No nearby nodes for scenario', scenario.route_id, startNode, endNode);
+    continue;
+  }
+  const degStart = graph.adj.get(startNode)?.length || 0;
+  const degEnd = graph.adj.get(endNode)?.length || 0;
+  const basePath = graph.findShortestPath(startNode, endNode, { costKind: 'base' });
+  if (!basePath) {
+    console.warn('[Diary] No base path for', scenario.route_id, startNode, endNode, 'deg', degStart, degEnd);
+    continue;
+  }
+  let altPath = graph.findShortestPath(startNode, endNode, { costKind: 'alt', safetyPenaltyFactor: 1.2, safetyBySegmentId });
+  if (!altPath || JSON.stringify(altPath.segmentPath) === JSON.stringify(basePath.segmentPath)) {
+    altPath = graph.findShortestPath(startNode, endNode, { costKind: 'alt', safetyPenaltyFactor: 2.0, safetyBySegmentId }) || basePath;
+  }
+  const primaryGeom = stitchPath(basePath.segmentPath);
+  const altGeom = stitchPath(altPath.segmentPath);
+  const primaryLength = basePath.totalLengthM;
+  const altLength = altPath.totalLengthM;
   const [fromLabel, toLabel] = scenario.name.includes('→') ? scenario.name.split('→').map((s) => s.trim()) : [scenario.name, scenario.name];
-  const primaryLength = collectLength(primarySegments);
-  const altLength = collectLength(altSegments);
-  const mode = 'walk';
-  const routeFeature = {
+  const walkSpeedMPerMin = scenario.mode === 'bike' ? 15000 / 60 : 5000 / 60;
+  const durationMin = Math.max(5, Math.round(primaryLength / walkSpeedMPerMin));
+  const altDurationMin = Math.max(5, Math.round(altLength / walkSpeedMPerMin));
+  routes.push({
     type: 'Feature',
-    geometry: stitchGeometry(primarySegments),
+    geometry: primaryGeom,
     properties: {
-      route_id: scenario.route_id || `route_${String.fromCharCode(65 + i)}`,
-      name: scenario.name || `Demo route ${String.fromCharCode(65 + i)}`,
-      mode,
+      route_id: scenario.route_id,
+      name: scenario.name,
+      mode: scenario.mode,
       from: fromLabel,
       to: toLabel,
-      length_m: primaryLength,
-      duration_min: Math.max(5, Math.round(primaryLength / (mode === 'bike' ? 200 : 90))),
-      segment_ids: primarySegments,
-      alt_segment_ids: altSegments,
-      alt_length_m: altLength,
-      alt_duration_min: Math.max(5, Math.round(altLength / (mode === 'bike' ? 210 : 95))),
+      length_m: Math.round(primaryLength),
+      duration_min: durationMin,
+      segment_ids: basePath.segmentPath,
+      alt_segment_ids: altPath.segmentPath,
+      alt_length_m: Math.round(altLength),
+      alt_duration_min: altDurationMin,
+      alt_geometry: altGeom || primaryGeom,
+      alt_is_same: JSON.stringify(altPath.segmentPath) === JSON.stringify(basePath.segmentPath),
     },
-  };
-  const altGeom = stitchGeometry(altSegments);
-  if (altGeom) {
-    routeFeature.properties.alt_geometry = altGeom;
-  }
-  routes.push(routeFeature);
+  });
 }
 
 // Build demo segment set limited to segmentCount while ensuring routes are covered

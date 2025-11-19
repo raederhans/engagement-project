@@ -58,6 +58,28 @@
 ### Issue 3: No UI Toggle
 **Status:** Not yet implemented. Requires Codex packet (see Implementation Plan below).
 
+### Issue 4: Route Generation Loops (CRITICAL)
+**Problem:** 4 of 5 demo routes stuck in tight loops, not reaching destinations.
+
+**Root Cause:**
+- `walkRouteFrom()` fallback logic revisits already-visited segments
+- When all neighbors visited, `pool = neighbors` allows infinite loops
+- Routes have 96-99% duplicate coordinates (bouncing over same 3-6 segments)
+
+**Evidence:**
+- Route A: 157 coords, only 5 unique (96.8% duplicates), coverage 0.02km × 0.01km
+- Route B: 139 coords, only 5 unique (96.4% duplicates), same tiny area
+- Route C: 229 coords, 26 unique (88.6% duplicates), never leaves Penn campus
+- Route E: 556 coords, only 6 unique (98.9% duplicates), stuck at Rittenhouse
+- **Only Route D works** (City Hall → 34th St): 1.7% duplicates, actual progression
+
+**Fix Required:**
+- Replace random-walk algorithm with Dijkstra shortest-path
+- Build proper segment graph with adjacency
+- No fallback to visited segments
+
+**Detailed Analysis:** See `logs/ROADNET_M3_ROUTING_PLAN_20251118T033000.md`
+
 ---
 
 ## Target Demo Route Scenarios (Philadelphia-Only)
@@ -516,6 +538,102 @@ document.getElementById('diary-network-toggle')?.addEventListener('change', (e) 
 - [ ] Routes follow connected segment graph (no disconnected jumps)
 - [ ] Demo routes look like plausible cycling/walking trips
 - [ ] UI controls styled consistently with existing Diary panel
+
+---
+
+### Packet R: Fix Route Generation with Dijkstra (P0 — CRITICAL)
+
+**Status:** ❌ BLOCKING - 4 of 5 routes completely broken (stuck in loops)
+
+**Objective:** Replace broken `walkRouteFrom()` random-walk algorithm with proper Dijkstra shortest-path routing.
+
+**Current Problem:**
+- Routes have 96-99% duplicate coordinates (bouncing back/forth over same segments)
+- `walkRouteFrom()` fallback allows revisiting segments → infinite loops
+- Only Route D works by pure luck
+
+**Detailed Plan:** See `logs/ROADNET_M3_ROUTING_PLAN_20251118T033000.md`
+
+#### R.1 — Build Graph & Pathfinding Module
+
+**File to Create:** `scripts/graph_pathfinder.mjs` (~200 lines)
+
+**Components:**
+1. **SegmentGraph class**
+   ```javascript
+   class SegmentGraph {
+     nodes: Map<string, {lng, lat}>;
+     edges: Map<string, Edge[]>;
+
+     constructor(segments);           // Build from segments array
+     neighbors(nodeId): Edge[];      // Get outgoing edges
+     findNearestNode(coord, maxDist): string;  // Spatial search
+   }
+   ```
+
+2. **Dijkstra pathfinder**
+   ```javascript
+   function dijkstra(graph, startNode, endNode, costFn) {
+     // Returns: segmentIds[] forming shortest path
+   }
+   ```
+
+3. **Cost functions**
+   ```javascript
+   baseCost(edge) => edge.length_m;
+   altCost(edge) => edge.length_m * safetyPenalty(edge.safetyScore, edge.class);
+   ```
+
+**Dependencies:**
+- `tiny-heap` package for priority queue (or DIY binary heap)
+- `@turf/turf` (already installed)
+
+**Acceptance Criteria:**
+- [ ] Graph loads 92k segments in <2 seconds
+- [ ] Dijkstra finds path between connected nodes
+- [ ] findNearestNode() works within 0.5 km radius
+- [ ] No external API calls (offline only)
+
+#### R.2 — Integrate Pathfinder into Demo Generator
+
+**File to Modify:** `scripts/generate_demo_data.mjs`
+
+**Changes:**
+1. Import SegmentGraph and dijkstra from `./graph_pathfinder.mjs`
+2. Build graph once: `const graph = new SegmentGraph(baseSegments);`
+3. Replace `walkRouteFrom()` with `generateRouteWithPathfinding()`:
+   ```javascript
+   function generateRouteWithPathfinding(scenario, costFn) {
+     const startNode = graph.findNearestNode(scenario.start, 0.5);
+     const endNode = graph.findNearestNode(scenario.end, 0.5);
+     return dijkstra(graph, startNode, endNode, costFn);
+   }
+   ```
+4. Use for both primary (baseCost) and alt (altCost) routes
+
+**Remove:**
+- `walkRouteFrom()` function (lines 270-299)
+- `findNearestKey()` function (lines 255-268)
+- `otherEnd()` function (lines 248-253)
+- Old adjacency graph code (lines 212-246)
+
+**Keep:**
+- `stitchGeometry()` (lines 155-184)
+- `collectLength()` (lines 186-191)
+- ROUTE_SCENARIOS array (lines 202-208)
+
+**Acceptance Criteria:**
+- [ ] All 5 routes generated successfully
+- [ ] No coordinate loops (check with `scripts/analyze_routes.mjs`)
+- [ ] Route lengths within ±30% of targets (2.2-4.2 km)
+- [ ] Start/end within 500m of scenario anchors
+- [ ] No duplicate segment IDs
+- [ ] `npm run data:gen` completes without errors
+
+**Estimated Effort:**
+- R.1 (Graph module): 3-4 hours
+- R.2 (Integration): 2-3 hours
+- **Total**: 5-7 hours
 
 ---
 

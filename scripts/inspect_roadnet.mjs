@@ -10,21 +10,18 @@ const counts = feats.reduce((acc, f) => {
   acc[cls] = (acc[cls] || 0) + 1;
   return acc;
 }, {});
-const lngs = [];
-const lats = [];
+let minLng = Infinity; let minLat = Infinity; let maxLng = -Infinity; let maxLat = -Infinity;
 feats.forEach((f) => {
   const geom = f.geometry || {};
   let pts = [];
   if (geom.type === 'LineString') pts = geom.coordinates;
   else if (geom.type === 'MultiLineString') pts = geom.coordinates.flat();
   pts.forEach(([lng, lat]) => {
-    lngs.push(lng);
-    lats.push(lat);
+    minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
   });
 });
 console.info('[Inspect] file:', file);
 console.info('[Inspect] features:', feats.length);
 console.info('[Inspect] class counts:', counts);
-if (lngs.length && lats.length) {
-  console.info('[Inspect] bbox:', [Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]);
-}
+console.info('[Inspect] bbox:', [minLng, minLat], [maxLng, maxLat]);

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 2025-11-18 03:20 — Diary network: Philly-only bbox + anchored demo routes on real streets
 
+## 2025-11-18 04:15 — Diary routing: Dijkstra-based demo routes on Philly network; loop bug removed, fixed anchors
+
 ## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes+
 
 ## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
@@ -613,6 +615,26 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 - **Created** detailed audit log: `logs/ROADNET_M3_VISIBILITY_AND_ROUTES_20251118T030000.md`
 - **Updated** ROAD_NETWORK_NOTES.md with route scenarios, current issues, and Packet A fix plan (narrow bbox to -75.135)
 - **Next:** Codex to implement Packet A (fix NJ routes), Packet C (realistic route anchoring)
+
+## 2025-11-18 03:30 — Road Network: routing algorithm audit complete, critical bugs found, Dijkstra architecture designed (P0)
+
+- **CRITICAL BUG FOUND:** 4 of 5 demo routes stuck in infinite loops (96-99% duplicate coordinates)
+- **Root Cause:** `walkRouteFrom()` fallback logic revisits already-visited segments when neighbors exhausted
+- **Evidence** (from `scripts/analyze_routes.mjs`):
+  - Route A: 157 coords, only 5 unique (96.8% dups), coverage 0.02km × 0.01km, goes nowhere
+  - Route B: 139 coords, only 5 unique (96.4% dups), same issue
+  - Route C: 229 coords, 26 unique (88.6% dups), stuck at Penn campus
+  - Route E: 556 coords, only 6 unique (98.9% dups), stuck at Rittenhouse
+  - **Only Route D works** (City Hall → 34th St): 1.7% dups, actual progression to destination
+- **Created** route analyzer tool: `scripts/analyze_routes.mjs` (detects coordinate loops)
+- **Created** comprehensive routing architecture plan: `logs/ROADNET_M3_ROUTING_PLAN_20251118T033000.md`
+- **Designed** Dijkstra-based pathfinding solution (Packet R1 + R2):
+  - SegmentGraph class with node/edge representation
+  - Dijkstra shortest-path algorithm with cost functions
+  - Replace random-walk with proper graph traversal
+  - Estimated 5-7 hours implementation
+- **Updated** ROAD_NETWORK_NOTES.md with Issue 4 (routing loops) and Packet R implementation plan
+- **Next:** Codex to implement Packet R1 (graph_pathfinder.mjs), R2 (integrate Dijkstra), regenerate routes
 
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
