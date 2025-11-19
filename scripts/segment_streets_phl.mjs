@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 const DEFAULT_IN = resolve(__dirname, '..', 'data', 'streets_phl.raw.geojson');
 const DEFAULT_OUT = resolve(__dirname, '..', 'data', 'segments_phl.network.geojson');
 // Expanded bbox to cover central Philly + adjacent neighborhoods
-const STUDY_BBOX = [-75.28, 39.90, -75.00, 40.05];
+const STUDY_BBOX = [-75.28, 39.90, -75.135, 40.05];
 
 function readJSON(path) {
   return JSON.parse(readFileSync(path, 'utf8'));

@@ -15,3 +15,6 @@
 - npm run data:gen → 64 demo segments / 5 routes using network
 - /mnt/c/Program Files/nodejs/node.exe scripts/segment_streets_phl.mjs → raw 109,953 ways, bbox-filter 105,838, segments 144,120 (class counts: 1=4043,2=8267,3=5598,4=126,212)
 - npm run data:gen → 64 demo segments / 5 routes on network
+- Updated Overpass bbox to -75.135 east bound; segmentation bbox matched; reran with new counts: raw ways 109,953 → bbox 70,532 → segments 91,959.
+- npm run data:gen -> 64 demo segments (subset covering routes), 5 Philly-anchored routes.
+- npm run data:check, test:diary:* , build all pass.

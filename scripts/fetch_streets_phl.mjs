@@ -10,9 +10,10 @@ const DEFAULT_OUT = resolve(DATA_DIR, 'streets_phl.raw.geojson');
 
 // If env is configured, prefer a real OpenDataPhilly endpoint; otherwise fall back to baked sample.
 // Default to an Overpass API query for Philadelphia highways if STREETS_PHL_URL is not supplied.
-// Bbox: 39.90,-75.30 (SW) to 40.05,-75.00 (NE)
+// Bbox: 39.90,-75.30 (SW) to 40.05,-75.135 (NE) to avoid New Jersey side.
+const DEFAULT_OVERPASS_BBOX = { south: 39.90, west: -75.30, north: 40.05, east: -75.135 };
 const DEFAULT_OVERPASS_URL =
-  'https://overpass-api.de/api/interpreter?data=[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;';
+  'https://overpass-api.de/api/interpreter';
 const STREETS_PHL_URL = process.env.STREETS_PHL_URL || DEFAULT_OVERPASS_URL;
 
 const SAMPLE_STREETS = {
@@ -73,7 +74,10 @@ const SAMPLE_STREETS = {
 
 async function fetchJson(url) {
   const isOverpassDefault = url === DEFAULT_OVERPASS_URL;
-  const res = await fetch(url, isOverpassDefault ? { method: 'POST', body: 'data=[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;' } : undefined);
+  const overpassBody = isOverpassDefault
+    ? `data=[out:json];way["highway"](${DEFAULT_OVERPASS_BBOX.south},${DEFAULT_OVERPASS_BBOX.west},${DEFAULT_OVERPASS_BBOX.north},${DEFAULT_OVERPASS_BBOX.east});out geom;`
+    : undefined;
+  const res = await fetch(url, isOverpassDefault ? { method: 'POST', body: overpassBody } : undefined);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }

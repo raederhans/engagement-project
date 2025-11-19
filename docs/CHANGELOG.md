@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-11-18 03:20 — Diary network: Philly-only bbox + anchored demo routes on real streets
+
+## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes+
+
+## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
+
 ## 2025-11-11 11:40 — Diary U6: recording simulator with play/pause/finish→rate
 
 - Auto-pause the recorder when the tab goes hidden and tear down markers/timers on unload to prevent ghost animations.

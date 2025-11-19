@@ -130,7 +130,7 @@ if (existsSync(resolve(dataDir, 'segments_phl.network.geojson'))) {
   try {
     const networkRaw = JSON.parse(readFileSync(resolve(dataDir, 'segments_phl.network.geojson'), 'utf-8'));
     if (Array.isArray(networkRaw.features) && networkRaw.features.length) {
-      segments = networkRaw.features.slice(0, segmentCount).map((f, idx) => {
+      segments = networkRaw.features.slice(0).map((f, idx) => {
         const lenM = turf.length(f, { units: 'kilometers' }) * 1000;
         return {
           id: f.properties?.segment_id || `seg_${String(idx + 1).padStart(3, '0')}`,
@@ -199,10 +199,40 @@ const ROUTE_NAMES = [
   ['Queen Village', 'University City'],
 ];
 
+const ROUTE_SCENARIOS = [
+  { route_id: 'route_A', name: '30th St Station → Clark Park', start: [-75.1810, 39.9556], end: [-75.2129, 39.9493], targetKm: 2.3 },
+  { route_id: 'route_B', name: '30th St Station → Rittenhouse Sq', start: [-75.1810, 39.9556], end: [-75.1715, 39.9496], targetKm: 2.2 },
+  { route_id: 'route_C', name: 'Penn Campus → 9th & Christian', start: [-75.1932, 39.9522], end: [-75.1605, 39.9391], targetKm: 4.2 },
+  { route_id: 'route_D', name: 'City Hall → 34th & Walnut', start: [-75.1652, 39.9526], end: [-75.1905, 39.9524], targetKm: 2.2 },
+  { route_id: 'route_E', name: 'Rittenhouse Sq → Passyunk & Tasker', start: [-75.1715, 39.9496], end: [-75.1690, 39.9305], targetKm: 3.2 },
+];
+
 const routes = [];
 const nodeKey = (coord) => (coord ? `${coord[0].toFixed(5)},${coord[1].toFixed(5)}` : null);
 const adjacency = new Map();
-segments.forEach((seg) => {
+const PHILLY_BBOX = [-75.28, 39.90, -75.135, 40.05];
+
+function inPhilly(feature) {
+  try {
+    const b = turf.bbox(feature);
+    return (
+      b[0] >= PHILLY_BBOX[0] &&
+      b[2] <= PHILLY_BBOX[2] &&
+      b[1] >= PHILLY_BBOX[1] &&
+      b[3] <= PHILLY_BBOX[3]
+    );
+  } catch {
+    return false;
+  }
+}
+
+const phillySegments = segments.filter((seg) => inPhilly({ type: 'Feature', geometry: seg.geometry, properties: seg }));
+const baseSegments = phillySegments.length > 0 ? phillySegments : segments;
+if (phillySegments.length === 0) {
+  console.warn('[Diary] Philly filter returned 0 segments; falling back to full set.');
+}
+
+baseSegments.forEach((seg) => {
   if (!seg.geometry?.coordinates?.length) return;
   const coords = seg.geometry.coordinates;
   const a = nodeKey(coords[0]);
@@ -222,45 +252,73 @@ function otherEnd(seg, key) {
   return key === a ? b : a;
 }
 
-function walkRoute({ minLen = 1800, maxLen = 3600, maxSegments = 80 } = {}) {
-  const keys = Array.from(adjacency.keys());
-  if (!keys.length) return [];
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const startKey = keys[Math.floor(rand() * keys.length)];
-    let currentKey = startKey;
-    const path = [];
-    const visited = new Set();
-    let total = 0;
-    for (let i = 0; i < maxSegments; i += 1) {
-      const neighbors = adjacency.get(currentKey) || [];
-      const unvisited = neighbors.filter((seg) => !visited.has(seg.id));
-      const pool = unvisited.length ? unvisited : neighbors;
-      if (!pool.length) break;
-      const nextSeg = pool[Math.floor(rand() * pool.length)];
-      visited.add(nextSeg.id);
-      path.push(nextSeg.id);
-      total += nextSeg.length_m || 0;
-      currentKey = otherEnd(nextSeg, currentKey) || currentKey;
-      if (total >= maxLen) break;
+function findNearestKey(targetLngLat) {
+  let best = null;
+  let bestDist = Infinity;
+  adjacency.forEach((segs, key) => {
+    if (!segs.length) return;
+    const [lng, lat] = segs[0].geometry.coordinates[0];
+    const d = turf.distance([lng, lat], targetLngLat, { units: 'kilometers' });
+    if (d < bestDist) {
+      bestDist = d;
+      best = key;
     }
-    if (total >= minLen && path.length > 3) return path;
+  });
+  return best;
+}
+
+function walkRouteFrom(startKey, targetKm = 3.0, { maxSegments = 140, endHint } = {}) {
+  if (!startKey || !adjacency.has(startKey)) return [];
+  const path = [];
+  const visited = new Set();
+  let currentKey = startKey;
+  let total = 0;
+  for (let i = 0; i < maxSegments; i += 1) {
+    const neighbors = adjacency.get(currentKey) || [];
+    const unvisited = neighbors.filter((seg) => !visited.has(seg.id));
+    const pool = unvisited.length ? unvisited : neighbors;
+    if (!pool.length) break;
+    let nextSeg = null;
+    if (endHint) {
+      pool.sort((a, b) => {
+        const da = turf.distance(a.geometry.coordinates.at(-1), endHint, { units: 'kilometers' });
+        const db = turf.distance(b.geometry.coordinates.at(-1), endHint, { units: 'kilometers' });
+        return da - db;
+      });
+      nextSeg = pool[Math.min(pool.length - 1, Math.floor(rand() * Math.min(3, pool.length)))];
+    } else {
+      nextSeg = pool[Math.floor(rand() * pool.length)];
+    }
+    visited.add(nextSeg.id);
+    path.push(nextSeg.id);
+    total += nextSeg.length_m || 0;
+    currentKey = otherEnd(nextSeg, currentKey) || currentKey;
+    if (total / 1000 >= targetKm * 0.9 && total / 1000 <= targetKm * 1.2) break;
   }
-  return [];
+  return path;
 }
 
 for (let i = 0; i < routeCount; i += 1) {
-  const primarySegments = walkRoute({ minLen: 2200, maxLen: 4200, maxSegments: 120 });
-  const altSegments = walkRoute({ minLen: 1800, maxLen: 3600, maxSegments: 120 });
-  const [fromLabel, toLabel] = ROUTE_NAMES[i % ROUTE_NAMES.length];
+  const scenario = ROUTE_SCENARIOS[i] || {
+    route_id: `route_${String.fromCharCode(65 + i)}`,
+    name: `Demo route ${String.fromCharCode(65 + i)}`,
+    start: null,
+    end: null,
+    targetKm: 3.0,
+  };
+  const startKey = scenario.start ? findNearestKey(scenario.start) : null;
+  const primarySegments = walkRouteFrom(startKey, scenario.targetKm || 3.0, { endHint: scenario.end });
+  const altSegments = walkRouteFrom(startKey, (scenario.targetKm || 3.0) * 0.9, { endHint: scenario.end });
+  const [fromLabel, toLabel] = scenario.name.includes('→') ? scenario.name.split('→').map((s) => s.trim()) : [scenario.name, scenario.name];
   const primaryLength = collectLength(primarySegments);
   const altLength = collectLength(altSegments);
-  const mode = rand() > 0.25 ? 'walk' : 'bike';
+  const mode = 'walk';
   const routeFeature = {
     type: 'Feature',
     geometry: stitchGeometry(primarySegments),
     properties: {
-      route_id: `route_${String.fromCharCode(65 + i)}`,
-      name: `Demo route ${String.fromCharCode(65 + i)}`,
+      route_id: scenario.route_id || `route_${String.fromCharCode(65 + i)}`,
+      name: scenario.name || `Demo route ${String.fromCharCode(65 + i)}`,
       mode,
       from: fromLabel,
       to: toLabel,
@@ -278,6 +336,27 @@ for (let i = 0; i < routeCount; i += 1) {
   }
   routes.push(routeFeature);
 }
+
+// Build demo segment set limited to segmentCount while ensuring routes are covered
+const usedIds = new Set();
+routes.forEach((r) => {
+  (r.properties.segment_ids || []).forEach((id) => usedIds.add(id));
+  (r.properties.alt_segment_ids || []).forEach((id) => usedIds.add(id));
+});
+const effectiveCount = Math.max(segmentCount, usedIds.size);
+let demoSegments = baseSegments.filter((seg) => usedIds.has(seg.id));
+const remaining = baseSegments.filter((seg) => !usedIds.has(seg.id));
+const needed = Math.max(0, effectiveCount - demoSegments.length);
+if (needed > 0 && remaining.length) {
+  for (let i = 0; i < needed; i += 1) {
+    const seg = remaining[i % remaining.length];
+    demoSegments.push(seg);
+  }
+}
+if (demoSegments.length > effectiveCount) {
+  demoSegments = demoSegments.slice(0, effectiveCount);
+}
+segments = demoSegments;
 
 const segmentsFC = {
   type: 'FeatureCollection',

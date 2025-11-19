@@ -6,3 +6,5 @@
 - npm run test:diary:math
 - npm run test:diary:agg
 - npm run build
+- Rebuilt routes with anchored scenarios (30th→Clark, 30th→Rittenhouse, Penn→9th&Christian, City Hall→34th&Walnut, Rittenhouse→Passyunk & Tasker).
+- Route stats (len_m): A 2080 (104 segs), B 2000 (100), C 3805 (95), D 2039 (30), E 2886 (111); all within bbox [-75.28, -75.135].

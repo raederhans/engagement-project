@@ -2,15 +2,15 @@
 
 ## Dataset
 - Source: OSM via Overpass API (default) or OpenDataPhilly Street Centerlines via `STREETS_PHL_URL`.
-- Default endpoint (Overpass POST): `https://overpass-api.de/api/interpreter` with query `[out:json];way["highway"](39.90,-75.30,40.05,-75.00);out geom;`
+- Default endpoint (Overpass POST): `https://overpass-api.de/api/interpreter` with query `[out:json];way["highway"](39.90,-75.30,40.05,-75.135);out geom;` (keeps to Philly side of the Delaware).
 - CRS: WGS84 (EPSG:4326) lon/lat.
 - Fields of interest: `name`, `highway` (used to derive functional class), plus geometry.
 - Env/config: `STREETS_PHL_URL` can point to a direct GeoJSON/ArcGIS endpoint; otherwise the Overpass query is used. If fetch fails, a small Center City fallback sample (10 features) is written.
 
 ## Pipeline (current)
-1. `scripts/fetch_streets_phl.mjs` — fetches OSM highways (default Overpass query) to `data/streets_phl.raw.geojson` (fallback: baked sample).
-2. `scripts/segment_streets_phl.mjs` — clips to bbox [-75.28, 39.90, -75.00, 40.05], splits lines into ~150 m chunks, assigns `segment_id`, `class` (1–4 via highway mapping), `street_name`, `length_m`, writes `data/segments_phl.network.geojson` (≈144k segments for full bbox).
-3. `scripts/generate_demo_data.mjs` — consumes `segments_phl.network.geojson` when present; builds demo artifacts with real geometry and longer, connected routes.
+1. `scripts/fetch_streets_phl.mjs` — fetches OSM highways (default Overpass query above) to `data/streets_phl.raw.geojson` (fallback: baked sample).
+2. `scripts/segment_streets_phl.mjs` — clips to bbox [-75.28, 39.90, -75.135, 40.05], splits lines into ~150 m chunks, assigns `segment_id`, `class` (1–4 via highway mapping), `street_name`, `length_m`, writes `data/segments_phl.network.geojson` (≈92k segments in current run).
+3. `scripts/generate_demo_data.mjs` — consumes `segments_phl.network.geojson` when present; filters segments to Philly bbox, builds demo routes from anchored scenarios (30th St Station, Rittenhouse, Penn, City Hall, East Passyunk) with 2–4 km walks, then emits demo segments (all referenced IDs plus filler up to desired count).
 
 ## Notes
 - Network layer display throttles to ~15k features for performance; full file kept for routing/demo data.
