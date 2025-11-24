@@ -10,7 +10,7 @@
  */
 
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler } from '../map/segments_layer.js';
-import { addNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
+import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
@@ -87,6 +87,7 @@ const sim = {
 };
 const simLifecycleFlags = { visibility: false, pagehide: false };
 const simCleanupFns = new Set();
+let networkStyleCleanup = null;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
 
@@ -121,6 +122,28 @@ function ensureFeatureCollection(payload, label) {
     throw new Error(`[Diary] Invalid ${label} file — expected FeatureCollection`);
   }
   return payload;
+}
+
+function ensureNetworkOverlayLifecycle(map) {
+  if (!map || typeof map.on !== 'function' || typeof networkStyleCleanup === 'function') return;
+  const handleStyleRefresh = () => {
+    Promise.resolve(ensureNetworkLayer(map)).catch((err) => {
+      console.warn('[Diary] Network layer refresh skipped after styledata event.', err);
+    });
+  };
+  map.on('styledata', handleStyleRefresh);
+  networkStyleCleanup = () => {
+    if (typeof map.off === 'function') {
+      map.off('styledata', handleStyleRefresh);
+    }
+    networkStyleCleanup = null;
+  };
+}
+
+function cleanupNetworkOverlayLifecycle() {
+  if (typeof networkStyleCleanup === 'function') {
+    networkStyleCleanup();
+  }
 }
 
 function normalizeTopTags(tags) {
@@ -492,6 +515,14 @@ function ensureDiaryPanel(routes, options = {}) {
     altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
     diaryPanelEl.appendChild(altSummaryEl);
 
+    const networkHint = document.createElement('div');
+    networkHint.textContent = 'Hint: Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
+    networkHint.style.fontSize = '11px';
+    networkHint.style.color = '#475569';
+    networkHint.style.marginTop = '6px';
+    networkHint.style.lineHeight = '1.4';
+    diaryPanelEl.appendChild(networkHint);
+
     panelNoticeEl = document.createElement('div');
     panelNoticeEl.style.marginTop = '10px';
     panelNoticeEl.style.borderRadius = '8px';
@@ -760,6 +791,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   }
   const feature = routeById.get(routeId);
   currentRoute = feature;
+  // TODO: docs/M3_ROUTE_BOUNDARY_INTEGRATION.md — compute route boundary context (districts/tracts) before we render or submit.
   setSelectedRouteId(routeId);
   setSimPanelState({ playing: false, progress: 0, routeId });
   renderRouteSummary(feature);
@@ -1485,6 +1517,7 @@ function stopAllTimersAndListeners({ silent = false } = {}) {
 export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
   const targetMap = map || mapRef;
   stopAllTimersAndListeners({ silent: true });
+  cleanupNetworkOverlayLifecycle();
   if (targetMap) {
     clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
     clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
@@ -1655,8 +1688,10 @@ export async function initDiaryMode(map, options = {}) {
 
   mapRef = map;
   exposeCtaHelpers();
+  cleanupNetworkOverlayLifecycle();
   try {
     await addNetworkLayer(mapRef);
+    ensureNetworkOverlayLifecycle(mapRef);
   } catch (err) {
     console.warn('[Diary] Network layer unavailable:', err);
   }

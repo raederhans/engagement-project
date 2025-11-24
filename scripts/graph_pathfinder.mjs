@@ -111,14 +111,20 @@ export class SegmentGraph {
     const prev = new Map();
     const prevEdge = new Map();
     const heap = new MinHeap();
+    const visited = new Set();
     dist.set(startNodeId, 0);
     heap.push({ node: startNodeId, priority: 0 });
     while (heap.size > 0) {
-      const { node: u } = heap.pop();
+      const next = heap.pop();
+      if (!next) break;
+      const { node: u } = next;
+      if (visited.has(u)) continue;
+      visited.add(u);
       if (u === endNodeId) break;
       const neighbors = this.adj.get(u) || [];
       for (const edge of neighbors) {
         const v = edge.to;
+        if (visited.has(v)) continue;
         const alt = (dist.get(u) || 0) + this._edgeCost(edge, opts);
         if (alt < (dist.get(v) ?? Infinity)) {
           dist.set(v, alt);

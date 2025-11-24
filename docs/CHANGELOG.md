@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-11-24 20:05 — Diary M3: network wiring, style hooks, routing cleanup
+
+- Ensured the diary network grid mounts on every Diary init and reattaches after MapLibre `styledata` events (`src/routes_diary/index.js`), added a zoom hint inside the Diary panel, and tightened teardown so the layer is always removed when Diary exits.
+- Introduced `MAP_STYLES` + `resolveMapStyle()` in `src/config.js`, updated `src/map/initMap.js` to accept `{ mode }`, and wired the Diary demo to request the diary light style while logging when configs are present but unused.
+- Hardened `scripts/graph_pathfinder.mjs` with a visited-set guard, refreshed the analyzer output (lengths, duplicate ratios), regenerated demo data, and documented the routing + boundary follow-ups in the M3 docs set.
+
 ## 2025-11-18 03:20 — Diary network: Philly-only bbox + anchored demo routes on real streets
 
 ## 2025-11-18 04:15 — Diary routing: Dijkstra-based demo routes on Philly network; loop bug removed, fixed anchors

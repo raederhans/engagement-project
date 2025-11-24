@@ -3,7 +3,7 @@ import { initDiaryMode } from './routes_diary/index.js';
 import { setViewMode } from './state/store.js';
 
 async function main() {
-  const map = initMap();
+  const map = initMap({ mode: 'diary' });
   setViewMode('diary', { silent: true });
   const mountInto = document.getElementById('diary-panel');
   if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {

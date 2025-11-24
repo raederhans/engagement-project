@@ -49,27 +49,27 @@ function ensureLayer(map) {
     layout: {
       'line-cap': 'round',
       'line-join': 'round',
-      'minzoom': 11,
+      'minzoom': 10,  // Lowered from 11 to make visible at route-viewing zoom
     },
     paint: {
-      'line-color': '#94a3b8',
-      'line-opacity': 0.6,
+      'line-color': '#64748b',  // Darker slate-500 (was #94a3b8 slate-400)
+      'line-opacity': 0.7,      // Increased from 0.6
       'line-width': [
         'interpolate',
         ['linear'],
         ['zoom'],
         10,
         ['case',
-          ['==', ['get', 'class'], 1], 4.0,
-          ['==', ['get', 'class'], 2], 3.2,
-          ['==', ['get', 'class'], 3], 2.4,
-          1.8],
+          ['==', ['get', 'class'], 1], 4.5,  // Slightly wider
+          ['==', ['get', 'class'], 2], 3.5,
+          ['==', ['get', 'class'], 3], 2.6,
+          2.0],
         14,
         ['case',
-          ['==', ['get', 'class'], 1], 5.0,
-          ['==', ['get', 'class'], 2], 4.0,
-          ['==', ['get', 'class'], 3], 2.8,
-          2.0],
+          ['==', ['get', 'class'], 1], 5.5,
+          ['==', ['get', 'class'], 2], 4.5,
+          ['==', ['get', 'class'], 3], 3.0,
+          2.2],
       ],
     },
   });
@@ -78,8 +78,14 @@ function ensureLayer(map) {
 export async function addNetworkLayer(map) {
   if (!map) return;
   const data = await loadNetworkGeojson();
+  if (data) {
+    console.info(`[Diary] Network layer loaded: ${data.features?.length || 0} segments (throttled from network file)`);
+  } else {
+    console.warn('[Diary] Network layer: no data loaded');
+  }
   ensureSource(map, data);
   ensureLayer(map);
+  console.info(`[Diary] Network layer attached: source="${SOURCE_ID}", layer="${LAYER_ID}"`);
 }
 
 export function ensureNetworkLayer(map) {

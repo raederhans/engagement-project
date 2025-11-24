@@ -18,13 +18,17 @@ routesData.features.forEach((route, idx) => {
 
   console.log(`Route ${idx + 1}: ${props.route_id} - ${props.name}`);
   console.log(`  From: ${props.from} → To: ${props.to}`);
-  console.log(`  Length: ${props.length_m}m (target: ${props.target_km || 'N/A'}km)`);
+  const lengthKm = (props.length_m || 0) / 1000;
+  console.log(`  Length: ${(props.length_m || 0).toLocaleString()}m (${lengthKm.toFixed(2)} km)`);
   console.log(`  Coordinates: ${coords.length}`);
 
   // Check for back-and-forth (repeated coords)
   const uniqueCoords = new Set(coords.map(c => `${c[0].toFixed(6)},${c[1].toFixed(6)}`));
   const duplicateRatio = (coords.length - uniqueCoords.size) / coords.length;
   console.log(`  Unique coords: ${uniqueCoords.size} (${(duplicateRatio * 100).toFixed(1)}% duplicates)`);
+  if (duplicateRatio > 0.1) {
+    console.log('  ⚠ Duplicate coordinate ratio exceeds 10% — investigate potential loops.');
+  }
 
   // Start and end points
   const start = coords[0];
