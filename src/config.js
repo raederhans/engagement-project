@@ -31,7 +31,7 @@ const envCrimeStyle = (import.meta?.env?.VITE_MAP_STYLE_CRIME || '').trim();
 const envDiaryStyle = (import.meta?.env?.VITE_MAP_STYLE_DIARY || '').trim();
 
 const MAP_STYLE_PRESETS = {
-  'maptiler-light': maptilerKey ? `https://api.maptiler.com/maps/streets-v2-light/style.json?key=${maptilerKey}` : null,
+  'maptiler-light': maptilerKey ? `https://api.maptiler.com/maps/positron/style.json?key=${maptilerKey}` : null,
   'positron': 'https://tiles.basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 };
 
@@ -63,6 +63,8 @@ function cloneStyle(style) {
   if (typeof style === 'string') return style;
   return JSON.parse(JSON.stringify(style));
 }
+
+export const HAS_DIARY_LIGHT_STYLE = !!MAP_STYLES.diaryLight;
 
 export function resolveMapStyle(mode = 'crime') {
   if (mode === 'diary' && MAP_STYLES.diaryLight) {

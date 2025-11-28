@@ -52,8 +52,8 @@ function ensureLayer(map) {
       'minzoom': 10,  // Lowered from 11 to make visible at route-viewing zoom
     },
     paint: {
-      'line-color': '#64748b',  // Darker slate-500 (was #94a3b8 slate-400)
-      'line-opacity': 0.7,      // Increased from 0.6
+      'line-color': '#94a3b8',
+      'line-opacity': 0.6,
       'line-width': [
         'interpolate',
         ['linear'],

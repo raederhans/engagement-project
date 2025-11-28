@@ -15,7 +15,7 @@ export function drawRouteOverlay(map, sourceId, lineFeature, opts = {}) {
   ensureSource(map, sourceId, geojson);
   const layerId = `${sourceId}-line`;
   const paint = {
-    'line-color': opts.color || '#0ea5e9',
+    'line-color': opts.lineColorExpression || opts.color || '#0ea5e9',
     'line-width': opts.width || 4,
     'line-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
     'line-blur': typeof opts.blur === 'number' ? opts.blur : 0.2,

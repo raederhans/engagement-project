@@ -7,11 +7,10 @@ import maplibregl from 'maplibre-gl';
  */
 
 const COLOR_BINS = [
-  { max: 1.8, color: '#d73027' },
-  { max: 2.6, color: '#fc8d59' },
-  { max: 3.4, color: '#fee08b' },
-  { max: 4.2, color: '#91cf60' },
-  { max: Infinity, color: '#1a9850' },
+  { max: 2.5, color: '#f87171' },    // risky
+  { max: 3.4, color: '#fbbf24' },    // caution
+  { max: 4.25, color: '#34d399' },   // safer
+  { max: Infinity, color: '#10b981' } // safest
 ];
 
 const hoverRegistrations = new Map();
@@ -40,10 +39,10 @@ export function mountSegmentsLayer(map, sourceId, data) {
     'line-blur': 0,
   });
   ensureLineLayer(map, layerId, sourceId, {
-    'line-opacity': 0.85,
+    'line-opacity': 0.9,
     'line-color': buildColorExpression(),
     'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
-    'line-blur': 0.15,
+    'line-blur': 0.05,
   });
 
   registerClickHandlers(map, hitLayerId);
@@ -347,37 +346,50 @@ function buildSegmentCardHtml(props) {
   const saferDisabled = ctaState.saferDisabled;
   const agreeTitle = agreeDisabled ? 'Recorded for this session' : 'Agree with this rating';
   const saferTitle = saferDisabled ? 'Recorded for this session' : 'Flag as feeling safer';
-  const hint = agreeDisabled || saferDisabled ? '<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Recorded for this session</div>' : '';
+  const hint = agreeDisabled || saferDisabled ? '<div class="diary-popup-foot">Recorded for this session</div>' : '';
   return `
-    <div style="min-width:240px;max-width:320px;max-height:400px;overflow-y:auto;font:12px/1.4 system-ui;color:#111;padding-right:2px;">
-      <div style="font-weight:600;margin-bottom:4px;">${street}</div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:11px;">
-        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Mean</div><div style="font-size:16px;font-weight:600;color:${colorForMean(Number(props.decayed_mean))};">${mean}</div></div>
-        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">n_eff</div><div style="font-size:16px;font-weight:600;">${nEff}</div></div>
-        <div><div style="color:#6b7280;text-transform:uppercase;font-size:10px;">Δ30d</div><div style="font-size:13px;font-weight:600;color:${Number(delta) >= 0 ? '#059669' : '#b91c1c'};">${delta}</div></div>
+    <div class="diary-popup-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <div class="diary-popup-title">${street}</div>
+        <div class="diary-popup-id">${segmentId ? `ID ${segmentId}` : ''}</div>
       </div>
-      <div style="margin-top:6px;font-size:11px;color:#374151;">Top tags: ${tags}</div>
-      <div style="margin-top:8px;display:flex;gap:8px;">
-        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled ? 'disabled' : ''} aria-disabled="${agreeDisabled}" title="${agreeTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${agreeDisabled ? '#e2e8f0' : '#fff'};cursor:${agreeDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Agree 👍</button>
-        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" title="${saferTitle}" style="flex:1;padding:6px 8px;border-radius:999px;border:1px solid #cbd5f5;background:${saferDisabled ? '#e2e8f0' : '#fff'};cursor:${saferDisabled ? 'not-allowed' : 'pointer'};font-size:11px;font-weight:600;">Feels safer ✨</button>
+      <div class="diary-popup-grid">
+        <div class="diary-popup-metric">
+          <div class="label">Mean</div>
+          <div class="value" style="color:${colorForMean(Number(props.decayed_mean))};">${mean}</div>
+        </div>
+        <div class="diary-popup-metric">
+          <div class="label">n_eff</div>
+          <div class="value">${nEff}</div>
+        </div>
+        <div class="diary-popup-metric">
+          <div class="label">Δ30d</div>
+          <div class="value" style="color:${Number(delta) >= 0 ? '#059669' : '#b91c1c'};">${delta}</div>
+        </div>
+      </div>
+      <div class="diary-popup-tags">${tags}</div>
+      <div class="diary-popup-actions">
+        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled ? 'disabled' : ''} aria-disabled="${agreeDisabled}" title="${agreeTitle}">Agree 👍</button>
+        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" title="${saferTitle}">Feels safer ✨</button>
       </div>
       ${hint}
-      <div style="margin-top:4px;font-size:10px;color:#6b7280;">Community perception (unverified)</div>
+      <div class="diary-popup-foot">Community perception (unverified)</div>
     </div>
   `;
 }
 
 function formatTags(tags) {
-  if (!Array.isArray(tags) || tags.length === 0) return 'none';
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return '<span class="diary-popup-tag">No tags yet</span>';
+  }
   return tags
     .slice(0, 4)
     .map((tag) => {
-      if (typeof tag === 'string') return `${tag}(1.00)`;
+      if (typeof tag === 'string') return `<span class="diary-popup-tag">${tag.replace(/_/g, ' ')}</span>`;
       const label = tag?.tag || 'unknown';
-      const prob = Number.isFinite(tag?.p) ? Number(tag.p) : 0;
-      return `${label}(${prob.toFixed(2)})`;
+      return `<span class="diary-popup-tag">${label}</span>`;
     })
-    .join(', ');
+    .join('');
 }
 
 function ensureSource(map, id, data) {

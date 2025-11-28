@@ -71,35 +71,42 @@ const DEMO_TAGS = {
 
 const insightsState = { scope: 'route', window: '30d' };
 const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const heatmapWindows = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Late', 'Overnight'];
+const heatmapWindows = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Late night'];
 const heatmapValues = [
-  [0.15, 0.12, 0.1, 0.22, 0.18, 0.12],
-  [0.14, 0.2, 0.25, 0.72, 0.68, 0.24],
-  [0.12, 0.2, 0.3, 0.65, 0.62, 0.22],
-  [0.12, 0.18, 0.26, 0.7, 0.66, 0.2],
-  [0.12, 0.16, 0.24, 0.6, 0.55, 0.18],
-  [0.1, 0.14, 0.2, 0.28, 0.24, 0.16],
-  [0.08, 0.12, 0.18, 0.22, 0.18, 0.14],
+  [0.15, 0.12, 0.2, 0.32, 0.22],
+  [0.14, 0.2, 0.35, 0.62, 0.38],
+  [0.12, 0.22, 0.38, 0.58, 0.32],
+  [0.12, 0.18, 0.32, 0.6, 0.34],
+  [0.12, 0.16, 0.28, 0.5, 0.28],
+  [0.1, 0.14, 0.22, 0.32, 0.24],
+  [0.08, 0.12, 0.2, 0.28, 0.2],
 ];
 
 const cardStyle = 'background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;';
 
 function barColor(pct) {
   const clamped = Math.min(1, Math.max(0, pct));
-  const lightness = 92 - clamped * 32;
-  return `hsl(42, 95%, ${lightness}%)`;
+  const lightness = 90 - clamped * 36;
+  return `hsl(210, 85%, ${lightness}%)`;
+}
+
+function safetyColor(value) {
+  if (value >= 4.2) return '#10b981';
+  if (value >= 3.5) return '#34d399';
+  if (value >= 2.5) return '#fbbf24';
+  return '#f87171';
 }
 
 function renderTrend(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
   header.textContent = 'Trend';
-  header.style.font = '600 13px/1.3 "Inter", system-ui';
+  header.style.font = '600 14px/1.3 "Inter", system-ui';
   header.style.color = '#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = 'Avg safety score (demo)';
+  subtitle.textContent = 'Avg safety score along the route';
   subtitle.style.font = '12px/1.3 "Inter", system-ui';
   subtitle.style.color = '#64748b';
   subtitle.style.marginBottom = '8px';
@@ -111,14 +118,15 @@ function renderTrend(container) {
   chart.style.gap = '8px';
   chart.style.height = '68px';
   const max = Math.max(...demoTrend);
-  demoTrend.forEach((v) => {
+  const trendLabels = ['Start', '0.5 km', '1.0 km', '1.5 km', 'End'];
+  demoTrend.forEach((v, idx) => {
     const bar = document.createElement('div');
     bar.style.flex = '1';
-    bar.style.borderRadius = '6px 6px 4px 4px';
-    bar.style.background = 'linear-gradient(180deg, #d6f0ff, #7bc8f6)';
-    bar.style.border = '1px solid #bfdbfe';
+    bar.style.borderRadius = '6px';
+    bar.style.background = safetyColor(v);
+    bar.style.border = '1px solid rgba(15,23,42,0.05)';
     bar.style.height = `${Math.max(24, (v / max) * 60)}px`;
-    bar.title = v.toFixed(1);
+    bar.title = `${trendLabels[idx]} · ${v.toFixed(1)}`;
     chart.appendChild(bar);
   });
   container.appendChild(chart);
@@ -129,9 +137,9 @@ function renderTrend(container) {
   labels.style.marginTop = '6px';
   labels.style.font = '12px/1.2 "Inter", system-ui';
   labels.style.color = '#475569';
-  demoTrend.forEach((v, idx) => {
+  trendLabels.forEach((label) => {
     const lbl = document.createElement('span');
-    lbl.textContent = `P${idx + 1} · ${v.toFixed(1)}`;
+    lbl.textContent = label;
     labels.appendChild(lbl);
   });
   container.appendChild(labels);
@@ -168,15 +176,10 @@ function renderTags(container) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = scope.label;
-    btn.style.border = '1px solid #dbeafe';
-    btn.style.borderRadius = '999px';
-    btn.style.padding = '4px 10px';
-    btn.style.font = '12px/1.3 "Inter", system-ui';
-    btn.style.cursor = 'pointer';
+    btn.className = 'diary-pill-btn';
     const sync = () => {
       const active = insightsState.scope === scope.value;
-      btn.style.background = active ? '#0ea5e9' : '#fff';
-      btn.style.color = active ? '#fff' : '#0f172a';
+      btn.classList.toggle('is-active', active);
     };
     btn.addEventListener('click', () => {
       insightsState.scope = scope.value;
@@ -189,10 +192,7 @@ function renderTags(container) {
   });
 
   const windowSelect = document.createElement('select');
-  windowSelect.style.border = '1px solid #dbeafe';
-  windowSelect.style.borderRadius = '8px';
-  windowSelect.style.padding = '6px 8px';
-  windowSelect.style.font = '12px/1.3 "Inter", system-ui';
+  windowSelect.className = 'diary-select';
   ['7d', '30d', '90d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
@@ -247,15 +247,15 @@ function renderTags(container) {
       label.style.color = '#0f172a';
       const barWrap = document.createElement('div');
       barWrap.style.flex = '2';
-      barWrap.style.background = '#f8fafc';
+      barWrap.style.background = '#eef2ff';
       barWrap.style.border = '1px solid #e2e8f0';
       barWrap.style.borderRadius = '999px';
-      barWrap.style.height = '10px';
+      barWrap.style.height = '12px';
       barWrap.style.overflow = 'hidden';
       const bar = document.createElement('div');
       bar.style.height = '100%';
       bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
-      bar.style.background = 'linear-gradient(90deg, #a5f3fc, #38bdf8)';
+      bar.style.background = '#60a5fa';
       barWrap.appendChild(bar);
       const value = document.createElement('div');
       value.textContent = tag.value;
@@ -286,19 +286,17 @@ function renderHeatmap(container) {
   subtitle.style.marginBottom = '8px';
   container.appendChild(subtitle);
 
-  const scroller = document.createElement('div');
-  scroller.style.maxHeight = '220px';
-  scroller.style.overflow = 'auto';
-  scroller.style.border = '1px solid #e2e8f0';
-  scroller.style.borderRadius = '12px';
-  scroller.style.padding = '8px';
-  scroller.style.background = '#f8fafc';
-
   const grid = document.createElement('div');
   grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = `80px repeat(${heatmapWindows.length}, 1fr)`;
-  grid.style.gap = '6px';
+  grid.style.gridTemplateColumns = `84px repeat(${heatmapWindows.length}, 1fr)`;
+  grid.style.gap = '8px';
   grid.style.alignItems = 'center';
+  grid.style.border = '1px solid #e2e8f0';
+  grid.style.borderRadius = '12px';
+  grid.style.padding = '10px';
+  grid.style.background = '#f8fafc';
+  grid.style.maxWidth = '100%';
+  grid.style.overflowX = 'auto';
 
   const empty = document.createElement('div');
   grid.appendChild(empty);
@@ -321,7 +319,7 @@ function renderHeatmap(container) {
     grid.appendChild(label);
     heatmapValues[rowIdx].forEach((val) => {
       const cell = document.createElement('div');
-      cell.style.height = '18px';
+      cell.style.height = '22px';
       cell.style.borderRadius = '6px';
       cell.style.background = barColor(val);
       cell.title = `${day} · ${val.toFixed(2)}`;
@@ -329,8 +327,7 @@ function renderHeatmap(container) {
     });
   });
 
-  scroller.appendChild(grid);
-  container.appendChild(scroller);
+  container.appendChild(grid);
 }
 
 export function createDiaryInsightsController(root) {
@@ -357,7 +354,7 @@ export function createDiaryInsightsController(root) {
     if (built) return;
     root.innerHTML = '';
     const card = document.createElement('div');
-    card.style.cssText = `${cardStyle} box-shadow:0 10px 24px rgba(15,23,42,0.12); background:linear-gradient(180deg,#ffffff,#f8fbff);`;
+    card.style.cssText = `${cardStyle} box-shadow:0 12px 28px rgba(15,23,42,0.16); background:#fff;`;
 
     const header = document.createElement('div');
     header.style.display = 'flex';

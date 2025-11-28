@@ -69,7 +69,7 @@ function injectModalStyles() {
     .diary-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.32);
+      background: rgba(15, 23, 42, 0.18);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -78,10 +78,10 @@ function injectModalStyles() {
     .diary-modal-card {
       background: #fff;
       border-radius: 16px;
-      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.35);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
       border: 1px solid #e2e8f0;
       width: min(540px, 92vw);
-      max-height: 82vh;
+      max-height: 85vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -94,7 +94,7 @@ function injectModalStyles() {
     .diary-modal-card .diary-modal-body {
       overflow-y: auto;
       padding-right: 2px;
-      max-height: calc(82vh - 140px);
+      max-height: calc(85vh - 140px);
     }
     .diary-modal-close {
       border: none;
@@ -188,10 +188,11 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   cancel.textContent = 'Cancel';
   cancel.style.flex = '1';
   cancel.style.padding = '10px 12px';
-  cancel.style.border = '1px solid #cbd5f5';
-  cancel.style.borderRadius = '8px';
+  cancel.style.border = '1px solid #e2e8f0';
+  cancel.style.borderRadius = '10px';
   cancel.style.background = '#fff';
   cancel.style.cursor = 'pointer';
+  cancel.style.fontWeight = '600';
   cancel.addEventListener('click', closeRatingModal);
 
   submitBtn = document.createElement('button');
@@ -200,8 +201,8 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   submitBtn.style.flex = '1';
   submitBtn.style.padding = '10px 12px';
   submitBtn.style.border = 'none';
-  submitBtn.style.borderRadius = '8px';
-  submitBtn.style.background = '#0f172a';
+  submitBtn.style.borderRadius = '10px';
+  submitBtn.style.background = '#10b981';
   submitBtn.style.color = '#fff';
   submitBtn.style.fontWeight = '600';
   submitBtn.style.cursor = 'pointer';
@@ -256,18 +257,19 @@ function createStarSelector(state) {
   row.style.display = 'flex';
   row.style.gap = '6px';
   row.style.marginTop = '6px';
+  row.style.alignItems = 'center';
 
   const stars = [];
   for (let i = 1; i <= 5; i += 1) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = '★';
-    btn.style.fontSize = '20px';
-    btn.style.lineHeight = '20px';
+    btn.style.fontSize = '24px';
+    btn.style.lineHeight = '24px';
     btn.style.border = 'none';
     btn.style.background = 'transparent';
     btn.style.cursor = 'pointer';
-    btn.style.color = i <= state.overallRating ? '#fbbf24' : '#cbd5f5';
+    btn.style.color = i <= state.overallRating ? '#fbbf24' : '#e2e8f0';
     btn.addEventListener('click', () => {
       state.overallRating = i;
       stars.forEach((starBtn, idx) => {
@@ -303,15 +305,17 @@ function createTagSelector(state) {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.textContent = tag.replace(/_/g, ' ');
-      chip.style.border = '1px solid #cbd5f5';
+      chip.style.border = '1px solid #e2e8f0';
       chip.style.borderRadius = '999px';
-      chip.style.padding = '4px 10px';
+      chip.style.padding = '6px 12px';
       chip.style.fontSize = '12px';
       chip.style.cursor = 'pointer';
+      chip.style.background = '#fff';
       const updateStyle = () => {
         const active = picked.has(tag);
-        chip.style.background = active ? '#0f172a' : '#fff';
+        chip.style.background = active ? '#10b981' : '#fff';
         chip.style.color = active ? '#fff' : '#0f172a';
+        chip.style.borderColor = active ? '#10b981' : '#e2e8f0';
       };
       chip.addEventListener('click', () => {
         if (picked.has(tag)) {
@@ -337,12 +341,12 @@ function createTagSelector(state) {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.textContent = tag.replace(/_/g, ' ');
-      chip.style.border = '1px solid #cbd5f5';
+      chip.style.border = '1px solid #10b981';
       chip.style.borderRadius = '999px';
-      chip.style.padding = '4px 10px';
+      chip.style.padding = '6px 12px';
       chip.style.fontSize = '12px';
       chip.style.cursor = 'pointer';
-      chip.style.background = '#0f172a';
+      chip.style.background = '#10b981';
       chip.style.color = '#fff';
       chip.addEventListener('click', () => {
         picked.delete(tag);
@@ -364,9 +368,9 @@ function createTagSelector(state) {
   selectLabel.style.color = '#475569';
   const select = document.createElement('select');
   select.style.flex = '1';
-  select.style.padding = '6px 8px';
-  select.style.border = '1px solid #cbd5f5';
-  select.style.borderRadius = '8px';
+  select.style.padding = '8px 10px';
+  select.style.border = '1px solid #e2e8f0';
+  select.style.borderRadius = '10px';
   select.style.fontSize = '12px';
 
   function refreshSelect() {
@@ -434,22 +438,38 @@ function createSegmentOverrideSection(state) {
     list.appendChild(empty);
   }
 
-  segmentIds.forEach((segmentId) => {
+  // Gather segment data with safety scores for sorting
+  const segmentsData = segmentIds.map((segmentId, idx) => {
+    const segmentFeature = state.segmentLookup?.get?.(segmentId);
+    const safetyScore = segmentFeature?.properties?.decayed_mean || 3;
+    const street = getSegmentLabel(state.segmentLookup, segmentId);
+    return { segmentId, idx, safetyScore, street };
+  });
+
+  // Sort by safety score (lowest first = most concerning segments)
+  const sortedSegments = segmentsData.slice().sort((a, b) => a.safetyScore - b.safetyScore);
+
+  // Show top 3 worst segments by default, rest in collapsible
+  const topSegments = sortedSegments.slice(0, 3);
+  const restSegments = sortedSegments.slice(3);
+
+  const createSegmentRow = ({ segmentId, idx, street }) => {
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.justifyContent = 'space-between';
     row.style.alignItems = 'center';
     row.style.border = '1px solid #e2e8f0';
-    row.style.borderRadius = '8px';
-    row.style.padding = '6px 10px';
+    row.style.borderRadius = '10px';
+    row.style.padding = '8px 10px';
 
     const labelWrap = document.createElement('div');
     labelWrap.style.display = 'flex';
     labelWrap.style.flexDirection = 'column';
     labelWrap.style.fontSize = '12px';
     labelWrap.style.color = '#475569';
-    const street = getSegmentLabel(state.segmentLookup, segmentId);
-    labelWrap.innerHTML = `<strong style="color:#0f172a;">${street}</strong><span>${segmentId}</span>`;
+    const friendly = street && street !== segmentId ? street : `Segment ${idx + 1}`;
+    const idLabel = street && street !== segmentId ? segmentId : '';
+    labelWrap.innerHTML = `<strong style="color:#0f172a;">${friendly}</strong>${idLabel ? `<span style="color:#94a3b8;font-size:11px;">${idLabel}</span>` : ''}`;
 
     const controls = document.createElement('div');
     controls.style.display = 'flex';
@@ -465,9 +485,9 @@ function createSegmentOverrideSection(state) {
       select.appendChild(option);
     }
     select.disabled = true;
-    select.style.borderRadius = '6px';
-    select.style.border = '1px solid #cbd5f5';
-    select.style.padding = '4px';
+    select.style.borderRadius = '8px';
+    select.style.border = '1px solid #e2e8f0';
+    select.style.padding = '6px';
     select.addEventListener('change', () => {
       if (state.overrides.has(segmentId)) {
         state.overrides.set(segmentId, Number(select.value));
@@ -494,8 +514,48 @@ function createSegmentOverrideSection(state) {
     controls.appendChild(select);
     row.appendChild(labelWrap);
     row.appendChild(controls);
-    list.appendChild(row);
-  });
+    return row;
+  };
+
+  // Add top segments (worst safety scores)
+  if (topSegments.length > 0) {
+    const topHint = document.createElement('div');
+    topHint.textContent = 'Lowest-rated segments (select up to 2):';
+    topHint.style.fontSize = '12px';
+    topHint.style.color = '#64748b';
+    topHint.style.marginBottom = '6px';
+    list.appendChild(topHint);
+
+    topSegments.forEach(seg => {
+      list.appendChild(createSegmentRow(seg));
+    });
+  }
+
+  // Add collapsible section for rest
+  if (restSegments.length > 0) {
+    const details = document.createElement('details');
+    details.style.marginTop = '8px';
+    const summary = document.createElement('summary');
+    summary.textContent = `Show ${restSegments.length} more segment${restSegments.length > 1 ? 's' : ''}`;
+    summary.style.fontSize = '12px';
+    summary.style.color = '#475569';
+    summary.style.cursor = 'pointer';
+    summary.style.padding = '6px 0';
+    details.appendChild(summary);
+
+    const moreList = document.createElement('div');
+    moreList.style.display = 'flex';
+    moreList.style.flexDirection = 'column';
+    moreList.style.gap = '8px';
+    moreList.style.marginTop = '8px';
+
+    restSegments.forEach(seg => {
+      moreList.appendChild(createSegmentRow(seg));
+    });
+
+    details.appendChild(moreList);
+    list.appendChild(details);
+  }
 
   wrapper.appendChild(list);
   return wrapper;
@@ -512,9 +572,9 @@ function createNotesSection(state) {
   input.maxLength = 200;
   input.placeholder = 'Add a short note (200 characters max).';
   input.style.width = '100%';
-  input.style.borderRadius = '8px';
-  input.style.border = '1px solid #cbd5f5';
-  input.style.padding = '8px';
+  input.style.borderRadius = '10px';
+  input.style.border = '1px solid #e2e8f0';
+  input.style.padding = '10px';
   input.style.font = '13px/1.4 "Inter", system-ui, sans-serif';
   state.noteInput = input;
   wrapper.appendChild(input);

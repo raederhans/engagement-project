@@ -12,6 +12,7 @@
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
+import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter } from '../state/store.js';
@@ -88,8 +89,15 @@ const sim = {
 const simLifecycleFlags = { visibility: false, pagehide: false };
 const simCleanupFns = new Set();
 let networkStyleCleanup = null;
+let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+const ROUTE_SAFETY_EXPRESSION = [
+  'case',
+  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 4], '#34d399',
+  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 2.5], '#fbbf24',
+  '#f87171',
+];
 
 function diaryFeatureEnabled() {
   if (store?.diaryFeatureOn) return true;
@@ -143,6 +151,17 @@ function ensureNetworkOverlayLifecycle(map) {
 function cleanupNetworkOverlayLifecycle() {
   if (typeof networkStyleCleanup === 'function') {
     networkStyleCleanup();
+  }
+}
+
+function setDiaryMapSkin(map, enabled) {
+  const container = map && typeof map.getContainer === 'function' ? map.getContainer() : null;
+  if (!container) return;
+  const shouldMute = !!enabled && !HAS_DIARY_LIGHT_STYLE;
+  container.classList.toggle('diary-map-muted', shouldMute);
+  if (shouldMute && !muteNoticeLogged) {
+    console.info('[Diary] MapTiler key missing, falling back to muted OSM basemap.');
+    muteNoticeLogged = true;
   }
 }
 
@@ -251,6 +270,29 @@ function ensureRouteIndex(routes) {
       routeById.set(id, feature);
     }
   });
+}
+
+function buildRouteOverlayCollection(routeFeature, idsKey = 'segment_ids') {
+  if (!routeFeature) return null;
+  const props = routeFeature.properties || {};
+  const ids = Array.isArray(props[idsKey]) ? props[idsKey] : [];
+  if (!ids.length) return routeFeature;
+  const features = [];
+  ids.forEach((id, idx) => {
+    const seg = segmentLookup.get(id);
+    if (!seg?.geometry) return;
+    const segProps = seg.properties || {};
+    const safety = Number(segProps.decayed_mean);
+    features.push({
+      type: 'Feature',
+      geometry: clone(seg.geometry),
+      properties: {
+        overlay_safety: Number.isFinite(safety) ? safety : 3,
+        overlay_seq: idx,
+      },
+    });
+  });
+  return features.length ? { type: 'FeatureCollection', features } : routeFeature;
 }
 
 function initLocalAggFromSegments(featureCollection) {
@@ -439,58 +481,66 @@ function ensureDiaryPanel(routes, options = {}) {
 
   if (!routeSelectEl || !routeSelectEl.isConnected) {
     diaryPanelEl.innerHTML = '';
+    diaryPanelEl.classList.add('diary-panel-shell');
 
     const title = document.createElement('div');
-    title.textContent = 'Route Safety Diary (demo)';
-    title.style.fontWeight = '600';
-    title.style.fontSize = '14px';
-    title.style.marginBottom = '8px';
+    title.style.display = 'flex';
+    title.style.flexDirection = 'column';
+    title.style.gap = '2px';
+    const titleText = document.createElement('h3');
+    titleText.textContent = 'Route Safety Diary (demo)';
+    const subtitle = document.createElement('div');
+    subtitle.textContent = 'Philadelphia • demo data';
+    subtitle.style.color = '#6b7280';
+    subtitle.style.fontSize = '12px';
+    title.appendChild(titleText);
+    title.appendChild(subtitle);
     diaryPanelEl.appendChild(title);
 
-    const selectLabel = document.createElement('label');
-    selectLabel.textContent = 'Choose a demo route';
-    selectLabel.style.display = 'block';
-    selectLabel.style.fontSize = '12px';
-    selectLabel.style.textTransform = 'uppercase';
-    selectLabel.style.letterSpacing = '0.05em';
-    selectLabel.style.color = '#64748b';
-    selectLabel.style.marginBottom = '4px';
-    diaryPanelEl.appendChild(selectLabel);
+    const routeCard = document.createElement('div');
+    routeCard.className = 'diary-section-card';
+    const routeLabel = document.createElement('div');
+    routeLabel.className = 'diary-section-label';
+    routeLabel.textContent = 'Route selector';
+    routeCard.appendChild(routeLabel);
 
     routeSelectEl = document.createElement('select');
-    routeSelectEl.style.width = '100%';
-    routeSelectEl.style.border = '1px solid #cbd5f5';
-    routeSelectEl.style.borderRadius = '8px';
-    routeSelectEl.style.padding = '6px 10px';
-    routeSelectEl.style.marginBottom = '12px';
-    routeSelectEl.style.fontSize = '13px';
+    routeSelectEl.className = 'diary-select';
     routeSelectEl.addEventListener('change', (event) => {
       const routeId = event.target.value;
       if (routeId) {
         selectRoute(routeId, { fitBounds: true });
       }
     });
-    diaryPanelEl.appendChild(routeSelectEl);
+    routeCard.appendChild(routeSelectEl);
 
     summaryStripEl = document.createElement('div');
     summaryStripEl.id = 'diary-route-summary';
-    summaryStripEl.style.borderRadius = '10px';
-    summaryStripEl.style.background = '#f8fafc';
-    summaryStripEl.style.border = '1px solid #e2e8f0';
-    summaryStripEl.style.padding = '10px';
+    summaryStripEl.className = 'diary-muted-card';
     summaryStripEl.style.minHeight = '72px';
     summaryStripEl.style.display = 'flex';
     summaryStripEl.style.flexDirection = 'column';
     summaryStripEl.style.gap = '4px';
     summaryStripEl.textContent = 'Select a route to see its details.';
-    diaryPanelEl.appendChild(summaryStripEl);
+    summaryStripEl.style.marginTop = '10px';
+    routeCard.appendChild(summaryStripEl);
+    diaryPanelEl.appendChild(routeCard);
+
+    const actionsCard = document.createElement('div');
+    actionsCard.className = 'diary-section-card';
+    const actionsHeader = document.createElement('div');
+    actionsHeader.className = 'diary-section-header';
+    const actionsLabel = document.createElement('div');
+    actionsLabel.className = 'diary-section-label';
+    actionsLabel.textContent = 'Comparison';
+    actionsHeader.appendChild(actionsLabel);
+    actionsCard.appendChild(actionsHeader);
 
     const altToggleRow = document.createElement('label');
     altToggleRow.style.display = 'flex';
     altToggleRow.style.alignItems = 'center';
     altToggleRow.style.gap = '8px';
-    altToggleRow.style.marginTop = '12px';
-    altToggleRow.style.fontSize = '12px';
+    altToggleRow.style.fontSize = '13px';
     altToggleRow.style.color = '#475569';
     altToggleEl = document.createElement('input');
     altToggleEl.type = 'checkbox';
@@ -502,63 +552,66 @@ function ensureDiaryPanel(routes, options = {}) {
     altToggleText.textContent = 'Show alternative route';
     altToggleRow.appendChild(altToggleEl);
     altToggleRow.appendChild(altToggleText);
-    diaryPanelEl.appendChild(altToggleRow);
+    actionsCard.appendChild(altToggleRow);
 
     altSummaryEl = document.createElement('div');
+    altSummaryEl.className = 'diary-muted-card';
     altSummaryEl.style.marginTop = '8px';
-    altSummaryEl.style.borderRadius = '10px';
-    altSummaryEl.style.background = '#f1f5f9';
-    altSummaryEl.style.border = '1px solid #dbeafe';
-    altSummaryEl.style.padding = '10px';
     altSummaryEl.style.fontSize = '12px';
     altSummaryEl.style.color = '#334155';
     altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
-    diaryPanelEl.appendChild(altSummaryEl);
-
-    const networkHint = document.createElement('div');
-    networkHint.textContent = 'Hint: Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
-    networkHint.style.fontSize = '11px';
-    networkHint.style.color = '#475569';
-    networkHint.style.marginTop = '6px';
-    networkHint.style.lineHeight = '1.4';
-    diaryPanelEl.appendChild(networkHint);
+    actionsCard.appendChild(altSummaryEl);
 
     panelNoticeEl = document.createElement('div');
-    panelNoticeEl.style.marginTop = '10px';
+    panelNoticeEl.style.marginTop = '8px';
     panelNoticeEl.style.borderRadius = '8px';
     panelNoticeEl.style.padding = '8px 10px';
     panelNoticeEl.style.fontSize = '12px';
     panelNoticeEl.style.display = 'none';
     panelNoticeEl.style.background = '#ecfdf5';
     panelNoticeEl.style.color = '#065f46';
-    diaryPanelEl.appendChild(panelNoticeEl);
+    actionsCard.appendChild(panelNoticeEl);
 
+    const rateWrap = document.createElement('div');
+    rateWrap.style.marginTop = '10px';
     rateButtonEl = document.createElement('button');
     rateButtonEl.type = 'button';
     rateButtonEl.textContent = 'Rate this route';
-    rateButtonEl.style.marginTop = '12px';
+    rateButtonEl.className = 'diary-primary-btn';
     rateButtonEl.style.width = '100%';
-    rateButtonEl.style.padding = '10px 12px';
-    rateButtonEl.style.border = 'none';
-    rateButtonEl.style.borderRadius = '8px';
-    rateButtonEl.style.fontWeight = '600';
-    rateButtonEl.style.fontSize = '13px';
-    rateButtonEl.style.background = '#0f172a';
-    rateButtonEl.style.color = '#fff';
-    rateButtonEl.style.cursor = 'pointer';
+    rateButtonEl.style.padding = '12px 14px';
+    rateButtonEl.style.fontSize = '14px';
     rateButtonEl.disabled = true;
-    rateButtonEl.style.opacity = '0.6';
+    rateButtonEl.style.opacity = '0.7';
     rateButtonEl.addEventListener('click', () => {
       if (!rateButtonEl.disabled) {
         openRouteRating();
       }
     });
-    diaryPanelEl.appendChild(rateButtonEl);
+    rateWrap.appendChild(rateButtonEl);
+    actionsCard.appendChild(rateWrap);
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
+    hint.style.fontSize = '11px';
+    hint.style.color = '#475569';
+    hint.style.marginTop = '8px';
+    hint.style.lineHeight = '1.4';
+    actionsCard.appendChild(hint);
+
+    diaryPanelEl.appendChild(actionsCard);
+
+    const simCard = document.createElement('div');
+    simCard.className = 'diary-section-card';
+    const simLabel = document.createElement('div');
+    simLabel.className = 'diary-section-label';
+    simLabel.textContent = 'Simulator';
+    simCard.appendChild(simLabel);
 
     const simControls = document.createElement('div');
     simControls.style.display = 'flex';
     simControls.style.gap = '8px';
-    simControls.style.marginTop = '12px';
+    simControls.style.marginTop = '10px';
 
     playButtonEl = document.createElement('button');
     styleSimButton(playButtonEl);
@@ -578,24 +631,13 @@ function ensureDiaryPanel(routes, options = {}) {
     finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
     simControls.appendChild(finishButtonEl);
 
-    diaryPanelEl.appendChild(simControls);
-
-    const extraSection = document.createElement('div');
-    extraSection.style.marginTop = '12px';
-    extraSection.style.padding = '10px';
-    extraSection.style.border = '1px solid #e2e8f0';
-    extraSection.style.borderRadius = '10px';
-    extraSection.style.background = '#f8fafc';
-    extraSection.style.display = 'flex';
-    extraSection.style.flexDirection = 'column';
-    extraSection.style.gap = '10px';
+    simCard.appendChild(simControls);
 
     const playbackLabel = document.createElement('div');
+    playbackLabel.className = 'diary-label';
+    playbackLabel.style.marginTop = '12px';
     playbackLabel.textContent = 'Playback speed';
-    playbackLabel.style.fontSize = '12px';
-    playbackLabel.style.fontWeight = '600';
-    playbackLabel.style.color = '#0f172a';
-    extraSection.appendChild(playbackLabel);
+    simCard.appendChild(playbackLabel);
 
     const playbackRow = document.createElement('div');
     playbackRow.style.display = 'flex';
@@ -607,17 +649,10 @@ function ensureDiaryPanel(routes, options = {}) {
       btn.type = 'button';
       btn.textContent = `${value}×`;
       btn.style.flex = '1';
-      btn.style.padding = '6px 8px';
-      btn.style.borderRadius = '8px';
-      btn.style.border = '1px solid #dbeafe';
-      btn.style.background = '#fff';
-      btn.style.cursor = 'pointer';
-      btn.style.fontSize = '12px';
-      btn.style.fontWeight = '600';
+      btn.className = 'diary-pill-btn';
       const sync = () => {
         const active = store.simPlaybackSpeed === value;
-        btn.style.background = active ? '#0ea5e9' : '#fff';
-        btn.style.color = active ? '#fff' : '#0f172a';
+        btn.classList.toggle('is-active', active);
       };
       btn.addEventListener('click', () => {
         setSimPlaybackSpeed(value);
@@ -628,21 +663,25 @@ function ensureDiaryPanel(routes, options = {}) {
       playbackRow.appendChild(btn);
     });
     speedButtons.forEach((b) => b.sync());
-    extraSection.appendChild(playbackRow);
+    simCard.appendChild(playbackRow);
+
+    diaryPanelEl.appendChild(simCard);
+
+    const filterCard = document.createElement('div');
+    filterCard.className = 'diary-section-card';
+    const filterLabel = document.createElement('div');
+    filterLabel.className = 'diary-section-label';
+    filterLabel.textContent = 'Filters';
+    filterCard.appendChild(filterLabel);
 
     const periodLabel = document.createElement('div');
+    periodLabel.className = 'diary-label';
     periodLabel.textContent = 'Demo period';
-    periodLabel.style.fontSize = '12px';
-    periodLabel.style.fontWeight = '600';
-    periodLabel.style.color = '#0f172a';
-    extraSection.appendChild(periodLabel);
+    periodLabel.style.marginTop = '8px';
+    filterCard.appendChild(periodLabel);
 
     const periodSelect = document.createElement('select');
-    periodSelect.style.width = '100%';
-    periodSelect.style.padding = '8px';
-    periodSelect.style.border = '1px solid #dbeafe';
-    periodSelect.style.borderRadius = '8px';
-    periodSelect.style.fontSize = '12px';
+    periodSelect.className = 'diary-select';
     [
       { value: 'day', label: 'Single day' },
       { value: 'week', label: 'Last 7 days' },
@@ -657,21 +696,16 @@ function ensureDiaryPanel(routes, options = {}) {
     periodSelect.addEventListener('change', () => {
       setDiaryDemoPeriod(periodSelect.value);
     });
-    extraSection.appendChild(periodSelect);
+    filterCard.appendChild(periodSelect);
 
     const timeLabel = document.createElement('div');
+    timeLabel.className = 'diary-label';
     timeLabel.textContent = 'Time of day';
-    timeLabel.style.fontSize = '12px';
-    timeLabel.style.fontWeight = '600';
-    timeLabel.style.color = '#0f172a';
-    extraSection.appendChild(timeLabel);
+    timeLabel.style.marginTop = '10px';
+    filterCard.appendChild(timeLabel);
 
     const timeSelect = document.createElement('select');
-    timeSelect.style.width = '100%';
-    timeSelect.style.padding = '8px';
-    timeSelect.style.border = '1px solid #dbeafe';
-    timeSelect.style.borderRadius = '8px';
-    timeSelect.style.fontSize = '12px';
+    timeSelect.className = 'diary-select';
     [
       { value: 'all', label: 'All hours' },
       { value: 'day', label: 'Daytime' },
@@ -687,27 +721,23 @@ function ensureDiaryPanel(routes, options = {}) {
     timeSelect.addEventListener('change', () => {
       setDiaryTimeFilter(timeSelect.value);
     });
-    extraSection.appendChild(timeSelect);
+    filterCard.appendChild(timeSelect);
 
     const historyBtn = document.createElement('button');
     historyBtn.type = 'button';
     historyBtn.textContent = 'My routes and history (coming soon)';
-    historyBtn.style.marginTop = '4px';
+    historyBtn.style.marginTop = '10px';
     historyBtn.style.width = '100%';
-    historyBtn.style.padding = '10px 12px';
-    historyBtn.style.border = '1px dashed #cbd5f5';
-    historyBtn.style.borderRadius = '8px';
-    historyBtn.style.background = '#fff';
+    historyBtn.className = 'diary-pill-btn';
+    historyBtn.style.borderStyle = 'dashed';
     historyBtn.style.cursor = 'not-allowed';
-    historyBtn.style.fontSize = '12px';
-    historyBtn.style.color = '#475569';
     historyBtn.disabled = true;
     historyBtn.addEventListener('click', () => {
       console.info('[Diary] My routes and history is not available yet.');
     });
-    extraSection.appendChild(historyBtn);
+    filterCard.appendChild(historyBtn);
 
-    diaryPanelEl.appendChild(extraSection);
+    diaryPanelEl.appendChild(filterCard);
   }
 
   populateRouteOptions(routes);
@@ -731,13 +761,13 @@ function ensureDiaryPanel(routes, options = {}) {
 
 function styleSimButton(btn) {
   btn.style.flex = '1';
-  btn.style.padding = '8px 10px';
-  btn.style.borderRadius = '8px';
-  btn.style.border = '1px solid #cbd5f5';
+  btn.style.padding = '10px 12px';
+  btn.style.borderRadius = '10px';
+  btn.style.border = '1px solid #e2e8f0';
   btn.style.background = '#fff';
   btn.style.cursor = 'pointer';
-  btn.style.fontSize = '12px';
-  btn.style.fontWeight = '600';
+  btn.style.fontSize = '13px';
+  btn.style.fontWeight = '700';
 }
 
 function populateRouteOptions(routes) {
@@ -769,18 +799,17 @@ function renderRouteSummary(route) {
   }
   const props = route.properties || {};
   const pieces = [
-    `<strong>${props.from || 'Start'}</strong> → <strong>${props.to || 'Destination'}</strong>`,
-    `Mode: ${props.mode || 'walk'}`,
-    `Length: ${(props.length_m || 0).toLocaleString()} m`,
-    `Duration: ${props.duration_min || 0} min`,
+    `<div style="font-weight:700;color:#0f172a;">${props.from || 'Start'}</div>`,
+    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">to</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${props.to || 'Destination'}</div>`,
   ];
   summaryStripEl.innerHTML = `
-    <div style="font-size:13px;font-weight:600;color:#0f172a;">${props.name || props.route_id}</div>
-    <div style="font-size:12px;color:#334155;">${pieces[0]}</div>
-    <div style="font-size:12px;color:#475569;display:flex;gap:8px;flex-wrap:wrap;">
-      <span>${pieces[1]}</span>
-      <span>${pieces[2]}</span>
-      <span>${pieces[3]}</span>
+    <div style="font-size:13px;font-weight:700;color:#0f172a;">${props.name || props.route_id}</div>
+    <div style="display:flex;align-items:center;gap:6px;">${pieces.join('')}</div>
+    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="diary-chip" style="border-color:#e2e8f0;">${(props.mode || 'walk').toUpperCase()}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${(props.length_m || 0).toLocaleString()} m</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${props.duration_min || 0} min</span>
     </div>`;
 }
 
@@ -803,7 +832,12 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     rateButtonEl.style.opacity = '1';
   }
   if (mapRef) {
-    drawRouteOverlay(mapRef, ROUTE_OVERLAY_SOURCE_ID, feature, { color: '#312e81', width: 5, dasharray: [0.3, 1], opacity: 0.85 });
+    const overlayData = buildRouteOverlayCollection(feature, 'segment_ids') || feature;
+    drawRouteOverlay(mapRef, ROUTE_OVERLAY_SOURCE_ID, overlayData, {
+      lineColorExpression: ROUTE_SAFETY_EXPRESSION,
+      width: 7,
+      opacity: 0.95,
+    });
     if (fitBounds) {
       fitMapToRoute(feature);
     }
@@ -1077,11 +1111,15 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
     return;
   }
   if (!refreshOnly) {
-    drawRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID, altInfo.feature, {
-      color: '#0ea5e9',
+    const altOverlay = buildRouteOverlayCollection(
+      altInfo.feature,
+      altInfo.feature?.properties?.alt_segment_ids?.length ? 'alt_segment_ids' : 'segment_ids'
+    ) || altInfo.feature;
+    drawRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID, altOverlay, {
+      color: '#2563eb',
       width: 4,
-      opacity: 0.7,
-      dasharray: [0.5, 1],
+      opacity: 0.75,
+      dasharray: [0.6, 0.9],
     });
   }
 }
@@ -1519,6 +1557,7 @@ export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
   stopAllTimersAndListeners({ silent: true });
   cleanupNetworkOverlayLifecycle();
   if (targetMap) {
+    setDiaryMapSkin(targetMap, false);
     clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
     clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
     clearSimPoint(targetMap, SIM_POINT_SOURCE_ID);
@@ -1689,6 +1728,7 @@ export async function initDiaryMode(map, options = {}) {
   mapRef = map;
   exposeCtaHelpers();
   cleanupNetworkOverlayLifecycle();
+  setDiaryMapSkin(mapRef, true);
   try {
     await addNetworkLayer(mapRef);
     ensureNetworkOverlayLifecycle(mapRef);

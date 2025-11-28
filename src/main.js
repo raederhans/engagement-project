@@ -39,13 +39,13 @@ window.__dashboard = {
 };
 
 window.addEventListener('DOMContentLoaded', async () => {
-  const map = initMap();
+  const initialMode = setViewMode(readModeFromURL(), { silent: true });
+  const map = initMap({ mode: initialMode === 'diary' ? 'diary' : 'crime' });
   const chartsPane = document.getElementById('charts');
   const diaryInsightsRoot = document.createElement('div');
   diaryInsightsRoot.id = 'diary-insights-root';
   document.body.appendChild(diaryInsightsRoot);
   const diaryInsights = createDiaryInsightsController(diaryInsightsRoot);
-  const initialMode = setViewMode(readModeFromURL(), { silent: true });
   writeModeToURL(initialMode);
 
   // Align defaults with dataset coverage
