@@ -87,6 +87,9 @@ function normalizeFeature(feature) {
   if (!feature) {
     return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
   }
+  if (feature.type === 'FeatureCollection') {
+    return feature;
+  }
   if (feature.type === 'Feature') {
     return feature;
   }
