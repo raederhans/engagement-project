@@ -22,6 +22,9 @@ function getDefaultPanelPrefs() {
     viewMode: 'crime',
     selectedRouteId: null,
     diaryAltEnabled: false,
+    diaryViewMode: 'live',
+    diarySelectedHistoryRouteId: null,
+    diaryCommunityRadiusMeters: 1500,
     simState: { playing: false, progress: 0, routeId: null },
     simPlaybackSpeed: 1,
     diaryDemoPeriod: 'day',
@@ -101,6 +104,9 @@ export const store = /** @type {Store} */ ({
   diaryMode: false,        // Whether diary mode is active
   diaryFeatureOn,
   viewMode: panelPrefs.viewMode,
+  diaryViewMode: panelPrefs.diaryViewMode || 'live', // 'live' | 'history' | 'community'
+  diarySelectedHistoryRouteId: panelPrefs.diarySelectedHistoryRouteId || null,
+  diaryCommunityRadiusMeters: panelPrefs.diaryCommunityRadiusMeters || 1500,
   selectedRouteId: panelPrefs.selectedRouteId,
   diaryAltEnabled: panelPrefs.diaryAltEnabled,
   simState: { ...panelPrefs.simState },
@@ -212,6 +218,55 @@ export function onDiaryStateChange(listener) {
   if (typeof listener !== 'function') return () => {};
   diaryStateListeners.add(listener);
   return () => diaryStateListeners.delete(listener);
+}
+
+export function setDiaryViewMode(mode) {
+  const allowed = ['live', 'history', 'community'];
+  const next = allowed.includes(mode) ? mode : 'live';
+  if (store.diaryViewMode === next) return;
+  store.diaryViewMode = next;
+  panelPrefs.diaryViewMode = next;
+  persistPanelPrefs();
+  if (typeof console !== 'undefined' && console.info) {
+    console.info('[Diary] view mode', next);
+  }
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('viewMode', next);
+    } catch (err) {
+      console.warn('[store] diary view mode listener failed:', err);
+    }
+  }
+}
+
+export function setDiarySelectedHistoryRouteId(id) {
+  store.diarySelectedHistoryRouteId = id || null;
+  panelPrefs.diarySelectedHistoryRouteId = store.diarySelectedHistoryRouteId;
+  persistPanelPrefs();
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('historyRoute', store.diarySelectedHistoryRouteId);
+    } catch (err) {
+      console.warn('[store] diary history route listener failed:', err);
+    }
+  }
+}
+
+export function setDiaryCommunityRadiusMeters(radius) {
+  const clamped = Math.min(3000, Math.max(500, Number(radius) || 1500));
+  store.diaryCommunityRadiusMeters = clamped;
+  panelPrefs.diaryCommunityRadiusMeters = clamped;
+  persistPanelPrefs();
+  if (typeof console !== 'undefined' && console.info) {
+    console.info('[Diary] community radius', clamped, 'm');
+  }
+  for (const listener of diaryStateListeners) {
+    try {
+      listener('communityRadius', clamped);
+    } catch (err) {
+      console.warn('[store] diary community radius listener failed:', err);
+    }
+  }
 }
 
 export function setSimPlaybackSpeed(speed) {

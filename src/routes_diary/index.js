@@ -15,7 +15,7 @@ import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
-import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter } from '../state/store.js';
+import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
 
 const SEGMENT_SOURCE_ID = 'diary-segments';
 const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
@@ -37,6 +37,25 @@ const DEFAULT_SEGMENT_PROPS = {
   delta_30d: 0,
   top_tags: [],
 };
+
+const MOCK_HISTORY_ROUTES = [
+  { id: 'hist_001', date: 'Nov 24', label: 'Penn Campus → 9th & Christian', mode: 'bike', score: 3.5 },
+  { id: 'hist_002', date: 'Nov 20', label: '30th St Station → Art Museum', mode: 'bike', score: 4.2 },
+  { id: 'hist_003', date: 'Nov 15', label: 'South St → Market St', mode: 'walk', score: 2.6 },
+  { id: 'hist_004', date: 'Nov 10', label: 'Rittenhouse → Passyunk', mode: 'bike', score: 4.6 },
+];
+
+const MOCK_COMMUNITY_SEGMENTS = [
+  { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tags: 'poor lighting, aggressive drivers' },
+  { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tags: 'construction, potholes' },
+  { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tags: 'heavy traffic' },
+];
+
+const MOCK_COMMENTS = [
+  { id: 'c1', user: 'SarahK', ago: '2h ago', text: 'South St Bridge feels unsafe at night.' },
+  { id: 'c2', user: 'BikePhilly', ago: '5h ago', text: 'Watch for cars edging into bike lane near 34th.' },
+  { id: 'c3', user: 'TrailRunner', ago: '1d ago', text: 'Pine St detour is calmer this week.' },
+];
 
 const segmentLookup = new Map();
 
@@ -98,6 +117,8 @@ const ROUTE_SAFETY_EXPRESSION = [
   ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 2.5], '#fbbf24',
   '#f87171',
 ];
+let historyPeriodFilter = '30d';
+let historyModeFilter = 'all';
 
 function diaryFeatureEnabled() {
   if (store?.diaryFeatureOn) return true;
@@ -434,17 +455,7 @@ function ensureDiaryPanel(routes, options = {}) {
 
   if (mountTarget && diaryPanelEl !== mountTarget) {
     diaryPanelEl = mountTarget;
-    diaryPanelEl.innerHTML = '';
     diaryPanelFloating = false;
-    routeSelectEl = null;
-    summaryStripEl = null;
-    altToggleEl = null;
-    altSummaryEl = null;
-    panelNoticeEl = null;
-    playButtonEl = null;
-    pauseButtonEl = null;
-    finishButtonEl = null;
-    rateButtonEl = null;
   }
 
   if (!diaryPanelEl) {
@@ -479,284 +490,66 @@ function ensureDiaryPanel(routes, options = {}) {
     diaryPanelEl = panel;
   }
 
-  if (!routeSelectEl || !routeSelectEl.isConnected) {
-    diaryPanelEl.innerHTML = '';
-    diaryPanelEl.classList.add('diary-panel-shell');
+  diaryPanelEl.innerHTML = '';
+  diaryPanelEl.classList.add('diary-panel-shell');
 
-    const title = document.createElement('div');
-    title.style.display = 'flex';
-    title.style.flexDirection = 'column';
-    title.style.gap = '2px';
-    const titleText = document.createElement('h3');
-    titleText.textContent = 'Route Safety Diary (demo)';
-    const subtitle = document.createElement('div');
-    subtitle.textContent = 'Philadelphia • demo data';
-    subtitle.style.color = '#6b7280';
-    subtitle.style.fontSize = '12px';
-    title.appendChild(titleText);
-    title.appendChild(subtitle);
-    diaryPanelEl.appendChild(title);
+  const title = document.createElement('div');
+  title.style.display = 'flex';
+  title.style.flexDirection = 'column';
+  title.style.gap = '2px';
+  const titleText = document.createElement('h3');
+  titleText.textContent = 'Route Safety Diary (demo)';
+  const subtitle = document.createElement('div');
+  subtitle.textContent = 'Philadelphia • demo data';
+  subtitle.style.color = '#6b7280';
+  subtitle.style.fontSize = '12px';
+  title.appendChild(titleText);
+  title.appendChild(subtitle);
+  diaryPanelEl.appendChild(title);
 
-    const routeCard = document.createElement('div');
-    routeCard.className = 'diary-section-card';
-    const routeLabel = document.createElement('div');
-    routeLabel.className = 'diary-section-label';
-    routeLabel.textContent = 'Route selector';
-    routeCard.appendChild(routeLabel);
-
-    routeSelectEl = document.createElement('select');
-    routeSelectEl.className = 'diary-select';
-    routeSelectEl.addEventListener('change', (event) => {
-      const routeId = event.target.value;
-      if (routeId) {
-        selectRoute(routeId, { fitBounds: true });
-      }
+  const viewSwitcher = document.createElement('div');
+  viewSwitcher.className = 'diary-view-switch';
+  const makePill = (label, mode) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.className = 'diary-view-pill';
+    btn.addEventListener('click', () => {
+      setDiaryViewMode(mode);
+      renderActivePanel();
     });
-    routeCard.appendChild(routeSelectEl);
+    return { btn, mode };
+  };
+  const pills = [
+    makePill('Live route', 'live'),
+    makePill('My routes', 'history'),
+    makePill('Community', 'community'),
+  ];
+  pills.forEach((p) => viewSwitcher.appendChild(p.btn));
+  diaryPanelEl.appendChild(viewSwitcher);
 
-    summaryStripEl = document.createElement('div');
-    summaryStripEl.id = 'diary-route-summary';
-    summaryStripEl.className = 'diary-muted-card';
-    summaryStripEl.style.minHeight = '72px';
-    summaryStripEl.style.display = 'flex';
-    summaryStripEl.style.flexDirection = 'column';
-    summaryStripEl.style.gap = '4px';
-    summaryStripEl.textContent = 'Select a route to see its details.';
-    summaryStripEl.style.marginTop = '10px';
-    routeCard.appendChild(summaryStripEl);
-    diaryPanelEl.appendChild(routeCard);
+  const body = document.createElement('div');
+  diaryPanelEl.appendChild(body);
 
-    const actionsCard = document.createElement('div');
-    actionsCard.className = 'diary-section-card';
-    const actionsHeader = document.createElement('div');
-    actionsHeader.className = 'diary-section-header';
-    const actionsLabel = document.createElement('div');
-    actionsLabel.className = 'diary-section-label';
-    actionsLabel.textContent = 'Comparison';
-    actionsHeader.appendChild(actionsLabel);
-    actionsCard.appendChild(actionsHeader);
-
-    const altToggleRow = document.createElement('label');
-    altToggleRow.style.display = 'flex';
-    altToggleRow.style.alignItems = 'center';
-    altToggleRow.style.gap = '8px';
-    altToggleRow.style.fontSize = '13px';
-    altToggleRow.style.color = '#475569';
-    altToggleEl = document.createElement('input');
-    altToggleEl.type = 'checkbox';
-    altToggleEl.style.cursor = 'pointer';
-    altToggleEl.addEventListener('change', () => {
-      applyAltToggleState(altToggleEl.checked);
+  const syncPills = () => {
+    pills.forEach((p) => {
+      p.btn.classList.toggle('is-active', store.diaryViewMode === p.mode);
     });
-    const altToggleText = document.createElement('span');
-    altToggleText.textContent = 'Show alternative route';
-    altToggleRow.appendChild(altToggleEl);
-    altToggleRow.appendChild(altToggleText);
-    actionsCard.appendChild(altToggleRow);
+  };
 
-    altSummaryEl = document.createElement('div');
-    altSummaryEl.className = 'diary-muted-card';
-    altSummaryEl.style.marginTop = '8px';
-    altSummaryEl.style.fontSize = '12px';
-    altSummaryEl.style.color = '#334155';
-    altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
-    actionsCard.appendChild(altSummaryEl);
-
-    panelNoticeEl = document.createElement('div');
-    panelNoticeEl.style.marginTop = '8px';
-    panelNoticeEl.style.borderRadius = '8px';
-    panelNoticeEl.style.padding = '8px 10px';
-    panelNoticeEl.style.fontSize = '12px';
-    panelNoticeEl.style.display = 'none';
-    panelNoticeEl.style.background = '#ecfdf5';
-    panelNoticeEl.style.color = '#065f46';
-    actionsCard.appendChild(panelNoticeEl);
-
-    const rateWrap = document.createElement('div');
-    rateWrap.style.marginTop = '10px';
-    rateButtonEl = document.createElement('button');
-    rateButtonEl.type = 'button';
-    rateButtonEl.textContent = 'Rate this route';
-    rateButtonEl.className = 'diary-primary-btn';
-    rateButtonEl.style.width = '100%';
-    rateButtonEl.style.padding = '12px 14px';
-    rateButtonEl.style.fontSize = '14px';
-    rateButtonEl.disabled = true;
-    rateButtonEl.style.opacity = '0.7';
-    rateButtonEl.addEventListener('click', () => {
-      if (!rateButtonEl.disabled) {
-        openRouteRating();
-      }
-    });
-    rateWrap.appendChild(rateButtonEl);
-    actionsCard.appendChild(rateWrap);
-
-    const hint = document.createElement('div');
-    hint.textContent = 'Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
-    hint.style.fontSize = '11px';
-    hint.style.color = '#475569';
-    hint.style.marginTop = '8px';
-    hint.style.lineHeight = '1.4';
-    actionsCard.appendChild(hint);
-
-    diaryPanelEl.appendChild(actionsCard);
-
-    const simCard = document.createElement('div');
-    simCard.className = 'diary-section-card';
-    const simLabel = document.createElement('div');
-    simLabel.className = 'diary-section-label';
-    simLabel.textContent = 'Simulator';
-    simCard.appendChild(simLabel);
-
-    const simControls = document.createElement('div');
-    simControls.style.display = 'flex';
-    simControls.style.gap = '8px';
-    simControls.style.marginTop = '10px';
-
-    playButtonEl = document.createElement('button');
-    styleSimButton(playButtonEl);
-    playButtonEl.textContent = 'Play';
-    playButtonEl.addEventListener('click', () => startSim());
-    simControls.appendChild(playButtonEl);
-
-    pauseButtonEl = document.createElement('button');
-    styleSimButton(pauseButtonEl);
-    pauseButtonEl.textContent = 'Pause';
-    pauseButtonEl.addEventListener('click', () => pauseSim());
-    simControls.appendChild(pauseButtonEl);
-
-    finishButtonEl = document.createElement('button');
-    styleSimButton(finishButtonEl);
-    finishButtonEl.textContent = 'Finish → Rate';
-    finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
-    simControls.appendChild(finishButtonEl);
-
-    simCard.appendChild(simControls);
-
-    const playbackLabel = document.createElement('div');
-    playbackLabel.className = 'diary-label';
-    playbackLabel.style.marginTop = '12px';
-    playbackLabel.textContent = 'Playback speed';
-    simCard.appendChild(playbackLabel);
-
-    const playbackRow = document.createElement('div');
-    playbackRow.style.display = 'flex';
-    playbackRow.style.gap = '6px';
-    const speeds = [0.5, 1, 2];
-    const speedButtons = [];
-    speeds.forEach((value) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = `${value}×`;
-      btn.style.flex = '1';
-      btn.className = 'diary-pill-btn';
-      const sync = () => {
-        const active = store.simPlaybackSpeed === value;
-        btn.classList.toggle('is-active', active);
-      };
-      btn.addEventListener('click', () => {
-        setSimPlaybackSpeed(value);
-        speedButtons.forEach((b) => b.sync());
-      });
-      btn.sync = sync;
-      speedButtons.push(btn);
-      playbackRow.appendChild(btn);
-    });
-    speedButtons.forEach((b) => b.sync());
-    simCard.appendChild(playbackRow);
-
-    diaryPanelEl.appendChild(simCard);
-
-    const filterCard = document.createElement('div');
-    filterCard.className = 'diary-section-card';
-    const filterLabel = document.createElement('div');
-    filterLabel.className = 'diary-section-label';
-    filterLabel.textContent = 'Filters';
-    filterCard.appendChild(filterLabel);
-
-    const periodLabel = document.createElement('div');
-    periodLabel.className = 'diary-label';
-    periodLabel.textContent = 'Demo period';
-    periodLabel.style.marginTop = '8px';
-    filterCard.appendChild(periodLabel);
-
-    const periodSelect = document.createElement('select');
-    periodSelect.className = 'diary-select';
-    [
-      { value: 'day', label: 'Single day' },
-      { value: 'week', label: 'Last 7 days' },
-      { value: 'month', label: 'Last 30 days' },
-    ].forEach((opt) => {
-      const option = document.createElement('option');
-      option.value = opt.value;
-      option.textContent = opt.label;
-      periodSelect.appendChild(option);
-    });
-    periodSelect.value = store.diaryDemoPeriod || 'day';
-    periodSelect.addEventListener('change', () => {
-      setDiaryDemoPeriod(periodSelect.value);
-    });
-    filterCard.appendChild(periodSelect);
-
-    const timeLabel = document.createElement('div');
-    timeLabel.className = 'diary-label';
-    timeLabel.textContent = 'Time of day';
-    timeLabel.style.marginTop = '10px';
-    filterCard.appendChild(timeLabel);
-
-    const timeSelect = document.createElement('select');
-    timeSelect.className = 'diary-select';
-    [
-      { value: 'all', label: 'All hours' },
-      { value: 'day', label: 'Daytime' },
-      { value: 'evening', label: 'Evening' },
-      { value: 'night', label: 'Night' },
-    ].forEach((opt) => {
-      const option = document.createElement('option');
-      option.value = opt.value;
-      option.textContent = opt.label;
-      timeSelect.appendChild(option);
-    });
-    timeSelect.value = store.diaryTimeFilter || 'all';
-    timeSelect.addEventListener('change', () => {
-      setDiaryTimeFilter(timeSelect.value);
-    });
-    filterCard.appendChild(timeSelect);
-
-    const historyBtn = document.createElement('button');
-    historyBtn.type = 'button';
-    historyBtn.textContent = 'My routes and history (coming soon)';
-    historyBtn.style.marginTop = '10px';
-    historyBtn.style.width = '100%';
-    historyBtn.className = 'diary-pill-btn';
-    historyBtn.style.borderStyle = 'dashed';
-    historyBtn.style.cursor = 'not-allowed';
-    historyBtn.disabled = true;
-    historyBtn.addEventListener('click', () => {
-      console.info('[Diary] My routes and history is not available yet.');
-    });
-    filterCard.appendChild(historyBtn);
-
-    diaryPanelEl.appendChild(filterCard);
-  }
-
-  populateRouteOptions(routes);
-  updateSimButtons();
-  let desiredRouteId = store.selectedRouteId || null;
-  if (!desiredRouteId) {
-    const first = routes.features?.[0]?.properties?.route_id;
-    if (first) {
-      desiredRouteId = first;
+  const renderActivePanel = () => {
+    syncPills();
+    body.innerHTML = '';
+    if (store.diaryViewMode === 'history') {
+      renderHistoryPanel(body);
+    } else if (store.diaryViewMode === 'community') {
+      renderCommunityPanel(body);
+    } else {
+      renderLiveRoutePanel(body, routes);
     }
-  }
-  if (desiredRouteId && routeById.has(desiredRouteId)) {
-    if (routeSelectEl) {
-      routeSelectEl.value = desiredRouteId;
-    }
-    selectRoute(desiredRouteId, { fitBounds: false });
-  }
-  applyAltToggleState(store.diaryAltEnabled, { update: true });
-  hydrateSimulatorFromPrefs();
+  };
+
+  renderActivePanel();
 }
 
 function styleSimButton(btn) {
@@ -789,6 +582,530 @@ function populateRouteOptions(routes) {
   if (desired) {
     routeSelectEl.value = desired;
   }
+}
+
+function clearLiveRefs() {
+  routeSelectEl = null;
+  summaryStripEl = null;
+  rateButtonEl = null;
+  altToggleEl = null;
+  altSummaryEl = null;
+  panelNoticeEl = null;
+  playButtonEl = null;
+  pauseButtonEl = null;
+  finishButtonEl = null;
+}
+
+function renderLiveRoutePanel(root, routes) {
+  clearLiveRefs();
+  const routeCard = document.createElement('div');
+  routeCard.className = 'diary-section-card';
+  const routeLabel = document.createElement('div');
+  routeLabel.className = 'diary-section-label';
+  routeLabel.textContent = 'Route selector';
+  routeCard.appendChild(routeLabel);
+
+  routeSelectEl = document.createElement('select');
+  routeSelectEl.className = 'diary-select';
+  routeSelectEl.addEventListener('change', (event) => {
+    const routeId = event.target.value;
+    if (routeId) {
+      selectRoute(routeId, { fitBounds: true });
+    }
+  });
+  routeCard.appendChild(routeSelectEl);
+
+  summaryStripEl = document.createElement('div');
+  summaryStripEl.id = 'diary-route-summary';
+  summaryStripEl.className = 'diary-muted-card';
+  summaryStripEl.style.minHeight = '72px';
+  summaryStripEl.style.display = 'flex';
+  summaryStripEl.style.flexDirection = 'column';
+  summaryStripEl.style.gap = '4px';
+  summaryStripEl.textContent = 'Select a route to see its details.';
+  summaryStripEl.style.marginTop = '10px';
+  routeCard.appendChild(summaryStripEl);
+  root.appendChild(routeCard);
+
+  const actionsCard = document.createElement('div');
+  actionsCard.className = 'diary-section-card';
+  const actionsHeader = document.createElement('div');
+  actionsHeader.className = 'diary-section-header';
+  const actionsLabel = document.createElement('div');
+  actionsLabel.className = 'diary-section-label';
+  actionsLabel.textContent = 'Comparison';
+  actionsHeader.appendChild(actionsLabel);
+  actionsCard.appendChild(actionsHeader);
+
+  const altToggleRow = document.createElement('label');
+  altToggleRow.style.display = 'flex';
+  altToggleRow.style.alignItems = 'center';
+  altToggleRow.style.gap = '8px';
+  altToggleRow.style.fontSize = '13px';
+  altToggleRow.style.color = '#475569';
+  altToggleEl = document.createElement('input');
+  altToggleEl.type = 'checkbox';
+  altToggleEl.style.cursor = 'pointer';
+  altToggleEl.addEventListener('change', () => {
+    applyAltToggleState(altToggleEl.checked);
+  });
+  const altToggleText = document.createElement('span');
+  altToggleText.textContent = 'Show alternative route';
+  altToggleRow.appendChild(altToggleEl);
+  altToggleRow.appendChild(altToggleText);
+  actionsCard.appendChild(altToggleRow);
+
+  altSummaryEl = document.createElement('div');
+  altSummaryEl.className = 'diary-muted-card';
+  altSummaryEl.style.marginTop = '8px';
+  altSummaryEl.style.fontSize = '12px';
+  altSummaryEl.style.color = '#334155';
+  altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
+  actionsCard.appendChild(altSummaryEl);
+
+  panelNoticeEl = document.createElement('div');
+  panelNoticeEl.style.marginTop = '8px';
+  panelNoticeEl.style.borderRadius = '8px';
+  panelNoticeEl.style.padding = '8px 10px';
+  panelNoticeEl.style.fontSize = '12px';
+  panelNoticeEl.style.display = 'none';
+  panelNoticeEl.style.background = '#ecfdf5';
+  panelNoticeEl.style.color = '#065f46';
+  actionsCard.appendChild(panelNoticeEl);
+
+  const rateWrap = document.createElement('div');
+  rateWrap.style.marginTop = '10px';
+  rateButtonEl = document.createElement('button');
+  rateButtonEl.type = 'button';
+  rateButtonEl.textContent = 'Rate this route';
+  rateButtonEl.className = 'diary-primary-btn';
+  rateButtonEl.style.width = '100%';
+  rateButtonEl.style.padding = '12px 14px';
+  rateButtonEl.style.fontSize = '14px';
+  rateButtonEl.disabled = true;
+  rateButtonEl.style.opacity = '0.7';
+  rateButtonEl.addEventListener('click', () => {
+    if (!rateButtonEl.disabled) {
+      openRouteRating();
+    }
+  });
+  rateWrap.appendChild(rateButtonEl);
+  actionsCard.appendChild(rateWrap);
+
+  const hint = document.createElement('div');
+  hint.textContent = 'Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
+  hint.style.fontSize = '11px';
+  hint.style.color = '#475569';
+  hint.style.marginTop = '8px';
+  hint.style.lineHeight = '1.4';
+  actionsCard.appendChild(hint);
+
+  root.appendChild(actionsCard);
+
+  const simCard = document.createElement('div');
+  simCard.className = 'diary-section-card';
+  const simLabel = document.createElement('div');
+  simLabel.className = 'diary-section-label';
+  simLabel.textContent = 'Simulator';
+  simCard.appendChild(simLabel);
+
+  const simControls = document.createElement('div');
+  simControls.style.display = 'flex';
+  simControls.style.gap = '8px';
+  simControls.style.marginTop = '10px';
+
+  playButtonEl = document.createElement('button');
+  styleSimButton(playButtonEl);
+  playButtonEl.textContent = 'Play';
+  playButtonEl.addEventListener('click', () => startSim());
+  simControls.appendChild(playButtonEl);
+
+  pauseButtonEl = document.createElement('button');
+  styleSimButton(pauseButtonEl);
+  pauseButtonEl.textContent = 'Pause';
+  pauseButtonEl.addEventListener('click', () => pauseSim());
+  simControls.appendChild(pauseButtonEl);
+
+  finishButtonEl = document.createElement('button');
+  styleSimButton(finishButtonEl);
+  finishButtonEl.textContent = 'Finish → Rate';
+  finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
+  simControls.appendChild(finishButtonEl);
+
+  simCard.appendChild(simControls);
+
+  const playbackLabel = document.createElement('div');
+  playbackLabel.className = 'diary-label';
+  playbackLabel.style.marginTop = '12px';
+  playbackLabel.textContent = 'Playback speed';
+  simCard.appendChild(playbackLabel);
+
+  const playbackRow = document.createElement('div');
+  playbackRow.style.display = 'flex';
+  playbackRow.style.gap = '6px';
+  const speeds = [0.5, 1, 2];
+  const speedButtons = [];
+  speeds.forEach((value) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = `${value}×`;
+    btn.style.flex = '1';
+    btn.className = 'diary-pill-btn';
+    const sync = () => {
+      const active = store.simPlaybackSpeed === value;
+      btn.classList.toggle('is-active', active);
+    };
+    btn.addEventListener('click', () => {
+      setSimPlaybackSpeed(value);
+      speedButtons.forEach((b) => b.sync());
+    });
+    btn.sync = sync;
+    speedButtons.push(btn);
+    playbackRow.appendChild(btn);
+  });
+  speedButtons.forEach((b) => b.sync());
+  simCard.appendChild(playbackRow);
+
+  root.appendChild(simCard);
+
+  const filterCard = document.createElement('div');
+  filterCard.className = 'diary-section-card';
+  const filterLabel = document.createElement('div');
+  filterLabel.className = 'diary-section-label';
+  filterLabel.textContent = 'Filters';
+  filterCard.appendChild(filterLabel);
+
+  const periodLabel = document.createElement('div');
+  periodLabel.className = 'diary-label';
+  periodLabel.textContent = 'Demo period';
+  periodLabel.style.marginTop = '8px';
+  filterCard.appendChild(periodLabel);
+
+  const periodSelect = document.createElement('select');
+  periodSelect.className = 'diary-select';
+  [
+    { value: 'day', label: 'Single day' },
+    { value: 'week', label: 'Last 7 days' },
+    { value: 'month', label: 'Last 30 days' },
+  ].forEach((opt) => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    periodSelect.appendChild(option);
+  });
+  periodSelect.value = store.diaryDemoPeriod || 'day';
+  periodSelect.addEventListener('change', () => {
+    setDiaryDemoPeriod(periodSelect.value);
+  });
+  filterCard.appendChild(periodSelect);
+
+  const timeLabel = document.createElement('div');
+  timeLabel.className = 'diary-label';
+  timeLabel.textContent = 'Time of day';
+  timeLabel.style.marginTop = '10px';
+  filterCard.appendChild(timeLabel);
+
+  const timeSelect = document.createElement('select');
+  timeSelect.className = 'diary-select';
+  [
+    { value: 'all', label: 'All hours' },
+    { value: 'day', label: 'Daytime' },
+    { value: 'evening', label: 'Evening' },
+    { value: 'night', label: 'Night' },
+  ].forEach((opt) => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    timeSelect.appendChild(option);
+  });
+  timeSelect.value = store.diaryTimeFilter || 'all';
+  timeSelect.addEventListener('change', () => {
+    setDiaryTimeFilter(timeSelect.value);
+  });
+  filterCard.appendChild(timeSelect);
+
+  const historyBtn = document.createElement('button');
+  historyBtn.type = 'button';
+  historyBtn.textContent = 'My routes and history (coming soon)';
+  historyBtn.style.marginTop = '10px';
+  historyBtn.style.width = '100%';
+  historyBtn.className = 'diary-pill-btn';
+  historyBtn.style.borderStyle = 'dashed';
+  historyBtn.style.cursor = 'not-allowed';
+  historyBtn.disabled = true;
+  historyBtn.addEventListener('click', () => {
+    console.info('[Diary] My routes and history is not available yet.');
+  });
+  filterCard.appendChild(historyBtn);
+
+  root.appendChild(filterCard);
+
+  populateRouteOptions(routes);
+  updateSimButtons();
+  let desiredRouteId = store.selectedRouteId || null;
+  if (!desiredRouteId) {
+    const first = routes.features?.[0]?.properties?.route_id;
+    if (first) {
+      desiredRouteId = first;
+    }
+  }
+  if (desiredRouteId && routeById.has(desiredRouteId)) {
+    if (routeSelectEl) {
+      routeSelectEl.value = desiredRouteId;
+    }
+    selectRoute(desiredRouteId, { fitBounds: false });
+  }
+  applyAltToggleState(store.diaryAltEnabled, { update: true });
+  hydrateSimulatorFromPrefs();
+}
+
+function renderHistoryPanel(root) {
+  const filters = document.createElement('div');
+  filters.style.display = 'flex';
+  filters.style.gap = '8px';
+  filters.style.marginBottom = '10px';
+
+  const periodSelect = document.createElement('select');
+  periodSelect.className = 'diary-select';
+  ['30d', '7d', 'all'].forEach((value) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = value === '30d' ? 'Last 30 days' : value === '7d' ? 'Last 7 days' : 'All time';
+    periodSelect.appendChild(opt);
+  });
+  periodSelect.value = historyPeriodFilter;
+  periodSelect.addEventListener('change', () => {
+    historyPeriodFilter = periodSelect.value;
+    console.info('[Diary] History period', historyPeriodFilter);
+    renderHistoryList();
+  });
+  filters.appendChild(periodSelect);
+
+  const modeSelect = document.createElement('select');
+  modeSelect.className = 'diary-select';
+  [
+    { value: 'all', label: 'All modes' },
+    { value: 'walk', label: 'Walk' },
+    { value: 'bike', label: 'Bike' },
+  ].forEach((opt) => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    modeSelect.appendChild(option);
+  });
+  modeSelect.value = historyModeFilter;
+  modeSelect.addEventListener('change', () => {
+    historyModeFilter = modeSelect.value;
+    console.info('[Diary] History mode', historyModeFilter);
+    renderHistoryList();
+  });
+  filters.appendChild(modeSelect);
+  root.appendChild(filters);
+
+  const historyCard = document.createElement('div');
+  historyCard.className = 'diary-section-card';
+  const header = document.createElement('div');
+  header.className = 'diary-section-label';
+  header.textContent = 'Route history';
+  historyCard.appendChild(header);
+
+  const list = document.createElement('div');
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '8px';
+  historyCard.appendChild(list);
+
+  function scoreBadge(score) {
+    const pill = document.createElement('div');
+    pill.className = 'diary-score-pill';
+    pill.textContent = score.toFixed(1);
+    if (score > 4) pill.classList.add('is-good');
+    else if (score >= 2.5) pill.classList.add('is-mid');
+    else pill.classList.add('is-bad');
+    return pill;
+  }
+
+  function renderHistoryList() {
+    list.innerHTML = '';
+    const filtered = MOCK_HISTORY_ROUTES.filter((item) => {
+      if (historyModeFilter !== 'all' && item.mode !== historyModeFilter) return false;
+      return true;
+    });
+    filtered.forEach((item) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'diary-history-item';
+      row.setAttribute('data-id', item.id);
+      row.addEventListener('click', () => {
+        setDiarySelectedHistoryRouteId(item.id);
+        console.info('[Diary] History route selected:', item.id, item.label);
+        focusHistoryRouteOnMap(item);
+      });
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.flexDirection = 'column';
+      left.style.gap = '2px';
+      const date = document.createElement('div');
+      date.style.fontSize = '12px';
+      date.style.color = '#6b7280';
+      date.textContent = item.date;
+      const label = document.createElement('div');
+      label.style.fontSize = '13px';
+      label.style.fontWeight = '600';
+      label.style.color = '#0f172a';
+      label.textContent = item.label;
+      const mode = document.createElement('div');
+      mode.style.fontSize = '12px';
+      mode.style.color = '#475569';
+      mode.textContent = item.mode === 'bike' ? '🚲 Bike' : '🚶 Walk';
+      left.appendChild(date);
+      left.appendChild(label);
+      left.appendChild(mode);
+
+      const right = document.createElement('div');
+      right.appendChild(scoreBadge(item.score));
+
+      row.appendChild(left);
+      row.appendChild(right);
+      list.appendChild(row);
+    });
+  }
+
+  renderHistoryList();
+  root.appendChild(historyCard);
+}
+
+function renderCommunityPanel(root) {
+  const areaCard = document.createElement('div');
+  areaCard.className = 'diary-section-card';
+  const header = document.createElement('div');
+  header.className = 'diary-section-label';
+  header.textContent = 'Area focus';
+  areaCard.appendChild(header);
+  const subtitle = document.createElement('div');
+  subtitle.className = 'diary-community-subtitle';
+  subtitle.textContent = 'Radius around map center';
+  areaCard.appendChild(subtitle);
+  const radiusLabel = document.createElement('div');
+  radiusLabel.style.fontSize = '12px';
+  radiusLabel.style.color = '#475569';
+  const updateRadiusLabel = (val) => {
+    radiusLabel.textContent = `Radius: ${(val / 1000).toFixed(2)} km`;
+  };
+  updateRadiusLabel(store.diaryCommunityRadiusMeters || 1500);
+  areaCard.appendChild(radiusLabel);
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = 500;
+  slider.max = 3000;
+  slider.step = 250;
+  slider.value = store.diaryCommunityRadiusMeters || 1500;
+  slider.style.width = '100%';
+  slider.addEventListener('input', () => {
+    const val = Number(slider.value);
+    updateRadiusLabel(val);
+  });
+  slider.addEventListener('change', () => {
+    const val = Number(slider.value);
+    setDiaryCommunityRadiusMeters(val);
+    console.info('[Diary] Community radius changed:', val, 'm');
+    // TODO: Draw map buffer around center using turf.circle
+  });
+  areaCard.appendChild(slider);
+  root.appendChild(areaCard);
+
+  const segmentsCard = document.createElement('div');
+  segmentsCard.className = 'diary-section-card';
+  const segHeader = document.createElement('div');
+  segHeader.className = 'diary-section-label';
+  segHeader.textContent = 'High concern segments';
+  segmentsCard.appendChild(segHeader);
+  const segList = document.createElement('div');
+  segList.style.display = 'flex';
+  segList.style.flexDirection = 'column';
+  segList.style.gap = '8px';
+  MOCK_COMMUNITY_SEGMENTS.forEach((seg) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'diary-history-item';
+    const title = document.createElement('div');
+    title.style.fontWeight = '700';
+    title.style.fontSize = '13px';
+    title.textContent = seg.name;
+    const meta = document.createElement('div');
+    meta.style.display = 'flex';
+    meta.style.justifyContent = 'space-between';
+    meta.style.alignItems = 'center';
+    const tags = document.createElement('div');
+    tags.style.fontSize = '12px';
+    tags.style.color = '#475569';
+    tags.textContent = `Tags: ${seg.tags}`;
+    const badge = document.createElement('div');
+    badge.className = 'diary-score-pill';
+    badge.classList.add(seg.score < 2.5 ? 'is-bad' : seg.score < 4 ? 'is-mid' : 'is-good');
+    badge.textContent = seg.score.toFixed(1);
+    meta.appendChild(tags);
+    meta.appendChild(badge);
+    btn.appendChild(title);
+    btn.appendChild(meta);
+    btn.addEventListener('click', () => {
+      console.info('[Diary] Focus high-concern segment:', seg.id, seg.name);
+      // TODO: pan/zoom to this segment on the map
+    });
+    segList.appendChild(btn);
+  });
+  segmentsCard.appendChild(segList);
+  root.appendChild(segmentsCard);
+
+  const commentsCard = document.createElement('div');
+  commentsCard.className = 'diary-section-card';
+  const cHeader = document.createElement('div');
+  cHeader.className = 'diary-section-label';
+  cHeader.textContent = 'Community comments';
+  commentsCard.appendChild(cHeader);
+  const list = document.createElement('div');
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '6px';
+  MOCK_COMMENTS.forEach((c) => {
+    const row = document.createElement('div');
+    row.style.borderBottom = '1px solid #e5e7eb';
+    row.style.paddingBottom = '6px';
+    row.style.fontSize = '12px';
+    row.innerHTML = `<strong style="color:#0f172a;">${c.user}</strong> <span style="color:#94a3b8;">${c.ago}</span><div style="margin-top:2px;color:#111827;">${c.text}</div>`;
+    list.appendChild(row);
+  });
+  commentsCard.appendChild(list);
+  const form = document.createElement('form');
+  form.style.display = 'flex';
+  form.style.gap = '8px';
+  form.style.marginTop = '8px';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Add a comment...';
+  input.className = 'diary-select';
+  input.style.flex = '1';
+  const postBtn = document.createElement('button');
+  postBtn.type = 'submit';
+  postBtn.textContent = 'Post';
+  postBtn.className = 'diary-primary-btn';
+  postBtn.style.padding = '8px 12px';
+  form.appendChild(input);
+  form.appendChild(postBtn);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = (input.value || '').trim();
+    if (!val) return;
+    console.info('[Diary] Post community comment:', val);
+    input.value = '';
+  });
+  commentsCard.appendChild(form);
+  root.appendChild(commentsCard);
+}
+
+function focusHistoryRouteOnMap(route) {
+  void route;
+  // TODO: hook up map fit to history geometry when data is available
 }
 
 function renderRouteSummary(route) {
@@ -832,11 +1149,12 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     rateButtonEl.style.opacity = '1';
   }
   if (mapRef) {
+    const isCommunity = store.diaryViewMode === 'community';
     const overlayData = buildRouteOverlayCollection(feature, 'segment_ids') || feature;
     drawRouteOverlay(mapRef, ROUTE_OVERLAY_SOURCE_ID, overlayData, {
       lineColorExpression: ROUTE_SAFETY_EXPRESSION,
       width: 7,
-      opacity: 0.95,
+      opacity: isCommunity ? 0.7 : 0.95,
     });
     if (fitBounds) {
       fitMapToRoute(feature);
@@ -1118,7 +1436,7 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
     drawRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID, altOverlay, {
       color: '#2563eb',
       width: 4,
-      opacity: 0.75,
+      opacity: store.diaryViewMode === 'community' ? 0.6 : 0.75,
       dasharray: [0.6, 0.9],
     });
   }

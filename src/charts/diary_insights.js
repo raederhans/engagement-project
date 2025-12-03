@@ -83,6 +83,7 @@ const heatmapValues = [
 ];
 
 const cardStyle = 'background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;';
+let insightsContext = 'live'; // 'live' | 'history' | 'community'
 
 function barColor(pct) {
   const clamped = Math.min(1, Math.max(0, pct));
@@ -106,7 +107,11 @@ function renderTrend(container) {
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = 'Avg safety score along the route';
+  subtitle.textContent = insightsContext === 'history'
+    ? 'Avg safety score along saved routes'
+    : insightsContext === 'community'
+      ? 'Area demo visuals'
+      : 'Avg safety score along the route';
   subtitle.style.font = '12px/1.3 "Inter", system-ui';
   subtitle.style.color = '#64748b';
   subtitle.style.marginBottom = '8px';
@@ -442,5 +447,11 @@ export function createDiaryInsightsController(root) {
     },
     setCollapsed,
     updateDemo,
+    setViewContext(mode) {
+      insightsContext = mode === 'history' ? 'history' : mode === 'community' ? 'community' : 'live';
+      if (!collapsed) {
+        updateDemo();
+      }
+    },
   };
 }
