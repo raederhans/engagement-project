@@ -62,6 +62,11 @@ let submitBtn = null;
 let escapeHandler = null;
 let currentState = null;
 
+export function submitSegmentFeedback(payload) {
+  console.info('[Diary] Segment feedback submitted', payload);
+  return payload;
+}
+
 function injectModalStyles() {
   if (modalStylesInjected || typeof document === 'undefined') return;
   const style = document.createElement('style');

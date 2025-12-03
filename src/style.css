@@ -347,3 +347,145 @@ body {
   font-size: 10px;
   color: var(--text-muted);
 }
+
+.diary-segment-card {
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  padding: 12px;
+  color: var(--text-main);
+  min-width: 260px;
+  max-width: 340px;
+}
+
+.diary-segment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.diary-segment-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.diary-segment-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.diary-segment-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.diary-segment-score {
+  font-size: 26px;
+  font-weight: 800;
+  min-width: 52px;
+}
+
+.diary-segment-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.diary-star {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: #e2e8f0;
+  padding: 2px;
+}
+
+.diary-star.filled {
+  color: #fbbf24;
+}
+
+.diary-star.readonly {
+  cursor: default;
+}
+
+.diary-segment-risk-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.diary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.diary-chip.is-infra {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.diary-chip.is-env {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #075985;
+}
+
+.diary-chip.is-behavior {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.diary-chip.is-active {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.diary-segment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.diary-segment-actions .secondary {
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  color: var(--text-main);
+}
+
+.diary-segment-actions .primary {
+  background: var(--diary-primary);
+  color: #fff;
+  border: none;
+}
+
+.diary-segment-actions .primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.diary-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.diary-muted-text {
+  color: var(--text-muted);
+  font-size: 12px;
+}

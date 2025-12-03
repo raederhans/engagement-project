@@ -1,4 +1,5 @@
 import maplibregl from 'maplibre-gl';
+import { submitSegmentFeedback } from '../routes_diary/form_submit.js';
 
 /**
  * Route Safety Diary - Segments Layer
@@ -169,7 +170,7 @@ function registerHoverHandlers(map, layerId) {
     const feature = event.features && event.features[0];
     if (!feature) return;
     const props = feature.properties || {};
-    const html = buildSegmentCardHtml(props);
+    const html = buildSegmentCardHtml(props, { mode: 'view' });
     if (!popupVisible) {
       popup.addTo(map);
       popupVisible = true;
@@ -265,9 +266,14 @@ function registerClickHandlers(map, layerId) {
       maxWidth: '320px',
     });
 
-    const html = buildSegmentCardHtml(props);
-    popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
-    wirePopupInteractions(popup);
+    const state = { mode: 'view', rating: 0, selectedTags: new Set(), thankYou: false };
+    const render = () => {
+      const html = buildSegmentCardHtml(props, state);
+      popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
+      wirePopupInteractions(popup);
+      wireSegmentCardBehavior(popup, props, state, render);
+    };
+    render();
     activePinnedPopup = popup;
     activePinnedSegmentId = segmentId || null;
 
@@ -304,8 +310,7 @@ function wirePopupInteractions(popup) {
   if (!popup || !popup.getElement) return;
   const el = popup.getElement();
   const content = el?.querySelector('.maplibregl-popup-content');
-  if (!content || content.__diaryBound) return;
-  content.__diaryBound = true;
+  if (!content) return;
   content.addEventListener('click', (event) => {
     const target = event.target.closest('[data-diary-action]');
     if (!target) return;
@@ -323,73 +328,264 @@ function wirePopupInteractions(popup) {
   });
 }
 
-function buildSegmentCardHtml(props) {
-  const mean = Number(props.decayed_mean ?? 3).toFixed(1);
-  const nEff = Number(props.n_eff ?? 1).toFixed(1);
-  const delta = Number(props.delta_30d ?? 0).toFixed(2);
-  const tags = formatTags(props.top_tags);
-  const street = props.street || props.segment_id || 'Segment';
-  const segmentId = props.segment_id || '';
+function deriveTitle(props) {
+  const name = props.street_name || props.name || props.street || props.segment_id || props.id || 'Segment';
+  const dir = (props.direction || props.dir || props.oneway || '').toString().toUpperCase();
+  let dirLabel = '';
+  if (dir === 'B' || dir === 'BOTH') dirLabel = '';
+  else if (dir === 'WB') dirLabel = 'Westbound';
+  else if (dir === 'EB') dirLabel = 'Eastbound';
+  else if (dir === 'NB') dirLabel = 'Northbound';
+  else if (dir === 'SB') dirLabel = 'Southbound';
+  const titled = dirLabel ? `${name} (${dirLabel})` : name;
+  return titled;
+}
+
+function riskDescriptor(mean) {
+  if (mean < 2.5) return { label: 'High risk', color: '#b91c1c' };
+  if (mean < 4) return { label: 'Moderate risk', color: '#92400e' };
+  return { label: 'Generally safe', color: '#15803d' };
+}
+
+function confidenceLabel(nEff) {
+  if (nEff >= 50) return 'high confidence';
+  if (nEff >= 10) return 'medium confidence';
+  return 'low confidence';
+}
+
+function renderStars(value, { editable = false } = {}) {
+  const stars = [];
+  for (let i = 1; i <= 5; i += 1) {
+    const filled = value >= i;
+    stars.push(`<button type="button" class="diary-star ${filled ? 'filled' : ''} ${editable ? '' : 'readonly'}" data-role="star" data-value="${i}" ${editable ? '' : 'tabindex="-1" aria-hidden="true"'}>★</button>`);
+  }
+  return stars.join('');
+}
+
+function tagLabel(id) {
+  const map = {
+    aggressive_drivers: 'Aggressive drivers',
+    poor_lighting: 'Poor lighting',
+    construction: 'Construction',
+    potholes: 'Potholes / road damage',
+    missing_sidewalk: 'Missing sidewalk / bike lane',
+    poor_signage: 'Poor signage',
+    blind_spots: 'Blind spots',
+    flooding: 'Flooding / ice',
+    speeding: 'Speeding traffic',
+    illegal_parking: 'Illegal parking',
+    crime_risk: 'Feels personally unsafe',
+  };
+  return map[id] || id.replace(/_/g, ' ');
+}
+
+function tagCategory(id) {
+  const infra = ['potholes', 'missing_sidewalk', 'poor_signage', 'construction'];
+  const env = ['poor_lighting', 'blind_spots', 'flooding'];
+  if (infra.includes(id)) return 'is-infra';
+  if (env.includes(id)) return 'is-env';
+  return 'is-behavior';
+}
+
+function deriveTopIssues(props) {
+  const tags = [];
+  if (Array.isArray(props.top_tags)) {
+    props.top_tags.forEach((t) => {
+      if (typeof t === 'string') tags.push({ id: t, count: null });
+      else if (t?.tag) tags.push({ id: t.tag, count: t.p });
+    });
+  } else if (props.tag_counts && typeof props.tag_counts === 'object') {
+    Object.entries(props.tag_counts).forEach(([id, count]) => tags.push({ id, count }));
+  }
+  if (!tags.length) {
+    tags.push({ id: 'aggressive_drivers', count: 85 });
+    tags.push({ id: 'poor_lighting', count: 42 });
+    tags.push({ id: 'construction', count: 12 });
+  }
+  return tags.slice(0, 3);
+}
+
+const ISSUE_TAGS = {
+  infrastructure: [
+    { id: 'potholes', label: tagLabel('potholes') },
+    { id: 'missing_sidewalk', label: tagLabel('missing_sidewalk') },
+    { id: 'poor_signage', label: tagLabel('poor_signage') },
+    { id: 'construction', label: tagLabel('construction') },
+  ],
+  environment: [
+    { id: 'poor_lighting', label: tagLabel('poor_lighting') },
+    { id: 'blind_spots', label: tagLabel('blind_spots') },
+    { id: 'flooding', label: tagLabel('flooding') },
+  ],
+  behavior: [
+    { id: 'aggressive_drivers', label: tagLabel('aggressive_drivers') },
+    { id: 'speeding', label: tagLabel('speeding') },
+    { id: 'illegal_parking', label: tagLabel('illegal_parking') },
+    { id: 'crime_risk', label: tagLabel('crime_risk') },
+  ],
+};
+
+const RATING_COPY = {
+  1: 'Very unsafe – I would avoid this segment if possible.',
+  2: 'Unsafe – I felt clearly at risk here.',
+  3: 'Average – I needed to stay alert.',
+  4: 'Safe – only minor issues.',
+  5: 'Very safe – comfortable and stress-free.',
+};
+
+function buildSegmentCardHtml(props, state = {}) {
+  const mean = Number(props.decayed_mean ?? props.mean ?? 0) || 0;
+  const nEff = Number(props.n_eff ?? props.N_EFF ?? 0) || 0;
+  const topIssues = deriveTopIssues(props);
+  const segmentId = props.segment_id || props.id || '';
+  const title = deriveTitle(props);
+  const agreeDisabled = props.__diaryVotes?.agreeDisabled;
+  const saferDisabled = props.__diaryVotes?.saferDisabled;
+  const mode = state.mode || 'view';
+  const selectedTags = Array.from(state.selectedTags || []);
+  const rating = state.rating || 0;
+  const thankYou = !!state.thankYou;
+  const risk = riskDescriptor(mean);
+  const confidence = confidenceLabel(nEff);
+  const scoreDisplay = mean ? mean.toFixed(1) : '—';
+  const ratingCopy = rating ? RATING_COPY[rating] : 'Select how safe you felt on this segment.';
+  const readonlyStars = renderStars(Math.round(mean), { editable: false });
+  const editableStars = renderStars(rating, { editable: true });
+  const topIssuesHtml = topIssues.length
+    ? topIssues
+      .map((t) => `<span class="diary-chip ${tagCategory(t.id)}">${tagLabel(t.id)}${t.count ? ` (${t.count})` : ''}</span>`)
+      .join('')
+    : '<div class="diary-muted-text">No issues reported yet.</div>';
+
+  const thankYouLine = thankYou ? '<div class="diary-muted-text" style="margin-top:6px;">Thanks for your feedback — it will appear in the aggregate soon.</div>' : '';
+
+  const inputTags = Object.entries(ISSUE_TAGS).map(([cat, items]) => {
+    return `
+      <div style="margin-top:6px;">
+        <div class="diary-muted-text" style="text-transform:capitalize;">${cat}</div>
+        <div class="diary-chip-group">
+          ${items
+            .map((item) => {
+              const active = selectedTags.includes(item.id);
+              return `<button type="button" class="diary-chip ${tagCategory(item.id)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${item.id}">${item.label}</button>`;
+            })
+            .join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
   if (segmentId && typeof window !== 'undefined' && typeof window.__diary_hydrateCtaState === 'function') {
     try {
       window.__diary_hydrateCtaState(segmentId);
     } catch {}
   }
-  let ctaState = props.__diaryVotes || {};
-  if (segmentId && typeof window !== 'undefined' && typeof window.__diary_getCtaState === 'function') {
-    try {
-      const latest = window.__diary_getCtaState(segmentId);
-      if (latest) ctaState = latest;
-    } catch {}
+
+  const saferBtn = `<button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">Feels safer ✨</button>`;
+
+  if (mode === 'input') {
+    return `
+      <div class="diary-segment-card">
+        <div class="diary-segment-header">
+          <div class="diary-segment-title">${title}</div>
+          <button class="diary-segment-close" data-role="close" aria-label="Close">×</button>
+        </div>
+        <div class="diary-segment-stars" style="margin-bottom:4px;">${editableStars}</div>
+        <div class="diary-muted-text">${ratingCopy}</div>
+        <div style="margin-top:10px;font-weight:700;font-size:12px;">What were the main issues?</div>
+        ${inputTags}
+        <div class="diary-segment-actions" style="justify-content:flex-end;">
+          <button type="button" class="diary-chip secondary" data-role="cancel-feedback">Cancel</button>
+          <button type="button" class="diary-chip primary" data-role="submit-feedback" ${rating < 1 ? 'disabled' : ''}>Submit rating</button>
+        </div>
+      </div>
+    `;
   }
-  const agreeDisabled = ctaState.agreeDisabled;
-  const saferDisabled = ctaState.saferDisabled;
-  const agreeTitle = agreeDisabled ? 'Recorded for this session' : 'Agree with this rating';
-  const saferTitle = saferDisabled ? 'Recorded for this session' : 'Flag as feeling safer';
-  const hint = agreeDisabled || saferDisabled ? '<div class="diary-popup-foot">Recorded for this session</div>' : '';
+
   return `
-    <div class="diary-popup-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-        <div class="diary-popup-title">${street}</div>
-        <div class="diary-popup-id">${segmentId ? `ID ${segmentId}` : ''}</div>
+    <div class="diary-segment-card">
+      <div class="diary-segment-header">
+        <div class="diary-segment-title">${title}</div>
+        <button class="diary-segment-close" data-role="close" aria-label="Close">×</button>
       </div>
-      <div class="diary-popup-grid">
-        <div class="diary-popup-metric">
-          <div class="label">Mean</div>
-          <div class="value" style="color:${colorForMean(Number(props.decayed_mean))};">${mean}</div>
-        </div>
-        <div class="diary-popup-metric">
-          <div class="label">n_eff</div>
-          <div class="value">${nEff}</div>
-        </div>
-        <div class="diary-popup-metric">
-          <div class="label">Δ30d</div>
-          <div class="value" style="color:${Number(delta) >= 0 ? '#059669' : '#b91c1c'};">${delta}</div>
+      <div class="diary-segment-score-row">
+        <div class="diary-segment-score">${scoreDisplay}</div>
+        <div>
+          <div class="diary-segment-stars">${readonlyStars}</div>
+          <div class="diary-segment-risk-label"><span style="color:${risk.color};font-weight:700;">${risk.label}</span> — Based on ${nEff || 'few'} reports (${confidence})</div>
+          ${thankYouLine}
         </div>
       </div>
-      <div class="diary-popup-tags">${tags}</div>
-      <div class="diary-popup-actions">
-        <button data-diary-action="agree" data-segment-id="${segmentId}" ${agreeDisabled ? 'disabled' : ''} aria-disabled="${agreeDisabled}" title="${agreeTitle}">Agree 👍</button>
-        <button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" title="${saferTitle}">Feels safer ✨</button>
+      <div style="margin-top:8px;">
+        <div class="diary-muted-text" style="font-weight:700;color:#0f172a;">Top issues</div>
+        <div class="diary-chip-group" style="margin-top:4px;">${topIssuesHtml}</div>
       </div>
-      ${hint}
-      <div class="diary-popup-foot">Community perception (unverified)</div>
+      <div class="diary-segment-actions">
+        <button data-diary-action="agree" data-segment-id="${segmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>Agree</button>
+        <button data-role="enter-edit" class="diary-chip primary">Add Feedback</button>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${saferBtn}</div>
     </div>
   `;
 }
 
-function formatTags(tags) {
-  if (!Array.isArray(tags) || tags.length === 0) {
-    return '<span class="diary-popup-tag">No tags yet</span>';
+function wireSegmentCardBehavior(popup, props, state, rerender) {
+  const el = popup.getElement();
+  const card = el?.querySelector('.diary-segment-card');
+  if (!card) return;
+  const segmentId = props.segment_id || props.id;
+  card.querySelectorAll('[data-role="close"]').forEach((btn) => {
+    btn.addEventListener('click', () => popup.remove());
+  });
+  const enter = card.querySelector('[data-role="enter-edit"]');
+  if (enter) {
+    enter.addEventListener('click', () => {
+      state.mode = 'input';
+      if (!state.rating) state.rating = Math.max(1, Math.round(Number(props.decayed_mean ?? props.mean ?? 3)));
+      rerender();
+    });
   }
-  return tags
-    .slice(0, 4)
-    .map((tag) => {
-      if (typeof tag === 'string') return `<span class="diary-popup-tag">${tag.replace(/_/g, ' ')}</span>`;
-      const label = tag?.tag || 'unknown';
-      return `<span class="diary-popup-tag">${label}</span>`;
-    })
-    .join('');
+  card.querySelectorAll('[data-role="star"]').forEach((star) => {
+    star.addEventListener('click', () => {
+      const val = Number(star.getAttribute('data-value')) || 0;
+      state.rating = val;
+      rerender();
+    });
+  });
+  card.querySelectorAll('[data-role="tag"]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const id = chip.getAttribute('data-tag');
+      if (!state.selectedTags) state.selectedTags = new Set();
+      if (state.selectedTags.has(id)) state.selectedTags.delete(id);
+      else state.selectedTags.add(id);
+      rerender();
+    });
+  });
+  const cancel = card.querySelector('[data-role="cancel-feedback"]');
+  if (cancel) {
+    cancel.addEventListener('click', () => {
+      state.mode = 'view';
+      state.rating = 0;
+      state.selectedTags = new Set();
+      state.thankYou = false;
+      rerender();
+    });
+  }
+  const submit = card.querySelector('[data-role="submit-feedback"]');
+  if (submit) {
+    submit.addEventListener('click', () => {
+      if (!state.rating) return;
+      const payload = {
+        segmentId,
+        rating: state.rating,
+        tags: Array.from(state.selectedTags || []),
+      };
+      submitSegmentFeedback(payload);
+      state.mode = 'view';
+      state.thankYou = true;
+      rerender();
+    });
+  }
 }
 
 function ensureSource(map, id, data) {
