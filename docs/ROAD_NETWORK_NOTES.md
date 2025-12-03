@@ -17,7 +17,13 @@
 - Class mapping: `motorway/trunk` → 1, `primary/secondary` → 2, `tertiary` → 3, others → 4. Numeric FUNC_CLASS/CLASS honored when present.
 - Demo routes now follow connected network walks targeting ~2–4 km length; alt routes picked from separate walks.
 
-## Current Issues (2025-11-18 Audit)
+## Current Status (2025-12)
+- Routing now uses a Dijkstra-based graph built from segmented OSM streets (see scripts/graph_pathfinder.mjs).
+- Demo routes are anchored to Philadelphia landmarks (30th St Station, Clark Park, Rittenhouse, Italian Market, Passyunk) and span ~2–5 km with minimal duplicate coordinates.
+- The network background layer is visible by default (darker gray, higher opacity, minzoom lowered) and throttles feature count for performance.
+- MapTiler light style is preferred when a key is present; otherwise a muted OSM fallback is used with the gray grid above it.
+
+## Historical Audit Notes (2025-11-18)
 
 ### Issue 1: Routes Appearing in New Jersey
 **Problem:** All 5 demo routes currently render in New Jersey (Palmyra, Camden, Cherry Hill) instead of Philadelphia.
@@ -58,25 +64,12 @@
 ### Issue 3: No UI Toggle
 **Status:** Not yet implemented. Requires Codex packet (see Implementation Plan below).
 
-### Issue 4: Route Generation Loops (CRITICAL)
-**Problem:** 4 of 5 demo routes stuck in tight loops, not reaching destinations.
+### Issue 4: Route Generation Loops (CRITICAL — fixed)
+**Problem (historical):** 4 of 5 demo routes stuck in tight loops, not reaching destinations.
 
-**Root Cause:**
-- `walkRouteFrom()` fallback logic revisits already-visited segments
-- When all neighbors visited, `pool = neighbors` allows infinite loops
-- Routes have 96-99% duplicate coordinates (bouncing over same 3-6 segments)
+**Root Cause:** Random-walk fallback revisited visited nodes and cycled on the same 3–6 segments.
 
-**Evidence:**
-- Route A: 157 coords, only 5 unique (96.8% duplicates), coverage 0.02km × 0.01km
-- Route B: 139 coords, only 5 unique (96.4% duplicates), same tiny area
-- Route C: 229 coords, 26 unique (88.6% duplicates), never leaves Penn campus
-- Route E: 556 coords, only 6 unique (98.9% duplicates), stuck at Rittenhouse
-- **Only Route D works** (City Hall → 34th St): 1.7% duplicates, actual progression
-
-**Fix Required:**
-- Replace random-walk algorithm with Dijkstra shortest-path
-- Build proper segment graph with adjacency
-- No fallback to visited segments
+**Fix Applied:** Replaced random-walk with Dijkstra (visited set, no neighbor fallback) and regenerated demo data; routes now span realistic footprints with <1% duplicate coordinates.
 
 **Detailed Analysis:** See `logs/ROADNET_M3_ROUTING_PLAN_20251118T033000.md`
 

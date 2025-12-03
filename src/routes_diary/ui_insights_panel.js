@@ -40,6 +40,11 @@ export function createDiaryInsightsHost(root) {
 
     contentEl = document.createElement('div');
     contentEl.className = 'diary-insights-content';
+    const intro = document.createElement('div');
+    intro.className = 'diary-muted-text';
+    intro.style.marginBottom = '4px';
+    intro.textContent = 'How this route compares over time and across nearby segments.';
+    contentEl.appendChild(intro);
 
     trendEl = document.createElement('div');
     trendEl.className = 'diary-card diary-insights-section';

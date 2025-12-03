@@ -575,6 +575,7 @@ function buildSegmentCardHtml(props, state = {}) {
         <div class="diary-segment-title">${title}</div>
         <button class="diary-segment-close" data-role="close" aria-label="Close">×</button>
       </div>
+      <div class="diary-muted-text" style="font-weight:700;color:#0f172a;margin-bottom:4px;">Community safety score</div>
       <div class="diary-segment-score-row">
         <div class="diary-segment-score">${scoreDisplay}</div>
         <div>

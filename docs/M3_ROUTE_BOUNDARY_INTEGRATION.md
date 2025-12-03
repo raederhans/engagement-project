@@ -3,7 +3,7 @@
 **Date:** 2025-11-18T05:00:00Z
 **Author:** Agent-M (Manager / Architect Mode)
 **Context:** Part C of Map & Network Layer Audit
-**Status:** Design / Documentation (Implementation for Codex)
+**Status:** Design / Documentation (Implementation for Codex) — Diary UI has placeholders; ready to wire boundary context in next backend phase.
 
 ---
 

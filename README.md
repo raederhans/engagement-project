@@ -17,14 +17,14 @@ An interactive web dashboard for exploring crime incidents and personal safety r
 - **7x24 heatmap** showing temporal crime patterns
 - **Per-capita rates** using 2023 ACS population data
 
-### Route Safety Diary (M1)
-- **Safety-rated segments** with time-decay aggregation and Bayesian shrinkage
-- **Route recording simulator** with play/pause/finish controls
-- **Alternative route discovery** with safety benefit calculation
-- **Community interactions** (Agree 👍, Feels safer ✨) with session throttling
-- **Rating modal** with 5-star scale, tags, and optional comments
+### Route Safety Diary (frontend complete)
+- **Live route demo** with safety gradient coloring and optional safer alternative overlay
+- **Route rating modal** (overall stars, tags, optional notes + segment overrides)
+- **Segment popup “community feedback” card** with top issues and quick actions
+- **Views:** Live Route, My Routes (history list), Community (radius + high-concern list), Insights panel (trend, tags, heatmap)
+- **Community taps:** “Agree” / “Feels safer” votes with session throttling
 
-**Status:** M1 complete (U0-U7), M2 specifications ready for implementation.
+**Status:** Diary frontend (M1/M3) is complete for demo data; ready for backend integration and real submissions.
 
 ---
 
@@ -37,18 +37,13 @@ An interactive web dashboard for exploring crime incidents and personal safety r
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/engagement-project.git
-cd engagement-project
-
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (Crime + Diary)
 npm run dev
+# Open http://localhost:5173/?mode=diary (or /diary-demo.html) for the Route Safety Diary
 ```
-
-Visit **http://localhost:5173** to see the dashboard.
 
 ### Production Build
 
@@ -59,45 +54,46 @@ npm run preview   # Preview production build at http://localhost:4173
 
 ---
 
-## Project Structure
+## Route Safety Diary overview
 
+**What it is:** A Diary mode that lets users explore safer routes in Philadelphia, rate trips, and see community perceptions of street safety. Demo data is generated from the Philly street network; submissions are currently local-only.
+
+**Major pieces**
+- **UI views:** Live Route (default), My Routes (history list), Community (area focus + concern list), right-side Insights card, segment popups, and the route rating modal.
+- **Map & style:** MapLibre GL with MapTiler Positron light style when `VITE_MAPTILER_API_KEY` is set; muted OSM raster fallback with a gray network grid beneath safety overlays.
+- **Routing + data:** Road network fetched from Overpass, segmented, then demo routes built via Dijkstra/SegmentGraph; safety colors use time-decayed, shrinkage-adjusted scores.
+- **State & modules:** Central store, modular UI panels under `src/routes_diary/`, shared IDs (`map_ids.js`), normalization helpers (`data_normalization.js`), and label helpers (`labels.js`).
+
+**Run the Diary**
+```bash
+npm install
+# Optional quickstart scripts may exist (diary:qs:*); otherwise:
+npm run dev
+# then open http://localhost:5173/?mode=diary or /diary-demo.html
 ```
-engagement-project/
-├── src/
-│   ├── main.js                  # Application entry point
-│   ├── routes_diary/            # Route Safety Diary feature
-│   │   ├── index.js             # Main diary orchestrator (1,270 lines)
-│   │   ├── form_submit.js       # Rating submission logic
-│   │   └── my_routes.js         # Route management UI
-│   ├── map/
-│   │   ├── segments_layer.js    # Segment rendering + hover cards
-│   │   ├── routing_overlay.js   # Alt routes + simulator point
-│   │   └── *.js                 # Other map layers (districts, tracts, points)
-│   ├── charts/
-│   │   ├── line_monthly.js      # Time-series chart
-│   │   ├── bar_topn.js          # Top offenses bar chart
-│   │   └── heat_7x24.js         # Hour/day heatmap
-│   ├── utils/
-│   │   └── decay.js             # Time-decay & Bayesian math
-│   └── api/
-│       └── diary.js             # Diary API client (stubbed M1)
-├── data/
-│   ├── segments_phl.demo.geojson  # 64 demo segments (Philadelphia)
-│   └── routes_phl.demo.geojson    # 3 demo routes
-├── docs/
-│   ├── DIARY_SPEC_M2.md         # Visual encoding & UI specs
-│   ├── CHARTS_SPEC_M2.md        # Chart specifications
-│   ├── API_BACKEND_DIARY_M2.md  # REST API contracts
-│   ├── SQL_SCHEMA_DIARY_M2.md   # Postgres schema
-│   ├── TEST_PLAN_M2.md          # Acceptance criteria (60 tests)
-│   └── *.md                     # Additional documentation
-├── logs/
-│   ├── AGENTM_AUDIT_M1_CLOSURE_*.md  # Audit reports
-│   └── screenshots/             # Feature evidence
-├── index.html                   # HTML entry (must be at root for Vite)
-├── vite.config.js               # Vite configuration
-└── package.json
+
+**Configure MapTiler**
+Create `.env.local` with:
 ```
+VITE_MAPTILER_API_KEY=YOUR_KEY
+```
+Without a key, the app falls back to muted OSM with the network grid still visible.
+
+**Regenerate demo data**
+```bash
+npm run data:fetch:streets    # Fetch OSM streets (or STREETS_PHL_URL if set)
+npm run data:segment:streets  # Segment streets and build the graph
+npm run data:gen              # Generate demo routes + demo segment set
+npm run data:check            # Validate demo GeoJSON
+```
+
+## Project Structure (diary-focused)
+
+- `src/routes_diary/` — Diary orchestrator (`index.js`), modular panels (`ui_*_panel.js`), rating modal (`form_submit.js`), shared helpers (`map_ids.js`, `data_normalization.js`, `labels.js`).
+- `src/map/` — MapLibre layers: segments layer + popups, routing overlays, network grid.
+- `src/charts/diary_insights.js` — Insights rendering.
+- `scripts/` — Road network ETL (fetch, segment, demo data generation).
+- `data/` — Demo GeoJSON outputs (`segments_phl.demo.geojson`, `routes_phl.demo.geojson`, `segments_phl.network.geojson`).
 
 ---
 
@@ -110,41 +106,11 @@ engagement-project/
 | [Vite](https://vitejs.dev/) | ^5.0.0 | Build tooling & dev server |
 | [Ajv](https://ajv.js.org/) | ^8.12.0 | JSON schema validation |
 
-**No framework:** This project uses vanilla JavaScript (no React, Vue, or Angular).
+**No framework:** Vanilla JavaScript (no React/Vue/Angular).
 
 ---
 
-## Route Safety Diary
-
-The Route Safety Diary feature allows users to:
-1. **Record routes** with a simulator that steps through street segments
-2. **Rate safety** on a 1-5 scale with optional tags (well-lit, busy, bike lane, etc.)
-3. **View aggregated ratings** with time-decay (21-day half-life) and Bayesian shrinkage
-4. **Discover alternative routes** with safety benefit calculations
-5. **Contribute to community safety data** via Agree 👍 and Feels safer ✨ votes
-
-### Key Algorithms
-
-**Time-Decay Weighting:**
-```javascript
-weight = 2^(-days_ago / 21)
-```
-Recent ratings are weighted exponentially higher than older ones.
-
-**Bayesian Shrinkage (James-Stein Estimator):**
-```javascript
-shrunk_mean = (prior_mean × prior_N + observed_mean × observed_N) / (prior_N + observed_N)
-```
-Pulls low-sample segments toward a neutral prior (3.0 out of 5) to avoid extreme ratings from single observations.
-
-**A* Pathfinding Cost Function (M2):**
-```javascript
-cost = length_m × (1 + safety_weight × penalty)
-penalty = (5 - rating) / 5
-```
-Balances distance and safety when calculating optimal and alternative routes.
-
-### Feature Flags
+## Feature Flags
 
 The diary feature is controlled by an environment variable:
 
@@ -277,27 +243,17 @@ serve -s dist -p 8080
 
 ## Roadmap
 
-### M1 (Complete)
-- [x] U0-U3: Segment visualization, route picker, rating modal
-- [x] U4: Client-side aggregation with time-decay + Bayesian shrinkage
-- [x] U5: Alternative route overlay with benefit summary
-- [x] U6: Recording simulator with lifecycle management
-- [x] U7: Community interactions (Agree 👍, Feels safer ✨)
+### Diary frontend (complete)
+- Live route demo with safety gradients + alt route overlay
+- Rating modal (overall + tags + optional segment overrides)
+- Segment popup community card
+- My Routes / Community views + Insights panel
 
-### M2 (Specifications Ready)
-- [ ] Backend API implementation (Node.js + Express)
-- [ ] Postgres + PostGIS database setup
-- [ ] A* pathfinding with safety cost function
-- [ ] Three data visualization charts (trend, tags, heatmap)
-- [ ] Enhanced confidence visualization (opacity + width + color)
-- [ ] 60 acceptance tests (unit + integration + E2E)
-
-### M3 (Future)
-- [ ] User authentication (OAuth2: Google, GitHub)
-- [ ] Real-time WebSocket updates for community votes
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Public API for third-party integrations
+### Next steps
+- Wire Diary to real backend submissions + persistence
+- Extend My Routes / Community with live data
+- Promote demo routes to user-submitted routes
+- Expand analytics (interactive insights, filterable trends)
 
 ---
 
@@ -358,8 +314,8 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-**Last Updated:** 2025-11-11
-**Branch:** feat/diary-u6-u7
-**Commit:** 03f8e65
+**Last Updated:** 2025-12-xx
+**Branch:** chore/diary-docs-and-copy-polish
+**Status:** Route Safety Diary frontend milestone complete; ready for backend integration.
 
 Happy mapping! 🗺️✨

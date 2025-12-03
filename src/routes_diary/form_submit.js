@@ -163,7 +163,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   subtitle.style.margin = '8px 0 16px';
   subtitle.style.fontSize = '13px';
   subtitle.style.color = '#475569';
-  subtitle.textContent = `${routeFeature.properties?.from || 'Origin'} → ${routeFeature.properties?.to || 'Destination'}`;
+  subtitle.textContent = `How safe did this trip feel? ${routeFeature.properties?.from || 'Origin'} → ${routeFeature.properties?.to || 'Destination'}`;
   modal.appendChild(subtitle);
 
   const form = document.createElement('form');
@@ -426,9 +426,16 @@ function createTagSelector(state) {
 function createSegmentOverrideSection(state) {
   const wrapper = document.createElement('div');
   const label = document.createElement('div');
-  label.textContent = 'Segment overrides (optional, max 2)';
+  label.textContent = 'Segment overrides (optional, up to 2)';
   label.style.fontWeight = '600';
   wrapper.appendChild(label);
+
+  const hint = document.createElement('div');
+  hint.style.fontSize = '12px';
+  hint.style.color = '#64748b';
+  hint.style.marginTop = '4px';
+  hint.textContent = 'Use this if certain blocks felt safer or riskier than the overall trip.';
+  wrapper.appendChild(hint);
 
   const list = document.createElement('div');
   list.style.display = 'flex';
@@ -527,7 +534,7 @@ function createSegmentOverrideSection(state) {
   // Add top segments (worst safety scores)
   if (topSegments.length > 0) {
     const topHint = document.createElement('div');
-    topHint.textContent = 'Lowest-rated segments (select up to 2):';
+    topHint.textContent = 'Lowest-rated segments (tap to flag specific blocks):';
     topHint.style.fontSize = '12px';
     topHint.style.color = '#64748b';
     topHint.style.marginBottom = '6px';

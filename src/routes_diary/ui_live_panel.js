@@ -6,7 +6,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   // Route selector
   const routeCard = createDiaryCard();
-  routeCard.appendChild(createSectionTitle('Route selector'));
+  routeCard.appendChild(createSectionTitle('Choose a demo route'));
 
   const routeSelect = document.createElement('select');
   routeSelect.className = 'diary-select';
@@ -25,7 +25,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   summary.style.display = 'flex';
   summary.style.flexDirection = 'column';
   summary.style.gap = '4px';
-  summary.textContent = 'Select a route to see its details.';
+  summary.textContent = 'Select a route to see safety details.';
   summary.style.marginTop = '10px';
   refs.summaryEl = summary;
   routeCard.appendChild(summary);
@@ -59,7 +59,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   altSummary.style.marginTop = '8px';
   altSummary.style.fontSize = '12px';
   altSummary.style.color = '#334155';
-  altSummary.textContent = 'Toggle the switch to compare safer detours.';
+  altSummary.textContent = 'Toggle to compare a safety-focused alternative.';
   refs.altSummaryEl = altSummary;
   actionsCard.appendChild(altSummary);
 
@@ -92,7 +92,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   actionsCard.appendChild(rateWrap);
 
   const hint = document.createElement('div');
-  hint.textContent = 'Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
+  hint.textContent = 'Zoom to levels 10–14 to see the gray road grid beneath the safety colors.';
   hint.className = 'diary-muted-text';
   hint.style.marginTop = '8px';
   hint.style.lineHeight = '1.4';
@@ -103,6 +103,10 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   // Simulator
   const simCard = createDiaryCard();
   simCard.appendChild(createSectionTitle('Simulator'));
+  const simHint = document.createElement('div');
+  simHint.className = 'diary-muted-text';
+  simHint.textContent = 'Play through this route step by step.';
+  simCard.appendChild(simHint);
 
   const simControls = document.createElement('div');
   simControls.style.display = 'flex';

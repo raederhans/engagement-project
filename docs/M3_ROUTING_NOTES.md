@@ -34,11 +34,11 @@ The project has a **working Dijkstra-based routing system** implemented in [scri
 
 ---
 
-## Implementation Status — 2025-11-24 (Agent I)
+## Implementation Status — 2025-12
 
-- `scripts/graph_pathfinder.mjs` now guards Dijkstra with a `visited` set so nodes are never re-enqueued once finalized, preventing neighbor fallbacks that previously created short loops near anchors.
-- `scripts/analyze_routes.mjs` reports length in km, duplicate coordinate ratios, segment counts, and warns when duplicates exceed 10% to catch regressions quickly.
-- Regenerated demo data via `npm run data:{fetch,segment,gen,check}`: all five routes span 2.0–2.5 km with ≤1% duplicate coordinates (see latest analyzer output in logs/AGENTI_MAP_NETWORK_M3_20251124T195642Z.md).
+- Dijkstra routing is live in `scripts/graph_pathfinder.mjs` and used by `generate_demo_data.mjs`; visited sets prevent loops.
+- Demo routes are anchored to Philly landmarks; analyzer scripts confirm 2–5 km coverage with <1% duplicate coordinates.
+- Frontend consumes normalized GeoJSON and renders safety gradients + optional alt overlay; runtime routing remains a future enhancement.
 
 --- 
 

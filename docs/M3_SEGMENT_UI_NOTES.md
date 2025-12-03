@@ -2,7 +2,7 @@
 
 **Date:** 2025-11-26
 **Author:** Agent-M
-**Status:** Design Spec for Codex (M3+ Implementation)
+**Status:** Design Spec for Codex (M3+ Implementation) — core popup copy/flow now implemented; grouping/aggregation remains future work.
 **Context:** Follow-up to AGENTM_DIARY_UI_TUNING_20251126T003318Z.md
 
 ---

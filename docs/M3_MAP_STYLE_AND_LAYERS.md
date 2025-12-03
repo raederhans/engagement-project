@@ -23,13 +23,11 @@ Replace the Diary mode basemap with a **light, gray-centric vector style** that 
 
 ---
 
-## Implementation Status — 2025-11-24 (Agent I)
+## Implementation Status — 2025-12 (Agent I)
 
-- `src/config.js` now exports `MAP_STYLES` plus `resolveMapStyle(mode)` with MapTiler/Positron presets and environment overrides. Diary light style resolves only when keys/URLs are present, otherwise returns `null`.
-- `src/map/initMap.js` accepts `{ mode }` and logs whenever a diary light style is configured but not yet requested, keeping Crime Explorer on the OSM raster baseline.
-- `src/diary_demo_main.js` calls `initMap({ mode: 'diary' })` so the standalone Diary demo will automatically switch once a light style URL is supplied.
-- Runtime logging ensures we know whether Diary requested a light style but fell back to default (no key) or whether a light style is waiting for future wiring inside the main explorer map.
-- Diary UI uplift: diary map containers now apply a muted filter via `diary-map-muted` when Diary mode is active (safer fallback when a light style URL is not configured), the left panel is sectioned into cards with a primary CTA, and segment/insights visuals use the safety palette (`--safety-high/med/low`) for clearer hierarchy.
+- Map styles are centralized in `src/config.js` (`MAP_STYLES`, `resolveMapStyle(mode)`), preferring MapTiler/Positron light for Diary; Crime Explorer keeps OSM raster.
+- `initMap({ mode })` switches to the Diary light style when a key is present; otherwise it logs and applies the muted OSM fallback with the gray network grid visible.
+- Diary UI is now sectioned into cards (Live Route / My Routes / Community) with the safety palette (`--safety-high/med/low`) and a clear hierarchy over the basemap.
 
 ## Implementation Status — 2025-11-26 (Agent M)
 

@@ -661,6 +661,13 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 - Added highlight overlay IDs and API (`highlightSegments`) to flash affected segments after submitting a route rating.
 - Hooked the rating success path to recompute segment styling and briefly highlight impacted segments for quick visual feedback.
 
+## 2025-12-xx — Diary docs & copy polished (frontend milestone complete)
+
+- README and roadmap updated to describe the current Route Safety Diary (Live/My Routes/Community, insights, popups) with setup steps and MapTiler guidance.
+- Docs refreshed: road network notes now reference Dijkstra/anchored routes; map style/routing/segment UI notes marked current; historical random-walk issues flagged as legacy.
+- In-app copy tightened for Diary panels, simulator hint, rating modal overrides, insights intro, and community segment popup labels.
+- Doc touch checklist: README, CHANGELOG, ROAD_NETWORK_NOTES, M3_* docs, Live panel copy, rating modal, segment popup, insights panel.
+
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
 
 - **Diagnosed** 3 UI issues: segment cards disappearing, modal non-interactive, panel missing controls
