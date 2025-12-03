@@ -4,6 +4,8 @@ import {
   DIARY_SEGMENTS_SOURCE_ID,
   DIARY_SEGMENTS_LAYER_ID,
   DIARY_SEGMENTS_HIT_LAYER_ID,
+  DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID,
+  DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID,
 } from '../routes_diary/map_ids.js';
 import {
   normalizeFeatureCollection,
@@ -34,6 +36,7 @@ const clickRegistrations = new Map();
 let activePinnedPopup = null;
 let activePinnedSegmentId = null;
 let hoverActionHandler = null;
+let highlightTimeoutId = null;
 
 export function registerSegmentActionHandler(handler) {
   hoverActionHandler = handler;
@@ -128,6 +131,54 @@ export function widthForNEff(nEff) {
   const value = Math.max(0, Number.isFinite(nEff) ? nEff : 0);
   const px = 1 + 0.15 * Math.sqrt(value);
   return Math.max(1, Math.min(4, px));
+}
+
+export function highlightSegments(map, segmentFeatures, { durationMs = 1500 } = {}) {
+  if (!map || !Array.isArray(segmentFeatures)) return;
+  if (highlightTimeoutId) {
+    clearTimeout(highlightTimeoutId);
+    highlightTimeoutId = null;
+  }
+  if (map.getLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID)) {
+    try { map.removeLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID); } catch {}
+  }
+  if (map.getSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID)) {
+    try { map.removeSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID); } catch {}
+  }
+
+  const fc = {
+    type: 'FeatureCollection',
+    features: segmentFeatures.filter(Boolean),
+  };
+
+  map.addSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID, { type: 'geojson', data: fc });
+  map.addLayer({
+    id: DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID,
+    type: 'line',
+    source: DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID,
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': ['+', ['coalesce', ['get', 'line_width_px'], 3], 2],
+      'line-opacity': 0.9,
+      'line-blur': 0.2,
+    },
+  });
+
+  console.info('[Diary] Highlighting', segmentFeatures.length, 'segments for', durationMs, 'ms');
+  highlightTimeoutId = setTimeout(() => {
+    if (map.getLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID)) {
+      try { map.removeLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID); } catch {}
+    }
+    if (map.getSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID)) {
+      try { map.removeSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID); } catch {}
+    }
+    highlightTimeoutId = null;
+    console.info('[Diary] Removed highlight layer');
+  }, durationMs);
 }
 
 function classWidth(classValue) {

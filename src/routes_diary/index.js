@@ -9,7 +9,7 @@
  * Remaining TODOs (Recorder dock, modal wiring, etc.) stay below for the next packet.
  */
 
-import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler } from '../map/segments_layer.js';
+import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler, highlightSegments } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
@@ -797,8 +797,10 @@ function handleDiarySubmissionSuccess(payload, response) {
   }
   updateAlternativeRoute({ refreshOnly: true });
   showToast('Thanks — your feedback has been recorded for this demo.');
-  const affectedCount = new Set(payload.segment_ids || []).size || 1;
+  const affectedSegmentIds = deriveAffectedSegmentIds(payload);
+  const affectedCount = affectedSegmentIds.size || 1;
   showPanelNotice(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
+  onRouteRatingSuccess(Array.from(affectedSegmentIds));
   perfLastSubmit = { ms: Math.max(0, Math.round(nowMs() - perfStart)), at: new Date().toISOString() };
   console.info('[Diary] repaint latency (ms):', perfLastSubmit.ms);
   console.info('[Diary] submit payload', payload);
@@ -871,6 +873,28 @@ function nudgeMeanSaferLocal(segmentId) {
   record.delta_30d = Number((record.delta_30d + 0.03).toFixed(2));
   record.updated = new Date().toISOString();
   return true;
+}
+
+function deriveAffectedSegmentIds(payload) {
+  const ids = new Set(payload?.segment_ids || []);
+  if (Array.isArray(payload?.segment_overrides)) {
+    payload.segment_overrides.forEach((ovr) => {
+      if (ovr?.segment_id) ids.add(ovr.segment_id);
+    });
+  }
+  return ids;
+}
+
+function onRouteRatingSuccess(affectedSegmentIds) {
+  if (!mapRef || !affectedSegmentIds) return;
+  const list = Array.isArray(affectedSegmentIds) ? affectedSegmentIds : Array.from(affectedSegmentIds);
+  const features = list
+    .map((id) => segmentLookup.get(id))
+    .filter((f) => f && f.geometry);
+  if (features.length && typeof highlightSegments === 'function') {
+    highlightSegments(mapRef, features, { durationMs: 1500 });
+  }
+  console.info('[Diary] Route rating applied to %d segments', list.length || 0);
 }
 
 function refreshAfterCta(message) {

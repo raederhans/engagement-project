@@ -656,6 +656,11 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 - Added lightweight design-system classes (`diary-card`, `diary-section-title`, `diary-pill`, `diary-btn-primary/secondary`, insights root styles) and refactored panels to use them for consistent cards, pills, and buttons.
 - Wrapped the Insights overlay with the new host module and context wiring while preserving existing charts.
 
+## 2025-11-19 00:00 — Diary: immediate map highlight after rating submission
+
+- Added highlight overlay IDs and API (`highlightSegments`) to flash affected segments after submitting a route rating.
+- Hooked the rating success path to recompute segment styling and briefly highlight impacted segments for quick visual feedback.
+
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
 
 - **Diagnosed** 3 UI issues: segment cards disappearing, modal non-interactive, panel missing controls

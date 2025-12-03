@@ -14,3 +14,6 @@ export const DIARY_ROUTE_ALT_LAYER_ID = 'diary-alt-route-line';
 
 export const DIARY_SIM_POINT_SOURCE_ID = 'diary-sim-point';
 export const DIARY_SIM_POINT_LAYER_ID = 'diary-sim-point-circle';
+
+export const DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID = 'diary-segments-highlight';
+export const DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID = 'diary-segments-highlight-line';
