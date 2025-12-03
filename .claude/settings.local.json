@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(test:*)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(node test_math_verification.mjs:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

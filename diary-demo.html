@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Route Safety Diary Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@^4.5.0/dist/maplibre-gl.css" />
+    <style>
+      body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; display: block; background: #f8fafc; }
+      #app { display: flex; height: 100vh; }
+      #diary-panel { width: 360px; overflow: auto; border-right: 1px solid #e2e8f0; padding: 12px; box-sizing: border-box; }
+      #map { flex: 1; min-height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="diary-panel"></div>
+      <div id="map"></div>
+    </div>
+    <script type="module" src="/src/diary_demo_main.js"></script>
+  </body>
+</html>

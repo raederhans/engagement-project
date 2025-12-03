@@ -9,60 +9,70 @@
 // TODO: Import dependencies when implementing
 // import * as turf from '@turf/turf';
 
-/**
- * Draw safer alternative route on map
- * @param {MapLibreMap} map - MapLibre map instance
- * @param {object} geojsonLine - GeoJSON Feature with LineString geometry
- * @param {object} meta - Route metadata {timeDiff, avoidedSegments}
- */
-export function drawSaferRoute(map, geojsonLine, meta) {
-  // TODO: Add route source and layer
-  // map.addSource('safer-route', {
-  //   type: 'geojson',
-  //   data: geojsonLine
-  // });
-
-  // TODO: Add animated line layer
-  // map.addLayer({
-  //   id: 'safer-route-line',
-  //   type: 'line',
-  //   source: 'safer-route',
-  //   paint: {
-  //     'line-color': '#2196F3',  // Blue
-  //     'line-width': 4,
-  //     'line-opacity': 0.8
-  //   }
-  // });
-
-  // TODO: Create "Safer alternative" strip (top-right overlay)
-  // const strip = createSaferRouteStrip(meta);
-  // document.body.appendChild(strip);
-
-  // TODO: Zoom map to fit route bounds
-  // const bounds = turf.bbox(geojsonLine);
-  // map.fitBounds(bounds, { padding: 50 });
-
-  // See: docs/SCENARIO_MAPPING.md (Scenario 3, Safer Alternative Strip)
+export function drawRouteOverlay(map, sourceId, lineFeature, opts = {}) {
+  if (!map || !lineFeature) return;
+  const geojson = normalizeFeature(lineFeature);
+  ensureSource(map, sourceId, geojson);
+  const layerId = `${sourceId}-line`;
+  const paint = {
+    'line-color': opts.lineColorExpression || opts.color || '#0ea5e9',
+    'line-width': opts.width || 4,
+    'line-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
+    'line-blur': typeof opts.blur === 'number' ? opts.blur : 0.2,
+  };
+  if (opts.dasharray) {
+    paint['line-dasharray'] = opts.dasharray;
+  }
+  ensureLineLayer(map, layerId, sourceId, paint);
 }
 
-/**
- * Remove safer route overlay from map
- * @param {MapLibreMap} map - MapLibre map instance
- */
-export function removeSaferRoute(map) {
-  // TODO: Remove route layer
-  // if (map.getLayer('safer-route-line')) {
-  //   map.removeLayer('safer-route-line');
-  // }
+export function clearRouteOverlay(map, sourceId) {
+  if (!map) return;
+  const layerId = `${sourceId}-line`;
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  } else {
+    console.info('[Diary] clearRouteOverlay: layer not found', layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  } else {
+    console.info('[Diary] clearRouteOverlay: source not found', sourceId);
+  }
+}
 
-  // TODO: Remove route source
-  // if (map.getSource('safer-route')) {
-  //   map.removeSource('safer-route');
-  // }
+export function drawSimPoint(map, sourceId, coord, opts = {}) {
+  if (!map || !coord) return;
+  const feature = {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: coord },
+    properties: {},
+  };
+  ensureSource(map, sourceId, feature);
+  const layerId = `${sourceId}-circle`;
+  const paint = {
+    'circle-radius': opts.radius || 6,
+    'circle-color': opts.color || '#22d3ee',
+    'circle-stroke-width': opts.strokeWidth || 1,
+    'circle-stroke-color': opts.strokeColor || '#ffffff',
+    'circle-opacity': typeof opts.opacity === 'number' ? opts.opacity : 0.9,
+  };
+  ensureCircleLayer(map, layerId, sourceId, paint);
+}
 
-  // TODO: Remove strip UI
-  // const strip = document.getElementById('safer-route-strip');
-  // if (strip) strip.remove();
+export function clearSimPoint(map, sourceId) {
+  if (!map) return;
+  const layerId = `${sourceId}-circle`;
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  } else {
+    console.info('[Diary] clearSimPoint: layer not found', layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  } else {
+    console.info('[Diary] clearSimPoint: source not found', sourceId);
+  }
 }
 
 /**
@@ -79,6 +89,22 @@ function createSaferRouteStrip(meta) {
   // TODO: Add dismiss (X) button
   // TODO: Slide-in animation from right
   // TODO: Return strip element
+}
+
+function normalizeFeature(feature) {
+  if (!feature) {
+    return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
+  }
+  if (feature.type === 'FeatureCollection') {
+    return feature;
+  }
+  if (feature.type === 'Feature') {
+    return feature;
+  }
+  if (feature.type && feature.coordinates) {
+    return { type: 'Feature', geometry: feature, properties: {} };
+  }
+  return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
 }
 
 /**
@@ -147,6 +173,51 @@ function heuristic(nodeA, nodeB) {
 function reconstructPath(cameFrom, current) {
   // TODO: Backtrack from goal to start using cameFrom map
   return [];
+}
+
+function ensureSource(map, id, data) {
+  if (!map || !id) return null;
+  const normalized = data?.type ? data : { type: 'FeatureCollection', features: [] };
+  const existing = map.getSource(id);
+  if (existing) {
+    existing.setData(normalized);
+    return existing;
+  }
+  map.addSource(id, { type: 'geojson', data: normalized });
+  return map.getSource(id);
+}
+
+function ensureLineLayer(map, layerId, sourceId, paint = {}) {
+  if (!map || !layerId || !sourceId) return;
+  const layout = {
+    'line-cap': 'round',
+    'line-join': 'round',
+  };
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
+    return;
+  }
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout,
+    paint,
+  });
+}
+
+function ensureCircleLayer(map, layerId, sourceId, paint = {}) {
+  if (!map || !layerId || !sourceId) return;
+  if (map.getLayer(layerId)) {
+    Object.entries(paint).forEach(([key, value]) => map.setPaintProperty(layerId, key, value));
+    return;
+  }
+  map.addLayer({
+    id: layerId,
+    type: 'circle',
+    source: sourceId,
+    paint,
+  });
 }
 
 /**

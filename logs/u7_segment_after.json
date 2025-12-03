@@ -1,0 +1,9 @@
+{
+  "segment_id": "seg_001",
+  "street": "Market St",
+  "length_m": 150,
+  "decayed_mean": 3.1,
+  "n_eff": 2.3,
+  "top_tags": [],
+  "delta_30d": 0.03
+}

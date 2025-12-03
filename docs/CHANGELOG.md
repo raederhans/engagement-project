@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-11-24 20:05 — Diary M3: network wiring, style hooks, routing cleanup
+
+- Ensured the diary network grid mounts on every Diary init and reattaches after MapLibre `styledata` events (`src/routes_diary/index.js`), added a zoom hint inside the Diary panel, and tightened teardown so the layer is always removed when Diary exits.
+- Introduced `MAP_STYLES` + `resolveMapStyle()` in `src/config.js`, updated `src/map/initMap.js` to accept `{ mode }`, and wired the Diary demo to request the diary light style while logging when configs are present but unused.
+- Hardened `scripts/graph_pathfinder.mjs` with a visited-set guard, refreshed the analyzer output (lengths, duplicate ratios), regenerated demo data, and documented the routing + boundary follow-ups in the M3 docs set.
+
+## 2025-11-18 03:20 — Diary network: Philly-only bbox + anchored demo routes on real streets
+
+## 2025-11-18 04:15 — Diary routing: Dijkstra-based demo routes on Philly network; loop bug removed, fixed anchors
+
+## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes+
+
+## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
+
+## 2025-11-11 11:40 — Diary U6: recording simulator with play/pause/finish→rate
+
+- Auto-pause the recorder when the tab goes hidden and tear down markers/timers on unload to prevent ghost animations.
+- Added silent teardown path plus cleanup guards so repeated route switches never leak `diary-sim-point` sources.
+
+## 2025-11-11 12:00 — Diary U7: community interactions (Agree / Feels safer now)
+
+- Persist Agree/Feels safer throttles per-session via `sessionStorage`, so refreshes keep buttons disabled after the first tap.
+- Updated hover card buttons to match storyboard labels/emojis while keeping instant in-memory aggregate updates.
+
+## 2025-11-11 15:50 — Diary arch: idempotent sources/layers, lifecycle cleanup, debug accessors
+
+- Added `ensureSource`/`ensureLineLayer` helpers plus centralized `teardownDiaryTransient()` so rapid toggles never leak MapLibre sources or timers.
+- Expanded `window.__diary_debug` to expose cloned segment props, source/layer lists, and simulator state for audits.
+
+## 2025-11-11 15:58 — Diary data: deterministic generator and validator, expanded segments/routes
+
+- `scripts/generate_demo_data.mjs` + `scripts/validate_demo_data.mjs` now own reproducible 64-segment / 5-route demo datasets (seed = 20251111) and enforce Philly bbox + referential integrity.
+- Refreshed `data/segments_phl.demo.geojson` and `data/routes_phl.demo.geojson`; documented workflow in `docs/TEST_DATA_README.md`.
+
+## 2025-11-11 16:05 — Diary tests: math and aggregator verification scripts
+
+- Added `npm run test:diary:math` + `npm run test:diary:agg` to guard decay helpers and the local aggregator pipeline; both emit concise PASS banners.
+- Wired the scripts folder structure plus npm aliases so contributors can run the suite before committing data/logic changes.
+
 ## 2025-11-07 14:00 — M1 prep: diary scaffolding, env scripts, deps added (no feature logic)
 
 **Status:** ✅ M1 prep complete — Repository ready for Codex implementation
@@ -62,7 +101,13 @@ All notable changes to this project will be documented in this file.
 
 ## 2025-11-07 14:00 — Discovery: repo audit + 4 UI scenarios inventoried (no runtime changes)
 
+## 2025-11-07 12:45 — Diary demo dataset refreshed for U0/U1 (segments/routes)
+
+## 2025-11-07 12:21 — Diary demo dataset seeded for U0/U1 (segments/routes)
+
 ## 2025-11-07 10:43 — Discovery: dev bootstrap & 4 diary UI scenarios reviewed (no runtime changes)
+
+## 2025-11-07 12:16 — Diary demo dataset seeded for U0/U1
 
 ## 2025-10-23 11:03 — Census Tract Comprehensive Audit: UI, Visibility, Analytics ✅
 
@@ -523,3 +568,142 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 2025-10-20T12:09:39.6438250-04:00 - Default time window aligned to dataset coverage (auto from MAX date).
 2025-10-20T12:09:39.6468266-04:00 - Charts guarded until center is chosen (status tip shown).
 2025-10-20T12:09:39.6491974-04:00 - Districts empty-window banner implemented.
+
+## 2025-11-07 12:45 — Diary demo dataset refreshed for U0/U1 (segments/routes)
+
+## 2025-11-07 13:05 — Diary U0: feature-flag bootstrap and demo data loaders
+
+## 2025-11-07 15:05 — Diary W0: wire initDiaryMode into main under feature flag
+
+## 2025-11-07 16:00 — Diary U2: route picker, highlight overlay, and summary strip
+
+## 2025-11-07 16:40 — Diary U3: rating modal with AJV validation and payload construction
+
+## 2025-11-07 15:31 — Diary U4: instant client-side aggregation and visual refresh
+
+## 2025-11-07 15:35 — Diary U5: alternative route overlay and benefit summary
+
+## 2025-11-07 16:10 — Diary U6: recording simulator with play/pause/finish→rate
+
+## 2025-11-07 16:25 — Diary U7: community interactions (Agree and Feels safer now)
+
+## 2025-11-07 13:35 — Diary U1: baseline segment rendering with hover card
+## 2025-11-11 18:10 — Phase 1. Mode toggle integrated and Diary panel skeleton mounted behind feature flag
+
+## 2025-11-12 16:32 — Phase 2. Diary route picker, alt toggle, and live benefit summary in panel
+
+## 2025-11-12 19:45 — Phase 3. Panel Rate flow + Simulator controls + audit probes (idempotence/perf)
+
+## 2025-11-12 22:05 — Phase 4. Hover-card CTA UI parity, session throttling hints, state persistence, stress probe
+
+## 2025-11-14 19:55 — Diary autostart scripts (Windows/macOS/Linux) + URL override for ?mode=diary
+
+## 2025-11-16 15:50 — Diary UI: integrated & demo panels render full M1 controls with demo data
+
+## 2025-11-16 17:30 — Diary UI polish: modal overlay + Insights demo panel + street network prep
+
+## 2025-11-17 00:00 — Diary UI polish: lighter Rate modal, scoped Insights toggles, wider segment hit area, tag dropdown, road network stubs
+
+## 2025-11-17 02:40 — Diary M3: click-to-pin segment cards + playback/demo controls in panel
+
+## 2025-11-17 03:45 — Diary network: scripts to fetch/segment Philly streets + demo data regenerated on real segments
+
+## 2025-11-18 02:45 — Diary network: Overpass/ODP fetch default, full bbox segmentation, network layer rendering, longer demo routes
+
+## 2025-11-18 03:00 — Road Network: visibility audit complete, NJ route issue diagnosed, network layer visibility fixed (P1)
+
+- **Audited** network layer visibility and route geography
+- **Critical Issue:** All 5 demo routes rendering in New Jersey (Palmyra, Camden) instead of Philadelphia
+- **Root Cause:** Overpass bbox includes NJ (-75.00 east boundary), random route starts pick from entire 144k network
+- **Network Visibility Issue:** Layer color/opacity too similar to basemap → invisible to users
+- **Hotfix Applied (P1):** Updated network_layer.js styling (darker color, higher opacity, minzoom: 11, wider lines)
+- **Created** 5 realistic Philly route scenarios (30th St→Clark Park, Station→Rittenhouse, Campus→Italian Market, etc.)
+- **Created** detailed audit log: `logs/ROADNET_M3_VISIBILITY_AND_ROUTES_20251118T030000.md`
+- **Updated** ROAD_NETWORK_NOTES.md with route scenarios, current issues, and Packet A fix plan (narrow bbox to -75.135)
+- **Next:** Codex to implement Packet A (fix NJ routes), Packet C (realistic route anchoring)
+
+## 2025-11-18 03:30 — Road Network: routing algorithm audit complete, critical bugs found, Dijkstra architecture designed (P0)
+
+- **CRITICAL BUG FOUND:** 4 of 5 demo routes stuck in infinite loops (96-99% duplicate coordinates)
+- **Root Cause:** `walkRouteFrom()` fallback logic revisits already-visited segments when neighbors exhausted
+- **Evidence** (from `scripts/analyze_routes.mjs`):
+  - Route A: 157 coords, only 5 unique (96.8% dups), coverage 0.02km × 0.01km, goes nowhere
+  - Route B: 139 coords, only 5 unique (96.4% dups), same issue
+  - Route C: 229 coords, 26 unique (88.6% dups), stuck at Penn campus
+  - Route E: 556 coords, only 6 unique (98.9% dups), stuck at Rittenhouse
+  - **Only Route D works** (City Hall → 34th St): 1.7% dups, actual progression to destination
+- **Created** route analyzer tool: `scripts/analyze_routes.mjs` (detects coordinate loops)
+- **Created** comprehensive routing architecture plan: `logs/ROADNET_M3_ROUTING_PLAN_20251118T033000.md`
+- **Designed** Dijkstra-based pathfinding solution (Packet R1 + R2):
+  - SegmentGraph class with node/edge representation
+  - Dijkstra shortest-path algorithm with cost functions
+  - Replace random-walk with proper graph traversal
+  - Estimated 5-7 hours implementation
+- **Updated** ROAD_NETWORK_NOTES.md with Issue 4 (routing loops) and Packet R implementation plan
+- **Next:** Codex to implement Packet R1 (graph_pathfinder.mjs), R2 (integrate Dijkstra), regenerate routes
+
+## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
+
+## 2025-11-19 00:00 — Diary map wiring hardened (IDs, normalization, friendly labels)
+
+- Centralized all Diary source/layer IDs in `src/routes_diary/map_ids.js` and updated segments/network/route overlays to use them with teardown logging.
+- Added shared data normalization + property constants in `src/routes_diary/data_normalization.js` (segments/routes) and applied across Diary map bootstrap.
+- Replaced raw `segment_id` text in the rating modal with friendly labels and added warnings when routes reference missing segments.
+
+## 2025-11-19 00:00 — Diary UI modularized with shared components (Step 2)
+
+- Extracted Diary panels into modules: `ui_live_panel.js`, `ui_my_routes_panel.js`, `ui_community_panel.js`, and `ui_insights_panel.js` with shared helpers in `ui_common.js`.
+- Added lightweight design-system classes (`diary-card`, `diary-section-title`, `diary-pill`, `diary-btn-primary/secondary`, insights root styles) and refactored panels to use them for consistent cards, pills, and buttons.
+- Wrapped the Insights overlay with the new host module and context wiring while preserving existing charts.
+
+## 2025-11-19 00:00 — Diary: immediate map highlight after rating submission
+
+- Added highlight overlay IDs and API (`highlightSegments`) to flash affected segments after submitting a route rating.
+- Hooked the rating success path to recompute segment styling and briefly highlight impacted segments for quick visual feedback.
+
+## 2025-12-xx — Diary docs & copy polished (frontend milestone complete)
+
+- README and roadmap updated to describe the current Route Safety Diary (Live/My Routes/Community, insights, popups) with setup steps and MapTiler guidance.
+- Docs refreshed: road network notes now reference Dijkstra/anchored routes; map style/routing/segment UI notes marked current; historical random-walk issues flagged as legacy.
+- In-app copy tightened for Diary panels, simulator hint, rating modal overrides, insights intro, and community segment popup labels.
+- Doc touch checklist: README, CHANGELOG, ROAD_NETWORK_NOTES, M3_* docs, Live panel copy, rating modal, segment popup, insights panel.
+
+## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
+
+- **Diagnosed** 3 UI issues: segment cards disappearing, modal non-interactive, panel missing controls
+- **Fixed (P0)** rating modal z-index: added `z-index: 2501` to `.diary-modal-card` CSS
+- **Result:** Modal now fully interactive (stars, tags, dropdowns, segment overrides all clickable)
+- **Created** detailed diagnosis log with root cause analysis for all issues
+- **Created** comprehensive fix plan (M3) with implementation tasks for segment cards and panel controls
+- Evidence: `logs/AGENTM_DIARY_UI_DIAGNOSIS_20251117T021840.md`
+- Fix plan: `docs/DIARY_UI_FIX_PLAN_M3.md`
+
+## 2025-11-18 01:58 — Road Network: comprehensive audit complete, implementation plan created (M3+)
+
+- **Audited** road network pipeline: fetch → segment → generate
+- **Root Cause:** Network looks unrealistic due to 10-street fallback sample (4 blocks, no `STREETS_PHL_URL` set)
+- **Findings:** Pipeline works correctly but produces tiny coverage, no background layer, confined routes
+- **Created** diagnostic tool: `scripts/inspect_roadnet.mjs` for quick GeoJSON analysis
+- **Created** comprehensive audit log with technical details: `logs/ROADNET_AUDIT_M3_20251118T015821.md`
+- **Created** implementation plan (Packets A/B/C): data source → background layer → UI toggle + realistic routes
+- Plan: `docs/ROAD_NETWORK_NOTES.md` (section "Implementation Plan — Realistic Road Network (M3+)")
+- **Next:** Packet A (find real OpenDataPhilly URL, expand bbox to 5+ km²), then B (network layer), then C (UI + routes)
+
+## 2025-11-14 20:15 — Diary fix: panel gating respects URL override ?mode=diary
+
+- Fixed `store.js` to honor `?mode=diary` URL parameter alongside `VITE_FEATURE_DIARY` env var
+- Panel Diary button now enables when URL contains `?mode=diary` even without env var set
+- Added debug logging: `console.info('[Diary] store gating', {env, urlMode, enabled})`
+- Root cause: panel.js used `store.diaryFeatureOn` which only checked env var, not URL parameter
+- Evidence: `logs/AGENTM_FIX_PANEL_GATING_20251114_201500.md`
+
+## 2025-11-16 16:20 — Diary fix: panel UI mounting, full controls now visible in ?mode=diary
+
+- Fixed `routes_diary/index.js` to pass `mountTarget` parameter to `ensureDiaryPanel()`
+- Diary panel now renders inside integrated control panel (not floating div)
+- Full UI visible: route picker (5 routes), alt toggle, summary strip, Rate button, simulator controls
+- Added debug logging: `console.info('[Diary] initDiaryMode called', {hasMount, mountId})`
+- Root cause: `ensureDiaryPanel(routes)` was missing `{ mountInto: mountTarget }` parameter
+- Evidence: `logs/AGENTM_DIARY_PANEL_FIX_20251116T161957.md`
+
+## 2025-11-12 11:54 — Audit P1–P2. Mode toggle, panel mount, route picker, alt toggle, and summary verified

@@ -1,0 +1,12 @@
+{
+  "route_id": "route_A",
+  "segment_ids": ["seg_001", "seg_002", "seg_009"],
+  "overall_rating": 4,
+  "tags": ["poor_lighting", "other"],
+  "segment_overrides": [
+    { "segment_id": "seg_002", "rating": 3 }
+  ],
+  "mode": "walk",
+  "user_hash": "demo_payload",
+  "timestamp": "2025-11-07T16:30:00.000Z"
+}

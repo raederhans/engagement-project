@@ -1,5 +1,6 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
+import { setViewMode, onViewModeChange } from '../state/store.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -15,6 +16,121 @@ function debounce(fn, wait = 300) {
  * @param {{ onChange: Function, getMapCenter: Function }} handlers
  */
 export function initPanel(store, handlers) {
+  const panelRoot = document.getElementById('sidepanel');
+  if (!panelRoot) {
+    return { diaryMount: null };
+  }
+
+  let crimeShell = panelRoot.querySelector('[data-panel-view="crime"]');
+  if (!crimeShell) {
+    crimeShell = document.createElement('div');
+    crimeShell.dataset.panelView = 'crime';
+    const fragment = document.createDocumentFragment();
+    while (panelRoot.firstChild) {
+      fragment.appendChild(panelRoot.firstChild);
+    }
+    crimeShell.appendChild(fragment);
+    panelRoot.appendChild(crimeShell);
+  }
+
+  let diaryShell = panelRoot.querySelector('[data-panel-view="diary"]');
+  if (!diaryShell) {
+    diaryShell = document.createElement('div');
+    diaryShell.dataset.panelView = 'diary';
+    diaryShell.style.display = 'none';
+    diaryShell.style.font = '13px/1.4 "Inter", system-ui, sans-serif';
+    diaryShell.style.color = '#0f172a';
+    diaryShell.style.padding = '4px 0 8px';
+    panelRoot.appendChild(diaryShell);
+  } else {
+    diaryShell.innerHTML = '';
+  }
+
+  let toggleRow = panelRoot.querySelector('[data-panel-view="mode-toggle"]');
+  if (!toggleRow) {
+    toggleRow = document.createElement('div');
+    toggleRow.dataset.panelView = 'mode-toggle';
+    toggleRow.style.display = 'flex';
+    toggleRow.style.gap = '6px';
+    toggleRow.style.marginBottom = '10px';
+    toggleRow.style.alignItems = 'center';
+    panelRoot.insertBefore(toggleRow, crimeShell);
+  } else {
+    toggleRow.innerHTML = '';
+  }
+
+  const toggleLabel = document.createElement('span');
+  toggleLabel.textContent = 'Mode:';
+  toggleLabel.style.font = '600 12px/1.2 system-ui';
+  toggleLabel.style.color = '#0f172a';
+  toggleRow.appendChild(toggleLabel);
+
+  const toggleGroup = document.createElement('div');
+  toggleGroup.style.display = 'flex';
+  toggleGroup.style.flex = '1';
+  toggleGroup.style.border = '1px solid #cbd5e1';
+  toggleGroup.style.borderRadius = '999px';
+  toggleGroup.style.overflow = 'hidden';
+  toggleRow.appendChild(toggleGroup);
+
+  const crimeBtn = document.createElement('button');
+  crimeBtn.type = 'button';
+  crimeBtn.textContent = 'Crime';
+  crimeBtn.style.flex = '1';
+  crimeBtn.style.padding = '6px 10px';
+  crimeBtn.style.border = 'none';
+  crimeBtn.style.cursor = 'pointer';
+  crimeBtn.style.font = '600 12px/1 system-ui';
+  crimeBtn.style.background = 'transparent';
+  toggleGroup.appendChild(crimeBtn);
+
+  const diaryBtn = document.createElement('button');
+  diaryBtn.type = 'button';
+  diaryBtn.textContent = 'Diary';
+  diaryBtn.style.flex = '1';
+  diaryBtn.style.padding = '6px 10px';
+  diaryBtn.style.border = 'none';
+  diaryBtn.style.cursor = store.diaryFeatureOn ? 'pointer' : 'not-allowed';
+  diaryBtn.style.font = '600 12px/1 system-ui';
+  diaryBtn.style.background = 'transparent';
+  diaryBtn.disabled = !store.diaryFeatureOn;
+  diaryBtn.title = store.diaryFeatureOn ? 'View Route Safety Diary' : 'Disabled in this build';
+  toggleGroup.appendChild(diaryBtn);
+
+  diaryShell.innerHTML = `
+    <div style="font:600 14px/1.2 system-ui;margin-bottom:8px;">Route Safety Diary</div>
+    <div style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#f8fafc;color:#475569;font-size:12px;">
+      Route selection and alternative toggle will appear here.
+    </div>
+    <div style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;background:#fefce8;color:#854d0e;font-size:12px;">
+      Rate, simulator, and summary will appear here.
+    </div>
+  `;
+
+  const updateModeButtons = (mode) => {
+    const isDiary = mode === 'diary';
+    crimeBtn.style.background = isDiary ? 'transparent' : '#0f172a';
+    crimeBtn.style.color = isDiary ? '#0f172a' : '#ffffff';
+    diaryBtn.style.background = isDiary ? '#0f172a' : 'transparent';
+    diaryBtn.style.color = isDiary ? '#ffffff' : '#0f172a';
+    crimeShell.style.display = isDiary ? 'none' : '';
+    diaryShell.style.display = isDiary ? '' : 'none';
+  };
+
+  crimeBtn.addEventListener('click', () => {
+    setViewMode('crime');
+    writeModeToURL('crime');
+  });
+
+  diaryBtn.addEventListener('click', () => {
+    if (!store.diaryFeatureOn) return;
+    setViewMode('diary');
+    writeModeToURL('diary');
+  });
+
+  onViewModeChange(updateModeButtons);
+  updateModeButtons(store.viewMode || 'crime');
+
   const addrA = document.getElementById('addrA');
   const useCenterBtn = document.getElementById('useCenterBtn');
   const useMapHint = document.getElementById('useMapHint');
@@ -36,7 +152,7 @@ export function initPanel(store, handlers) {
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
   // Status HUD container (under header)
-  const headerEl = document.querySelector('#sidepanel > div'); // first header div
+  const headerEl = crimeShell.firstElementChild; // "Controls" header
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
   hudEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
@@ -330,4 +446,21 @@ export function initPanel(store, handlers) {
     const match = meta ? (windowMatch(meta) ? 'Yes' : 'No') : 'No';
     hudEl.textContent = `Mode: ${mode} | Admin: ${admin} | Charts: ${charts} | Snapshot: ${snapPresent} | Window match: ${match}`;
   }
+
+  return { diaryMount: diaryShell };
+}
+
+export function readModeFromURL() {
+  if (typeof window === 'undefined') return 'crime';
+  const params = new URLSearchParams(window.location.search || '');
+  return params.get('mode') === 'diary' ? 'diary' : 'crime';
+}
+
+export function writeModeToURL(mode) {
+  if (typeof window === 'undefined' || typeof window.history === 'undefined') return;
+  const params = new URLSearchParams(window.location.search || '');
+  params.set('mode', mode === 'diary' ? 'diary' : 'crime');
+  const query = params.toString();
+  const newUrl = `${window.location.pathname}?${query}${window.location.hash || ''}`;
+  window.history.replaceState({}, '', newUrl);
 }
