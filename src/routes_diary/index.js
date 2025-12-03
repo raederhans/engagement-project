@@ -16,11 +16,31 @@ import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
+import {
+  DIARY_SEGMENTS_SOURCE_ID,
+  DIARY_ROUTE_PRIMARY_SOURCE_ID,
+  DIARY_ROUTE_ALT_SOURCE_ID,
+  DIARY_SIM_POINT_SOURCE_ID,
+} from './map_ids.js';
+import {
+  normalizeFeatureCollection,
+  normalizeSegmentFeature,
+  normalizeRouteFeature,
+  SEGMENT_ID_PROP,
+  SCORE_PROP,
+  NEFF_PROP,
+  ROUTE_SEG_IDS_PROP,
+  ROUTE_ALT_SEG_IDS_PROP,
+  ROUTE_NAME_PROP,
+  ROUTE_FROM_PROP,
+  ROUTE_TO_PROP,
+  ROUTE_ID_PROP,
+  TAGS_PROP,
+} from './data_normalization.js';
+import { renderLiveRoutePanel } from './ui_live_panel.js';
+import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
+import { renderCommunityPanel } from './ui_community_panel.js';
 
-const SEGMENT_SOURCE_ID = 'diary-segments';
-const ROUTE_OVERLAY_SOURCE_ID = 'diary-route-overlay';
-const ALT_ROUTE_SOURCE_ID = 'diary-alt-route';
-const SIM_POINT_SOURCE_ID = 'diary-sim-point';
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
   '/data/segments_phl.demo.geojson',
@@ -30,13 +50,6 @@ const ROUTE_URL_CANDIDATES = [
   '/data/routes_phl.demo.geojson',
   new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
 ];
-
-const DEFAULT_SEGMENT_PROPS = {
-  decayed_mean: 3,
-  n_eff: 1,
-  delta_30d: 0,
-  top_tags: [],
-};
 
 const MOCK_HISTORY_ROUTES = [
   { id: 'hist_001', date: 'Nov 24', label: 'Penn Campus → 9th & Christian', mode: 'bike', score: 3.5 },
@@ -200,70 +213,31 @@ function normalizeTopTags(tags) {
 }
 
 function normalizeSegmentsCollection(collection) {
-  const fc = clone(collection);
-  fc.features = (fc.features || []).map((feature, idx) => {
-    const f = clone(feature);
-    const props = { ...(f.properties || {}) };
-    const segmentId = typeof props.segment_id === 'string' && props.segment_id.trim() ? props.segment_id.trim() : `seg_demo_${idx + 1}`;
-    const decayedMean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : DEFAULT_SEGMENT_PROPS.decayed_mean;
-    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : DEFAULT_SEGMENT_PROPS.n_eff;
-    const delta30d = Number.isFinite(props.delta_30d) ? props.delta_30d : DEFAULT_SEGMENT_PROPS.delta_30d;
-    const topTags = normalizeTopTags(props.top_tags ?? DEFAULT_SEGMENT_PROPS.top_tags);
-    f.properties = {
-      ...props,
-      segment_id: segmentId,
-      street: props.street || 'Unknown',
-      decayed_mean: Math.min(5, Math.max(1, decayedMean)),
-      n_eff: Math.max(0, nEff),
-      delta_30d: delta30d,
-      top_tags: topTags,
+  const fc = normalizeFeatureCollection(collection, normalizeSegmentFeature);
+  fc.features = fc.features.map((feature) => {
+    const props = { ...(feature.properties || {}) };
+    return {
+      ...feature,
+      properties: {
+        ...props,
+        top_tags: normalizeTopTags(props[TAGS_PROP] || props.top_tags),
+      },
     };
-    return f;
   });
   return fc;
 }
 
 function normalizeRoutesCollection(collection) {
-  const fc = clone(collection);
-  fc.features = (fc.features || []).map((feature, idx) => {
-    const f = clone(feature);
-    const props = { ...(f.properties || {}) };
-    const ids = Array.isArray(props.segment_ids) ? props.segment_ids.map((id) => String(id)) : [];
-    const altIds = Array.isArray(props.alt_segment_ids) ? props.alt_segment_ids.map((id) => String(id)).filter(Boolean) : [];
-    const altLength = Number(props.alt_length_m);
-    const altDuration = Number(props.alt_duration_min);
-    const altGeometry = props.alt_geometry && typeof props.alt_geometry === 'object' ? clone(props.alt_geometry) : null;
-    if (ids.length === 0) {
-      throw new Error(`[Diary] Route feature at index ${idx} is missing segment_ids array.`);
-    }
-    f.properties = {
-      route_id: typeof props.route_id === 'string' ? props.route_id : `route_demo_${idx + 1}`,
-      name: props.name || 'Demo route',
-      mode: props.mode || 'walk',
-      from: props.from || 'Unknown',
-      to: props.to || 'Unknown',
-      length_m: Number(props.length_m) || 0,
-      duration_min: Number(props.duration_min) || 0,
-      segment_ids: ids,
-      alt_segment_ids: altIds,
-      alt_length_m: Number.isFinite(altLength) ? altLength : undefined,
-      alt_duration_min: Number.isFinite(altDuration) ? altDuration : undefined,
-    };
-    if (altGeometry) {
-      f.properties.alt_geometry = altGeometry;
-    }
-    return f;
-  });
-  return fc;
+  return normalizeFeatureCollection(collection, normalizeRouteFeature);
 }
 
 function logMissingSegments(routes, segments) {
-  const segmentIds = new Set((segments.features || []).map((f) => f?.properties?.segment_id));
+  const segmentIds = new Set((segments.features || []).map((f) => f?.properties?.[SEGMENT_ID_PROP]));
   const issues = [];
   for (const route of routes.features || []) {
-    const missing = route.properties.segment_ids.filter((id) => !segmentIds.has(id));
+    const missing = (route.properties?.[ROUTE_SEG_IDS_PROP] || []).filter((id) => !segmentIds.has(id));
     if (missing.length) {
-      issues.push(`${route.properties.route_id}: ${missing.join(', ')}`);
+      issues.push(`${route.properties?.[ROUTE_ID_PROP] || 'route'}: ${missing.join(', ')}`);
     }
   }
   if (issues.length) {
@@ -275,7 +249,7 @@ function buildSegmentLookup(collection) {
   segmentLookup.clear();
   if (!collection || !Array.isArray(collection.features)) return;
   collection.features.forEach((feature) => {
-    const id = feature?.properties?.segment_id;
+    const id = feature?.properties?.[SEGMENT_ID_PROP];
     if (id) {
       segmentLookup.set(id, feature);
     }
@@ -293,17 +267,21 @@ function ensureRouteIndex(routes) {
   });
 }
 
-function buildRouteOverlayCollection(routeFeature, idsKey = 'segment_ids') {
+function buildRouteOverlayCollection(routeFeature, idsKey = ROUTE_SEG_IDS_PROP) {
   if (!routeFeature) return null;
   const props = routeFeature.properties || {};
   const ids = Array.isArray(props[idsKey]) ? props[idsKey] : [];
   if (!ids.length) return routeFeature;
   const features = [];
+  const missing = [];
   ids.forEach((id, idx) => {
     const seg = segmentLookup.get(id);
-    if (!seg?.geometry) return;
+    if (!seg?.geometry) {
+      missing.push(id);
+      return;
+    }
     const segProps = seg.properties || {};
-    const safety = Number(segProps.decayed_mean);
+    const safety = Number(segProps[SCORE_PROP]);
     features.push({
       type: 'Feature',
       geometry: clone(seg.geometry),
@@ -313,6 +291,10 @@ function buildRouteOverlayCollection(routeFeature, idsKey = 'segment_ids') {
       },
     });
   });
+  if (missing.length) {
+    const label = props[ROUTE_NAME_PROP] || `${props[ROUTE_FROM_PROP] || 'Start'} → ${props[ROUTE_TO_PROP] || 'Destination'}`;
+    console.warn(`[Diary] Route '${label}' skipped ${missing.length} missing segments: ${missing.join(', ')}`);
+  }
   return features.length ? { type: 'FeatureCollection', features } : routeFeature;
 }
 
@@ -322,10 +304,10 @@ function initLocalAggFromSegments(featureCollection) {
   if (!featureCollection || !Array.isArray(featureCollection.features)) return;
   featureCollection.features.forEach((feature) => {
     const props = feature.properties || {};
-    const id = props.segment_id;
+    const id = props[SEGMENT_ID_PROP];
     if (!id) return;
-    const mean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
-    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : 1;
+    const mean = Number.isFinite(props[SCORE_PROP]) ? props[SCORE_PROP] : 3;
+    const nEff = Number.isFinite(props[NEFF_PROP]) ? props[NEFF_PROP] : 1;
     const delta = Number.isFinite(props.delta_30d) ? props.delta_30d : 0;
     const tags = Array.isArray(props.top_tags) ? props.top_tags : [];
     localAgg.set(id, {
@@ -516,6 +498,9 @@ function ensureDiaryPanel(routes, options = {}) {
     btn.className = 'diary-view-pill';
     btn.addEventListener('click', () => {
       setDiaryViewMode(mode);
+       if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
+         window.__diaryInsightsHost.setViewContext(mode);
+       }
       renderActivePanel();
     });
     return { btn, mode };
@@ -540,27 +525,120 @@ function ensureDiaryPanel(routes, options = {}) {
   const renderActivePanel = () => {
     syncPills();
     body.innerHTML = '';
+    clearLiveRefs();
     if (store.diaryViewMode === 'history') {
-      renderHistoryPanel(body);
+      renderMyRoutesPanel(
+        body,
+        {
+          period: historyPeriodFilter,
+          mode: historyModeFilter,
+          routes: MOCK_HISTORY_ROUTES.filter((item) => historyModeFilter === 'all' || item.mode === historyModeFilter),
+        },
+        {
+          onPeriodChange: (val) => {
+            historyPeriodFilter = val;
+            renderActivePanel();
+          },
+          onModeChange: (val) => {
+            historyModeFilter = val;
+            renderActivePanel();
+          },
+          onSelect: (item) => {
+            setDiarySelectedHistoryRouteId(item.id);
+            console.info('[Diary] History route selected:', item.id, item.label);
+            focusHistoryRouteOnMap(item);
+          },
+        }
+      );
     } else if (store.diaryViewMode === 'community') {
-      renderCommunityPanel(body);
+      renderCommunityPanel(
+        body,
+        {
+          radiusMeters: store.diaryCommunityRadiusMeters || 1500,
+          segments: MOCK_COMMUNITY_SEGMENTS,
+          comments: MOCK_COMMENTS,
+        },
+        {
+          onRadiusChange: (val) => {
+            setDiaryCommunityRadiusMeters(val);
+            console.info('[Diary] Community radius changed:', val, 'm');
+          },
+          onSelectSegment: (seg) => {
+            console.info('[Diary] Focus high-concern segment:', seg.id, seg.name);
+          },
+          onPostComment: (text) => {
+            console.info('[Diary] Post community comment:', text);
+          },
+        }
+      );
     } else {
-      renderLiveRoutePanel(body, routes);
+      const refs = renderLiveRoutePanel(
+        body,
+        {
+          routes,
+          selectedRouteId: store.selectedRouteId,
+          altEnabled: store.diaryAltEnabled,
+          demoPeriod: store.diaryDemoPeriod,
+          timeFilter: store.diaryTimeFilter,
+          playbackSpeed: store.simPlaybackSpeed,
+          canRate: !!currentRoute,
+        },
+        {
+          onRouteSelect: (routeId) => {
+            if (routeId) selectRoute(routeId, { fitBounds: true });
+          },
+          onToggleAlt: (checked) => applyAltToggleState(checked),
+          onRate: () => openRouteRating(),
+          onPlay: () => startSim(),
+          onPause: () => pauseSim(),
+          onFinish: () => finishSim({ openModal: true }),
+          onSpeedChange: (val) => {
+            setSimPlaybackSpeed(val);
+            if (refs.speedButtons) {
+              refs.speedButtons.forEach((btn) => {
+                const speed = Number(btn.dataset?.speed);
+                btn.classList.toggle('is-active', speed === val);
+              });
+            }
+            updateSimButtons();
+          },
+          onDemoPeriodChange: (val) => setDiaryDemoPeriod(val),
+          onTimeFilterChange: (val) => setDiaryTimeFilter(val),
+        }
+      );
+      routeSelectEl = refs.routeSelectEl || null;
+      summaryStripEl = refs.summaryEl || null;
+      rateButtonEl = refs.rateButtonEl || null;
+      altToggleEl = refs.altToggleEl || null;
+      altSummaryEl = refs.altSummaryEl || null;
+      panelNoticeEl = refs.panelNoticeEl || null;
+      playButtonEl = refs.playButtonEl || null;
+      pauseButtonEl = refs.pauseButtonEl || null;
+      finishButtonEl = refs.finishButtonEl || null;
+      populateRouteOptions(routes);
+      updateSimButtons();
+      let desiredRouteId = store.selectedRouteId || null;
+      if (!desiredRouteId) {
+        const first = routes.features?.[0]?.properties?.route_id;
+        if (first) {
+          desiredRouteId = first;
+        }
+      }
+      if (desiredRouteId && routeById.has(desiredRouteId)) {
+        if (routeSelectEl) {
+          routeSelectEl.value = desiredRouteId;
+        }
+        selectRoute(desiredRouteId, { fitBounds: false });
+      }
+      applyAltToggleState(store.diaryAltEnabled, { update: true });
+      hydrateSimulatorFromPrefs();
     }
   };
 
+  if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
+    window.__diaryInsightsHost.setViewContext(store.diaryViewMode);
+  }
   renderActivePanel();
-}
-
-function styleSimButton(btn) {
-  btn.style.flex = '1';
-  btn.style.padding = '10px 12px';
-  btn.style.borderRadius = '10px';
-  btn.style.border = '1px solid #e2e8f0';
-  btn.style.background = '#fff';
-  btn.style.cursor = 'pointer';
-  btn.style.fontSize = '13px';
-  btn.style.fontWeight = '700';
 }
 
 function populateRouteOptions(routes) {
@@ -594,513 +672,6 @@ function clearLiveRefs() {
   playButtonEl = null;
   pauseButtonEl = null;
   finishButtonEl = null;
-}
-
-function renderLiveRoutePanel(root, routes) {
-  clearLiveRefs();
-  const routeCard = document.createElement('div');
-  routeCard.className = 'diary-section-card';
-  const routeLabel = document.createElement('div');
-  routeLabel.className = 'diary-section-label';
-  routeLabel.textContent = 'Route selector';
-  routeCard.appendChild(routeLabel);
-
-  routeSelectEl = document.createElement('select');
-  routeSelectEl.className = 'diary-select';
-  routeSelectEl.addEventListener('change', (event) => {
-    const routeId = event.target.value;
-    if (routeId) {
-      selectRoute(routeId, { fitBounds: true });
-    }
-  });
-  routeCard.appendChild(routeSelectEl);
-
-  summaryStripEl = document.createElement('div');
-  summaryStripEl.id = 'diary-route-summary';
-  summaryStripEl.className = 'diary-muted-card';
-  summaryStripEl.style.minHeight = '72px';
-  summaryStripEl.style.display = 'flex';
-  summaryStripEl.style.flexDirection = 'column';
-  summaryStripEl.style.gap = '4px';
-  summaryStripEl.textContent = 'Select a route to see its details.';
-  summaryStripEl.style.marginTop = '10px';
-  routeCard.appendChild(summaryStripEl);
-  root.appendChild(routeCard);
-
-  const actionsCard = document.createElement('div');
-  actionsCard.className = 'diary-section-card';
-  const actionsHeader = document.createElement('div');
-  actionsHeader.className = 'diary-section-header';
-  const actionsLabel = document.createElement('div');
-  actionsLabel.className = 'diary-section-label';
-  actionsLabel.textContent = 'Comparison';
-  actionsHeader.appendChild(actionsLabel);
-  actionsCard.appendChild(actionsHeader);
-
-  const altToggleRow = document.createElement('label');
-  altToggleRow.style.display = 'flex';
-  altToggleRow.style.alignItems = 'center';
-  altToggleRow.style.gap = '8px';
-  altToggleRow.style.fontSize = '13px';
-  altToggleRow.style.color = '#475569';
-  altToggleEl = document.createElement('input');
-  altToggleEl.type = 'checkbox';
-  altToggleEl.style.cursor = 'pointer';
-  altToggleEl.addEventListener('change', () => {
-    applyAltToggleState(altToggleEl.checked);
-  });
-  const altToggleText = document.createElement('span');
-  altToggleText.textContent = 'Show alternative route';
-  altToggleRow.appendChild(altToggleEl);
-  altToggleRow.appendChild(altToggleText);
-  actionsCard.appendChild(altToggleRow);
-
-  altSummaryEl = document.createElement('div');
-  altSummaryEl.className = 'diary-muted-card';
-  altSummaryEl.style.marginTop = '8px';
-  altSummaryEl.style.fontSize = '12px';
-  altSummaryEl.style.color = '#334155';
-  altSummaryEl.textContent = 'Toggle the switch to compare safer detours.';
-  actionsCard.appendChild(altSummaryEl);
-
-  panelNoticeEl = document.createElement('div');
-  panelNoticeEl.style.marginTop = '8px';
-  panelNoticeEl.style.borderRadius = '8px';
-  panelNoticeEl.style.padding = '8px 10px';
-  panelNoticeEl.style.fontSize = '12px';
-  panelNoticeEl.style.display = 'none';
-  panelNoticeEl.style.background = '#ecfdf5';
-  panelNoticeEl.style.color = '#065f46';
-  actionsCard.appendChild(panelNoticeEl);
-
-  const rateWrap = document.createElement('div');
-  rateWrap.style.marginTop = '10px';
-  rateButtonEl = document.createElement('button');
-  rateButtonEl.type = 'button';
-  rateButtonEl.textContent = 'Rate this route';
-  rateButtonEl.className = 'diary-primary-btn';
-  rateButtonEl.style.width = '100%';
-  rateButtonEl.style.padding = '12px 14px';
-  rateButtonEl.style.fontSize = '14px';
-  rateButtonEl.disabled = true;
-  rateButtonEl.style.opacity = '0.7';
-  rateButtonEl.addEventListener('click', () => {
-    if (!rateButtonEl.disabled) {
-      openRouteRating();
-    }
-  });
-  rateWrap.appendChild(rateButtonEl);
-  actionsCard.appendChild(rateWrap);
-
-  const hint = document.createElement('div');
-  hint.textContent = 'Zoom closer (levels 10–14) to see the gray road grid that powers Diary routes.';
-  hint.style.fontSize = '11px';
-  hint.style.color = '#475569';
-  hint.style.marginTop = '8px';
-  hint.style.lineHeight = '1.4';
-  actionsCard.appendChild(hint);
-
-  root.appendChild(actionsCard);
-
-  const simCard = document.createElement('div');
-  simCard.className = 'diary-section-card';
-  const simLabel = document.createElement('div');
-  simLabel.className = 'diary-section-label';
-  simLabel.textContent = 'Simulator';
-  simCard.appendChild(simLabel);
-
-  const simControls = document.createElement('div');
-  simControls.style.display = 'flex';
-  simControls.style.gap = '8px';
-  simControls.style.marginTop = '10px';
-
-  playButtonEl = document.createElement('button');
-  styleSimButton(playButtonEl);
-  playButtonEl.textContent = 'Play';
-  playButtonEl.addEventListener('click', () => startSim());
-  simControls.appendChild(playButtonEl);
-
-  pauseButtonEl = document.createElement('button');
-  styleSimButton(pauseButtonEl);
-  pauseButtonEl.textContent = 'Pause';
-  pauseButtonEl.addEventListener('click', () => pauseSim());
-  simControls.appendChild(pauseButtonEl);
-
-  finishButtonEl = document.createElement('button');
-  styleSimButton(finishButtonEl);
-  finishButtonEl.textContent = 'Finish → Rate';
-  finishButtonEl.addEventListener('click', () => finishSim({ openModal: true }));
-  simControls.appendChild(finishButtonEl);
-
-  simCard.appendChild(simControls);
-
-  const playbackLabel = document.createElement('div');
-  playbackLabel.className = 'diary-label';
-  playbackLabel.style.marginTop = '12px';
-  playbackLabel.textContent = 'Playback speed';
-  simCard.appendChild(playbackLabel);
-
-  const playbackRow = document.createElement('div');
-  playbackRow.style.display = 'flex';
-  playbackRow.style.gap = '6px';
-  const speeds = [0.5, 1, 2];
-  const speedButtons = [];
-  speeds.forEach((value) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = `${value}×`;
-    btn.style.flex = '1';
-    btn.className = 'diary-pill-btn';
-    const sync = () => {
-      const active = store.simPlaybackSpeed === value;
-      btn.classList.toggle('is-active', active);
-    };
-    btn.addEventListener('click', () => {
-      setSimPlaybackSpeed(value);
-      speedButtons.forEach((b) => b.sync());
-    });
-    btn.sync = sync;
-    speedButtons.push(btn);
-    playbackRow.appendChild(btn);
-  });
-  speedButtons.forEach((b) => b.sync());
-  simCard.appendChild(playbackRow);
-
-  root.appendChild(simCard);
-
-  const filterCard = document.createElement('div');
-  filterCard.className = 'diary-section-card';
-  const filterLabel = document.createElement('div');
-  filterLabel.className = 'diary-section-label';
-  filterLabel.textContent = 'Filters';
-  filterCard.appendChild(filterLabel);
-
-  const periodLabel = document.createElement('div');
-  periodLabel.className = 'diary-label';
-  periodLabel.textContent = 'Demo period';
-  periodLabel.style.marginTop = '8px';
-  filterCard.appendChild(periodLabel);
-
-  const periodSelect = document.createElement('select');
-  periodSelect.className = 'diary-select';
-  [
-    { value: 'day', label: 'Single day' },
-    { value: 'week', label: 'Last 7 days' },
-    { value: 'month', label: 'Last 30 days' },
-  ].forEach((opt) => {
-    const option = document.createElement('option');
-    option.value = opt.value;
-    option.textContent = opt.label;
-    periodSelect.appendChild(option);
-  });
-  periodSelect.value = store.diaryDemoPeriod || 'day';
-  periodSelect.addEventListener('change', () => {
-    setDiaryDemoPeriod(periodSelect.value);
-  });
-  filterCard.appendChild(periodSelect);
-
-  const timeLabel = document.createElement('div');
-  timeLabel.className = 'diary-label';
-  timeLabel.textContent = 'Time of day';
-  timeLabel.style.marginTop = '10px';
-  filterCard.appendChild(timeLabel);
-
-  const timeSelect = document.createElement('select');
-  timeSelect.className = 'diary-select';
-  [
-    { value: 'all', label: 'All hours' },
-    { value: 'day', label: 'Daytime' },
-    { value: 'evening', label: 'Evening' },
-    { value: 'night', label: 'Night' },
-  ].forEach((opt) => {
-    const option = document.createElement('option');
-    option.value = opt.value;
-    option.textContent = opt.label;
-    timeSelect.appendChild(option);
-  });
-  timeSelect.value = store.diaryTimeFilter || 'all';
-  timeSelect.addEventListener('change', () => {
-    setDiaryTimeFilter(timeSelect.value);
-  });
-  filterCard.appendChild(timeSelect);
-
-  const historyBtn = document.createElement('button');
-  historyBtn.type = 'button';
-  historyBtn.textContent = 'My routes and history (coming soon)';
-  historyBtn.style.marginTop = '10px';
-  historyBtn.style.width = '100%';
-  historyBtn.className = 'diary-pill-btn';
-  historyBtn.style.borderStyle = 'dashed';
-  historyBtn.style.cursor = 'not-allowed';
-  historyBtn.disabled = true;
-  historyBtn.addEventListener('click', () => {
-    console.info('[Diary] My routes and history is not available yet.');
-  });
-  filterCard.appendChild(historyBtn);
-
-  root.appendChild(filterCard);
-
-  populateRouteOptions(routes);
-  updateSimButtons();
-  let desiredRouteId = store.selectedRouteId || null;
-  if (!desiredRouteId) {
-    const first = routes.features?.[0]?.properties?.route_id;
-    if (first) {
-      desiredRouteId = first;
-    }
-  }
-  if (desiredRouteId && routeById.has(desiredRouteId)) {
-    if (routeSelectEl) {
-      routeSelectEl.value = desiredRouteId;
-    }
-    selectRoute(desiredRouteId, { fitBounds: false });
-  }
-  applyAltToggleState(store.diaryAltEnabled, { update: true });
-  hydrateSimulatorFromPrefs();
-}
-
-function renderHistoryPanel(root) {
-  const filters = document.createElement('div');
-  filters.style.display = 'flex';
-  filters.style.gap = '8px';
-  filters.style.marginBottom = '10px';
-
-  const periodSelect = document.createElement('select');
-  periodSelect.className = 'diary-select';
-  ['30d', '7d', 'all'].forEach((value) => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = value === '30d' ? 'Last 30 days' : value === '7d' ? 'Last 7 days' : 'All time';
-    periodSelect.appendChild(opt);
-  });
-  periodSelect.value = historyPeriodFilter;
-  periodSelect.addEventListener('change', () => {
-    historyPeriodFilter = periodSelect.value;
-    console.info('[Diary] History period', historyPeriodFilter);
-    renderHistoryList();
-  });
-  filters.appendChild(periodSelect);
-
-  const modeSelect = document.createElement('select');
-  modeSelect.className = 'diary-select';
-  [
-    { value: 'all', label: 'All modes' },
-    { value: 'walk', label: 'Walk' },
-    { value: 'bike', label: 'Bike' },
-  ].forEach((opt) => {
-    const option = document.createElement('option');
-    option.value = opt.value;
-    option.textContent = opt.label;
-    modeSelect.appendChild(option);
-  });
-  modeSelect.value = historyModeFilter;
-  modeSelect.addEventListener('change', () => {
-    historyModeFilter = modeSelect.value;
-    console.info('[Diary] History mode', historyModeFilter);
-    renderHistoryList();
-  });
-  filters.appendChild(modeSelect);
-  root.appendChild(filters);
-
-  const historyCard = document.createElement('div');
-  historyCard.className = 'diary-section-card';
-  const header = document.createElement('div');
-  header.className = 'diary-section-label';
-  header.textContent = 'Route history';
-  historyCard.appendChild(header);
-
-  const list = document.createElement('div');
-  list.style.display = 'flex';
-  list.style.flexDirection = 'column';
-  list.style.gap = '8px';
-  historyCard.appendChild(list);
-
-  function scoreBadge(score) {
-    const pill = document.createElement('div');
-    pill.className = 'diary-score-pill';
-    pill.textContent = score.toFixed(1);
-    if (score > 4) pill.classList.add('is-good');
-    else if (score >= 2.5) pill.classList.add('is-mid');
-    else pill.classList.add('is-bad');
-    return pill;
-  }
-
-  function renderHistoryList() {
-    list.innerHTML = '';
-    const filtered = MOCK_HISTORY_ROUTES.filter((item) => {
-      if (historyModeFilter !== 'all' && item.mode !== historyModeFilter) return false;
-      return true;
-    });
-    filtered.forEach((item) => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'diary-history-item';
-      row.setAttribute('data-id', item.id);
-      row.addEventListener('click', () => {
-        setDiarySelectedHistoryRouteId(item.id);
-        console.info('[Diary] History route selected:', item.id, item.label);
-        focusHistoryRouteOnMap(item);
-      });
-      const left = document.createElement('div');
-      left.style.display = 'flex';
-      left.style.flexDirection = 'column';
-      left.style.gap = '2px';
-      const date = document.createElement('div');
-      date.style.fontSize = '12px';
-      date.style.color = '#6b7280';
-      date.textContent = item.date;
-      const label = document.createElement('div');
-      label.style.fontSize = '13px';
-      label.style.fontWeight = '600';
-      label.style.color = '#0f172a';
-      label.textContent = item.label;
-      const mode = document.createElement('div');
-      mode.style.fontSize = '12px';
-      mode.style.color = '#475569';
-      mode.textContent = item.mode === 'bike' ? '🚲 Bike' : '🚶 Walk';
-      left.appendChild(date);
-      left.appendChild(label);
-      left.appendChild(mode);
-
-      const right = document.createElement('div');
-      right.appendChild(scoreBadge(item.score));
-
-      row.appendChild(left);
-      row.appendChild(right);
-      list.appendChild(row);
-    });
-  }
-
-  renderHistoryList();
-  root.appendChild(historyCard);
-}
-
-function renderCommunityPanel(root) {
-  const areaCard = document.createElement('div');
-  areaCard.className = 'diary-section-card';
-  const header = document.createElement('div');
-  header.className = 'diary-section-label';
-  header.textContent = 'Area focus';
-  areaCard.appendChild(header);
-  const subtitle = document.createElement('div');
-  subtitle.className = 'diary-community-subtitle';
-  subtitle.textContent = 'Radius around map center';
-  areaCard.appendChild(subtitle);
-  const radiusLabel = document.createElement('div');
-  radiusLabel.style.fontSize = '12px';
-  radiusLabel.style.color = '#475569';
-  const updateRadiusLabel = (val) => {
-    radiusLabel.textContent = `Radius: ${(val / 1000).toFixed(2)} km`;
-  };
-  updateRadiusLabel(store.diaryCommunityRadiusMeters || 1500);
-  areaCard.appendChild(radiusLabel);
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = 500;
-  slider.max = 3000;
-  slider.step = 250;
-  slider.value = store.diaryCommunityRadiusMeters || 1500;
-  slider.style.width = '100%';
-  slider.addEventListener('input', () => {
-    const val = Number(slider.value);
-    updateRadiusLabel(val);
-  });
-  slider.addEventListener('change', () => {
-    const val = Number(slider.value);
-    setDiaryCommunityRadiusMeters(val);
-    console.info('[Diary] Community radius changed:', val, 'm');
-    // TODO: Draw map buffer around center using turf.circle
-  });
-  areaCard.appendChild(slider);
-  root.appendChild(areaCard);
-
-  const segmentsCard = document.createElement('div');
-  segmentsCard.className = 'diary-section-card';
-  const segHeader = document.createElement('div');
-  segHeader.className = 'diary-section-label';
-  segHeader.textContent = 'High concern segments';
-  segmentsCard.appendChild(segHeader);
-  const segList = document.createElement('div');
-  segList.style.display = 'flex';
-  segList.style.flexDirection = 'column';
-  segList.style.gap = '8px';
-  MOCK_COMMUNITY_SEGMENTS.forEach((seg) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'diary-history-item';
-    const title = document.createElement('div');
-    title.style.fontWeight = '700';
-    title.style.fontSize = '13px';
-    title.textContent = seg.name;
-    const meta = document.createElement('div');
-    meta.style.display = 'flex';
-    meta.style.justifyContent = 'space-between';
-    meta.style.alignItems = 'center';
-    const tags = document.createElement('div');
-    tags.style.fontSize = '12px';
-    tags.style.color = '#475569';
-    tags.textContent = `Tags: ${seg.tags}`;
-    const badge = document.createElement('div');
-    badge.className = 'diary-score-pill';
-    badge.classList.add(seg.score < 2.5 ? 'is-bad' : seg.score < 4 ? 'is-mid' : 'is-good');
-    badge.textContent = seg.score.toFixed(1);
-    meta.appendChild(tags);
-    meta.appendChild(badge);
-    btn.appendChild(title);
-    btn.appendChild(meta);
-    btn.addEventListener('click', () => {
-      console.info('[Diary] Focus high-concern segment:', seg.id, seg.name);
-      // TODO: pan/zoom to this segment on the map
-    });
-    segList.appendChild(btn);
-  });
-  segmentsCard.appendChild(segList);
-  root.appendChild(segmentsCard);
-
-  const commentsCard = document.createElement('div');
-  commentsCard.className = 'diary-section-card';
-  const cHeader = document.createElement('div');
-  cHeader.className = 'diary-section-label';
-  cHeader.textContent = 'Community comments';
-  commentsCard.appendChild(cHeader);
-  const list = document.createElement('div');
-  list.style.display = 'flex';
-  list.style.flexDirection = 'column';
-  list.style.gap = '6px';
-  MOCK_COMMENTS.forEach((c) => {
-    const row = document.createElement('div');
-    row.style.borderBottom = '1px solid #e5e7eb';
-    row.style.paddingBottom = '6px';
-    row.style.fontSize = '12px';
-    row.innerHTML = `<strong style="color:#0f172a;">${c.user}</strong> <span style="color:#94a3b8;">${c.ago}</span><div style="margin-top:2px;color:#111827;">${c.text}</div>`;
-    list.appendChild(row);
-  });
-  commentsCard.appendChild(list);
-  const form = document.createElement('form');
-  form.style.display = 'flex';
-  form.style.gap = '8px';
-  form.style.marginTop = '8px';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Add a comment...';
-  input.className = 'diary-select';
-  input.style.flex = '1';
-  const postBtn = document.createElement('button');
-  postBtn.type = 'submit';
-  postBtn.textContent = 'Post';
-  postBtn.className = 'diary-primary-btn';
-  postBtn.style.padding = '8px 12px';
-  form.appendChild(input);
-  form.appendChild(postBtn);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const val = (input.value || '').trim();
-    if (!val) return;
-    console.info('[Diary] Post community comment:', val);
-    input.value = '';
-  });
-  commentsCard.appendChild(form);
-  root.appendChild(commentsCard);
 }
 
 function focusHistoryRouteOnMap(route) {
@@ -1150,8 +721,8 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   }
   if (mapRef) {
     const isCommunity = store.diaryViewMode === 'community';
-    const overlayData = buildRouteOverlayCollection(feature, 'segment_ids') || feature;
-    drawRouteOverlay(mapRef, ROUTE_OVERLAY_SOURCE_ID, overlayData, {
+    const overlayData = buildRouteOverlayCollection(feature, ROUTE_SEG_IDS_PROP) || feature;
+    drawRouteOverlay(mapRef, DIARY_ROUTE_PRIMARY_SOURCE_ID, overlayData, {
       lineColorExpression: ROUTE_SAFETY_EXPRESSION,
       width: 7,
       opacity: isCommunity ? 0.7 : 0.95,
@@ -1159,6 +730,9 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     if (fitBounds) {
       fitMapToRoute(feature);
     }
+  }
+  if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
+    window.__diaryInsightsHost.refresh();
   }
   updateAlternativeRoute();
   updateSimButtons();
@@ -1218,7 +792,7 @@ function handleDiarySubmissionSuccess(payload, response) {
   applyDiarySubmissionToAgg(payload);
   const refreshed = buildSegmentsFCFromBase();
   if (refreshed && mapRef) {
-    updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
+    updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
   }
   updateAlternativeRoute({ refreshOnly: true });
@@ -1302,7 +876,7 @@ function nudgeMeanSaferLocal(segmentId) {
 function refreshAfterCta(message) {
   const refreshed = buildSegmentsFCFromBase();
   if (refreshed && mapRef) {
-    updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, refreshed);
+    updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
   }
   updateAlternativeRoute({ refreshOnly: true });
@@ -1353,15 +927,16 @@ function buildSegmentsFCFromBase() {
   fc.features = fc.features.map((feature) => {
     const f = clone(feature);
     const props = { ...(f.properties || {}) };
-    const agg = localAgg.get(props.segment_id);
+    const segId = props[SEGMENT_ID_PROP];
+    const agg = localAgg.get(segId);
     if (agg) {
-      props.decayed_mean = agg.mean;
-      props.n_eff = agg.n_eff;
+      props[SCORE_PROP] = agg.mean;
+      props[NEFF_PROP] = agg.n_eff;
       props.top_tags = agg.top_tags;
       props.delta_30d = agg.delta_30d;
       props.updated = agg.updated;
     }
-    const cta = getCtaState(props.segment_id);
+    const cta = getCtaState(segId);
     props.__diaryVotes = {
       agreeDisabled: cta.agreeDisabled,
       saferDisabled: cta.saferDisabled,
@@ -1417,7 +992,7 @@ function ensureAggRecord(segmentId) {
 function updateAlternativeRoute({ refreshOnly = false } = {}) {
   if (!mapRef) return;
   if (!currentRoute) {
-    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
+    clearRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID);
     renderAltSummary(null, { reason: 'no-route' });
     return;
   }
@@ -1425,15 +1000,15 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
   const altInfo = resolveAlternativeForRoute(currentRoute);
   renderAltSummary(currentRoute, altInfo || null);
   if (!shouldShow || !altInfo) {
-    clearRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID);
+    clearRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID);
     return;
   }
   if (!refreshOnly) {
     const altOverlay = buildRouteOverlayCollection(
       altInfo.feature,
-      altInfo.feature?.properties?.alt_segment_ids?.length ? 'alt_segment_ids' : 'segment_ids'
+      altInfo.feature?.properties?.[ROUTE_ALT_SEG_IDS_PROP]?.length ? ROUTE_ALT_SEG_IDS_PROP : ROUTE_SEG_IDS_PROP
     ) || altInfo.feature;
-    drawRouteOverlay(mapRef, ALT_ROUTE_SOURCE_ID, altOverlay, {
+    drawRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID, altOverlay, {
       color: '#2563eb',
       width: 4,
       opacity: store.diaryViewMode === 'community' ? 0.6 : 0.75,
@@ -1445,7 +1020,9 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
 function resolveAlternativeForRoute(routeFeature) {
   if (!routeFeature) return null;
   const props = routeFeature.properties || {};
-  const altIds = Array.isArray(props.alt_segment_ids) && props.alt_segment_ids.length > 0 ? props.alt_segment_ids : props.segment_ids || [];
+  const altIds = Array.isArray(props[ROUTE_ALT_SEG_IDS_PROP]) && props[ROUTE_ALT_SEG_IDS_PROP].length > 0
+    ? props[ROUTE_ALT_SEG_IDS_PROP]
+    : props[ROUTE_SEG_IDS_PROP] || [];
   const altLength = Number.isFinite(props.alt_length_m) ? props.alt_length_m : props.length_m;
   const altDuration = Number.isFinite(props.alt_duration_min) ? props.alt_duration_min : props.duration_min;
   let geometry = props.alt_geometry;
@@ -1462,7 +1039,7 @@ function resolveAlternativeForRoute(routeFeature) {
       },
     },
     meta: {
-      segment_ids: altIds,
+      [ROUTE_SEG_IDS_PROP]: altIds,
       alt_length_m: Number(altLength),
       alt_duration_min: Number(altDuration),
     },
@@ -1541,8 +1118,8 @@ function applyAltToggleState(enabled, { update = true } = {}) {
 
 function summarizeAltBenefit(primaryRoute, altMeta) {
   if (!primaryRoute || !altMeta) return null;
-  const primaryIds = primaryRoute.properties?.segment_ids || [];
-  const altIds = altMeta.segment_ids || [];
+  const primaryIds = primaryRoute.properties?.[ROUTE_SEG_IDS_PROP] || [];
+  const altIds = altMeta[ROUTE_SEG_IDS_PROP] || [];
   const primaryLow = countLowRated(primaryIds);
   const altLow = countLowRated(altIds);
   const primaryLength = Number(primaryRoute.properties?.length_m) || 0;
@@ -1616,7 +1193,7 @@ async function runP4Stress({ cycles = 20, pick = 3, delayMs = 60 } = {}) {
   if (!currentRoute) {
     return { stable: false, reason: 'no-route', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
   }
-  const segmentIds = currentRoute.properties?.segment_ids || [];
+  const segmentIds = currentRoute.properties?.[ROUTE_SEG_IDS_PROP] || [];
   if (!segmentIds.length) {
     return { stable: false, reason: 'no-segments', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
   }
@@ -1682,7 +1259,7 @@ function getCurrentSegmentMean(segId) {
   }
   const feature = segmentLookup.get(segId);
   const props = feature?.properties || {};
-  return Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
+  return Number.isFinite(props[SCORE_PROP]) ? props[SCORE_PROP] : 3;
 }
 
 function getSimProgressRatio() {
@@ -1799,7 +1376,7 @@ function startSim() {
   sim.paused = false;
   sim.hasStarted = true;
   sim.playedOnce = true;
-  drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
+  drawSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
   sim.timer = setInterval(stepSim, SIM_INTERVAL_MS);
   updateSimButtons();
   persistSimProgress(true);
@@ -1812,7 +1389,7 @@ function stepSim() {
     finishSim({ openModal: true });
     return;
   }
-  drawSimPoint(mapRef, SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
+  drawSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
   persistSimProgress(true);
 }
 
@@ -1833,7 +1410,7 @@ function finishSim({ openModal = true } = {}) {
   pauseSim();
   sim.idx = 0;
   sim.hasStarted = false;
-  clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
+  clearSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID);
   updateSimButtons();
   persistSimProgress(false);
   if (openModal) {
@@ -1854,7 +1431,7 @@ function teardownSim({ silent = false } = {}) {
   sim.routeId = null;
   sim.idx = 0;
   if (mapRef) {
-    clearSimPoint(mapRef, SIM_POINT_SOURCE_ID);
+    clearSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID);
   }
   cleanupSimLifecycleHooks();
   setSimPanelState({ playing: false, progress: 0, routeId: null });
@@ -1876,9 +1453,9 @@ export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
   cleanupNetworkOverlayLifecycle();
   if (targetMap) {
     setDiaryMapSkin(targetMap, false);
-    clearRouteOverlay(targetMap, ROUTE_OVERLAY_SOURCE_ID);
-    clearRouteOverlay(targetMap, ALT_ROUTE_SOURCE_ID);
-    clearSimPoint(targetMap, SIM_POINT_SOURCE_ID);
+    clearRouteOverlay(targetMap, DIARY_ROUTE_PRIMARY_SOURCE_ID);
+    clearRouteOverlay(targetMap, DIARY_ROUTE_ALT_SOURCE_ID);
+    clearSimPoint(targetMap, DIARY_SIM_POINT_SOURCE_ID);
     try { removeNetworkLayer(targetMap); } catch {}
   }
   if (!silent) {
@@ -2017,6 +1594,13 @@ export async function loadDemoRoutes({ force = false } = {}) {
   }
   const payload = await fetchJsonWithFallback('routes', ROUTE_URL_CANDIDATES);
   cachedRoutes = normalizeRoutesCollection(ensureFeatureCollection(payload, 'routes'));
+  const missingIds = (cachedRoutes.features || []).filter((f) => {
+    const ids = f?.properties?.[ROUTE_SEG_IDS_PROP];
+    return !Array.isArray(ids) || ids.length === 0;
+  });
+  if (missingIds.length) {
+    console.warn('[Diary] Some routes are missing segment references:', missingIds.map((f) => f?.properties?.[ROUTE_ID_PROP] || 'route').join(', '));
+  }
   return clone(cachedRoutes);
 }
 
@@ -2070,9 +1654,9 @@ export async function initDiaryMode(map, options = {}) {
     lastLoadedRoutes = routes;
 
     if (layerMounted) {
-      updateSegmentsData(mapRef, SEGMENT_SOURCE_ID, hydratedSegments);
+      updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
     } else {
-      mountSegmentsLayer(mapRef, SEGMENT_SOURCE_ID, hydratedSegments);
+      mountSegmentsLayer(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
       layerMounted = true;
     }
 
@@ -2099,7 +1683,7 @@ export async function initDiaryMode(map, options = {}) {
 export function teardownDiaryMode(map) {
   const targetMap = map || mapRef;
   if (!targetMap) return;
-  removeSegmentsLayer(targetMap, SEGMENT_SOURCE_ID);
+  removeSegmentsLayer(targetMap, DIARY_SEGMENTS_SOURCE_ID);
   teardownDiaryTransient(targetMap, { silent: true });
   layerMounted = false;
   closeRatingModal();

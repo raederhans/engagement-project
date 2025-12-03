@@ -1,5 +1,20 @@
 import maplibregl from 'maplibre-gl';
 import { submitSegmentFeedback } from '../routes_diary/form_submit.js';
+import {
+  DIARY_SEGMENTS_SOURCE_ID,
+  DIARY_SEGMENTS_LAYER_ID,
+  DIARY_SEGMENTS_HIT_LAYER_ID,
+} from '../routes_diary/map_ids.js';
+import {
+  normalizeFeatureCollection,
+  normalizeSegmentFeature,
+  SEGMENT_ID_PROP,
+  SCORE_PROP,
+  NEFF_PROP,
+  STREET_NAME_PROP,
+  TAGS_PROP,
+  CLASS_PROP,
+} from '../routes_diary/data_normalization.js';
 
 /**
  * Route Safety Diary - Segments Layer
@@ -29,17 +44,18 @@ export function registerSegmentActionHandler(handler) {
  */
 export function mountSegmentsLayer(map, sourceId, data) {
   if (!map) return;
+  const sid = sourceId || DIARY_SEGMENTS_SOURCE_ID;
   const prepared = prepareFeatureCollection(data);
-  ensureSource(map, sourceId, prepared);
-  const layerId = `${sourceId}-line`;
-  const hitLayerId = `${sourceId}-hit`;
-  ensureLineLayer(map, hitLayerId, sourceId, {
+  ensureSource(map, sid, prepared);
+  const layerId = DIARY_SEGMENTS_LAYER_ID;
+  const hitLayerId = DIARY_SEGMENTS_HIT_LAYER_ID;
+  ensureLineLayer(map, hitLayerId, sid, {
     'line-opacity': 0.05,
     'line-color': '#0f172a',
     'line-width': 12,
     'line-blur': 0,
   });
-  ensureLineLayer(map, layerId, sourceId, {
+  ensureLineLayer(map, layerId, sid, {
     'line-opacity': 0.9,
     'line-color': buildColorExpression(),
     'line-width': ['coalesce', ['get', 'line_width_px'], buildWidthExpression()],
@@ -54,9 +70,10 @@ export function mountSegmentsLayer(map, sourceId, data) {
  */
 export function updateSegmentsData(map, sourceId, featureCollection) {
   if (!map) return;
-  const source = map.getSource(sourceId);
+  const sid = sourceId || DIARY_SEGMENTS_SOURCE_ID;
+  const source = map.getSource(sid);
   if (!source) {
-    console.warn('[Diary] segments source missing; update skipped.');
+    console.warn('[Diary] segments source missing; update skipped.', sid);
     return;
   }
   source.setData(prepareFeatureCollection(featureCollection));
@@ -78,17 +95,22 @@ function glowSegment(map, sourceId, segmentId, duration = 2000) {
  */
 export function removeSegmentsLayer(map, sourceId) {
   if (!map) return;
-  const layerId = `${sourceId}-line`;
-  const hitLayerId = `${sourceId}-hit`;
+  const sid = sourceId || DIARY_SEGMENTS_SOURCE_ID;
+  const layerId = DIARY_SEGMENTS_LAYER_ID;
+  const hitLayerId = DIARY_SEGMENTS_HIT_LAYER_ID;
   cleanupHoverHandlers(map, hitLayerId);
   cleanupClickHandlers(map, hitLayerId);
   for (const id of [layerId, hitLayerId]) {
     if (map.getLayer(id)) {
       map.removeLayer(id);
+    } else {
+      console.info('[Diary] removeSegmentsLayer: layer not found', id);
     }
   }
-  if (map.getSource(sourceId)) {
-    map.removeSource(sourceId);
+  if (map.getSource(sid)) {
+    map.removeSource(sid);
+  } else {
+    console.info('[Diary] removeSegmentsLayer: source not found', sid);
   }
 }
 
@@ -117,31 +139,25 @@ function classWidth(classValue) {
 }
 
 function prepareFeatureCollection(collection) {
-  const base = collection && collection.type === 'FeatureCollection' ? clone(collection) : { type: 'FeatureCollection', features: [] };
-  base.features = (base.features || []).map((feature, idx) => {
-    const f = clone(feature);
-    const props = { ...(f.properties || {}) };
-    const mean = Number.isFinite(props.decayed_mean) ? props.decayed_mean : 3;
-    const nEff = Number.isFinite(props.n_eff) ? props.n_eff : 1;
-    const delta = Number.isFinite(props.delta_30d) ? props.delta_30d : 0;
-    const tags = Array.isArray(props.top_tags) ? props.top_tags : [];
-    f.properties = {
-      ...props,
-      segment_id: typeof props.segment_id === 'string' ? props.segment_id : `seg_${idx + 1}`,
-      decayed_mean: Math.min(5, Math.max(1, mean)),
-      n_eff: Math.max(0, nEff),
-      delta_30d: delta,
-      top_tags: tags,
-      line_width_px: Math.min(4, widthForNEff(nEff) + (classWidth(props.class) - 1.5)),
-      class: props.class ?? 3,
+  const fc = normalizeFeatureCollection(collection, normalizeSegmentFeature);
+  fc.features = fc.features.map((f) => {
+    const props = f.properties || {};
+    const nEff = Number.isFinite(props[NEFF_PROP]) ? props[NEFF_PROP] : 0;
+    const cls = Number.isFinite(props[CLASS_PROP]) ? props[CLASS_PROP] : 3;
+    return {
+      ...f,
+      properties: {
+        ...props,
+        line_width_px: Math.min(4, widthForNEff(nEff) + (classWidth(cls) - 1.5)),
+        class: cls,
+      },
     };
-    return f;
   });
-  return base;
+  return fc;
 }
 
 function buildColorExpression() {
-  const expression = ['step', ['coalesce', ['get', 'decayed_mean'], 3], COLOR_BINS[0].color];
+  const expression = ['step', ['coalesce', ['get', SCORE_PROP], 3], COLOR_BINS[0].color];
   for (let i = 0; i < COLOR_BINS.length - 1; i += 1) {
     expression.push(COLOR_BINS[i].max, COLOR_BINS[i + 1].color);
   }
@@ -149,7 +165,7 @@ function buildColorExpression() {
 }
 
 function buildWidthExpression() {
-  return ['min', 4, ['max', 1.5, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', 'n_eff'], 0], 0]]]]]];
+  return ['min', 4, ['max', 1.5, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', NEFF_PROP], 0], 0]]]]]];
 }
 
 function registerHoverHandlers(map, layerId) {
@@ -249,7 +265,7 @@ function registerClickHandlers(map, layerId) {
     const feature = event.features && event.features[0];
     if (!feature) return;
     const props = feature.properties || {};
-    const segmentId = props.segment_id;
+    const segmentId = props[SEGMENT_ID_PROP];
 
     if (segmentId && segmentId === activePinnedSegmentId && activePinnedPopup) {
       return;
@@ -329,7 +345,7 @@ function wirePopupInteractions(popup) {
 }
 
 function deriveTitle(props) {
-  const name = props.street_name || props.name || props.street || props.segment_id || props.id || 'Segment';
+  const name = props[STREET_NAME_PROP] || props.name || props.street || props[SEGMENT_ID_PROP] || props.id || 'Segment';
   const dir = (props.direction || props.dir || props.oneway || '').toString().toUpperCase();
   let dirLabel = '';
   if (dir === 'B' || dir === 'BOTH') dirLabel = '';
@@ -434,10 +450,10 @@ const RATING_COPY = {
 };
 
 function buildSegmentCardHtml(props, state = {}) {
-  const mean = Number(props.decayed_mean ?? props.mean ?? 0) || 0;
-  const nEff = Number(props.n_eff ?? props.N_EFF ?? 0) || 0;
+  const mean = Number(props[SCORE_PROP] ?? props.mean ?? 0) || 0;
+  const nEff = Number(props[NEFF_PROP] ?? props.N_EFF ?? 0) || 0;
   const topIssues = deriveTopIssues(props);
-  const segmentId = props.segment_id || props.id || '';
+  const segmentId = props[SEGMENT_ID_PROP] || props.id || '';
   const title = deriveTitle(props);
   const agreeDisabled = props.__diaryVotes?.agreeDisabled;
   const saferDisabled = props.__diaryVotes?.saferDisabled;
@@ -533,7 +549,7 @@ function wireSegmentCardBehavior(popup, props, state, rerender) {
   const el = popup.getElement();
   const card = el?.querySelector('.diary-segment-card');
   if (!card) return;
-  const segmentId = props.segment_id || props.id;
+  const segmentId = props[SEGMENT_ID_PROP] || props.id;
   card.querySelectorAll('[data-role="close"]').forEach((btn) => {
     btn.addEventListener('click', () => popup.remove());
   });
@@ -541,7 +557,7 @@ function wireSegmentCardBehavior(popup, props, state, rerender) {
   if (enter) {
     enter.addEventListener('click', () => {
       state.mode = 'input';
-      if (!state.rating) state.rating = Math.max(1, Math.round(Number(props.decayed_mean ?? props.mean ?? 3)));
+      if (!state.rating) state.rating = Math.max(1, Math.round(Number(props[SCORE_PROP] ?? props.mean ?? 3)));
       rerender();
     });
   }

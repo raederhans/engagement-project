@@ -1,7 +1,5 @@
-import * as turf from '@turf/turf';
+import { DIARY_NETWORK_SOURCE_ID, DIARY_NETWORK_LAYER_ID } from '../routes_diary/map_ids.js';
 
-const SOURCE_ID = 'diary-network';
-const LAYER_ID = 'diary-network-line';
 let cachedData = null;
 
 function classWidth(classValue, zoom = 12) {
@@ -33,19 +31,19 @@ async function loadNetworkGeojson() {
 }
 
 function ensureSource(map, data) {
-  if (map.getSource(SOURCE_ID)) {
-    if (data) map.getSource(SOURCE_ID).setData(data);
+  if (map.getSource(DIARY_NETWORK_SOURCE_ID)) {
+    if (data) map.getSource(DIARY_NETWORK_SOURCE_ID).setData(data);
     return;
   }
-  map.addSource(SOURCE_ID, { type: 'geojson', data: data || { type: 'FeatureCollection', features: [] } });
+  map.addSource(DIARY_NETWORK_SOURCE_ID, { type: 'geojson', data: data || { type: 'FeatureCollection', features: [] } });
 }
 
 function ensureLayer(map) {
-  if (map.getLayer(LAYER_ID)) return;
+  if (map.getLayer(DIARY_NETWORK_LAYER_ID)) return;
   map.addLayer({
-    id: LAYER_ID,
+    id: DIARY_NETWORK_LAYER_ID,
     type: 'line',
-    source: SOURCE_ID,
+    source: DIARY_NETWORK_SOURCE_ID,
     layout: {
       'line-cap': 'round',
       'line-join': 'round',
@@ -85,26 +83,30 @@ export async function addNetworkLayer(map) {
   }
   ensureSource(map, data);
   ensureLayer(map);
-  console.info(`[Diary] Network layer attached: source="${SOURCE_ID}", layer="${LAYER_ID}"`);
+  console.info(`[Diary] Network layer attached: source="${DIARY_NETWORK_SOURCE_ID}", layer="${DIARY_NETWORK_LAYER_ID}"`);
 }
 
 export function ensureNetworkLayer(map) {
   if (!map) return;
-  if (!map.getSource(SOURCE_ID)) return addNetworkLayer(map);
+  if (!map.getSource(DIARY_NETWORK_SOURCE_ID)) return addNetworkLayer(map);
   ensureLayer(map);
 }
 
 export function removeNetworkLayer(map) {
   if (!map) return;
-  if (map.getLayer(LAYER_ID)) {
-    try { map.removeLayer(LAYER_ID); } catch {}
+  if (map.getLayer(DIARY_NETWORK_LAYER_ID)) {
+    try { map.removeLayer(DIARY_NETWORK_LAYER_ID); } catch {}
+  } else {
+    console.info('[Diary] removeNetworkLayer: layer not found', DIARY_NETWORK_LAYER_ID);
   }
-  if (map.getSource(SOURCE_ID)) {
-    try { map.removeSource(SOURCE_ID); } catch {}
+  if (map.getSource(DIARY_NETWORK_SOURCE_ID)) {
+    try { map.removeSource(DIARY_NETWORK_SOURCE_ID); } catch {}
+  } else {
+    console.info('[Diary] removeNetworkLayer: source not found', DIARY_NETWORK_SOURCE_ID);
   }
 }
 
 export function isNetworkLayerPresent(map) {
   if (!map) return false;
-  return !!map.getLayer(LAYER_ID);
+  return !!map.getLayer(DIARY_NETWORK_LAYER_ID);
 }

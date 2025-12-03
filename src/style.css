@@ -43,6 +43,7 @@ body {
   color: var(--text-main);
 }
 
+.diary-card,
 .diary-section-card {
   background: var(--surface-white);
   border: 1px solid var(--border-subtle);
@@ -57,6 +58,15 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.diary-section-title,
+.diary-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .diary-label {
@@ -76,6 +86,7 @@ body {
   background: #fff;
 }
 
+.diary-pill,
 .diary-pill-btn {
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
@@ -87,6 +98,7 @@ body {
   color: var(--text-main);
 }
 
+.diary-pill.is-active,
 .diary-pill-btn.is-active {
   background: var(--text-main);
   color: #fff;
@@ -179,6 +191,7 @@ body {
   margin-bottom: 8px;
 }
 
+.diary-btn-primary,
 .diary-primary-btn {
   background: var(--diary-primary);
   color: #fff;
@@ -189,11 +202,31 @@ body {
   transition: background 120ms ease, transform 120ms ease;
 }
 
+.diary-btn-primary:hover,
 .diary-primary-btn:hover {
   background: var(--diary-primary-hover);
 }
 
+.diary-btn-primary:active,
 .diary-primary-btn:active {
+  transform: translateY(1px);
+}
+
+.diary-btn-secondary {
+  background: #fff;
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.diary-btn-secondary:hover {
+  background: #f8fafc;
+}
+
+.diary-btn-secondary:active {
   transform: translateY(1px);
 }
 
@@ -488,4 +521,42 @@ body {
 .diary-muted-text {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.diary-insights-root {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  width: 360px;
+  max-height: 88vh;
+  overflow: hidden;
+  z-index: 18;
+  font: 13px/1.4 "Inter", system-ui;
+}
+
+.diary-insights-card {
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.diary-insights-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diary-insights-content {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.diary-insights-section {
+  box-shadow: none;
+}
+
+.diary-insights-toggle {
+  font-size: 12px;
+  padding: 6px 10px;
 }

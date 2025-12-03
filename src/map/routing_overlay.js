@@ -31,9 +31,13 @@ export function clearRouteOverlay(map, sourceId) {
   const layerId = `${sourceId}-line`;
   if (map.getLayer(layerId)) {
     map.removeLayer(layerId);
+  } else {
+    console.info('[Diary] clearRouteOverlay: layer not found', layerId);
   }
   if (map.getSource(sourceId)) {
     map.removeSource(sourceId);
+  } else {
+    console.info('[Diary] clearRouteOverlay: source not found', sourceId);
   }
 }
 
@@ -61,9 +65,13 @@ export function clearSimPoint(map, sourceId) {
   const layerId = `${sourceId}-circle`;
   if (map.getLayer(layerId)) {
     map.removeLayer(layerId);
+  } else {
+    console.info('[Diary] clearSimPoint: layer not found', layerId);
   }
   if (map.getSource(sourceId)) {
     map.removeSource(sourceId);
+  } else {
+    console.info('[Diary] clearSimPoint: source not found', sourceId);
   }
 }
 

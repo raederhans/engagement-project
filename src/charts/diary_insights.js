@@ -335,6 +335,15 @@ function renderHeatmap(container) {
   container.appendChild(grid);
 }
 
+export function renderInsightsSections(trendEl, tagsEl, heatEl, opts = {}) {
+  if (opts?.context) {
+    insightsContext = opts.context === 'history' ? 'history' : opts.context === 'community' ? 'community' : 'live';
+  }
+  if (trendEl) renderTrend(trendEl);
+  if (tagsEl) renderTags(tagsEl);
+  if (heatEl) renderHeatmap(heatEl);
+}
+
 export function createDiaryInsightsController(root) {
   if (!root || typeof document === 'undefined') return null;
   let built = false;

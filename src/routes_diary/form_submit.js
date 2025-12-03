@@ -1,5 +1,7 @@
 import Ajv from 'ajv';
 import { submitDiary } from '../api/diary.js';
+import { SCORE_PROP } from './data_normalization.js';
+import { getSegmentDisplayLabel } from './labels.js';
 
 const ALL_TAGS = [
   'poor_lighting',
@@ -445,10 +447,10 @@ function createSegmentOverrideSection(state) {
 
   // Gather segment data with safety scores for sorting
   const segmentsData = segmentIds.map((segmentId, idx) => {
-    const segmentFeature = state.segmentLookup?.get?.(segmentId);
-    const safetyScore = segmentFeature?.properties?.decayed_mean || 3;
-    const street = getSegmentLabel(state.segmentLookup, segmentId);
-    return { segmentId, idx, safetyScore, street };
+    const segmentFeature = state.segmentLookup?.get?.(segmentId) || state.segmentLookup?.[segmentId];
+    const safetyScore = Number(segmentFeature?.properties?.[SCORE_PROP]) || 3;
+    const label = getSegmentDisplayLabel(segmentFeature, idx + 1);
+    return { segmentId, idx, safetyScore, label };
   });
 
   // Sort by safety score (lowest first = most concerning segments)
@@ -458,7 +460,7 @@ function createSegmentOverrideSection(state) {
   const topSegments = sortedSegments.slice(0, 3);
   const restSegments = sortedSegments.slice(3);
 
-  const createSegmentRow = ({ segmentId, idx, street }) => {
+  const createSegmentRow = ({ segmentId, idx, label }) => {
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.justifyContent = 'space-between';
@@ -466,15 +468,15 @@ function createSegmentOverrideSection(state) {
     row.style.border = '1px solid #e2e8f0';
     row.style.borderRadius = '10px';
     row.style.padding = '8px 10px';
+    row.title = segmentId;
 
     const labelWrap = document.createElement('div');
     labelWrap.style.display = 'flex';
     labelWrap.style.flexDirection = 'column';
     labelWrap.style.fontSize = '12px';
     labelWrap.style.color = '#475569';
-    const friendly = street && street !== segmentId ? street : `Segment ${idx + 1}`;
-    const idLabel = street && street !== segmentId ? segmentId : '';
-    labelWrap.innerHTML = `<strong style="color:#0f172a;">${friendly}</strong>${idLabel ? `<span style="color:#94a3b8;font-size:11px;">${idLabel}</span>` : ''}`;
+    const friendly = label || `Segment ${idx + 1}`;
+    labelWrap.innerHTML = `<strong style="color:#0f172a;">${friendly}</strong>`;
 
     const controls = document.createElement('div');
     controls.style.display = 'flex';
@@ -645,13 +647,4 @@ async function handleSubmit(event) {
 function setError(message) {
   if (!errorEl) return;
   errorEl.textContent = message || '';
-}
-
-function getSegmentLabel(segmentLookup, segmentId) {
-  if (!segmentLookup) return segmentId;
-  if (typeof segmentLookup.get === 'function') {
-    return segmentLookup.get(segmentId)?.properties?.street || segmentId;
-  }
-  const match = segmentLookup[segmentId];
-  return match?.properties?.street || segmentId;
 }

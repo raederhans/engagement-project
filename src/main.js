@@ -20,7 +20,7 @@ import { upsertSelectedDistrict, clearSelectedDistrict, upsertSelectedTract, cle
 import { initLegend } from './map/legend.js';
 import { upsertTractsOutline } from './map/tracts_layers.js';
 import { fetchTractsCachedFirst } from './api/boundaries.js';
-import { createDiaryInsightsController } from './charts/diary_insights.js';
+import { createDiaryInsightsHost } from './routes_diary/ui_insights_panel.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryFeatureEnabled = (import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
@@ -45,7 +45,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   const diaryInsightsRoot = document.createElement('div');
   diaryInsightsRoot.id = 'diary-insights-root';
   document.body.appendChild(diaryInsightsRoot);
-  const diaryInsights = createDiaryInsightsController(diaryInsightsRoot);
+  const diaryInsights = createDiaryInsightsHost(diaryInsightsRoot);
+  if (typeof window !== 'undefined') {
+    window.__diaryInsightsHost = diaryInsights;
+  }
   writeModeToURL(initialMode);
 
   // Align defaults with dataset coverage

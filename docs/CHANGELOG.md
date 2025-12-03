@@ -644,6 +644,18 @@ Re-validated the dashboard after initial blocker fixes were attempted. Found tha
 
 ## 2025-11-16 17:05 — Diary: standalone diary-demo.html created + integrated panel mount verified
 
+## 2025-11-19 00:00 — Diary map wiring hardened (IDs, normalization, friendly labels)
+
+- Centralized all Diary source/layer IDs in `src/routes_diary/map_ids.js` and updated segments/network/route overlays to use them with teardown logging.
+- Added shared data normalization + property constants in `src/routes_diary/data_normalization.js` (segments/routes) and applied across Diary map bootstrap.
+- Replaced raw `segment_id` text in the rating modal with friendly labels and added warnings when routes reference missing segments.
+
+## 2025-11-19 00:00 — Diary UI modularized with shared components (Step 2)
+
+- Extracted Diary panels into modules: `ui_live_panel.js`, `ui_my_routes_panel.js`, `ui_community_panel.js`, and `ui_insights_panel.js` with shared helpers in `ui_common.js`.
+- Added lightweight design-system classes (`diary-card`, `diary-section-title`, `diary-pill`, `diary-btn-primary/secondary`, insights root styles) and refactored panels to use them for consistent cards, pills, and buttons.
+- Wrapped the Insights overlay with the new host module and context wiring while preserving existing charts.
+
 ## 2025-11-17 02:19 — Diary UI: diagnosis complete, modal z-index fixed (P0), comprehensive fix plan created
 
 - **Diagnosed** 3 UI issues: segment cards disappearing, modal non-interactive, panel missing controls
