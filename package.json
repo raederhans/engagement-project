@@ -2,7 +2,12 @@
   "name": "dashboard-project",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
+  "repository": "https://github.com/raederhans/engagement-project",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,6 +18,8 @@
     "data:check": "node scripts/validate_demo_data.mjs",
     "test:diary:math": "node scripts/tests/diary_math.mjs",
     "test:diary:agg": "node scripts/tests/aggregator_update.mjs",
+    "test": "npm run test:diary:math && npm run test:diary:agg",
+    "validate": "npm run data:check && npm test && npm run build",
     "diary:qs:win": "powershell -ExecutionPolicy Bypass -File scripts/diary_quickstart.ps1",
     "diary:qs:sh": "bash scripts/diary_quickstart.sh",
     "diary:preview": "npm run data:gen && npm run data:check && VITE_FEATURE_DIARY=1 vite build && vite preview",
@@ -24,13 +31,13 @@
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",
-    "ajv": "^8.12.0",
+    "ajv": "^8.20.0",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.13",
     "luxon": "^3.4.4",
     "maplibre-gl": "^4.5.0"
   },
   "devDependencies": {
-    "vite": "^5.4.0"
+    "vite": "^7.3.6"
   }
 }
