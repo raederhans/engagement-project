@@ -67,8 +67,9 @@ async function appendRetryLog(line) {
  * @param {RequestInit & {timeoutMs?:number, retries?:number, cacheTTL?:number}} [options]
  * @returns {Promise<T>}
  */
-export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, method = 'GET', body, headers, ...rest } = {}) {
+export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, method = 'GET', body, headers, signal, ...rest } = {}) {
   if (!url) throw new Error('fetchJson requires url');
+  throwIfAborted(signal);
   const normalizedMethod = method.toUpperCase();
   const safeMethod = normalizedMethod === 'GET' || normalizedMethod === 'HEAD';
   const effectiveCacheTTL = cacheTTL ?? (safeMethod ? DEFAULT_TTL : 0);
@@ -76,6 +77,7 @@ export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, met
   const keyBase = `${normalizedMethod} ${url} ${typeof body === 'string' ? hashKey(body) : hashKey(JSON.stringify(body ?? ''))}`;
   const cacheKey = `cache:${hashKey(keyBase)}`;
   const cacheEnabled = Number(effectiveCacheTTL) > 0;
+  const shareInflight = cacheEnabled && !signal;
 
   // memory/session cache
   const dev = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) || (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development');
@@ -84,44 +86,48 @@ export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, met
   const ss = cacheEnabled ? ssGet(cacheKey) : null;
   if (ss != null) { if (dev) console.log(`cache HIT(session): ${cacheKey}`); lruSet(cacheKey, ss, effectiveCacheTTL); return ss; }
 
-  if (cacheEnabled && inflight.has(cacheKey)) return inflight.get(cacheKey);
+  if (shareInflight && inflight.has(cacheKey)) return inflight.get(cacheKey);
 
   const p = (async () => {
     let attempt = 0;
     const total = Math.max(0, effectiveRetries) + 1;
     while (attempt < total) {
-      const controller = new AbortController();
-      const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      const attemptSignal = createAttemptSignal(signal, timeoutMs);
       try {
-        const res = await fetch(url, { method, body, headers, signal: controller.signal, ...rest });
-        if (!res.ok) {
-          const shouldRetry = res.status === 429 || (res.status >= 500 && res.status <= 599);
-          if (!shouldRetry) throw new Error(`HTTP ${res.status}`);
-          throw new RetryableError(`HTTP ${res.status}`);
+        try {
+          const res = await fetch(url, { method, body, headers, ...rest, signal: attemptSignal.signal });
+          if (!res.ok) {
+            const shouldRetry = res.status === 429 || (res.status >= 500 && res.status <= 599);
+            if (!shouldRetry) throw new Error(`HTTP ${res.status}`);
+            throw new RetryableError(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          throwIfAborted(signal);
+          if (cacheEnabled) {
+            lruSet(cacheKey, data, effectiveCacheTTL);
+            ssSet(cacheKey, data, effectiveCacheTTL);
+          }
+          if (dev) console.log(`cache MISS: ${cacheKey}`);
+          return data;
+        } finally {
+          attemptSignal.cleanup();
         }
-        const data = await res.json();
-        if (cacheEnabled) {
-          lruSet(cacheKey, data, effectiveCacheTTL);
-          ssSet(cacheKey, data, effectiveCacheTTL);
-        }
-        if (dev) console.log(`cache MISS: ${cacheKey}`);
-        return data;
       } catch (e) {
+        throwIfAborted(signal);
         const last = attempt === total - 1;
-        const retryable = e.name === 'AbortError' || e instanceof RetryableError || /ETIMEDOUT|ENOTFOUND|ECONNRESET/.test(String(e?.message || e));
+        const retryable = e.name === 'TimeoutError' || e instanceof RetryableError || /ETIMEDOUT|ENOTFOUND|ECONNRESET/.test(String(e?.message || e));
         if (!retryable || last) { throw e; }
         const delay = BACKOFF_DELAYS_MS[Math.min(attempt, BACKOFF_DELAYS_MS.length - 1)];
         await appendRetryLog(`[${new Date().toISOString()}] retry ${attempt + 1} for ${url}: ${e?.message || e}`);
-        await new Promise(r => setTimeout(r, delay));
+        await waitForRetry(delay, signal);
       } finally {
-        if (timer) clearTimeout(timer);
         attempt++;
       }
     }
     throw new Error('exhausted retries');
   })();
 
-  if (!cacheEnabled) return p;
+  if (!shareInflight) return p;
 
   inflight.set(cacheKey, p);
   try {
@@ -159,4 +165,45 @@ export async function logQuery(label, content) {
 async function importNodeFs() {
   const specifier = 'node:fs/promises';
   return import(/* @vite-ignore */ specifier);
+}
+
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  if (signal.reason !== undefined) throw signal.reason;
+  throw new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function createAttemptSignal(callerSignal, timeoutMs) {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal.reason);
+  callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  if (callerSignal?.aborted) abortFromCaller();
+  const timer = timeoutMs > 0 && !controller.signal.aborted
+    ? setTimeout(() => controller.abort(new DOMException('The request timed out.', 'TimeoutError')), timeoutMs)
+    : null;
+
+  return {
+    signal: controller.signal,
+    cleanup() {
+      if (timer) clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', abortFromCaller);
+    },
+  };
+}
+
+function waitForRetry(delay, signal) {
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    };
+    const timer = setTimeout(finish, delay);
+    const abort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+  });
 }

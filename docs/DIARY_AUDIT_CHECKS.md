@@ -65,7 +65,7 @@
 
 ## Section D: Decay, Shrinkage & Confidence Math Verification
 
-**Run test suite:** `node test_math_verification.mjs`
+**Run standard test:** `npm run test:diary:math`
 
 - [ ] Test 1: weightFor (time decay) - PASS
   - [ ] Weight at 0 days = 1.0
@@ -77,19 +77,9 @@
 - [ ] Test 3: clampMean (bounds) - PASS
   - [ ] Values <1 clamped to 1
   - [ ] Values >5 clamped to 5
-- [ ] Test 4: decayedMean (weighted average) - PASS
-- [ ] Test 5: effectiveNFromSamples (sum of weights) - PASS
-- [ ] Test 6: delta30d (trend) - PASS
-- [ ] Test 7: confidencePercent (n_eff → %) - PASS
-- [ ] Test 8: calculateSegmentStats (full pipeline) - PASS
-  - [ ] rating ∈ [1, 5]
-  - [ ] n_eff ≥ 0
-  - [ ] confidence ∈ [0, 100]
-- [ ] Test 9: U4 Before/After verification - PASS
-  - [ ] Mean increased
-  - [ ] n_eff increased
-  - [ ] Trend updated
-  - [ ] Tags accumulated
+- [ ] Test 4: effectiveN (validated sum of weights) - PASS
+  - [ ] Zero remains zero
+  - [ ] Positive finite sums remain unchanged
 
 **Evidence to capture:**
 - Full test output

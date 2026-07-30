@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { bayesianShrink, clampMean, effectiveN } from '../../src/utils/decay.js';
+import {
+  DEFAULT_HALF_LIFE_DAYS,
+  bayesianShrink,
+  clampMean,
+  effectiveN,
+} from '../../src/utils/decay.js';
 
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
-const HALF_LIFE_DAYS = 21;
 
 const localAgg = new Map();
 
@@ -37,7 +41,7 @@ function ensureAgg(segmentId) {
 function decay(record, now) {
   const last = Date.parse(record.updated || now);
   const dtDays = Math.max(0, (now - last) / 86400000);
-  const factor = Math.pow(2, -dtDays / HALF_LIFE_DAYS);
+  const factor = Math.pow(2, -dtDays / DEFAULT_HALF_LIFE_DAYS);
   record.sumW *= factor;
   record.win30.sum *= factor;
   record.win30.w *= factor;

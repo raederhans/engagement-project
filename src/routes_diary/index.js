@@ -1,20 +1,22 @@
 /**
  * Route Safety Diary - Main Orchestrator
  *
- * Responsibilities implemented for M1 U0/U1:
- *  - Load demo segments/routes when the diary flag is on
- *  - Log dataset counts (for preflight validation)
- *  - Mount the baseline segments layer with hover affordances
- *
- * Remaining TODOs (Recorder dock, modal wiring, etc.) stay below for the next packet.
+ * Loads the deployable Diary demo data, mounts route and segment interactions,
+ * runs the route simulator, and applies local rating/aggregation updates.
  */
 
-import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, registerSegmentActionHandler, highlightSegments } from '../map/segments_layer.js';
+import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, highlightSegments } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
-import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
+import {
+  DEFAULT_HALF_LIFE_DAYS,
+  weightFor,
+  bayesianShrink,
+  effectiveN,
+  clampMean,
+} from '../utils/decay.js';
 import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
 import {
@@ -22,6 +24,8 @@ import {
   DIARY_ROUTE_PRIMARY_SOURCE_ID,
   DIARY_ROUTE_ALT_SOURCE_ID,
   DIARY_SIM_POINT_SOURCE_ID,
+  DIARY_NETWORK_SOURCE_ID,
+  DIARY_NETWORK_LAYER_ID,
 } from './map_ids.js';
 import {
   normalizeFeatureCollection,
@@ -42,6 +46,16 @@ import { renderLiveRoutePanel } from './ui_live_panel.js';
 import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
 import { renderCommunityPanel } from './ui_community_panel.js';
 import { publicUrl } from '../utils/public_url.js';
+import {
+  createDiarySession,
+  releaseOwnedReference,
+  runCleanupSteps,
+} from './diary_session.js';
+import { loadJsonFromCandidates, loadOwnedDiaryData } from './demo_data_loader.js';
+import {
+  createDiaryInsightsPort,
+  installOwnedDebugGlobal,
+} from './diary_insights_port.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
@@ -103,7 +117,6 @@ const localAgg = new Map();
 let baseSegmentsFC = null;
 let perfLastSubmit = { ms: null, at: null };
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
-const HALF_LIFE_DAYS = 21;
 const PRIOR_MEAN = 3.0;
 const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
@@ -123,6 +136,9 @@ const sim = {
 const simLifecycleFlags = { visibility: false, pagehide: false };
 const simCleanupFns = new Set();
 let networkStyleCleanup = null;
+let currentDiarySession = null;
+let currentDiaryOwnerIsCurrent = () => false;
+let currentInsightsPort = null;
 let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -135,6 +151,57 @@ const ROUTE_SAFETY_EXPRESSION = [
 let historyPeriodFilter = '30d';
 let historyModeFilter = 'all';
 
+function clearDiaryTimeout(id) {
+  if (id == null) return;
+  if (currentDiarySession) {
+    currentDiarySession.clearTimeout(id);
+  } else {
+    clearTimeout(id);
+  }
+}
+
+function clearDiaryInterval(id) {
+  if (id == null) return;
+  if (currentDiarySession) {
+    currentDiarySession.clearInterval(id);
+  } else {
+    clearInterval(id);
+  }
+}
+
+function diarySessionIsCurrent(session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
+  return Boolean(session?.isActive() && ownerIsCurrent?.());
+}
+
+function guardDiaryCommit(commit, session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
+  return (...args) => {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return undefined;
+    return commit(...args);
+  };
+}
+
+function disposeDiarySession(session) {
+  session?.dispose();
+  if (currentDiarySession === session) currentDiarySession = null;
+}
+
+function ownMountedNetworkResources(session, map, before) {
+  const ownedLayer = before.layer ? null : map.getLayer?.(DIARY_NETWORK_LAYER_ID);
+  const ownedSource = before.source ? null : map.getSource?.(DIARY_NETWORK_SOURCE_ID);
+  if (!ownedLayer && !ownedSource) return;
+  let disposed = false;
+  session.addCleanup(() => {
+    if (disposed) return;
+    disposed = true;
+    if (ownedLayer && map.getLayer?.(DIARY_NETWORK_LAYER_ID) === ownedLayer) {
+      try { map.removeLayer(DIARY_NETWORK_LAYER_ID); } catch {}
+    }
+    if (ownedSource && map.getSource?.(DIARY_NETWORK_SOURCE_ID) === ownedSource) {
+      try { map.removeSource(DIARY_NETWORK_SOURCE_ID); } catch {}
+    }
+  });
+}
+
 function diaryFeatureEnabled() {
   if (store?.diaryFeatureOn) return true;
   if (import.meta?.env?.VITE_FEATURE_DIARY === '1') return true;
@@ -145,22 +212,6 @@ function diaryFeatureEnabled() {
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
-async function fetchJsonWithFallback(label, urls) {
-  let lastError;
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { cache: 'no-cache' });
-      if (!res.ok) {
-        throw new Error(`${label} request failed (${res.status})`);
-      }
-      return await res.json();
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError || new Error(`${label} data unavailable`);
-}
-
 function ensureFeatureCollection(payload, label) {
   if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
     throw new Error(`[Diary] Invalid ${label} file — expected FeatureCollection`);
@@ -168,20 +219,31 @@ function ensureFeatureCollection(payload, label) {
   return payload;
 }
 
-function ensureNetworkOverlayLifecycle(map) {
+function ensureNetworkOverlayLifecycle(
+  map,
+  session = currentDiarySession,
+  ownerIsCurrent = currentDiaryOwnerIsCurrent,
+) {
   if (!map || typeof map.on !== 'function' || typeof networkStyleCleanup === 'function') return;
+  const canApply = () => diarySessionIsCurrent(session, ownerIsCurrent);
   const handleStyleRefresh = () => {
-    Promise.resolve(ensureNetworkLayer(map)).catch((err) => {
+    if (!canApply()) return;
+    Promise.resolve(ensureNetworkLayer(map, {
+      signal: session?.signal,
+      shouldApply: canApply,
+    })).catch((err) => {
+      if (!canApply()) return;
       console.warn('[Diary] Network layer refresh skipped after styledata event.', err);
     });
   };
   map.on('styledata', handleStyleRefresh);
-  networkStyleCleanup = () => {
+  const cleanup = () => {
     if (typeof map.off === 'function') {
       map.off('styledata', handleStyleRefresh);
     }
     networkStyleCleanup = null;
   };
+  networkStyleCleanup = session ? session.addCleanup(cleanup) : cleanup;
 }
 
 function cleanupNetworkOverlayLifecycle() {
@@ -385,16 +447,9 @@ function isThrottled(segmentId, kind) {
   return kind === 'agree' ? state.agreeDisabled : state.saferDisabled;
 }
 
-function exposeCtaHelpers() {
-  if (typeof window === 'undefined') return;
-  window.__diary_hydrateCtaState = hydrateCtaState;
-  window.__diary_getCtaState = (segmentId) => getCtaState(segmentId);
-}
-
 function exposeDebugAPI() {
-  if (typeof window === 'undefined') return;
-  exposeCtaHelpers();
-  window.__diary_debug = Object.freeze({
+  if (typeof window === 'undefined' || !import.meta?.env?.DEV) return null;
+  const debugApi = Object.freeze({
     segmentProps: (segmentId) => {
       if (!segmentId) return null;
       const agg = localAgg.get(segmentId);
@@ -419,6 +474,7 @@ function exposeDebugAPI() {
     runP4Stress: (opts) => runP4Stress(opts),
     getPerfSnapshot: () => ({ ...getPerfSnapshot() }),
   });
+  return installOwnedDebugGlobal(window, debugApi, currentDiarySession?.addCleanup);
 }
 
 function diaryFlagOff() {
@@ -493,18 +549,24 @@ function ensureDiaryPanel(routes, options = {}) {
 
   const viewSwitcher = document.createElement('div');
   viewSwitcher.className = 'diary-view-switch';
+  const panelSession = currentDiarySession;
+  const panelOwnerIsCurrent = currentDiaryOwnerIsCurrent;
+  const isPanelCurrent = () => diarySessionIsCurrent(panelSession, panelOwnerIsCurrent);
+  const ownPanelHandler = (handler) => guardDiaryCommit(
+    handler,
+    panelSession,
+    panelOwnerIsCurrent,
+  );
   const makePill = (label, mode) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = label;
     btn.className = 'diary-view-pill';
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', ownPanelHandler(() => {
       setDiaryViewMode(mode);
-       if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
-         window.__diaryInsightsHost.setViewContext(mode);
-       }
+      currentInsightsPort?.setViewContext(mode);
       renderActivePanel();
-    });
+    }));
     return { btn, mode };
   };
   const pills = [
@@ -537,19 +599,19 @@ function ensureDiaryPanel(routes, options = {}) {
           routes: MOCK_HISTORY_ROUTES.filter((item) => historyModeFilter === 'all' || item.mode === historyModeFilter),
         },
         {
-          onPeriodChange: (val) => {
+          onPeriodChange: ownPanelHandler((val) => {
             historyPeriodFilter = val;
             renderActivePanel();
-          },
-          onModeChange: (val) => {
+          }),
+          onModeChange: ownPanelHandler((val) => {
             historyModeFilter = val;
             renderActivePanel();
-          },
-          onSelect: (item) => {
+          }),
+          onSelect: ownPanelHandler((item) => {
             setDiarySelectedHistoryRouteId(item.id);
             console.info('[Diary] History route selected:', item.id, item.label);
             focusHistoryRouteOnMap(item);
-          },
+          }),
         }
       );
     } else if (store.diaryViewMode === 'community') {
@@ -561,16 +623,17 @@ function ensureDiaryPanel(routes, options = {}) {
           comments: MOCK_COMMENTS,
         },
         {
-          onRadiusChange: (val) => {
+          isCurrent: isPanelCurrent,
+          onRadiusChange: ownPanelHandler((val) => {
             setDiaryCommunityRadiusMeters(val);
             console.info('[Diary] Community radius changed:', val, 'm');
-          },
-          onSelectSegment: (seg) => {
+          }),
+          onSelectSegment: ownPanelHandler((seg) => {
             console.info('[Diary] Focus high-concern segment:', seg.id, seg.name);
-          },
-          onPostComment: (text) => {
+          }),
+          onPostComment: ownPanelHandler((text) => {
             console.info('[Diary] Post community comment:', text);
-          },
+          }),
         }
       );
     } else {
@@ -586,15 +649,15 @@ function ensureDiaryPanel(routes, options = {}) {
           canRate: !!currentRoute,
         },
         {
-          onRouteSelect: (routeId) => {
+          onRouteSelect: ownPanelHandler((routeId) => {
             if (routeId) selectRoute(routeId, { fitBounds: true });
-          },
-          onToggleAlt: (checked) => applyAltToggleState(checked),
-          onRate: () => openRouteRating(),
-          onPlay: () => startSim(),
-          onPause: () => pauseSim(),
-          onFinish: () => finishSim({ openModal: true }),
-          onSpeedChange: (val) => {
+          }),
+          onToggleAlt: ownPanelHandler((checked) => applyAltToggleState(checked)),
+          onRate: ownPanelHandler(() => openRouteRating()),
+          onPlay: ownPanelHandler(() => startSim()),
+          onPause: ownPanelHandler(() => pauseSim()),
+          onFinish: ownPanelHandler(() => finishSim({ openModal: true })),
+          onSpeedChange: ownPanelHandler((val) => {
             setSimPlaybackSpeed(val);
             if (refs.speedButtons) {
               refs.speedButtons.forEach((btn) => {
@@ -603,9 +666,9 @@ function ensureDiaryPanel(routes, options = {}) {
               });
             }
             updateSimButtons();
-          },
-          onDemoPeriodChange: (val) => setDiaryDemoPeriod(val),
-          onTimeFilterChange: (val) => setDiaryTimeFilter(val),
+          }),
+          onDemoPeriodChange: ownPanelHandler((val) => setDiaryDemoPeriod(val)),
+          onTimeFilterChange: ownPanelHandler((val) => setDiaryTimeFilter(val)),
         }
       );
       routeSelectEl = refs.routeSelectEl || null;
@@ -637,9 +700,7 @@ function ensureDiaryPanel(routes, options = {}) {
     }
   };
 
-  if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
-    window.__diaryInsightsHost.setViewContext(store.diaryViewMode);
-  }
+  currentInsightsPort?.setViewContext(store.diaryViewMode);
   renderActivePanel();
 }
 
@@ -733,9 +794,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
       fitMapToRoute(feature);
     }
   }
-  if (typeof window !== 'undefined' && window.__diaryInsightsHost) {
-    window.__diaryInsightsHost.refresh();
-  }
+  currentInsightsPort?.refresh();
   updateAlternativeRoute();
   updateSimButtons();
 }
@@ -778,13 +837,16 @@ function extractLineCoordinates(geometry) {
 
 function openRouteRating() {
   if (!currentRoute) return;
+  const session = currentDiarySession;
+  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
   openRatingModal({
     routeFeature: currentRoute,
     segmentLookup,
     userHash: getUserHash(),
-    onSuccess: ({ payload, response }) => {
+    signal: session?.signal,
+    onSuccess: guardDiaryCommit(({ payload, response }) => {
       handleDiarySubmissionSuccess(payload, response);
-    },
+    }, session, ownerIsCurrent),
   });
 }
 
@@ -897,7 +959,10 @@ function onRouteRatingSuccess(affectedSegmentIds) {
     .map((id) => segmentLookup.get(id))
     .filter((f) => f && f.geometry);
   if (features.length && typeof highlightSegments === 'function') {
-    highlightSegments(mapRef, features, { durationMs: 1500 });
+    highlightSegments(mapRef, features, {
+      durationMs: 1500,
+      addCleanup: currentDiarySession?.addCleanup,
+    });
   }
   console.info('[Diary] Route rating applied to %d segments', list.length || 0);
 }
@@ -912,7 +977,6 @@ function refreshAfterCta(message) {
   if (message) {
     showToast(message);
   }
-  exposeDebugAPI();
 }
 
 async function onAgreeClick(segmentId) {
@@ -939,10 +1003,19 @@ async function onFeelsSaferClick(segmentId) {
   refreshAfterCta('Noted — feels safer now');
 }
 
+function handleSegmentAction(payload) {
+  if (!payload || !payload.action || !payload.segmentId) return;
+  if (payload.action === 'agree') {
+    void onAgreeClick(payload.segmentId);
+  } else if (payload.action === 'safer') {
+    void onFeelsSaferClick(payload.segmentId);
+  }
+}
+
 function decayAggRecord(record, now) {
   if (!record) return;
   const last = Date.parse(record.updated || now);
-  const factor = weightFor(last || now, now, HALF_LIFE_DAYS);
+  const factor = weightFor(last || now, now, DEFAULT_HALF_LIFE_DAYS);
   if (Number.isFinite(factor) && factor > 0 && factor <= 1) {
     record.sumW *= factor;
     record.win30.sum *= factor;
@@ -1325,27 +1398,42 @@ function cleanupSimLifecycleHooks() {
 
 function ensureSimLifecycleHooks() {
   if (typeof document !== 'undefined' && !simLifecycleFlags.visibility) {
-    const handleVisibility = () => {
+    const handleVisibility = guardDiaryCommit(() => {
       if (document.hidden) {
         pauseSim();
       }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
+    });
+    const cleanup = currentDiarySession
+      ? currentDiarySession.listen(document, 'visibilitychange', handleVisibility)
+      : (() => {
+          document.addEventListener('visibilitychange', handleVisibility);
+          return () => document.removeEventListener('visibilitychange', handleVisibility);
+        })();
     registerSimCleanup(() => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      cleanup();
       simLifecycleFlags.visibility = false;
     });
     simLifecycleFlags.visibility = true;
   }
   if (typeof window !== 'undefined' && !simLifecycleFlags.pagehide) {
-    const handlePageHide = () => {
+    const handlePageHide = guardDiaryCommit(() => {
       teardownDiaryTransient(mapRef, { silent: true });
-    };
-    window.addEventListener('pagehide', handlePageHide);
-    window.addEventListener('beforeunload', handlePageHide);
+    });
+    const cleanupPageHide = currentDiarySession
+      ? currentDiarySession.listen(window, 'pagehide', handlePageHide)
+      : (() => {
+          window.addEventListener('pagehide', handlePageHide);
+          return () => window.removeEventListener('pagehide', handlePageHide);
+        })();
+    const cleanupBeforeUnload = currentDiarySession
+      ? currentDiarySession.listen(window, 'beforeunload', handlePageHide)
+      : (() => {
+          window.addEventListener('beforeunload', handlePageHide);
+          return () => window.removeEventListener('beforeunload', handlePageHide);
+        })();
     registerSimCleanup(() => {
-      window.removeEventListener('pagehide', handlePageHide);
-      window.removeEventListener('beforeunload', handlePageHide);
+      cleanupPageHide();
+      cleanupBeforeUnload();
       simLifecycleFlags.pagehide = false;
     });
     simLifecycleFlags.pagehide = true;
@@ -1398,7 +1486,7 @@ function startSim() {
   }
   if (!sim.coords.length) return;
   if (sim.timer) {
-    clearInterval(sim.timer);
+    clearDiaryInterval(sim.timer);
   }
   ensureSimLifecycleHooks();
   sim.active = true;
@@ -1406,7 +1494,10 @@ function startSim() {
   sim.hasStarted = true;
   sim.playedOnce = true;
   drawSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
-  sim.timer = setInterval(stepSim, SIM_INTERVAL_MS);
+  const session = currentDiarySession;
+  sim.timer = session
+    ? session.setInterval(guardDiaryCommit(stepSim), SIM_INTERVAL_MS)
+    : setInterval(stepSim, SIM_INTERVAL_MS);
   updateSimButtons();
   persistSimProgress(true);
 }
@@ -1425,7 +1516,7 @@ function stepSim() {
 function pauseSim() {
   if (!sim.hasStarted) return;
   if (sim.timer) {
-    clearInterval(sim.timer);
+    clearDiaryInterval(sim.timer);
     sim.timer = null;
   }
   sim.paused = true;
@@ -1449,7 +1540,7 @@ function finishSim({ openModal = true } = {}) {
 
 function teardownSim({ silent = false } = {}) {
   if (sim.timer) {
-    clearInterval(sim.timer);
+    clearDiaryInterval(sim.timer);
     sim.timer = null;
   }
   sim.active = false;
@@ -1476,7 +1567,10 @@ function stopAllTimersAndListeners({ silent = false } = {}) {
   }
 }
 
-export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
+export function teardownDiaryTransient(
+  map = mapRef,
+  { silent = false, removeNetworkOverlay = true } = {},
+) {
   const targetMap = map || mapRef;
   stopAllTimersAndListeners({ silent: true });
   cleanupNetworkOverlayLifecycle();
@@ -1485,7 +1579,9 @@ export function teardownDiaryTransient(map = mapRef, { silent = false } = {}) {
     clearRouteOverlay(targetMap, DIARY_ROUTE_PRIMARY_SOURCE_ID);
     clearRouteOverlay(targetMap, DIARY_ROUTE_ALT_SOURCE_ID);
     clearSimPoint(targetMap, DIARY_SIM_POINT_SOURCE_ID);
-    try { removeNetworkLayer(targetMap); } catch {}
+    if (removeNetworkOverlay) {
+      try { removeNetworkLayer(targetMap); } catch {}
+    }
   }
   if (!silent) {
     updateSimButtons();
@@ -1553,7 +1649,7 @@ function showToast(message, duration = 2600) {
     toastEl.remove();
     toastEl = null;
     if (toastTimer) {
-      clearTimeout(toastTimer);
+      clearDiaryTimeout(toastTimer);
       toastTimer = null;
     }
   }
@@ -1572,11 +1668,15 @@ function showToast(message, duration = 2600) {
   wrapper.style.zIndex = '2000';
   document.body.appendChild(wrapper);
   toastEl = wrapper;
-  toastTimer = setTimeout(() => {
+  const session = currentDiarySession;
+  const dismiss = () => {
     wrapper.remove();
     toastEl = null;
     toastTimer = null;
-  }, duration);
+  };
+  toastTimer = session
+    ? session.setTimeout(guardDiaryCommit(dismiss), duration)
+    : setTimeout(dismiss, duration);
 }
 
 function showPanelNotice(message, tone = 'success', duration = 3000) {
@@ -1591,16 +1691,18 @@ function showPanelNotice(message, tone = 'success', duration = 3000) {
   panelNoticeEl.textContent = message;
   panelNoticeEl.style.display = 'block';
   if (panelNoticeTimer) {
-    clearTimeout(panelNoticeTimer);
+    clearDiaryTimeout(panelNoticeTimer);
   }
-  panelNoticeTimer = setTimeout(() => {
-    hidePanelNotice();
-  }, duration);
+  const session = currentDiarySession;
+  const dismiss = () => hidePanelNotice();
+  panelNoticeTimer = session
+    ? session.setTimeout(guardDiaryCommit(dismiss), duration)
+    : setTimeout(dismiss, duration);
 }
 
 function hidePanelNotice() {
   if (panelNoticeTimer) {
-    clearTimeout(panelNoticeTimer);
+    clearDiaryTimeout(panelNoticeTimer);
     panelNoticeTimer = null;
   }
   if (panelNoticeEl) {
@@ -1608,20 +1710,24 @@ function hidePanelNotice() {
   }
 }
 
-export async function loadDemoSegments({ force = false } = {}) {
+export async function loadDemoSegments({ force = false, signal } = {}) {
+  signal?.throwIfAborted();
   if (cachedSegments && !force) {
     return clone(cachedSegments);
   }
-  const payload = await fetchJsonWithFallback('segments', SEGMENT_URL_CANDIDATES);
+  const payload = await loadJsonFromCandidates('segments', SEGMENT_URL_CANDIDATES, { signal });
+  signal?.throwIfAborted();
   cachedSegments = normalizeSegmentsCollection(ensureFeatureCollection(payload, 'segments'));
   return clone(cachedSegments);
 }
 
-export async function loadDemoRoutes({ force = false } = {}) {
+export async function loadDemoRoutes({ force = false, signal } = {}) {
+  signal?.throwIfAborted();
   if (cachedRoutes && !force) {
     return clone(cachedRoutes);
   }
-  const payload = await fetchJsonWithFallback('routes', ROUTE_URL_CANDIDATES);
+  const payload = await loadJsonFromCandidates('routes', ROUTE_URL_CANDIDATES, { signal });
+  signal?.throwIfAborted();
   cachedRoutes = normalizeRoutesCollection(ensureFeatureCollection(payload, 'routes'));
   const missingIds = (cachedRoutes.features || []).filter((f) => {
     const ids = f?.properties?.[ROUTE_SEG_IDS_PROP];
@@ -1640,11 +1746,10 @@ export async function loadDemoRoutes({ force = false } = {}) {
 export async function initDiaryMode(map, options = {}) {
   const mountTarget = options?.mountInto || null;
   const stats = { segmentsCount: 0, routesCount: 0 };
+  if (options?.signal?.aborted) return stats;
+  currentDiarySession?.dispose();
   if (typeof console !== 'undefined' && typeof console.info === 'function') {
     console.info('[Diary] initDiaryMode called', { hasMount: !!mountTarget, mountId: mountTarget?.id || 'none' });
-  }
-  if (mountTarget) {
-    mountTarget.setAttribute('data-diary-mounted', 'true');
   }
   if (!diaryFeatureEnabled()) {
     diaryFlagOff();
@@ -1656,21 +1761,65 @@ export async function initDiaryMode(map, options = {}) {
     return stats;
   }
 
-  mapRef = map;
-  exposeCtaHelpers();
-  cleanupNetworkOverlayLifecycle();
-  setDiaryMapSkin(mapRef, true);
+  const session = createDiarySession({ ownerSignal: options?.signal });
+  if (!session.isActive()) return stats;
+  const ownerIsCurrent = typeof options?.isCurrent === 'function' ? options.isCurrent : () => true;
+  const isCurrent = () => diarySessionIsCurrent(session, ownerIsCurrent);
+  const insightsPort = createDiaryInsightsPort(options?.insights);
   try {
-    await addNetworkLayer(mapRef);
-    ensureNetworkOverlayLifecycle(mapRef);
+    const addNetworkLayerImpl = options?.addNetworkLayerImpl || addNetworkLayer;
+    const networkBefore = {
+      source: map.getSource?.(DIARY_NETWORK_SOURCE_ID) || null,
+      layer: map.getLayer?.(DIARY_NETWORK_LAYER_ID) || null,
+    };
+    const networkResult = await addNetworkLayerImpl(map, {
+      signal: session.signal,
+      shouldApply: isCurrent,
+    });
+    if (networkResult?.applied) ownMountedNetworkResources(session, map, networkBefore);
+    if (!isCurrent()) {
+      disposeDiarySession(session);
+      return stats;
+    }
   } catch (err) {
+    if (!isCurrent()) {
+      disposeDiarySession(session);
+      return stats;
+    }
     console.warn('[Diary] Network layer unavailable:', err);
   }
 
   try {
-    const [segments, routes] = await Promise.all([loadDemoSegments(), loadDemoRoutes()]);
+    const loaded = await loadOwnedDiaryData({
+      signal: session.signal,
+      isCurrent,
+      loadSegments: options?.loadDemoSegmentsImpl || loadDemoSegments,
+      loadRoutes: options?.loadDemoRoutesImpl || loadDemoRoutes,
+    });
+    if (!loaded.applied) {
+      disposeDiarySession(session);
+      return stats;
+    }
+    const { segments, routes } = loaded;
     stats.segmentsCount = segments.features.length;
     stats.routesCount = routes.features.length;
+
+    currentDiarySession = session;
+    currentDiaryOwnerIsCurrent = ownerIsCurrent;
+    currentInsightsPort = insightsPort;
+    mapRef = map;
+    session.addCleanup(() => cleanupDiaryMode(
+      map,
+      insightsPort,
+      ownerIsCurrent,
+      mountTarget,
+      false,
+    ));
+    cleanupNetworkOverlayLifecycle();
+    if (mountTarget) mountTarget.setAttribute('data-diary-mounted', 'true');
+    setDiaryMapSkin(mapRef, true);
+    ensureNetworkOverlayLifecycle(mapRef, session, ownerIsCurrent);
+
     console.info('[Diary] segments loaded:', stats.segmentsCount);
     console.info('[Diary] routes loaded:', stats.routesCount);
     logMissingSegments(routes, segments);
@@ -1685,7 +1834,11 @@ export async function initDiaryMode(map, options = {}) {
     if (layerMounted) {
       updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
     } else {
-      mountSegmentsLayer(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
+      mountSegmentsLayer(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments, {
+        signal: session.signal,
+        isCurrent,
+        onAction: guardDiaryCommit(handleSegmentAction, session, ownerIsCurrent),
+      });
       layerMounted = true;
     }
 
@@ -1699,7 +1852,12 @@ export async function initDiaryMode(map, options = {}) {
       selectRoute(defaultRoute.properties.route_id, { fitBounds: false });
     }
   } catch (err) {
+    if (!isCurrent()) {
+      disposeDiarySession(session);
+      return stats;
+    }
     console.error('Demo data missing; please ensure files exist under /data/*.demo.geojson.', err);
+    disposeDiarySession(session);
   }
 
   return stats;
@@ -1709,187 +1867,65 @@ export async function initDiaryMode(map, options = {}) {
  * Teardown diary mode (cleanup)
  * @param {MapLibreMap} map - MapLibre GL map instance
  */
-export function teardownDiaryMode(map) {
+function cleanupDiaryMode(
+  map,
+  ownedInsightsPort = currentInsightsPort,
+  ownedOwnerIsCurrent = currentDiaryOwnerIsCurrent,
+  ownedMountTarget = null,
+  removeNetworkOverlay = true,
+) {
   const targetMap = map || mapRef;
-  if (!targetMap) return;
-  removeSegmentsLayer(targetMap, DIARY_SEGMENTS_SOURCE_ID);
-  teardownDiaryTransient(targetMap, { silent: true });
-  layerMounted = false;
-  closeRatingModal();
-  if (diaryPanelEl) {
-    if (diaryPanelFloating) {
-      diaryPanelEl.remove();
-    } else {
-      diaryPanelEl.innerHTML = '';
-    }
-    diaryPanelEl = null;
-    routeSelectEl = null;
-    summaryStripEl = null;
-    rateButtonEl = null;
-    altToggleEl = null;
-    altSummaryEl = null;
-    hidePanelNotice();
-    panelNoticeEl = null;
-    diaryPanelFloating = false;
+  runCleanupSteps([
+    () => {
+      if (targetMap) removeSegmentsLayer(targetMap, DIARY_SEGMENTS_SOURCE_ID);
+    },
+    () => teardownDiaryTransient(targetMap, { silent: true, removeNetworkOverlay }),
+    () => { layerMounted = false; },
+    () => closeRatingModal(),
+    () => {
+      if (!ownedMountTarget) return;
+      ownedMountTarget.removeAttribute?.('data-diary-mounted');
+      if (typeof ownedMountTarget.replaceChildren === 'function') ownedMountTarget.replaceChildren();
+      else if ('innerHTML' in ownedMountTarget) ownedMountTarget.innerHTML = '';
+    },
+    () => {
+      if (!diaryPanelEl) return;
+      if (diaryPanelFloating) diaryPanelEl.remove();
+      else diaryPanelEl.innerHTML = '';
+    },
+    () => hidePanelNotice(),
+    () => {
+      diaryPanelEl = null;
+      diaryPanelFloating = false;
+      currentRoute = null;
+    },
+    () => { if (toastEl) toastEl.remove(); },
+    () => { if (toastTimer) clearDiaryTimeout(toastTimer); },
+    () => { toastTimer = null; },
+    () => {
+      toastEl = null;
+      clearLiveRefs();
+    },
+    () => {
+      currentInsightsPort = releaseOwnedReference(currentInsightsPort, ownedInsightsPort);
+    },
+    () => {
+      currentDiaryOwnerIsCurrent = releaseOwnedReference(
+        currentDiaryOwnerIsCurrent,
+        ownedOwnerIsCurrent,
+      ) || (() => false);
+    },
+    () => { mapRef = releaseOwnedReference(mapRef, targetMap); },
+    () => console.info('[Diary] Teardown complete.'),
+  ]);
+}
+
+export function teardownDiaryMode(map) {
+  const session = currentDiarySession;
+  if (session) {
+    session.dispose();
+    if (currentDiarySession === session) currentDiarySession = null;
+    return;
   }
-  currentRoute = null;
-  if (toastEl) {
-    toastEl.remove();
-    toastEl = null;
-  }
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-    toastTimer = null;
-  }
-  console.info('[Diary] Teardown complete.');
-}
-
-registerSegmentActionHandler((payload) => {
-  if (!payload || !payload.action || !payload.segmentId) return;
-  if (payload.action === 'agree') {
-    onAgreeClick(payload.segmentId);
-  } else if (payload.action === 'safer') {
-    onFeelsSaferClick(payload.segmentId);
-  }
-});
-
-/**
- * Create RecorderDock UI (floating bottom-right)
- * @returns {HTMLElement} Dock element
- */
-function createRecorderDock() {
-  // TODO: Create floating div with 3 buttons (Start/Pause/Finish)
-  // TODO: Wire event handlers
-  // TODO: Inject CSS
-  // See: docs/SCENARIO_MAPPING.md (Scenario 1, RecorderDock)
-}
-
-/**
- * Create mode selector (optional TopBar extension)
- * @returns {HTMLElement} Mode selector element
- */
-function createModeSelector() {
-  // TODO: Create mode switcher with 3 buttons (Crime/Diary/Tracts)
-  // TODO: Wire mode switch handlers
-  // See: docs/SCENARIO_MAPPING.md (Scenario 1, TopBar)
-}
-
-/**
- * Create diary controls in LeftPanel
- */
-function createDiaryControls() {
-  // TODO: Extend existing left panel with diary buttons
-  // TODO: Plan route (disabled), Record trip, My routes (disabled), Legend
-  // See: docs/SCENARIO_MAPPING.md (Scenario 1, LeftPanel)
-}
-
-/**
- * Initialize insights panel (RightPanel placeholders)
- */
-function initInsightsPanel() {
-  // TODO: Add 3 placeholder boxes (Trend, Tags, Heatmap)
-  // TODO: Replace placeholders with Chart.js canvases after first rating
-  // See: docs/SCENARIO_MAPPING.md (Scenario 3, Insights)
-}
-
-/**
- * Populate insights panel with real data
- * @param {Array} updatedSegments - Segments with new ratings
- */
-function populateInsightsPanel(updatedSegments) {
-  // TODO: Render trend chart (8-week sparkline)
-  // TODO: Render top tags chart (3 horizontal bars)
-  // TODO: Render 7x24 heatmap
-  // See: docs/DIARY_EXEC_PLAN_M1.md (Phase 4)
-}
-
-/**
- * Handle segment click event
- * @param {string} segmentId - Segment ID
- * @param {object} lngLat - Click coordinates {lng, lat}
- */
-function onSegmentClick(segmentId, lngLat) {
-  // TODO: Fetch segment details (mock data for M1)
-  // TODO: Create floating SegmentCard near click point
-  // TODO: Wire action buttons (Agree, Feels safer, View insights)
-  // See: docs/SCENARIO_MAPPING.md (Scenario 4, SegmentCard)
-}
-
-/**
- * Close segment card
- */
-function closeSegmentCard() {
-  // TODO: Remove SegmentCard from DOM
-}
-
-/**
- * Open community details modal
- * @param {string} segmentId - Segment ID
- */
-function openCommunityDetailsModal(segmentId) {
-  // TODO: Fetch full segment analytics (mock data for M1)
-  // TODO: Create full-screen modal with backdrop
-  // TODO: Render 7 sections (overview, trend, distribution, tags, timeline, privacy)
-  // TODO: Wire close handlers (X button, backdrop click)
-  // See: docs/SCENARIO_MAPPING.md (Scenario 4, CommunityDetailsModal)
-}
-
-/**
- * Close community details modal
- */
-function closeCommunityDetailsModal() {
-  // TODO: Remove modal from DOM
-}
-
-// GPS Recording state machine
-let recordingState = 'idle'; // 'idle' | 'recording' | 'paused' | 'finished'
-let mockGPSTrace = [];
-let gpsInterval = null;
-
-/**
- * Handle "Start" button click
- */
-function onStartRecording() {
-  // TODO: Set state to 'recording'
-  // TODO: Start mock GPS generation (1 point/sec)
-  // TODO: Update button states
-  // See: docs/DIARY_EXEC_PLAN_M1.md (Phase 2)
-}
-
-/**
- * Handle "Pause" button click
- */
-function onPauseRecording() {
-  // TODO: Set state to 'paused'
-  // TODO: Stop GPS generation (clear interval)
-  // TODO: Update button states
-}
-
-/**
- * Handle "Finish" button click
- */
-function onFinishRecording() {
-  // TODO: Set state to 'finished'
-  // TODO: Stop GPS generation
-  // TODO: Open RatingModal with mockGPSTrace
-  // TODO: Reset state after modal closed
-  // See: docs/DIARY_EXEC_PLAN_M1.md (Phase 3)
-}
-
-/**
- * Generate mock GPS point (interpolate along seed segments)
- * @returns {object} {lat, lng, timestamp}
- */
-function generateMockGPSPoint() {
-  // TODO: Interpolate along seed segment LineStrings
-  // TODO: Add random noise (±5m)
-  // TODO: Return {lat, lng, timestamp}
-}
-
-/**
- * Update RecorderDock button states based on recordingState
- */
-function updateRecorderButtons() {
-  // TODO: Enable/disable buttons based on current state
-  // TODO: Update colors (green/yellow/red)
+  cleanupDiaryMode(map);
 }

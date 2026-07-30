@@ -48,6 +48,7 @@ export async function refreshPoints(map, {
   types,
   queryMode,
   selectedDistrictCode,
+  signal,
   fetchPointsImpl = fetchPoints,
   shouldApply = () => true,
 } = {}) {
@@ -55,8 +56,9 @@ export async function refreshPoints(map, {
 
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
-  const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist });
-  if (!shouldApply()) return { applied: false };
+  if (signal?.aborted) return { applied: false };
+  const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
+  if (signal?.aborted || !shouldApply()) return { applied: false };
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
 
   // Add or update source

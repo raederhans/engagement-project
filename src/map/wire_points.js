@@ -1,11 +1,44 @@
 import { clearCrimePoints, refreshPoints } from './points.js';
 
-function debounce(fn, wait = 300) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
+function createDebounced(fn, wait, scheduler) {
+  let timer = null;
+  const debounced = (...args) => {
+    if (timer != null) scheduler.clearTimeout(timer);
+    timer = scheduler.setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, wait);
   };
+  debounced.cancel = () => {
+    if (timer == null) return;
+    scheduler.clearTimeout(timer);
+    timer = null;
+  };
+  return debounced;
+}
+
+function showToastInDom(message) {
+  let element = document.getElementById('toast');
+  if (!element) {
+    element = document.createElement('div');
+    element.id = 'toast';
+    Object.assign(element.style, {
+      position: 'fixed', right: '12px', bottom: '12px', zIndex: 40,
+      background: 'rgba(17,24,39,0.9)', color: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px'
+    });
+    document.body.appendChild(element);
+  }
+  element.textContent = message;
+  element.style.display = 'block';
+}
+
+function hideToastInDom() {
+  const toast = document.getElementById('toast');
+  if (toast) toast.style.display = 'none';
+}
+
+function isAbortError(error) {
+  return error?.name === 'AbortError';
 }
 
 /**
@@ -15,83 +48,135 @@ function debounce(fn, wait = 300) {
  * @param {{getFilters:Function}} deps
  */
 export function wirePoints(map, deps) {
+  const {
+    getFilters,
+    refreshPointsImpl = refreshPoints,
+    clearCrimePointsImpl = clearCrimePoints,
+    showToast = showToastInDom,
+    hideToast = hideToastInDom,
+    scheduler = globalThis,
+  } = deps;
   const backoffs = [2000, 4000, 8000];
   let backoffIdx = 0;
   let active = true;
   let generation = 0;
+  let requestController = null;
+  let retryTimer = null;
+  let toastTimer = null;
 
-  function showToast(msg) {
-    let el = document.getElementById('toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'toast';
-      Object.assign(el.style, {
-        position: 'fixed', right: '12px', bottom: '12px', zIndex: 40,
-        background: 'rgba(17,24,39,0.9)', color: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px'
-      });
-      document.body.appendChild(el);
+  const cancelRetry = () => {
+    if (retryTimer == null) return;
+    scheduler.clearTimeout(retryTimer);
+    retryTimer = null;
+  };
+
+  const cancelToast = () => {
+    if (toastTimer != null) {
+      scheduler.clearTimeout(toastTimer);
+      toastTimer = null;
     }
-    el.textContent = msg;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 2500);
-  }
+    hideToast();
+  };
 
-  const run = async () => {
-    if (!active) return;
-    const requestGeneration = ++generation;
+  const invalidate = () => {
+    generation += 1;
+    requestController?.abort();
+    requestController = null;
+    cancelRetry();
+    debouncedMoveEnd.cancel();
+    cancelToast();
+  };
+
+  const run = async (
+    filtersOverride,
+    { signal: ownerSignal, shouldApply: ownerShouldApply = () => true } = {},
+  ) => {
+    if (!active || ownerSignal?.aborted || !ownerShouldApply()) return { applied: false };
+    invalidate();
+    const requestGeneration = generation;
+    const controller = new AbortController();
+    const abortFromOwner = () => controller.abort(ownerSignal.reason);
+    ownerSignal?.addEventListener('abort', abortFromOwner, { once: true });
+    if (ownerSignal?.aborted) abortFromOwner();
+    requestController = controller;
+    const filters = filtersOverride === undefined ? getFilters() : filtersOverride;
+
     try {
-      await refreshPoints(map, {
-        ...deps.getFilters(),
-        shouldApply: () => active && generation === requestGeneration,
+      const result = await refreshPointsImpl(map, {
+        ...filters,
+        signal: controller.signal,
+        shouldApply: () => active
+          && generation === requestGeneration
+          && !controller.signal.aborted
+          && !ownerSignal?.aborted
+          && ownerShouldApply(),
       });
-      if (!active || generation !== requestGeneration) return;
-      backoffIdx = 0; // reset after success
-    } catch (e) {
-      if (!active || generation !== requestGeneration) return;
+      if (!active
+        || generation !== requestGeneration
+        || controller.signal.aborted
+        || ownerSignal?.aborted
+        || !ownerShouldApply()) {
+        return { applied: false };
+      }
+      backoffIdx = 0;
+      return result;
+    } catch (error) {
+      const stale = !active
+        || generation !== requestGeneration
+        || controller.signal.aborted
+        || ownerSignal?.aborted
+        || !ownerShouldApply()
+        || isAbortError(error);
+      if (stale) return { applied: false };
+
       showToast('Points refresh failed; retrying shortly.');
+      toastTimer = scheduler.setTimeout(() => {
+        toastTimer = null;
+        hideToast();
+      }, 2500);
       const delay = backoffs[Math.min(backoffIdx, backoffs.length - 1)];
-      backoffIdx++;
-      setTimeout(() => {
-        if (active) void run();
+      backoffIdx += 1;
+      retryTimer = scheduler.setTimeout(() => {
+        retryTimer = null;
+        if (active && generation === requestGeneration) {
+          void run(filtersOverride, { signal: ownerSignal, shouldApply: ownerShouldApply });
+        }
       }, delay);
+      return { applied: false };
+    } finally {
+      ownerSignal?.removeEventListener('abort', abortFromOwner);
+      if (requestController === controller) requestController = null;
     }
   };
 
-  const onMoveEnd = debounce(run, 300);
+  const debouncedMoveEnd = createDebounced(() => void run(), 300, scheduler);
+  const onMoveEnd = () => {
+    if (active) debouncedMoveEnd();
+  };
+  const onLoad = () => void run();
 
   if (map.loaded?.() || map.isStyleLoaded?.()) {
     void run();
   } else {
-    map.once('load', run);
+    map.once('load', onLoad);
   }
   map.on('moveend', onMoveEnd);
-
-  if (!window.__dashboard) window.__dashboard = {};
-  window.__dashboard.refreshPoints = () => run();
 
   return {
     refresh: run,
     clear() {
-      generation += 1;
-      clearCrimePoints(map);
+      invalidate();
+      clearCrimePointsImpl(map);
     },
     setActive(next) {
       active = Boolean(next);
-      generation += 1;
-      if (!active) hideToast();
+      if (!active) invalidate();
     },
     destroy() {
       active = false;
-      generation += 1;
-      map.off('load', run);
+      invalidate();
+      map.off('load', onLoad);
       map.off('moveend', onMoveEnd);
-      hideToast();
     },
   };
 }
-
-function hideToast() {
-  const toast = document.getElementById('toast');
-  if (toast) toast.style.display = 'none';
-}
-

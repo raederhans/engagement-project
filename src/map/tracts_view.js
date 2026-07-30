@@ -11,9 +11,11 @@ import { TRACT_CRIME_SNAPSHOT_ENABLED } from "../config.js";
  * @param {{per10k?:boolean}} opts
  * @returns {Promise<{geojson: object, values: number[]}>}
  */
-export async function getTractsMerged({ per10k = false, windowStart, windowEnd } = {}) {
-  const gj = await fetchTractsCachedFirst();
-  const stats = await fetchTractStatsCachedFirst();
+export async function getTractsMerged({ per10k = false, windowStart, windowEnd, signal } = {}) {
+  const [gj, stats] = await Promise.all([
+    fetchTractsCachedFirst({ signal }),
+    fetchTractStatsCachedFirst({ signal }),
+  ]);
   const map = new Map(stats.map((r) => [r.geoid, r]));
   const values = [];
 
@@ -24,10 +26,12 @@ export async function getTractsMerged({ per10k = false, windowStart, windowEnd }
     try {
       let counts = null;
       try {
-        counts = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
-      } catch {}
+        counts = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000, signal });
+      } catch (error) {
+        if (signal?.aborted || error?.name === 'AbortError') throw signal?.reason ?? error;
+      }
       if (!counts) {
-        counts = await fetchJson(publicUrl('data/tract_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
+        counts = await fetchJson(publicUrl('data/tract_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000, signal });
       }
       if (counts?.rows) {
         const meta = counts.meta || {};
@@ -37,7 +41,9 @@ export async function getTractsMerged({ per10k = false, windowStart, windowEnd }
           legendSubtitle = `Citywide tract crime — Last 12 months: ${meta.start} to ${meta.end} (snapshot)`;
         }
       }
-    } catch {}
+    } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') throw signal?.reason ?? error;
+    }
   }
 
   for (const ft of gj.features || []) {

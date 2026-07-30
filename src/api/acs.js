@@ -9,14 +9,16 @@ const ACS_LOCAL_URL = new URL('../data/acs_tracts_2023_pa101.json', import.meta.
 export async function fetchTractStats({
   endpoints = ACS_API_ENDPOINTS,
   fetchJsonImpl = fetchJson,
+  signal,
 } = {}) {
+  throwIfAborted(signal);
   if (!endpoints?.population || !endpoints?.poverty) {
     throw new Error('ACS live endpoints are not configured.');
   }
 
   const [populationRows, povertyRows] = await Promise.all([
-    fetchJsonImpl(endpoints.population),
-    fetchJsonImpl(endpoints.poverty),
+    fetchJsonImpl(endpoints.population, { signal }),
+    fetchJsonImpl(endpoints.poverty, { signal }),
   ]);
 
   return normalizeAcsRows(populationRows, povertyRows);
@@ -32,14 +34,17 @@ export async function fetchTractStatsPreferred({
   reporterUrl = CENSUS_REPORTER_ACS_URL,
   localUrl = ACS_LOCAL_URL,
   fetchJsonImpl = fetchJson,
+  signal,
 } = {}) {
+  throwIfAborted(signal);
   const liveErrors = [];
   if (endpoints?.population && endpoints?.poverty) {
     try {
-      const live = await fetchTractStats({ endpoints, fetchJsonImpl });
+      const live = await fetchTractStats({ endpoints, fetchJsonImpl, signal });
       if (isValidNormalizedRows(live)) return live;
       liveErrors.push(new Error('ACS live endpoints returned no valid tract rows.'));
     } catch (error) {
+      if (isCancellation(error, signal)) throw cancellationReason(error, signal);
       liveErrors.push(error);
     }
   }
@@ -49,10 +54,12 @@ export async function fetchTractStatsPreferred({
       const reporterRows = await fetchTractStatsFromCensusReporter({
         url: reporterUrl,
         fetchJsonImpl,
+        signal,
       });
       if (isValidNormalizedRows(reporterRows)) return reporterRows;
       liveErrors.push(new Error('Census Reporter returned no valid tract rows.'));
     } catch (error) {
+      if (isCancellation(error, signal)) throw cancellationReason(error, signal);
       liveErrors.push(error);
     }
   }
@@ -61,12 +68,14 @@ export async function fetchTractStatsPreferred({
     const snapshot = await fetchJsonImpl(localUrl, {
       timeoutMs: 8000,
       retries: 1,
+      signal,
     });
     if (!isValidNormalizedRows(snapshot)) {
       throw new Error('Bundled ACS snapshot is invalid.');
     }
     return snapshot;
   } catch (snapshotError) {
+    if (isCancellation(snapshotError, signal)) throw cancellationReason(snapshotError, signal);
     throw new AggregateError(
       [...liveErrors, snapshotError],
       'No valid ACS tract data source is available.',
@@ -78,12 +87,15 @@ export async function fetchTractStatsPreferred({
 export async function fetchTractStatsFromCensusReporter({
   url = CENSUS_REPORTER_ACS_URL,
   fetchJsonImpl = fetchJson,
+  signal,
 } = {}) {
+  throwIfAborted(signal);
   if (!url) throw new Error('Census Reporter URL is not configured.');
   const payload = await fetchJsonImpl(url, {
     timeoutMs: 20_000,
     retries: 1,
     cacheTTL: 24 * 60 * 60_000,
+    signal,
   });
   const data = payload?.data;
   if (!data || typeof data !== 'object') {
@@ -210,4 +222,17 @@ function toNumber(value) {
 
 function estimate(tables, tableId, columnId) {
   return toNumber(tables?.[tableId]?.estimate?.[columnId]);
+}
+
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  throw cancellationReason(undefined, signal);
+}
+
+function isCancellation(error, signal) {
+  return Boolean(signal?.aborted || error?.name === 'AbortError');
+}
+
+function cancellationReason(error, signal) {
+  return signal?.reason ?? error ?? new DOMException('The operation was aborted.', 'AbortError');
 }

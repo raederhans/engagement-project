@@ -19,15 +19,18 @@ function toLonLat([x, y]) {
 export async function estimatePopInBuffer({
   center3857,
   radiusM,
+  signal,
   fetchTracts = fetchTractsCachedFirst,
   fetchStats = fetchTractStatsCachedFirst,
 }) {
+  signal?.throwIfAborted();
   const center4326 = toLonLat(center3857);
   const circle = turf.circle(center4326, radiusM, { units: "meters", steps: 64 });
   const [tracts, stats] = await Promise.all([
-    fetchTracts(),
-    fetchStats(),
+    fetchTracts({ signal }),
+    fetchStats({ signal }),
   ]);
+  signal?.throwIfAborted();
   const populationByGeoid = new Map(
     stats.map((row) => [row.geoid, Number(row.pop) || 0]),
   );

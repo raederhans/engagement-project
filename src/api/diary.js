@@ -11,18 +11,20 @@ export function createDiaryClient({ apiBase = DIARY_API_BASE, request = fetchJso
 
   const apiUrl = (path) => `${base}/${String(path).replace(/^\/+/, '')}`;
   const get = (path, options = {}) => request(apiUrl(path), options);
-  const post = (path, body, headers = {}) => request(apiUrl(path), {
+  const post = (path, body, headers = {}, options = {}) => request(apiUrl(path), {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
     cacheTTL: 0,
     retries: 0,
+    signal: options.signal,
   });
 
   return {
-    async submitDiary(payload) {
+    async submitDiary(payload, { signal } = {}) {
+      signal?.throwIfAborted();
       if (!hasApi) return buildDemoSubmission(payload);
-      return post('submit', toApiSubmission(payload), userHeaders(payload));
+      return post('submit', toApiSubmission(payload), userHeaders(payload), { signal });
     },
 
     async getSegments(params = {}) {
@@ -127,7 +129,7 @@ function demoUnavailable(message) {
 
 const defaultClient = createDiaryClient();
 
-export const submitDiary = (payload) => defaultClient.submitDiary(payload);
+export const submitDiary = (payload, options) => defaultClient.submitDiary(payload, options);
 export const getSegments = (params) => defaultClient.getSegments(params);
 export const getSegmentDetails = (segmentId) => defaultClient.getSegmentDetails(segmentId);
 export const getSegmentAnalytics = (segmentId) => defaultClient.getSegmentAnalytics(segmentId);

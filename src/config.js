@@ -54,7 +54,13 @@ export const CENSUS_REPORTER_ACS_URL = envValue('VITE_CENSUS_REPORTER_ACS_URL') 
 export const DIARY_API_BASE = envValue('VITE_DIARY_API_BASE').replace(/\/+$/, '');
 
 export const TRACT_CRIME_SNAPSHOT_ENABLED = import.meta?.env?.VITE_TRACT_CRIME_SNAPSHOT === '1';
-export const DIARY_NETWORK_DATA_ENABLED = import.meta?.env?.DEV || import.meta?.env?.VITE_DIARY_NETWORK_DATA === '1';
+
+export function resolveDiaryNetworkDataEnabled(runtimeEnv = {}) {
+  const value = runtimeEnv?.VITE_DIARY_NETWORK_DATA;
+  return typeof value === 'string' && value.trim() === '1';
+}
+
+export const DIARY_NETWORK_DATA_ENABLED = resolveDiaryNetworkDataEnabled(env);
 
 const DEFAULT_OSM_RASTER_STYLE = {
   version: 8,

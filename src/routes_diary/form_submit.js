@@ -64,9 +64,16 @@ let submitBtn = null;
 let escapeHandler = null;
 let currentState = null;
 
-export function submitSegmentFeedback(payload) {
-  console.info('[Diary] Segment feedback submitted', payload);
-  return payload;
+export function submitSegmentFeedback(payload, { submit = submitDiary, signal } = {}) {
+  const segmentId = String(payload?.segmentId || '').trim();
+  const rating = Number(payload?.rating);
+  return submit({
+    segment_ids: segmentId ? [segmentId] : [],
+    overall_rating: rating,
+    tags: Array.isArray(payload?.tags) ? payload.tags : [],
+    segment_overrides: segmentId ? [{ segment_id: segmentId, rating }] : [],
+    mode: 'walk',
+  }, { signal });
 }
 
 function injectModalStyles() {
@@ -116,7 +123,7 @@ function injectModalStyles() {
   modalStylesInjected = true;
 }
 
-export function openRatingModal({ routeFeature, segmentLookup, userHash, onSuccess }) {
+export function openRatingModal({ routeFeature, segmentLookup, userHash, onSuccess, signal }) {
   if (!routeFeature) return;
   closeRatingModal();
   if (typeof document === 'undefined') return;
@@ -130,6 +137,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     overallRating: 3,
     noteInput: null,
     onSuccess,
+    signal,
   };
 
   injectModalStyles();
@@ -253,10 +261,18 @@ export function closeRatingModal() {
   submitBtn = null;
 }
 
-export function finalizeDiarySubmission({ state, payload, response, close = closeRatingModal }) {
+export function finalizeDiarySubmission({
+  state,
+  payload,
+  response,
+  close = closeRatingModal,
+  isCurrent = () => true,
+}) {
+  if (state?.signal?.aborted || !isCurrent()) return false;
   const onSuccess = state?.onSuccess;
   close();
   onSuccess?.({ payload, response });
+  return true;
 }
 
 function createStarSelector(state) {
@@ -606,28 +622,29 @@ function createNotesSection(state) {
 
 async function handleSubmit(event) {
   event.preventDefault();
-  if (!currentState) return;
-  if (!currentState.overallRating) {
+  const state = currentState;
+  if (!state || state.signal?.aborted) return;
+  if (!state.overallRating) {
     setError('Select an overall rating.');
     return;
   }
-  if (currentState.tags.size === 0) {
+  if (state.tags.size === 0) {
     setError('Pick at least one tag.');
     return;
   }
-  const routeProps = currentState.route.properties || {};
-  const overrides = Array.from(currentState.overrides.entries()).map(([segment_id, rating]) => ({ segment_id, rating }));
+  const routeProps = state.route.properties || {};
+  const overrides = Array.from(state.overrides.entries()).map(([segment_id, rating]) => ({ segment_id, rating }));
   const payload = {
     route_id: routeProps.route_id,
     segment_ids: routeProps.segment_ids || [],
-    overall_rating: currentState.overallRating,
-    tags: Array.from(currentState.tags),
+    overall_rating: state.overallRating,
+    tags: Array.from(state.tags),
     segment_overrides: overrides,
     mode: (routeProps.mode || 'walk').toLowerCase() === 'bike' ? 'bike' : 'walk',
-    user_hash: currentState.userHash,
+    user_hash: state.userHash,
     timestamp: new Date().toISOString(),
   };
-  const notesValue = currentState.noteInput?.value?.trim();
+  const notesValue = state.noteInput?.value?.trim();
   if (notesValue) {
     payload.notes = notesValue;
   }
@@ -646,13 +663,21 @@ async function handleSubmit(event) {
 
   try {
     console.info('[Diary] submit payload', payload);
-    const response = await submitDiary(payload);
+    const response = await submitDiary(payload, { signal: state.signal });
+    if (currentState !== state || state.signal?.aborted) return;
     console.info('[Diary] submit response', response);
-    finalizeDiarySubmission({ state: currentState, payload, response });
+    finalizeDiarySubmission({
+      state,
+      payload,
+      response,
+      isCurrent: () => currentState === state,
+    });
   } catch (err) {
-    setError(err?.message || 'Submission failed.');
+    if (currentState === state && !state.signal?.aborted && err?.name !== 'AbortError') {
+      setError(err?.message || 'Submission failed.');
+    }
   } finally {
-    if (submitBtn) {
+    if (currentState === state && !state.signal?.aborted && submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit rating';
     }

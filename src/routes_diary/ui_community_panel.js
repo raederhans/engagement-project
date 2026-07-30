@@ -5,6 +5,7 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
   const radius = state.radiusMeters ?? 1500;
   const segments = state.segments || [];
   const comments = state.comments || [];
+  const isCurrent = () => handlers.isCurrent?.() !== false;
 
   // Area focus
   const areaCard = createDiaryCard();
@@ -25,10 +26,12 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
   slider.value = radius;
   slider.style.width = '100%';
   slider.addEventListener('input', () => {
+    if (!isCurrent()) return;
     const val = Number(slider.value);
     radiusLabel.textContent = `Radius: ${(val / 1000).toFixed(2)} km`;
   });
   slider.addEventListener('change', () => {
+    if (!isCurrent()) return;
     const val = Number(slider.value);
     handlers.onRadiusChange?.(val);
   });
@@ -66,7 +69,10 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
     meta.appendChild(badge);
     btn.appendChild(title);
     btn.appendChild(meta);
-    btn.addEventListener('click', () => handlers.onSelectSegment?.(seg));
+    btn.addEventListener('click', () => {
+      if (!isCurrent()) return;
+      handlers.onSelectSegment?.(seg);
+    });
     segList.appendChild(btn);
   });
   segmentsCard.appendChild(segList);
@@ -114,6 +120,7 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
   form.appendChild(postBtn);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!isCurrent()) return;
     const val = (input.value || '').trim();
     if (!val) return;
     handlers.onPostComment?.(val);
