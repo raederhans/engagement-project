@@ -3,11 +3,11 @@
 ## Final truth
 
 - Repository: `raederhans/engagement-project`.
-- Final verified `main`: `d4d0e9d146e279a7c81ba0c71af173d64cb7f08b`.
+- Final verified runtime commit on `main`: `d4d0e9d146e279a7c81ba0c71af173d64cb7f08b`.
 - Production URL: `https://raederhans.github.io/engagement-project/`.
 - Diary URL: `https://raederhans.github.io/engagement-project/?mode=diary`.
-- Final CI run: `30513404951`, successful.
-- Final Pages run: `30513404940`, successful.
+- Runtime CI run: `30513404951`, successful.
+- Runtime Pages run: `30513404940`, successful.
 - Integrated pull requests: #7, #12, #13, #14, and #15.
 
 ## Decisions and evidence
