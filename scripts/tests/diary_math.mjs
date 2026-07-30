@@ -1,22 +1,28 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { weightFor, bayesianShrink, clampMean, effectiveN } from '../../src/utils/decay.js';
+import {
+  DEFAULT_HALF_LIFE_DAYS,
+  weightFor,
+  bayesianShrink,
+  clampMean,
+  effectiveN,
+} from '../../src/utils/decay.js';
 
 function approxEqual(a, b, epsilon = 0.02) {
   return Math.abs(a - b) <= epsilon;
 }
 
 const now = Date.now();
-const halfLife = 21;
-const wFresh = weightFor(now, now, halfLife);
-const wHalfLife = weightFor(now - halfLife * 86400000, now, halfLife);
-const wTwoHalf = weightFor(now - halfLife * 2 * 86400000, now, halfLife);
+assert.equal(DEFAULT_HALF_LIFE_DAYS, 21, 'The shared Diary half-life must remain 21 days');
+const wFresh = weightFor(now, now);
+const wHalfLife = weightFor(now - DEFAULT_HALF_LIFE_DAYS * 86400000, now);
+const wTwoHalf = weightFor(now - DEFAULT_HALF_LIFE_DAYS * 2 * 86400000, now);
 assert.ok(approxEqual(wFresh, 1), `Fresh weight expected ≈1, got ${wFresh}`);
-assert.ok(approxEqual(wHalfLife, 0.5, 0.05), `Half-life weight expected ≈0.5, got ${wHalfLife}`);
-assert.ok(wTwoHalf < wHalfLife, 'Two half-life weight should be smaller than half-life');
+assert.equal(wHalfLife, 0.5, `Default weight must equal 0.5 at ${DEFAULT_HALF_LIFE_DAYS} days`);
+assert.equal(wTwoHalf, 0.25, `Default weight must equal 0.25 at ${DEFAULT_HALF_LIFE_DAYS * 2} days`);
 
 const shrinked = bayesianShrink(5, 1, 3, 5);
-assert.ok(shrinked < 3.4 && shrinked > 3, 'Shrink should stay near prior when n small');
+assert.equal(shrinked, (3 * 5 + 5) / 6, 'Small samples must use the documented weighted-prior formula');
 const shrLargeN = bayesianShrink(4.5, 200, 3, 5);
 assert.ok(approxEqual(shrLargeN, 4.5, 0.05), 'Large n should converge to observed mean');
 

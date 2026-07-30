@@ -30,116 +30,149 @@ function buildMatrix(dowHrRows) {
   return m;
 }
 
+const DEFAULT_FETCHERS = {
+  fetchMonthlySeriesCity,
+  fetchMonthlySeriesBuffer,
+  fetchTopTypesBuffer,
+  fetch7x24Buffer,
+  fetchTopTypesByDistrict,
+  fetch7x24District,
+  fetchMonthlyTract,
+  fetchTopTypesTract,
+  fetch7x24Tract,
+};
+
+function getStatusElement() {
+  const pane = document.getElementById('charts') || document.body;
+  let status = document.getElementById('charts-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'charts-status';
+    status.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
+    pane.appendChild(status);
+  }
+  return status;
+}
+
+function createDefaultChartSinks() {
+  return {
+    status(message) {
+      getStatusElement().textContent = message;
+    },
+    monthly(cityRows, areaRows) {
+      const canvas = document.getElementById('chart-monthly');
+      const context = canvas?.getContext?.('2d');
+      if (!context) throw new Error('chart canvas missing: #chart-monthly');
+      renderMonthly(context, cityRows, areaRows);
+    },
+    top(rows) {
+      const canvas = document.getElementById('chart-topn');
+      const context = canvas?.getContext?.('2d');
+      if (!context) throw new Error('chart canvas missing: #chart-topn');
+      renderTopN(context, rows);
+    },
+    heat(matrix) {
+      const canvas = document.getElementById('chart-7x24');
+      const context = canvas?.getContext?.('2d');
+      if (!context) throw new Error('chart canvas missing: #chart-7x24');
+      render7x24(context, matrix);
+    },
+    error(error) {
+      console.error(error);
+      getStatusElement().innerText = `Charts unavailable: ${error?.message || error}`;
+    },
+  };
+}
+
+function isAbortError(error) {
+  return error?.name === 'AbortError';
+}
+
 /**
  * Fetch and render all charts using the provided filters.
  * @param {{start:string,end:string,types?:string[],center3857:[number,number],radiusM:number}} params
  */
-export async function updateAllCharts({ start, end, types = [], drilldownCodes = [], center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID }) {
+export async function updateAllCharts(
+  { start, end, types = [], drilldownCodes = [], center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID },
+  {
+    signal,
+    shouldApply = () => true,
+    fetchers,
+    sinks,
+  } = {},
+) {
+  const chartFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
+  const chartSinks = sinks ?? createDefaultChartSinks();
+  const isFresh = () => !signal?.aborted && shouldApply();
+
   try {
     let city, bufOrArea, topn, heat;
     if (queryMode === 'district' && selectedDistrictCode) {
       [city, topn, heat] = await Promise.all([
-        fetchMonthlySeriesCity({ start, end, types, dc_dist: selectedDistrictCode }),
-        fetchTopTypesByDistrict({ start, end, types, dc_dist: selectedDistrictCode, limit: 12 }),
-        fetch7x24District({ start, end, types, dc_dist: selectedDistrictCode }),
+        chartFetchers.fetchMonthlySeriesCity({ start, end, types, dc_dist: selectedDistrictCode, signal }),
+        chartFetchers.fetchTopTypesByDistrict({ start, end, types, dc_dist: selectedDistrictCode, limit: 12, signal }),
+        chartFetchers.fetch7x24District({ start, end, types, dc_dist: selectedDistrictCode, signal }),
       ]);
       bufOrArea = { rows: [] }; // no buffer series overlay in district mode
     } else if (queryMode === 'buffer') {
       if (!center3857) {
-        const pane = document.getElementById('charts') || document.body;
-        const status = document.getElementById('charts-status') || (() => {
-          const d = document.createElement('div');
-          d.id = 'charts-status';
-          d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-          pane.appendChild(d);
-          return d;
-        })();
-        status.textContent = 'Tip: click the map to set a center and show buffer-based charts.';
-        return; // skip
+        if (!isFresh()) return { applied: false };
+        chartSinks.status('Tip: click the map to set a center and show buffer-based charts.');
+        return { applied: true };
       }
       [city, bufOrArea, topn, heat] = await Promise.all([
-        fetchMonthlySeriesCity({ start, end, types }),
-        fetchMonthlySeriesBuffer({ start, end, types, center3857, radiusM }),
-        fetchTopTypesBuffer({ start, end, center3857, radiusM, limit: 12 }),
-        fetch7x24Buffer({ start, end, types, center3857, radiusM }),
+        chartFetchers.fetchMonthlySeriesCity({ start, end, types, signal }),
+        chartFetchers.fetchMonthlySeriesBuffer({ start, end, types, center3857, radiusM, signal }),
+        chartFetchers.fetchTopTypesBuffer({ start, end, center3857, radiusM, limit: 12, signal }),
+        chartFetchers.fetch7x24Buffer({ start, end, types, center3857, radiusM, signal }),
       ]);
     } else if (queryMode === 'tract' && selectedTractGEOID) {
       const codes = (Array.isArray(drilldownCodes) && drilldownCodes.length) ? drilldownCodes : types;
       [city, bufOrArea, topn, heat] = await Promise.all([
-        fetchMonthlySeriesCity({ start, end, types }),
-        fetchMonthlyTract({ start, end, geoid: selectedTractGEOID, codes }),
-        fetchTopTypesTract({ start, end, types: codes, tractGEOID: selectedTractGEOID, limit: 12 }),
-        fetch7x24Tract({ start, end, types: codes, tractGEOID: selectedTractGEOID }),
+        chartFetchers.fetchMonthlySeriesCity({ start, end, types, signal }),
+        chartFetchers.fetchMonthlyTract({ start, end, geoid: selectedTractGEOID, codes, signal }),
+        chartFetchers.fetchTopTypesTract({ start, end, types: codes, tractGEOID: selectedTractGEOID, limit: 12, signal }),
+        chartFetchers.fetch7x24Tract({ start, end, types: codes, tractGEOID: selectedTractGEOID, signal }),
       ]);
     } else {
       // Fallback: only citywide series
       [city] = await Promise.all([
-        fetchMonthlySeriesCity({ start, end, types }),
+        chartFetchers.fetchMonthlySeriesCity({ start, end, types, signal }),
       ]);
       topn = { rows: [] };
       heat = { rows: [] };
       bufOrArea = { rows: [] };
     }
 
+    if (!isFresh()) return { applied: false };
+
     const cityRows = Array.isArray(city?.rows) ? city.rows : city;
     const bufRows = Array.isArray(bufOrArea?.rows) ? bufOrArea.rows : bufOrArea;
     const topRows = Array.isArray(topn?.rows) ? topn.rows : topn;
     const heatRows = Array.isArray(heat?.rows) ? heat.rows : heat;
 
-    // Monthly line
-    const monthlyEl = document.getElementById('chart-monthly');
-    const monthlyCtx = monthlyEl && monthlyEl.getContext ? monthlyEl.getContext('2d') : null;
-    if (!monthlyCtx) throw new Error('chart canvas missing: #chart-monthly');
-    renderMonthly(monthlyCtx, byMonthRows(cityRows), byMonthRows(bufRows));
-
-    // Top-N bar
-    const topEl = document.getElementById('chart-topn');
-    const topCtx = topEl && topEl.getContext ? topEl.getContext('2d') : null;
-    if (!topCtx) throw new Error('chart canvas missing: #chart-topn');
-    renderTopN(topCtx, topRows);
-
-    // 7x24 heat scatter
-    const heatEl = document.getElementById('chart-7x24');
-    const heatCtx = heatEl && heatEl.getContext ? heatEl.getContext('2d') : null;
-    if (!heatCtx) throw new Error('chart canvas missing: #chart-7x24');
-    render7x24(heatCtx, buildMatrix(heatRows));
+    chartSinks.status('');
+    if (!isFresh()) return { applied: false };
+    chartSinks.monthly(byMonthRows(cityRows), byMonthRows(bufRows));
+    if (!isFresh()) return { applied: false };
+    chartSinks.top(topRows);
+    if (!isFresh()) return { applied: false };
+    chartSinks.heat(buildMatrix(heatRows));
+    if (!isFresh()) return { applied: false };
 
     // Empty-window banner
     const allZeroCity = (Array.isArray(cityRows) && cityRows.length > 0) ? cityRows.every(r => Number(r.n||0) === 0) : false;
     const noneTop = !Array.isArray(topRows) || topRows.length === 0;
     const noneHeat = !Array.isArray(heatRows) || heatRows.length === 0;
     if (queryMode === 'tract' && (Array.isArray(bufRows) ? bufRows.length === 0 : true) && noneTop && noneHeat) {
-      const pane = document.getElementById('charts') || document.body;
-      const status = document.getElementById('charts-status') || (() => {
-        const d = document.createElement('div');
-        d.id = 'charts-status';
-        d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-        pane.appendChild(d);
-        return d;
-      })();
-      status.textContent = 'Tract has no incidents in this window.';
+      chartSinks.status('Tract has no incidents in this window.');
     } else if (allZeroCity && noneTop && noneHeat) {
-      const pane = document.getElementById('charts') || document.body;
-      const status = document.getElementById('charts-status') || (() => {
-        const d = document.createElement('div');
-        d.id = 'charts-status';
-        d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-        pane.appendChild(d);
-        return d;
-      })();
-      status.textContent = 'No incidents in selected window. Adjust the time range.';
+      chartSinks.status('No incidents in selected window. Adjust the time range.');
     }
+    return { applied: true };
   } catch (e) {
-    console.error(e);
-    const pane = document.getElementById('charts') || document.body;
-    const status = document.getElementById('charts-status') || (() => {
-      const d = document.createElement('div');
-      d.id = 'charts-status';
-      d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-      pane.appendChild(d);
-      return d;
-    })();
-    status.innerText = 'Charts unavailable: ' + (e.message || e);
+    if (!isFresh() || isAbortError(e)) return { applied: false };
+    chartSinks.error(e);
     throw e;
   }
 }

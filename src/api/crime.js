@@ -14,7 +14,7 @@ import { getTractPolygonAndBboxByGEOID } from "../utils/tract_geom.js";
  * @param {number[] | {xmin:number, ymin:number, xmax:number, ymax:number}} [params.bbox] - Map bounding box in EPSG:3857.
  * @returns {Promise<object>} GeoJSON FeatureCollection.
  */
-export async function fetchPoints({ start, end, types, bbox, dc_dist }) {
+export async function fetchPoints({ start, end, types, bbox, dc_dist, signal }) {
   const sql = Q.buildCrimePointsSQL({ start, end, types, bbox, dc_dist });
   await logQuery('fetchPoints', sql);
   return fetchJson(CARTO_SQL_BASE, {
@@ -22,6 +22,7 @@ export async function fetchPoints({ start, end, types, bbox, dc_dist }) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `format=GeoJSON&q=${encodeURIComponent(sql)}`,
     cacheTTL: 30_000,
+    signal,
   });
 }
 
@@ -33,7 +34,7 @@ export async function fetchPoints({ start, end, types, bbox, dc_dist }) {
  * @param {string[]} [params.types] - Optional offense filters.
  * @returns {Promise<object>} Aggregated results keyed by month.
  */
-export async function fetchMonthlySeriesCity({ start, end, types, dc_dist }) {
+export async function fetchMonthlySeriesCity({ start, end, types, dc_dist, signal }) {
   const sql = Q.buildMonthlyCitySQL({ start, end, types, dc_dist });
   await logQuery('fetchMonthlySeriesCity', sql);
   return fetchJson(CARTO_SQL_BASE, {
@@ -41,6 +42,7 @@ export async function fetchMonthlySeriesCity({ start, end, types, dc_dist }) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 300_000,
+    signal,
   });
 }
 
@@ -60,6 +62,7 @@ export async function fetchMonthlySeriesBuffer({
   types,
   center3857,
   radiusM,
+  signal,
 }) {
   const sql = Q.buildMonthlyBufferSQL({
     start,
@@ -74,6 +77,7 @@ export async function fetchMonthlySeriesBuffer({
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
+    signal,
   });
 }
 
@@ -93,6 +97,7 @@ export async function fetchTopTypesBuffer({
   center3857,
   radiusM,
   limit,
+  signal,
 }) {
   const sql = Q.buildTopTypesSQL({
     start,
@@ -107,6 +112,7 @@ export async function fetchTopTypesBuffer({
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
+    signal,
   });
 }
 
@@ -126,6 +132,7 @@ export async function fetch7x24Buffer({
   types,
   center3857,
   radiusM,
+  signal,
 }) {
   const sql = Q.buildHeatmap7x24SQL({
     start,
@@ -140,6 +147,7 @@ export async function fetch7x24Buffer({
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
+    signal,
   });
 }
 
@@ -151,7 +159,7 @@ export async function fetch7x24Buffer({
  * @param {string[]} [params.types] - Optional offense filters.
  * @returns {Promise<object>} Aggregated district totals.
  */
-export async function fetchByDistrict({ start, end, types }) {
+export async function fetchByDistrict({ start, end, types, signal }) {
   const sql = Q.buildByDistrictSQL({ start, end, types });
   await logQuery('fetchByDistrict', sql);
   return fetchJson(CARTO_SQL_BASE, {
@@ -159,28 +167,29 @@ export async function fetchByDistrict({ start, end, types }) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 120_000,
+    signal,
   });
 }
 
 /**
  * Top offense types within a district code.
  */
-export async function fetchTopTypesByDistrict({ start, end, types, dc_dist, limit = 5 }) {
+export async function fetchTopTypesByDistrict({ start, end, types, dc_dist, limit = 5, signal }) {
   const sql = Q.buildTopTypesDistrictSQL({ start, end, types, dc_dist, limit });
   await logQuery('fetchTopTypesByDistrict', sql);
   return fetchJson(CARTO_SQL_BASE, {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000,
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000, signal,
   });
 }
 
 /**
  * Fetch 7x24 heat aggregates filtered by a police district.
  */
-export async function fetch7x24District({ start, end, types, dc_dist }) {
+export async function fetch7x24District({ start, end, types, dc_dist, signal }) {
   const sql = Q.buildHeatmap7x24DistrictSQL({ start, end, types, dc_dist });
   await logQuery('fetch7x24District', sql);
   return fetchJson(CARTO_SQL_BASE, {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000,
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000, signal,
   });
 }
 
@@ -189,7 +198,7 @@ export async function fetch7x24District({ start, end, types, dc_dist }) {
  * @param {{start:string,end:string,types?:string[],center3857:[number,number]|{x:number,y:number},radiusM:number}} params
  * @returns {Promise<number>} total count
  */
-export async function fetchCountBuffer({ start, end, types, center3857, radiusM }) {
+export async function fetchCountBuffer({ start, end, types, center3857, radiusM, signal }) {
   const sql = Q.buildCountBufferSQL({ start, end, types, center3857, radiusM });
   await logQuery('fetchCountBuffer', sql);
   const json = await fetchJson(CARTO_SQL_BASE, {
@@ -197,6 +206,7 @@ export async function fetchCountBuffer({ start, end, types, center3857, radiusM 
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 30_000,
+    signal,
   });
   const rows = json?.rows;
   const n = Array.isArray(rows) && rows.length > 0 ? Number(rows[0]?.n) || 0 : 0;
@@ -209,7 +219,7 @@ export async function fetchCountBuffer({ start, end, types, center3857, radiusM 
  * @param {{start:string,end:string,groups:string[]}} params
  * @returns {Promise<string[]>} Alphabetized array of available codes
  */
-export async function fetchAvailableCodesForGroups({ start, end, groups }) {
+export async function fetchAvailableCodesForGroups({ start, end, groups, signal }) {
   if (!Array.isArray(groups) || groups.length === 0) {
     return [];
   }
@@ -241,6 +251,7 @@ export async function fetchAvailableCodesForGroups({ start, end, groups }) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000, // 60s cache
+    signal,
   });
 
   const rows = json?.rows || [];
@@ -257,14 +268,14 @@ export async function fetchAvailableCodesForGroups({ start, end, groups }) {
  * @returns {Promise<{rows: Array<{m: string, n: number}>}>}
  * @throws {Error} Not yet implemented
  */
-export async function fetchMonthlySeriesTract({ start, end, types, tractGEOID }) {
-  const tracts = await fetchTractsCachedFirst();
+export async function fetchMonthlySeriesTract({ start, end, types, tractGEOID, signal }) {
+  const tracts = await fetchTractsCachedFirst({ signal });
   const pb = getTractPolygonAndBboxByGEOID(tracts, tractGEOID, { decimals: 6 });
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildMonthlyTractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326 });
   await logQuery('fetchMonthlySeriesTract', sql);
   return fetchJson(CARTO_SQL_BASE, {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000,
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
   });
 }
 
@@ -278,14 +289,14 @@ export async function fetchMonthlySeriesTract({ start, end, types, tractGEOID })
  * @returns {Promise<{rows: Array<{text_general_code: string, n: number}>}>}
  * @throws {Error} Not yet implemented
  */
-export async function fetchTopTypesTract({ start, end, types, tractGEOID, limit = 12 }) {
-  const tracts = await fetchTractsCachedFirst();
+export async function fetchTopTypesTract({ start, end, types, tractGEOID, limit = 12, signal }) {
+  const tracts = await fetchTractsCachedFirst({ signal });
   const pb = getTractPolygonAndBboxByGEOID(tracts, tractGEOID, { decimals: 6 });
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildTopTypesTractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326, limit });
   await logQuery('fetchTopTypesTract', sql);
   return fetchJson(CARTO_SQL_BASE, {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000,
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
   });
 }
 
@@ -299,18 +310,18 @@ export async function fetchTopTypesTract({ start, end, types, tractGEOID, limit 
  * @returns {Promise<{rows: Array<{dow: number, hr: number, n: number}>}>}
  * @throws {Error} Not yet implemented
  */
-export async function fetch7x24Tract({ start, end, types, tractGEOID }) {
-  const tracts = await fetchTractsCachedFirst();
+export async function fetch7x24Tract({ start, end, types, tractGEOID, signal }) {
+  const tracts = await fetchTractsCachedFirst({ signal });
   const pb = getTractPolygonAndBboxByGEOID(tracts, tractGEOID, { decimals: 6 });
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildHeatmap7x24TractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326 });
   await logQuery('fetch7x24Tract', sql);
   return fetchJson(CARTO_SQL_BASE, {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000,
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
   });
 }
 
 // Aliases matching request naming
-export async function fetchMonthlyTract({ start, end, geoid, codes }) {
-  return fetchMonthlySeriesTract({ start, end, types: codes, tractGEOID: geoid });
+export async function fetchMonthlyTract({ start, end, geoid, codes, signal }) {
+  return fetchMonthlySeriesTract({ start, end, types: codes, tractGEOID: geoid, signal });
 }

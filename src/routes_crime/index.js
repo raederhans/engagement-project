@@ -19,6 +19,7 @@ import { upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
 import { createMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
+import { createCrimeRefreshOwner, readCrimeSnapshot } from './crime_refresh_owner.js';
 
 const CRIME_LAYER_IDS = [
   'districts-fill',
@@ -44,9 +45,9 @@ function loadChartsModule() {
   return chartsModulePromise;
 }
 
-async function updateCharts(filters) {
+async function updateCharts(filters, options) {
   const { updateAllCharts } = await loadChartsModule();
-  return updateAllCharts(filters);
+  return updateAllCharts(filters, options);
 }
 
 function waitForMapReady(map) {
@@ -54,16 +55,36 @@ function waitForMapReady(map) {
   return new Promise((resolve) => map.once('load', resolve));
 }
 
-function chartsStatus() {
-  const pane = document.getElementById('charts') || document.body;
-  let status = document.getElementById('charts-status');
-  if (!status) {
-    status = document.createElement('div');
-    status.id = 'charts-status';
-    status.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-    pane.appendChild(status);
-  }
-  return status;
+function captureCrimeSnapshot() {
+  return readCrimeSnapshot(store);
+}
+
+export function createCrimeSynchronousActions({
+  map,
+  isControllerActive,
+  isModeActive,
+  readBuffer,
+  upsertBuffer = upsertBufferA,
+}) {
+  const ownsMap = () => Boolean(isControllerActive() && isModeActive());
+  return Object.freeze({
+    updateBuffer() {
+      if (!ownsMap()) return false;
+      const { centerLonLat, radiusM } = readBuffer();
+      if (!centerLonLat) return false;
+      upsertBuffer(map, { centerLonLat, radiusM });
+      return true;
+    },
+    setTractsOverlayVisible(visible) {
+      if (!ownsMap() || !map.getLayer('tracts-outline-line')) return false;
+      map.setLayoutProperty(
+        'tracts-outline-line',
+        'visibility',
+        visible ? 'visible' : 'none',
+      );
+      return true;
+    },
+  });
 }
 
 export async function initCrimeMode(map, { isActive = () => true } = {}) {
@@ -72,12 +93,9 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
   let tractClickWired = false;
   let districtClickWired = false;
   let active = true;
-  let refreshRunning = false;
-  let refreshQueued = false;
   let hoverCleanup = null;
   let popupCleanup = null;
   let tractOutlineData = null;
-  let tractOutlinePromise = null;
 
   try {
     await initCoverageAndDefaults();
@@ -85,64 +103,54 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
 
   const center = map.getCenter();
   store.setCenterFromLngLat(center.lng, center.lat);
-  const pointsController = wirePoints(map, { getFilters: () => store.getFilters() });
-
-  const initialFilters = store.getFilters();
-  const districtsPromise = getDistrictsMerged({
-    start: initialFilters.start,
-    end: initialFilters.end,
-    types: initialFilters.types,
+  const pointsController = wirePoints(map, { getFilters: captureCrimeSnapshot });
+  const refreshOwner = createCrimeRefreshOwner({
+    readSnapshot: captureCrimeSnapshot,
+    runRefresh: refreshAll,
+  });
+  const synchronousActions = createCrimeSynchronousActions({
+    map,
+    isControllerActive: () => active,
+    isModeActive: isActive,
+    readBuffer: () => ({ centerLonLat: store.centerLonLat, radiusM: store.radius }),
   });
 
   await mapReady;
   if (!isActive()) {
     active = false;
+    refreshOwner.setActive(false);
     pointsController.setActive(false);
   } else {
-    try {
-      const merged = await districtsPromise;
-      if (isActive()) {
-        initLegend();
-        renderDistrictChoropleth(map, merged);
-        ensureDistrictInteractions();
-      }
-    } catch (error) {
-      console.warn('Choropleth initialization failed:', error);
-    }
-
-    if (isActive()) {
-      void ensureTractOutline();
-      await refreshCharts(initialFilters);
-    }
+    initLegend();
+    await refreshOwner.refresh();
   }
 
-  async function refreshCharts(filters) {
-    const status = chartsStatus();
-    if ((filters.queryMode === 'buffer' && filters.center3857) || filters.queryMode === 'district' || filters.queryMode === 'tract') {
-      status.textContent = '';
-      try {
-        await updateCharts(filters);
-      } catch (error) {
-        status.textContent = `Charts unavailable: ${error?.message || error}`;
-      }
-    } else {
-      status.textContent = 'Tip: click the map to set a center and show buffer-based charts.';
-    }
-  }
-
-  async function refreshAll() {
-    if (!active || !isActive()) return;
-    const filters = store.getFilters();
-    const { start, end, types, queryMode, selectedDistrictCode, selectedTractGEOID } = filters;
+  async function refreshAll(snapshot, { signal, isCurrent }) {
+    if (!active || !isActive() || !isCurrent()) return { applied: false };
+    const {
+      start,
+      end,
+      types,
+      queryMode,
+      selectedDistrictCode,
+      selectedTractGEOID,
+      adminLevel,
+      per10k,
+      center3857,
+      centerLonLat,
+      radiusM,
+      timeWindowMonths,
+    } = snapshot;
 
     try {
-      if (store.adminLevel === 'tracts') {
+      if (adminLevel === 'tracts') {
         const merged = await getTractsMerged({
-          per10k: store.per10k,
+          per10k,
           windowStart: start,
           windowEnd: end,
+          signal,
         });
-        if (!active || !isActive()) return;
+        if (!isCurrent()) return { applied: false };
         renderTractsChoropleth(map, merged);
         if (queryMode === 'tract' && selectedTractGEOID) {
           upsertSelectedTract(map, selectedTractGEOID);
@@ -151,8 +159,11 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
         }
         wireTractSelection();
       } else {
-        const merged = await getDistrictsMerged({ start, end, types });
-        if (!active || !isActive()) return;
+        const [merged] = await Promise.all([
+          getDistrictsMerged({ start, end, types, signal }),
+          ensureTractOutline({ signal, isCurrent }),
+        ]);
+        if (!isCurrent()) return { applied: false };
         renderDistrictChoropleth(map, merged);
         ensureDistrictInteractions();
         if (queryMode === 'district' && selectedDistrictCode) {
@@ -163,46 +174,42 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
         wireDistrictSelection();
       }
     } catch (error) {
+      if (!isCurrent()) return { applied: false };
       console.warn('Boundary refresh failed:', error);
     }
 
-    if (!active || !isActive()) return;
+    if (!isCurrent()) return { applied: false };
     const jobs = [];
-    if (queryMode === 'buffer' && store.center3857) {
-      jobs.push(pointsController.refresh());
+    if (queryMode === 'buffer' && center3857) {
+      jobs.push(pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }));
     } else if (queryMode === 'district') {
-      jobs.push(pointsController.refresh());
+      jobs.push(pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }));
     } else {
       pointsController.clear();
     }
-    jobs.push(refreshCharts(store.getFilters()));
-    if (store.center3857) {
+    jobs.push(updateCharts(snapshot, { signal, shouldApply: isCurrent }));
+    if (center3857) {
       jobs.push(updateCompare({
         types,
-        center3857: store.center3857,
-        radiusM: store.radius,
-        timeWindowMonths: store.timeWindowMonths,
-        adminLevel: store.adminLevel,
-      }));
+        center3857,
+        radiusM,
+        timeWindowMonths,
+        adminLevel,
+      }, { signal, shouldApply: isCurrent }));
     }
     const results = await Promise.allSettled(jobs);
+    if (!isCurrent()) return { applied: false };
     for (const result of results) {
       if (result.status === 'rejected') console.warn('Crime dashboard refresh failed:', result.reason);
     }
+    if (queryMode === 'buffer' && centerLonLat) {
+      upsertBufferA(map, { centerLonLat, radiusM });
+    }
+    return { applied: true };
   }
 
-  async function requestRefresh() {
-    refreshQueued = true;
-    if (refreshRunning) return;
-    refreshRunning = true;
-    try {
-      while (refreshQueued && active && isActive()) {
-        refreshQueued = false;
-        await refreshAll();
-      }
-    } finally {
-      refreshRunning = false;
-    }
+  function requestRefresh() {
+    return refreshOwner.refresh();
   }
 
   function wireTractSelection() {
@@ -223,17 +230,14 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
     if (!popupCleanup) popupCleanup = attachDistrictPopup(map, 'districts-fill');
   }
 
-  async function ensureTractOutline() {
+  async function ensureTractOutline({ signal, isCurrent }) {
     if (!tractOutlineData) {
-      tractOutlinePromise ||= fetchTractsCachedFirst()
-        .then((tracts) => {
-          tractOutlineData = tracts;
-          return tracts;
-        });
       try {
-        await tractOutlinePromise;
+        const tracts = await fetchTractsCachedFirst({ signal });
+        if (!isCurrent()) return;
+        tractOutlineData = tracts;
       } catch (error) {
-        tractOutlinePromise = null;
+        if (!isCurrent() || signal.aborted || error?.name === 'AbortError') return;
         console.warn('Failed to load tract outlines:', error);
         return;
       }
@@ -258,7 +262,6 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
 
   map.on('click', (event) => {
     if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
-    const lngLat = [event.lngLat.lng, event.lngLat.lat];
     store.setCenterFromLngLat(event.lngLat.lng, event.lngLat.lat);
     markerA ||= createMapMarker({ color: '#ef4444' });
     markerA.setLngLat(event.lngLat).addTo(map);
@@ -269,19 +272,16 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
     const hint = document.getElementById('useMapHint');
     if (hint) hint.style.display = 'none';
     document.body.style.cursor = '';
-    window.__dashboard.lastPick = { when: new Date().toISOString(), lngLat };
     void requestRefresh();
   });
 
   return {
     requestRefresh,
-    updateBuffer() {
-      if (store.centerLonLat) {
-        upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
-      }
-    },
+    updateBuffer: synchronousActions.updateBuffer,
+    setTractsOverlayVisible: synchronousActions.setTractsOverlayVisible,
     setActive(next) {
       active = Boolean(next);
+      refreshOwner.setActive(active);
       pointsController.setActive(active);
       for (const layerId of CRIME_LAYER_IDS) {
         if (map.getLayer(layerId)) {
@@ -289,7 +289,6 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
         }
       }
       if (active) {
-        void ensureTractOutline();
         if (store.centerLonLat) {
           upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
         }

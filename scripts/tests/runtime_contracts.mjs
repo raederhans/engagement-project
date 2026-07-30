@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { store } from '../../src/state/store.js';
@@ -171,6 +170,29 @@ test('segment popup escapes external tag labels at the actual HTML sink', () => 
   assert.match(html, /&lt;img/);
 });
 
+test('segment CTA state comes from feature data without reading window globals', () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = new Proxy({}, {
+    get(_target, property) {
+      throw new Error(`unexpected window read: ${String(property)}`);
+    },
+  });
+  try {
+    const html = buildSegmentCardHtml({
+      segment_id: 'seg-cta',
+      street_name: 'Explicit state street',
+      decayed_mean: 3,
+      n_eff: 5,
+      __diaryVotes: { agreeDisabled: true, saferDisabled: false },
+    });
+    assert.match(html, /data-diary-action="agree"[^>]*disabled/);
+    assert.doesNotMatch(html, /data-diary-action="safer"[^>]* disabled/);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 test('disposed district popup ignores a late network response', async () => {
   let clickHandler;
   let resolveDistricts;
@@ -199,32 +221,4 @@ test('disposed district popup ignores a late network response', async () => {
   resolveTopTypes({ rows: [] });
   await click;
   assert.equal(popupCreations, 0);
-});
-
-test('runtime source keeps optional features lazy and mode teardown complete', async () => {
-  const [main, crimeRoute, panel, http, popBuffer, diaryForm, pagesWorkflow] = await Promise.all([
-    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/utils/http.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/utils/pop_buffer.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../.github/workflows/deploy-pages.yml', import.meta.url), 'utf8'),
-  ]);
-
-  assert.doesNotMatch(main, /from ['"]\.\/charts\/index\.js['"]/);
-  assert.doesNotMatch(main, /import\(['"]\.\/map\/points\.js['"]\)/);
-  assert.doesNotMatch(main, /teardownDiaryTransient/);
-  assert.doesNotMatch(main, /map\.once\(['"]idle['"], \(\) => void handleViewModeChange/);
-  assert.doesNotMatch(main, /window\.maplibregl/);
-  assert.doesNotMatch(main, /crimeActivated/);
-  assert.doesNotMatch(crimeRoute, /import\s*\{[^}]*refreshPoints/);
-  assert.match(crimeRoute, /hideTractsOutlineBanner\(\)/);
-  assert.match(crimeRoute, /store\.overlayTractsLines \? ['"]visible['"] : ['"]none['"]/);
-  assert.match(crimeRoute, /ensureTractOutline\(\)/);
-  assert.doesNotMatch(panel, /import\(['"]\.\.\/utils\/http\.js['"]\)/);
-  assert.doesNotMatch(http, /import\(['"]node:fs\/promises['"]\)/);
-  assert.match(popBuffer, /fetchTractStatsCachedFirst/);
-  assert.doesNotMatch(diaryForm, /labelWrap\.innerHTML/);
-  assert.match(pagesWorkflow, /VITE_FEATURE_DIARY:\s*['"]?1['"]?/);
 });

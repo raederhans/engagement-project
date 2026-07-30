@@ -32,21 +32,15 @@ const COLOR_BINS = [
   { max: Infinity, color: '#10b981' } // safest
 ];
 
-const hoverRegistrations = new Map();
 const clickRegistrations = new Map();
 let activePinnedPopup = null;
 let activePinnedSegmentId = null;
-let hoverActionHandler = null;
-let highlightTimeoutId = null;
-
-export function registerSegmentActionHandler(handler) {
-  hoverActionHandler = handler;
-}
+let highlightCleanup = null;
 
 /**
  * Mount segments layer on map (MapLibre vector layer)
  */
-export function mountSegmentsLayer(map, sourceId, data) {
+export function mountSegmentsLayer(map, sourceId, data, ownership = {}) {
   if (!map) return;
   const sid = sourceId || DIARY_SEGMENTS_SOURCE_ID;
   const prepared = prepareFeatureCollection(data);
@@ -66,7 +60,7 @@ export function mountSegmentsLayer(map, sourceId, data) {
     'line-blur': 0.05,
   });
 
-  registerClickHandlers(map, hitLayerId);
+  registerClickHandlers(map, hitLayerId, ownership);
 }
 
 /**
@@ -99,10 +93,10 @@ function glowSegment(map, sourceId, segmentId, duration = 2000) {
  */
 export function removeSegmentsLayer(map, sourceId) {
   if (!map) return;
+  cleanupSegmentHighlight(map);
   const sid = sourceId || DIARY_SEGMENTS_SOURCE_ID;
   const layerId = DIARY_SEGMENTS_LAYER_ID;
   const hitLayerId = DIARY_SEGMENTS_HIT_LAYER_ID;
-  cleanupHoverHandlers(map, hitLayerId);
   cleanupClickHandlers(map, hitLayerId);
   for (const id of [layerId, hitLayerId]) {
     if (map.getLayer(id)) {
@@ -134,18 +128,13 @@ export function widthForNEff(nEff) {
   return Math.max(1, Math.min(4, px));
 }
 
-export function highlightSegments(map, segmentFeatures, { durationMs = 1500 } = {}) {
+export function highlightSegments(map, segmentFeatures, {
+  durationMs = 1500,
+  scheduler = globalThis,
+  addCleanup,
+} = {}) {
   if (!map || !Array.isArray(segmentFeatures)) return;
-  if (highlightTimeoutId) {
-    clearTimeout(highlightTimeoutId);
-    highlightTimeoutId = null;
-  }
-  if (map.getLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID)) {
-    try { map.removeLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID); } catch {}
-  }
-  if (map.getSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID)) {
-    try { map.removeSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID); } catch {}
-  }
+  cleanupSegmentHighlight(map);
 
   const fc = {
     type: 'FeatureCollection',
@@ -170,16 +159,38 @@ export function highlightSegments(map, segmentFeatures, { durationMs = 1500 } = 
   });
 
   console.info('[Diary] Highlighting', segmentFeatures.length, 'segments for', durationMs, 'ms');
-  highlightTimeoutId = setTimeout(() => {
+  let cleaned = false;
+  let timeoutId = null;
+  let ownedCleanup = null;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    if (timeoutId != null) scheduler.clearTimeout(timeoutId);
     if (map.getLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID)) {
       try { map.removeLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID); } catch {}
     }
     if (map.getSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID)) {
       try { map.removeSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID); } catch {}
     }
-    highlightTimeoutId = null;
+    if (highlightCleanup === ownedCleanup) highlightCleanup = null;
     console.info('[Diary] Removed highlight layer');
-  }, durationMs);
+  };
+  ownedCleanup = typeof addCleanup === 'function' ? addCleanup(cleanup) : cleanup;
+  highlightCleanup = ownedCleanup;
+  timeoutId = scheduler.setTimeout(() => ownedCleanup(), durationMs);
+}
+
+function cleanupSegmentHighlight(map) {
+  if (typeof highlightCleanup === 'function') {
+    highlightCleanup();
+    return;
+  }
+  if (map.getLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID)) {
+    try { map.removeLayer(DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID); } catch {}
+  }
+  if (map.getSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID)) {
+    try { map.removeSource(DIARY_SEGMENTS_HIGHLIGHT_SOURCE_ID); } catch {}
+  }
 }
 
 function classWidth(classValue) {
@@ -218,51 +229,6 @@ function buildColorExpression() {
 
 function buildWidthExpression() {
   return ['min', 4, ['max', 1.5, ['+', 1, ['*', 0.15, ['sqrt', ['max', ['coalesce', ['get', NEFF_PROP], 0], 0]]]]]];
-}
-
-function registerHoverHandlers(map, layerId) {
-  cleanupHoverHandlers(map, layerId);
-  if (!map || !layerId) return;
-
-  const popup = new maplibregl.Popup({
-    closeButton: false,
-    closeOnClick: false,
-    className: 'diary-hover-card',
-    offset: 12,
-  });
-  wirePopupInteractions(popup);
-
-  let popupVisible = false;
-
-  const moveHandler = (event) => {
-    const feature = event.features && event.features[0];
-    if (!feature) return;
-    const props = feature.properties || {};
-    const html = buildSegmentCardHtml(props, { mode: 'view' });
-    if (!popupVisible) {
-      popup.addTo(map);
-      popupVisible = true;
-    }
-    popup.setLngLat(event.lngLat).setHTML(html);
-    if (map.getCanvas()) {
-      map.getCanvas().style.cursor = 'pointer';
-    }
-  };
-
-  const leaveHandler = () => {
-    if (popupVisible) {
-      popup.remove();
-      popupVisible = false;
-    }
-    if (map.getCanvas()) {
-      map.getCanvas().style.cursor = '';
-    }
-  };
-
-  map.on('mousemove', layerId, moveHandler);
-  map.on('mouseleave', layerId, leaveHandler);
-
-  hoverRegistrations.set(layerId, { moveHandler, leaveHandler, popup });
 }
 
 function cleanupClickHandlers(map, layerId) {
@@ -309,11 +275,17 @@ function focusSegment(map, feature) {
   }
 }
 
-function registerClickHandlers(map, layerId) {
+function registerClickHandlers(map, layerId, {
+  signal,
+  isCurrent = () => true,
+  onAction,
+} = {}) {
   cleanupClickHandlers(map, layerId);
   if (!map || !layerId) return;
+  const ownerIsCurrent = () => !signal?.aborted && isCurrent();
 
   const clickHandler = (event) => {
+    if (!ownerIsCurrent()) return;
     const feature = event.features && event.features[0];
     if (!feature) return;
     const props = feature.properties || {};
@@ -334,12 +306,16 @@ function registerClickHandlers(map, layerId) {
       maxWidth: '320px',
     });
 
-    const state = { mode: 'view', rating: 0, selectedTags: new Set(), thankYou: false };
+    const state = { mode: 'view', rating: 0, selectedTags: new Set() };
     const render = () => {
+      if (!ownerIsCurrent()) return;
       const html = buildSegmentCardHtml(props, state);
       popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
-      wirePopupInteractions(popup);
-      wireSegmentCardBehavior(popup, props, state, render);
+      wirePopupInteractions(popup, { ownerIsCurrent, onAction });
+      wireSegmentCardBehavior(popup, props, state, render, {
+        signal,
+        isCurrent: ownerIsCurrent,
+      });
     };
     render();
     activePinnedPopup = popup;
@@ -365,16 +341,10 @@ function registerClickHandlers(map, layerId) {
   clickRegistrations.set(layerId, { clickHandler, mapClickHandler });
 }
 
-function cleanupHoverHandlers(map, layerId) {
-  const entry = hoverRegistrations.get(layerId);
-  if (!entry || !map) return;
-  map.off('mousemove', layerId, entry.moveHandler);
-  map.off('mouseleave', layerId, entry.leaveHandler);
-  entry.popup?.remove();
-  hoverRegistrations.delete(layerId);
-}
-
-function wirePopupInteractions(popup) {
+function wirePopupInteractions(popup, {
+  ownerIsCurrent = () => true,
+  onAction,
+} = {}) {
   if (!popup || !popup.getElement) return;
   const el = popup.getElement();
   const content = el?.querySelector('.maplibregl-popup-content');
@@ -384,14 +354,15 @@ function wirePopupInteractions(popup) {
     if (!target) return;
     event.preventDefault();
     event.stopPropagation();
+    if (!ownerIsCurrent()) return;
     const disabled = target.hasAttribute('disabled');
     if (disabled) return;
     const action = target.getAttribute('data-diary-action');
     const segmentId = target.getAttribute('data-segment-id');
     target.setAttribute('disabled', 'disabled');
     target.style.cursor = 'not-allowed';
-    if (typeof hoverActionHandler === 'function' && action && segmentId) {
-      hoverActionHandler({ action, segmentId });
+    if (typeof onAction === 'function' && action && segmentId) {
+      onAction({ action, segmentId });
     }
   });
 }
@@ -513,7 +484,8 @@ export function buildSegmentCardHtml(props, state = {}) {
   const mode = state.mode || 'view';
   const selectedTags = Array.from(state.selectedTags || []);
   const rating = state.rating || 0;
-  const thankYou = !!state.thankYou;
+  const submissionResult = state.submissionResult;
+  const submissionError = state.submissionError;
   const risk = riskDescriptor(mean);
   const confidence = confidenceLabel(nEff);
   const scoreDisplay = mean ? mean.toFixed(1) : '—';
@@ -531,7 +503,12 @@ export function buildSegmentCardHtml(props, state = {}) {
       .join('')
     : '<div class="diary-muted-text">No issues reported yet.</div>';
 
-  const thankYouLine = thankYou ? '<div class="diary-muted-text" style="margin-top:6px;">Thanks for your feedback — it will appear in the aggregate soon.</div>' : '';
+  const submissionLine = submissionResult
+    ? `<div class="diary-muted-text" style="margin-top:6px;">${segmentSubmissionMessage(submissionResult)}</div>`
+    : '';
+  const errorLine = submissionError
+    ? '<div class="diary-muted-text" style="margin-top:6px;color:#b91c1c;">Feedback could not be submitted. Nothing was saved.</div>'
+    : '';
 
   const inputTags = Object.entries(ISSUE_TAGS).map(([cat, items]) => {
     return `
@@ -549,12 +526,6 @@ export function buildSegmentCardHtml(props, state = {}) {
     `;
   }).join('');
 
-  if (segmentId && typeof window !== 'undefined' && typeof window.__diary_hydrateCtaState === 'function') {
-    try {
-      window.__diary_hydrateCtaState(segmentId);
-    } catch {}
-  }
-
   const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">Feels safer ✨</button>`;
 
   if (mode === 'input') {
@@ -566,6 +537,7 @@ export function buildSegmentCardHtml(props, state = {}) {
         </div>
         <div class="diary-segment-stars" style="margin-bottom:4px;">${editableStars}</div>
         <div class="diary-muted-text">${ratingCopy}</div>
+        ${errorLine}
         <div style="margin-top:10px;font-weight:700;font-size:12px;">What were the main issues?</div>
         ${inputTags}
         <div class="diary-segment-actions" style="justify-content:flex-end;">
@@ -588,7 +560,7 @@ export function buildSegmentCardHtml(props, state = {}) {
         <div>
           <div class="diary-segment-stars">${readonlyStars}</div>
           <div class="diary-segment-risk-label"><span style="color:${risk.color};font-weight:700;">${risk.label}</span> — Based on ${nEff || 'few'} reports (${confidence})</div>
-          ${thankYouLine}
+          ${submissionLine}
         </div>
       </div>
       <div style="margin-top:8px;">
@@ -604,11 +576,13 @@ export function buildSegmentCardHtml(props, state = {}) {
   `;
 }
 
-function wireSegmentCardBehavior(popup, props, state, rerender) {
+function wireSegmentCardBehavior(popup, props, state, rerender, {
+  signal,
+  isCurrent = () => true,
+} = {}) {
   const el = popup.getElement();
   const card = el?.querySelector('.diary-segment-card');
   if (!card) return;
-  const segmentId = props[SEGMENT_ID_PROP] || props.id;
   card.querySelectorAll('[data-role="close"]').forEach((btn) => {
     btn.addEventListener('click', () => popup.remove());
   });
@@ -642,25 +616,63 @@ function wireSegmentCardBehavior(popup, props, state, rerender) {
       state.mode = 'view';
       state.rating = 0;
       state.selectedTags = new Set();
-      state.thankYou = false;
+      state.submissionResult = null;
+      state.submissionError = '';
       rerender();
     });
   }
   const submit = card.querySelector('[data-role="submit-feedback"]');
   if (submit) {
     submit.addEventListener('click', () => {
+      if (signal?.aborted || !isCurrent()) return;
       if (!state.rating) return;
-      const payload = {
-        segmentId,
-        rating: state.rating,
-        tags: Array.from(state.selectedTags || []),
-      };
-      submitSegmentFeedback(payload);
-      state.mode = 'view';
-      state.thankYou = true;
-      rerender();
+      submit.disabled = true;
+      void submitSegmentCardFeedback({
+        props,
+        state,
+        rerender,
+        signal,
+        isCurrent,
+      }).catch(() => {
+        if (signal?.aborted || !isCurrent()) return;
+        state.submissionError = 'submission_failed';
+        rerender();
+      });
     });
   }
+}
+
+export async function submitSegmentCardFeedback({
+  props,
+  state,
+  rerender = () => {},
+  submitFeedback = submitSegmentFeedback,
+  signal,
+  isCurrent = () => true,
+}) {
+  if (!state?.rating || signal?.aborted || !isCurrent()) return null;
+  const segmentId = props?.[SEGMENT_ID_PROP] || props?.id;
+  const response = await submitFeedback({
+    segmentId,
+    rating: state.rating,
+    tags: Array.from(state.selectedTags || []),
+  }, { signal });
+  if (signal?.aborted || !isCurrent()) return null;
+  state.mode = 'view';
+  state.submissionResult = response;
+  state.submissionError = '';
+  rerender();
+  return response;
+}
+
+function segmentSubmissionMessage(response) {
+  if (response?.persisted === true) {
+    return 'Thanks — your feedback was saved.';
+  }
+  if (response?.mode === 'demo' && response?.persisted === false) {
+    return 'Browser demo only — this feedback was not saved and was not added to community aggregates.';
+  }
+  return 'Submission completed, but persistence could not be confirmed.';
 }
 
 function ensureSource(map, id, data) {
