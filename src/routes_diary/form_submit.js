@@ -253,6 +253,12 @@ export function closeRatingModal() {
   submitBtn = null;
 }
 
+export function finalizeDiarySubmission({ state, payload, response, close = closeRatingModal }) {
+  const onSuccess = state?.onSuccess;
+  close();
+  onSuccess?.({ payload, response });
+}
+
 function createStarSelector(state) {
   const wrapper = document.createElement('div');
   const label = document.createElement('div');
@@ -638,9 +644,8 @@ async function handleSubmit(event) {
   try {
     console.info('[Diary] submit payload', payload);
     const response = await submitDiary(payload);
-    console.info('[Diary] stub response', response);
-    closeRatingModal();
-    currentState?.onSuccess?.({ payload, response });
+    console.info('[Diary] submit response', response);
+    finalizeDiarySubmission({ state: currentState, payload, response });
   } catch (err) {
     setError(err?.message || 'Submission failed.');
   } finally {

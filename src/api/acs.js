@@ -1,108 +1,186 @@
-import {
-  ACS_POP_TENURE_INCOME,
-  ACS_POVERTY,
-} from "../config.js";
-import { fetchJson } from "../utils/http.js";
+import { ACS_API_ENDPOINTS, CENSUS_REPORTER_ACS_URL } from '../config.js';
+import { fetchJson } from '../utils/http.js';
 
 const ACS_LOCAL_URL = new URL('../data/acs_tracts_2023_pa101.json', import.meta.url).href;
 
 /**
- * Fetch ACS population, tenure, and poverty metrics for Philadelphia tracts.
- * @returns {Promise<Array<{geoid:string, pop:number|null, renter_total:number|null, renter_count:number|null, median_income:number|null, poverty_pct:number|null}>>}
+ * Fetch and normalize tract metrics from Census-compatible live endpoints.
  */
-export async function fetchTractStats() {
-  const [popTenureRows, povertyRows] = await Promise.all([
-    fetchJson(ACS_POP_TENURE_INCOME),
-    fetchJson(ACS_POVERTY),
-  ]);
-
-  if (!Array.isArray(popTenureRows) || popTenureRows.length === 0) {
-    return [];
+export async function fetchTractStats({
+  endpoints = ACS_API_ENDPOINTS,
+  fetchJsonImpl = fetchJson,
+} = {}) {
+  if (!endpoints?.population || !endpoints?.poverty) {
+    throw new Error('ACS live endpoints are not configured.');
   }
 
-  const [popHeader, ...popRecords] = popTenureRows;
-  const popIdx = indexLookup(
-    popHeader,
+  const [populationRows, povertyRows] = await Promise.all([
+    fetchJsonImpl(endpoints.population),
+    fetchJsonImpl(endpoints.poverty),
+  ]);
+
+  return normalizeAcsRows(populationRows, povertyRows);
+}
+
+/**
+ * Prefer explicitly configured live ACS endpoints. A bundled 2023 snapshot is
+ * retained as the safe fallback because the public Census API now requires a
+ * key and GitHub Pages cannot keep that credential private.
+ */
+export async function fetchTractStatsPreferred({
+  endpoints = ACS_API_ENDPOINTS,
+  reporterUrl = CENSUS_REPORTER_ACS_URL,
+  localUrl = ACS_LOCAL_URL,
+  fetchJsonImpl = fetchJson,
+} = {}) {
+  const liveErrors = [];
+  if (endpoints?.population && endpoints?.poverty) {
+    try {
+      const live = await fetchTractStats({ endpoints, fetchJsonImpl });
+      if (isValidNormalizedRows(live)) return live;
+      liveErrors.push(new Error('ACS live endpoints returned no valid tract rows.'));
+    } catch (error) {
+      liveErrors.push(error);
+    }
+  }
+
+  if (reporterUrl) {
+    try {
+      const reporterRows = await fetchTractStatsFromCensusReporter({
+        url: reporterUrl,
+        fetchJsonImpl,
+      });
+      if (isValidNormalizedRows(reporterRows)) return reporterRows;
+      liveErrors.push(new Error('Census Reporter returned no valid tract rows.'));
+    } catch (error) {
+      liveErrors.push(error);
+    }
+  }
+
+  try {
+    const snapshot = await fetchJsonImpl(localUrl, {
+      timeoutMs: 8000,
+      retries: 1,
+    });
+    if (!isValidNormalizedRows(snapshot)) {
+      throw new Error('Bundled ACS snapshot is invalid.');
+    }
+    return snapshot;
+  } catch (snapshotError) {
+    throw new AggregateError(
+      [...liveErrors, snapshotError],
+      'No valid ACS tract data source is available.',
+    );
+  }
+}
+
+/** Normalize Census Reporter's keyless ACS table response. */
+export async function fetchTractStatsFromCensusReporter({
+  url = CENSUS_REPORTER_ACS_URL,
+  fetchJsonImpl = fetchJson,
+} = {}) {
+  if (!url) throw new Error('Census Reporter URL is not configured.');
+  const payload = await fetchJsonImpl(url, {
+    timeoutMs: 20_000,
+    retries: 1,
+    cacheTTL: 24 * 60 * 60_000,
+  });
+  const data = payload?.data;
+  if (!data || typeof data !== 'object') {
+    throw new Error('Census Reporter response is missing tract data.');
+  }
+
+  return Object.entries(data).flatMap(([reporterGeoid, tables]) => {
+    const geoid = String(reporterGeoid).replace(/^14000US/, '');
+    if (!/^\d{11}$/.test(geoid)) return [];
+
+    const population = estimate(tables, 'B01003', 'B01003001');
+    const renterTotal = estimate(tables, 'B25003', 'B25003001');
+    const renterCount = estimate(tables, 'B25003', 'B25003003');
+    const medianIncome = estimate(tables, 'B19013', 'B19013001');
+    const povertyUniverse = estimate(tables, 'B17001', 'B17001001');
+    const belowPoverty = estimate(tables, 'B17001', 'B17001002');
+    const povertyPct = povertyUniverse > 0 && belowPoverty !== null
+      ? Number(((belowPoverty / povertyUniverse) * 100).toFixed(1))
+      : null;
+
+    return [{
+      geoid,
+      pop: population,
+      renter_total: renterTotal,
+      renter_count: renterCount,
+      median_income: medianIncome,
+      poverty_pct: povertyPct,
+    }];
+  });
+}
+
+// Compatibility alias for existing callers. Its behavior is now explicit.
+export const fetchTractStatsCachedFirst = fetchTractStatsPreferred;
+
+function normalizeAcsRows(populationRows, povertyRows) {
+  if (!Array.isArray(populationRows) || populationRows.length < 2) {
+    throw new Error('ACS population/tenure endpoint returned no rows.');
+  }
+
+  const [populationHeader, ...populationRecords] = populationRows;
+  const populationIndex = indexLookup(
+    populationHeader,
     [
-      "B01003_001E",
-      "B25003_001E",
-      "B25003_003E",
-      "B19013_001E",
-      "state",
-      "county",
-      "tract",
+      'B01003_001E',
+      'B25003_001E',
+      'B25003_003E',
+      'B19013_001E',
+      'state',
+      'county',
+      'tract',
     ],
-    "ACS population/tenure"
+    'ACS population/tenure',
   );
 
-  const povertyMap = new Map();
-  if (Array.isArray(povertyRows) && povertyRows.length > 0) {
+  const povertyByGeoid = new Map();
+  if (Array.isArray(povertyRows) && povertyRows.length > 1) {
     const [povertyHeader, ...povertyRecords] = povertyRows;
-    const povertyIdx = indexLookup(
+    const povertyIndex = indexLookup(
       povertyHeader,
-      ["S1701_C03_001E", "state", "county", "tract"],
-      "ACS poverty"
+      ['S1701_C03_001E', 'state', 'county', 'tract'],
+      'ACS poverty',
     );
 
     for (const row of povertyRecords) {
       const geoid = buildGeoid(
-        row[povertyIdx.state],
-        row[povertyIdx.county],
-        row[povertyIdx.tract]
+        row[povertyIndex.state],
+        row[povertyIndex.county],
+        row[povertyIndex.tract],
       );
-      if (!geoid) {
-        continue;
-      }
-      const povertyPct = toNumber(row[povertyIdx.S1701_C03_001E]);
-      if (povertyPct !== null) {
-        povertyMap.set(geoid, povertyPct);
-      }
+      const povertyPct = toNumber(row[povertyIndex.S1701_C03_001E]);
+      if (geoid && povertyPct !== null) povertyByGeoid.set(geoid, povertyPct);
     }
   }
 
-  const results = [];
-  for (const row of popRecords) {
+  return populationRecords.flatMap((row) => {
     const geoid = buildGeoid(
-      row[popIdx.state],
-      row[popIdx.county],
-      row[popIdx.tract]
+      row[populationIndex.state],
+      row[populationIndex.county],
+      row[populationIndex.tract],
     );
-    if (!geoid) {
-      continue;
-    }
+    if (!geoid) return [];
 
-    results.push({
+    return [{
       geoid,
-      pop: toNumber(row[popIdx.B01003_001E]),
-      renter_total: toNumber(row[popIdx.B25003_001E]),
-      renter_count: toNumber(row[popIdx.B25003_003E]),
-      median_income: toNumber(row[popIdx.B19013_001E]),
-      poverty_pct: povertyMap.get(geoid) ?? null,
-    });
-  }
-
-  return results;
+      pop: toNumber(row[populationIndex.B01003_001E]),
+      renter_total: toNumber(row[populationIndex.B25003_001E]),
+      renter_count: toNumber(row[populationIndex.B25003_003E]),
+      median_income: toNumber(row[populationIndex.B19013_001E]),
+      poverty_pct: povertyByGeoid.get(geoid) ?? null,
+    }];
+  });
 }
 
-/**
- * Cached-first loader for ACS tract stats. Attempts the bundled snapshot first,
- * then falls back to live endpoints.
- * @returns {Promise<Array<{geoid:string, pop:number|null, renter_total:number|null, renter_count:number|null, median_income:number|null, poverty_pct:number|null}>>}
- */
-export async function fetchTractStatsCachedFirst() {
-  const localPaths = [ACS_LOCAL_URL];
-  for (const p of localPaths) {
-    try {
-      const rows = await fetchJson(p, { timeoutMs: 8000, retries: 1 });
-      if (Array.isArray(rows) && rows.length > 0 && rows[0]?.geoid) {
-        return rows;
-      }
-    } catch (_) {
-      // try next path
-    }
-  }
-  // Fallback to live fetch
-  return fetchTractStats();
+function isValidNormalizedRows(rows) {
+  return Array.isArray(rows) && rows.length > 0 && rows.every((row) => {
+    return typeof row?.geoid === 'string' && /^\d{11}$/.test(row.geoid);
+  });
 }
 
 function indexLookup(header, keys, label) {
@@ -113,22 +191,23 @@ function indexLookup(header, keys, label) {
   const lookups = {};
   for (const key of keys) {
     const index = header.indexOf(key);
-    if (index === -1) {
-      throw new Error(`Missing ${key} column in ${label}.`);
-    }
+    if (index === -1) throw new Error(`Missing ${key} column in ${label}.`);
     lookups[key] = index;
   }
   return lookups;
 }
 
 function buildGeoid(state, county, tract) {
-  if (!state || !county || !tract) {
-    return "";
-  }
+  if (!state || !county || !tract) return '';
   return `${state}${county}${tract}`;
 }
 
 function toNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function estimate(tables, tableId, columnId) {
+  return toNumber(tables?.[tableId]?.estimate?.[columnId]);
 }

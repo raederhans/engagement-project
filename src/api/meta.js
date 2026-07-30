@@ -1,9 +1,10 @@
+import { CARTO_SQL_BASE } from '../config.js';
 import { fetchJson, logQuery } from "../utils/http.js";
 
 const SQL = "SELECT MIN(dispatch_date_time)::date AS min_dt, MAX(dispatch_date_time)::date AS max_dt FROM incidents_part1_part2";
 
 export async function fetchCoverage({ ttlMs = 24 * 60 * 60 * 1000 } = {}) {
-  const url = "https://phl.carto.com/api/v2/sql";
+  const url = CARTO_SQL_BASE;
   const body = new URLSearchParams({ q: SQL }).toString();
   const t0 = Date.now();
   const json = await fetchJson(url, {

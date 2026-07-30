@@ -1,122 +1,139 @@
-import { PD_GEOJSON, TRACTS_GEOJSON } from "../config.js";
-import { fetchGeoJson } from "../utils/http.js";
-import { publicUrl } from "../utils/public_url.js";
+import {
+  PD_GEOJSON,
+  PROJECT_REGION,
+  TRACT_GEOJSON_ENDPOINTS,
+  TRACTS_GEOJSON,
+} from '../config.js';
+import { fetchGeoJson } from '../utils/http.js';
+import { publicUrl } from '../utils/public_url.js';
 
-/**
- * Retrieve police district boundaries.
- * @returns {Promise<object>} GeoJSON FeatureCollection.
- */
+const POLICE_DISTRICTS_FALLBACK = publicUrl('data/police_districts.geojson');
+const TRACTS_FALLBACK = publicUrl('data/tracts_phl.geojson');
+
+/** Retrieve live police district boundaries. */
 export async function fetchPoliceDistricts() {
-  return fetchGeoJson(PD_GEOJSON);
+  const raw = await fetchGeoJson(PD_GEOJSON, { cacheTTL: 10 * 60_000 });
+  if (!isValidPoliceDistricts(raw)) {
+    throw new Error('Police district API returned an invalid FeatureCollection.');
+  }
+  return raw;
 }
 
-/**
- * Retrieve census tract boundaries filtered to Philadelphia.
- * @returns {Promise<object>} GeoJSON FeatureCollection.
- */
+/** Retrieve live census tract boundaries from the canonical configured endpoint. */
 export async function fetchTracts() {
-  return fetchGeoJson(TRACTS_GEOJSON);
-}
-
-/**
- * Cache-first loader for police districts: tries local cached copy
- * at "/data/police_districts.geojson" before falling back to remote.
- * @returns {Promise<object>} GeoJSON FeatureCollection
- */
-export async function fetchPoliceDistrictsCachedFirst() {
-  // Try cached file served by Vite or static hosting
-  try {
-    const local = await fetchGeoJson(publicUrl('data/police_districts.geojson'));
-    if (
-      local &&
-      local.type === "FeatureCollection" &&
-      Array.isArray(local.features) &&
-      local.features.length > 0
-    ) {
-      return local;
-    }
-  } catch (_) {
-    // swallow and fallback to remote
+  const raw = await fetchGeoJson(TRACTS_GEOJSON, { cacheTTL: 10 * 60_000 });
+  if (!isValidTracts(raw)) {
+    throw new Error('Census tract API returned an invalid FeatureCollection.');
   }
-
-  // Fallback to live endpoint
-  return fetchGeoJson(PD_GEOJSON);
+  return normalizeTracts(raw);
 }
 
 /**
- * Cache-first loader for census tracts: tries local cached copy
- * at "/data/tracts_phl.geojson" before falling back to remote.
- * @returns {Promise<object>} GeoJSON FeatureCollection
+ * Prefer the live City endpoint and use the bundled copy only when the API is
+ * unavailable or malformed.
  */
-export async function fetchTractsCachedFirst() {
-  // memoize for session
-  if (fetchTractsCachedFirst._cache) return fetchTractsCachedFirst._cache;
-
-  // 1) Try local cache under /public
+export async function fetchPoliceDistrictsPreferred() {
   try {
-    const local = await fetchGeoJson(publicUrl('data/tracts_phl.geojson'), { cacheTTL: 5 * 60_000 });
-    if (isValidTracts(local)) {
-      fetchTractsCachedFirst._cache = local;
-      return local;
+    return await fetchPoliceDistricts();
+  } catch (liveError) {
+    const local = await fetchGeoJson(POLICE_DISTRICTS_FALLBACK, {
+      cacheTTL: 5 * 60_000,
+      retries: 0,
+    });
+    if (!isValidPoliceDistricts(local)) {
+      throw new AggregateError(
+        [liveError],
+        'Neither the live nor bundled police district source is valid.',
+      );
     }
-  } catch {}
+    return local;
+  }
+}
 
-  // 2) Try endpoints in order, normalize props
-  const ENDPOINTS = [
-    // PASDA - Philadelphia Census Tracts 2020 (preferred - stable, full coverage)
-    "https://mapservices.pasda.psu.edu/server/rest/services/pasda/CityPhilly/MapServer/28/query?where=1%3D1&outFields=*&f=geojson",
-    // TIGERweb Tracts_Blocks - 2025 vintage (federal, always current)
-    "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=STATE%3D%2742%27%20AND%20COUNTY%3D%27101%27&outFields=STATE,COUNTY,GEOID,NAME,BASENAME,ALAND,AWATER&returnGeometry=true&f=geojson",
-  ];
-  for (const url of ENDPOINTS) {
+/**
+ * Prefer official/current tract APIs, then use the bundled geometry as a
+ * resilience fallback. Successful data is memoized for the browser session.
+ */
+export async function fetchTractsPreferred() {
+  if (fetchTractsPreferred._cache) return fetchTractsPreferred._cache;
+
+  const errors = [];
+  for (const url of TRACT_GEOJSON_ENDPOINTS) {
     try {
-      const raw = await fetchGeoJson(url, { cacheTTL: 10 * 60_000 });
-      if (isValidTracts(raw)) {
-        const normalized = { type: 'FeatureCollection', features: raw.features.map(normalizeTractFeature) };
-        fetchTractsCachedFirst._cache = normalized;
-        return normalized;
+      const raw = await fetchGeoJson(url, { cacheTTL: 10 * 60_000, retries: 1 });
+      if (!isValidTracts(raw)) {
+        throw new Error(`Tract source returned fewer than 300 features: ${url}`);
       }
-    } catch {}
+      const normalized = normalizeTracts(raw);
+      fetchTractsPreferred._cache = normalized;
+      return normalized;
+    } catch (error) {
+      errors.push(error);
+    }
   }
 
-  // 3) Fallback to canonical TRACTS_GEOJSON
-  const fallback = await fetchGeoJson(TRACTS_GEOJSON, { cacheTTL: 10 * 60_000 });
-  fetchTractsCachedFirst._cache = fallback;
-  return fallback;
+  try {
+    const local = await fetchGeoJson(TRACTS_FALLBACK, {
+      cacheTTL: 5 * 60_000,
+      retries: 0,
+    });
+    if (!isValidTracts(local)) {
+      throw new Error('Bundled tract fallback is invalid.');
+    }
+    const normalized = normalizeTracts(local);
+    fetchTractsPreferred._cache = normalized;
+    return normalized;
+  } catch (error) {
+    errors.push(error);
+    throw new AggregateError(errors, 'No valid census tract source is available.');
+  }
+}
+
+// Compatibility aliases for existing callers. Their behavior is now API-first.
+export const fetchPoliceDistrictsCachedFirst = fetchPoliceDistrictsPreferred;
+export const fetchTractsCachedFirst = fetchTractsPreferred;
+
+function isValidPoliceDistricts(geo) {
+  return geo?.type === 'FeatureCollection' &&
+    Array.isArray(geo.features) &&
+    geo.features.length >= 20;
 }
 
 function isValidTracts(geo) {
-  return geo && geo.type === 'FeatureCollection' && Array.isArray(geo.features) && geo.features.length >= 300;
+  return geo?.type === 'FeatureCollection' &&
+    Array.isArray(geo.features) &&
+    geo.features.length >= 300;
 }
 
-function normalizeTractFeature(f) {
-  const p = { ...(f.properties || {}) };
+function normalizeTracts(raw) {
+  return {
+    type: 'FeatureCollection',
+    features: raw.features.map(normalizeTractFeature),
+  };
+}
 
-  // Extract components (handle various field names)
-  const state = p.STATE_FIPS ?? p.STATE ?? p.STATEFP ?? '42';
-  const county = p.COUNTY_FIPS ?? p.COUNTY ?? p.COUNTYFP ?? '101';
-  const tract = p.TRACT_FIPS ?? p.TRACT ?? p.TRACTCE ?? null;
+function normalizeTractFeature(feature) {
+  const properties = { ...(feature.properties || {}) };
+  const state = properties.STATE_FIPS ?? properties.STATE ?? properties.STATEFP ?? PROJECT_REGION.stateFips;
+  const county = properties.COUNTY_FIPS ?? properties.COUNTY ?? properties.COUNTYFP ?? PROJECT_REGION.countyFips;
+  const tract = properties.TRACT_FIPS ?? properties.TRACT ?? properties.TRACTCE ?? null;
 
-  // Derive GEOID (11-digit: STATE(2) + COUNTY(3) + TRACT(6))
-  let geoid = p.GEOID ?? null;
+  let geoid = properties.GEOID ?? properties.FIPS ?? null;
   if (!geoid && state && county && tract) {
-    const statePad = String(state).padStart(2, '0');
-    const countyPad = String(county).padStart(3, '0');
-    const tractPad = String(tract).padStart(6, '0');
-    geoid = `${statePad}${countyPad}${tractPad}`;
+    geoid = `${String(state).padStart(2, '0')}${String(county).padStart(3, '0')}${String(tract).padStart(6, '0')}`;
   }
 
   return {
     type: 'Feature',
-    geometry: f.geometry,
+    geometry: feature.geometry,
     properties: {
       GEOID: geoid,
       STATE: state,
       COUNTY: county,
       TRACT: tract,
-      NAME: p.NAME ?? p.NAMELSAD ?? p.BASENAME ?? '',
-      ALAND: p.ALAND ?? null,
-      AWATER: p.AWATER ?? null,
+      NAME: properties.NAME ?? properties.NAMELSAD ?? properties.BASENAME ?? '',
+      ALAND: properties.ALAND ?? properties.AREALAND ?? null,
+      AWATER: properties.AWATER ?? properties.AREAWATER ?? null,
     },
   };
 }

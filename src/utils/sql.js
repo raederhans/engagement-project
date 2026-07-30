@@ -1,4 +1,4 @@
-const DATE_FLOOR = "2015-01-01";
+import { CRIME_DATASET_START } from '../config.js';
 
 /**
  * Ensure the provided ISO date is not earlier than the historical floor.
@@ -7,7 +7,7 @@ const DATE_FLOOR = "2015-01-01";
  */
 export function dateFloorGuard(value) {
   const iso = ensureIso(value, "start");
-  return iso < DATE_FLOOR ? DATE_FLOOR : iso;
+  return iso < CRIME_DATASET_START ? CRIME_DATASET_START : iso;
 }
 
 /**
@@ -354,7 +354,7 @@ function dWithinClause(center, radius) {
 
 function baseTemporalClauses(startIso, endIso, types, { includeTypes = true, drilldownCodes } = {}) {
   const clauses = [
-    "WHERE dispatch_date_time >= '2015-01-01'",
+    `WHERE dispatch_date_time >= '${CRIME_DATASET_START}'`,
     `  AND dispatch_date_time >= '${startIso}'`,
     `  AND dispatch_date_time < '${endIso}'`,
   ];

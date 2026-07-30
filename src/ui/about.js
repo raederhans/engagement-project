@@ -55,7 +55,7 @@ export function initAboutPanel() {
       <div style="margin-bottom:12px;">
         <strong style="color:#1f2937;">Data sources.</strong>
         <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Crime incidents (OpenDataPhilly CARTO API), Police Districts (City GeoJSON), Census Tracts (PASDA/TIGERweb), ACS for per-10k rates.
+          Crime incidents (OpenDataPhilly CARTO API), live Police Districts (City ArcGIS), live Census Tracts (TIGERweb/PASDA), and live ACS 2024 estimates through Census Reporter, with bundled fallbacks for outages. Diary ratings remain browser-demo data unless a Diary API is configured.
         </p>
       </div>
 

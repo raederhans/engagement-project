@@ -797,7 +797,10 @@ function handleDiarySubmissionSuccess(payload, response) {
     lastLoadedSegments = refreshed;
   }
   updateAlternativeRoute({ refreshOnly: true });
-  showToast('Thanks — your feedback has been recorded for this demo.');
+  const persisted = response?.persisted !== false && response?.mode !== 'demo';
+  showToast(persisted
+    ? 'Thanks — your feedback has been saved.'
+    : 'Thanks — your feedback was applied to this browser demo only.');
   const affectedSegmentIds = deriveAffectedSegmentIds(payload);
   const affectedCount = affectedSegmentIds.size || 1;
   showPanelNotice(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
@@ -805,7 +808,7 @@ function handleDiarySubmissionSuccess(payload, response) {
   perfLastSubmit = { ms: Math.max(0, Math.round(nowMs() - perfStart)), at: new Date().toISOString() };
   console.info('[Diary] repaint latency (ms):', perfLastSubmit.ms);
   console.info('[Diary] submit payload', payload);
-  console.info('[Diary] stub response', response);
+  console.info('[Diary] submit response', response);
 }
 
 function applyDiarySubmissionToAgg(payload) {

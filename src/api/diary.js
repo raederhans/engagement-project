@@ -1,194 +1,135 @@
-/**
- * Route Safety Diary - API Client
- *
- * Purpose: Client-side API functions for diary endpoints (mock for M1).
- * Status: [TODO] Implementation needed for M1 (mock responses)
- * See: docs/API_DIARY.md
- */
-
-// TODO: Import http utility when implementing
-// import { http } from '../utils/http.js';
+import { DIARY_API_BASE } from '../config.js';
+import { fetchJson } from '../utils/http.js';
 
 /**
- * Submit trip rating with segment-level data
- * @param {object} payload - Rating data (see docs/API_DIARY.md)
- * @returns {Promise<object>} {ok, submission_id, updated_segments, saved_route_id}
+ * Create a Diary API client. With no API base, mutations are explicitly local
+ * demo operations and never claim server persistence.
  */
-export async function submitDiary(payload) {
-  // TODO: M1 mock implementation (500ms delay)
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        ok: true,
-        submission_id: 'mock_' + Date.now(),
-        updated_segments: payload.matched_segments.map(id => ({
-          segment_id: id,
-          rating: payload.overall_rating + Math.random() * 0.5 - 0.25,
-          n_eff: Math.random() * 50 + 10,
-          trend_30d: Math.random() * 0.8 - 0.4
-        })),
-        saved_route_id: payload.save_as_route ? 'route_' + Date.now() : null
-      });
-    }, 500);
+export function createDiaryClient({ apiBase = DIARY_API_BASE, request = fetchJson } = {}) {
+  const base = String(apiBase || '').trim().replace(/\/+$/, '');
+  const hasApi = Boolean(base);
+
+  const apiUrl = (path) => `${base}/${String(path).replace(/^\/+/, '')}`;
+  const get = (path, options = {}) => request(apiUrl(path), options);
+  const post = (path, body, headers = {}) => request(apiUrl(path), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+    cacheTTL: 0,
   });
 
-  // TODO: M2 real implementation
-  // return http.post('/api/diary/submit', payload);
+  return {
+    async submitDiary(payload) {
+      if (!hasApi) return buildDemoSubmission(payload);
+      return post('submit', toApiSubmission(payload), userHeaders(payload));
+    },
+
+    async getSegments(params = {}) {
+      if (!hasApi) return demoUnavailable('Diary segment API is not configured.');
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value == null || value === '') continue;
+        query.set(key, Array.isArray(value) ? value.join(',') : String(value));
+      }
+      const suffix = query.size ? `?${query}` : '';
+      return get(`segments${suffix}`, { cacheTTL: 5 * 60_000 });
+    },
+
+    async getSegmentDetails(segmentId) {
+      if (!hasApi) return demoUnavailable('Diary segment details API is not configured.');
+      return get(`segments/${encodeURIComponent(segmentId)}`, { cacheTTL: 60_000 });
+    },
+
+    async getSegmentAnalytics(segmentId) {
+      if (!hasApi) return demoUnavailable('Diary analytics API is not configured.');
+      return get(`segments/${encodeURIComponent(segmentId)}/analytics`, { cacheTTL: 2 * 60_000 });
+    },
+
+    async submitAgree(segmentId, userHash = '') {
+      if (!hasApi) return demoUnavailable('Diary community actions are demo-only.');
+      return post('agree', { segment_id: segmentId }, userHeaders({ user_hash: userHash }));
+    },
+
+    async submitImprove(segmentId, userHash = '') {
+      if (!hasApi) return demoUnavailable('Diary community actions are demo-only.');
+      return post('improve', { segment_id: segmentId }, userHeaders({ user_hash: userHash }));
+    },
+
+    async getSaferRoute(params) {
+      if (!hasApi) return demoUnavailable('Safer-route API is not configured.');
+      return post('route', params);
+    },
+  };
 }
 
-/**
- * Get segments with aggregated ratings (bbox or ID filter)
- * @param {object} params - Query params {bbox, start, end, ids}
- * @returns {Promise<object>} GeoJSON FeatureCollection
- */
-export async function getSegments(params = {}) {
-  // TODO: M1 mock implementation
-  // Return seed data with mock ratings
-  console.warn('[Diary] getSegments not implemented (M1 stub)');
+function buildDemoSubmission(payload = {}) {
+  const segmentIds = normalizeSegmentIds(payload);
+  const overrides = new Map(
+    (payload.segment_overrides || []).map((entry) => [entry.segment_id, Number(entry.rating)]),
+  );
+  const overallRating = Number(payload.overall_rating);
+
+  return {
+    ok: true,
+    mode: 'demo',
+    persisted: false,
+    submission_id: null,
+    updated_segments: segmentIds.map((segmentId) => ({
+      segment_id: segmentId,
+      rating: overrides.has(segmentId) ? overrides.get(segmentId) : overallRating,
+    })),
+    saved_route_id: null,
+    message: 'Applied in this browser demo only; no server data was written.',
+  };
+}
+
+function toApiSubmission(payload = {}) {
+  const submission = {
+    overall_rating: Number(payload.overall_rating),
+    tags: Array.isArray(payload.tags) ? payload.tags : [],
+    travel_mode: payload.travel_mode || payload.mode || 'walk',
+    segment_overrides: Array.isArray(payload.segment_overrides) ? payload.segment_overrides : [],
+    save_as_route: Boolean(payload.save_as_route),
+    matched_segments: normalizeSegmentIds(payload),
+    timestamp: normalizeTimestamp(payload.timestamp),
+  };
+  if (payload.route_name) submission.route_name = payload.route_name;
+  if (payload.notes) submission.notes = payload.notes;
+  return submission;
+}
+
+function normalizeSegmentIds(payload) {
+  const ids = payload?.matched_segments ?? payload?.segment_ids ?? [];
+  return Array.isArray(ids) ? ids.filter(Boolean) : [];
+}
+
+function normalizeTimestamp(value) {
+  if (Number.isFinite(value)) return Number(value);
+  const timestamp = Date.parse(value || '');
+  return Number.isFinite(timestamp) ? timestamp : Date.now();
+}
+
+function userHeaders(payload) {
+  const userHash = String(payload?.user_hash || '').trim();
+  return userHash ? { 'x-user-hash': userHash } : {};
+}
+
+function demoUnavailable(message) {
   return {
     ok: false,
     status: 501,
-    message: 'Endpoint not implemented in M1'
+    mode: 'demo',
+    persisted: false,
+    message,
   };
-
-  // TODO: M2 real implementation
-  // const query = new URLSearchParams(params).toString();
-  // return http.get(`/api/diary/segments?${query}`);
 }
 
-/**
- * Get segment details for SegmentCard
- * @param {string} segmentId - Segment ID
- * @returns {Promise<object>} Segment summary
- */
-export async function getSegmentDetails(segmentId) {
-  // TODO: M1 mock implementation
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        ok: true,
-        segment_id: segmentId,
-        name: 'Main St',
-        rating: 3.8,
-        n_eff: 45.2,
-        confidence: 87,
-        trend_30d: 0.4,
-        top_tags: ['poor lighting', 'low foot traffic'],
-        total_reports: 44,
-        last_updated: Date.now() - 7200000 // 2 hours ago
-      });
-    }, 300);
-  });
+const defaultClient = createDiaryClient();
 
-  // TODO: M2 real implementation
-  // return http.get(`/api/diary/segments/${segmentId}`);
-}
-
-/**
- * Get full segment analytics for CommunityDetailsModal
- * @param {string} segmentId - Segment ID
- * @returns {Promise<object>} Full analytics
- */
-export async function getSegmentAnalytics(segmentId) {
-  // TODO: M1 mock implementation
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        ok: true,
-        segment_id: segmentId,
-        name: 'Main St',
-        total_reports: 44,
-        avg_rating: 3.8,
-        confidence: 87,
-        trend_30d: 0.4,
-        weekly_trend: [
-          { week: 'W1', rating: 3.2, count: 8, start_date: '2025-10-01' },
-          { week: 'W2', rating: 3.4, count: 11, start_date: '2025-10-08' },
-          { week: 'W3', rating: 3.6, count: 12, start_date: '2025-10-15' },
-          { week: 'W4', rating: 3.8, count: 14, start_date: '2025-10-22' }
-        ],
-        rating_distribution: [
-          { stars: 1, count: 8, percentage: 18 },
-          { stars: 2, count: 15, percentage: 34 },
-          { stars: 3, count: 12, percentage: 27 },
-          { stars: 4, count: 6, percentage: 14 },
-          { stars: 5, count: 3, percentage: 7 }
-        ],
-        tag_frequency: [
-          { tag: 'poor lighting', count: 18, trend: 2 },
-          { tag: 'low foot traffic', count: 12, trend: -1 },
-          { tag: 'cars too close', count: 8, trend: 0 }
-        ],
-        recent_activity: [
-          { type: 'improve', timestamp: Date.now() - 7200000, display: 'Anonymous noted improvement', relative_time: '2 hours ago' },
-          { type: 'agree', timestamp: Date.now() - 18000000, display: 'Anonymous agreed with rating', relative_time: '5 hours ago' }
-        ]
-      });
-    }, 400);
-  });
-
-  // TODO: M2 real implementation
-  // return http.get(`/api/diary/segments/${segmentId}/analytics`);
-}
-
-/**
- * Submit "Agree" community action
- * @param {string} segmentId - Segment ID
- * @returns {Promise<object>} {ok, new_n_eff, message}
- */
-export async function submitAgree(segmentId) {
-  // TODO: M1 mock implementation
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        ok: true,
-        segment_id: segmentId,
-        new_n_eff: Math.random() * 10 + 40,
-        message: 'Thanks — confidence updated'
-      });
-    }, 500);
-  });
-
-  // TODO: M2 real implementation
-  // return http.post('/api/diary/agree', { segment_id: segmentId });
-}
-
-/**
- * Submit "Feels safer" community action
- * @param {string} segmentId - Segment ID
- * @returns {Promise<object>} {ok, improvement_count, message}
- */
-export async function submitImprove(segmentId) {
-  // TODO: M1 mock implementation
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        ok: true,
-        segment_id: segmentId,
-        improvement_count: Math.floor(Math.random() * 20) + 5,
-        message: 'Thanks — improvement noted'
-      });
-    }, 500);
-  });
-
-  // TODO: M2 real implementation
-  // return http.post('/api/diary/improve', { segment_id: segmentId });
-}
-
-/**
- * Get safer alternative route
- * @param {object} params - {from: [lng,lat], to: [lng,lat], time: ISO string}
- * @returns {Promise<object>} {ok, route, comparison} or {ok, route: null}
- */
-export async function getSaferRoute(params) {
-  // TODO: M1 stub (always returns null)
-  console.warn('[Diary] A* routing not implemented yet (M1 stub)');
-  return {
-    ok: true,
-    route: null,
-    message: 'No safer alternative found within acceptable time limit'
-  };
-
-  // TODO: M2 real implementation
-  // return http.post('/api/diary/route', params);
-}
+export const submitDiary = (payload) => defaultClient.submitDiary(payload);
+export const getSegments = (params) => defaultClient.getSegments(params);
+export const getSegmentDetails = (segmentId) => defaultClient.getSegmentDetails(segmentId);
+export const getSegmentAnalytics = (segmentId) => defaultClient.getSegmentAnalytics(segmentId);
+export const submitAgree = (segmentId, userHash) => defaultClient.submitAgree(segmentId, userHash);
+export const submitImprove = (segmentId, userHash) => defaultClient.submitImprove(segmentId, userHash);
+export const getSaferRoute = (params) => defaultClient.getSaferRoute(params);

@@ -1,15 +1,57 @@
 /**
- * Central configuration constants for remote data sources.
+ * Central project and remote-data configuration.
+ *
+ * Public GitHub Pages builds must not embed private API keys. Official Census
+ * URLs are therefore opt-in and should point at a credential-hiding proxy or
+ * another managed endpoint. Census Reporter is the default keyless live source,
+ * with the bundled ACS snapshot retained only as a resilient fallback.
  */
-export const CARTO_SQL_BASE = "https://phl.carto.com/api/v2/sql";
-export const PD_GEOJSON =
-  "https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1=1&outFields=*&f=geojson";
-export const TRACTS_GEOJSON =
-  "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0/query?where=STATE_FIPS='42'%20AND%20COUNTY_FIPS='101'&outFields=FIPS,STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION_2020&f=geojson";
-export const ACS_POP_TENURE_INCOME =
-  "https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E,B25003_001E,B25003_003E,B19013_001E&for=tract:*&in=state:42%20county:101";
-export const ACS_POVERTY =
-  "https://api.census.gov/data/2023/acs/acs5/subject?get=NAME,S1701_C03_001E&for=tract:*&in=state:42%20county:101";
+const env = import.meta?.env || {};
+const envValue = (name) => String(env[name] || '').trim();
+
+export const PROJECT_REGION = Object.freeze({
+  name: 'Philadelphia',
+  stateFips: '42',
+  countyFips: '101',
+});
+
+export const CRIME_DATASET_START = '2006-01-01';
+export const ACS_SNAPSHOT_YEAR = '2023';
+
+export const CARTO_SQL_BASE = envValue('VITE_CARTO_SQL_BASE') || 'https://phl.carto.com/api/v2/sql';
+
+export const PD_GEOJSON = envValue('VITE_POLICE_DISTRICTS_URL') ||
+  'https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson';
+
+const tractWhere = encodeURIComponent(
+  `STATE='${PROJECT_REGION.stateFips}' AND COUNTY='${PROJECT_REGION.countyFips}'`,
+);
+const tractFields = encodeURIComponent(
+  'STATE,COUNTY,TRACT,GEOID,NAME,BASENAME,AREALAND,AREAWATER',
+);
+
+export const TIGER_TRACTS_GEOJSON =
+  `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=${tractWhere}&outFields=${tractFields}&returnGeometry=true&outSR=4326&f=geojson`;
+export const PASDA_TRACTS_GEOJSON =
+  'https://mapservices.pasda.psu.edu/server/rest/services/pasda/CityPhilly/MapServer/28/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson';
+export const TRACTS_GEOJSON = envValue('VITE_TRACTS_URL') ||
+  `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0/query?where=STATE_FIPS%3D%27${PROJECT_REGION.stateFips}%27%20AND%20COUNTY_FIPS%3D%27${PROJECT_REGION.countyFips}%27&outFields=FIPS%2CSTATE_FIPS%2CCOUNTY_FIPS%2CTRACT_FIPS%2CPOPULATION_2020&returnGeometry=true&outSR=4326&f=geojson`;
+export const TRACT_GEOJSON_ENDPOINTS = Object.freeze([
+  TIGER_TRACTS_GEOJSON,
+  PASDA_TRACTS_GEOJSON,
+  TRACTS_GEOJSON,
+]);
+
+const acsPopulationUrl = envValue('VITE_ACS_POPULATION_URL');
+const acsPovertyUrl = envValue('VITE_ACS_POVERTY_URL');
+export const ACS_API_ENDPOINTS = acsPopulationUrl && acsPovertyUrl
+  ? Object.freeze({ population: acsPopulationUrl, poverty: acsPovertyUrl })
+  : null;
+
+export const CENSUS_REPORTER_ACS_URL = envValue('VITE_CENSUS_REPORTER_ACS_URL') ||
+  `https://api.censusreporter.org/1.0/data/show/latest?table_ids=B01003%2CB25003%2CB19013%2CB17001&geo_ids=140%7C05000US${PROJECT_REGION.stateFips}${PROJECT_REGION.countyFips}`;
+
+export const DIARY_API_BASE = envValue('VITE_DIARY_API_BASE').replace(/\/+$/, '');
 
 export const TRACT_CRIME_SNAPSHOT_ENABLED = import.meta?.env?.VITE_TRACT_CRIME_SNAPSHOT === '1';
 export const DIARY_NETWORK_DATA_ENABLED = import.meta?.env?.DEV || import.meta?.env?.VITE_DIARY_NETWORK_DATA === '1';
