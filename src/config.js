@@ -11,6 +11,8 @@ export const ACS_POP_TENURE_INCOME =
 export const ACS_POVERTY =
   "https://api.census.gov/data/2023/acs/acs5/subject?get=NAME,S1701_C03_001E&for=tract:*&in=state:42%20county:101";
 
+export const TRACT_CRIME_SNAPSHOT_ENABLED = import.meta?.env?.VITE_TRACT_CRIME_SNAPSHOT === '1';
+
 const DEFAULT_OSM_RASTER_STYLE = {
   version: 8,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',

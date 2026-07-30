@@ -2,6 +2,7 @@ import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
 import { setViewMode, onViewModeChange } from '../state/store.js';
 import { publicUrl } from '../utils/public_url.js';
+import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -414,6 +415,10 @@ export function initPanel(store, handlers) {
   let __snapshotMeta = null; // cached in-session
   async function ensureSnapshotMeta() {
     if (__snapshotMeta !== null) return __snapshotMeta;
+    if (!TRACT_CRIME_SNAPSHOT_ENABLED) {
+      __snapshotMeta = undefined;
+      return __snapshotMeta;
+    }
     // Try to fetch local static JSON; ignore failures
     try {
       const { fetchJson } = await import('../utils/http.js');
