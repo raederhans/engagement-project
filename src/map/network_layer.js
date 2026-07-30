@@ -1,7 +1,9 @@
 import { DIARY_NETWORK_SOURCE_ID, DIARY_NETWORK_LAYER_ID } from '../routes_diary/map_ids.js';
 import { publicUrl } from '../utils/public_url.js';
+import { DIARY_NETWORK_DATA_ENABLED } from '../config.js';
 
 let cachedData = null;
+let disabledNoticeLogged = false;
 
 function classWidth(classValue, zoom = 12) {
   const cls = Number(classValue);
@@ -76,6 +78,13 @@ function ensureLayer(map) {
 
 export async function addNetworkLayer(map) {
   if (!map) return;
+  if (!DIARY_NETWORK_DATA_ENABLED) {
+    if (!disabledNoticeLogged) {
+      console.info('[Diary] Optional network dataset is not enabled in this build.');
+      disabledNoticeLogged = true;
+    }
+    return;
+  }
   const data = await loadNetworkGeojson();
   if (data) {
     console.info(`[Diary] Network layer loaded: ${data.features?.length || 0} segments (throttled from network file)`);
@@ -88,7 +97,7 @@ export async function addNetworkLayer(map) {
 }
 
 export function ensureNetworkLayer(map) {
-  if (!map) return;
+  if (!map || !DIARY_NETWORK_DATA_ENABLED) return;
   if (!map.getSource(DIARY_NETWORK_SOURCE_ID)) return addNetworkLayer(map);
   ensureLayer(map);
 }
