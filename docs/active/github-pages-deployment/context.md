@@ -21,7 +21,7 @@
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| None | Primary agent | N/A | No long-running process started. |
+| `gh pr checks 7 --watch --interval 10` | Primary agent | `logs/pr7-checks.log` and `logs/pr7-checks.err.log` | Completed; run `30511400840` passed for `807b4de`. |
 
 ## Handoff
 

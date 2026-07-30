@@ -24,6 +24,7 @@ Stage 2 complete. The Pages workflow and repository-subpath URL contract pass lo
 | `npm audit --audit-level=high` | Passed with 0 vulnerabilities. |
 | Pages-environment `npm run validate` | Passed: data, math, aggregation, and production build. |
 | Generated HTML asset check | JS and CSS use `/engagement-project/assets/` and exist in `dist/`. |
+| GitHub Actions CI run `30511400840` | Passed on commit `807b4de`. |
 
 ## Open risks and remaining work
 
