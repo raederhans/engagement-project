@@ -1,6 +1,4 @@
-import { CARTO_SQL_BASE } from '../config.js';
-import { fetchJson } from '../utils/http.js';
-import { buildCrimePointsSQL } from '../utils/sql.js';
+import { fetchPoints } from '../api/crime.js';
 import { categoryColorPairs } from '../utils/types.js';
 
 function project3857(lon, lat) {
@@ -49,10 +47,7 @@ export async function refreshPoints(map, { start, end, types, queryMode, selecte
 
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
-  const sql = buildCrimePointsSQL({ start, end, types, bbox, dc_dist });
-  const url = `${CARTO_SQL_BASE}?format=GeoJSON&q=${encodeURIComponent(sql)}`;
-
-  const geo = await fetchJson(url, { cacheTTL: 30_000 });
+  const geo = await fetchPoints({ start, end, types, bbox, dc_dist });
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
 
   // Add or update source
