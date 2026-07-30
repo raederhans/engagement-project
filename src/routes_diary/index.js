@@ -40,15 +40,16 @@ import {
 import { renderLiveRoutePanel } from './ui_live_panel.js';
 import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
 import { renderCommunityPanel } from './ui_community_panel.js';
+import { publicUrl } from '../utils/public_url.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
-  '/data/segments_phl.demo.geojson',
   new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
+  publicUrl('data/segments_phl.demo.geojson'),
 ];
 const ROUTE_URL_CANDIDATES = [
-  '/data/routes_phl.demo.geojson',
   new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
+  publicUrl('data/routes_phl.demo.geojson'),
 ];
 
 const MOCK_HISTORY_ROUTES = [

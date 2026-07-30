@@ -2,6 +2,7 @@ import { fetchTractsCachedFirst } from "../api/boundaries.js";
 import { fetchTractStatsCachedFirst } from "../api/acs.js";
 import { tractFeatureGEOID } from "../utils/geoids.js";
 import { fetchJson } from "../utils/http.js";
+import { publicUrl } from "../utils/public_url.js";
 
 /**
  * Merge tract features with ACS stats. Currently uses population as placeholder value,
@@ -21,10 +22,10 @@ export async function getTractsMerged({ per10k = false, windowStart, windowEnd }
   try {
     let counts = null;
     try {
-      counts = await fetchJson('/src/data/tract_crime_counts_last12m.json', { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
+      counts = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
     } catch {}
     if (!counts) {
-      counts = await fetchJson('/src/data/tract_counts_last12m.json', { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
+      counts = await fetchJson(publicUrl('data/tract_counts_last12m.json'), { cacheTTL: 10 * 60_000, retries: 1, timeoutMs: 8000 });
     }
     if (counts?.rows) {
       const meta = counts.meta || {};

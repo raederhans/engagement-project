@@ -4,6 +4,8 @@ import {
 } from "../config.js";
 import { fetchJson } from "../utils/http.js";
 
+const ACS_LOCAL_URL = new URL('../data/acs_tracts_2023_pa101.json', import.meta.url).href;
+
 /**
  * Fetch ACS population, tenure, and poverty metrics for Philadelphia tracts.
  * @returns {Promise<Array<{geoid:string, pop:number|null, renter_total:number|null, renter_count:number|null, median_income:number|null, poverty_pct:number|null}>>}
@@ -83,15 +85,12 @@ export async function fetchTractStats() {
 }
 
 /**
- * Cached-first loader for ACS tract stats. Attempts local JSON under /src/data first
+ * Cached-first loader for ACS tract stats. Attempts the bundled snapshot first,
  * then falls back to live endpoints.
  * @returns {Promise<Array<{geoid:string, pop:number|null, renter_total:number|null, renter_count:number|null, median_income:number|null, poverty_pct:number|null}>>}
  */
 export async function fetchTractStatsCachedFirst() {
-  const localPaths = [
-    "/src/data/acs_tracts_2023_pa101.json",
-    "/data/acs_tracts_2023_pa101.json",
-  ];
+  const localPaths = [ACS_LOCAL_URL];
   for (const p of localPaths) {
     try {
       const rows = await fetchJson(p, { timeoutMs: 8000, retries: 1 });
