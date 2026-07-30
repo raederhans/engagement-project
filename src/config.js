@@ -12,6 +12,7 @@ export const ACS_POVERTY =
   "https://api.census.gov/data/2023/acs/acs5/subject?get=NAME,S1701_C03_001E&for=tract:*&in=state:42%20county:101";
 
 export const TRACT_CRIME_SNAPSHOT_ENABLED = import.meta?.env?.VITE_TRACT_CRIME_SNAPSHOT === '1';
+export const DIARY_NETWORK_DATA_ENABLED = import.meta?.env?.DEV || import.meta?.env?.VITE_DIARY_NETWORK_DATA === '1';
 
 const DEFAULT_OSM_RASTER_STYLE = {
   version: 8,
