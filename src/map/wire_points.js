@@ -1,4 +1,4 @@
-import { refreshPoints } from './points.js';
+import { clearCrimePoints, refreshPoints } from './points.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -17,6 +17,8 @@ function debounce(fn, wait = 300) {
 export function wirePoints(map, deps) {
   const backoffs = [2000, 4000, 8000];
   let backoffIdx = 0;
+  let active = true;
+  let generation = 0;
 
   function showToast(msg) {
     let el = document.getElementById('toast');
@@ -35,25 +37,61 @@ export function wirePoints(map, deps) {
   }
 
   const run = async () => {
+    if (!active) return;
+    const requestGeneration = ++generation;
     try {
-      await refreshPoints(map, deps.getFilters());
+      await refreshPoints(map, {
+        ...deps.getFilters(),
+        shouldApply: () => active && generation === requestGeneration,
+      });
+      if (!active || generation !== requestGeneration) return;
       backoffIdx = 0; // reset after success
     } catch (e) {
+      if (!active || generation !== requestGeneration) return;
       showToast('Points refresh failed; retrying shortly.');
       const delay = backoffs[Math.min(backoffIdx, backoffs.length - 1)];
       backoffIdx++;
       setTimeout(() => {
-        run();
+        if (active) void run();
       }, delay);
     }
   };
 
   const onMoveEnd = debounce(run, 300);
 
-  map.on('load', run);
+  if (map.loaded?.() || map.isStyleLoaded?.()) {
+    void run();
+  } else {
+    map.once('load', run);
+  }
   map.on('moveend', onMoveEnd);
 
   if (!window.__dashboard) window.__dashboard = {};
   window.__dashboard.refreshPoints = () => run();
+
+  return {
+    refresh: run,
+    clear() {
+      generation += 1;
+      clearCrimePoints(map);
+    },
+    setActive(next) {
+      active = Boolean(next);
+      generation += 1;
+      if (!active) hideToast();
+    },
+    destroy() {
+      active = false;
+      generation += 1;
+      map.off('load', run);
+      map.off('moveend', onMoveEnd);
+      hideToast();
+    },
+  };
+}
+
+function hideToast() {
+  const toast = document.getElementById('toast');
+  if (toast) toast.style.display = 'none';
 }
 

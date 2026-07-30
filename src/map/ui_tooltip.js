@@ -5,9 +5,9 @@
  */
 export function attachHover(map, layer = 'districts-fill') {
   const tip = document.getElementById('tooltip');
-  if (!tip) return;
+  if (!tip) return () => {};
 
-  map.on('mousemove', layer, (e) => {
+  const moveHandler = (e) => {
     const f = e.features && e.features[0];
     if (!f) return;
     const props = f.properties || {};
@@ -18,9 +18,17 @@ export function attachHover(map, layer = 'districts-fill') {
     tip.style.top = `${e.point.y}px`;
     tip.style.display = 'block';
     tip.textContent = `District ${id}${name ? ' -'+name : ''}: ${val}`;
-  });
+  };
 
-  map.on('mouseleave', layer, () => {
+  const leaveHandler = () => {
     tip.style.display = 'none';
-  });
+  };
+  map.on('mousemove', layer, moveHandler);
+  map.on('mouseleave', layer, leaveHandler);
+
+  return () => {
+    map.off('mousemove', layer, moveHandler);
+    map.off('mouseleave', layer, leaveHandler);
+    tip.style.display = 'none';
+  };
 }

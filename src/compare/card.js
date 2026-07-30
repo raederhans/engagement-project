@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { fetchCountBuffer, fetchTopTypesBuffer } from "../api/crime.js";
 import { estimatePopInBuffer } from "../utils/pop_buffer.js";
+import { escapeHtml } from "../utils/html.js";
 
 function fmtPct(v) {
   return v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -50,13 +51,13 @@ export async function updateCompare({ types = [], center3857, radiusM, timeWindo
 
     el.innerHTML = `
       <div><strong>Total</strong>: ${total}${per10k != null ? ` &nbsp; <em>per10k</em>: ${per10k.toFixed(1)}` : ""}</div>
-      <div><strong>Top 3</strong>: ${(topn || []).map((t) => `${t.text_general_code} (${t.n})`).join(", ") || "—"}</div>
+      <div><strong>Top 3</strong>: ${(topn || []).map((t) => `${escapeHtml(t.text_general_code)} (${t.n})`).join(", ") || "—"}</div>
       <div><strong>30d Δ</strong>: ${fmtPct(delta30)}</div>
     `;
 
     return { total, per10k, top3: topn, delta30 };
   } catch (e) {
-    el.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">Compare failed: ${e?.message || e}</div>`;
+    el.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">Compare failed: ${escapeHtml(e?.message || e)}</div>`;
     return null;
   }
 }

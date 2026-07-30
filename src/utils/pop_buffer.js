@@ -1,4 +1,6 @@
 import { fetchTractsCachedFirst } from "../api/boundaries.js";
+import { fetchTractStatsCachedFirst } from "../api/acs.js";
+import { tractFeatureGEOID } from "./geoids.js";
 import * as turf from "@turf/turf";
 
 function toLonLat([x, y]) {
@@ -14,17 +16,27 @@ function toLonLat([x, y]) {
  * @param {{center3857:[number,number], radiusM:number}} params
  * @returns {Promise<{pop:number, tractsChecked:number}>}
  */
-export async function estimatePopInBuffer({ center3857, radiusM }) {
+export async function estimatePopInBuffer({
+  center3857,
+  radiusM,
+  fetchTracts = fetchTractsCachedFirst,
+  fetchStats = fetchTractStatsCachedFirst,
+}) {
   const center4326 = toLonLat(center3857);
   const circle = turf.circle(center4326, radiusM, { units: "meters", steps: 64 });
-  const tracts = await fetchTractsCachedFirst();
+  const [tracts, stats] = await Promise.all([
+    fetchTracts(),
+    fetchStats(),
+  ]);
+  const populationByGeoid = new Map(
+    stats.map((row) => [row.geoid, Number(row.pop) || 0]),
+  );
   let pop = 0;
   let checked = 0;
   for (const ft of tracts.features || []) {
     const c = turf.centroid(ft).geometry.coordinates;
     if (turf.booleanPointInPolygon(c, circle)) {
-      const p = ft.properties?.POPULATION_2020 ?? ft.properties?.pop ?? 0;
-      pop += typeof p === "string" ? parseInt(p, 10) : p || 0;
+      pop += populationByGeoid.get(tractFeatureGEOID(ft)) || 0;
       checked++;
     }
   }

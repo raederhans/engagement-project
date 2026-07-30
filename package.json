@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:manifest": "vite build --manifest",
     "preview": "vite preview",
     "setup:diary:sh": "bash scripts/setup_diary_env.sh",
     "setup:diary:ps": "powershell -ExecutionPolicy Bypass -File scripts/setup_diary_env.ps1",
@@ -19,8 +20,10 @@
     "test:diary:math": "node scripts/tests/diary_math.mjs",
     "test:diary:agg": "node scripts/tests/aggregator_update.mjs",
     "test:data-sources": "node --test scripts/tests/data_source_policy.mjs",
-    "test": "npm run test:diary:math && npm run test:diary:agg && npm run test:data-sources",
-    "validate": "npm run data:check && npm test && npm run build",
+    "test:runtime-contracts": "node --test scripts/tests/runtime_contracts.mjs",
+    "verify:bundle": "node scripts/tests/bundle_policy.mjs",
+    "test": "npm run test:diary:math && npm run test:diary:agg && npm run test:data-sources && npm run test:runtime-contracts",
+    "validate": "npm run data:check && npm test && npm run build:manifest && npm run verify:bundle",
     "diary:qs:win": "powershell -ExecutionPolicy Bypass -File scripts/diary_quickstart.ps1",
     "diary:qs:sh": "bash scripts/diary_quickstart.sh",
     "diary:preview": "npm run data:gen && npm run data:check && VITE_FEATURE_DIARY=1 vite build && vite preview",
@@ -35,7 +38,6 @@
     "ajv": "^8.20.0",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.13",
-    "luxon": "^3.4.4",
     "maplibre-gl": "^4.5.0"
   },
   "devDependencies": {

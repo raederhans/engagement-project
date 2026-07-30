@@ -57,7 +57,7 @@ export function envelopeClause(bbox) {
   }
 
   const [xmin, ymin, xmax, ymax] = numbers;
-  return `AND the_geom && ST_MakeEnvelope(${xmin}, ${ymin}, ${xmax}, ${ymax}, 3857)`;
+  return `AND the_geom_webmercator && ST_MakeEnvelope(${xmin}, ${ymin}, ${xmax}, ${ymax}, 3857)`;
 }
 
 /**
@@ -349,7 +349,7 @@ function ensureRadius(radius) {
 function dWithinClause(center, radius) {
   const [x, y] = ensureCenter(center);
   const distance = ensureRadius(radius);
-  return `AND ST_DWithin(the_geom, ST_SetSRID(ST_Point(${x}, ${y}), 3857), ${distance})`;
+  return `AND ST_DWithin(the_geom_webmercator, ST_SetSRID(ST_Point(${x}, ${y}), 3857), ${distance})`;
 }
 
 function baseTemporalClauses(startIso, endIso, types, { includeTypes = true, drilldownCodes } = {}) {
@@ -386,9 +386,9 @@ export function buildMonthlyTractSQL({ start, end, types, tractGEOID, tractGeome
   const bbox = bbox4326(tractGeometry);
   if (bbox) {
     const [minx, miny, maxx, maxy] = bbox;
-    clauses.push(`  AND the_geom && ST_Transform(ST_MakeEnvelope(${minx}, ${miny}, ${maxy}, ${maxy}, 4326), 3857)`);
+    clauses.push(`  AND the_geom && ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326)`);
   }
-  clauses.push(`  AND ST_Intersects(the_geom, ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326), 3857))`);
+  clauses.push(`  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326))`);
 
   return [
     "SELECT date_trunc('month', dispatch_date_time) AS m, COUNT(*) AS n",
@@ -417,9 +417,9 @@ export function buildTopTypesTractSQL({ start, end, types, tractGEOID, tractGeom
   const bbox = bbox4326(tractGeometry);
   if (bbox) {
     const [minx, miny, maxx, maxy] = bbox;
-    clauses.push(`  AND the_geom && ST_Transform(ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326), 3857)`);
+    clauses.push(`  AND the_geom && ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326)`);
   }
-  clauses.push(`  AND ST_Intersects(the_geom, ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326), 3857))`);
+  clauses.push(`  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326))`);
   return [
     'SELECT text_general_code, COUNT(*) AS n',
     'FROM incidents_part1_part2',
@@ -447,9 +447,9 @@ export function buildHeatmap7x24TractSQL({ start, end, types, tractGEOID, tractG
   const bbox = bbox4326(tractGeometry);
   if (bbox) {
     const [minx, miny, maxx, maxy] = bbox;
-    clauses.push(`  AND the_geom && ST_Transform(ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326), 3857)`);
+    clauses.push(`  AND the_geom && ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326)`);
   }
-  clauses.push(`  AND ST_Intersects(the_geom, ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326), 3857))`);
+  clauses.push(`  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326))`);
   return [
     "SELECT EXTRACT(DOW  FROM dispatch_date_time AT TIME ZONE 'America/New_York') AS dow,",
     "       EXTRACT(HOUR FROM dispatch_date_time AT TIME ZONE 'America/New_York') AS hr,",

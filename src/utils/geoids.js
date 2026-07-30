@@ -14,6 +14,15 @@ export function toGEOID(state = '42', county = '101', tract6) {
  */
 export function tractFeatureGEOID(f) {
   const p = f?.properties || {};
-  return toGEOID(p.STATE_FIPS, p.COUNTY_FIPS, p.TRACT_FIPS);
+  const explicit = p.GEOID ?? p.GEOID20 ?? p.TRACT_GEOID ?? p.FIPS;
+  if (explicit != null && /^\d{11}$/.test(String(explicit))) {
+    return String(explicit);
+  }
+
+  const state = p.STATE_FIPS ?? p.STATE ?? p.STATEFP;
+  const county = p.COUNTY_FIPS ?? p.COUNTY ?? p.COUNTYFP;
+  const tract = p.TRACT_FIPS ?? p.TRACT ?? p.TRACTCE;
+  if (state == null || county == null || tract == null) return '';
+  return toGEOID(state, county, tract);
 }
 

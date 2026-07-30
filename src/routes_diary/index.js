@@ -15,6 +15,7 @@ import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { weightFor, bayesianShrink, effectiveN, clampMean } from '../utils/decay.js';
+import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
 import {
   DIARY_SEGMENTS_SOURCE_ID,
@@ -688,17 +689,17 @@ function renderRouteSummary(route) {
   }
   const props = route.properties || {};
   const pieces = [
-    `<div style="font-weight:700;color:#0f172a;">${props.from || 'Start'}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.from || 'Start')}</div>`,
     `<div style="color:#94a3b8;font-weight:600;font-size:12px;">to</div>`,
-    `<div style="font-weight:700;color:#0f172a;">${props.to || 'Destination'}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.to || 'Destination')}</div>`,
   ];
   summaryStripEl.innerHTML = `
-    <div style="font-size:13px;font-weight:700;color:#0f172a;">${props.name || props.route_id}</div>
+    <div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(props.name || props.route_id)}</div>
     <div style="display:flex;align-items:center;gap:6px;">${pieces.join('')}</div>
     <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-      <span class="diary-chip" style="border-color:#e2e8f0;">${(props.mode || 'walk').toUpperCase()}</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${(props.length_m || 0).toLocaleString()} m</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${props.duration_min || 0} min</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(String(props.mode || 'walk').toUpperCase())}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${Number(props.length_m || 0).toLocaleString()} m</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${Number(props.duration_min) || 0} min</span>
     </div>`;
 }
 

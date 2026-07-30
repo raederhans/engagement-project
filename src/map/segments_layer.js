@@ -1,5 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import { submitSegmentFeedback } from '../routes_diary/form_submit.js';
+import { escapeHtml } from '../utils/html.js';
 import {
   DIARY_SEGMENTS_SOURCE_ID,
   DIARY_SEGMENTS_LAYER_ID,
@@ -500,12 +501,13 @@ const RATING_COPY = {
   5: 'Very safe – comfortable and stress-free.',
 };
 
-function buildSegmentCardHtml(props, state = {}) {
+export function buildSegmentCardHtml(props, state = {}) {
   const mean = Number(props[SCORE_PROP] ?? props.mean ?? 0) || 0;
   const nEff = Number(props[NEFF_PROP] ?? props.N_EFF ?? 0) || 0;
   const topIssues = deriveTopIssues(props);
-  const segmentId = props[SEGMENT_ID_PROP] || props.id || '';
-  const title = deriveTitle(props);
+  const segmentId = String(props[SEGMENT_ID_PROP] || props.id || '');
+  const safeSegmentId = escapeHtml(segmentId);
+  const title = escapeHtml(deriveTitle(props));
   const agreeDisabled = props.__diaryVotes?.agreeDisabled;
   const saferDisabled = props.__diaryVotes?.saferDisabled;
   const mode = state.mode || 'view';
@@ -520,7 +522,12 @@ function buildSegmentCardHtml(props, state = {}) {
   const editableStars = renderStars(rating, { editable: true });
   const topIssuesHtml = topIssues.length
     ? topIssues
-      .map((t) => `<span class="diary-chip ${tagCategory(t.id)}">${tagLabel(t.id)}${t.count ? ` (${t.count})` : ''}</span>`)
+      .map((t) => {
+        const label = escapeHtml(tagLabel(String(t.id || '')));
+        const count = Number(t.count);
+        const countLabel = Number.isFinite(count) && count > 0 ? ` (${count})` : '';
+        return `<span class="diary-chip ${tagCategory(t.id)}">${label}${countLabel}</span>`;
+      })
       .join('')
     : '<div class="diary-muted-text">No issues reported yet.</div>';
 
@@ -534,7 +541,7 @@ function buildSegmentCardHtml(props, state = {}) {
           ${items
             .map((item) => {
               const active = selectedTags.includes(item.id);
-              return `<button type="button" class="diary-chip ${tagCategory(item.id)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${item.id}">${item.label}</button>`;
+              return `<button type="button" class="diary-chip ${tagCategory(item.id)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`;
             })
             .join('')}
         </div>
@@ -548,7 +555,7 @@ function buildSegmentCardHtml(props, state = {}) {
     } catch {}
   }
 
-  const saferBtn = `<button data-diary-action="safer" data-segment-id="${segmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">Feels safer ✨</button>`;
+  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">Feels safer ✨</button>`;
 
   if (mode === 'input') {
     return `
@@ -589,7 +596,7 @@ function buildSegmentCardHtml(props, state = {}) {
         <div class="diary-chip-group" style="margin-top:4px;">${topIssuesHtml}</div>
       </div>
       <div class="diary-segment-actions">
-        <button data-diary-action="agree" data-segment-id="${segmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>Agree</button>
+        <button data-diary-action="agree" data-segment-id="${safeSegmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>Agree</button>
         <button data-role="enter-edit" class="diary-chip primary">Add Feedback</button>
       </div>
       <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${saferBtn}</div>

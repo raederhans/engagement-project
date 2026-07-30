@@ -3,6 +3,7 @@ import { fetchAvailableCodesForGroups } from '../api/crime.js';
 import { setViewMode, onViewModeChange } from '../state/store.js';
 import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
+import { fetchJson } from '../utils/http.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -408,8 +409,8 @@ export function initPanel(store, handlers) {
 
   startMonth?.addEventListener('change', () => { store.startMonth = startMonth.value || null; onChange(); });
   durationSel?.addEventListener('change', () => { store.durationMonths = Number(durationSel.value) || 6; onChange(); });
-  preset6?.addEventListener('click', () => { const d = new Date(); const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; store.startMonth = ym; store.durationMonths = 6; onChange(); });
-  preset12?.addEventListener('click', () => { const d = new Date(); const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; store.startMonth = ym; store.durationMonths = 12; onChange(); });
+  preset6?.addEventListener('click', () => { store.startMonth = recentStartMonth(6, store.coverageMax); store.durationMonths = 6; onChange(); });
+  preset12?.addEventListener('click', () => { store.startMonth = recentStartMonth(12, store.coverageMax); store.durationMonths = 12; onChange(); });
 
   // --- Status HUD helpers ---
   let __snapshotMeta = null; // cached in-session
@@ -421,7 +422,6 @@ export function initPanel(store, handlers) {
     }
     // Try to fetch local static JSON; ignore failures
     try {
-      const { fetchJson } = await import('../utils/http.js');
       const snap = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 5 * 60_000, retries: 0, timeoutMs: 1500 });
       if (snap?.meta?.start && snap?.meta?.end) {
         __snapshotMeta = { start: snap.meta.start, end: snap.meta.end };
@@ -455,6 +455,13 @@ export function initPanel(store, handlers) {
   void updateHUD();
 
   return { diaryMount: diaryShell };
+}
+
+function recentStartMonth(durationMonths, coverageMax) {
+  const date = coverageMax ? new Date(coverageMax) : new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() - (durationMonths - 1));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export function readModeFromURL() {

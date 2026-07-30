@@ -42,12 +42,21 @@ function unclusteredColorExpression() {
  */
 const MAX_UNCLUSTERED = 20000;
 
-export async function refreshPoints(map, { start, end, types, queryMode, selectedDistrictCode } = {}) {
+export async function refreshPoints(map, {
+  start,
+  end,
+  types,
+  queryMode,
+  selectedDistrictCode,
+  fetchPointsImpl = fetchPoints,
+  shouldApply = () => true,
+} = {}) {
   const { srcId, clusterId, clusterCountId, unclusteredId } = ensureSourcesAndLayers(map);
 
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
-  const geo = await fetchPoints({ start, end, types, bbox, dc_dist });
+  const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist });
+  if (!shouldApply()) return { applied: false };
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
 
   // Add or update source
@@ -101,7 +110,7 @@ export async function refreshPoints(map, { start, end, types, queryMode, selecte
       filter: ['has', 'point_count'],
       layout: {
         'text-field': ['to-string', ['get', 'point_count']],
-        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
         'text-size': 12
       },
       paint: {
@@ -151,6 +160,7 @@ export function clearCrimePoints(map) {
   if (map.getSource(srcId)) {
     try { map.removeSource(srcId); } catch {}
   }
+  hideBanner();
 }
 
 function ensureBanner(text) {
