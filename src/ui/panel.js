@@ -396,7 +396,6 @@ export function initPanel(store, handlers) {
   }
 
   applyModeUI();
-  updateHUD();
 
   // Init-time populate: if groups preselected, populate drilldown immediately
   if (groupSel) {
@@ -447,6 +446,8 @@ export function initPanel(store, handlers) {
     const match = meta ? (windowMatch(meta) ? 'Yes' : 'No') : 'No';
     hudEl.textContent = `Mode: ${mode} | Admin: ${admin} | Charts: ${charts} | Snapshot: ${snapPresent} | Window match: ${match}`;
   }
+
+  void updateHUD();
 
   return { diaryMount: diaryShell };
 }
