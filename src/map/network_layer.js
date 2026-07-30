@@ -45,10 +45,10 @@ function ensureLayer(map) {
     id: DIARY_NETWORK_LAYER_ID,
     type: 'line',
     source: DIARY_NETWORK_SOURCE_ID,
+    minzoom: 10,  // Lowered from 11 to make visible at route-viewing zoom
     layout: {
       'line-cap': 'round',
       'line-join': 'round',
-      'minzoom': 10,  // Lowered from 11 to make visible at route-viewing zoom
     },
     paint: {
       'line-color': '#94a3b8',

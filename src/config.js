@@ -13,6 +13,7 @@ export const ACS_POVERTY =
 
 const DEFAULT_OSM_RASTER_STYLE = {
   version: 8,
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   sources: {
     osm: {
       type: 'raster',

@@ -13,10 +13,10 @@ import { initAboutPanel } from './ui/about.js';
 import { refreshPoints } from './map/points.js';
 import { updateCompare } from './compare/card.js';
 import { attachDistrictPopup } from './map/ui_popup_district.js';
-import * as turf from '@turf/turf';
 import { getTractsMerged } from './map/tracts_view.js';
 import { renderTractsChoropleth } from './map/render_choropleth_tracts.js';
 import { upsertSelectedDistrict, clearSelectedDistrict, upsertSelectedTract, clearSelectedTract } from './map/selection_layers.js';
+import { upsertBufferA } from './map/buffer_overlay.js';
 import { initLegend } from './map/legend.js';
 import { upsertTractsOutline } from './map/tracts_layers.js';
 import { fetchTractsCachedFirst } from './api/boundaries.js';
@@ -228,6 +228,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   const { diaryMount } = initPanel(store, {
     onChange: refreshAll,
+    onRadiusInput: updateBuffer,
     getMapCenter: () => map.getCenter(),
     onTractsOverlayToggle: (visible) => {
       const layer = map.getLayer('tracts-outline-line');
@@ -294,15 +295,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Selection mode: click to set A and update buffer circle
   function updateBuffer() {
     if (!store.centerLonLat) return;
-    const circle = turf.circle(store.centerLonLat, store.radius, { units: 'meters', steps: 64 });
-    const srcId = 'buffer-a';
-    if (map.getSource(srcId)) {
-      map.getSource(srcId).setData(circle);
-    } else {
-      map.addSource(srcId, { type: 'geojson', data: circle });
-      map.addLayer({ id: 'buffer-a-fill', type: 'fill', source: srcId, paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.15 } });
-      map.addLayer({ id: 'buffer-a-line', type: 'line', source: srcId, paint: { 'line-color': '#0284c7', 'line-width': 1.5 } });
-    }
+    upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
   }
 
   map.on('click', (e) => {
@@ -326,10 +319,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       refreshAll();
     }
   });
-
-  // react to radius changes
-  const radiusObserver = new MutationObserver(() => updateBuffer());
-  radiusObserver.observe(document.documentElement, { attributes: false, childList: false, subtree: false });
 
   function removeBufferOverlay() {
     for (const id of ['buffer-a-fill','buffer-a-line']) { if (map.getLayer(id)) try { map.removeLayer(id); } catch {} }
