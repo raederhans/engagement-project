@@ -20,7 +20,7 @@ Make production data loading explicit, current, and resilient: verified live API
 - [x] Stage 2: Verify current official API contracts and choose source policy per dataset.
 - [x] Stage 3: Implement the minimum configuration and loader changes.
 - [x] Stage 4: Validate data, tests, build, fallback paths, and browser behavior.
-- [ ] Stage 5: Integrate, deploy, and verify live assets and API behavior.
+- [x] Stage 5: Integrate, deploy, and verify live assets and API behavior.
 
 ## Acceptance criteria
 

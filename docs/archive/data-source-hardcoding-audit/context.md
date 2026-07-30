@@ -6,6 +6,15 @@
 - Production deployment was already verified at `https://raederhans.github.io/engagement-project/`.
 - Two uncommitted documentation corrections from the completed deployment archive were preserved on the branch.
 
+## Final integration and deployment
+
+- Pull request `#16` merged into `main` as runtime commit `deac63bb74020f93be244fd38778dc376b8641ce`.
+- CI run `30514807469` passed and Pages run `30514807468` built and deployed successfully.
+- The production root and its referenced JavaScript and CSS assets returned HTTP 200.
+- Crime browser verification observed HTTP 200 from CARTO, the City police service, TIGERweb, and Census Reporter with zero console errors or warnings.
+- Diary browser verification loaded 246 segments and 5 routes from same-origin Pages assets. A four-star submission updated 48 segments, repainted in 4 ms, and reported `mode: demo` and `persisted: false` with zero console errors or warnings.
+- The final task-archive commit is documentation-only; it does not change the verified runtime bundle.
+
 ## Initial evidence
 
 - `src/config.js` centralizes CARTO, police district, tract, and 2023 ACS endpoints, but embeds the Philadelphia state/county identifiers and ACS year in URL strings.
@@ -39,4 +48,4 @@
 
 ## Next step
 
-Commit and integrate the verified implementation, wait for GitHub Actions and Pages, then repeat both browser-mode checks against the public URLs.
+Add a separate writable backend when shared Diary submissions are required, then configure it through `VITE_DIARY_API_BASE` without placing private credentials in the Pages bundle.

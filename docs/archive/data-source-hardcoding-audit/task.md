@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: implementation and local validation complete; GitHub integration and deployed verification remain.
+Complete. The public app is API-first, has no developer-machine runtime dependency, truthfully labels non-persistent Diary behavior, and is deployed and browser-verified.
 
 ## Checklist
 
@@ -12,9 +12,9 @@ In progress: implementation and local validation complete; GitHub integration an
 - [x] Define and implement source precedence with response validation.
 - [x] Add or extend focused tests.
 - [x] Run project validation, dependency audit, and production build.
-- [ ] Run local and deployed browser smoke checks for Crime and Diary modes. Local checks pass; deployed checks remain.
-- [ ] Commit, merge, push, and verify GitHub Actions/Pages.
-- [ ] Archive this task record after all external state matches the evidence.
+- [x] Run local and deployed browser smoke checks for Crime and Diary modes.
+- [x] Commit, merge, push, and verify GitHub Actions/Pages.
+- [x] Archive this task record after all external state matches the evidence.
 
 ## Evidence log
 
@@ -28,9 +28,15 @@ In progress: implementation and local validation complete; GitHub integration an
 | Local verification | `npm run validate` and the production build pass; `npm audit --audit-level=high` reports zero vulnerabilities. |
 | Browser smoke | Crime live APIs and both modes load without console errors; Diary submission updates 48 segments and reports `persisted: false`. |
 | Local-path audit | Built output contains no `C:\\Users`, `localhost`, or `127.0.0.1` references. |
+| Pull request | `#16` merged as `deac63bb74020f93be244fd38778dc376b8641ce`. |
+| Main CI | Run `30514807469` passed. |
+| Runtime Pages | Run `30514807468` built and deployed successfully. |
+| Production assets | Root, JavaScript, CSS, demo segments, and demo routes returned HTTP 200. |
+| Production Crime | Police, TIGER, Census Reporter, and CARTO requests returned HTTP 200; zero browser errors or warnings. |
+| Production Diary | 246 segments and 5 routes loaded; submission updated 48 segments with `persisted: false`; zero browser errors or warnings. |
 
-## Remaining external-state checks
+## Remaining product limitations
 
-- Confirm the merged runtime commit passes CI and GitHub Pages deployment.
-- Confirm the public Crime page reaches CARTO, City police, TIGER, and Census Reporter successfully.
-- Confirm the public Diary page loads same-origin assets and honestly remains non-persistent until a writable backend is configured.
+- Shared Diary submissions still need a separate writable service; GitHub Pages only hosts static assets.
+- The largest production JavaScript chunk is about 1.1 MB minified, so code splitting remains a useful performance follow-up.
+- GitHub Actions currently emits Node 20 deprecation annotations even though both workflows pass.
