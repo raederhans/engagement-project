@@ -249,7 +249,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       diaryInsights?.show();
       diaryInsights?.setCollapsed(true);
       if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {
-        map.once('load', () => handleViewModeChange(mode));
+        map.once('idle', () => void handleViewModeChange(mode));
         return;
       }
       try {
