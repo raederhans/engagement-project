@@ -1,4 +1,5 @@
 import { DIARY_NETWORK_SOURCE_ID, DIARY_NETWORK_LAYER_ID } from '../routes_diary/map_ids.js';
+import { publicUrl } from '../utils/public_url.js';
 
 let cachedData = null;
 
@@ -16,7 +17,7 @@ function classWidth(classValue, zoom = 12) {
 async function loadNetworkGeojson() {
   if (cachedData) return cachedData;
   try {
-    const res = await fetch('/data/segments_phl.network.geojson', { cache: 'no-cache' });
+    const res = await fetch(publicUrl('data/segments_phl.network.geojson'), { cache: 'no-cache' });
     if (res.ok) {
       const raw = await res.json();
       if (Array.isArray(raw?.features) && raw.features.length > 15000) {

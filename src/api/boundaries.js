@@ -1,5 +1,6 @@
 import { PD_GEOJSON, TRACTS_GEOJSON } from "../config.js";
 import { fetchGeoJson } from "../utils/http.js";
+import { publicUrl } from "../utils/public_url.js";
 
 /**
  * Retrieve police district boundaries.
@@ -25,7 +26,7 @@ export async function fetchTracts() {
 export async function fetchPoliceDistrictsCachedFirst() {
   // Try cached file served by Vite or static hosting
   try {
-    const local = await fetchGeoJson("/data/police_districts.geojson");
+    const local = await fetchGeoJson(publicUrl('data/police_districts.geojson'));
     if (
       local &&
       local.type === "FeatureCollection" &&
@@ -53,7 +54,7 @@ export async function fetchTractsCachedFirst() {
 
   // 1) Try local cache under /public
   try {
-    const local = await fetchGeoJson("/data/tracts_phl.geojson", { cacheTTL: 5 * 60_000 });
+    const local = await fetchGeoJson(publicUrl('data/tracts_phl.geojson'), { cacheTTL: 5 * 60_000 });
     if (isValidTracts(local)) {
       fetchTractsCachedFirst._cache = local;
       return local;

@@ -1,6 +1,7 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
 import { setViewMode, onViewModeChange } from '../state/store.js';
+import { publicUrl } from '../utils/public_url.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -417,7 +418,7 @@ export function initPanel(store, handlers) {
     // Try to fetch local static JSON; ignore failures
     try {
       const { fetchJson } = await import('../utils/http.js');
-      const snap = await fetchJson('/src/data/tract_crime_counts_last12m.json', { cacheTTL: 5 * 60_000, retries: 0, timeoutMs: 1500 });
+      const snap = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 5 * 60_000, retries: 0, timeoutMs: 1500 });
       if (snap?.meta?.start && snap?.meta?.end) {
         __snapshotMeta = { start: snap.meta.start, end: snap.meta.end };
       } else {
