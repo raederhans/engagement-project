@@ -19,8 +19,8 @@ Complete. GitHub Pages is deployed from `main`, required assets are reachable, a
 | Check | Result |
 | --- | --- |
 | GitHub Pages configuration | Workflow build type, HTTPS enforced, production URL active. |
-| Final CI run `30513404951` | Passed on `d4d0e9d`. |
-| Final Pages run `30513404940` | Build and deploy jobs passed on `d4d0e9d`. |
+| Runtime CI run `30513404951` | Passed on `d4d0e9d`. |
+| Runtime Pages run `30513404940` | Build and deploy jobs passed on `d4d0e9d`. |
 | Production root and referenced assets | HTTP 200 for HTML, JavaScript, CSS, favicon, district data, tract data, and bundled demo assets. |
 | Crime browser smoke | Map loaded; point selection and radius update completed; CARTO requests used POST; 0 console errors. |
 | Diary browser smoke | `Route Safety Diary (demo)`, route chooser, and Insights control visible; 0 console errors. |
