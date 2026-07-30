@@ -15,7 +15,7 @@ function hashKey(s) {
 function lruGet(key) {
   const v = lru.get(key);
   if (!v) return null;
-  if (Date.now() > v.expires) { lru.delete(key); return null; }
+  if (Date.now() >= v.expires) { lru.delete(key); return null; }
   // refresh recency
   lru.delete(key); lru.set(key, v);
   return v.data;
@@ -35,7 +35,7 @@ function ssGet(key) {
     const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     const { expires, data } = JSON.parse(raw);
-    if (Date.now() > expires) { sessionStorage.removeItem(key); return null; }
+    if (Date.now() >= expires) { sessionStorage.removeItem(key); return null; }
     return data;
   } catch { return null; }
 }
@@ -51,7 +51,7 @@ async function appendRetryLog(line) {
   // Node-only file append
   try {
     if (typeof process !== 'undefined' && process.versions?.node) {
-      const fs = await import('node:fs/promises');
+      const fs = await importNodeFs();
       await fs.mkdir('logs', { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
       const p = `logs/http_retries_${ts}.log`;
@@ -67,23 +67,28 @@ async function appendRetryLog(line) {
  * @param {RequestInit & {timeoutMs?:number, retries?:number, cacheTTL?:number}} [options]
  * @returns {Promise<T>}
  */
-export async function fetchJson(url, { timeoutMs = 15000, retries = 2, cacheTTL = DEFAULT_TTL, method = 'GET', body, headers, ...rest } = {}) {
+export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, method = 'GET', body, headers, ...rest } = {}) {
   if (!url) throw new Error('fetchJson requires url');
-  const keyBase = `${method.toUpperCase()} ${url} ${typeof body === 'string' ? hashKey(body) : hashKey(JSON.stringify(body ?? ''))}`;
+  const normalizedMethod = method.toUpperCase();
+  const safeMethod = normalizedMethod === 'GET' || normalizedMethod === 'HEAD';
+  const effectiveCacheTTL = cacheTTL ?? (safeMethod ? DEFAULT_TTL : 0);
+  const effectiveRetries = retries ?? (safeMethod || effectiveCacheTTL > 0 ? 2 : 0);
+  const keyBase = `${normalizedMethod} ${url} ${typeof body === 'string' ? hashKey(body) : hashKey(JSON.stringify(body ?? ''))}`;
   const cacheKey = `cache:${hashKey(keyBase)}`;
+  const cacheEnabled = Number(effectiveCacheTTL) > 0;
 
   // memory/session cache
   const dev = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) || (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development');
-  const mem = lruGet(cacheKey);
+  const mem = cacheEnabled ? lruGet(cacheKey) : null;
   if (mem != null) { if (dev) console.log(`cache HIT: ${cacheKey}`); return mem; }
-  const ss = ssGet(cacheKey);
-  if (ss != null) { if (dev) console.log(`cache HIT(session): ${cacheKey}`); lruSet(cacheKey, ss, cacheTTL); return ss; }
+  const ss = cacheEnabled ? ssGet(cacheKey) : null;
+  if (ss != null) { if (dev) console.log(`cache HIT(session): ${cacheKey}`); lruSet(cacheKey, ss, effectiveCacheTTL); return ss; }
 
-  if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+  if (cacheEnabled && inflight.has(cacheKey)) return inflight.get(cacheKey);
 
   const p = (async () => {
     let attempt = 0;
-    const total = Math.max(0, retries) + 1;
+    const total = Math.max(0, effectiveRetries) + 1;
     while (attempt < total) {
       const controller = new AbortController();
       const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
@@ -95,8 +100,10 @@ export async function fetchJson(url, { timeoutMs = 15000, retries = 2, cacheTTL 
           throw new RetryableError(`HTTP ${res.status}`);
         }
         const data = await res.json();
-        lruSet(cacheKey, data, cacheTTL);
-        ssSet(cacheKey, data, cacheTTL);
+        if (cacheEnabled) {
+          lruSet(cacheKey, data, effectiveCacheTTL);
+          ssSet(cacheKey, data, effectiveCacheTTL);
+        }
         if (dev) console.log(`cache MISS: ${cacheKey}`);
         return data;
       } catch (e) {
@@ -113,6 +120,8 @@ export async function fetchJson(url, { timeoutMs = 15000, retries = 2, cacheTTL 
     }
     throw new Error('exhausted retries');
   })();
+
+  if (!cacheEnabled) return p;
 
   inflight.set(cacheKey, p);
   try {
@@ -138,11 +147,16 @@ export async function fetchGeoJson(url, options) {
 export async function logQuery(label, content) {
   try {
     if (typeof process !== 'undefined' && process.versions?.node) {
-      const fs = await import('node:fs/promises');
+      const fs = await importNodeFs();
       await fs.mkdir('logs', { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
       const p = `logs/queries_${ts}.log`;
       await fs.appendFile(p, `[${new Date().toISOString()}] ${label}: ${content}\n`);
     }
   } catch {}
+}
+
+async function importNodeFs() {
+  const specifier = 'node:fs/promises';
+  return import(/* @vite-ignore */ specifier);
 }

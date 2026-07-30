@@ -84,7 +84,17 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
     row.style.borderBottom = '1px solid #e5e7eb';
     row.style.paddingBottom = '6px';
     row.style.fontSize = '12px';
-    row.innerHTML = `<strong style="color:#0f172a;">${c.user}</strong> <span style="color:#94a3b8;">${c.ago}</span><div style="margin-top:2px;color:#111827;">${c.text}</div>`;
+    const author = document.createElement('strong');
+    author.style.color = '#0f172a';
+    author.textContent = c.user;
+    const age = document.createElement('span');
+    age.style.color = '#94a3b8';
+    age.textContent = ` ${c.ago}`;
+    const text = document.createElement('div');
+    text.style.marginTop = '2px';
+    text.style.color = '#111827';
+    text.textContent = c.text;
+    row.append(author, age, text);
     list.appendChild(row);
   });
   commentsCard.appendChild(list);

@@ -7,6 +7,7 @@ import * as boundaries from '../../src/api/boundaries.js';
 import * as config from '../../src/config.js';
 import * as diary from '../../src/api/diary.js';
 import * as formSubmit from '../../src/routes_diary/form_submit.js';
+import { fetchJson } from '../../src/utils/http.js';
 import { dateFloorGuard } from '../../src/utils/sql.js';
 
 test('project geography and crime coverage are defined once', () => {
@@ -163,6 +164,7 @@ test('Diary client uses a real API when configured and deterministic demo semant
   await apiClient.submitDiary(payload);
   assert.equal(requests[0].url, 'https://example.test/api/diary/submit');
   assert.equal(requests[0].options.method, 'POST');
+  assert.equal(requests[0].options.retries, 0);
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     overall_rating: 4,
     tags: ['poor_lighting'],
@@ -199,4 +201,60 @@ test('submission completion closes the modal and still invokes the captured call
     ['close'],
     ['callback', { payload, response }],
   ]);
+});
+
+test('requests with caching disabled are never cached or coalesced', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  let calls = 0;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+  });
+
+  Date.now = () => 1_785_369_600_000;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ call: calls }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const options = {
+    method: 'POST',
+    body: JSON.stringify({ rating: 4 }),
+    cacheTTL: 0,
+    retries: 0,
+  };
+  const first = await fetchJson('https://example.test/api/ratings', options);
+  const second = await fetchJson('https://example.test/api/ratings', options);
+
+  assert.equal(calls, 2);
+  assert.deepEqual(first, { call: 1 });
+  assert.deepEqual(second, { call: 2 });
+});
+
+test('mutation requests default to uncached semantics', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ call: calls }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const options = { method: 'POST', body: '{}' };
+  const first = await fetchJson('https://example.test/api/default-mutation', options);
+  const second = await fetchJson('https://example.test/api/default-mutation', options);
+
+  assert.equal(calls, 2);
+  assert.deepEqual(first, { call: 1 });
+  assert.deepEqual(second, { call: 2 });
 });

@@ -12,7 +12,11 @@ const TRACTS_FALLBACK = publicUrl('data/tracts_phl.geojson');
 
 /** Retrieve live police district boundaries. */
 export async function fetchPoliceDistricts() {
-  const raw = await fetchGeoJson(PD_GEOJSON, { cacheTTL: 10 * 60_000 });
+  const raw = await fetchGeoJson(PD_GEOJSON, {
+    cacheTTL: 10 * 60_000,
+    retries: 0,
+    timeoutMs: 5000,
+  });
   if (!isValidPoliceDistricts(raw)) {
     throw new Error('Police district API returned an invalid FeatureCollection.');
   }
@@ -21,7 +25,11 @@ export async function fetchPoliceDistricts() {
 
 /** Retrieve live census tract boundaries from the canonical configured endpoint. */
 export async function fetchTracts() {
-  const raw = await fetchGeoJson(TRACTS_GEOJSON, { cacheTTL: 10 * 60_000 });
+  const raw = await fetchGeoJson(TRACTS_GEOJSON, {
+    cacheTTL: 10 * 60_000,
+    retries: 0,
+    timeoutMs: 5000,
+  });
   if (!isValidTracts(raw)) {
     throw new Error('Census tract API returned an invalid FeatureCollection.');
   }
@@ -60,7 +68,11 @@ export async function fetchTractsPreferred() {
   const errors = [];
   for (const url of TRACT_GEOJSON_ENDPOINTS) {
     try {
-      const raw = await fetchGeoJson(url, { cacheTTL: 10 * 60_000, retries: 1 });
+      const raw = await fetchGeoJson(url, {
+        cacheTTL: 10 * 60_000,
+        retries: 0,
+        timeoutMs: 5000,
+      });
       if (!isValidTracts(raw)) {
         throw new Error(`Tract source returned fewer than 300 features: ${url}`);
       }

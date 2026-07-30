@@ -1,4 +1,4 @@
-import groups from '../data/offense_groups.json' assert { type: 'json' };
+import groups from '../data/offense_groups.json' with { type: 'json' };
 
 /**
  * Map offense text_general_code into coarse groups with colors.

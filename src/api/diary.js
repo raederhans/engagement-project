@@ -16,6 +16,7 @@ export function createDiaryClient({ apiBase = DIARY_API_BASE, request = fetchJso
     headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
     cacheTTL: 0,
+    retries: 0,
   });
 
   return {

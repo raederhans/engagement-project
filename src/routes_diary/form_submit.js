@@ -489,7 +489,10 @@ function createSegmentOverrideSection(state) {
     labelWrap.style.fontSize = '12px';
     labelWrap.style.color = '#475569';
     const friendly = label || `Segment ${idx + 1}`;
-    labelWrap.innerHTML = `<strong style="color:#0f172a;">${friendly}</strong>`;
+    const labelStrong = document.createElement('strong');
+    labelStrong.style.color = '#0f172a';
+    labelStrong.textContent = friendly;
+    labelWrap.appendChild(labelStrong);
 
     const controls = document.createElement('div');
     controls.style.display = 'flex';

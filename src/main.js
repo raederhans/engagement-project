@@ -1,37 +1,55 @@
 import './style.css';
-import dayjs from 'dayjs';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMap } from './map/initMap.js';
-import { getDistrictsMerged } from './map/choropleth_districts.js';
-import { renderDistrictChoropleth } from './map/render_choropleth.js';
-import { drawLegend } from './map/ui_legend.js';
-import { attachHover } from './map/ui_tooltip.js';
-import { wirePoints } from './map/wire_points.js';
-import { updateAllCharts } from './charts/index.js';
-import { store, initCoverageAndDefaults, setViewMode, onViewModeChange } from './state/store.js';
+import { store, setViewMode, onViewModeChange } from './state/store.js';
 import { initPanel, readModeFromURL, writeModeToURL } from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
-import { refreshPoints } from './map/points.js';
-import { updateCompare } from './compare/card.js';
-import { attachDistrictPopup } from './map/ui_popup_district.js';
-import { getTractsMerged } from './map/tracts_view.js';
-import { renderTractsChoropleth } from './map/render_choropleth_tracts.js';
-import { upsertSelectedDistrict, clearSelectedDistrict, upsertSelectedTract, clearSelectedTract } from './map/selection_layers.js';
-import { upsertBufferA } from './map/buffer_overlay.js';
-import { initLegend } from './map/legend.js';
-import { upsertTractsOutline } from './map/tracts_layers.js';
-import { fetchTractsCachedFirst } from './api/boundaries.js';
-import { createDiaryInsightsHost } from './routes_diary/ui_insights_panel.js';
+import { createLatestSerialQueue } from './utils/latest_serial_queue.js';
 
-const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
-const diaryFeatureEnabled = (import.meta?.env?.VITE_FEATURE_DIARY === '1') || (qs.get('mode') === 'diary');
+const query = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search || '')
+  : new URLSearchParams('');
+const diaryFeatureEnabled = import.meta?.env?.VITE_FEATURE_DIARY === '1'
+  || query.get('mode') === 'diary';
+
+let crimeControllerPromise = null;
 let diaryModulePromise = null;
+let diaryInsightsPromise = null;
+let diaryInsights = null;
+
+function loadCrimeController(map) {
+  if (!crimeControllerPromise) {
+    crimeControllerPromise = import('./routes_crime/index.js')
+      .then((module) => module.initCrimeMode(map, {
+        isActive: () => store.viewMode === 'crime',
+      }));
+  }
+  return crimeControllerPromise;
+}
 
 function loadDiaryModule() {
   if (!diaryFeatureEnabled) return null;
-  if (!diaryModulePromise) {
-    diaryModulePromise = import('./routes_diary/index.js');
-  }
+  if (!diaryModulePromise) diaryModulePromise = import('./routes_diary/index.js');
   return diaryModulePromise;
+}
+
+async function loadDiaryInsights() {
+  if (!diaryInsightsPromise) {
+    diaryInsightsPromise = import('./routes_diary/ui_insights_panel.js').then((module) => {
+      const root = document.createElement('div');
+      root.id = 'diary-insights-root';
+      document.body.appendChild(root);
+      diaryInsights = module.createDiaryInsightsHost(root);
+      window.__diaryInsightsHost = diaryInsights;
+      return diaryInsights;
+    });
+  }
+  return diaryInsightsPromise;
+}
+
+function waitForStyleReady(map) {
+  if (map.isStyleLoaded?.()) return Promise.resolve();
+  return new Promise((resolve) => map.once('idle', resolve));
 }
 
 window.__dashboard = {
@@ -40,297 +58,90 @@ window.__dashboard = {
 
 window.addEventListener('DOMContentLoaded', async () => {
   const initialMode = setViewMode(readModeFromURL(), { silent: true });
-  const map = initMap({ mode: initialMode === 'diary' ? 'diary' : 'crime' });
+  const map = initMap({ mode: initialMode });
   const chartsPane = document.getElementById('charts');
-  const diaryInsightsRoot = document.createElement('div');
-  diaryInsightsRoot.id = 'diary-insights-root';
-  document.body.appendChild(diaryInsightsRoot);
-  const diaryInsights = createDiaryInsightsHost(diaryInsightsRoot);
-  if (typeof window !== 'undefined') {
-    window.__diaryInsightsHost = diaryInsights;
-  }
+  initAboutPanel();
   writeModeToURL(initialMode);
 
-  // Align defaults with dataset coverage
-  try {
-    await initCoverageAndDefaults();
-  } catch {}
-
-  try {
-    // Fixed 6-month window demo
-    const end = dayjs().format('YYYY-MM-DD');
-    const start = dayjs().subtract(6, 'month').format('YYYY-MM-DD');
-
-    // Persist center for buffer-based charts
-    const c = map.getCenter();
-    store.setCenterFromLngLat(c.lng, c.lat);
-    const merged = await getDistrictsMerged({ start, end });
-
-    map.on('load', async () => {
-      // Initialize legend control
-      initLegend();
-
-      // Initialize about panel (top slide-down)
-      initAboutPanel();
-
-      // Render districts (legend updated inside)
-      renderDistrictChoropleth(map, merged);
-      attachHover(map, 'districts-fill');
-      attachDistrictPopup(map, 'districts-fill');
-
-      // Load and render tract outlines (always-on, above districts fill)
-      try {
-        const tractsGeo = await fetchTractsCachedFirst();
-        if (tractsGeo && tractsGeo.features && tractsGeo.features.length > 0) {
-          upsertTractsOutline(map, tractsGeo);
-        }
-      } catch (err) {
-        console.warn('Failed to load tract outlines:', err);
-      }
-    });
-  } catch (err) {
-    console.warn('Choropleth demo failed:', err);
-  }
-
-  // Wire points layer refresh with fixed 6-month filters for now
-  wirePoints(map, { getFilters: () => store.getFilters() });
-
-  // Charts: guard until center is set or scope by district
-  try {
-    const { start, end, types, drilldownCodes, center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID } = store.getFilters();
-    const pane = document.getElementById('charts') || document.body;
-    const status = document.getElementById('charts-status') || (() => {
-      const d = document.createElement('div');
-      d.id = 'charts-status';
-      d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-      pane.appendChild(d);
-      return d;
-    })();
-    if ((queryMode === 'buffer' && center3857) || queryMode === 'district') {
-      status.textContent = '';
-      await updateAllCharts({ start, end, types, drilldownCodes, center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID });
-    } else {
-      status.textContent = 'Tip: click the map to set a center and show buffer-based charts.';
-    }
-  } catch (err) {
-    const pane = document.getElementById('charts') || document.body;
-    const status = document.getElementById('charts-status') || (() => {
-      const d = document.createElement('div');
-      d.id = 'charts-status';
-      d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-      pane.appendChild(d);
-      return d;
-    })();
-    status.innerText = 'Charts unavailable: ' + (err.message || err);
-  }
-
-  // Controls panel
-  let _tractClickWired = false;
-  let _districtClickWired = false;
-  async function refreshAll() {
-  const { start, end, types, drilldownCodes, queryMode, selectedDistrictCode, selectedTractGEOID } = store.getFilters();
-    try {
-      if (store.adminLevel === 'tracts') {
-        const merged = await getTractsMerged({ per10k: store.per10k, windowStart: start, windowEnd: end });
-        renderTractsChoropleth(map, merged); // Legend updated inside
-        // maintain tract highlight based on selection
-        if (store.queryMode === 'tract' && selectedTractGEOID) {
-          upsertSelectedTract(map, selectedTractGEOID);
-        } else {
-          clearSelectedTract(map);
-        }
-        // wire click for tract selection once
-        if (!_tractClickWired && map.getLayer('tracts-fill')) {
-          _tractClickWired = true;
-          map.on('click', 'tracts-fill', (e) => {
-            try {
-              const f = e.features && e.features[0];
-              const geoid = getTractGEOID(f?.properties || {});
-              if (geoid && store.queryMode === 'tract') {
-                store.selectedTractGEOID = geoid;
-                upsertSelectedTract(map, geoid);
-                // clear buffer overlay
-                removeBufferOverlay();
-                if ((typeof import.meta !== 'undefined' && import.meta.env?.DEV) || (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production')) {
-                  console.debug('Tract selected GEOID:', geoid);
-                }
-                // charts follow tract MVP path
-                refreshAll();
-              }
-            } catch {}
-          });
-        }
-      } else {
-        const merged = await getDistrictsMerged({ start, end, types });
-        renderDistrictChoropleth(map, merged); // Legend updated inside
-        // maintain district highlight based on selection
-        if (store.queryMode === 'district' && selectedDistrictCode) {
-          upsertSelectedDistrict(map, selectedDistrictCode);
-        } else {
-          clearSelectedDistrict(map);
-        }
-        // click to select district in selection mode (once)
-        if (!_districtClickWired && map.getLayer('districts-fill')) {
-          _districtClickWired = true;
-          map.on('click', 'districts-fill', (e) => {
-            const f = e.features && e.features[0];
-            const code = (f?.properties?.DIST_NUMC || '').toString().padStart(2,'0');
-            if (store.queryMode === 'district' && code) {
-              store.selectedDistrictCode = code;
-              upsertSelectedDistrict(map, code);
-              removeBufferOverlay();
-              refreshAll();
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Boundary refresh failed:', e);
-    }
-
-    if (queryMode === 'buffer') {
-      if (store.center3857) {
-        refreshPoints(map, { start, end, types, queryMode }).catch((e) => console.warn('Points refresh failed:', e));
-      } else {
-        try { const { clearCrimePoints } = await import('./map/points.js'); clearCrimePoints(map); } catch {}
-      }
-    } else if (queryMode === 'district') {
-      refreshPoints(map, { start, end, types, queryMode, selectedDistrictCode }).catch((e) => console.warn('Points refresh failed:', e));
-    } else {
-      try { const { clearCrimePoints } = await import('./map/points.js'); clearCrimePoints(map); } catch {}
-    }
-
-    const f = store.getFilters();
-    updateAllCharts(f).catch((e) => {
-      console.error(e);
-      const pane = document.getElementById('charts') || document.body;
-      const status = document.getElementById('charts-status') || (() => {
-        const d = document.createElement('div');
-        d.id = 'charts-status';
-        d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
-        pane.appendChild(d);
-        return d;
-      })();
-      status.innerText = 'Charts unavailable: ' + (e.message || e);
-    });
-
-    // Compare card (A) live
-    if (store.center3857) {
-      await updateCompare({
-        types,
-        center3857: store.center3857,
-        radiusM: store.radius,
-        timeWindowMonths: store.timeWindowMonths,
-        adminLevel: store.adminLevel,
-      }).catch((e) => console.warn('Compare update failed:', e));
-    }
-  }
+  let diaryActive = false;
 
   const { diaryMount } = initPanel(store, {
-    onChange: refreshAll,
-    onRadiusInput: updateBuffer,
+    onChange: () => {
+      if (store.viewMode === 'crime' && crimeControllerPromise) {
+        void crimeControllerPromise.then((controller) => controller.requestRefresh());
+      }
+    },
+    onRadiusInput: () => {
+      if (crimeControllerPromise) {
+        void crimeControllerPromise.then((controller) => controller.updateBuffer());
+      }
+    },
     getMapCenter: () => map.getCenter(),
     onTractsOverlayToggle: (visible) => {
-      const layer = map.getLayer('tracts-outline-line');
-      if (layer) {
+      if (map.getLayer('tracts-outline-line')) {
         map.setLayoutProperty('tracts-outline-line', 'visibility', visible ? 'visible' : 'none');
       }
     },
   });
 
-  let diaryActive = false;
-  let viewModeToken = 0;
-  const handleViewModeChange = async (mode) => {
+  const applyViewModeChange = async (mode, { isLatest }) => {
+    if (!isLatest()) return;
     writeModeToURL(mode);
-    viewModeToken += 1;
-    const token = viewModeToken;
+
     if (mode === 'diary' && diaryFeatureEnabled) {
       if (chartsPane) chartsPane.style.display = 'none';
-      diaryInsights?.show();
-      diaryInsights?.setCollapsed(true);
-      if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {
-        map.once('idle', () => void handleViewModeChange(mode));
-        return;
+      if (crimeControllerPromise) {
+        const controller = await crimeControllerPromise;
+        controller.setActive(false);
       }
+      await waitForStyleReady(map);
+      if (!isLatest() || store.viewMode !== 'diary') return;
+
       try {
-        const modPromise = loadDiaryModule();
-        if (!modPromise) return;
-        const mod = await modPromise;
-        if (token !== viewModeToken) return;
-        if (typeof mod?.initDiaryMode === 'function') {
-          await mod.initDiaryMode(map, { mountInto: diaryMount || null });
+        const modulePromise = loadDiaryModule();
+        if (!modulePromise) return;
+        const [module, insights] = await Promise.all([modulePromise, loadDiaryInsights()]);
+        if (!isLatest() || store.viewMode !== 'diary') return;
+        insights.show();
+        insights.setCollapsed(true);
+        await module.initDiaryMode(map, { mountInto: diaryMount || null });
+        if (!isLatest() || store.viewMode !== 'diary') {
+          module.teardownDiaryMode(map);
+          return;
         }
         diaryActive = true;
-      } catch (err) {
-        console.error('[Diary] init failed:', err);
+      } catch (error) {
+        console.error('[Diary] init failed:', error);
       }
-    } else {
-      diaryInsights?.hide();
-      if (chartsPane) chartsPane.style.display = '';
-      if (diaryActive) {
-        try {
-          const modPromise = loadDiaryModule();
-          if (modPromise) {
-            const mod = await modPromise;
-            if (typeof mod?.teardownDiaryTransient === 'function') {
-              mod.teardownDiaryTransient(map, { silent: true });
-            } else if (typeof mod?.teardownDiaryMode === 'function') {
-              mod.teardownDiaryMode(map);
-            }
-          }
-        } catch (err) {
-          console.error('[Diary] teardown failed:', err);
-        }
+      return;
+    }
+
+    diaryInsights?.hide();
+    if (diaryActive && diaryModulePromise) {
+      try {
+        const module = await diaryModulePromise;
+        module.teardownDiaryMode(map);
+      } catch (error) {
+        console.error('[Diary] teardown failed:', error);
       }
-      diaryActive = false;
-      if (diaryMount) diaryMount.innerHTML = '';
+    }
+    diaryActive = false;
+    if (diaryMount) diaryMount.replaceChildren();
+    if (chartsPane) chartsPane.style.display = '';
+
+    try {
+      const controller = await loadCrimeController(map);
+      if (!isLatest() || store.viewMode !== 'crime') {
+        controller.setActive(false);
+        return;
+      }
+      controller.setActive(true);
+    } catch (error) {
+      console.error('[Crime] init failed:', error);
     }
   };
 
-  onViewModeChange((mode) => {
-    void handleViewModeChange(mode);
-  });
-  void handleViewModeChange(store.viewMode);
-
-  // Selection mode: click to set A and update buffer circle
-  function updateBuffer() {
-    if (!store.centerLonLat) return;
-    upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
-  }
-
-  map.on('click', (e) => {
-    if (store.queryMode === 'buffer' && store.selectMode === 'point') {
-      const lngLat = [e.lngLat.lng, e.lngLat.lat];
-      store.centerLonLat = lngLat;
-      store.setCenterFromLngLat(e.lngLat.lng, e.lngLat.lat);
-      // marker A
-      if (!window.__markerA && window.maplibregl && window.maplibregl.Marker) {
-        window.__markerA = new window.maplibregl.Marker({ color: '#ef4444' });
-      }
-      if (window.__markerA && window.__markerA.setLngLat) {
-        window.__markerA.setLngLat(e.lngLat).addTo(map);
-      }
-      upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
-      store.selectMode = 'idle';
-      const btn = document.getElementById('useCenterBtn'); if (btn) btn.textContent = 'Select on map';
-      const hint = document.getElementById('useMapHint'); if (hint) hint.style.display = 'none';
-      document.body.style.cursor = '';
-      window.__dashboard = window.__dashboard || {}; window.__dashboard.lastPick = { when: new Date().toISOString(), lngLat };
-      refreshAll();
-    }
-  });
-
-  function removeBufferOverlay() {
-    for (const id of ['buffer-a-fill','buffer-a-line']) { if (map.getLayer(id)) try { map.removeLayer(id); } catch {} }
-    if (map.getSource('buffer-a')) try { map.removeSource('buffer-a'); } catch {}
-  }
-
-  function getTractGEOID(props) {
-    return props?.GEOID || props?.GEOID20 || props?.TRACT_GEOID ||
-           (props?.STATE && props?.COUNTY && props?.TRACT
-             ? String(props.STATE).padStart(2,'0') + String(props.COUNTY).padStart(3,'0') + String(props.TRACT).padStart(6,'0')
-             : (props?.TRACT_FIPS && props?.STATE_FIPS && props?.COUNTY_FIPS
-                 ? String(props.STATE_FIPS).padStart(2,'0') + String(props.COUNTY_FIPS).padStart(3,'0') + String(props.TRACT_FIPS).padStart(6,'0')
-                 : null));
-  }
+  const scheduleViewModeChange = createLatestSerialQueue(applyViewModeChange);
+  onViewModeChange((mode) => void scheduleViewModeChange(mode));
+  await scheduleViewModeChange(store.viewMode);
 });

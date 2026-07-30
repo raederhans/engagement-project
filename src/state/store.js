@@ -124,7 +124,7 @@ export const store = /** @type {Store} */ ({
   getStartEnd() {
     if (this.startMonth && this.durationMonths) {
       const startD = dayjs(`${this.startMonth}-01`).startOf('month');
-      const endD = startD.add(this.durationMonths, 'month').endOf('month');
+      const endD = startD.add(this.durationMonths, 'month').startOf('month');
       return { start: startD.format('YYYY-MM-DD'), end: endD.format('YYYY-MM-DD') };
     }
     const end = dayjs().format('YYYY-MM-DD');

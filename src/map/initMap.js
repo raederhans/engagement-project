@@ -34,3 +34,7 @@ export function initMap(options = {}) {
 
   return map;
 }
+
+export function createMapMarker(options = {}) {
+  return new maplibregl.Marker(options);
+}

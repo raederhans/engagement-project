@@ -33,7 +33,7 @@ export function renderTractsChoropleth(map, merged) {
     // Update tract fill layer (use new tracts_layers module)
     upsertTractsFill(map, geojson, { fillColor: paintProps['fill-color'], fillOpacity: paintProps['fill-opacity'] });
     showTractsFill(map);
-    hideOutlinesOnlyBanner();
+    hideTractsOutlineBanner();
   }
 
   return { breaks, colors };
@@ -70,7 +70,7 @@ function showOutlinesOnlyBanner() {
 /**
  * Hide outlines-only banner
  */
-function hideOutlinesOnlyBanner() {
+export function hideTractsOutlineBanner() {
   const banner = document.getElementById('tracts-outline-banner');
   if (banner) {
     banner.style.display = 'none';
