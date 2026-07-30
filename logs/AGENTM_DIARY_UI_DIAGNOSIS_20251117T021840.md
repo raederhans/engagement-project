@@ -247,7 +247,7 @@ This prevents clicks on the modal from bubbling to the backdrop's click handler.
 
 ### Reference UI Analysis
 
-**File:** [Routesafetydiaryui/src/components/LeftPanel.tsx](../Routesafetydiaryui/src/components/LeftPanel.tsx)
+**Historical reference:** `Routesafetydiaryui/src/components/LeftPanel.tsx` from an external prototype that is not part of this repository.
 
 Reference panel includes:
 - "Plan route" button (with MapPin icon)

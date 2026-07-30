@@ -34,6 +34,7 @@ Complete. The public app is API-first, has no developer-machine runtime dependen
 | Production assets | Root, JavaScript, CSS, demo segments, and demo routes returned HTTP 200. |
 | Production Crime | Police, TIGER, Census Reporter, and CARTO requests returned HTTP 200; zero browser errors or warnings. |
 | Production Diary | 246 segments and 5 routes loaded; submission updated 48 segments with `persisted: false`; zero browser errors or warnings. |
+| Repository checkout | Removed an unconfigured, unreferenced `Routesafetydiaryui` gitlink that caused checkout cleanup warnings. |
 
 ## Remaining product limitations
 

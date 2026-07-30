@@ -13,6 +13,7 @@
 - The production root and its referenced JavaScript and CSS assets returned HTTP 200.
 - Crime browser verification observed HTTP 200 from CARTO, the City police service, TIGERweb, and Census Reporter with zero console errors or warnings.
 - Diary browser verification loaded 246 segments and 5 routes from same-origin Pages assets. A four-star submission updated 48 segments, repainted in 4 ms, and reported `mode: demo` and `persisted: false` with zero console errors or warnings.
+- A post-deploy Actions review found and removed the unconfigured `Routesafetydiaryui` gitlink. Its object was unavailable and production code did not reference it; two historical documents now label the path as an external prototype instead of linking to a nonexistent local checkout.
 - The final task-archive commit is documentation-only; it does not change the verified runtime bundle.
 
 ## Initial evidence

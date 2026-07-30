@@ -857,7 +857,7 @@ After all sections complete:
 
 ### Files to Read (Reference)
 
-- **[Routesafetydiaryui/src/components/LeftPanel.tsx](../Routesafetydiaryui/src/components/LeftPanel.tsx)** - Panel layout reference
+- **`Routesafetydiaryui/src/components/LeftPanel.tsx`** - Historical panel-layout reference from an external prototype; not part of this repository
 - **[logs/AGENTM_DIARY_UI_DIAGNOSIS_20251117T021840.md](../logs/AGENTM_DIARY_UI_DIAGNOSIS_20251117T021840.md)** - Detailed diagnosis
 
 ---
