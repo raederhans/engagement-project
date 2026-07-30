@@ -13,6 +13,7 @@ desktop.ini
 .vite/
 
 # Temporary files
+.playwright-cli/
 *.tmp
 *.swp
 *.swo

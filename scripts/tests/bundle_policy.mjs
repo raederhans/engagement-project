@@ -1,35 +1,224 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile, stat } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const manifestPath = path.join(root, 'dist', '.vite', 'manifest.json');
+const distDir = path.join(root, 'dist');
+const publicDir = path.join(root, 'public');
+const manifestPath = path.join(distDir, '.vite', 'manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-const entry = Object.values(manifest).find((record) => record.isEntry);
 
-assert.ok(entry, 'Vite manifest must contain an application entry');
-assert.ok(
-  entry.dynamicImports?.includes('src/routes_crime/index.js'),
-  'Crime dashboard must remain behind the lazy route boundary',
+const entry = manifest['index.html'];
+const crime = manifest['src/routes_crime/index.js'];
+const diary = manifest['src/routes_diary/index.js'];
+const charts = manifest['src/charts/index.js'];
+const insights = manifest['src/routes_diary/ui_insights_panel.js'];
+
+assert.ok(entry?.isEntry, 'Vite manifest must contain index.html as the application entry');
+assert.deepEqual(
+  new Set(entry.dynamicImports || []),
+  new Set([
+    'src/routes_crime/index.js',
+    'src/routes_diary/index.js',
+    'src/routes_diary/ui_insights_panel.js',
+  ]),
+  'Entry must keep Crime, Diary, and Diary Insights behind direct lazy boundaries',
 );
-assert.ok(
-  Object.values(manifest).some((record) => record.dynamicImports?.includes('src/charts/index.js')),
-  'Chart.js must remain behind the lazy charts boundary',
+assert.deepEqual(
+  new Set(crime?.dynamicImports || []),
+  new Set(['src/charts/index.js']),
+  'Crime must keep Charts behind its lazy boundary',
 );
-assert.ok(
-  entry.dynamicImports?.includes('src/routes_diary/index.js'),
-  'Diary mode must remain behind the lazy route boundary',
-);
+assert.ok(diary, 'Vite manifest must contain the Diary lazy chunk');
+assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
+assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(
   !Object.keys(manifest).some((key) => key.includes('__vite-browser-external')),
   'Browser bundles must not contain the Node filesystem compatibility shim',
 );
 
-const entrySize = (await stat(path.join(root, 'dist', entry.file))).size;
-assert.ok(
-  entrySize < 950_000,
-  `Initial entry must stay below 950 kB; received ${entrySize} bytes`,
-);
+const budgets = [
+  ['Entry', entry, 902_665, 247_583],
+  ['Crime', crime, 35_255, 12_748],
+  ['Diary', diary, 210_100, 65_573],
+  ['Charts', charts, 233_791, 79_747],
+  ['Diary Insights', insights, 9_628, 2_896],
+];
+const measurements = [];
 
-console.log(`[Bundle Policy] PASS — entry ${entry.file} is ${entrySize} bytes.`);
+for (const [label, record, rawLimit, gzipLimit] of budgets) {
+  const builtFile = path.join(distDir, record.file);
+  const contents = await readFile(builtFile);
+  const rawBytes = contents.byteLength;
+  const gzipBytes = gzipSync(contents).byteLength;
+  assert.ok(rawBytes <= rawLimit, `${label} raw size must stay <= ${rawLimit}; received ${rawBytes}`);
+  assert.ok(gzipBytes <= gzipLimit, `${label} gzip size must stay <= ${gzipLimit}; received ${gzipBytes}`);
+  measurements.push(`${label} ${rawBytes}/${gzipBytes}`);
+}
+
+const distFiles = await listFiles(distDir);
+const publicFiles = await listFiles(publicDir);
+const artifactFiles = [...distFiles, ...publicFiles];
+const distBytes = await sumFileSizes(distFiles);
+assert.ok(distBytes <= 4_000_000, `Total dist size must stay <= 4000000; received ${distBytes}`);
+
+const forbiddenRoadFiles = new Set([
+  'streets_phl.raw.geojson',
+  'segments_phl.network.geojson',
+]);
+for (const file of artifactFiles) {
+  const size = (await stat(file)).size;
+  assert.ok(size <= 10_000_000, `${relative(file)} must stay <= 10000000 bytes; received ${size}`);
+  assert.ok(!forbiddenRoadFiles.has(path.basename(file)), `${relative(file)} must not publish the full road network`);
+  if (isTextArtifact(file)) {
+    const text = await readFile(file, 'utf8');
+    assert.doesNotMatch(text, /(?:[A-Za-z]:(?:\\+|\/+)Users(?:\\+|\/+)|file:\/\/\/|essay help master|6920Java|engagement_project-stage1)/i, `${relative(file)} must not expose a local workstation path`);
+  }
+}
+
+await verifyWorkflowPolicy();
+await verifyDependabotPolicy();
+verifyReadOnlyJobPermissionGuard();
+
+console.log(`[Bundle Policy] PASS - ${measurements.join(', ')}; dist ${distBytes} bytes.`);
+
+async function verifyWorkflowPolicy() {
+  const approvedUses = new Map([
+    ['actions/checkout', '11d5960a326750d5838078e36cf38b85af677262'],
+    ['actions/setup-node', '49933ea5288caeca8642d1e84afbd3f7d6820020'],
+    ['actions/configure-pages', '983d7736d9b0ae728b81ab479565c72886d7745b'],
+    ['actions/upload-pages-artifact', '7b1f4a764d45c48632c6b24a0339c27f5614fb0b'],
+    ['actions/deploy-pages', 'd6db90164ac5ed86f2b6aed7e0febac5b3c0c03e'],
+  ]);
+  const expectedUseCounts = new Map([
+    ['actions/checkout', 2],
+    ['actions/setup-node', 2],
+    ['actions/configure-pages', 1],
+    ['actions/upload-pages-artifact', 1],
+    ['actions/deploy-pages', 1],
+  ]);
+  const observedUseCounts = new Map();
+  const workflowDir = path.join(root, '.github', 'workflows');
+  const workflowFiles = (await listFiles(workflowDir)).filter((file) => /\.ya?ml$/i.test(file));
+
+  for (const file of workflowFiles) {
+    const text = await readFile(file, 'utf8');
+    for (const match of text.matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gm)) {
+      const reference = match[1];
+      const separator = reference.lastIndexOf('@');
+      assert.ok(separator > 0, `${relative(file)} uses entry must include an immutable ref: ${reference}`);
+      const action = reference.slice(0, separator);
+      const ref = reference.slice(separator + 1);
+      assert.match(ref, /^[0-9a-f]{40}$/i, `${relative(file)} must pin ${action} to a 40-hex SHA`);
+      assert.equal(ref, approvedUses.get(action), `${relative(file)} has an unapproved SHA for ${action}`);
+      observedUseCounts.set(action, (observedUseCounts.get(action) || 0) + 1);
+    }
+    assert.doesNotMatch(text, /^\s*uses:\s*[^\s#]+@v\d+/gmi, `${relative(file)} must not use mutable action version tags`);
+  }
+  assert.deepEqual(
+    [...observedUseCounts].sort(([left], [right]) => left.localeCompare(right)),
+    [...expectedUseCounts].sort(([left], [right]) => left.localeCompare(right)),
+    'Workflows must use exactly the approved action set',
+  );
+
+  const ci = await readFile(path.join(workflowDir, 'ci.yml'), 'utf8');
+  assert.match(ci, /^permissions:\r?\n  contents: read\r?$/m, 'CI must keep workflow-level contents: read permissions');
+  assertJobInheritsWorkflowPermissions(ci, 'validate', 'CI validate job');
+
+  const pages = await readFile(path.join(workflowDir, 'deploy-pages.yml'), 'utf8');
+  assert.match(pages, /^permissions:\r?\n  contents: read\r?$/m, 'Pages workflow default permissions must be contents: read only');
+  assertJobInheritsWorkflowPermissions(pages, 'build', 'Pages build job');
+  const deployBlock = extractJobBlock(pages, 'deploy');
+  assert.match(
+    deployBlock,
+    /^    permissions:\r?\n      contents: read\r?\n      pages: write\r?\n      id-token: write\r?$/m,
+    'Pages deploy job must explicitly grant contents: read, pages: write, and id-token: write',
+  );
+  assert.match(deployBlock, /^    needs: build\r?$/m, 'Pages deploy job must still depend on build');
+  assert.match(deployBlock, /^    environment:\r?\n      name: github-pages\r?\n      url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}\r?$/m, 'Pages deploy environment and URL contract must remain intact');
+}
+
+async function verifyDependabotPolicy() {
+  const text = await readFile(path.join(root, '.github', 'dependabot.yml'), 'utf8');
+  const githubActionsEntry = text.match(/(?:^|\n)  - package-ecosystem: github-actions\r?\n([\s\S]*?)(?=\n  - package-ecosystem:|$)/)?.[0] || '';
+  assert.ok(githubActionsEntry, 'Dependabot must maintain pinned GitHub Actions');
+  assert.match(githubActionsEntry, /^    directory: \/\r?$/m, 'GitHub Actions Dependabot entry must target the repository root');
+  assert.match(githubActionsEntry, /^    schedule:\r?\n      interval: weekly\r?$/m, 'GitHub Actions Dependabot entry must run weekly');
+}
+
+function extractJobBlock(text, jobName) {
+  const heading = new RegExp(`^  ${jobName}:\\r?$`, 'm').exec(text);
+  if (!heading) return '';
+  const afterHeading = heading.index + heading[0].length;
+  const nextJob = /^  [A-Za-z0-9_-]+:\r?$/m.exec(text.slice(afterHeading));
+  const end = nextJob ? afterHeading + nextJob.index : text.length;
+  return text.slice(heading.index, end);
+}
+
+function verifyReadOnlyJobPermissionGuard() {
+  const unsafeBuildJob = [
+    'jobs:',
+    '  build:',
+    '    permissions:',
+    '      pages: write',
+    '      id-token: write',
+  ].join('\n');
+  assert.throws(
+    () => assertJobInheritsWorkflowPermissions(unsafeBuildJob, 'build', 'Pages build job'),
+    /must inherit workflow-level read-only permissions/,
+    'Permission policy must reject a build job that grants Pages write permissions',
+  );
+
+  const unsafeValidateJob = [
+    'jobs:',
+    '  validate:',
+    '    permissions:',
+    '      contents: write',
+  ].join('\n');
+  assert.throws(
+    () => assertJobInheritsWorkflowPermissions(unsafeValidateJob, 'validate', 'CI validate job'),
+    /must inherit workflow-level read-only permissions/,
+    'Permission policy must reject any broader validate job permissions',
+  );
+}
+
+function assertJobInheritsWorkflowPermissions(text, jobName, label) {
+  const jobBlock = extractJobBlock(text, jobName);
+  assert.ok(jobBlock, `${label} must exist`);
+  const contentLines = jobBlock.split(/\r?\n/).slice(1).filter((line) => line.trim() && !line.trimStart().startsWith('#'));
+  const jobLevelIndent = Math.min(...contentLines.map((line) => line.length - line.trimStart().length));
+  const declaresPermissions = contentLines.some((line) => (
+    line.length - line.trimStart().length === jobLevelIndent
+    && /^permissions\s*:/.test(line.trimStart())
+  ));
+  assert.equal(declaresPermissions, false, `${label} must inherit workflow-level read-only permissions`);
+}
+
+async function listFiles(directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`Symbolic links are not allowed in bundle-policy inputs: ${relative(target)}`);
+    }
+    if (entry.isDirectory()) files.push(...await listFiles(target));
+    else if (entry.isFile()) files.push(target);
+  }
+  return files;
+}
+
+async function sumFileSizes(files) {
+  let total = 0;
+  for (const file of files) total += (await stat(file)).size;
+  return total;
+}
+
+function isTextArtifact(file) {
+  return /\.(?:css|csv|geojson|html|js|json|map|md|svg|txt|xml|ya?ml)$/i.test(file);
+}
+
+function relative(file) {
+  return path.relative(root, file).replaceAll('\\', '/');
+}
