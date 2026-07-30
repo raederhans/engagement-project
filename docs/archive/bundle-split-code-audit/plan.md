@@ -19,7 +19,7 @@ Reduce the initial production JavaScript cost without changing Crime or Diary be
 - [x] Stage 2: Add failing boundary/regression tests and implement the smallest safe split.
 - [x] Stage 3: Complete independent code and architecture reviews; reproduce findings.
 - [x] Stage 4: Fix validated issues and run full local verification.
-- [ ] Stage 5: Integrate, deploy, verify public behavior, and archive records.
+- [x] Stage 5: Integrate, deploy, verify public behavior, and archive records.
 
 ## Acceptance criteria
 
