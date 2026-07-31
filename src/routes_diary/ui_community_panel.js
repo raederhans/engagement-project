@@ -1,42 +1,17 @@
-import { createDiaryCard, createSectionTitle, createPrimaryButton } from './ui_common.js';
+import { createDiaryCard, createSectionTitle } from './ui_common.js';
 
-export function renderCommunityPanel(container, state = {}, handlers = {}) {
+export function renderCommunityPanel(container, state = {}) {
   container.innerHTML = '';
-  const radius = state.radiusMeters ?? 1500;
   const segments = state.segments || [];
   const comments = state.comments || [];
-  const isCurrent = () => handlers.isCurrent?.() !== false;
 
-  // Area focus
-  const areaCard = createDiaryCard();
-  areaCard.appendChild(createSectionTitle('Area focus'));
-  const subtitle = document.createElement('div');
-  subtitle.className = 'diary-community-subtitle';
-  subtitle.textContent = 'Radius around map center';
-  areaCard.appendChild(subtitle);
-  const radiusLabel = document.createElement('div');
-  radiusLabel.className = 'diary-muted-text';
-  radiusLabel.textContent = `Radius: ${(radius / 1000).toFixed(2)} km`;
-  areaCard.appendChild(radiusLabel);
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = 500;
-  slider.max = 3000;
-  slider.step = 250;
-  slider.value = radius;
-  slider.style.width = '100%';
-  slider.addEventListener('input', () => {
-    if (!isCurrent()) return;
-    const val = Number(slider.value);
-    radiusLabel.textContent = `Radius: ${(val / 1000).toFixed(2)} km`;
-  });
-  slider.addEventListener('change', () => {
-    if (!isCurrent()) return;
-    const val = Number(slider.value);
-    handlers.onRadiusChange?.(val);
-  });
-  areaCard.appendChild(slider);
-  container.appendChild(areaCard);
+  const notice = createDiaryCard();
+  notice.appendChild(createSectionTitle('Sample Community'));
+  const noticeText = document.createElement('div');
+  noticeText.className = 'diary-muted-text';
+  noticeText.textContent = 'Illustrative, read-only sample data. No comments or ratings are shared with other people.';
+  notice.appendChild(noticeText);
+  container.appendChild(notice);
 
   // High concern segments
   const segmentsCard = createDiaryCard();
@@ -46,8 +21,7 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
   segList.style.flexDirection = 'column';
   segList.style.gap = '8px';
   segments.forEach((seg) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const btn = document.createElement('div');
     btn.className = 'diary-history-item';
     const title = document.createElement('div');
     title.style.fontWeight = '700';
@@ -69,10 +43,6 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
     meta.appendChild(badge);
     btn.appendChild(title);
     btn.appendChild(meta);
-    btn.addEventListener('click', () => {
-      if (!isCurrent()) return;
-      handlers.onSelectSegment?.(seg);
-    });
     segList.appendChild(btn);
   });
   segmentsCard.appendChild(segList);
@@ -105,27 +75,5 @@ export function renderCommunityPanel(container, state = {}, handlers = {}) {
   });
   commentsCard.appendChild(list);
 
-  const form = document.createElement('form');
-  form.style.display = 'flex';
-  form.style.gap = '8px';
-  form.style.marginTop = '8px';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Add a comment...';
-  input.className = 'diary-select';
-  input.style.flex = '1';
-  const postBtn = createPrimaryButton('Post');
-  postBtn.style.padding = '8px 12px';
-  form.appendChild(input);
-  form.appendChild(postBtn);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!isCurrent()) return;
-    const val = (input.value || '').trim();
-    if (!val) return;
-    handlers.onPostComment?.(val);
-    input.value = '';
-  });
-  commentsCard.appendChild(form);
   container.appendChild(commentsCard);
 }

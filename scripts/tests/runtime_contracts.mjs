@@ -222,7 +222,15 @@ test('segment CTA state comes from feature data without reading window globals',
   }
 });
 
-test('disposed district popup ignores a late network response', async () => {
+test('disposed district popup ignores a late network response', async (t) => {
+  const originalStartMonth = store.startMonth;
+  const originalDurationMonths = store.durationMonths;
+  t.after(() => {
+    store.startMonth = originalStartMonth;
+    store.durationMonths = originalDurationMonths;
+  });
+  store.startMonth = '2026-01';
+  store.durationMonths = 1;
   let clickHandler;
   let resolveDistricts;
   let resolveTopTypes;

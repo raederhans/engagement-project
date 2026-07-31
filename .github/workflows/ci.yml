@@ -37,3 +37,12 @@ jobs:
           VITE_FEATURE_DIARY: '1'
           VITE_TRACT_CRIME_SNAPSHOT: '1'
         run: npm run validate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser smoke
+        env:
+          VITE_FEATURE_DIARY: '1'
+          VITE_TRACT_CRIME_SNAPSHOT: '1'
+        run: npm run test:browser-smoke

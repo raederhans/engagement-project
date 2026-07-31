@@ -50,12 +50,19 @@ export function createModeCoordinator({
 
   const getCrimeController = () => {
     if (!crimeControllerPromise) {
-      crimeControllerPromise = Promise.resolve()
+      let ownedPromise;
+      ownedPromise = Promise.resolve()
         .then(loadCrimeController)
         .then((controller) => {
           crimeController = controller;
           return controller;
+        })
+        .catch((error) => {
+          if (crimeControllerPromise === ownedPromise) crimeControllerPromise = null;
+          crimeController = null;
+          throw error;
         });
+      crimeControllerPromise = ownedPromise;
     }
     return crimeControllerPromise;
   };
@@ -131,6 +138,12 @@ export function createModeCoordinator({
         }), signal);
         if (!initResult.completed || !ownsMode()) {
           module.teardownDiaryMode(map);
+          return;
+        }
+        if (initResult.value?.status !== 'ready') {
+          diaryMount?.replaceChildren?.();
+          if (diaryMount) diaryMount.textContent = 'Diary data is unavailable. Reload to try again.';
+          activeMode = null;
           return;
         }
         diaryActive = true;

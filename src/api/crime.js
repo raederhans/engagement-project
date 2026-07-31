@@ -94,6 +94,7 @@ export async function fetchMonthlySeriesBuffer({
 export async function fetchTopTypesBuffer({
   start,
   end,
+  types,
   center3857,
   radiusM,
   limit,
@@ -102,6 +103,7 @@ export async function fetchTopTypesBuffer({
   const sql = Q.buildTopTypesSQL({
     start,
     end,
+    types,
     center3857,
     radiusM,
     limit,

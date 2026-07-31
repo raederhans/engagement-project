@@ -45,12 +45,14 @@ export function createSnapshotWindow(coverageDate) {
 export function buildTractCountSQL(geometry, { start, end }) {
   const bbox = geometryBounds(geometry);
   const geojson = JSON.stringify(geometry).replaceAll("'", "''");
-  return `SELECT COUNT(*)::int AS n
+  return `SELECT text_general_code, COUNT(*)::int AS n
 FROM incidents_part1_part2
 WHERE dispatch_date_time >= '${start}'
   AND dispatch_date_time < '${end}'
   AND the_geom && ST_MakeEnvelope(${bbox.join(', ')}, 4326)
-  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${geojson}'), 4326))`;
+  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${geojson}'), 4326))
+GROUP BY text_general_code
+ORDER BY text_general_code`;
 }
 
 export function prepareTracts(featureCollection) {
@@ -99,11 +101,8 @@ export async function collectTractCounts(tracts, {
       if (index >= tracts.length) return;
       const tract = tracts[index];
       try {
-        const count = Number(await queryCount(tract));
-        if (!Number.isInteger(count) || count < 0) {
-          throw new Error(`invalid count ${count}`);
-        }
-        results[index] = { geoid: tract.geoid, n: count };
+        const offenses = normalizeOffenseCounts(await queryCount(tract));
+        results[index] = { geoid: tract.geoid, offenses };
       } catch (error) {
         failures.push(`${tract.geoid}: ${error?.message || error}`);
       } finally {
@@ -139,11 +138,11 @@ export function createTractCrimeSnapshot({
   const countByGeoid = new Map();
   for (const row of counts) {
     const geoid = String(row?.geoid || '');
-    const count = Number(row?.n);
     if (!GEOID_PATTERN.test(geoid)) throw new Error(`Invalid count GEOID ${geoid || '(empty)'}.`);
     if (countByGeoid.has(geoid)) throw new Error(`Duplicate count for tract ${geoid}.`);
-    if (!Number.isInteger(count) || count < 0) throw new Error(`Invalid count for tract ${geoid}.`);
-    countByGeoid.set(geoid, count);
+    const offenses = normalizeOffenseCounts(row?.offenses);
+    const total = offenses.reduce((sum, offense) => sum + offense.n, 0);
+    countByGeoid.set(geoid, { geoid, total, offenses });
   }
 
   const expectedGeoids = new Set(tracts.map(({ geoid }) => geoid));
@@ -155,13 +154,14 @@ export function createTractCrimeSnapshot({
   }
 
   const window = createSnapshotWindow(coverageDate);
-  const rows = Array.from(countByGeoid, ([geoid, n]) => ({ geoid, n }))
+  const rows = Array.from(countByGeoid.values())
     .sort((left, right) => left.geoid.localeCompare(right.geoid));
   return {
     meta: {
-      schema_version: 1,
+      schema_version: 2,
       source_url: sourceUrl,
       source_dataset: 'incidents_part1_part2',
+      filter_dimension: 'text_general_code',
       tract_source: tractSource,
       coverage_date: window.coverageDate,
       start: window.start,
@@ -177,11 +177,14 @@ export function validateTractCrimeSnapshot(snapshot, tracts) {
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
     throw new Error('Snapshot must be a JSON object.');
   }
-  if (snapshot.meta?.schema_version !== 1) {
-    throw new Error(`Snapshot schema_version must be 1; received ${snapshot.meta?.schema_version ?? '(missing)'}.`);
+  if (snapshot.meta?.schema_version !== 2) {
+    throw new Error(`Snapshot schema_version must be 2; received ${snapshot.meta?.schema_version ?? '(missing)'}.`);
   }
   if (snapshot.meta?.source_dataset !== 'incidents_part1_part2') {
     throw new Error('Snapshot source_dataset must be incidents_part1_part2.');
+  }
+  if (snapshot.meta?.filter_dimension !== 'text_general_code') {
+    throw new Error('Snapshot filter_dimension must be text_general_code.');
   }
   if (!Array.isArray(snapshot.rows)) throw new Error('Snapshot rows must be an array.');
   if (snapshot.meta?.row_count !== snapshot.rows.length) {
@@ -212,7 +215,23 @@ export function validateTractCrimeSnapshot(snapshot, tracts) {
   };
 }
 
-export async function writeJsonAtomic(destination, value) {
+function normalizeOffenseCounts(value) {
+  if (!Array.isArray(value)) throw new Error('Tract offense counts must be an array.');
+  const byCode = new Map();
+  for (const item of value) {
+    const code = String(item?.code ?? item?.text_general_code ?? 'Unknown').trim() || 'Unknown';
+    const count = Number(item?.n);
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error(`Invalid count for offense ${code}.`);
+    }
+    if (byCode.has(code)) throw new Error(`Duplicate offense count for ${code}.`);
+    byCode.set(code, count);
+  }
+  return Array.from(byCode, ([code, n]) => ({ code, n }))
+    .sort((left, right) => left.code.localeCompare(right.code));
+}
+
+export async function writeJsonAtomic(destination, value, { space = 2 } = {}) {
   const directory = path.dirname(destination);
   const temporary = path.join(
     directory,
@@ -220,7 +239,7 @@ export async function writeJsonAtomic(destination, value) {
   );
   await fs.mkdir(directory, { recursive: true });
   try {
-    await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    await fs.writeFile(temporary, `${JSON.stringify(value, null, space)}\n`, 'utf8');
     await fs.rename(temporary, destination);
   } catch (error) {
     await fs.rm(temporary, { force: true }).catch(() => {});

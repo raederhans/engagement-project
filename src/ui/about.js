@@ -36,12 +36,12 @@ export function initAboutPanel() {
   // Panel content
   panel.innerHTML = `
     <div class="about-content">
-      <h3 id="about-title" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">Philadelphia Crime Dashboard</h3>
+      <h3 id="about-title" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">Philadelphia Engagement Explorer</h3>
 
       <div style="margin-bottom:12px;">
         <strong style="color:#1f2937;">Purpose.</strong>
         <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Help renters and homebuyers quickly gauge recent incident patterns in neighborhoods of interest.
+          Explore recent incident patterns and try a local-first route safety diary without creating an account or sending personal entries to a server.
         </p>
       </div>
 
@@ -65,6 +65,10 @@ export function initAboutPanel() {
           Locations are geocoded to 100-block level (not exact addresses). Reporting can lag by days or weeks. Use as one factor among many when evaluating neighborhoods.
         </p>
       </div>
+
+      <p style="margin:12px 0 0;font-size:13px;">
+        <a href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">View source and methodology on GitHub</a>
+      </p>
     </div>
   `;
 

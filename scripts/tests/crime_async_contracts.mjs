@@ -115,7 +115,7 @@ test('crime snapshots clone mutable filter and center values', () => {
   assert.deepEqual(snapshot.centerLonLat, [-75, 40]);
   assert.equal(snapshot.adminLevel, 'tracts');
   assert.equal(snapshot.per10k, true);
-  assert.equal(snapshot.timeWindowMonths, 12);
+  assert.deepEqual(snapshot.resolvedOffenseCodes, ['A']);
 });
 
 function createChartSinks() {

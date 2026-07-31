@@ -123,7 +123,7 @@ export async function updateAllCharts(
       [city, bufOrArea, topn, heat] = await Promise.all([
         chartFetchers.fetchMonthlySeriesCity({ start, end, types, signal }),
         chartFetchers.fetchMonthlySeriesBuffer({ start, end, types, center3857, radiusM, signal }),
-        chartFetchers.fetchTopTypesBuffer({ start, end, center3857, radiusM, limit: 12, signal }),
+        chartFetchers.fetchTopTypesBuffer({ start, end, types, center3857, radiusM, limit: 12, signal }),
         chartFetchers.fetch7x24Buffer({ start, end, types, center3857, radiusM, signal }),
       ]);
     } else if (queryMode === 'tract' && selectedTractGEOID) {

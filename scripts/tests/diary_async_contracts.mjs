@@ -574,7 +574,7 @@ test('owner abort disposes an actual pending Diary initialization and prevents s
     const stats = await initialization;
 
     assert.equal(transportSignal.aborted, true);
-    assert.deepEqual(stats, { segmentsCount: 0, routesCount: 0 });
+    assert.deepEqual(stats, { status: 'cancelled', segmentsCount: 0, routesCount: 0 });
     assert.equal(segmentLoads, 0);
     assert.equal(routeLoads, 0);
     assert.deepEqual(skinStates, []);
@@ -605,7 +605,7 @@ test('an already-aborted Diary owner applies no map or mount state', async () =>
       isCurrent: () => false,
       addNetworkLayerImpl: () => { throw new Error('network must not start'); },
     });
-    assert.deepEqual(stats, { segmentsCount: 0, routesCount: 0 });
+    assert.deepEqual(stats, { status: 'cancelled', segmentsCount: 0, routesCount: 0 });
     assert.deepEqual(mutations, []);
   } finally {
     store.diaryFeatureOn = originalDiaryFeatureOn;
@@ -622,6 +622,7 @@ test('the mode coordinator makes Crime to Diary to Crime latest-only', async () 
       harness.events.push(['diary', 'init', signal]);
       await diaryGate.promise;
       if (isCurrent()) staleCommits.push('diary');
+      return { status: 'ready' };
     },
     teardownDiaryMode() { harness.events.push(['diary', 'teardown']); },
   };
@@ -668,6 +669,7 @@ test('the mode coordinator makes Diary to Crime to Diary latest-only', async () 
       const generation = ++diaryGeneration;
       harness.events.push(['diary', 'init', generation]);
       if (isCurrent()) diaryCommits.push(generation);
+      return { status: 'ready' };
     },
     teardownDiaryMode() { harness.events.push(['diary', 'teardown']); },
   };
@@ -702,6 +704,57 @@ test('the mode coordinator makes Diary to Crime to Diary latest-only', async () 
   assert.equal(coordinator.getActiveMode(), 'diary');
   assert.equal(harness.events.some(([owner, action]) => owner === 'crime' && action === true), false);
   assert.ok(harness.events.some(([owner, action]) => owner === 'crime' && action === false));
+});
+
+test('the mode coordinator retries Crime initialization after a rejected first load', async () => {
+  const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
+  const harness = createCoordinatorHarness('crime');
+  const errors = [];
+  let attempts = 0;
+  const coordinator = createModeCoordinator({
+    map: harness.map,
+    diaryFeatureEnabled: true,
+    getCurrentMode: harness.getCurrentMode,
+    writeMode: () => {},
+    chartsPane: harness.chartsPane,
+    diaryMount: harness.diaryMount,
+    loadCrimeController: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary Crime load failure');
+      return harness.crimeController;
+    },
+    loadDiaryModule: async () => ({ initDiaryMode: async () => ({ status: 'ready' }), teardownDiaryMode() {} }),
+    getDiaryInsights: async () => harness.insights,
+    reportError: (label, error) => errors.push([label, error.message]),
+  });
+  await coordinator.schedule('crime');
+  assert.equal(coordinator.getActiveMode(), null);
+  await coordinator.schedule('crime');
+  assert.equal(attempts, 2);
+  assert.equal(coordinator.getActiveMode(), 'crime');
+  assert.match(errors[0][1], /temporary Crime load failure/);
+});
+
+test('Diary data failure does not leave the coordinator in an active Diary mode', async () => {
+  const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
+  const harness = createCoordinatorHarness('diary');
+  const coordinator = createModeCoordinator({
+    map: harness.map,
+    diaryFeatureEnabled: true,
+    getCurrentMode: harness.getCurrentMode,
+    writeMode: () => {},
+    chartsPane: harness.chartsPane,
+    diaryMount: harness.diaryMount,
+    loadCrimeController: async () => harness.crimeController,
+    loadDiaryModule: async () => ({
+      initDiaryMode: async () => ({ status: 'failed' }),
+      teardownDiaryMode() {},
+    }),
+    getDiaryInsights: async () => harness.insights,
+  });
+  await coordinator.schedule('diary');
+  assert.equal(coordinator.getActiveMode(), null);
+  assert.match(harness.diaryMount.textContent, /unavailable/i);
 });
 
 test('Diary seed cancellation shares one owner signal and commits no map or DOM state', async () => {
@@ -752,7 +805,7 @@ test('Diary seed cancellation shares one owner signal and commits no map or DOM 
     segmentsGate.resolve({ type: 'FeatureCollection', features: [] });
     routesGate.resolve({ type: 'FeatureCollection', features: [] });
 
-    assert.deepEqual(await initialization, { segmentsCount: 0, routesCount: 0 });
+    assert.deepEqual(await initialization, { status: 'cancelled', segmentsCount: 0, routesCount: 0 });
     assert.equal(signals.length, 3);
     assert.ok(signals.every((signal) => signal === signals[0]));
     assert.equal(signals[0].aborted, true);
@@ -819,7 +872,7 @@ test('a seed-pending Diary owner removes only its mounted network resources on a
     segmentsGate.resolve({ type: 'FeatureCollection', features: [] });
     routesGate.resolve({ type: 'FeatureCollection', features: [] });
 
-    assert.deepEqual(await initialization, { segmentsCount: 0, routesCount: 0 });
+    assert.deepEqual(await initialization, { status: 'cancelled', segmentsCount: 0, routesCount: 0 });
     assert.equal(map.getSource('diary-network'), newSource);
     assert.equal(map.getLayer('diary-network-line'), newLayer);
     assert.equal(mutations.length, mutationsBeforeLateSeeds);
@@ -833,7 +886,7 @@ test('Diary mode suppresses stale Crime radius and tract overlay callbacks', asy
   const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
   const harness = createCoordinatorHarness('crime');
   const diaryModule = {
-    async initDiaryMode() {},
+    async initDiaryMode() { return { status: 'ready' }; },
     teardownDiaryMode() {},
   };
   const coordinator = createModeCoordinator({
@@ -1025,6 +1078,17 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
     }],
   };
   const map = createDiaryMapFake();
+  const localEntries = [{
+    id: 'local-1',
+    createdAt: new Date().toISOString(),
+    routeId: 'route-1',
+    label: 'Test route',
+    mode: 'walk',
+    score: 4,
+    tags: [],
+    segmentIds: ['seg-1'],
+    payload: {},
+  }];
   const initialize = (mount, insights) => initDiaryMode(map, {
     mountInto: mount,
     insights,
@@ -1032,6 +1096,10 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
     addNetworkLayerImpl: async () => ({ applied: false, reason: 'disabled' }),
     loadDemoSegmentsImpl: async () => structuredClone(segments),
     loadDemoRoutesImpl: async () => structuredClone(routes),
+    localRepository: {
+      async list() { return structuredClone(localEntries); },
+      async save() {},
+    },
   });
   const button = (mount, label) => findElement(
     mount,
@@ -1055,7 +1123,7 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
     refresh: () => firstInsights.push(['refresh']),
   });
   const oldHistoryPill = button(firstMount, 'My routes');
-  const oldCommunityPill = button(firstMount, 'Community');
+  const oldCommunityPill = button(firstMount, 'Sample community');
   oldHistoryPill.dispatchEvent(new Event('click'));
   const oldHistorySelects = findElements(firstMount, (element) => element.tagName === 'SELECT');
   const oldHistoryRow = findElement(firstMount, (element) => element.getAttribute?.('data-id'));
@@ -1063,14 +1131,6 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   assert.ok(oldHistoryRow);
 
   oldCommunityPill.dispatchEvent(new Event('click'));
-  const oldSlider = findElement(firstMount, (element) => element.tagName === 'INPUT' && element.type === 'range');
-  const oldRadiusLabel = findElement(firstMount, (element) => String(element.textContent).startsWith('Radius:'));
-  const oldCommentInput = findElement(firstMount, (element) => element.tagName === 'INPUT' && element.type === 'text');
-  const oldCommentForm = findElement(firstMount, (element) => element.tagName === 'FORM');
-  const oldConcernButton = findElement(firstMount, (element) => (
-    element.tagName === 'BUTTON' && element.className === 'diary-history-item'
-  ));
-  assert.ok(oldSlider && oldRadiusLabel && oldCommentInput && oldCommentForm && oldConcernButton);
   teardownDiaryMode(map);
 
   store.diaryViewMode = 'live';
@@ -1090,8 +1150,6 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   const mapMutationsBefore = map.mutations.length;
   const insightsBefore = structuredClone(secondInsights);
   const secondMountChildrenBefore = [...secondMount.children];
-  const oldRadiusText = oldRadiusLabel.textContent;
-  oldCommentInput.value = 'stale comment';
 
   oldHistoryPill.dispatchEvent(new Event('click'));
   oldHistorySelects[0].value = '7d';
@@ -1099,11 +1157,6 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   oldHistorySelects[1].value = 'bike';
   oldHistorySelects[1].dispatchEvent(new Event('change'));
   oldHistoryRow.dispatchEvent(new Event('click'));
-  oldSlider.value = '3000';
-  oldSlider.dispatchEvent(new Event('input'));
-  oldSlider.dispatchEvent(new Event('change'));
-  oldConcernButton.dispatchEvent(new Event('click'));
-  oldCommentForm.dispatchEvent(new Event('submit', { cancelable: true }));
 
   assert.deepEqual({
     viewMode: store.diaryViewMode,
@@ -1113,25 +1166,15 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   assert.equal(map.mutations.length, mapMutationsBefore);
   assert.deepEqual(secondInsights, insightsBefore);
   assert.deepEqual(secondMount.children, secondMountChildrenBefore);
-  assert.equal(oldRadiusLabel.textContent, oldRadiusText);
-  assert.equal(oldCommentInput.value, 'stale comment');
 
   button(secondMount, 'My routes').dispatchEvent(new Event('click'));
   const newHistoryRow = findElement(secondMount, (element) => element.getAttribute?.('data-id'));
   newHistoryRow.dispatchEvent(new Event('click'));
   assert.equal(store.diaryViewMode, 'history');
   assert.ok(store.diarySelectedHistoryRouteId);
-  button(secondMount, 'Community').dispatchEvent(new Event('click'));
-  const newSlider = findElement(secondMount, (element) => element.tagName === 'INPUT' && element.type === 'range');
-  const newCommentInput = findElement(secondMount, (element) => element.tagName === 'INPUT' && element.type === 'text');
-  const newCommentForm = findElement(secondMount, (element) => element.tagName === 'FORM');
-  newSlider.value = '2500';
-  newSlider.dispatchEvent(new Event('change'));
-  newCommentInput.value = 'active comment';
-  newCommentForm.dispatchEvent(new Event('submit', { cancelable: true }));
+  button(secondMount, 'Sample community').dispatchEvent(new Event('click'));
   assert.equal(store.diaryViewMode, 'community');
-  assert.equal(store.diaryCommunityRadiusMeters, 2500);
-  assert.equal(newCommentInput.value, '');
+  assert.equal(store.diaryCommunityRadiusMeters, 1500);
   assert.deepEqual(secondInsights.filter(([kind]) => kind === 'view'), [
     ['view', 'live'],
     ['view', 'history'],

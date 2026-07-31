@@ -7,12 +7,16 @@ export function readCrimeSnapshot(source) {
   return {
     ...filters,
     types: [...(filters.types || [])],
+    resolvedOffenseCodes: [...(filters.resolvedOffenseCodes || filters.types || [])],
     drilldownCodes: [...(filters.drilldownCodes || [])],
     center3857: filters.center3857 ? [...filters.center3857] : null,
     centerLonLat: source.centerLonLat ? [...source.centerLonLat] : null,
+    centerB3857: source.centerB3857 ? [...source.centerB3857] : null,
+    centerBLonLat: source.centerBLonLat ? [...source.centerBLonLat] : null,
+    addressA: source.addressA || 'Point A',
+    addressB: source.addressB || 'Point B',
     adminLevel: source.adminLevel,
     per10k: source.per10k,
-    timeWindowMonths: source.timeWindowMonths,
   };
 }
 

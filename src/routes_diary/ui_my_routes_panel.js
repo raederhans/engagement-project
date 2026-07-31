@@ -38,6 +38,31 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   filters.appendChild(modeSelect);
   container.appendChild(filters);
 
+  const dataActions = document.createElement('div');
+  dataActions.className = 'diary-data-actions';
+  const exportButton = document.createElement('button');
+  exportButton.type = 'button';
+  exportButton.className = 'diary-chip secondary';
+  exportButton.textContent = 'Export local data';
+  exportButton.disabled = routes.length === 0;
+  exportButton.addEventListener('click', () => handlers.onExport?.());
+  const importButton = document.createElement('button');
+  importButton.type = 'button';
+  importButton.className = 'diary-chip secondary';
+  importButton.textContent = 'Import backup';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/json,.json';
+  fileInput.hidden = true;
+  importButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const [file] = fileInput.files || [];
+    if (file) handlers.onImport?.(file);
+    fileInput.value = '';
+  });
+  dataActions.append(exportButton, importButton, fileInput);
+  container.appendChild(dataActions);
+
   const historyCard = createDiaryCard();
   historyCard.appendChild(createSectionTitle('Route history'));
 
@@ -46,6 +71,13 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   list.style.flexDirection = 'column';
   list.style.gap = '8px';
   historyCard.appendChild(list);
+
+  if (!routes.length) {
+    const empty = document.createElement('div');
+    empty.className = 'diary-muted-text';
+    empty.textContent = 'No local route ratings yet. Rate a demo route to add it here.';
+    list.appendChild(empty);
+  }
 
   function scoreBadge(score) {
     const pill = document.createElement('div');

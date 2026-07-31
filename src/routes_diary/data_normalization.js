@@ -87,6 +87,17 @@ export function normalizeRouteFeature(feature, idx = 0) {
   };
 }
 
+export function extractLineCoordinates(geometry) {
+  if (!geometry) return [];
+  if (geometry.type === 'LineString') {
+    return Array.isArray(geometry.coordinates) ? geometry.coordinates : [];
+  }
+  if (geometry.type === 'MultiLineString') {
+    return (geometry.coordinates || []).flat();
+  }
+  return [];
+}
+
 function normalizeIdArray(arr, idx = 0) {
   if (!Array.isArray(arr)) return [];
   return arr

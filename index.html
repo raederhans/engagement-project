@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Renter-Oriented Crime Dashboard</title>
+    <title>Philadelphia Engagement Explorer</title>
+    <meta name="description" content="Explore Philadelphia crime patterns, compare two locations, and try a browser-local route safety diary." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       html, body { height: 100%; margin: 0; }
@@ -33,6 +34,7 @@
     <div id="tooltip"></div>
     <div id="sidepanel" style="position:fixed; left:12px; top:12px; z-index:18; width:300px; max-height:88vh; overflow:auto; background:rgba(255,255,255,0.97); padding:12px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
       <div style="font:600 14px/1.2 system-ui, sans-serif; margin-bottom:8px;">Controls</div>
+      <div id="dataStatus" role="status" aria-live="polite" style="margin-bottom:8px;padding:7px 9px;border-radius:6px;background:#f1f5f9;color:#475569;font:12px/1.35 system-ui;">Connecting to live data…</div>
 
       <label for="queryModeSel" style="display:block; font-size:12px; color:#374151;">Query Mode</label>
       <select id="queryModeSel" style="width:100%; margin-bottom:4px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
@@ -43,12 +45,20 @@
       <div id="queryModeHelp" style="color:#64748b; font-size:12px; margin-bottom:8px;">Buffer mode: click “Select on map”, then click map to set center.</div>
       <button id="clearSelBtn" style="display:none; margin-bottom:8px; padding:6px 8px; border:1px solid #94a3b8; background:#f8fafc; border-radius:6px; cursor:pointer;">Clear selection</button>
       <div id="bufferSelectRow">
-        <label for="addrA" style="display:block; font-size:12px; color:#374151;">Address A</label>
+        <label for="addrA" style="display:block; font-size:12px; color:#374151;">Point A</label>
         <div style="display:flex; gap:6px; margin-bottom:8px;">
-          <input id="addrA" type="text" placeholder="Enter address (placeholder)" style="flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
-          <button id="useCenterBtn" style="padding:6px 8px; border:1px solid #94a3b8; background:#f8fafc; border-radius:6px; cursor:pointer;">Select on map</button>
+          <input id="addrA" type="search" placeholder="1500 Market St" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
+          <button id="searchABtn" type="button">Find</button>
+          <button id="useCenterBtn" type="button">Map</button>
         </div>
-        <div id="useMapHint" style="display:none; color:#64748b; font-size:12px; margin-top:-4px; margin-bottom:8px;">Click the map to set A (center). Press Esc to cancel.</div>
+        <label for="addrB" style="display:block; font-size:12px; color:#374151;">Point B</label>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input id="addrB" type="search" placeholder="Broad St & Girard Ave" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
+          <button id="searchBBtn" type="button">Find</button>
+          <button id="usePointBBtn" type="button">Map</button>
+        </div>
+        <div id="addressStatus" aria-live="polite" style="display:none;color:#475569;font-size:12px;margin-bottom:8px;"></div>
+        <div id="useMapHint" style="display:none; color:#64748b; font-size:12px; margin-top:-4px; margin-bottom:8px;">Click the map to set the selected point. Press Esc to cancel.</div>
       </div>
 
       <div style="display:flex; gap:10px; margin-bottom:8px;">
@@ -59,24 +69,9 @@
             <option value="800">800 m</option>
           </select>
         </div>
-        <div style="flex:1;">
-          <label for="twSel" style="display:block; font-size:12px; color:#374151;">Time Window</label>
-          <select id="twSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
-            <option value="3">3 months</option>
-            <option value="6" selected>6 months</option>
-            <option value="12">12 months</option>
-          </select>
-        </div>
       </div>
 
-      <div style="display:flex; gap:10px; margin-bottom:8px;">
-        <div style="flex:1;">
-          <label for="adminSel" style="display:block; font-size:12px; color:#374151;">Admin Level</label>
-          <select id="adminSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
-            <option value="districts" selected>Districts</option>
-            <option value="tracts">Tracts</option>
-          </select>
-        </div>
+      <div id="rateRow" style="display:flex; gap:10px; margin-bottom:8px;">
         <div style="flex:1;">
           <label for="rateSel" style="display:block; font-size:12px; color:#374151;">Rate</label>
           <select id="rateSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
@@ -119,6 +114,11 @@
         <button id="preset6" style="flex:1; padding:6px 8px; border:1px solid #94a3b8; background:#f1f5f9; border-radius:6px; cursor:pointer;">Last 6m</button>
         <button id="preset12" style="flex:1; padding:6px 8px; border:1px solid #94a3b8; background:#f1f5f9; border-radius:6px; cursor:pointer;">Last 12m</button>
       </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px;">
+        <button id="shareViewBtn" type="button">Copy view</button>
+        <button id="exportJsonBtn" type="button">JSON</button>
+        <button id="exportCsvBtn" type="button">CSV</button>
+      </div>
 
       <details id="help-card" style="margin-top:8px;">
         <summary>Help</summary>
@@ -126,9 +126,9 @@
           <li>Pick a location (Select on map) and radius for buffer A.</li>
           <li>Time window uses start month + duration.</li>
           <li>Offense groups & drilldown control which codes are included.</li>
-          <li>Districts vs Tracts affects choropleth; rate toggle uses ACS for per-10k.</li>
+          <li>Query mode controls the visible geography; tract rate uses ACS for per-10k.</li>
           <li>Clusters aggregate dense points; zoom in to see incidents.</li>
-          <li>See README for data sources & disclaimers.</li>
+          <li>Open the About panel (?) for data sources and limitations.</li>
         </ul>
       </details>
 

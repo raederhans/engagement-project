@@ -89,11 +89,17 @@ export const store = /** @type {Store} */ ({
   adminLevel: 'districts',
   selectMode: 'idle',
   centerLonLat: null,
+  centerBLonLat: null,
+  centerB3857: null,
+  selectTarget: 'A',
  per10k: false,
   mapBbox: null,
   center3857: null,
   coverageMin: null,
   coverageMax: null,
+  coverageStatus: 'idle',
+  coverageError: null,
+  coverageNotice: null,
   // Query mode and selections
   queryMode: 'buffer', // 'buffer' | 'district' | 'tract'
   selectedDistrictCode: null,
@@ -127,35 +133,114 @@ export const store = /** @type {Store} */ ({
       const endD = startD.add(this.durationMonths, 'month').startOf('month');
       return { start: startD.format('YYYY-MM-DD'), end: endD.format('YYYY-MM-DD') };
     }
-    const end = dayjs().format('YYYY-MM-DD');
-    const start = dayjs().subtract(this.timeWindowMonths || 6, 'month').format('YYYY-MM-DD');
-    return { start, end };
+    throw new Error(this.coverageError || 'Crime coverage is unavailable; select a verified date range.');
   },
   getFilters() {
     const { start, end } = this.getStartEnd();
-    const types = (this.selectedTypes && this.selectedTypes.length)
-      ? this.selectedTypes.slice()
-      : expandGroupsToCodes(this.selectedGroups || []);
+    const resolvedOffenseCodes = (this.selectedDrilldownCodes && this.selectedDrilldownCodes.length)
+      ? this.selectedDrilldownCodes.slice()
+      : ((this.selectedTypes && this.selectedTypes.length)
+        ? this.selectedTypes.slice()
+        : expandGroupsToCodes(this.selectedGroups || []));
     return {
       start,
       end,
-      types,
+      types: resolvedOffenseCodes,
+      resolvedOffenseCodes,
       drilldownCodes: this.selectedDrilldownCodes || [],
       center3857: this.center3857,
+      centerB3857: this.centerB3857,
       radiusM: this.radius,
       queryMode: this.queryMode,
       selectedDistrictCode: this.selectedDistrictCode,
       selectedTractGEOID: this.selectedTractGEOID,
+      adminLevel: this.adminLevel,
+      per10k: this.per10k,
+      addressA: this.addressA,
+      addressB: this.addressB,
     };
   },
   setCenterFromLngLat(lng, lat) {
+    this.setComparisonPoint('A', lng, lat);
+  },
+  setComparisonPoint(target, lng, lat, label) {
     const R = 6378137;
     const x = R * (lng * Math.PI / 180);
     const y = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
-    this.center3857 = [x, y];
-    this.centerLonLat = [lng, lat];
+    if (String(target).toUpperCase() === 'B') {
+      this.centerB3857 = [x, y];
+      this.centerBLonLat = [lng, lat];
+      if (label) this.addressB = label;
+    } else {
+      this.center3857 = [x, y];
+      this.centerLonLat = [lng, lat];
+      if (label) this.addressA = label;
+    }
   },
 });
+
+export function setAnalysisMode(mode) {
+  const normalized = ['buffer', 'district', 'tract'].includes(mode) ? mode : 'buffer';
+  store.queryMode = normalized;
+  store.adminLevel = normalized === 'tract' ? 'tracts' : 'districts';
+  if (normalized !== 'tract') store.per10k = false;
+  if (normalized !== 'district') store.selectedDistrictCode = null;
+  if (normalized !== 'tract') store.selectedTractGEOID = null;
+  return normalized;
+}
+
+export function applyCoverageToState(state, { min, max }) {
+  if (!max) throw new Error('Crime coverage is unavailable: maximum date is missing.');
+  const maxDate = dayjs(max);
+  if (!maxDate.isValid()) throw new Error(`Crime coverage is unavailable: invalid maximum date ${max}.`);
+  const endMonth = maxDate.add(1, 'month').startOf('month');
+  state.coverageMin = min || null;
+  state.coverageMax = max;
+  state.coverageStatus = 'ready';
+  state.coverageError = null;
+  state.coverageNotice = null;
+  if (!state.startMonth) {
+    state.durationMonths = 12;
+  }
+  normalizeCoverageWindow(state);
+  return state.getStartEnd?.() ?? {
+    start: `${state.startMonth}-01`,
+    end: endMonth.format('YYYY-MM-DD'),
+  };
+}
+
+export function normalizeCoverageWindow(state) {
+  if (state.coverageStatus !== 'ready' || !state.coverageMax) return false;
+  const duration = Number(state.durationMonths) || 12;
+  const coverageEnd = dayjs(state.coverageMax).add(1, 'month').startOf('month');
+  const coverageStart = state.coverageMin ? dayjs(state.coverageMin).startOf('month') : null;
+  const selectedStart = state.startMonth ? dayjs(`${state.startMonth}-01`).startOf('month') : null;
+  const selectedEnd = selectedStart?.isValid()
+    ? selectedStart.add(duration, 'month').startOf('month')
+    : null;
+  const outsideCoverage = !selectedStart?.isValid()
+    || !selectedEnd?.isValid()
+    || selectedEnd.isAfter(coverageEnd)
+    || (coverageStart?.isValid() && selectedStart.isBefore(coverageStart));
+  if (!outsideCoverage) {
+    state.coverageNotice = null;
+    return false;
+  }
+  const latestStart = coverageEnd.subtract(duration, 'month');
+  if (coverageStart?.isValid() && latestStart.isBefore(coverageStart)) {
+    throw new Error(`Crime coverage is shorter than the selected ${duration}-month duration.`);
+  }
+  state.startMonth = latestStart.format('YYYY-MM');
+  state.coverageNotice = `The requested date range was outside live coverage and was reset to the latest ${duration} months.`;
+  return true;
+}
+
+export function applyCoverageFailure(state, error) {
+  state.coverageStatus = 'error';
+  state.coverageNotice = null;
+  state.coverageError = `Crime coverage is unavailable: ${error?.message || error || 'unknown error'}`;
+  return state.coverageError;
+}
 
 export function setViewMode(mode, { silent = false } = {}) {
   let normalized = mode === 'diary' ? 'diary' : 'crime';
@@ -332,19 +417,13 @@ export function setSimPanelState(partial = {}) {
 /**
  * Probe coverage and set default window to last 12 months ending at coverage max.
  */
-export async function initCoverageAndDefaults() {
+export async function initCoverageAndDefaults({ fetchCoverageImpl = fetchCoverage } = {}) {
   try {
-    const { min, max } = await fetchCoverage();
-    store.coverageMin = min;
-    store.coverageMax = max;
-    if (!store.startMonth && max) {
-      const maxDate = new Date(max);
-      const endMonth = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 1);
-      const startMonth = new Date(endMonth.getFullYear(), endMonth.getMonth() - 12, 1);
-      store.startMonth = `${startMonth.getFullYear()}-${String(startMonth.getMonth() + 1).padStart(2, '0')}`;
-      store.durationMonths = 12;
-    }
+    const coverage = await fetchCoverageImpl();
+    applyCoverageToState(store, coverage);
+    return coverage;
   } catch (e) {
-    // leave defaults; fallback handled in README known issues
+    applyCoverageFailure(store, e);
+    throw e;
   }
 }
