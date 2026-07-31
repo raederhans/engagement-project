@@ -93,8 +93,8 @@ async function verifyWorkflowPolicy() {
     ['actions/deploy-pages', 'd6db90164ac5ed86f2b6aed7e0febac5b3c0c03e'],
   ]);
   const expectedUseCounts = new Map([
-    ['actions/checkout', 2],
-    ['actions/setup-node', 2],
+    ['actions/checkout', 4],
+    ['actions/setup-node', 3],
     ['actions/configure-pages', 1],
     ['actions/upload-pages-artifact', 1],
     ['actions/deploy-pages', 1],

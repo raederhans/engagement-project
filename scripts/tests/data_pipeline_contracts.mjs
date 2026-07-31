@@ -17,6 +17,7 @@ import {
 } from '../lib/tract_crime_snapshot.mjs';
 import { fetchFirstValidTractSource } from '../lib/tract_source.mjs';
 import { runPrecompute } from '../precompute_tract_crime.mjs';
+import * as tractFetcher from '../fetch_tracts.mjs';
 
 const tractFeature = (geoid, offset = 0) => ({
   type: 'Feature',
@@ -244,6 +245,26 @@ test('tract source fetching fails closed instead of treating a stale file as suc
   });
   assert.equal(result.sourceUrl, 'two');
   assert.equal(result.data.source, 'two');
+});
+
+test('TIGER fallback uses current area fields and normalizes them into the published schema', () => {
+  assert.match(tractFetcher.TRACT_ENDPOINTS[1], /outFields=[^&]*AREALAND,AREAWATER/);
+  const normalized = tractFetcher.normalizeTractFeature({
+    type: 'Feature',
+    geometry: tractFeature('42101000100').geometry,
+    properties: {
+      STATE: '42',
+      COUNTY: '101',
+      TRACT: '000100',
+      GEOID: '42101000100',
+      NAME: '1',
+      AREALAND: 123,
+      AREAWATER: 4,
+    },
+  }, 'https://example.test/tiger', 0);
+
+  assert.equal(normalized.properties.ALAND, 123);
+  assert.equal(normalized.properties.AWATER, 4);
 });
 
 test('CI and Pages explicitly build with the validated tract snapshot enabled', async () => {

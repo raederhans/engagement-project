@@ -1,0 +1,61 @@
+name: Audit tract source
+
+on:
+  schedule:
+    - cron: '41 7 2 1,4,7,10 *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: tract-source-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Audit the current TIGERweb tract contract
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          node scripts/audit_tract_source.mjs \
+            --json "$RUNNER_TEMP/tract-source-audit.json" \
+            --markdown "$RUNNER_TEMP/tract-source-audit.md" \
+            2> "$RUNNER_TEMP/tract-source-audit-error.txt"
+          status=$?
+          set -e
+          if [[ ! -s "$RUNNER_TEMP/tract-source-audit.md" ]]; then
+            {
+              echo "## Tract source audit: ERROR"
+              echo
+              echo '```text'
+              cat "$RUNNER_TEMP/tract-source-audit-error.txt"
+              echo '```'
+            } > "$RUNNER_TEMP/tract-source-audit.md"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tract review issue
+        if: steps.audit.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          title="[data-audit] Review TIGERweb tract source drift"
+          issue_number="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if [[ -n "$issue_number" ]]; then
+            gh issue comment "$issue_number" --body-file "$RUNNER_TEMP/tract-source-audit.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/tract-source-audit.md"
+          fi
+
+      - name: Fail when source review is required
+        if: steps.audit.outputs.status != '0'
+        run: exit 1
