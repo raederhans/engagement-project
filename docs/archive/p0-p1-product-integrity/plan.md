@@ -21,7 +21,7 @@ Resolve every confirmed P0 and P1 product issue without adding a writable backen
 - [x] Stage 3: Complete P1 Crime features and data transparency.
 - [x] Stage 4: Repair responsive UI, mode ownership, error states, and accessibility.
 - [x] Stage 5: Complete the local-first Diary vertical slice.
-- [ ] Stage 6: Run full validation, independent review, GitHub integration, and Pages verification.
+- [x] Stage 6: Run full validation, independent review, GitHub integration, and Pages verification.
 
 ## Acceptance criteria
 

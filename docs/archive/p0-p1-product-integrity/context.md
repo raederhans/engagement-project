@@ -54,4 +54,11 @@
 
 ## Next step
 
-Run the single-owner production browser smoke, then obtain independent code and architecture review before integration.
+The P0/P1 delivery is complete. Keep the site backend-free until shared Diary persistence, cross-device sync, or moderation becomes an explicit product requirement.
+
+## Final integration
+
+- Product commits `516a078` and `2b9cbcc` merged through PR #28 as `c6fd169`.
+- Main CI run `30601548355` passed, including the full validation suite and deterministic browser smoke.
+- Pages run `30601548344` built and deployed successfully.
+- Production Chromium verified live Crime coverage, the legal 24-month window, Crime to Diary switching, sample-only Community semantics, 390px layout, and zero console/page errors.
