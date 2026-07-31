@@ -1,50 +1,173 @@
 #!/usr/bin/env node
-// Generate last-12-months tract crime totals snapshot
-
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const CARTO = 'https://phl.carto.com/api/v2/sql';
-const OUT = path.join('src','data','tract_crime_counts_last12m.json');
-const LOG_DIR = 'logs';
-const ts = new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
-const LOG = path.join(LOG_DIR, `precompute_tract_crime_${ts}.log`);
+import {
+  buildTractCountSQL,
+  collectTractCounts,
+  createSnapshotWindow,
+  createTractCrimeSnapshot,
+  normalizeCoverageDate,
+  prepareTracts,
+  writeJsonAtomic,
+} from './lib/tract_crime_snapshot.mjs';
 
-async function log(line){ await fs.mkdir(LOG_DIR,{recursive:true}); await fs.appendFile(LOG, `[${new Date().toISOString()}] ${line}\n`); }
+const DEFAULT_CARTO_URL = 'https://phl.carto.com/api/v2/sql';
+const DEFAULT_TRACT_FILE = path.join('public', 'data', 'tracts_phl.geojson');
+const DEFAULT_OUTPUT_FILE = path.join('public', 'data', 'tract_crime_counts_last12m.json');
+const COVERAGE_SQL = `SELECT MAX(dispatch_date_time)::date AS max_dt
+FROM incidents_part1_part2`;
 
-function roundGeom(g){ const r6=n=>Math.round(n*1e6)/1e6; const rc=c=>Array.isArray(c[0])?c.map(rc):[r6(c[0]),r6(c[1])]; if(g.type==='Polygon')return{type:'Polygon',coordinates:rc(g.coordinates)}; if(g.type==='MultiPolygon')return{type:'MultiPolygon',coordinates:g.coordinates.map(rc)}; return g; }
-function bbox4326(g){ let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity; const visit=c=>{ if(!Array.isArray(c))return; if(typeof c[0]==='number'){ const x=c[0],y=c[1]; if(x<minx)minx=x; if(y<miny)miny=y; if(x>maxx)maxx=x; if(y>maxy)maxy=y; } else { for(const n of c) visit(n); } }; if(g.type==='Polygon')visit(g.coordinates); else if(g.type==='MultiPolygon')visit(g.coordinates); if(!Number.isFinite(minx))return null; return [minx,miny,maxx,maxy]; }
-
-function toSQL(geom, start, end){ const gj = JSON.stringify(geom).replace(/'/g,"''"); const bb=bbox4326(geom); const env = bb?`\n  AND the_geom && ST_Transform(ST_MakeEnvelope(${bb[0]},${bb[1]},${bb[2]},${bb[3]},4326),3857)`:''; return `SELECT COUNT(*)::int AS n FROM incidents_part1_part2\nWHERE dispatch_date_time >= '${start}'\n  AND dispatch_date_time <  '${end}'${env}\n  AND ST_Intersects(the_geom, ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${gj}'),4326),3857))`; }
-
-async function postSQL(sql){ for (let i=0;i<3;i++){ const controller = new AbortController(); const timer=setTimeout(()=>controller.abort(), 20000); try { const res=await fetch(CARTO,{ method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:`q=${encodeURIComponent(sql)}`, signal:controller.signal}); if(!res.ok) throw new Error(`HTTP ${res.status}`); const json=await res.json(); clearTimeout(timer); const n = Number(json?.rows?.[0]?.n)||0; return n; } catch(e){ clearTimeout(timer); const back=[1000,2000,4000][Math.min(i,2)]; await log(`postSQL attempt ${i+1} failed: ${e?.message||e}`); if(i===2) throw e; await new Promise(r=>setTimeout(r, back)); } } }
-
-async function main(){
-  await fs.mkdir(path.dirname(OUT), { recursive: true });
-  const endD = new Date(); endD.setHours(0,0,0,0); const startD = new Date(endD); startD.setMonth(startD.getMonth()-12);
-  const end = new Date(endD.getTime()+24*3600*1000).toISOString().slice(0,10);
-  const start = startD.toISOString().slice(0,10);
-  await log(`window=[${start}, ${end})`);
-  // Load tracts from public cache or fallback URL
-  let tracts; try { tracts = JSON.parse(await fs.readFile(path.join('public','data','tracts_phl.geojson'),'utf8')); } catch { const url = 'http://localhost:4173/data/tracts_phl.geojson'; try { const r=await fetch(url); tracts = await r.json(); } catch(e){ await log(`Failed to load tracts: ${e?.message||e}`); throw e; } }
-  const rows = [];
-  let done=0;
-  for (const ft of tracts.features || []){
-    const p = ft.properties || {}; const geoid = String(p.GEOID || p.GEOID20 || (p.STATE&&p.COUNTY&&p.TRACT?(String(p.STATE).padStart(2,'0')+String(p.COUNTY).padStart(3,'0')+String(p.TRACT).padStart(6,'0')):''));
-    if (!geoid) continue;
-    const geom = roundGeom(ft.geometry);
-    const sql = toSQL(geom, start, end);
-    try {
-      const n = await postSQL(sql);
-      rows.push({ geoid, n });
-      if (++done % 25 === 0) await log(`progress ${done}/${(tracts.features||[]).length}`);
-    } catch(e){ await log(`FAIL ${geoid}: ${e?.message||e}`); }
+export async function runPrecompute(argv = process.argv.slice(2), dependencies = {}) {
+  const options = parseArguments(argv);
+  if (options.help) {
+    console.log(helpText());
+    return null;
   }
-  const out = { meta: { start, end, generated_at: new Date().toISOString() }, rows };
-  await fs.writeFile(OUT, JSON.stringify(out));
-  await log(`DONE rows=${rows.length} saved to ${OUT}`);
-  console.log(`Saved ${OUT}`);
+
+  const readFile = dependencies.readFile || fs.readFile;
+  const now = dependencies.now || (() => new Date());
+  const cartoUrl = options.cartoUrl || DEFAULT_CARTO_URL;
+  const requestRows = dependencies.requestRows
+    || ((sql) => requestSqlRows(cartoUrl, sql));
+
+  const tractGeoJson = JSON.parse(await readFile(options.tractFile, 'utf8'));
+  const tracts = prepareTracts(tractGeoJson);
+  const coverageDate = options.asOf || await fetchCoverageDate(requestRows);
+  const window = createSnapshotWindow(coverageDate);
+  console.log(
+    `[tract-crime] Querying ${tracts.length} tracts for [${window.start}, ${window.end}) with concurrency ${options.concurrency}.`,
+  );
+
+  const counts = await collectTractCounts(tracts, {
+    concurrency: options.concurrency,
+    queryCount: async (tract) => {
+      const rows = await requestRows(buildTractCountSQL(tract.geometry, window));
+      const count = Number(rows?.[0]?.n);
+      if (!Number.isInteger(count) || count < 0) {
+        throw new Error(`CARTO returned an invalid count: ${JSON.stringify(rows?.[0] ?? null)}`);
+      }
+      return count;
+    },
+    onProgress: ({ completed, total }) => {
+      if (completed === total || completed % 25 === 0) {
+        console.log(`[tract-crime] ${completed}/${total} complete.`);
+      }
+    },
+  });
+
+  const snapshot = createTractCrimeSnapshot({
+    tracts,
+    counts,
+    coverageDate,
+    generatedAt: now().toISOString(),
+    sourceUrl: cartoUrl,
+    tractSource: normalizePath(options.tractFile),
+  });
+  await writeJsonAtomic(options.outputFile, snapshot);
+  console.log(`[tract-crime] Wrote ${options.outputFile} with ${snapshot.rows.length} complete rows.`);
+  return snapshot;
 }
 
-main().catch(async (e)=>{ await log(`FATAL ${e?.message||e}`); process.exit(1); });
+async function fetchCoverageDate(requestRows) {
+  const rows = await requestRows(COVERAGE_SQL);
+  return normalizeCoverageDate(rows?.[0]?.max_dt);
+}
 
+async function requestSqlRows(url, sql, {
+  retries = 3,
+  timeoutMs = 20_000,
+} = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: `q=${encodeURIComponent(sql)}`,
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const body = (await response.text()).slice(0, 300);
+        throw new Error(`HTTP ${response.status}${body ? `: ${body}` : ''}`);
+      }
+      const payload = await response.json();
+      if (!Array.isArray(payload?.rows)) throw new Error('CARTO response did not contain rows.');
+      return payload.rows;
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries) await delay(500 * (2 ** (attempt - 1)));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw new Error(`CARTO query failed after ${retries} attempts: ${lastError?.message || lastError}`);
+}
+
+function parseArguments(argv) {
+  const options = {
+    asOf: null,
+    cartoUrl: DEFAULT_CARTO_URL,
+    concurrency: 3,
+    tractFile: DEFAULT_TRACT_FILE,
+    outputFile: DEFAULT_OUTPUT_FILE,
+    help: false,
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === '--help' || argument === '-h') {
+      options.help = true;
+      continue;
+    }
+    const [name, inlineValue] = argument.split('=', 2);
+    const value = inlineValue ?? argv[++index];
+    if (value == null || value.startsWith('--')) throw new Error(`${name} requires a value.`);
+    if (name === '--as-of') options.asOf = value;
+    else if (name === '--carto') options.cartoUrl = value;
+    else if (name === '--concurrency') options.concurrency = Number(value);
+    else if (name === '--tracts') options.tractFile = value;
+    else if (name === '--output') options.outputFile = value;
+    else throw new Error(`Unknown argument: ${name}`);
+  }
+  if (!Number.isInteger(options.concurrency) || options.concurrency < 1 || options.concurrency > 10) {
+    throw new Error(`--concurrency must be an integer from 1 to 10; received ${options.concurrency}.`);
+  }
+  if (options.asOf) createSnapshotWindow(options.asOf);
+  return options;
+}
+
+function helpText() {
+  return `Generate a complete 12-month Philadelphia tract crime snapshot.
+
+Usage: node scripts/precompute_tract_crime.mjs [options]
+
+Options:
+  --as-of YYYY-MM-DD   Override the live CARTO coverage date
+  --concurrency N      Concurrent tract queries, 1-10 (default: 3)
+  --tracts PATH        Tract GeoJSON input (default: ${DEFAULT_TRACT_FILE})
+  --output PATH        Snapshot output (default: ${DEFAULT_OUTPUT_FILE})
+  --carto URL          CARTO SQL endpoint (default: ${DEFAULT_CARTO_URL})
+  --help               Show this help`;
+}
+
+function normalizePath(value) {
+  return value.split(path.sep).join('/');
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isDirectInvocation() {
+  return process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+}
+
+if (isDirectInvocation()) {
+  runPrecompute().catch((error) => {
+    console.error(`[tract-crime] Failed: ${error?.message || error}`);
+    process.exitCode = 1;
+  });
+}

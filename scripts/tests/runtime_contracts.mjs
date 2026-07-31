@@ -11,6 +11,7 @@ import { parsePreviewArgs, resolvePreviewData, toViteFsUrl } from '../quick_prev
 import { refreshPoints } from '../../src/map/points.js';
 import { buildSegmentCardHtml } from '../../src/map/segments_layer.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
+import { applyRecentPreset } from '../../src/ui/panel.js';
 import {
   buildCountBufferSQL,
   buildHeatmap7x24TractSQL,
@@ -29,6 +30,22 @@ const polygon = {
     [-75.2, 39.9],
   ]],
 };
+
+test('recent-window presets synchronize state and visible controls', () => {
+  const state = { coverageMax: '2026-07-30', startMonth: null, durationMonths: 6 };
+  const startMonthInput = { value: '' };
+  const durationSelect = { value: '6' };
+
+  applyRecentPreset(state, 12, { startMonthInput, durationSelect });
+
+  assert.deepEqual(state, {
+    coverageMax: '2026-07-30',
+    startMonth: '2025-08',
+    durationMonths: 12,
+  });
+  assert.equal(startMonthInput.value, '2025-08');
+  assert.equal(durationSelect.value, '12');
+});
 
 test('quick preview resolves and validates a diary data directory', () => {
   const options = parsePreviewArgs(['--data', 'data', '--no-open', '--port=5174']);

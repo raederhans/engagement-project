@@ -114,11 +114,15 @@ export async function fetchJson(url, { timeoutMs = 15000, retries, cacheTTL, met
         }
       } catch (e) {
         throwIfAborted(signal);
+        const error = attemptSignal.signal.aborted
+          && attemptSignal.signal.reason?.name === 'TimeoutError'
+          ? attemptSignal.signal.reason
+          : e;
         const last = attempt === total - 1;
-        const retryable = e.name === 'TimeoutError' || e instanceof RetryableError || /ETIMEDOUT|ENOTFOUND|ECONNRESET/.test(String(e?.message || e));
-        if (!retryable || last) { throw e; }
+        const retryable = error.name === 'TimeoutError' || error instanceof RetryableError || /ETIMEDOUT|ENOTFOUND|ECONNRESET/.test(String(error?.message || error));
+        if (!retryable || last) { throw error; }
         const delay = BACKOFF_DELAYS_MS[Math.min(attempt, BACKOFF_DELAYS_MS.length - 1)];
-        await appendRetryLog(`[${new Date().toISOString()}] retry ${attempt + 1} for ${url}: ${e?.message || e}`);
+        await appendRetryLog(`[${new Date().toISOString()}] retry ${attempt + 1} for ${url}: ${error?.message || error}`);
         await waitForRetry(delay, signal);
       } finally {
         attempt++;
