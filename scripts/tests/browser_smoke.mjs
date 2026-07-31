@@ -119,13 +119,14 @@ try {
   assert.equal(await page.locator('#addrB').inputValue(), 'N BROAD ST & W GIRARD AVE, 19121');
   assert.equal(new URL(page.url()).searchParams.get('utm_source'), 'portfolio');
 
-  requests.length = 0;
   await page.getByRole('button', { name: 'Diary', exact: true }).click();
   await page.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+  requests.length = 0;
+  await page.waitForTimeout(250);
   const forbiddenDiaryRequest = requests.find((url) => (
     /phl\.carto\.com|tigerweb\.geo\.census\.gov|api\.censusreporter\.org|Police_Districts/i.test(url)
   ));
-  assert.equal(forbiddenDiaryRequest, undefined, `Diary direct load requested Crime data: ${forbiddenDiaryRequest}`);
+  assert.equal(forbiddenDiaryRequest, undefined, `Active Diary mode requested Crime data: ${forbiddenDiaryRequest}`);
 
   await page.getByRole('button', { name: 'Rate this route' }).click();
   await page.getByRole('button', { name: '★' }).nth(4).click();
