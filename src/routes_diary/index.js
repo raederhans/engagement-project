@@ -10,13 +10,6 @@ import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { DIARY_ROUTES_URL, DIARY_SEGMENTS_URL, HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
-import {
-  DEFAULT_HALF_LIFE_DAYS,
-  weightFor,
-  bayesianShrink,
-  effectiveN,
-  clampMean,
-} from '../utils/decay.js';
 import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
 import {
@@ -33,7 +26,6 @@ import {
   normalizeRouteFeature,
   SEGMENT_ID_PROP,
   SCORE_PROP,
-  NEFF_PROP,
   ROUTE_SEG_IDS_PROP,
   ROUTE_ALT_SEG_IDS_PROP,
   ROUTE_NAME_PROP,
@@ -54,8 +46,8 @@ import {
 import { loadJsonFromCandidates, loadOwnedDiaryData } from './demo_data_loader.js';
 import {
   createDiaryInsightsPort,
-  installOwnedDebugGlobal,
 } from './diary_insights_port.js';
+import { createDiaryAggregation } from './local_aggregation.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
@@ -69,20 +61,20 @@ const ROUTE_URL_CANDIDATES = [
   publicUrl('data/routes_phl.demo.geojson'),
 ].filter(Boolean);
 
-const MOCK_HISTORY_ROUTES = [
+const DEMO_HISTORY_ROUTES = [
   { id: 'hist_001', date: 'Nov 24', label: 'Penn Campus → 9th & Christian', mode: 'bike', score: 3.5 },
   { id: 'hist_002', date: 'Nov 20', label: '30th St Station → Art Museum', mode: 'bike', score: 4.2 },
   { id: 'hist_003', date: 'Nov 15', label: 'South St → Market St', mode: 'walk', score: 2.6 },
   { id: 'hist_004', date: 'Nov 10', label: 'Rittenhouse → Passyunk', mode: 'bike', score: 4.6 },
 ];
 
-const MOCK_COMMUNITY_SEGMENTS = [
+const DEMO_COMMUNITY_SEGMENTS = [
   { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tags: 'poor lighting, aggressive drivers' },
   { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tags: 'construction, potholes' },
   { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tags: 'heavy traffic' },
 ];
 
-const MOCK_COMMENTS = [
+const DEMO_COMMENTS = [
   { id: 'c1', user: 'SarahK', ago: '2h ago', text: 'South St Bridge feels unsafe at night.' },
   { id: 'c2', user: 'BikePhilly', ago: '5h ago', text: 'Watch for cars edging into bike lane near 34th.' },
   { id: 'c3', user: 'TrailRunner', ago: '1d ago', text: 'Pine St detour is calmer this week.' },
@@ -115,12 +107,6 @@ let toastEl = null;
 let toastTimer = null;
 const USER_HASH_KEY = 'diary_demo_user_hash';
 let cachedUserHash = null;
-const localAgg = new Map();
-let baseSegmentsFC = null;
-let perfLastSubmit = { ms: null, at: null };
-const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
-const PRIOR_MEAN = 3.0;
-const PRIOR_N = 5;
 const LOW_RATING_THRESHOLD = 2.6;
 const CTA_KINDS = ['agree', 'safer'];
 const CTA_VOTE_PREFIX = 'diary:voted';
@@ -364,40 +350,6 @@ function buildRouteOverlayCollection(routeFeature, idsKey = ROUTE_SEG_IDS_PROP) 
   return features.length ? { type: 'FeatureCollection', features } : routeFeature;
 }
 
-function initLocalAggFromSegments(featureCollection) {
-  localAgg.clear();
-  baseSegmentsFC = clone(featureCollection);
-  if (!featureCollection || !Array.isArray(featureCollection.features)) return;
-  featureCollection.features.forEach((feature) => {
-    const props = feature.properties || {};
-    const id = props[SEGMENT_ID_PROP];
-    if (!id) return;
-    const mean = Number.isFinite(props[SCORE_PROP]) ? props[SCORE_PROP] : 3;
-    const nEff = Number.isFinite(props[NEFF_PROP]) ? props[NEFF_PROP] : 1;
-    const delta = Number.isFinite(props.delta_30d) ? props.delta_30d : 0;
-    const tags = Array.isArray(props.top_tags) ? props.top_tags : [];
-    localAgg.set(id, {
-      mean,
-      sumW: Math.max(0, nEff),
-      n_eff: Math.max(0, nEff),
-      top_tags: tags,
-      tagCounts: toCounts(tags),
-      updated: new Date().toISOString(),
-      win30: { sum: mean * Math.max(1, nEff), w: Math.max(1, nEff) },
-      delta_30d: delta,
-    });
-  });
-}
-
-function toCounts(tagPairs) {
-  const map = Object.create(null);
-  for (const pair of tagPairs) {
-    if (!pair || !pair.tag) continue;
-    map[pair.tag] = Math.max(1, map[pair.tag] || 0);
-  }
-  return map;
-}
-
 function voteStorageKey(segmentId, kind) {
   return `${CTA_VOTE_PREFIX}:${kind}:${segmentId}`;
 }
@@ -449,35 +401,7 @@ function isThrottled(segmentId, kind) {
   return kind === 'agree' ? state.agreeDisabled : state.saferDisabled;
 }
 
-function exposeDebugAPI() {
-  if (typeof window === 'undefined' || !import.meta?.env?.DEV) return null;
-  const debugApi = Object.freeze({
-    segmentProps: (segmentId) => {
-      if (!segmentId) return null;
-      const agg = localAgg.get(segmentId);
-      return agg ? JSON.parse(JSON.stringify(agg)) : null;
-    },
-    listSources: () => captureMapState().sources,
-    listLayers: () => captureMapState().layers,
-    simState: () =>
-      JSON.parse(
-        JSON.stringify({
-          routeId: sim.routeId,
-          idx: sim.idx,
-          coords: sim.coords.length,
-          active: sim.active,
-          paused: sim.paused,
-          hasStarted: sim.hasStarted,
-          playedOnce: sim.playedOnce,
-          stored: store.simState || {},
-        })
-      ),
-    runP3IdempotenceCycles: (opts) => runP3IdempotenceCycles(opts),
-    runP4Stress: (opts) => runP4Stress(opts),
-    getPerfSnapshot: () => ({ ...getPerfSnapshot() }),
-  });
-  return installOwnedDebugGlobal(window, debugApi, currentDiarySession?.addCleanup);
-}
+const aggregation = createDiaryAggregation({ getCtaState });
 
 function diaryFlagOff() {
   console.warn('[Diary] Feature flag is OFF. Enable via VITE_FEATURE_DIARY=1 or load with ?mode=diary/diary-demo.');
@@ -598,7 +522,7 @@ function ensureDiaryPanel(routes, options = {}) {
         {
           period: historyPeriodFilter,
           mode: historyModeFilter,
-          routes: MOCK_HISTORY_ROUTES.filter((item) => historyModeFilter === 'all' || item.mode === historyModeFilter),
+          routes: DEMO_HISTORY_ROUTES.filter((item) => historyModeFilter === 'all' || item.mode === historyModeFilter),
         },
         {
           onPeriodChange: ownPanelHandler((val) => {
@@ -621,8 +545,8 @@ function ensureDiaryPanel(routes, options = {}) {
         body,
         {
           radiusMeters: store.diaryCommunityRadiusMeters || 1500,
-          segments: MOCK_COMMUNITY_SEGMENTS,
-          comments: MOCK_COMMENTS,
+          segments: DEMO_COMMUNITY_SEGMENTS,
+          comments: DEMO_COMMENTS,
         },
         {
           isCurrent: isPanelCurrent,
@@ -847,16 +771,15 @@ function openRouteRating() {
     userHash: getUserHash(),
     signal: session?.signal,
     onSuccess: guardDiaryCommit(({ payload, response }) => {
-      handleDiarySubmissionSuccess(payload, response);
+      handleDiarySubmissionSuccess(payload);
     }, session, ownerIsCurrent),
   });
 }
 
-function handleDiarySubmissionSuccess(payload, response) {
+function handleDiarySubmissionSuccess(payload) {
   if (!payload) return;
-  const perfStart = nowMs();
-  applyDiarySubmissionToAgg(payload);
-  const refreshed = buildSegmentsFCFromBase();
+  aggregation.applySubmission(payload);
+  const refreshed = aggregation.buildFeatureCollection();
   if (refreshed && mapRef) {
     updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
@@ -870,78 +793,6 @@ function handleDiarySubmissionSuccess(payload, response) {
   const affectedCount = affectedSegmentIds.size || 1;
   showPanelNotice(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
   onRouteRatingSuccess(Array.from(affectedSegmentIds));
-  perfLastSubmit = { ms: Math.max(0, Math.round(nowMs() - perfStart)), at: new Date().toISOString() };
-  console.info('[Diary] repaint latency (ms):', perfLastSubmit.ms);
-  console.info('[Diary] submit payload', payload);
-  console.info('[Diary] submit response', response);
-}
-
-function applyDiarySubmissionToAgg(payload) {
-  if (!payload || !Array.isArray(payload.segment_ids)) return;
-  const now = Date.now();
-  const overall = Number(payload.overall_rating);
-  const tags = Array.isArray(payload.tags) ? payload.tags : [];
-  const overrides = normalizeOverrides(payload.segment_overrides);
-  for (const segId of payload.segment_ids) {
-    const rating = overrides.has(segId) ? overrides.get(segId) : overall;
-    if (!Number.isFinite(rating)) continue;
-    if (!localAgg.has(segId)) {
-      localAgg.set(segId, {
-        mean: 3,
-        sumW: 0,
-        n_eff: 0,
-        top_tags: [],
-        tagCounts: Object.create(null),
-        updated: new Date(now).toISOString(),
-        win30: { sum: 0, w: 0 },
-        delta_30d: 0,
-      });
-    }
-    const record = localAgg.get(segId);
-    decayAggRecord(record, now);
-    const wNew = 1;
-    const sumW = record.sumW + wNew;
-    const meanRaw = (record.mean * record.sumW + rating * wNew) / Math.max(1e-6, sumW);
-    const shrunk = clampMean(bayesianShrink(meanRaw, sumW, PRIOR_MEAN, PRIOR_N));
-    const prevWinMean = record.win30.w > 0 ? record.win30.sum / record.win30.w : record.mean;
-    record.sumW = sumW;
-    record.mean = shrunk;
-    record.n_eff = effectiveN(sumW);
-    record.updated = new Date(now).toISOString();
-    for (const tag of tags) {
-      if (!record.tagCounts[tag]) record.tagCounts[tag] = 0;
-      record.tagCounts[tag] += 1;
-    }
-    const totalTag = Object.values(record.tagCounts).reduce((sum, val) => sum + val, 0);
-    record.top_tags = totalTag > 0
-      ? Object.entries(record.tagCounts)
-          .map(([tag, count]) => ({ tag, p: Number((count / totalTag).toFixed(2)) }))
-          .sort((a, b) => b.p - a.p)
-          .slice(0, 5)
-      : [];
-    record.win30.sum = record.win30.sum + shrunk;
-    record.win30.w = Math.min(100, record.win30.w + 1);
-    record.delta_30d = Number((shrunk - prevWinMean).toFixed(2));
-  }
-}
-
-function bumpConfidenceLocal(segmentId) {
-  const record = ensureAggRecord(segmentId);
-  if (!record) return false;
-  record.sumW = Math.min(50, (record.sumW || 0) + 0.3);
-  record.n_eff = Math.min(50, record.sumW);
-  record.updated = new Date().toISOString();
-  return true;
-}
-
-function nudgeMeanSaferLocal(segmentId) {
-  const record = ensureAggRecord(segmentId);
-  if (!record) return false;
-  const base = Math.max(0.5, record.sumW || 1);
-  record.mean = clampMean(bayesianShrink(record.mean + 0.1, base, PRIOR_MEAN, PRIOR_N));
-  record.delta_30d = Number((record.delta_30d + 0.03).toFixed(2));
-  record.updated = new Date().toISOString();
-  return true;
 }
 
 function deriveAffectedSegmentIds(payload) {
@@ -970,7 +821,7 @@ function onRouteRatingSuccess(affectedSegmentIds) {
 }
 
 function refreshAfterCta(message) {
-  const refreshed = buildSegmentsFCFromBase();
+  const refreshed = aggregation.buildFeatureCollection();
   if (refreshed && mapRef) {
     updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, refreshed);
     lastLoadedSegments = refreshed;
@@ -987,7 +838,7 @@ async function onAgreeClick(segmentId) {
     showToast('Recorded for this session');
     return;
   }
-  const updated = bumpConfidenceLocal(segmentId);
+  const updated = aggregation.bumpConfidence(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'agree');
   refreshAfterCta('Thanks — confidence increased');
@@ -999,7 +850,7 @@ async function onFeelsSaferClick(segmentId) {
     showToast('Recorded for this session');
     return;
   }
-  const updated = nudgeMeanSaferLocal(segmentId);
+  const updated = aggregation.nudgeSafer(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'safer');
   refreshAfterCta('Noted — feels safer now');
@@ -1012,85 +863,6 @@ function handleSegmentAction(payload) {
   } else if (payload.action === 'safer') {
     void onFeelsSaferClick(payload.segmentId);
   }
-}
-
-function decayAggRecord(record, now) {
-  if (!record) return;
-  const last = Date.parse(record.updated || now);
-  const factor = weightFor(last || now, now, DEFAULT_HALF_LIFE_DAYS);
-  if (Number.isFinite(factor) && factor > 0 && factor <= 1) {
-    record.sumW *= factor;
-    record.win30.sum *= factor;
-    record.win30.w *= factor;
-  }
-}
-
-function buildSegmentsFCFromBase() {
-  if (!baseSegmentsFC) return null;
-  const fc = clone(baseSegmentsFC);
-  fc.features = fc.features.map((feature) => {
-    const f = clone(feature);
-    const props = { ...(f.properties || {}) };
-    const segId = props[SEGMENT_ID_PROP];
-    const agg = localAgg.get(segId);
-    if (agg) {
-      props[SCORE_PROP] = agg.mean;
-      props[NEFF_PROP] = agg.n_eff;
-      props.top_tags = agg.top_tags;
-      props.delta_30d = agg.delta_30d;
-      props.updated = agg.updated;
-    }
-    const cta = getCtaState(segId);
-    props.__diaryVotes = {
-      agreeDisabled: cta.agreeDisabled,
-      saferDisabled: cta.saferDisabled,
-      agreeTimestamp: cta.agreeTimestamp,
-      saferTimestamp: cta.saferTimestamp,
-    };
-    f.properties = props;
-    return f;
-  });
-  return fc;
-}
-
-function normalizeOverrides(list) {
-  const map = new Map();
-  if (!list) return map;
-  if (Array.isArray(list)) {
-    list.forEach((entry) => {
-      if (!entry || !entry.segment_id) return;
-      const value = Number(entry.rating);
-      if (!Number.isFinite(value)) return;
-      map.set(entry.segment_id, value);
-    });
-    return map;
-  }
-  if (typeof list === 'object') {
-    Object.entries(list).forEach(([segmentId, rating]) => {
-      const value = Number(rating);
-      if (segmentId && Number.isFinite(value)) {
-        map.set(segmentId, value);
-      }
-    });
-  }
-  return map;
-}
-
-function ensureAggRecord(segmentId) {
-  if (!segmentId) return null;
-  if (!localAgg.has(segmentId)) {
-    localAgg.set(segmentId, {
-      mean: 3,
-      sumW: 0,
-      n_eff: 0,
-      top_tags: [],
-      tagCounts: Object.create(null),
-      updated: new Date().toISOString(),
-      win30: { sum: 0, w: 0 },
-      delta_30d: 0,
-    });
-  }
-  return localAgg.get(segmentId);
 }
 
 function updateAlternativeRoute({ refreshOnly = false } = {}) {
@@ -1240,130 +1012,12 @@ function summarizeAltBenefit(primaryRoute, altMeta) {
   };
 }
 
-const delay = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function captureMapState() {
-  if (!mapRef || typeof mapRef.getStyle !== 'function') {
-    return { sources: [], layers: [] };
-  }
-  const style = mapRef.getStyle() || {};
-  return {
-    sources: Object.keys(style.sources || {}),
-    layers: (style.layers || []).map((layer) => layer.id),
-  };
-}
-
-const getPerfSnapshot = () => ({
-  ms: perfLastSubmit.ms,
-  at: perfLastSubmit.at,
-  text: perfLastSubmit.ms == null ? 'n/a' : `${perfLastSubmit.ms} ms (submit → repaint)`,
-});
-
-async function runP3IdempotenceCycles({ cycles = 20, delayMs = 75 } = {}) {
-  if (!mapRef) {
-    return { stable: false, reason: 'map-not-ready', duplicates: [] };
-  }
-  const routeIds = Array.from(routeById.keys());
-  if (!routeIds.length) {
-    return { stable: false, reason: 'no-routes', duplicates: [] };
-  }
-  const duplicates = [];
-  for (let i = 0; i < cycles; i += 1) {
-    const routeId = routeIds[i % routeIds.length];
-    selectRoute(routeId, { fitBounds: false });
-    await delay(delayMs);
-    applyAltToggleState(true);
-    await delay(delayMs);
-    applyAltToggleState(false);
-    await delay(delayMs);
-    const snapshot = captureMapState();
-    if (new Set(snapshot.sources).size !== snapshot.sources.length) {
-      duplicates.push({ cycle: i, type: 'sources', snapshot: snapshot.sources.slice() });
-    }
-    if (new Set(snapshot.layers).size !== snapshot.layers.length) {
-      duplicates.push({ cycle: i, type: 'layers', snapshot: snapshot.layers.slice() });
-    }
-  }
-  const finalSnapshot = captureMapState();
-  return {
-    stable: duplicates.length === 0,
-    sources: finalSnapshot.sources,
-    layers: finalSnapshot.layers,
-    duplicates,
-  };
-}
-
-async function runP4Stress({ cycles = 20, pick = 3, delayMs = 60 } = {}) {
-  if (!currentRoute) {
-    return { stable: false, reason: 'no-route', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
-  }
-  const segmentIds = currentRoute.properties?.[ROUTE_SEG_IDS_PROP] || [];
-  if (!segmentIds.length) {
-    return { stable: false, reason: 'no-segments', duplicates: [], throttledCount: 0, actedSegments: [], at: new Date().toISOString() };
-  }
-  const duplicates = [];
-  const acted = new Set();
-  let throttled = 0;
-  for (let i = 0; i < cycles; i += 1) {
-    const picks = [];
-    for (let j = 0; j < Math.min(pick, segmentIds.length); j += 1) {
-      picks.push(segmentIds[(i + j) % segmentIds.length]);
-    }
-    for (const segId of picks) {
-      if (!isThrottled(segId, 'agree')) {
-        await onAgreeClick(segId);
-        acted.add(`${segId}:agree`);
-        await delay(delayMs);
-      } else {
-        throttled += 1;
-      }
-      if (!isThrottled(segId, 'safer')) {
-        await onFeelsSaferClick(segId);
-        acted.add(`${segId}:safer`);
-        await delay(delayMs);
-      } else {
-        throttled += 1;
-      }
-    }
-    applyAltToggleState(true);
-    await delay(delayMs);
-    applyAltToggleState(false);
-    await delay(delayMs);
-    const snapshot = captureMapState();
-    if (new Set(snapshot.sources).size !== snapshot.sources.length) {
-      duplicates.push({ cycle: i, type: 'sources', snapshot: snapshot.sources.slice() });
-    }
-    if (new Set(snapshot.layers).size !== snapshot.layers.length) {
-      duplicates.push({ cycle: i, type: 'layers', snapshot: snapshot.layers.slice() });
-    }
-  }
-  const finalSnapshot = captureMapState();
-  return {
-    stable: duplicates.length === 0,
-    sources: finalSnapshot.sources,
-    layers: finalSnapshot.layers,
-    duplicates,
-    throttledCount: throttled,
-    actedSegments: Array.from(acted),
-    at: new Date().toISOString(),
-  };
-}
-
 function countLowRated(segmentIds) {
-  if (!segmentIds) return 0;
-  return segmentIds.reduce((sum, id) => {
-    const rating = getCurrentSegmentMean(id);
-    return sum + (rating < LOW_RATING_THRESHOLD ? 1 : 0);
-  }, 0);
-}
-
-function getCurrentSegmentMean(segId) {
-  if (localAgg.has(segId)) {
-    return localAgg.get(segId).mean;
-  }
-  const feature = segmentLookup.get(segId);
-  const props = feature?.properties || {};
-  return Number.isFinite(props[SCORE_PROP]) ? props[SCORE_PROP] : 3;
+  return aggregation.countLowRated(
+    segmentIds,
+    segmentLookup,
+    LOW_RATING_THRESHOLD,
+  );
 }
 
 function getSimProgressRatio() {
@@ -1582,7 +1236,7 @@ export function teardownDiaryTransient(
     clearRouteOverlay(targetMap, DIARY_ROUTE_ALT_SOURCE_ID);
     clearSimPoint(targetMap, DIARY_SIM_POINT_SOURCE_ID);
     if (removeNetworkOverlay) {
-      try { removeNetworkLayer(targetMap); } catch {}
+      removeNetworkLayer(targetMap);
     }
   }
   if (!silent) {
@@ -1827,9 +1481,8 @@ export async function initDiaryMode(map, options = {}) {
     logMissingSegments(routes, segments);
     buildSegmentLookup(segments);
     ensureRouteIndex(routes);
-    initLocalAggFromSegments(segments);
-    exposeDebugAPI();
-    const hydratedSegments = buildSegmentsFCFromBase() || segments;
+    aggregation.reset(segments);
+    const hydratedSegments = aggregation.buildFeatureCollection() || segments;
     lastLoadedSegments = hydratedSegments;
     lastLoadedRoutes = routes;
 
