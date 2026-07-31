@@ -1,0 +1,84 @@
+name: Refresh tract data
+
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: tract-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check exact 14-day cadence
+        id: cadence
+        run: node scripts/check_data_refresh_due.mjs --anchor 2026-08-03 --interval 14
+
+      - name: Setup Node.js
+        if: github.event_name == 'workflow_dispatch' || steps.cadence.outputs.due == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.cadence.outputs.due == 'true'
+        run: npm ci
+
+      - name: Refresh and validate tract data
+        if: github.event_name == 'workflow_dispatch' || steps.cadence.outputs.due == 'true'
+        env:
+          VITE_FEATURE_DIARY: '1'
+          VITE_TRACT_CRIME_SNAPSHOT: '1'
+        run: |
+          npm run data:refresh:tract-crime
+          npm run validate
+
+      - name: Detect semantic data changes
+        if: github.event_name == 'workflow_dispatch' || steps.cadence.outputs.due == 'true'
+        id: changes
+        shell: bash
+        run: |
+          tract_changed=false
+          snapshot_changed=false
+          if ! git diff --quiet -- public/data/tracts_phl.geojson; then
+            tract_changed=true
+          fi
+          if ! git diff --ignore-matching-lines='"generated_at":' --quiet -- public/data/tract_crime_counts_last12m.json; then
+            snapshot_changed=true
+          fi
+          if [[ "$tract_changed" == false && "$snapshot_changed" == false ]]; then
+            git restore -- public/data/tracts_phl.geojson public/data/tract_crime_counts_last12m.json
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create review branch and pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          branch="automation/tract-data-refresh-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -- public/data/tracts_phl.geojson public/data/tract_crime_counts_last12m.json
+          git commit -m "Refresh published tract data"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Refresh published tract data" \
+            --body "Automated biweekly refresh of the published Philadelphia tract boundary and crime snapshot. Generated files were rebuilt and the full validation suite passed. Review and merge manually; this workflow never pushes directly to main."

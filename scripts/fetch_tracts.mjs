@@ -5,14 +5,14 @@ import { pathToFileURL } from 'node:url';
 import { writeJsonAtomic } from './lib/tract_crime_snapshot.mjs';
 import { fetchFirstValidTractSource } from './lib/tract_source.mjs';
 
-const ENDPOINTS = [
+export const TRACT_ENDPOINTS = [
   'https://mapservices.pasda.psu.edu/server/rest/services/pasda/CityPhilly/MapServer/28/query?where=1%3D1&outFields=*&f=geojson',
-  "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=STATE%3D%2742%27%20AND%20COUNTY%3D%27101%27&outFields=STATE,COUNTY,GEOID,NAME,BASENAME,ALAND,AWATER&returnGeometry=true&f=geojson",
+  "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=STATE%3D%2742%27%20AND%20COUNTY%3D%27101%27&outFields=STATE,COUNTY,TRACT,GEOID,NAME,BASENAME,AREALAND,AREAWATER&returnGeometry=true&f=geojson",
 ];
 const OUTPUT_FILE = path.join('public', 'data', 'tracts_phl.geojson');
 
 export async function runFetchTracts({
-  endpoints = ENDPOINTS,
+  endpoints = TRACT_ENDPOINTS,
   outputFile = OUTPUT_FILE,
   fetchJson = fetchGeoJson,
 } = {}) {
@@ -48,7 +48,7 @@ function validateAndNormalize(geoJson, endpoint) {
   if (geoJson.features.length < 300) {
     throw new Error(`Invalid GeoJSON from ${endpoint}: only ${geoJson.features.length} features.`);
   }
-  const features = geoJson.features.map((feature, index) => normalizeFeature(feature, endpoint, index));
+  const features = geoJson.features.map((feature, index) => normalizeTractFeature(feature, endpoint, index));
   const geoids = new Set();
   for (const feature of features) {
     const geoid = feature.properties.GEOID;
@@ -58,7 +58,7 @@ function validateAndNormalize(geoJson, endpoint) {
   return { type: 'FeatureCollection', features };
 }
 
-function normalizeFeature(feature, endpoint, index) {
+export function normalizeTractFeature(feature, endpoint, index) {
   if (!feature?.geometry || !feature?.properties) {
     throw new Error(`Invalid GeoJSON from ${endpoint}: feature ${index} is incomplete.`);
   }
@@ -81,8 +81,8 @@ function normalizeFeature(feature, endpoint, index) {
       COUNTY: String(county).padStart(3, '0'),
       TRACT: tract == null ? geoid.slice(5) : String(tract).padStart(6, '0'),
       NAME: properties.NAME ?? properties.NAMELSAD ?? properties.BASENAME ?? '',
-      ALAND: properties.ALAND ?? null,
-      AWATER: properties.AWATER ?? null,
+      ALAND: properties.ALAND ?? properties.AREALAND ?? null,
+      AWATER: properties.AWATER ?? properties.AREAWATER ?? null,
     },
   };
 }
