@@ -851,6 +851,28 @@ test('an exhausted attempt timeout is reported as TimeoutError', async (t) => {
   );
 });
 
+test('a browser-style generic AbortError still preserves an internally owned timeout', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      reject(new DOMException('The user aborted a request.', 'AbortError'));
+    }, { once: true });
+  });
+
+  await assert.rejects(
+    fetchJson('https://example.test/api/browser-timeout-classification', {
+      cacheTTL: 0,
+      retries: 0,
+      timeoutMs: 5,
+    }),
+    (error) => error?.name === 'TimeoutError',
+  );
+});
+
 test('caller cancellation during deferred JSON parsing neither returns nor caches data', async (t) => {
   const originalFetch = globalThis.fetch;
   let resolveJson;

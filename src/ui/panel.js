@@ -409,8 +409,16 @@ export function initPanel(store, handlers) {
 
   startMonth?.addEventListener('change', () => { store.startMonth = startMonth.value || null; onChange(); });
   durationSel?.addEventListener('change', () => { store.durationMonths = Number(durationSel.value) || 6; onChange(); });
-  preset6?.addEventListener('click', () => { store.startMonth = recentStartMonth(6, store.coverageMax); store.durationMonths = 6; onChange(); });
-  preset12?.addEventListener('click', () => { store.startMonth = recentStartMonth(12, store.coverageMax); store.durationMonths = 12; onChange(); });
+  preset6?.addEventListener('click', () => {
+    applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel });
+    onChange();
+    void updateHUD();
+  });
+  preset12?.addEventListener('click', () => {
+    applyRecentPreset(store, 12, { startMonthInput: startMonth, durationSelect: durationSel });
+    onChange();
+    void updateHUD();
+  });
 
   // --- Status HUD helpers ---
   let __snapshotMeta = null; // cached in-session
@@ -462,6 +470,16 @@ function recentStartMonth(durationMonths, coverageMax) {
   date.setDate(1);
   date.setMonth(date.getMonth() - (durationMonths - 1));
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function applyRecentPreset(state, durationMonths, {
+  startMonthInput,
+  durationSelect,
+} = {}) {
+  state.startMonth = recentStartMonth(durationMonths, state.coverageMax);
+  state.durationMonths = durationMonths;
+  if (startMonthInput) startMonthInput.value = state.startMonth;
+  if (durationSelect) durationSelect.value = String(durationMonths);
 }
 
 export function readModeFromURL() {

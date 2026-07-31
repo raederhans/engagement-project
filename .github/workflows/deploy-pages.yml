@@ -34,6 +34,7 @@ jobs:
       - name: Validate and build
         env:
           VITE_FEATURE_DIARY: '1'
+          VITE_TRACT_CRIME_SNAPSHOT: '1'
         run: npm run validate
 
       - name: Upload GitHub Pages artifact

@@ -35,4 +35,5 @@ jobs:
       - name: Validate data, tests, and production build
         env:
           VITE_FEATURE_DIARY: '1'
+          VITE_TRACT_CRIME_SNAPSHOT: '1'
         run: npm run validate
