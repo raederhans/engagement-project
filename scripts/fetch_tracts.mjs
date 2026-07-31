@@ -21,7 +21,7 @@ export async function runFetchTracts({
     validate: validateAndNormalize,
     onFailure: (message) => console.warn(`[tracts] ${message}`),
   });
-  await writeJsonAtomic(outputFile, data);
+  await writeJsonAtomic(outputFile, data, { space: 0 });
   console.log(`[tracts] Wrote ${outputFile} with ${data.features.length} features from ${sourceUrl}.`);
   return { data, sourceUrl };
 }
