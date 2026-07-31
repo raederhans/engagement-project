@@ -219,6 +219,22 @@ test('atomic JSON writing replaces the destination and leaves no temp file', asy
   assert.deepEqual(await readdir(directory), ['snapshot.json']);
 });
 
+test('atomic JSON writing can keep large published GeoJSON compact', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'engagement-geojson-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const destination = path.join(directory, 'tracts.geojson');
+
+  await writeJsonAtomic(destination, {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: null, properties: { GEOID: '42101000100' } }],
+  }, { space: 0 });
+
+  assert.equal(
+    await readFile(destination, 'utf8'),
+    '{"type":"FeatureCollection","features":[{"type":"Feature","geometry":null,"properties":{"GEOID":"42101000100"}}]}\n',
+  );
+});
+
 test('tract source fetching fails closed instead of treating a stale file as success', async () => {
   const errors = [];
   await assert.rejects(

@@ -212,7 +212,7 @@ export function validateTractCrimeSnapshot(snapshot, tracts) {
   };
 }
 
-export async function writeJsonAtomic(destination, value) {
+export async function writeJsonAtomic(destination, value, { space = 2 } = {}) {
   const directory = path.dirname(destination);
   const temporary = path.join(
     directory,
@@ -220,7 +220,7 @@ export async function writeJsonAtomic(destination, value) {
   );
   await fs.mkdir(directory, { recursive: true });
   try {
-    await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    await fs.writeFile(temporary, `${JSON.stringify(value, null, space)}\n`, 'utf8');
     await fs.rename(temporary, destination);
   } catch (error) {
     await fs.rm(temporary, { force: true }).catch(() => {});
