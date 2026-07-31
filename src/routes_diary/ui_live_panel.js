@@ -204,15 +204,10 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   timeSelect.addEventListener('change', () => handlers.onTimeFilterChange?.(timeSelect.value));
   filterCard.appendChild(timeSelect);
 
-  const historyBtn = createPill('My routes and history (coming soon)', { active: false });
+  const historyBtn = createPill('Open My routes', { active: false });
   historyBtn.style.marginTop = '10px';
   historyBtn.style.width = '100%';
-  historyBtn.style.borderStyle = 'dashed';
-  historyBtn.style.cursor = 'not-allowed';
-  historyBtn.disabled = true;
-  historyBtn.addEventListener('click', () => {
-    console.info('[Diary] My routes and history is not available yet.');
-  });
+  historyBtn.addEventListener('click', () => handlers.onOpenHistory?.());
   filterCard.appendChild(historyBtn);
 
   container.appendChild(filterCard);

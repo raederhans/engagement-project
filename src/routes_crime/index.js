@@ -13,7 +13,7 @@ import {
   upsertSelectedTract,
   clearSelectedTract,
 } from '../map/selection_layers.js';
-import { upsertBufferA } from '../map/buffer_overlay.js';
+import { clearBufferA, clearBufferB, upsertBufferA, upsertBufferB } from '../map/buffer_overlay.js';
 import { hideLegend, initLegend } from '../map/legend.js';
 import { upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
@@ -36,6 +36,8 @@ const CRIME_LAYER_IDS = [
   'unclustered',
   'buffer-a-fill',
   'buffer-a-line',
+  'buffer-b-fill',
+  'buffer-b-line',
 ];
 
 let chartsModulePromise;
@@ -87,9 +89,14 @@ export function createCrimeSynchronousActions({
   });
 }
 
-export async function initCrimeMode(map, { isActive = () => true } = {}) {
+export async function initCrimeMode(map, {
+  isActive = () => true,
+  onCoverageChange = () => {},
+  onPointChange = () => {},
+} = {}) {
   const mapReady = waitForMapReady(map);
   let markerA = null;
+  let markerB = null;
   let tractClickWired = false;
   let districtClickWired = false;
   let active = true;
@@ -99,10 +106,14 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
 
   try {
     await initCoverageAndDefaults();
-  } catch {}
+    onCoverageChange();
+  } catch (error) {
+    onCoverageChange();
+    throw error;
+  }
 
   const center = map.getCenter();
-  store.setCenterFromLngLat(center.lng, center.lat);
+  if (!store.centerLonLat) store.setCenterFromLngLat(center.lng, center.lat);
   const pointsController = wirePoints(map, { getFilters: captureCrimeSnapshot });
   const refreshOwner = createCrimeRefreshOwner({
     readSnapshot: captureCrimeSnapshot,
@@ -138,9 +149,14 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
       per10k,
       center3857,
       centerLonLat,
+      centerB3857,
+      centerBLonLat,
+      addressA,
+      addressB,
       radiusM,
-      timeWindowMonths,
     } = snapshot;
+
+    syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode });
 
     try {
       if (adminLevel === 'tracts') {
@@ -148,10 +164,13 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
           per10k,
           windowStart: start,
           windowEnd: end,
+          types,
           signal,
         });
         if (!isCurrent()) return { applied: false };
         renderTractsChoropleth(map, merged);
+        clearCrimeResultsUnavailable();
+        reconcileCrimeLayerVisibility(map, snapshot);
         if (queryMode === 'tract' && selectedTractGEOID) {
           upsertSelectedTract(map, selectedTractGEOID);
         } else {
@@ -165,6 +184,8 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
         ]);
         if (!isCurrent()) return { applied: false };
         renderDistrictChoropleth(map, merged);
+        clearCrimeResultsUnavailable();
+        reconcileCrimeLayerVisibility(map, snapshot);
         ensureDistrictInteractions();
         if (queryMode === 'district' && selectedDistrictCode) {
           upsertSelectedDistrict(map, selectedDistrictCode);
@@ -176,6 +197,8 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
     } catch (error) {
       if (!isCurrent()) return { applied: false };
       console.warn('Boundary refresh failed:', error);
+      markCrimeResultsUnavailable(map, 'Map and charts are unavailable for the current filters. Try again.');
+      return { applied: false };
     }
 
     if (!isCurrent()) return { applied: false };
@@ -190,20 +213,22 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
     jobs.push(updateCharts(snapshot, { signal, shouldApply: isCurrent }));
     if (center3857) {
       jobs.push(updateCompare({
+        start,
+        end,
         types,
         center3857,
+        centerB3857,
+        addressA,
+        addressB,
         radiusM,
-        timeWindowMonths,
         adminLevel,
+        per10k,
       }, { signal, shouldApply: isCurrent }));
     }
     const results = await Promise.allSettled(jobs);
     if (!isCurrent()) return { applied: false };
     for (const result of results) {
       if (result.status === 'rejected') console.warn('Crime dashboard refresh failed:', result.reason);
-    }
-    if (queryMode === 'buffer' && centerLonLat) {
-      upsertBufferA(map, { centerLonLat, radiusM });
     }
     return { applied: true };
   }
@@ -228,6 +253,27 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
   function ensureDistrictInteractions() {
     if (!hoverCleanup) hoverCleanup = attachHover(map, 'districts-fill');
     if (!popupCleanup) popupCleanup = attachDistrictPopup(map, 'districts-fill');
+  }
+
+  function syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode }) {
+    if (queryMode !== 'buffer') {
+      removeBufferOverlay(map);
+      markerA?.remove();
+      markerB?.remove();
+      markerA = null;
+      markerB = null;
+      return;
+    }
+    if (centerLonLat) {
+      markerA ||= createMapMarker({ color: '#0284c7' });
+      markerA.setLngLat(centerLonLat).addTo(map);
+      upsertBufferA(map, { centerLonLat, radiusM });
+    }
+    if (centerBLonLat) {
+      markerB ||= createMapMarker({ color: '#dc2626' });
+      markerB.setLngLat(centerBLonLat).addTo(map);
+      upsertBufferB(map, { centerLonLat: centerBLonLat, radiusM });
+    }
   }
 
   async function ensureTractOutline({ signal, isCurrent }) {
@@ -262,13 +308,20 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
 
   map.on('click', (event) => {
     if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
-    store.setCenterFromLngLat(event.lngLat.lng, event.lngLat.lat);
-    markerA ||= createMapMarker({ color: '#ef4444' });
-    markerA.setLngLat(event.lngLat).addTo(map);
-    upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
+    const target = store.selectTarget === 'B' ? 'B' : 'A';
+    store.setComparisonPoint(target, event.lngLat.lng, event.lngLat.lat, `Map point ${target}`);
+    onPointChange(target);
+    syncComparisonOverlays({
+      centerLonLat: store.centerLonLat,
+      centerBLonLat: store.centerBLonLat,
+      radiusM: store.radius,
+      queryMode: store.queryMode,
+    });
     store.selectMode = 'idle';
-    const button = document.getElementById('useCenterBtn');
-    if (button) button.textContent = 'Select on map';
+    for (const id of ['useCenterBtn', 'usePointBBtn']) {
+      const button = document.getElementById(id);
+      if (button) button.textContent = 'Map';
+    }
     const hint = document.getElementById('useMapHint');
     if (hint) hint.style.display = 'none';
     document.body.style.cursor = '';
@@ -283,10 +336,9 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
       active = Boolean(next);
       refreshOwner.setActive(active);
       pointsController.setActive(active);
-      for (const layerId of CRIME_LAYER_IDS) {
-        if (map.getLayer(layerId)) {
-          map.setLayoutProperty(layerId, 'visibility', active ? activeLayerVisibility(layerId) : 'none');
-        }
+      if (active) reconcileCrimeLayerVisibility(map, store);
+      else for (const layerId of CRIME_LAYER_IDS) {
+        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
       }
       if (active) {
         if (store.centerLonLat) {
@@ -296,7 +348,9 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
       } else {
         pointsController.clear();
         markerA?.remove();
+        markerB?.remove();
         markerA = null;
+        markerB = null;
         hideLegend();
         hideTractsOutlineBanner();
         hoverCleanup?.();
@@ -309,29 +363,72 @@ export async function initCrimeMode(map, { isActive = () => true } = {}) {
   };
 }
 
-function activeLayerVisibility(layerId) {
+export function reconcileCrimeLayerVisibility(map, state = store) {
+  for (const layerId of CRIME_LAYER_IDS) {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(layerId, 'visibility', activeLayerVisibility(layerId, state));
+    }
+  }
+}
+
+export function markCrimeResultsUnavailable(map, message, documentRef = globalThis.document) {
+  for (const layerId of CRIME_LAYER_IDS) {
+    if (layerId.startsWith('buffer-')) continue;
+    if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
+  }
+  hideLegend();
+  for (const id of ['charts', 'compare-card']) {
+    const element = documentRef?.getElementById?.(id);
+    if (element) {
+      element.style.opacity = '0.35';
+      element.style.pointerEvents = 'none';
+    }
+  }
+  let status = documentRef?.getElementById?.('crime-results-status');
+  if (!status && documentRef?.createElement) {
+    status = documentRef.createElement('div');
+    status.id = 'crime-results-status';
+    status.setAttribute('role', 'status');
+    documentRef.getElementById?.('sidepanel')?.prepend(status);
+  }
+  if (status) {
+    status.textContent = message;
+    status.style.display = 'block';
+  }
+}
+
+function clearCrimeResultsUnavailable(documentRef = globalThis.document) {
+  for (const id of ['charts', 'compare-card']) {
+    const element = documentRef?.getElementById?.(id);
+    if (element) {
+      element.style.opacity = '';
+      element.style.pointerEvents = '';
+    }
+  }
+  const status = documentRef?.getElementById?.('crime-results-status');
+  if (status) status.style.display = 'none';
+}
+
+function activeLayerVisibility(layerId, state) {
   if (layerId === 'tracts-outline-line') {
-    return store.overlayTractsLines ? 'visible' : 'none';
+    return state.overlayTractsLines ? 'visible' : 'none';
   }
   if (layerId === 'tracts-fill' || layerId.startsWith('tracts-selected-')) {
-    return store.adminLevel === 'tracts' ? 'visible' : 'none';
+    return state.adminLevel === 'tracts' ? 'visible' : 'none';
   }
   if (layerId.startsWith('districts-')) {
-    return store.adminLevel === 'tracts' ? 'none' : 'visible';
+    return state.adminLevel === 'tracts' ? 'none' : 'visible';
   }
   if (layerId.startsWith('buffer-a-')) {
-    return store.queryMode === 'buffer' && store.centerLonLat ? 'visible' : 'none';
+    return state.queryMode === 'buffer' && state.centerLonLat ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('buffer-b-')) {
+    return state.queryMode === 'buffer' && state.centerBLonLat ? 'visible' : 'none';
   }
   return 'visible';
 }
 
 function removeBufferOverlay(map) {
-  for (const id of ['buffer-a-fill', 'buffer-a-line']) {
-    if (map.getLayer(id)) {
-      try { map.removeLayer(id); } catch {}
-    }
-  }
-  if (map.getSource('buffer-a')) {
-    try { map.removeSource('buffer-a'); } catch {}
-  }
+  clearBufferA(map);
+  clearBufferB(map);
 }

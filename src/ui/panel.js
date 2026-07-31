@@ -1,9 +1,13 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
-import { setViewMode, onViewModeChange } from '../state/store.js';
+import { normalizeCoverageWindow, setAnalysisMode, setViewMode, onViewModeChange } from '../state/store.js';
 import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
+import { createLatestGeocodeOwner } from '../api/geocoder.js';
+import { CRIME_VIEW_QUERY_KEYS, encodeCrimeViewState } from '../state/crime_view_state.js';
+import { getLastComparison } from '../compare/card.js';
+import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../utils/export_analysis.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -35,6 +39,11 @@ export function initPanel(store, handlers) {
     crimeShell.appendChild(fragment);
     panelRoot.appendChild(crimeShell);
   }
+
+  const compareCard = document.getElementById('compare-card');
+  const chartsPanel = document.getElementById('charts');
+  if (compareCard && compareCard.parentElement !== crimeShell) crimeShell.appendChild(compareCard);
+  if (chartsPanel && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
 
   let diaryShell = panelRoot.querySelector('[data-panel-view="diary"]');
   if (!diaryShell) {
@@ -135,23 +144,32 @@ export function initPanel(store, handlers) {
   updateModeButtons(store.viewMode || 'crime');
 
   const addrA = document.getElementById('addrA');
+  const addrB = document.getElementById('addrB');
+  const searchABtn = document.getElementById('searchABtn');
+  const searchBBtn = document.getElementById('searchBBtn');
   const useCenterBtn = document.getElementById('useCenterBtn');
+  const usePointBBtn = document.getElementById('usePointBBtn');
   const useMapHint = document.getElementById('useMapHint');
+  const addressStatus = document.getElementById('addressStatus');
+  const geocodeOwner = createLatestGeocodeOwner();
   const queryModeSel = document.getElementById('queryModeSel');
   const queryModeHelp = document.getElementById('queryModeHelp');
   const clearSelBtn = document.getElementById('clearSelBtn');
   const bufferSelectRow = document.getElementById('bufferSelectRow');
   const bufferRadiusRow = document.getElementById('bufferRadiusRow');
   const radiusSel = document.getElementById('radiusSel');
-  const twSel = document.getElementById('twSel');
   const groupSel = document.getElementById('groupSel');
   const fineSel = document.getElementById('fineSel');
-  const adminSel = document.getElementById('adminSel');
   const rateSel = document.getElementById('rateSel');
+  const rateRow = document.getElementById('rateRow');
+  const dataStatus = document.getElementById('dataStatus');
   const startMonth = document.getElementById('startMonth');
   const durationSel = document.getElementById('durationSel');
   const preset6 = document.getElementById('preset6');
   const preset12 = document.getElementById('preset12');
+  const shareViewBtn = document.getElementById('shareViewBtn');
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
   // Status HUD container (under header)
@@ -176,27 +194,73 @@ export function initPanel(store, handlers) {
     if (!store.selectedDrilldownCodes || store.selectedDrilldownCodes.length === 0) {
       store.selectedTypes = expandGroupsToCodes(store.selectedGroups || []);
     }
+    writeCrimeStateToURL(store);
     handlers.onChange?.();
   }, 300);
 
-  addrA?.addEventListener('input', () => {
-    store.addressA = addrA.value;
-    onChange();
+  addrA?.addEventListener('input', () => geocodeOwner.cancel('A'));
+  addrB?.addEventListener('input', () => geocodeOwner.cancel('B'));
+  onViewModeChange((mode) => {
+    if (mode !== 'crime') geocodeOwner.cancelAll();
   });
 
-  useCenterBtn?.addEventListener('click', () => {
+  function beginMapSelection(target) {
     if (store.selectMode !== 'point') {
       store.selectMode = 'point';
-      useCenterBtn.textContent = 'Cancel';
+      store.selectTarget = target;
+      if (target === 'A' && useCenterBtn) useCenterBtn.textContent = 'Cancel';
+      if (target === 'B' && usePointBBtn) usePointBBtn.textContent = 'Cancel';
       if (useMapHint) useMapHint.style.display = 'block';
       document.body.style.cursor = 'crosshair';
     } else {
       store.selectMode = 'idle';
-      useCenterBtn.textContent = 'Select on map';
+      if (useCenterBtn) useCenterBtn.textContent = 'Map';
+      if (usePointBBtn) usePointBBtn.textContent = 'Map';
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
-  });
+  }
+  useCenterBtn?.addEventListener('click', () => beginMapSelection('A'));
+  usePointBBtn?.addEventListener('click', () => beginMapSelection('B'));
+
+  async function resolveAddress(target) {
+    const input = target === 'B' ? addrB : addrA;
+    const button = target === 'B' ? searchBBtn : searchABtn;
+    if (!input) return;
+    const draft = input.value.trim();
+    button?.setAttribute('disabled', '');
+    if (addressStatus) {
+      addressStatus.style.display = 'block';
+      addressStatus.style.color = '#475569';
+      addressStatus.textContent = `Finding point ${target}…`;
+    }
+    try {
+      const owned = await geocodeOwner.resolve(target, draft, {
+        shouldCommit: () => store.viewMode === 'crime' && input.value.trim() === draft,
+      });
+      if (!owned.applied) return;
+      const { result } = owned;
+      input.value = result.address;
+      store.setComparisonPoint(target, ...result.lngLat, result.address);
+      if (addressStatus) {
+        addressStatus.style.color = '#065f46';
+        addressStatus.textContent = `Point ${target}: ${result.address}`;
+      }
+      handlers.onAddressResolved?.(target, result);
+      onChange();
+    } catch (error) {
+      if (addressStatus) {
+        addressStatus.style.color = '#991b1b';
+        addressStatus.textContent = error?.message || String(error);
+      }
+    } finally {
+      if (!geocodeOwner.isPending(target)) button?.removeAttribute('disabled');
+    }
+  }
+  searchABtn?.addEventListener('click', () => void resolveAddress('A'));
+  searchBBtn?.addEventListener('click', () => void resolveAddress('B'));
+  addrA?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('A'); });
+  addrB?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('B'); });
 
   const radiusImmediate = () => {
     store.radius = Number(radiusSel.value) || 400;
@@ -206,14 +270,10 @@ export function initPanel(store, handlers) {
   radiusSel?.addEventListener('change', radiusImmediate);
   radiusSel?.addEventListener('input', radiusImmediate);
 
-  twSel?.addEventListener('change', () => {
-    store.timeWindowMonths = Number(twSel.value) || 6;
-    onChange();
-  });
-
-  async function populateDrilldown(values) {
+  async function populateDrilldown(values, { preserveSelection = false } = {}) {
+    const requestedCodes = preserveSelection ? [...(store.selectedDrilldownCodes || [])] : [];
     store.selectedGroups = values;
-    store.selectedDrilldownCodes = []; // Clear drilldown when parent groups change
+    if (!preserveSelection) store.selectedDrilldownCodes = [];
 
     // populate drilldown options (filtered by time window availability)
     if (fineSel) {
@@ -235,7 +295,13 @@ export function initPanel(store, handlers) {
           } else {
             for (const c of availableCodes) {
               const opt = document.createElement('option');
-              opt.value = c; opt.textContent = c; fineSel.appendChild(opt);
+              opt.value = c;
+              opt.textContent = c;
+              opt.selected = requestedCodes.includes(c);
+              fineSel.appendChild(opt);
+            }
+            if (preserveSelection) {
+              store.selectedDrilldownCodes = requestedCodes.filter((code) => availableCodes.includes(code));
             }
           }
         } catch (err) {
@@ -260,11 +326,6 @@ export function initPanel(store, handlers) {
   fineSel?.addEventListener('change', () => {
     const codes = Array.from(fineSel.selectedOptions).map((o) => o.value);
     store.selectedDrilldownCodes = codes; // Drilldown overrides parent groups
-    onChange();
-  });
-
-  adminSel?.addEventListener('change', () => {
-    store.adminLevel = adminSel.value;
     onChange();
   });
 
@@ -312,6 +373,8 @@ export function initPanel(store, handlers) {
     if (bufferRadiusRow) bufferRadiusRow.style.display = isBuffer ? '' : 'none';
     if (useMapHint) useMapHint.style.display = (isBuffer && store.selectMode === 'point') ? 'block' : 'none';
     if (clearSelBtn) clearSelBtn.style.display = isBuffer ? 'none' : '';
+    if (rateRow) rateRow.style.display = mode === 'tract' ? 'flex' : 'none';
+    if (rateSel) rateSel.disabled = mode !== 'tract';
     if (queryModeHelp) {
       queryModeHelp.textContent = (
         mode === 'buffer'
@@ -325,28 +388,9 @@ export function initPanel(store, handlers) {
 
   // Mode selection
   queryModeSel?.addEventListener('change', () => {
-    const old = store.queryMode;
     const mode = queryModeSel.value;
-    store.queryMode = mode;
-    if (mode === 'buffer') {
-      // keep center/radius; clear polygon selections
-      store.selectedDistrictCode = null;
-      store.selectedTractGEOID = null;
-    } else if (mode === 'district') {
-      // clear buffer; clear tract selection
-      store.center3857 = null; store.centerLonLat = null; store.selectMode = 'idle';
-      store.selectedTractGEOID = null;
-    } else if (mode === 'tract') {
-      // clear buffer; clear district selection
-      store.center3857 = null; store.centerLonLat = null; store.selectMode = 'idle';
-      store.selectedDistrictCode = null;
-      // One-time auto-align admin level to 'tracts'
-      if (!store.didAutoAlignAdmin && store.adminLevel !== 'tracts') {
-        store.adminLevel = 'tracts';
-        if (adminSel) adminSel.value = 'tracts';
-        store.didAutoAlignAdmin = true;
-      }
-    }
+    setAnalysisMode(mode);
+    if (mode !== 'buffer') store.selectMode = 'idle';
     applyModeUI();
     onChange();
     updateHUD();
@@ -364,7 +408,8 @@ export function initPanel(store, handlers) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && store.selectMode === 'point') {
       store.selectMode = 'idle';
-      if (useCenterBtn) useCenterBtn.textContent = 'Select on map';
+      if (useCenterBtn) useCenterBtn.textContent = 'Map';
+      if (usePointBBtn) usePointBBtn.textContent = 'Map';
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
@@ -372,8 +417,8 @@ export function initPanel(store, handlers) {
 
   // initialize defaults
   if (radiusSel) radiusSel.value = String(store.radius || 400);
-  if (twSel) twSel.value = String(store.timeWindowMonths || 6);
-  if (adminSel) adminSel.value = String(store.adminLevel || 'districts');
+  if (addrA) addrA.value = store.addressA || '';
+  if (addrB) addrB.value = store.addressB || '';
   if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
   if (queryModeSel) queryModeSel.value = store.queryMode || 'buffer';
   if (startMonth && store.startMonth) startMonth.value = store.startMonth;
@@ -382,13 +427,14 @@ export function initPanel(store, handlers) {
   // Clarify overlay label + tooltip
   if (overlayLabel) {
     overlayLabel.textContent = 'Show tract boundaries (outlines)';
-    const tip = 'Outlines only. To see tract data (choropleth), set Admin Level = Tracts. Citywide crime fill appears when a last-12-months snapshot is present and the time window matches it.';
+    const tip = 'Outlines only. Choose Census Tract mode to see tract data. Citywide crime fill appears when the validated snapshot matches the selected time window.';
     overlayLabel.title = tip; overlayTractsChk.title = tip;
   }
   if (classMethodSel) classMethodSel.value = store.classMethod || 'quantile';
   if (classBinsRange) classBinsRange.value = String(store.classBins || 5);
   if (classPaletteSel) classPaletteSel.value = store.classPalette || 'Blues';
   if (classOpacityRange) classOpacityRange.value = String(store.classOpacity || 0.75);
+  if (classCustomInput) classCustomInput.value = (store.classCustomBreaks || []).join(',');
   syncClassUI();
 
   // Initialize drilldown select (disabled until groups are selected)
@@ -397,18 +443,32 @@ export function initPanel(store, handlers) {
     fineSel.disabled = true;
   }
 
+  if (groupSel && store.selectedGroups?.length) {
+    for (const option of groupSel.options) option.selected = store.selectedGroups.includes(option.value);
+  }
+
   applyModeUI();
 
   // Init-time populate: if groups preselected, populate drilldown immediately
   if (groupSel) {
     const initGroups = Array.from(groupSel.selectedOptions).map(o => o.value);
     if (initGroups.length > 0) {
-      populateDrilldown(initGroups).then(() => onChange());
+      populateDrilldown(initGroups, { preserveSelection: true }).then(() => onChange());
     }
   }
 
-  startMonth?.addEventListener('change', () => { store.startMonth = startMonth.value || null; onChange(); });
-  durationSel?.addEventListener('change', () => { store.durationMonths = Number(durationSel.value) || 6; onChange(); });
+  startMonth?.addEventListener('change', () => {
+    store.startMonth = startMonth.value || null;
+    normalizeCoverageWindow(store);
+    syncFromStore();
+    onChange();
+  });
+  durationSel?.addEventListener('change', () => {
+    store.durationMonths = Number(durationSel.value) || 6;
+    normalizeCoverageWindow(store);
+    syncFromStore();
+    onChange();
+  });
   preset6?.addEventListener('click', () => {
     applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel });
     onChange();
@@ -419,6 +479,43 @@ export function initPanel(store, handlers) {
     onChange();
     void updateHUD();
   });
+
+  shareViewBtn?.addEventListener('click', async () => {
+    writeCrimeStateToURL(store);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      shareViewBtn.textContent = 'Copied';
+      setTimeout(() => { shareViewBtn.textContent = 'Copy view'; }, 1500);
+    } catch {
+      shareViewBtn.textContent = 'URL updated';
+    }
+  });
+
+  function currentExport() {
+    const filters = store.getFilters();
+    if (store.coverageStatus !== 'ready') throw new Error('Live crime coverage is not ready for export.');
+    return buildAnalysisExport({ filters, comparison: getLastComparison(filters) });
+  }
+  exportJsonBtn?.addEventListener('click', () => {
+    try {
+      downloadTextFile('engagement-analysis.json', `${JSON.stringify(currentExport(), null, 2)}\n`, 'application/json');
+    } catch (error) {
+      showExportError(error);
+    }
+  });
+  exportCsvBtn?.addEventListener('click', () => {
+    try {
+      downloadTextFile('engagement-comparison.csv', analysisExportToCsv(currentExport()), 'text/csv;charset=utf-8');
+    } catch (error) {
+      showExportError(error);
+    }
+  });
+
+  function showExportError(error) {
+    if (!dataStatus) return;
+    dataStatus.dataset.tone = 'error';
+    dataStatus.textContent = error?.message || 'Export is unavailable.';
+  }
 
   // --- Status HUD helpers ---
   let __snapshotMeta = null; // cached in-session
@@ -432,7 +529,12 @@ export function initPanel(store, handlers) {
     try {
       const snap = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 5 * 60_000, retries: 0, timeoutMs: 1500 });
       if (snap?.meta?.start && snap?.meta?.end) {
-        __snapshotMeta = { start: snap.meta.start, end: snap.meta.end };
+        __snapshotMeta = {
+          start: snap.meta.start,
+          end: snap.meta.end,
+          generatedAt: snap.meta.generated_at || null,
+          coverageDate: snap.meta.coverage_date || null,
+        };
       } else {
         __snapshotMeta = undefined;
       }
@@ -455,14 +557,57 @@ export function initPanel(store, handlers) {
     const admin = store.adminLevel || 'districts';
     const charts = (mode === 'tract' && !!store.selectedTractGEOID) ? 'Online' : (mode === 'buffer' ? (store.center3857 ? 'Online' : 'Idle') : 'Online');
     const meta = await ensureSnapshotMeta();
-    const snapPresent = meta ? 'Present' : 'Absent';
-    const match = meta ? (windowMatch(meta) ? 'Yes' : 'No') : 'No';
-    hudEl.textContent = `Mode: ${mode} | Admin: ${admin} | Charts: ${charts} | Snapshot: ${snapPresent} | Window match: ${match}`;
+    const snapshotDate = meta?.coverageDate || meta?.generatedAt?.slice(0, 10) || 'unavailable';
+    const match = meta && windowMatch(meta) ? 'matches selected window' : 'does not match selected window';
+    hudEl.textContent = `Mode: ${mode} · Geography: ${admin} · Charts: ${charts}. Crime: live CARTO API. Boundaries and ACS: API-first with published fallback. Tract snapshot: ${snapshotDate} (${match}).`;
   }
 
+  function syncFromStore() {
+    if (queryModeSel) queryModeSel.value = store.queryMode || 'buffer';
+    if (addrA) addrA.value = store.addressA || '';
+    if (addrB) addrB.value = store.addressB || '';
+    if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
+    if (startMonth) startMonth.value = store.startMonth || '';
+    if (startMonth) {
+      startMonth.min = store.coverageMin?.slice(0, 7) || '';
+      startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
+    }
+    if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    if (dataStatus) {
+      const status = describeCoverageStatus(store);
+      dataStatus.dataset.tone = status.tone;
+      dataStatus.textContent = status.text;
+      dataStatus.style.background = status.tone === 'error' ? '#fef2f2' : status.tone === 'ready' ? '#ecfdf5' : '#f1f5f9';
+      dataStatus.style.color = status.tone === 'error' ? '#991b1b' : status.tone === 'ready' ? '#065f46' : '#475569';
+    }
+    const exportReady = store.coverageStatus === 'ready';
+    if (exportJsonBtn) exportJsonBtn.disabled = !exportReady;
+    if (exportCsvBtn) exportCsvBtn.disabled = !exportReady;
+    applyModeUI();
+    writeCrimeStateToURL(store);
+    void updateHUD();
+  }
+
+  syncFromStore();
   void updateHUD();
 
-  return { diaryMount: diaryShell };
+  return { diaryMount: diaryShell, syncFromStore };
+}
+
+export function describeCoverageStatus(state) {
+  if (state.coverageStatus === 'error') {
+    return {
+      tone: 'error',
+      text: state.coverageError || 'Crime coverage is unavailable.',
+    };
+  }
+  if (state.coverageStatus === 'ready') {
+    return {
+      tone: 'ready',
+      text: `Live crime coverage: ${state.coverageMin || 'unknown'} to ${state.coverageMax}${state.coverageNotice ? ` · ${state.coverageNotice}` : ''}`,
+    };
+  }
+  return { tone: 'loading', text: 'Connecting to live crime data…' };
 }
 
 function recentStartMonth(durationMonths, coverageMax) {
@@ -495,4 +640,16 @@ export function writeModeToURL(mode) {
   const query = params.toString();
   const newUrl = `${window.location.pathname}?${query}${window.location.hash || ''}`;
   window.history.replaceState({}, '', newUrl);
+}
+
+export function writeCrimeStateToURL(state) {
+  if (typeof window === 'undefined' || typeof window.history === 'undefined') return;
+  const current = new URLSearchParams(window.location.search || '');
+  const crime = new URLSearchParams(encodeCrimeViewState(state));
+  const mode = current.get('mode');
+  for (const key of CRIME_VIEW_QUERY_KEYS) current.delete(key);
+  for (const [key, value] of crime) current.set(key, value);
+  if (mode) current.set('mode', mode);
+  const query = current.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}?${query}${window.location.hash || ''}`);
 }

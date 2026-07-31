@@ -69,7 +69,43 @@ test('tract count SQL keeps geometry and envelope in EPSG 4326', () => {
 
   assert.match(sql, /the_geom && ST_MakeEnvelope\(-75\.2, 39\.9, -75\.1, 40, 4326\)/);
   assert.match(sql, /ST_Intersects\(the_geom, ST_SetSRID\(ST_GeomFromGeoJSON/);
+  assert.match(sql, /SELECT text_general_code, COUNT\(\*\)::int AS n/);
+  assert.match(sql, /GROUP BY text_general_code/);
   assert.doesNotMatch(sql, /ST_Transform/);
+});
+
+test('snapshot creation preserves filterable offense counts for every tract', () => {
+  const snapshot = createTractCrimeSnapshot({
+    tracts: prepareTracts(tractCollection),
+    counts: [
+      {
+        geoid: '42101000100',
+        offenses: [
+          { code: 'Robbery Firearm', n: 2 },
+          { code: 'Theft', n: 5 },
+        ],
+      },
+      {
+        geoid: '42101000200',
+        offenses: [{ code: 'Theft', n: 4 }],
+      },
+    ],
+    coverageDate: '2026-07-31',
+    generatedAt: '2026-07-31T01:00:00.000Z',
+    sourceUrl: 'https://example.test/sql',
+    tractSource: 'public/data/tracts_phl.geojson',
+  });
+
+  assert.equal(snapshot.meta.schema_version, 2);
+  assert.equal(snapshot.meta.filter_dimension, 'text_general_code');
+  assert.deepEqual(snapshot.rows[0], {
+    geoid: '42101000100',
+    total: 7,
+    offenses: [
+      { code: 'Robbery Firearm', n: 2 },
+      { code: 'Theft', n: 5 },
+    ],
+  });
 });
 
 test('tract preparation sorts valid GEOIDs', () => {
@@ -93,7 +129,10 @@ test('snapshot creation rejects incomplete count results', () => {
   assert.throws(
     () => createTractCrimeSnapshot({
       tracts: prepareTracts(tractCollection),
-      counts: [{ geoid: '42101000100', n: 7 }],
+      counts: [{
+        geoid: '42101000100',
+        offenses: [{ code: 'Theft', n: 7 }],
+      }],
       coverageDate: '2026-07-31',
       generatedAt: '2026-07-31T01:00:00.000Z',
       sourceUrl: 'https://example.test/sql',
@@ -107,8 +146,8 @@ test('snapshot creation emits sorted provenance and row-count metadata', () => {
   const snapshot = createTractCrimeSnapshot({
     tracts: prepareTracts(tractCollection),
     counts: [
-      { geoid: '42101000200', n: 4 },
-      { geoid: '42101000100', n: 7 },
+      { geoid: '42101000200', offenses: [{ code: 'Theft', n: 4 }] },
+      { geoid: '42101000100', offenses: [{ code: 'Theft', n: 7 }] },
     ],
     coverageDate: '2026-07-31',
     generatedAt: '2026-07-31T01:00:00.000Z',
@@ -117,7 +156,7 @@ test('snapshot creation emits sorted provenance and row-count metadata', () => {
   });
 
   assert.deepEqual(snapshot.meta, {
-    schema_version: 1,
+    schema_version: 2,
     source_url: 'https://example.test/sql',
     source_dataset: 'incidents_part1_part2',
     tract_source: 'public/data/tracts_phl.geojson',
@@ -126,10 +165,11 @@ test('snapshot creation emits sorted provenance and row-count metadata', () => {
     end: '2026-08-01',
     generated_at: '2026-07-31T01:00:00.000Z',
     row_count: 2,
+    filter_dimension: 'text_general_code',
   });
   assert.deepEqual(snapshot.rows, [
-    { geoid: '42101000100', n: 7 },
-    { geoid: '42101000200', n: 4 },
+    { geoid: '42101000100', total: 7, offenses: [{ code: 'Theft', n: 7 }] },
+    { geoid: '42101000200', total: 4, offenses: [{ code: 'Theft', n: 4 }] },
   ]);
 });
 
@@ -138,8 +178,8 @@ test('snapshot validation rejects metadata or rows that no longer match the trac
   const snapshot = createTractCrimeSnapshot({
     tracts,
     counts: [
-      { geoid: '42101000100', n: 7 },
-      { geoid: '42101000200', n: 4 },
+      { geoid: '42101000100', offenses: [{ code: 'Theft', n: 7 }] },
+      { geoid: '42101000200', offenses: [{ code: 'Theft', n: 4 }] },
     ],
     coverageDate: '2026-07-31',
     generatedAt: '2026-07-31T01:00:00.000Z',
@@ -180,14 +220,14 @@ test('count collection respects its concurrency bound', async () => {
       maxActive = Math.max(maxActive, active);
       await Promise.resolve();
       active -= 1;
-      return geoid.endsWith('100') ? 7 : 4;
+      return [{ text_general_code: 'Theft', n: geoid.endsWith('100') ? 7 : 4 }];
     },
   });
 
   assert.equal(maxActive, 1);
   assert.deepEqual(counts, [
-    { geoid: '42101000100', n: 7 },
-    { geoid: '42101000200', n: 4 },
+    { geoid: '42101000100', offenses: [{ code: 'Theft', n: 7 }] },
+    { geoid: '42101000200', offenses: [{ code: 'Theft', n: 4 }] },
   ]);
 });
 
@@ -197,7 +237,7 @@ test('count collection rejects the whole run when one tract fails', async () => 
       concurrency: 2,
       queryCount: async ({ geoid }) => {
         if (geoid === '42101000200') throw new Error('upstream unavailable');
-        return 7;
+        return [{ text_general_code: 'Theft', n: 7 }];
       },
     }),
     /42101000200.*upstream unavailable/i,

@@ -11,7 +11,7 @@ import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from
 import { DIARY_ROUTES_URL, DIARY_SEGMENTS_URL, HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { escapeHtml } from '../utils/html.js';
-import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId, setDiaryCommunityRadiusMeters } from '../state/store.js';
+import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId } from '../state/store.js';
 import {
   DIARY_SEGMENTS_SOURCE_ID,
   DIARY_ROUTE_PRIMARY_SOURCE_ID,
@@ -33,6 +33,7 @@ import {
   ROUTE_TO_PROP,
   ROUTE_ID_PROP,
   TAGS_PROP,
+  extractLineCoordinates,
 } from './data_normalization.js';
 import { renderLiveRoutePanel } from './ui_live_panel.js';
 import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
@@ -48,6 +49,15 @@ import {
   createDiaryInsightsPort,
 } from './diary_insights_port.js';
 import { createDiaryAggregation } from './local_aggregation.js';
+import {
+  createDiaryEntry,
+  diaryLocalRepository,
+  parseDiaryBackup,
+  serializeDiaryBackup,
+} from './local_repository.js';
+import { downloadTextFile } from '../utils/export_analysis.js';
+import { resolveAlternativeForRoute, summarizeAlternativeBenefit } from './alternative_route.js';
+import { buildSimulationCoordinates } from './route_simulator.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
@@ -60,13 +70,6 @@ const ROUTE_URL_CANDIDATES = [
   new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
   publicUrl('data/routes_phl.demo.geojson'),
 ].filter(Boolean);
-
-const DEMO_HISTORY_ROUTES = [
-  { id: 'hist_001', date: 'Nov 24', label: 'Penn Campus → 9th & Christian', mode: 'bike', score: 3.5 },
-  { id: 'hist_002', date: 'Nov 20', label: '30th St Station → Art Museum', mode: 'bike', score: 4.2 },
-  { id: 'hist_003', date: 'Nov 15', label: 'South St → Market St', mode: 'walk', score: 2.6 },
-  { id: 'hist_004', date: 'Nov 10', label: 'Rittenhouse → Passyunk', mode: 'bike', score: 4.6 },
-];
 
 const DEMO_COMMUNITY_SEGMENTS = [
   { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tags: 'poor lighting, aggressive drivers' },
@@ -127,6 +130,10 @@ let networkStyleCleanup = null;
 let currentDiarySession = null;
 let currentDiaryOwnerIsCurrent = () => false;
 let currentInsightsPort = null;
+let localRepository = diaryLocalRepository;
+let localDiaryEntries = [];
+let localStorageWarning = null;
+let refreshDiaryPanel = null;
 let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -498,7 +505,7 @@ function ensureDiaryPanel(routes, options = {}) {
   const pills = [
     makePill('Live route', 'live'),
     makePill('My routes', 'history'),
-    makePill('Community', 'community'),
+    makePill('Sample community', 'community'),
   ];
   pills.forEach((p) => viewSwitcher.appendChild(p.btn));
   diaryPanelEl.appendChild(viewSwitcher);
@@ -522,7 +529,10 @@ function ensureDiaryPanel(routes, options = {}) {
         {
           period: historyPeriodFilter,
           mode: historyModeFilter,
-          routes: DEMO_HISTORY_ROUTES.filter((item) => historyModeFilter === 'all' || item.mode === historyModeFilter),
+          routes: filterLocalDiaryEntries(localDiaryEntries, {
+            period: historyPeriodFilter,
+            mode: historyModeFilter,
+          }),
         },
         {
           onPeriodChange: ownPanelHandler((val) => {
@@ -538,28 +548,35 @@ function ensureDiaryPanel(routes, options = {}) {
             console.info('[Diary] History route selected:', item.id, item.label);
             focusHistoryRouteOnMap(item);
           }),
+          onExport: ownPanelHandler(() => {
+            const backup = serializeDiaryBackup(localDiaryEntries);
+            downloadTextFile(
+              `engagement-diary-${new Date().toISOString().slice(0, 10)}.json`,
+              `${JSON.stringify(backup, null, 2)}\n`,
+              'application/json',
+            );
+          }),
+          onImport: ownPanelHandler(async (file) => {
+            try {
+              const entries = parseDiaryBackup(await file.text());
+              localDiaryEntries = await localRepository.replace(entries);
+              store.myRoutes = localDiaryEntries;
+              currentInsightsPort?.setEntries(localDiaryEntries);
+              currentInsightsPort?.refresh();
+              renderActivePanel();
+              showToast(`Imported ${localDiaryEntries.length} local Diary entr${localDiaryEntries.length === 1 ? 'y' : 'ies'}.`);
+            } catch (error) {
+              showToast(error?.message || 'Diary backup could not be imported.');
+            }
+          }),
         }
       );
     } else if (store.diaryViewMode === 'community') {
       renderCommunityPanel(
         body,
         {
-          radiusMeters: store.diaryCommunityRadiusMeters || 1500,
           segments: DEMO_COMMUNITY_SEGMENTS,
           comments: DEMO_COMMENTS,
-        },
-        {
-          isCurrent: isPanelCurrent,
-          onRadiusChange: ownPanelHandler((val) => {
-            setDiaryCommunityRadiusMeters(val);
-            console.info('[Diary] Community radius changed:', val, 'm');
-          }),
-          onSelectSegment: ownPanelHandler((seg) => {
-            console.info('[Diary] Focus high-concern segment:', seg.id, seg.name);
-          }),
-          onPostComment: ownPanelHandler((text) => {
-            console.info('[Diary] Post community comment:', text);
-          }),
         }
       );
     } else {
@@ -595,6 +612,11 @@ function ensureDiaryPanel(routes, options = {}) {
           }),
           onDemoPeriodChange: ownPanelHandler((val) => setDiaryDemoPeriod(val)),
           onTimeFilterChange: ownPanelHandler((val) => setDiaryTimeFilter(val)),
+          onOpenHistory: ownPanelHandler(() => {
+            setDiaryViewMode('history');
+            currentInsightsPort?.setViewContext('history');
+            renderActivePanel();
+          }),
         }
       );
       routeSelectEl = refs.routeSelectEl || null;
@@ -627,7 +649,21 @@ function ensureDiaryPanel(routes, options = {}) {
   };
 
   currentInsightsPort?.setViewContext(store.diaryViewMode);
+  currentInsightsPort?.setEntries(localDiaryEntries);
+  refreshDiaryPanel = renderActivePanel;
   renderActivePanel();
+}
+
+export function filterLocalDiaryEntries(entries = [], { period = '30d', mode = 'all', now = Date.now() } = {}) {
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : null;
+  const cutoff = days == null ? null : now - days * 24 * 60 * 60 * 1000;
+  return entries
+    .filter((entry) => mode === 'all' || entry.mode === mode)
+    .filter((entry) => cutoff == null || new Date(entry.createdAt).getTime() >= cutoff)
+    .map((entry) => ({
+      ...entry,
+      date: new Date(entry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    }));
 }
 
 function populateRouteOptions(routes) {
@@ -664,8 +700,23 @@ function clearLiveRefs() {
 }
 
 function focusHistoryRouteOnMap(route) {
-  void route;
-  // TODO: hook up map fit to history geometry when data is available
+  const routeId = route?.routeId || route?.route_id;
+  if (routeId && routeById.has(routeId)) {
+    selectRoute(routeId, { fitBounds: true });
+    return;
+  }
+  if (!mapRef || !route?.routeGeometry) return;
+  const feature = {
+    type: 'Feature',
+    geometry: structuredClone(route.routeGeometry),
+    properties: { route_id: routeId || route.id, name: route.label, source_version: route.routeSourceVersion },
+  };
+  drawRouteOverlay(mapRef, DIARY_ROUTE_PRIMARY_SOURCE_ID, feature, {
+    lineColorExpression: '#2563eb',
+    width: 7,
+    opacity: 0.95,
+  });
+  fitMapToRoute(feature);
 }
 
 function renderRouteSummary(route) {
@@ -750,17 +801,6 @@ function fitMapToRoute(route) {
   }
 }
 
-function extractLineCoordinates(geometry) {
-  if (!geometry) return [];
-  if (geometry.type === 'LineString') {
-    return Array.isArray(geometry.coordinates) ? geometry.coordinates : [];
-  }
-  if (geometry.type === 'MultiLineString') {
-    return (geometry.coordinates || []).flat();
-  }
-  return [];
-}
-
 function openRouteRating() {
   if (!currentRoute) return;
   const session = currentDiarySession;
@@ -771,28 +811,61 @@ function openRouteRating() {
     userHash: getUserHash(),
     signal: session?.signal,
     onSuccess: guardDiaryCommit(({ payload, response }) => {
-      handleDiarySubmissionSuccess(payload);
+      handleDiarySubmissionSuccess({ payload, response });
     }, session, ownerIsCurrent),
   });
 }
 
-function handleDiarySubmissionSuccess(payload) {
+export function handleDiarySubmissionSuccess({ payload, response }, {
+  aggregationModel = aggregation,
+  map = mapRef,
+  updateSegments = updateSegmentsData,
+  refreshAlternativeRoute = () => updateAlternativeRoute({ refreshOnly: true }),
+  notify = showToast,
+  notifyPanel = showPanelNotice,
+  highlightSegments = onRouteRatingSuccess,
+  onSegmentsRefreshed,
+  repository = localRepository,
+  routeFeature = currentRoute,
+  onLocalSaved,
+} = {}) {
   if (!payload) return;
-  aggregation.applySubmission(payload);
-  const refreshed = aggregation.buildFeatureCollection();
-  if (refreshed && mapRef) {
-    updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, refreshed);
-    lastLoadedSegments = refreshed;
+  aggregationModel.applySubmission(payload);
+  const refreshed = aggregationModel.buildFeatureCollection();
+  if (refreshed && map) {
+    updateSegments(map, DIARY_SEGMENTS_SOURCE_ID, refreshed);
+    if (onSegmentsRefreshed) onSegmentsRefreshed(refreshed);
+    else lastLoadedSegments = refreshed;
   }
-  updateAlternativeRoute({ refreshOnly: true });
+  refreshAlternativeRoute();
   const persisted = response?.persisted !== false && response?.mode !== 'demo';
-  showToast(persisted
+  notify(persisted
     ? 'Thanks — your feedback has been saved.'
     : 'Thanks — your feedback was applied to this browser demo only.');
   const affectedSegmentIds = deriveAffectedSegmentIds(payload);
   const affectedCount = affectedSegmentIds.size || 1;
-  showPanelNotice(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
-  onRouteRatingSuccess(Array.from(affectedSegmentIds));
+  notifyPanel(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
+  highlightSegments(Array.from(affectedSegmentIds));
+  const entry = createDiaryEntry({ payload, routeFeature });
+  const owningSession = currentDiarySession;
+  void repository.save(entry).then(() => {
+    if (onLocalSaved) {
+      onLocalSaved(entry);
+      return;
+    }
+    if (owningSession && currentDiarySession !== owningSession) return;
+    localDiaryEntries = [entry, ...localDiaryEntries.filter((item) => item.id !== entry.id)];
+    store.myRoutes = localDiaryEntries;
+    currentInsightsPort?.setEntries(localDiaryEntries);
+    currentInsightsPort?.refresh();
+    if (store.diaryViewMode === 'history') refreshDiaryPanel?.();
+    notify('Saved locally on this device.');
+  }).catch((error) => {
+    console.warn('[Diary] Local save failed:', error);
+    if (owningSession && currentDiarySession !== owningSession) return;
+    notify(`Rating applied for this session, but it was not saved locally: ${error?.message || error}`);
+    notifyPanel('Local storage failed. Export is unavailable until a rating can be saved.');
+  });
 }
 
 function deriveAffectedSegmentIds(payload) {
@@ -873,7 +946,9 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
     return;
   }
   const shouldShow = !!store.diaryAltEnabled;
-  const altInfo = resolveAlternativeForRoute(currentRoute);
+  const altInfo = resolveAlternativeForRoute(currentRoute, {
+    getSegment: (id) => segmentLookup.get(id),
+  });
   renderAltSummary(currentRoute, altInfo || null);
   if (!shouldShow || !altInfo) {
     clearRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID);
@@ -893,61 +968,6 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
   }
 }
 
-function resolveAlternativeForRoute(routeFeature) {
-  if (!routeFeature) return null;
-  const props = routeFeature.properties || {};
-  const altIds = Array.isArray(props[ROUTE_ALT_SEG_IDS_PROP]) && props[ROUTE_ALT_SEG_IDS_PROP].length > 0
-    ? props[ROUTE_ALT_SEG_IDS_PROP]
-    : props[ROUTE_SEG_IDS_PROP] || [];
-  const altLength = Number.isFinite(props.alt_length_m) ? props.alt_length_m : props.length_m;
-  const altDuration = Number.isFinite(props.alt_duration_min) ? props.alt_duration_min : props.duration_min;
-  let geometry = props.alt_geometry;
-  if (!geometry && altIds.length > 0) {
-    geometry = buildGeometryFromSegments(altIds);
-  }
-  if (!geometry) return null;
-  return {
-    feature: {
-      type: 'Feature',
-      geometry,
-      properties: {
-        route_id: `${props.route_id || 'route'}_alt`,
-      },
-    },
-    meta: {
-      [ROUTE_SEG_IDS_PROP]: altIds,
-      alt_length_m: Number(altLength),
-      alt_duration_min: Number(altDuration),
-    },
-  };
-}
-
-function buildGeometryFromSegments(segmentIds) {
-  if (!segmentIds || segmentIds.length === 0) return null;
-  const coords = [];
-  segmentIds.forEach((id, idx) => {
-    const feature = segmentLookup.get(id);
-    if (!feature || !feature.geometry) {
-      console.warn('[Diary] Missing geometry for alt segment', id);
-      return;
-    }
-    const lineCoords = extractLineCoordinates(feature.geometry);
-    if (lineCoords.length === 0) return;
-    if (coords.length === 0) {
-      coords.push(...lineCoords);
-    } else {
-      const last = coords[coords.length - 1];
-      const first = lineCoords[0];
-      if (last && first && last[0] === first[0] && last[1] === first[1]) {
-        coords.push(...lineCoords.slice(1));
-      } else {
-        coords.push(...lineCoords);
-      }
-    }
-  });
-  return coords.length >= 2 ? { type: 'LineString', coordinates: coords } : null;
-}
-
 function renderAltSummary(route, altInfo) {
   if (!altSummaryEl) return;
   if (!route) {
@@ -958,7 +978,7 @@ function renderAltSummary(route, altInfo) {
     altSummaryEl.textContent = 'Alternative data unavailable.';
     return;
   }
-  const summary = summarizeAltBenefit(route, altInfo.meta);
+  const summary = summarizeAlternativeBenefit(route, altInfo.meta, { countLowRated });
   if (!summary) {
     altSummaryEl.textContent = 'Alternative data unavailable.';
     return;
@@ -990,26 +1010,6 @@ function applyAltToggleState(enabled, { update = true } = {}) {
   } else {
     updateAlternativeRoute({ refreshOnly: true });
   }
-}
-
-function summarizeAltBenefit(primaryRoute, altMeta) {
-  if (!primaryRoute || !altMeta) return null;
-  const primaryIds = primaryRoute.properties?.[ROUTE_SEG_IDS_PROP] || [];
-  const altIds = altMeta[ROUTE_SEG_IDS_PROP] || [];
-  const primaryLow = countLowRated(primaryIds);
-  const altLow = countLowRated(altIds);
-  const primaryLength = Number(primaryRoute.properties?.length_m) || 0;
-  const altLength = Number(altMeta.alt_length_m ?? primaryLength) || primaryLength;
-  const primaryDuration = Number(primaryRoute.properties?.duration_min) || 0;
-  const altDuration = Number(altMeta.alt_duration_min ?? primaryDuration) || primaryDuration;
-  const overheadPct = primaryLength > 0 ? ((altLength - primaryLength) / primaryLength) * 100 : 0;
-  const deltaMin = Number((altDuration - primaryDuration).toFixed(1));
-  return {
-    pLow: primaryLow,
-    aLow: altLow,
-    overheadPct,
-    deltaMin,
-  };
 }
 
 function countLowRated(segmentIds) {
@@ -1101,38 +1101,13 @@ function ensureSimCoords(route) {
     sim.coords = [];
     return;
   }
-  const base = extractLineCoordinates(route.geometry) || [];
-  const result = [];
-  for (let i = 0; i < base.length; i += 1) {
-    const current = base[i];
-    if (!current) continue;
-    if (result.length === 0) {
-      result.push(current);
-      continue;
-    }
-    const prev = result[result.length - 1];
-    const steps = Math.max(1, Math.ceil(distanceBetween(prev, current) / 0.0002));
-    for (let step = 1; step <= steps; step += 1) {
-      const t = step / steps;
-      const lng = prev[0] + (current[0] - prev[0]) * t;
-      const lat = prev[1] + (current[1] - prev[1]) * t;
-      result.push([lng, lat]);
-    }
-  }
-  sim.coords = result;
+  sim.coords = buildSimulationCoordinates(route.geometry);
   sim.idx = 0;
   sim.routeId = route.properties?.route_id || null;
   sim.active = false;
   sim.paused = true;
   sim.hasStarted = false;
   sim.playedOnce = false;
-}
-
-function distanceBetween(a, b) {
-  if (!a || !b) return 0;
-  const dx = (b[0] - a[0]) * Math.cos(((a[1] + b[1]) / 2) * (Math.PI / 180));
-  const dy = b[1] - a[1];
-  return Math.hypot(dx, dy);
 }
 
 function startSim() {
@@ -1401,7 +1376,7 @@ export async function loadDemoRoutes({ force = false, signal } = {}) {
  */
 export async function initDiaryMode(map, options = {}) {
   const mountTarget = options?.mountInto || null;
-  const stats = { segmentsCount: 0, routesCount: 0 };
+  const stats = { status: 'cancelled', segmentsCount: 0, routesCount: 0 };
   if (options?.signal?.aborted) return stats;
   currentDiarySession?.dispose();
   if (typeof console !== 'undefined' && typeof console.info === 'function') {
@@ -1409,12 +1384,12 @@ export async function initDiaryMode(map, options = {}) {
   }
   if (!diaryFeatureEnabled()) {
     diaryFlagOff();
-    return stats;
+    return { ...stats, status: 'failed' };
   }
 
   if (!map) {
     console.warn('[Diary] initDiaryMode called without a MapLibre instance.');
-    return stats;
+    return { ...stats, status: 'failed' };
   }
 
   const session = createDiarySession({ ownerSignal: options?.signal });
@@ -1422,6 +1397,7 @@ export async function initDiaryMode(map, options = {}) {
   const ownerIsCurrent = typeof options?.isCurrent === 'function' ? options.isCurrent : () => true;
   const isCurrent = () => diarySessionIsCurrent(session, ownerIsCurrent);
   const insightsPort = createDiaryInsightsPort(options?.insights);
+  localRepository = options?.localRepository || diaryLocalRepository;
   try {
     const addNetworkLayerImpl = options?.addNetworkLayerImpl || addNetworkLayer;
     const networkBefore = {
@@ -1485,6 +1461,20 @@ export async function initDiaryMode(map, options = {}) {
     const hydratedSegments = aggregation.buildFeatureCollection() || segments;
     lastLoadedSegments = hydratedSegments;
     lastLoadedRoutes = routes;
+    try {
+      localDiaryEntries = await localRepository.list();
+      localStorageWarning = null;
+    } catch (error) {
+      console.warn('[Diary] Local history unavailable:', error);
+      localDiaryEntries = [];
+      localStorageWarning = error?.message || 'Local Diary storage is unavailable.';
+    }
+    if (!isCurrent()) {
+      disposeDiarySession(session);
+      return stats;
+    }
+    store.myRoutes = localDiaryEntries;
+    insightsPort.setEntries(localDiaryEntries);
 
     if (layerMounted) {
       updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
@@ -1499,6 +1489,7 @@ export async function initDiaryMode(map, options = {}) {
 
     routesRef = routes;
     ensureDiaryPanel(routes, { mountInto: mountTarget });
+    if (localStorageWarning) showToast(localStorageWarning, 5000);
     const defaultRoute = routes.features?.[0];
     if (defaultRoute?.properties?.route_id) {
       if (routeSelectEl) {
@@ -1506,6 +1497,7 @@ export async function initDiaryMode(map, options = {}) {
       }
       selectRoute(defaultRoute.properties.route_id, { fitBounds: false });
     }
+    return { ...stats, status: 'ready' };
   } catch (err) {
     if (!isCurrent()) {
       disposeDiarySession(session);
@@ -1513,9 +1505,8 @@ export async function initDiaryMode(map, options = {}) {
     }
     console.error('Demo data missing; please ensure files exist under /data/*.demo.geojson.', err);
     disposeDiarySession(session);
+    return { ...stats, status: 'failed' };
   }
-
-  return stats;
 }
 
 /**
@@ -1553,6 +1544,7 @@ function cleanupDiaryMode(
       diaryPanelEl = null;
       diaryPanelFloating = false;
       currentRoute = null;
+      refreshDiaryPanel = null;
     },
     () => { if (toastEl) toastEl.remove(); },
     () => { if (toastTimer) clearDiaryTimeout(toastTimer); },

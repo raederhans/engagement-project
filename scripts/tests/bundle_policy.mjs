@@ -44,7 +44,8 @@ const budgets = [
   ['Crime', crime, 35_255, 12_748],
   ['Diary', diary, 210_100, 65_573],
   ['Charts', charts, 233_791, 79_747],
-  ['Diary Insights', insights, 9_628, 2_896],
+  // Includes local-history trend/tag/heatmap rendering and the device-only data bridge.
+  ['Diary Insights', insights, 11_200, 3_600],
 ];
 const measurements = [];
 

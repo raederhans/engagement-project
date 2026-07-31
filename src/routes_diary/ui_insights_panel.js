@@ -1,4 +1,4 @@
-import { renderInsightsSections } from '../charts/diary_insights.js';
+import { renderInsightsSections, setDiaryInsightEntries } from '../charts/diary_insights.js';
 import { createDiaryCard, createSectionTitle, createSecondaryButton } from './ui_common.js';
 
 export function createDiaryInsightsHost(root) {
@@ -26,7 +26,7 @@ export function createDiaryInsightsHost(root) {
     const title = createSectionTitle('Insights');
     const hint = document.createElement('div');
     hint.className = 'diary-muted-text';
-    hint.textContent = 'Demo visuals';
+    hint.textContent = 'Local data · sample community';
     titleWrap.appendChild(title);
     titleWrap.appendChild(hint);
 
@@ -98,6 +98,10 @@ export function createDiaryInsightsHost(root) {
       updateContent();
     },
     refresh() {
+      updateContent();
+    },
+    setEntries(entries) {
+      setDiaryInsightEntries(entries);
       updateContent();
     },
   };

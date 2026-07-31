@@ -6,6 +6,9 @@ export function createDiaryInsightsPort(insights = {}) {
     refresh() {
       insights?.refresh?.();
     },
+    setEntries(entries) {
+      insights?.setEntries?.(entries);
+    },
   });
 }
 

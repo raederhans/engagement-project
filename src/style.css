@@ -560,3 +560,85 @@ body {
   font-size: 12px;
   padding: 6px 10px;
 }
+
+#sidepanel,
+#sidepanel * {
+  box-sizing: border-box;
+}
+
+#crime-results-status {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #f59e0b;
+  border-radius: 7px;
+  background: #fffbeb;
+  color: #92400e;
+  font: 600 12px/1.4 system-ui, sans-serif;
+}
+
+#sidepanel button {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #94a3b8;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #0f172a;
+  cursor: pointer;
+  font: 600 12px/1.2 system-ui, sans-serif;
+}
+
+#sidepanel button:hover {
+  background: #e2e8f0;
+}
+
+#sidepanel button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.diary-data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+@media (max-width: 720px) {
+  #sidepanel {
+    left: 8px !important;
+    right: 8px !important;
+    top: 8px !important;
+    width: auto !important;
+    max-height: calc(100vh - 16px) !important;
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+  }
+
+  #compare-card,
+  #charts,
+  .diary-insights-root {
+    position: static !important;
+    width: auto !important;
+    max-height: none !important;
+    margin-top: 12px;
+    box-shadow: none !important;
+  }
+
+  #compare-card,
+  #charts {
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+  }
+
+  .diary-insights-root {
+    right: auto;
+    top: auto;
+    overflow: visible;
+  }
+
+  #legend {
+    display: none;
+  }
+}

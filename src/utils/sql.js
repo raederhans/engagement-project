@@ -155,6 +155,7 @@ export function buildMonthlyBufferSQL({
 export function buildTopTypesSQL({
   start,
   end,
+  types,
   center3857,
   radiusM,
   limit = 12,
@@ -162,7 +163,7 @@ export function buildTopTypesSQL({
   const startIso = dateFloorGuard(start);
   const endIso = ensureIso(end, "end");
   const clauses = [
-    ...baseTemporalClauses(startIso, endIso, undefined, { includeTypes: false }),
+    ...baseTemporalClauses(startIso, endIso, types),
     `  ${dWithinClause(center3857, radiusM)}`,
   ];
 

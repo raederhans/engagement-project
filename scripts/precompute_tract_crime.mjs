@@ -44,11 +44,8 @@ export async function runPrecompute(argv = process.argv.slice(2), dependencies =
     concurrency: options.concurrency,
     queryCount: async (tract) => {
       const rows = await requestRows(buildTractCountSQL(tract.geometry, window));
-      const count = Number(rows?.[0]?.n);
-      if (!Number.isInteger(count) || count < 0) {
-        throw new Error(`CARTO returned an invalid count: ${JSON.stringify(rows?.[0] ?? null)}`);
-      }
-      return count;
+      if (!Array.isArray(rows)) throw new Error('CARTO returned invalid offense counts.');
+      return rows;
     },
     onProgress: ({ completed, total }) => {
       if (completed === total || completed % 25 === 0) {
@@ -65,7 +62,7 @@ export async function runPrecompute(argv = process.argv.slice(2), dependencies =
     sourceUrl: cartoUrl,
     tractSource: normalizePath(options.tractFile),
   });
-  await writeJsonAtomic(options.outputFile, snapshot);
+  await writeJsonAtomic(options.outputFile, snapshot, { space: 0 });
   console.log(`[tract-crime] Wrote ${options.outputFile} with ${snapshot.rows.length} complete rows.`);
   return snapshot;
 }

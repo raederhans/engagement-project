@@ -13,17 +13,19 @@ export function renderTractsChoropleth(map, merged) {
   const geojson = merged?.geojson || merged; // Handle both formats
   const values = merged?.values || (geojson?.features || []).map((f) => Number(f?.properties?.value) || 0);
   const subtitle = merged?.legendSubtitle || '';
+  const unavailable = merged?.dataStatus === 'unavailable';
 
-  const allZero = values.length === 0 || values.every((v) => v === 0);
+  const allZero = !unavailable && (values.length === 0 || values.every((v) => v === 0));
   const breaks = allZero ? [] : computeBreaks(values, { method: store.classMethod, bins: store.classBins, custom: store.classCustomBreaks });
   const colors = makePalette(store.classPalette, (breaks.length || Math.max(1, store.classBins - 1)) + 1);
 
   // Update legend
-  if (allZero || breaks.length === 0) {
+  if (unavailable || allZero || breaks.length === 0) {
     hideLegend();
     hideTractsFill(map);
-    // Show banner: outlines-only mode
-    showOutlinesOnlyBanner();
+    showOutlinesOnlyBanner(unavailable
+      ? merged.statusMessage
+      : 'No tract incidents matched the selected filters.');
   } else {
     updateLegend({ title: 'Census Tracts', unit: '', breaks, colors, subtitle });
 
@@ -42,7 +44,7 @@ export function renderTractsChoropleth(map, merged) {
 /**
  * Show banner: tract outlines only (no choropleth data)
  */
-function showOutlinesOnlyBanner() {
+function showOutlinesOnlyBanner(message) {
   let banner = document.getElementById('tracts-outline-banner');
   if (!banner) {
     banner = document.createElement('div');
@@ -61,9 +63,9 @@ function showOutlinesOnlyBanner() {
       font: '13px/1.4 system-ui, sans-serif',
       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
     });
-    banner.textContent = 'Census tracts: outlines visible. Choropleth requires precomputed counts.';
     document.body.appendChild(banner);
   }
+  banner.textContent = message || 'Census tracts: outlines visible. Choropleth data is unavailable.';
   banner.style.display = 'block';
 }
 

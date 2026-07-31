@@ -37,8 +37,10 @@
     "test:runtime-data-policy": "node --test scripts/tests/runtime_data_policy.mjs",
     "test:data-pipeline": "node --test scripts/tests/data_pipeline_contracts.mjs",
     "test:data-automation": "node --test scripts/tests/data_automation_contracts.mjs",
+    "test:product-integrity": "node --test scripts/tests/product_integrity_contracts.mjs",
+    "test:browser-smoke": "node scripts/tests/browser_smoke.mjs",
     "verify:bundle": "node scripts/tests/bundle_policy.mjs",
-    "test": "npm run test:diary:math && npm run test:diary:agg && npm run test:data-sources && npm run test:runtime-contracts && npm run test:diary-session && npm run test:diary-async && npm run test:points-lifecycle && npm run test:crime-async && npm run test:route-overlays && npm run test:runtime-data-policy && npm run test:data-pipeline && npm run test:data-automation",
+    "test": "npm run test:diary:math && npm run test:diary:agg && npm run test:data-sources && npm run test:runtime-contracts && npm run test:diary-session && npm run test:diary-async && npm run test:points-lifecycle && npm run test:crime-async && npm run test:route-overlays && npm run test:runtime-data-policy && npm run test:data-pipeline && npm run test:data-automation && npm run test:product-integrity",
     "validate": "npm run data:check && npm test && npm run build:manifest && npm run verify:bundle",
     "diary:qs:win": "powershell -ExecutionPolicy Bypass -File scripts/diary_quickstart.ps1",
     "diary:qs:sh": "bash scripts/diary_quickstart.sh",
@@ -57,6 +59,7 @@
     "maplibre-gl": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "vite": "^7.3.6"
   }
 }
