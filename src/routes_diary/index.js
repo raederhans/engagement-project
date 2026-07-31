@@ -8,7 +8,7 @@
 import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, highlightSegments } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
-import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
+import { DIARY_ROUTES_URL, DIARY_SEGMENTS_URL, HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import {
   DEFAULT_HALF_LIFE_DAYS,
@@ -59,13 +59,15 @@ import {
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
+  DIARY_SEGMENTS_URL,
   new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
   publicUrl('data/segments_phl.demo.geojson'),
-];
+].filter(Boolean);
 const ROUTE_URL_CANDIDATES = [
+  DIARY_ROUTES_URL,
   new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
   publicUrl('data/routes_phl.demo.geojson'),
-];
+].filter(Boolean);
 
 const MOCK_HISTORY_ROUTES = [
   { id: 'hist_001', date: 'Nov 24', label: 'Penn Campus → 9th & Christian', mode: 'bike', score: 3.5 },

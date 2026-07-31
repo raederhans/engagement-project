@@ -52,6 +52,12 @@ export const CENSUS_REPORTER_ACS_URL = envValue('VITE_CENSUS_REPORTER_ACS_URL') 
   `https://api.censusreporter.org/1.0/data/show/latest?table_ids=B01003%2CB25003%2CB19013%2CB17001&geo_ids=140%7C05000US${PROJECT_REGION.stateFips}${PROJECT_REGION.countyFips}`;
 
 export const DIARY_API_BASE = envValue('VITE_DIARY_API_BASE').replace(/\/+$/, '');
+export const DIARY_SEGMENTS_URL = typeof import.meta.env === 'undefined'
+  ? ''
+  : String(import.meta.env.VITE_DIARY_SEGMENTS_URL || '').trim();
+export const DIARY_ROUTES_URL = typeof import.meta.env === 'undefined'
+  ? ''
+  : String(import.meta.env.VITE_DIARY_ROUTES_URL || '').trim();
 
 export const TRACT_CRIME_SNAPSHOT_ENABLED = import.meta?.env?.VITE_TRACT_CRIME_SNAPSHOT === '1';
 

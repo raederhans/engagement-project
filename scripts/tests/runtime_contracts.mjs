@@ -7,6 +7,7 @@ import { escapeHtml } from '../../src/utils/html.js';
 import { matchPathToSegments } from '../../src/utils/match.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 import { createLatestSerialQueue } from '../../src/utils/latest_serial_queue.js';
+import { parsePreviewArgs, resolvePreviewData, toViteFsUrl } from '../quick_preview.mjs';
 import { refreshPoints } from '../../src/map/points.js';
 import { buildSegmentCardHtml } from '../../src/map/segments_layer.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
@@ -28,6 +29,17 @@ const polygon = {
     [-75.2, 39.9],
   ]],
 };
+
+test('quick preview resolves and validates a diary data directory', () => {
+  const options = parsePreviewArgs(['--data', 'data', '--no-open', '--port=5174']);
+  const data = resolvePreviewData(options);
+
+  assert.match(data.segments, /segments_phl\.demo\.geojson$/);
+  assert.match(data.routes, /routes_phl\.demo\.geojson$/);
+  assert.match(toViteFsUrl(data.segments), /^\/@fs\//);
+  assert.equal(options.open, false);
+  assert.equal(options.port, 5174);
+});
 
 test('EPSG:3857 buffer filters use the CARTO web-mercator geometry column', () => {
   assert.match(
