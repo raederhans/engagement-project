@@ -1,105 +1,90 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import {
-  DEFAULT_HALF_LIFE_DAYS,
-  bayesianShrink,
-  clampMean,
-  effectiveN,
-} from '../../src/utils/decay.js';
+import test from 'node:test';
 
-const PRIOR_MEAN = 3.0;
-const PRIOR_N = 5;
+import { createDiaryAggregation } from '../../src/routes_diary/local_aggregation.js';
 
-const localAgg = new Map();
+const baseSegments = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: {
+        segment_id: 'seg-1',
+        decayed_mean: 2.5,
+        n_eff: 2,
+        top_tags: [{ tag: 'lighting', p: 1 }],
+      },
+      geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+    },
+    {
+      type: 'Feature',
+      properties: { segment_id: 'seg-2', decayed_mean: 3.5, n_eff: 1 },
+      geometry: { type: 'LineString', coordinates: [[1, 1], [2, 2]] },
+    },
+  ],
+};
 
-function normalizeOverrides(entries = []) {
-  const map = new Map();
-  entries.forEach((item) => {
-    if (item && item.segment_id && Number.isFinite(item.rating)) {
-      map.set(item.segment_id, item.rating);
-    }
+test('aggregation reset hydrates cloned feature data and CTA state', () => {
+  const aggregation = createDiaryAggregation({
+    now: () => Date.parse('2026-07-31T00:00:00Z'),
+    getCtaState: (segmentId) => ({
+      agreeDisabled: segmentId === 'seg-1',
+      saferDisabled: false,
+      agreeTimestamp: segmentId === 'seg-1' ? 'saved' : null,
+      saferTimestamp: null,
+    }),
   });
-  return map;
-}
 
-function ensureAgg(segmentId) {
-  if (!localAgg.has(segmentId)) {
-    localAgg.set(segmentId, {
-      mean: 3,
-      sumW: 0,
-      n_eff: 0,
-      top_tags: [],
-      tagCounts: Object.create(null),
-      delta_30d: 0,
-      win30: { sum: 0, w: 0 },
-      updated: new Date(0).toISOString(),
-    });
-  }
-  return localAgg.get(segmentId);
-}
+  aggregation.reset(baseSegments);
+  const hydrated = aggregation.buildFeatureCollection();
 
-function decay(record, now) {
-  const last = Date.parse(record.updated || now);
-  const dtDays = Math.max(0, (now - last) / 86400000);
-  const factor = Math.pow(2, -dtDays / DEFAULT_HALF_LIFE_DAYS);
-  record.sumW *= factor;
-  record.win30.sum *= factor;
-  record.win30.w *= factor;
-}
-
-function applySubmission(payload) {
-  const now = Date.now();
-  const overrides = normalizeOverrides(payload.segment_overrides);
-  const overall = Number(payload.overall_rating);
-  payload.segment_ids.forEach((segmentId) => {
-    const rating = overrides.has(segmentId) ? overrides.get(segmentId) : overall;
-    const record = ensureAgg(segmentId);
-    decay(record, now);
-    const newSum = record.sumW + 1;
-    const rawMean = (record.mean * record.sumW + rating) / Math.max(1e-6, newSum);
-    const shrunk = clampMean(bayesianShrink(rawMean, newSum, PRIOR_MEAN, PRIOR_N));
-    record.mean = shrunk;
-    record.sumW = newSum;
-    record.n_eff = effectiveN(newSum);
-    record.updated = new Date(now).toISOString();
-    record.tagCounts = record.tagCounts || {};
-    (payload.tags || []).forEach((tag) => {
-      record.tagCounts[tag] = (record.tagCounts[tag] || 0) + 1;
-    });
-    const tagTotal = Object.values(record.tagCounts).reduce((sum, val) => sum + val, 0);
-    record.top_tags = tagTotal
-      ? Object.entries(record.tagCounts)
-          .map(([tag, count]) => ({ tag, p: +(count / tagTotal).toFixed(2) }))
-          .sort((a, b) => b.p - a.p)
-      : [];
-    record.win30.sum += shrunk;
-    record.win30.w = Math.min(100, record.win30.w + 1);
-    record.delta_30d = +(shrunk - rawMean + 0.01).toFixed(2);
+  assert.notEqual(hydrated, baseSegments);
+  assert.equal(hydrated.features[0].properties.decayed_mean, 2.5);
+  assert.deepEqual(hydrated.features[0].properties.__diaryVotes, {
+    agreeDisabled: true,
+    saferDisabled: false,
+    agreeTimestamp: 'saved',
+    saferTimestamp: null,
   });
-}
-
-applySubmission({
-  overall_rating: 3,
-  segment_ids: ['seg_001', 'seg_002'],
-  tags: ['poor_lighting'],
-  segment_overrides: [{ segment_id: 'seg_002', rating: 4 }],
+  assert.equal(baseSegments.features[0].properties.__diaryVotes, undefined);
 });
 
-const firstSeg = localAgg.get('seg_001');
-const secondSeg = localAgg.get('seg_002');
-const firstSnapshot = { nEff: firstSeg.n_eff, mean: firstSeg.mean };
-assert.ok(firstSeg.n_eff > 0, 'First submission should bump n_eff');
-assert.ok(secondSeg.mean > firstSeg.mean, 'Override should lift second segment mean');
-assert.ok(secondSeg.top_tags.find((t) => t.tag === 'poor_lighting'), 'Tag counts should update');
+test('submission updates real aggregation records with overrides and tags', () => {
+  const aggregation = createDiaryAggregation({
+    now: () => Date.parse('2026-07-31T00:00:00Z'),
+  });
+  aggregation.reset(baseSegments);
 
-applySubmission({
-  overall_rating: 2,
-  segment_ids: ['seg_001'],
-  tags: ['dogs'],
+  aggregation.applySubmission({
+    overall_rating: 2,
+    segment_ids: ['seg-1', 'seg-2'],
+    tags: ['dogs'],
+    segment_overrides: [{ segment_id: 'seg-2', rating: 5 }],
+  });
+
+  const updated = aggregation.buildFeatureCollection();
+  const first = updated.features[0].properties;
+  const second = updated.features[1].properties;
+  assert.ok(first.n_eff > 2);
+  assert.ok(second.decayed_mean > first.decayed_mean);
+  assert.ok(first.top_tags.some((entry) => entry.tag === 'dogs'));
+  assert.ok(second.top_tags.some((entry) => entry.tag === 'dogs'));
 });
-const updated = localAgg.get('seg_001');
-assert.ok(updated.n_eff > firstSnapshot.nEff, 'n_eff must be monotonic');
-assert.ok(!Number.isNaN(updated.mean), 'Mean should never be NaN');
-assert.ok(updated.top_tags.some((t) => t.tag === 'dogs'), 'New tag should be tracked');
 
-console.info('[Diary Tests] PASS — aggregator updates behave deterministically.');
+test('local CTA updates and low-rating counts share the same records', () => {
+  const aggregation = createDiaryAggregation({
+    now: () => Date.parse('2026-07-31T00:00:00Z'),
+  });
+  aggregation.reset(baseSegments);
+  const lookup = new Map(baseSegments.features.map((feature) => [feature.properties.segment_id, feature]));
+
+  const confidenceBefore = aggregation.buildFeatureCollection().features[0].properties.n_eff;
+  assert.equal(aggregation.bumpConfidence('seg-1'), true);
+  assert.ok(aggregation.buildFeatureCollection().features[0].properties.n_eff > confidenceBefore);
+  assert.equal(aggregation.countLowRated(['seg-1', 'seg-2'], lookup, 2.6), 1);
+
+  const meanBefore = aggregation.meanFor('seg-1', lookup);
+  assert.equal(aggregation.nudgeSafer('seg-1'), true);
+  assert.ok(aggregation.meanFor('seg-1', lookup) > meanBefore);
+});

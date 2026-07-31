@@ -13,6 +13,7 @@
     "build": "vite build",
     "build:manifest": "vite build --manifest",
     "preview": "vite preview",
+    "quick-preview": "node scripts/quick_preview.mjs",
     "setup:diary:sh": "bash scripts/setup_diary_env.sh",
     "setup:diary:ps": "powershell -ExecutionPolicy Bypass -File scripts/setup_diary_env.ps1",
     "data:gen": "node scripts/generate_demo_data.mjs --seed=20251111 --segments=64 --routes=5",
