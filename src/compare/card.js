@@ -14,6 +14,7 @@ const DEFAULT_FETCHERS = {
 };
 
 let lastComparison = null;
+let savedComparisonActive = false;
 
 export function buildComparisonFilterKey(filters = {}) {
   return JSON.stringify({
@@ -36,11 +37,18 @@ export function getLastComparison(filters) {
   return structuredClone(lastComparison.comparison);
 }
 
+export function getLastComparisonSnapshot(filters) {
+  if (!lastComparison) return null;
+  if (filters && lastComparison.filterKey !== buildComparisonFilterKey(filters)) return null;
+  return structuredClone(lastComparison);
+}
+
 function createDefaultCompareView() {
   const element = document.getElementById('compare-card');
   if (!element) return null;
   return {
     pending() {
+      if (savedComparisonActive) return;
       element.innerHTML = '<div style="font:12px system-ui">Computing…</div>';
     },
     success({ a, b }) {
@@ -58,9 +66,26 @@ function createDefaultCompareView() {
       `;
     },
     error(error) {
+      if (savedComparisonActive) return;
       element.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">Compare failed: ${escapeHtml(error?.message || error)}</div>`;
     },
+    empty(message) {
+      element.innerHTML = `<div style="font:12px system-ui;color:#64748b">${escapeHtml(message)}</div>`;
+    },
   };
+}
+
+export function renderSavedComparison(resultSummary, { view } = {}) {
+  const compareView = view ?? createDefaultCompareView();
+  if (!compareView) return false;
+  if (!resultSummary?.generatedAt || !resultSummary?.comparison) {
+    savedComparisonActive = false;
+    compareView.empty?.('Saved settings have no cached comparison.');
+    return false;
+  }
+  savedComparisonActive = true;
+  compareView.success(resultSummary.comparison);
+  return true;
 }
 
 function isAbortError(error) {
@@ -89,6 +114,7 @@ export async function updateCompare(
     shouldApply = () => true,
     fetchers,
     view,
+    now = () => new Date().toISOString(),
   } = {},
 ) {
   const compareFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
@@ -96,10 +122,16 @@ export async function updateCompare(
   if (!compareView) return null;
   const isFresh = () => !signal?.aborted && shouldApply();
   if (!isFresh()) return { applied: false };
+  const filterKey = buildComparisonFilterKey({
+    start, end, types, center3857, centerB3857, radiusM, adminLevel,
+    per10k, addressA, addressB,
+  });
+  const retainedComparison = lastComparison?.filterKey === filterKey
+    ? lastComparison
+    : null;
 
   try {
-    lastComparison = null;
-    compareView.pending();
+    if (!retainedComparison) compareView.pending();
 
     const readPoint = async (pointCenter, label) => {
       if (!pointCenter) return null;
@@ -129,24 +161,22 @@ export async function updateCompare(
       };
     };
     const [a, b] = await Promise.all([
-      readPoint(center3857, addressA),
-      readPoint(centerB3857, addressB),
+      readPoint(center3857, addressA || 'Point A'),
+      readPoint(centerB3857, addressB || 'Point B'),
     ]);
     if (!isFresh()) return { applied: false };
     const result = { a, b, ...(a || {}) };
     lastComparison = {
-      filterKey: buildComparisonFilterKey({
-        start, end, types, center3857, centerB3857, radiusM, adminLevel,
-        per10k, addressA, addressB,
-      }),
+      filterKey,
+      generatedAt: now(),
       comparison: { a, b },
     };
+    savedComparisonActive = false;
     compareView.success(result);
     return { applied: true, ...result };
   } catch (e) {
     if (!isFresh() || isAbortError(e)) return { applied: false };
-    lastComparison = null;
-    compareView.error(e);
+    if (!retainedComparison) compareView.error(e);
     return null;
   }
 }

@@ -432,6 +432,31 @@ test('scheduling a newer transition immediately aborts the running transition si
   assert.deepEqual(order, ['start:diary', 'finish:diary', 'start:crime', 'finish:crime']);
 });
 
+test('cancelling the latest serial queue immediately aborts and invalidates its running owner', async () => {
+  const gate = deferred();
+  let signal;
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const commits = [];
+  const schedule = createLatestSerialQueue(async (_value, owner) => {
+    signal = owner.signal;
+    markStarted();
+    await gate.promise;
+    if (owner.isLatest()) commits.push('stale');
+    return { status: owner.signal.aborted ? 'superseded' : 'live' };
+  });
+
+  const running = schedule('crime');
+  await started;
+
+  assert.equal(schedule.cancel(), true);
+  assert.equal(signal.aborted, true);
+  gate.resolve();
+  assert.deepEqual(await running, { status: 'superseded' });
+  assert.deepEqual(commits, []);
+  assert.equal(schedule.cancel(), false);
+});
+
 test('an owner-aware wait releases the serial queue before its underlying promise settles', async () => {
   let firstSignal;
   let resolveUnderlying;

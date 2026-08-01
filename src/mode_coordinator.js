@@ -106,7 +106,7 @@ export function createModeCoordinator({
 
   const applyMode = async (mode, { isLatest, signal }) => {
     const ownsMode = () => !signal.aborted && isLatest() && getCurrentMode() === mode;
-    if (!ownsMode()) return;
+    if (!ownsMode()) return { status: 'superseded' };
     writeMode(mode);
 
     if (mode === 'diary' && diaryFeatureEnabled) {
@@ -151,7 +151,7 @@ export function createModeCoordinator({
       } catch (error) {
         if (!signal.aborted) reportError('Diary init failed', error);
       }
-      return;
+      return { status: activeMode === 'diary' ? 'ready' : 'superseded' };
     }
 
     await stopDiary();
@@ -159,16 +159,25 @@ export function createModeCoordinator({
 
     try {
       const controllerResult = await waitForTransition(getCrimeController(), signal);
-      if (!controllerResult.completed) return;
+      if (!controllerResult.completed) return { status: 'superseded' };
       const controller = controllerResult.value;
       if (!ownsMode()) {
         controller.setActive(false);
-        return;
+        return { status: 'superseded' };
       }
       controller.setActive(true);
       activeMode = 'crime';
+      if (!ownsMode()) return { status: 'superseded' };
+      try {
+        const refresh = await controller.requestRefresh({ signal });
+        return ownsMode() ? refresh : { status: 'superseded' };
+      } catch (error) {
+        if (!signal.aborted) reportError('Crime refresh failed', error);
+        return { status: signal.aborted ? 'superseded' : 'failed', error: String(error?.message || error) };
+      }
     } catch (error) {
       if (!signal.aborted) reportError('Crime init failed', error);
+      return { status: signal.aborted ? 'superseded' : 'failed', error: String(error?.message || error) };
     }
   };
 
@@ -182,9 +191,30 @@ export function createModeCoordinator({
 
   return Object.freeze({
     schedule,
+    cancelCurrentTransition: (reason) => schedule.cancel(reason),
     getActiveMode: () => activeMode,
-    requestCrimeRefresh() {
-      return withCurrentCrime((controller) => { void controller.requestRefresh(); });
+    getCurrentCrimeProvenance() {
+      if (activeMode !== 'crime' || getCurrentMode() !== 'crime' || !crimeController) return {};
+      return crimeController.getCurrentProvenance?.() || {};
+    },
+    async requestCrimeRefresh({ signal } = {}) {
+      if (activeMode !== 'crime' || getCurrentMode() !== 'crime' || !crimeController) {
+        return { status: 'superseded' };
+      }
+      try {
+        return await crimeController.requestRefresh({ signal });
+      } catch (error) {
+        reportError('Crime refresh failed', error);
+        return { status: 'failed', error: String(error?.message || error) };
+      }
+    },
+    runCrimeMapMove(action) {
+      let completion = null;
+      if (withCurrentCrime((controller) => {
+        completion = controller.runProgrammaticMapMove(action);
+      })) return completion;
+      action();
+      return Promise.resolve(true);
     },
     updateCrimeBuffer() {
       return withCurrentCrime((controller) => controller.updateBuffer());

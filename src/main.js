@@ -2,7 +2,12 @@ import './style.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMap } from './map/initMap.js';
 import { setAnalysisMode, store, setViewMode, onViewModeChange } from './state/store.js';
-import { initPanel, readModeFromURL, writeModeToURL } from './ui/panel.js';
+import {
+  initPanel,
+  readModeFromURL,
+  writeCrimeStateToURL,
+  writeModeToURL,
+} from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
@@ -20,7 +25,7 @@ const diaryInsightsLoader = createDiaryInsightsLoader({
     const root = document.createElement('div');
     root.id = 'diary-insights-root';
     const diaryShell = document.querySelector('[data-panel-view="diary"]');
-    if (diaryShell) diaryShell?.after(root);
+    if (diaryShell) diaryShell.after(root);
     else document.body.appendChild(root);
     return root;
   },
@@ -39,17 +44,25 @@ window.addEventListener('DOMContentLoaded', async () => {
   writeModeToURL(initialMode);
 
   let coordinator = null;
+  let analysisHistoryController = null;
+  let analysisHistoryPromise = null;
+  const refreshCrime = async () => {
+    const result = await coordinator?.requestCrimeRefresh();
+    if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
+    return result;
+  };
   const panel = initPanel(store, {
-    onChange: () => coordinator?.requestCrimeRefresh(),
+    onChange: refreshCrime,
     onRadiusInput: () => coordinator?.updateCrimeBuffer(),
     getMapCenter: () => map.getCenter(),
-    onAddressResolved: (_target, result) => {
-      map.flyTo({ center: result.lngLat, zoom: Math.max(map.getZoom(), 13) });
-      void coordinator?.requestCrimeRefresh();
+    onAddressResolved: async (_target, result) => {
+      return coordinator.runCrimeMapMove(() => {
+        map.flyTo({ center: result.lngLat, zoom: Math.max(map.getZoom(), 13) });
+      });
     },
     onTractsOverlayToggle: (visible) => coordinator?.setTractsOverlayVisible(visible),
   });
-  const { diaryMount } = panel;
+  const { diaryMount, analysisHistoryMount } = panel;
 
   coordinator = createModeCoordinator({
     map,
@@ -68,6 +81,43 @@ window.addEventListener('DOMContentLoaded', async () => {
     getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),
   });
 
-  onViewModeChange((mode) => void coordinator.schedule(mode));
-  await coordinator.schedule(store.viewMode);
+  const ensureAnalysisHistory = () => {
+    if (!analysisHistoryMount || store.viewMode !== 'crime' || coordinator.getActiveMode() !== 'crime') return null;
+    if (!analysisHistoryPromise) {
+      analysisHistoryPromise = import('./analysis/analysis_history_controller.js')
+        .then((module) => module.initAnalysisHistory({
+          mount: analysisHistoryMount,
+          store,
+          syncControls: () => panel.syncFromStore?.(),
+          syncCanonicalUrl: () => writeCrimeStateToURL(store),
+          scheduleCrime: () => coordinator.schedule('crime'),
+          cancelCrimeTransition: () => coordinator.cancelCurrentTransition(),
+          getCurrentCrimeProvenance: () => coordinator.getCurrentCrimeProvenance(),
+        }))
+        .then((controller) => {
+          analysisHistoryController = controller;
+          panel.setAnalysisHistorySync?.(() => controller?.sync());
+          return controller;
+        })
+        .catch((error) => {
+          analysisHistoryPromise = null;
+          console.warn('Analysis history is unavailable:', error);
+          return null;
+        });
+    }
+    return analysisHistoryPromise;
+  };
+
+  const scheduleMode = async (mode, { explicit = false } = {}) => {
+    if (explicit) analysisHistoryController?.cancelPendingRestore();
+    const result = await coordinator.schedule(mode);
+    if (store.viewMode === 'crime' && coordinator.getActiveMode() === 'crime') {
+      void ensureAnalysisHistory();
+      if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
+    }
+    return result;
+  };
+
+  onViewModeChange((mode) => void scheduleMode(mode, { explicit: true }));
+  await scheduleMode(store.viewMode);
 });

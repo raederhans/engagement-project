@@ -114,7 +114,7 @@ test('mobile layout keeps results in the same scroll column as controls', async 
     readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
   ]);
   assert.match(mainSource, /appendChild\(root\)|append\(root\)/);
-  assert.match(mainSource, /diaryShell\?\.after\(root\)/);
+  assert.match(mainSource, /if\s*\(diaryShell\)\s*diaryShell\.after\(root\)/);
   assert.doesNotMatch(mainSource, /\(diaryShell \|\| document\.body\)\.appendChild\(root\)/);
   assert.match(styleSource, /@media\s*\(max-width:\s*720px\)/);
   assert.match(styleSource, /#sidepanel[\s\S]*#compare-card[\s\S]*position:\s*static\s*!important/);
@@ -266,6 +266,26 @@ test('address ownership prevents an older response from replacing a newer result
   pending.get('newer')({ address: 'NEWER', lngLat: [-75.1, 39.9] });
   assert.deepEqual(await newer, { applied: true, result: { address: 'NEWER', lngLat: [-75.1, 39.9] } });
   assert.deepEqual(await older, { applied: false, result: null });
+});
+
+test('address resolution delegates the single Crime refresh to the debounced panel change owner', async () => {
+  const [source, panelSource] = await Promise.all([
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
+  ]);
+  const callbackStart = source.indexOf('onAddressResolved:');
+  const callbackEnd = source.indexOf('onTractsOverlayToggle:', callbackStart);
+  assert.notEqual(callbackStart, -1, 'main must define the address resolution callback');
+  assert.notEqual(callbackEnd, -1, 'main must keep the address callback inside the panel options');
+  const callback = source.slice(callbackStart, callbackEnd);
+  assert.match(callback, /map\.flyTo/);
+  assert.doesNotMatch(callback, /refreshCrime/);
+  assert.match(callback, /async[\s\S]*return coordinator\.runCrimeMapMove/);
+  assert.doesNotMatch(source, /pendingAddressMove/);
+  assert.doesNotMatch(source, /const refreshCrime[\s\S]*runCrimeMapMove[\s\S]*requestCrimeRefresh/);
+  assert.match(panelSource, /onChange\.cancel\(\);[\s\S]*const moveCompleted = await handlers\.onAddressResolved\?\.\(target, result\)/);
+  assert.match(panelSource, /if \(moveCompleted === false\) return;[\s\S]*onChange\(\)/);
+  assert.match(panelSource, /catch \(error\)[\s\S]*addressStatus\.textContent = error\?\.message \|\| String\(error\)/);
 });
 
 test('diary segment labels replace placeholder street names with a stable segment label', () => {
@@ -448,6 +468,256 @@ test('shared Crime state ignores unrelated parameters and rejects invalid ranges
   assert.equal(decoded.startMonth, null);
   assert.equal(decoded.classBins, 5);
   assert.equal(decoded.classOpacity, 0.75);
+});
+
+test('analysis artifacts normalize a versioned contract and keep refresh state transient', async () => {
+  const {
+    ANALYSIS_ARTIFACT_KIND,
+    createAnalysisArtifact,
+    renameAnalysisArtifact,
+    validateAnalysisArtifact,
+  } = await import('../../src/analysis/analysis_artifact.js');
+  const created = createAnalysisArtifact({
+    title: `  Night safety ${'x'.repeat(180)}  `,
+    viewState: {
+      queryMode: 'buffer',
+      startMonth: '2025-08',
+      durationMonths: 12,
+      radius: 400,
+      centerLonLat: [-75.166154, 39.95218],
+      selectedGroups: ['vehicle'],
+    },
+    resultSummary: {
+      generatedAt: '2026-07-31T01:00:00.000Z',
+      comparison: { a: { total: 10 }, b: null },
+      refreshStatus: 'live',
+    },
+    provenance: {
+      coverageMin: '2006-01-01',
+      coverageMax: '2026-07-30',
+      sources: ['phl-carto'],
+    },
+  }, {
+    createId: () => 'analysis-1',
+    now: () => '2026-07-31T02:00:00.000Z',
+  });
+
+  assert.equal(created.kind, ANALYSIS_ARTIFACT_KIND);
+  assert.equal(created.schemaVersion, 1);
+  assert.equal(created.id, 'analysis-1');
+  assert.equal(created.title.length, 120);
+  assert.equal(created.title.startsWith('Night safety'), true);
+  assert.equal(created.createdAt, '2026-07-31T02:00:00.000Z');
+  assert.equal(created.updatedAt, created.createdAt);
+  assert.equal(created.resultSummary.generatedAt, '2026-07-31T01:00:00.000Z');
+  assert.equal('generatedAt' in created.provenance, false);
+  assert.equal('dataStatus' in created, false);
+  assert.equal('refreshStatus' in created, false);
+  assert.equal('refreshStatus' in created.resultSummary, false);
+  assert.equal(validateAnalysisArtifact(created).id, 'analysis-1');
+
+  const renamed = renameAnalysisArtifact(created, '  Safer route  ', {
+    now: () => '2026-07-31T03:00:00.000Z',
+  });
+  assert.equal(renamed.title, 'Safer route');
+  assert.equal(renamed.createdAt, created.createdAt);
+  assert.equal(renamed.updatedAt, '2026-07-31T03:00:00.000Z');
+  assert.throws(
+    () => validateAnalysisArtifact({ ...created, kind: 'wrong-kind' }),
+    /artifact kind/i,
+  );
+  assert.throws(
+    () => validateAnalysisArtifact({ ...created, schemaVersion: 2 }),
+    /unsupported analysis artifact/i,
+  );
+});
+
+test('analysis save eligibility is deterministic for every Crime query mode', async () => {
+  const { canSaveAnalysis, deriveAnalysisDataStatus } = await import('../../src/analysis/analysis_artifact.js');
+  assert.equal(canSaveAnalysis({ coverageStatus: 'loading', queryMode: 'buffer', centerLonLat: [-75, 40] }), false);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'buffer', centerLonLat: null }), false);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'buffer', centerLonLat: [-75, 40] }), true);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'district', selectedDistrictCode: null }), false);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'district', selectedDistrictCode: '01' }), true);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'tract', selectedTractGEOID: null }), false);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'tract', selectedTractGEOID: '42101000100' }), true);
+  assert.equal(deriveAnalysisDataStatus(
+    { coverageMin: '2006-01-01', coverageMax: '2026-07-30', sources: ['phl-carto'] },
+    { coverageMin: '2006-01-01', coverageMax: '2026-07-30', sources: ['phl-carto'] },
+  ), 'current');
+  assert.equal(deriveAnalysisDataStatus(
+    { coverageMin: '2006-01-01', coverageMax: '2026-07-30', sources: ['phl-carto'] },
+    { sources: ['phl-carto'], coverageMax: '2026-07-30', coverageMin: '2006-01-01' },
+  ), 'current');
+  assert.equal(deriveAnalysisDataStatus(
+    { coverageMax: '2026-07-30' },
+    { coverageMax: '2026-07-31' },
+  ), 'provenance-mismatch');
+  assert.equal(deriveAnalysisDataStatus(null, { coverageMax: '2026-07-31' }), 'unknown');
+});
+
+test('replacing Crime view state clears stale derived and transient state atomically', async () => {
+  const { replaceCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const target = {
+    queryMode: 'buffer',
+    centerLonLat: [-75, 40],
+    center3857: [1, 2],
+    centerBLonLat: [-74, 41],
+    centerB3857: [3, 4],
+    selectedTypes: ['stale expanded code'],
+    selectedGroups: ['stale group'],
+    selectedDrilldownCodes: ['stale child code'],
+    selectedDistrictCode: '99',
+    selectedTractGEOID: '42101099900',
+    selectMode: 'point',
+    selectTarget: 'B',
+    setComparisonPoint(side, lng, lat, label) {
+      if (side === 'A') {
+        this.centerLonLat = [lng, lat];
+        this.center3857 = ['derived-a'];
+        this.addressA = label;
+      } else {
+        this.centerBLonLat = [lng, lat];
+        this.centerB3857 = ['derived-b'];
+        this.addressB = label;
+      }
+    },
+  };
+
+  replaceCrimeViewState(target, {
+    queryMode: 'district',
+    startMonth: '2025-08',
+    durationMonths: 12,
+    radius: 400,
+    selectedGroups: [],
+    selectedDrilldownCodes: [],
+    selectedDistrictCode: '01',
+    centerLonLat: null,
+    centerBLonLat: null,
+  });
+
+  assert.equal(target.queryMode, 'district');
+  assert.equal(target.selectedDistrictCode, '01');
+  assert.equal(target.selectedTractGEOID, null);
+  assert.deepEqual(target.selectedTypes, []);
+  assert.deepEqual(target.selectedDrilldownCodes, []);
+  assert.equal(target.centerLonLat, null);
+  assert.equal(target.center3857, null);
+  assert.equal(target.centerBLonLat, null);
+  assert.equal(target.centerB3857, null);
+  assert.equal(target.selectMode, 'idle');
+  assert.equal(target.selectTarget, 'A');
+});
+
+test('comparison snapshots carry one generation time and the matching filter key', async () => {
+  const { buildComparisonFilterKey, getLastComparisonSnapshot } = await import('../../src/compare/card.js');
+  const filters = {
+    start: '2025-08-01', end: '2026-08-01', types: ['Robbery Firearm'],
+    center3857: [1, 2], centerB3857: [3, 4], radiusM: 400,
+    adminLevel: 'districts', per10k: false, addressA: 'Point A', addressB: 'Point B',
+  };
+  await updateCompare(filters, {
+    now: () => '2026-07-31T04:00:00.000Z',
+    fetchers: {
+      fetchCountBuffer: async () => 10,
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+    },
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+  assert.deepEqual(getLastComparisonSnapshot(filters), {
+    filterKey: buildComparisonFilterKey(filters),
+    generatedAt: '2026-07-31T04:00:00.000Z',
+    comparison: {
+      a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: 0 },
+      b: { label: 'Point B', total: 10, per10k: null, top3: [], delta30: 0 },
+    },
+  });
+  assert.equal(getLastComparisonSnapshot({ ...filters, radiusM: 800 }), null);
+});
+
+test('mode coordinator exposes an awaitable Crime refresh result', async () => {
+  const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
+  let refreshResult = { status: 'live' };
+  const controller = {
+    setActive() {},
+    requestRefresh: async () => refreshResult,
+    updateBuffer() {},
+    setTractsOverlayVisible() {},
+  };
+  const coordinator = createModeCoordinator({
+    map: { isStyleLoaded: () => true },
+    diaryFeatureEnabled: false,
+    getCurrentMode: () => 'crime',
+    writeMode() {},
+    loadCrimeController: async () => controller,
+    loadDiaryModule: async () => null,
+    getDiaryInsights: async () => null,
+    reportError() {},
+  });
+  await coordinator.schedule('crime');
+  assert.deepEqual(await coordinator.requestCrimeRefresh(), { status: 'live' });
+  refreshResult = { status: 'superseded' };
+  assert.deepEqual(await coordinator.requestCrimeRefresh(), { status: 'superseded' });
+  controller.requestRefresh = async () => { throw new Error('upstream failed'); };
+  assert.deepEqual(await coordinator.requestCrimeRefresh(), {
+    status: 'failed',
+    error: 'upstream failed',
+  });
+});
+
+test('mode coordinator passes queue ownership into the Crime refresh and aborts it for Diary', async () => {
+  const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
+  let mode = 'crime';
+  let receivedSignal;
+  const controller = {
+    setActive() {},
+    requestRefresh({ signal } = {}) {
+      receivedSignal = signal;
+      return new Promise((resolve) => signal.addEventListener('abort', () => resolve({ status: 'superseded' }), { once: true }));
+    },
+  };
+  const coordinator = createModeCoordinator({
+    map: { isStyleLoaded: () => true },
+    diaryFeatureEnabled: true,
+    getCurrentMode: () => mode,
+    writeMode() {},
+    loadCrimeController: async () => controller,
+    loadDiaryModule: async () => ({ async initDiaryMode() { return { status: 'ready' }; }, teardownDiaryMode() {} }),
+    getDiaryInsights: async () => ({ show() {}, hide() {}, setCollapsed() {} }),
+    reportError() {},
+  });
+
+  const crime = coordinator.schedule('crime');
+  while (!receivedSignal) await new Promise((resolve) => setImmediate(resolve));
+  mode = 'diary';
+  const diary = coordinator.schedule('diary');
+  assert.equal(receivedSignal.aborted, true);
+  assert.equal((await crime).status, 'superseded');
+  assert.equal((await diary).status, 'ready');
+});
+
+test('Crime refresh outcomes never label stale work as live', async () => {
+  const { classifyCrimeRefreshJobs, normalizeCrimeRefreshResult } = await import('../../src/routes_crime/index.js');
+  assert.deepEqual(normalizeCrimeRefreshResult({ applied: true }), { status: 'live' });
+  assert.deepEqual(normalizeCrimeRefreshResult({ applied: false }), { status: 'superseded' });
+  assert.deepEqual(normalizeCrimeRefreshResult({ status: 'failed' }), { status: 'failed' });
+  assert.deepEqual(classifyCrimeRefreshJobs([
+    { status: 'fulfilled', value: { applied: true } },
+    { status: 'fulfilled', value: { applied: true } },
+  ]), { applied: true });
+  assert.deepEqual(classifyCrimeRefreshJobs([
+    { status: 'fulfilled', value: { applied: true } },
+    { status: 'fulfilled', value: { applied: false } },
+  ]), { applied: false });
+  assert.deepEqual(classifyCrimeRefreshJobs([
+    { status: 'fulfilled', value: null },
+  ]), { status: 'failed' });
+  assert.deepEqual(classifyCrimeRefreshJobs([
+    { status: 'fulfilled', value: { status: 'failed' } },
+  ]), { status: 'failed' });
+  assert.deepEqual(classifyCrimeRefreshJobs([
+    { status: 'rejected', reason: new Error('chart failed') },
+  ]), { status: 'failed' });
 });
 
 test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', async () => {
@@ -677,7 +947,16 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
       { geoid: '42101000200', pop: 2000 },
     ],
     snapshot: {
-      meta: { schema_version: 2, start: '2025-08-01', end: '2026-08-01', row_count: 2 },
+      meta: {
+        schema_version: 2,
+        start: '2025-08-01',
+        end: '2026-08-01',
+        generated_at: '2026-07-31T01:00:00.000Z',
+        coverage_date: '2026-07-30',
+        row_count: 2,
+        source_dataset: 'incidents_part1_part2',
+        tract_source: 'public/data/tracts_phl.geojson',
+      },
       rows: [
         {
           geoid: '42101000100',
@@ -698,6 +977,23 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
 
   assert.equal(result.dataStatus, 'available');
   assert.deepEqual(result.values, [2, 0]);
+  assert.deepEqual(result.provenance, {
+    schemaVersion: 2,
+    start: '2025-08-01',
+    end: '2026-08-01',
+    generatedAt: '2026-07-31T01:00:00.000Z',
+    coverageDate: '2026-07-30',
+    rowCount: 2,
+    sourceDataset: 'incidents_part1_part2',
+    tractSource: 'public/data/tracts_phl.geojson',
+    geographyIdentity: 'fnv1a32:2:78e4249a',
+  });
+});
+
+test('bundle policy keeps the established entry budget separate from Analysis History', async () => {
+  const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
+  assert.match(source, /\['Entry', entry, 902_665, 247_583\]/);
+  assert.match(source, /\['Analysis History', analysisHistory, 23_000, 7_800\]/);
 });
 
 test('tract snapshot requires the exact current tract identity set', () => {
@@ -764,4 +1060,61 @@ test('missing or mismatched tract snapshot is unavailable rather than a true zer
   assert.deepEqual(result.values, []);
   assert.match(result.statusMessage, /does not cover/i);
   assert.equal(result.geojson.features[0].properties.value, null);
+});
+
+test('tract snapshot provenance rejects invalid bounded metadata', () => {
+  const result = tractView.mergeTractSnapshotData({
+    tracts: {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: { GEOID: '42101000100' }, geometry: null }],
+    },
+    stats: [{ geoid: '42101000100', pop: 1000 }],
+    snapshot: {
+      meta: {
+        schema_version: 2,
+        start: '2025-08-01',
+        end: '2026-08-01',
+        generated_at: '2026-07-31T01:00:00.000Z',
+        coverage_date: '2026-99-99',
+        row_count: 1,
+        source_dataset: 'incidents_part1_part2',
+        tract_source: 'public/data/tracts_phl.geojson',
+      },
+      rows: [{ geoid: '42101000100', total: 1, offenses: [] }],
+    },
+    start: '2025-08-01',
+    end: '2026-08-01',
+  });
+  assert.equal(result.dataStatus, 'unavailable');
+  assert.equal(result.provenance, null);
+});
+
+test('tract snapshot provenance rejects semantic timestamp, window, and identity contradictions', () => {
+  const baseMeta = {
+    schema_version: 2,
+    start: '2025-08-01',
+    end: '2026-08-01',
+    generated_at: '2026-07-31T01:00:00.000Z',
+    coverage_date: '2026-07-30',
+    row_count: 1,
+    source_dataset: 'incidents_part1_part2',
+    tract_source: 'public/data/tracts_phl.geojson',
+  };
+  const invalid = [
+    { ...baseMeta, generated_at: '2026-07-31 01:00:00Z' },
+    { ...baseMeta, start: baseMeta.end },
+    { ...baseMeta, start: '2026-07-31' },
+    { ...baseMeta, generated_at: '2026-07-29T23:59:59.000Z' },
+  ];
+  for (const meta of invalid) {
+    const result = tractView.mergeTractSnapshotData({
+      tracts: { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { GEOID: '42101000100' }, geometry: null }] },
+      stats: [{ geoid: '42101000100', pop: 1000 }],
+      snapshot: { meta, rows: [{ geoid: '42101000100', total: 1, offenses: [] }] },
+      start: meta.start,
+      end: meta.end,
+    });
+    assert.equal(result.dataStatus, 'unavailable');
+    assert.equal(result.provenance, null);
+  }
 });

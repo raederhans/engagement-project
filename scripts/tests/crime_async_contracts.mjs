@@ -7,7 +7,7 @@ import test from 'node:test';
 
 import { fetchPoints } from '../../src/api/crime.js';
 import { updateAllCharts } from '../../src/charts/index.js';
-import { updateCompare } from '../../src/compare/card.js';
+import { getLastComparisonSnapshot, updateCompare } from '../../src/compare/card.js';
 import * as refreshContract from '../../src/routes_crime/crime_refresh_owner.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 
@@ -81,6 +81,28 @@ test('deactivation invalidates work and reactivation uses a fresh signal', async
   assert.deepEqual(await second, { applied: true });
 });
 
+test('an external coordinator signal aborts and releases the owned Crime refresh', async () => {
+  const coordinator = new AbortController();
+  let downstreamSignal;
+  const owner = createCrimeRefreshOwner({
+    readSnapshot: () => ({ mode: 'crime' }),
+    runRefresh: (_snapshot, context) => {
+      downstreamSignal = context.signal;
+      return new Promise((resolve) => context.signal.addEventListener(
+        'abort',
+        () => resolve({ applied: true }),
+        { once: true },
+      ));
+    },
+  });
+
+  const refresh = owner.refresh({ signal: coordinator.signal });
+  coordinator.abort(new DOMException('Diary owns the next schedule.', 'AbortError'));
+
+  assert.equal(downstreamSignal.aborted, true);
+  assert.deepEqual(await refresh, { applied: false });
+});
+
 test('crime snapshots clone mutable filter and center values', () => {
   assert.equal(typeof refreshContract.readCrimeSnapshot, 'function');
   const types = ['A'];
@@ -116,6 +138,41 @@ test('crime snapshots clone mutable filter and center values', () => {
   assert.equal(snapshot.adminLevel, 'tracts');
   assert.equal(snapshot.per10k, true);
   assert.deepEqual(snapshot.resolvedOffenseCodes, ['A']);
+});
+
+test('A-only Crime snapshots preserve canonical null labels for comparison persistence', async () => {
+  const filters = {
+    start: '2026-01-01',
+    end: '2026-02-01',
+    types: [],
+    center3857: [1, 2],
+    centerB3857: null,
+    radiusM: 400,
+    adminLevel: 'districts',
+    per10k: false,
+    addressA: null,
+    addressB: null,
+  };
+  const snapshot = refreshContract.readCrimeSnapshot({
+    ...filters,
+    centerLonLat: [-75, 40],
+    centerBLonLat: null,
+    getFilters: () => filters,
+  });
+
+  assert.equal(snapshot.addressA, null);
+  assert.equal(snapshot.addressB, null);
+  await updateCompare(snapshot, {
+    fetchers: {
+      fetchCountBuffer: async () => 12,
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+    },
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+  const saved = getLastComparisonSnapshot(filters);
+  assert.ok(saved);
+  assert.equal(saved.comparison.a.label, 'Point A');
+  assert.equal(saved.comparison.b, null);
 });
 
 function createChartSinks() {
@@ -243,6 +300,42 @@ test('stale compare error cannot write a failure result', async () => {
 
   assert.deepEqual(await comparing, { applied: false });
   assert.deepEqual(view.calls, [['pending']]);
+});
+
+test('pending, aborted, and failed refreshes retain the last successful matching comparison snapshot', async () => {
+  const filters = {
+    start: '2026-03-01', end: '2026-04-01', types: [],
+    center3857: [9, 10], centerB3857: null, radiusM: 400,
+    adminLevel: 'districts', per10k: false, addressA: null, addressB: null,
+  };
+  const view = createCompareView();
+  const successfulFetchers = {
+    fetchCountBuffer: async () => 12,
+    fetchTopTypesBuffer: async () => ({ rows: [] }),
+  };
+  await updateCompare(filters, { fetchers: successfulFetchers, view });
+  const successful = getLastComparisonSnapshot(filters);
+  assert.ok(successful);
+
+  const gate = deferred();
+  const controller = new AbortController();
+  const pending = updateCompare(filters, {
+    signal: controller.signal,
+    shouldApply: () => !controller.signal.aborted,
+    fetchers: { ...successfulFetchers, fetchCountBuffer: () => gate.promise },
+    view,
+  });
+  assert.deepEqual(getLastComparisonSnapshot(filters), successful);
+  controller.abort(new DOMException('Cancelled by test', 'AbortError'));
+  gate.reject(controller.signal.reason);
+  assert.deepEqual(await pending, { applied: false });
+  assert.deepEqual(getLastComparisonSnapshot(filters), successful);
+
+  await updateCompare(filters, {
+    fetchers: { ...successfulFetchers, fetchCountBuffer: async () => { throw new Error('upstream failed'); } },
+    view,
+  });
+  assert.deepEqual(getLastComparisonSnapshot(filters), successful);
 });
 
 test('population estimation forwards the owning refresh signal to both data sources', async () => {
