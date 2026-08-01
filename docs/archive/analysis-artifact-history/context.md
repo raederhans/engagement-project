@@ -42,10 +42,6 @@
 - G006 browser owner command: `npm run test:browser-smoke` in the repository root. Shared resources were `127.0.0.1:4173`, Chromium, `dist/`, and browser IndexedDB. The final post-projection run exited 0, saved/reloaded the runtime store artifact, retained exact restore-owner Point request count 1, reported 0 console/page errors, and closed preview/Chromium in `finally`.
 - Bundle evidence after the runtime-store projection fix: Entry `891453/246992` raw/gzip remained against `902665/247583`; independent Analysis History was `21635/7193` against the then-current `22000/7300`, leaving only 365 raw bytes and 107 gzip bytes of headroom before the required G007 review-blocker work.
 
-## Next step
-
-Root owner can proceed with commit, PR, CI, merge, Pages verification, and final archive. Independent code review is `APPROVE`, architecture is `APPROVE/CLEAR`, and UltraQA completed one adversarial cycle.
-
 ## G007 snapshot, cancellation, provenance, and freshness remediation
 
 - TDD RED showed that History did not paint `resultSummary.comparison` into the real Compare card, null labels were not canonical, coordinator ownership did not reach cancellation signals, explicit cancellation could remain `Refreshing`, tract provenance accepted contradictory semantics, freshness required a repository reload, and geocode restore could schedule duplicate refresh work.
@@ -55,3 +51,18 @@ Root owner can proceed with commit, PR, CI, merge, Pages verification, and final
 - Latest GREEN: Analysis History `16/16`, Points `10/10`, and Crime `13/13`. `npm run validate` passed, including bundle policy, all data checks and tests; `npm audit` reported 0 vulnerabilities.
 - The production build used exactly `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; there is no `VITE_FEATURE_ANALYSIS_HISTORY` flag and the History feature does not depend on one. The resulting bundle measured Entry `891985/247181`, Crime `29515/10626`, and Analysis History `22349/7445`, all within budget.
 - Final browser smoke passed with a 1200 ms geocode response and exactly one refresh generation, `intentional503=3`, and 0 unexpected console errors or page errors. Cleanup released preview/Chromium, left port 4173 free, and found no residual owned process.
+
+## Final integration and deployment
+
+- Runtime Lore commit: `ce5376969790f7be19781ee3177c812eb53e9aa5`.
+- Pull request: `#33`, merged as `b286237079e6ae9a56d97f233a796b3a6d804922`.
+- Main CI run: `30683315363`, successful.
+- Pages run: `30683315403`, successful.
+- Production entry: `assets/index-DqeV5vZ5.js`, HTTP 200, 892126 bytes.
+- Production History chunk: `assets/analysis_history_controller-BkdNHpFx.js`, HTTP 200.
+- Direct Diary proved History chunk=false, Analysis DB=false, Crime API requests empty.
+- Direct Crime displayed Recent analyses and Save analysis after live coverage initialization; console errors and warnings were both zero.
+
+## Recommended next step
+
+Begin the next accepted stage only from current `main`. Preserve the independent Analysis/Diary storage boundary and use the versioned Artifact contract as the input to any future comparison or Tract workflow.

@@ -15,7 +15,7 @@ Deliver the first product stage: versioned Analysis Artifacts, durable local ana
 - [x] TDD implementation of artifact and repository contracts.
 - [x] History UI and Crime lifecycle integration.
 - [x] Full verification, independent review, and adversarial QA.
-- [ ] Commit, PR, CI, merge, Pages verification, and archive.
+- [x] Commit, PR, CI, merge, Pages verification, and archive.
 
 ## Scope boundary
 
