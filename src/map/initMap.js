@@ -31,8 +31,70 @@ export function initMap(options = {}) {
     center,
     zoom,
   });
+  installDefaultMapControls(map, {
+    initialView: { center, zoom },
+  });
 
   return map;
+}
+
+export function installDefaultMapControls(map, {
+  maplibre = maplibregl,
+  documentRef = globalThis.document,
+  initialView = { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM },
+} = {}) {
+  const navigation = new maplibre.NavigationControl({
+    showCompass: true,
+    showZoom: true,
+    visualizePitch: true,
+  });
+  const reset = createResetExtentControl({ documentRef, initialView });
+  map.addControl(navigation, 'top-right');
+  map.addControl(reset, 'top-right');
+
+  return {
+    remove() {
+      map.removeControl?.(reset);
+      map.removeControl?.(navigation);
+    },
+  };
+}
+
+function createResetExtentControl({ documentRef, initialView }) {
+  let map;
+  let button;
+  const resetMap = () => {
+    map?.easeTo({
+      center: initialView.center,
+      zoom: initialView.zoom,
+      bearing: 0,
+      pitch: 0,
+      duration: 350,
+    });
+  };
+
+  return {
+    onAdd(nextMap) {
+      map = nextMap;
+      const container = documentRef.createElement('div');
+      container.className = 'maplibregl-ctrl maplibregl-ctrl-group map-reset-control';
+      button = documentRef.createElement('button');
+      button.type = 'button';
+      button.className = 'map-reset-control__button';
+      button.title = 'Reset map extent';
+      button.setAttribute('aria-label', 'Reset map extent');
+      button.textContent = '⌂';
+      button.addEventListener('click', resetMap);
+      container.appendChild?.(button);
+      return container;
+    },
+    onRemove() {
+      button?.removeEventListener('click', resetMap);
+      button?.parentNode?.remove?.();
+      button = null;
+      map = null;
+    },
+  };
 }
 
 export function createMapMarker(options = {}) {

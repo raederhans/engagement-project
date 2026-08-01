@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const ratingFlow = await import('../../src/routes_diary/rating_flow.js').catch(() => ({}));
+
+test('a new route draft requires an explicit overall rating and restores only its route', () => {
+  assert.equal(typeof ratingFlow.createRatingDraft, 'function');
+  assert.equal(typeof ratingFlow.saveRatingDraft, 'function');
+  assert.equal(typeof ratingFlow.getRatingDraft, 'function');
+
+  const draft = ratingFlow.createRatingDraft('route-a');
+  assert.equal(draft.step, 'overall');
+  assert.equal(draft.overallRating, null);
+
+  draft.overallRating = 4;
+  draft.step = 'details';
+  ratingFlow.saveRatingDraft('route-a', draft);
+
+  assert.deepEqual(ratingFlow.getRatingDraft('route-a'), {
+    step: 'details',
+    overallRating: 4,
+    tags: [],
+    notes: '',
+    overrides: [],
+  });
+  assert.equal(ratingFlow.getRatingDraft('route-b'), null);
+});
+
+test('successful completion clears the saved route draft', () => {
+  ratingFlow.saveRatingDraft('route-clear', {
+    step: 'segments',
+    overallRating: 2,
+    tags: ['poor_lighting'],
+    notes: 'Dark corner',
+    overrides: [['segment-1', 1]],
+  });
+
+  ratingFlow.clearRatingDraft('route-clear');
+
+  assert.equal(ratingFlow.getRatingDraft('route-clear'), null);
+});
+
+test('only the three lowest-rated route segments are offered', () => {
+  const segmentIds = Array.from({ length: 48 }, (_, index) => `segment-${index + 1}`);
+  const lookup = new Map(segmentIds.map((segmentId, index) => [segmentId, {
+    properties: { segment_id: segmentId, decayed_mean: 48 - index },
+  }]));
+
+  const visible = ratingFlow.selectLowestRatedSegments({
+    properties: { segment_ids: segmentIds },
+  }, lookup);
+
+  assert.deepEqual(visible.map(({ segmentId }) => segmentId), ['segment-48', 'segment-47', 'segment-46']);
+  assert.equal(visible.length, 3);
+});
+
+test('segment overrides are optional and capped at two', () => {
+  const overrides = new Map();
+  assert.equal(ratingFlow.setSegmentOverride(overrides, 'segment-1', 2).ok, true);
+  assert.equal(ratingFlow.setSegmentOverride(overrides, 'segment-2', 3).ok, true);
+  assert.deepEqual(ratingFlow.setSegmentOverride(overrides, 'segment-3', 1), {
+    ok: false,
+    error: 'Only two segment overrides are supported.',
+  });
+  assert.equal(overrides.size, 2);
+});
+
+test('step validation allows saving from Details but still enforces one to three tags', () => {
+  assert.equal(ratingFlow.validateRatingStep({ step: 'overall', overallRating: null }).error, 'Select an overall rating.');
+  assert.equal(ratingFlow.validateRatingStep({ step: 'overall', overallRating: 5 }).ok, true);
+  assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set() }).error, 'Pick at least one tag.');
+  assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set(['a', 'b', 'c']) }).ok, true);
+  assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set(['a', 'b', 'c', 'd']) }).error, 'Select at most three tags.');
+});
+
+test('rating modal source keeps the accessibility and responsive layout contracts', async () => {
+  const source = await readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8');
+
+  assert.match(source, /role', 'dialog'/);
+  assert.match(source, /aria-modal', 'true'/);
+  assert.match(source, /aria-labelledby'/);
+  assert.match(source, /Step \$\{stepIndex \+ 1\} of 3/);
+  assert.match(source, /position:\s*sticky/);
+  assert.match(source, /min-(?:width|height):\s*48px/);
+  assert.match(source, /@media \(max-width: 640px\)/);
+  assert.match(source, /width:\s*100vw/);
+  assert.match(source, /height:\s*100dvh/);
+  assert.match(source, /backdrop\.appendChild\(modal\)/);
+  assert.doesNotMatch(source, /document\.body\.appendChild\(modal\)/);
+});
+
+test('rating modal manages focus, background inertness, and radio semantics', async () => {
+  const source = await readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8');
+
+  assert.match(source, /activeOpener\s*=\s*document\.activeElement/);
+  assert.match(source, /setBackgroundInert\(backdrop\)/);
+  assert.match(source, /restoreBackgroundInert\(\)/);
+  assert.match(source, /opener\?\.focus\?\.\(\)/);
+  assert.match(source, /event\.key\s*===\s*'Tab'/);
+  assert.match(source, /event\.shiftKey/);
+  assert.match(source, /focusable\[focusable\.length - 1\]\.focus\(\)/);
+  assert.match(source, /focusable\[0\]\.focus\(\)/);
+  assert.match(source, /row\.setAttribute\('role', 'radiogroup'\)/);
+  assert.match(source, /star\.setAttribute\('role', 'radio'\)/);
+  assert.match(source, /star\.setAttribute\('aria-checked', String\(rating === state\.overallRating\)\)/);
+  assert.match(source, /star\.classList\.toggle\('is-filled', rating <= \(state\.overallRating \|\| 0\)\)/);
+  assert.match(source, /\['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'\]/);
+  assert.match(source, /event\.preventDefault\(\)/);
+  assert.match(source, /selectStarRating\(state, nextRating\)/);
+  assert.match(source, /renderCurrentStep\(\{ type: 'star', value: String\(rating\) \}\)/);
+  assert.match(source, /renderCurrentStep\(\{ type: 'tag', value: tag \}\)/);
+  assert.match(source, /renderCurrentStep\(\{ type: 'segment', value: segmentId \}\)/);
+  assert.match(source, /renderCurrentStep\(\{ type: 'step', value: step \}\)/);
+  assert.match(source, /restoreRerenderFocus\(focusTarget\)/);
+});

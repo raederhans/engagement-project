@@ -14,7 +14,7 @@ import {
   clearSelectedTract,
 } from '../map/selection_layers.js';
 import { clearBufferA, clearBufferB, upsertBufferA, upsertBufferB } from '../map/buffer_overlay.js';
-import { hideLegend, initLegend } from '../map/legend.js';
+import { hideLegend, initLegend, showLegend } from '../map/legend.js';
 import { upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
 import { createMapMarker } from '../map/initMap.js';
@@ -192,6 +192,7 @@ export async function initCrimeMode(map, {
         nextTractSnapshotProvenance = merged.provenance || null;
         clearCrimeResultsUnavailable();
         reconcileCrimeLayerVisibility(map, snapshot);
+        reconcileCrimeLegend(snapshot);
         if (queryMode === 'tract' && selectedTractGEOID) {
           upsertSelectedTract(map, selectedTractGEOID);
         } else {
@@ -207,6 +208,7 @@ export async function initCrimeMode(map, {
         renderDistrictChoropleth(map, merged);
         clearCrimeResultsUnavailable();
         reconcileCrimeLayerVisibility(map, snapshot);
+        reconcileCrimeLegend(snapshot);
         ensureDistrictInteractions();
         if (queryMode === 'district' && selectedDistrictCode) {
           upsertSelectedDistrict(map, selectedDistrictCode);
@@ -246,6 +248,7 @@ export async function initCrimeMode(map, {
         radiusM,
         adminLevel,
         per10k,
+        coverageDate: store.coverageMax,
       }, { signal, shouldApply: isCurrent }));
     }
     const results = await Promise.allSettled(jobs);
@@ -293,12 +296,12 @@ export async function initCrimeMode(map, {
       return;
     }
     if (centerLonLat) {
-      markerA ||= createMapMarker({ color: '#0284c7' });
+      markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
       markerA.setLngLat(centerLonLat).addTo(map);
       upsertBufferA(map, { centerLonLat, radiusM });
     }
     if (centerBLonLat) {
-      markerB ||= createMapMarker({ color: '#dc2626' });
+      markerB ||= createMapMarker({ color: '#0a6c74', className: 'analysis-marker analysis-marker--b' });
       markerB.setLngLat(centerBLonLat).addTo(map);
       upsertBufferB(map, { centerLonLat: centerBLonLat, radiusM });
     }
@@ -348,7 +351,7 @@ export async function initCrimeMode(map, {
     store.selectMode = 'idle';
     for (const id of ['useCenterBtn', 'usePointBBtn']) {
       const button = document.getElementById(id);
-      if (button) button.textContent = 'Map';
+      if (button) button.textContent = 'Pick on map';
     }
     const hint = document.getElementById('useMapHint');
     if (hint) hint.style.display = 'none';
@@ -370,7 +373,10 @@ export async function initCrimeMode(map, {
       active = Boolean(next);
       refreshOwner.setActive(active);
       pointsController.setActive(active);
-      if (active) reconcileCrimeLayerVisibility(map, store);
+      if (active) {
+        reconcileCrimeLayerVisibility(map, store);
+        reconcileCrimeLegend(store);
+      }
       else for (const layerId of CRIME_LAYER_IDS) {
         if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
       }
@@ -397,9 +403,47 @@ export async function initCrimeMode(map, {
 export function reconcileCrimeLayerVisibility(map, state = store) {
   for (const layerId of CRIME_LAYER_IDS) {
     if (map.getLayer(layerId)) {
-      map.setLayoutProperty(layerId, 'visibility', activeLayerVisibility(layerId, state));
+      map.setLayoutProperty(layerId, 'visibility', resolveCrimeLayerVisibility(layerId, state));
     }
   }
+}
+
+export function resolveCrimePrimaryLayer(state) {
+  if (state?.queryMode === 'district') return 'districts';
+  if (state?.queryMode === 'tract') return 'tracts';
+  return 'incidents';
+}
+
+export function shouldShowCrimeLegend(state) {
+  return resolveCrimePrimaryLayer(state) !== 'incidents';
+}
+
+function reconcileCrimeLegend(state) {
+  if (shouldShowCrimeLegend(state)) showLegend();
+  else hideLegend();
+}
+
+export function resolveCrimeLayerVisibility(layerId, state) {
+  const primaryLayer = resolveCrimePrimaryLayer(state);
+  if (layerId === 'tracts-outline-line') {
+    return state?.overlayTractsLines ? 'visible' : 'none';
+  }
+  if (layerId === 'tracts-fill' || layerId.startsWith('tracts-selected-')) {
+    return primaryLayer === 'tracts' ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('districts-')) {
+    return primaryLayer === 'districts' ? 'visible' : 'none';
+  }
+  if (layerId === 'clusters' || layerId === 'cluster-count' || layerId === 'unclustered') {
+    return primaryLayer === 'incidents' ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('buffer-a-')) {
+    return state?.queryMode === 'buffer' && state?.centerLonLat ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('buffer-b-')) {
+    return state?.queryMode === 'buffer' && state?.centerBLonLat ? 'visible' : 'none';
+  }
+  return 'visible';
 }
 
 export function markCrimeResultsUnavailable(map, message, documentRef = globalThis.document) {
@@ -438,25 +482,6 @@ function clearCrimeResultsUnavailable(documentRef = globalThis.document) {
   }
   const status = documentRef?.getElementById?.('crime-results-status');
   if (status) status.style.display = 'none';
-}
-
-function activeLayerVisibility(layerId, state) {
-  if (layerId === 'tracts-outline-line') {
-    return state.overlayTractsLines ? 'visible' : 'none';
-  }
-  if (layerId === 'tracts-fill' || layerId.startsWith('tracts-selected-')) {
-    return state.adminLevel === 'tracts' ? 'visible' : 'none';
-  }
-  if (layerId.startsWith('districts-')) {
-    return state.adminLevel === 'tracts' ? 'none' : 'visible';
-  }
-  if (layerId.startsWith('buffer-a-')) {
-    return state.queryMode === 'buffer' && state.centerLonLat ? 'visible' : 'none';
-  }
-  if (layerId.startsWith('buffer-b-')) {
-    return state.queryMode === 'buffer' && state.centerBLonLat ? 'visible' : 'none';
-  }
-  return 'visible';
 }
 
 function removeBufferOverlay(map) {

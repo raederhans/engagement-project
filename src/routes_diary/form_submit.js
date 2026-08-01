@@ -1,7 +1,14 @@
 import Ajv from 'ajv';
 import { submitDiary } from '../api/diary.js';
-import { SCORE_PROP } from './data_normalization.js';
 import { getSegmentDisplayLabel } from './labels.js';
+import {
+  clearRatingDraft,
+  createRatingDraft,
+  saveRatingDraft,
+  selectLowestRatedSegments,
+  setSegmentOverride,
+  validateRatingStep,
+} from './rating_flow.js';
 
 const ALL_TAGS = [
   'poor_lighting',
@@ -18,7 +25,8 @@ const ALL_TAGS = [
   'dogs',
 ];
 const DEFAULT_TAG_CHIPS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'construction_blockage', 'dogs', 'other'];
-const TAG_OPTIONS = ALL_TAGS;
+const STEP_ORDER = ['overall', 'details', 'segments'];
+const STEP_TITLES = { overall: 'Overall', details: 'Details', segments: 'Segments' };
 
 const ajv = new Ajv({ allErrors: true });
 const ratingSchema = {
@@ -30,7 +38,7 @@ const ratingSchema = {
     overall_rating: { type: 'integer', minimum: 1, maximum: 5 },
     tags: {
       type: 'array',
-      items: { type: 'string', enum: TAG_OPTIONS },
+      items: { type: 'string', enum: ALL_TAGS },
       minItems: 1,
       maxItems: 3,
     },
@@ -53,16 +61,19 @@ const ratingSchema = {
     timestamp: { type: 'string' },
   },
 };
-
 const validatePayload = ajv.compile(ratingSchema);
 
 let modalStylesInjected = false;
 let activeBackdrop = null;
 let activeModal = null;
+let activeBody = null;
+let activeStepLabel = null;
 let errorEl = null;
 let submitBtn = null;
 let escapeHandler = null;
 let currentState = null;
+let activeOpener = null;
+let backgroundInertState = [];
 
 export function submitSegmentFeedback(payload, { submit = submitDiary, signal } = {}) {
   const segmentId = String(payload?.segmentId || '').trim();
@@ -83,7 +94,7 @@ function injectModalStyles() {
     .diary-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.18);
+      background: rgba(15, 23, 42, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -91,174 +102,219 @@ function injectModalStyles() {
     }
     .diary-modal-card {
       background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
       border: 1px solid #e2e8f0;
-      width: min(540px, 92vw);
-      max-height: 85vh;
-      overflow: hidden;
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+      color: #0f172a;
       display: flex;
       flex-direction: column;
-      padding: 24px;
       font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-      color: #0f172a;
-      position: relative;
+      max-height: min(720px, 88vh);
+      overflow: hidden;
+      width: min(560px, 92vw);
       z-index: 2501;
     }
-    .diary-modal-card .diary-modal-body {
-      overflow-y: auto;
-      padding-right: 2px;
-      max-height: calc(85vh - 140px);
-    }
-    .diary-modal-close {
-      border: none;
+    .diary-modal-header { padding: 20px 20px 12px; }
+    .diary-modal-title-row { align-items: center; display: flex; justify-content: space-between; }
+    .diary-modal-close, .diary-star {
+      align-items: center;
       background: transparent;
-      font-size: 20px;
+      border: 0;
       cursor: pointer;
-      line-height: 1;
-      color: #475569;
+      display: inline-flex;
+      justify-content: center;
+      min-height: 48px;
+      min-width: 48px;
+    }
+    .diary-modal-close { color: #475569; font-size: 28px; }
+    .diary-step-label { color: #64748b; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .diary-modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 24px; }
+    .diary-modal-footer {
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      bottom: 0;
+      display: flex;
+      gap: 10px;
+      padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+      position: sticky;
+      z-index: 1;
+    }
+    .diary-modal-footer button { border-radius: 10px; cursor: pointer; flex: 1; font-weight: 700; min-height: 48px; padding: 10px 12px; }
+    .diary-button-primary { background: #10b981; border: 0; color: #fff; }
+    .diary-button-secondary { background: #fff; border: 1px solid #cbd5e1; color: #334155; }
+    .diary-button-link { background: #fff; border: 0; color: #047857; }
+    .diary-stars { display: flex; gap: 4px; justify-content: space-between; margin-top: 16px; }
+    .diary-star { color: #cbd5e1; font-size: 36px; line-height: 1; }
+    .diary-star.is-filled { color: #f59e0b; }
+    .diary-tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .diary-tag { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; cursor: pointer; min-height: 40px; padding: 8px 12px; }
+    .diary-tag[aria-pressed="true"] { background: #10b981; border-color: #10b981; color: #fff; }
+    .diary-field { border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font: inherit; padding: 10px; width: 100%; }
+    .diary-segment-row { align-items: center; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; gap: 12px; justify-content: space-between; margin-top: 10px; padding: 10px; }
+    .diary-error { color: #b91c1c; font-size: 13px; min-height: 20px; padding: 0 20px; }
+    @media (max-width: 640px) {
+      .diary-modal-backdrop { align-items: stretch; }
+      .diary-modal-card { border: 0; border-radius: 0; height: 100dvh; max-height: none; width: 100vw; }
+      .diary-modal-header { padding-top: calc(12px + env(safe-area-inset-top)); }
     }
   `;
   document.head.appendChild(style);
   modalStylesInjected = true;
 }
 
+function persistDraft(state = currentState) {
+  if (!state?.routeId) return;
+  saveRatingDraft(state.routeId, {
+    step: state.step,
+    overallRating: state.overallRating,
+    tags: state.tags,
+    notes: state.notes,
+    overrides: state.overrides,
+  });
+}
+
 export function openRatingModal({ routeFeature, segmentLookup, userHash, onSuccess, signal }) {
   if (!routeFeature) return;
   closeRatingModal();
   if (typeof document === 'undefined') return;
+  activeOpener = document.activeElement;
 
+  const routeId = String(routeFeature.properties?.route_id || '');
+  const draft = createRatingDraft(routeId);
   currentState = {
     route: routeFeature,
+    routeId,
     segmentLookup: segmentLookup || new Map(),
     userHash,
-    tags: new Set(),
-    overrides: new Map(),
-    overallRating: 3,
-    noteInput: null,
+    step: draft.step,
+    tags: new Set(draft.tags),
+    overrides: new Map(draft.overrides),
+    overallRating: draft.overallRating,
+    notes: draft.notes,
     onSuccess,
     signal,
+    clearDraft: () => clearRatingDraft(routeId),
   };
 
   injectModalStyles();
-
   const backdrop = document.createElement('div');
   backdrop.className = 'diary-modal-backdrop';
   backdrop.addEventListener('click', closeRatingModal);
 
-  const modal = document.createElement('div');
+  const modal = document.createElement('form');
   modal.className = 'diary-modal-card';
-  modal.addEventListener('click', (e) => e.stopPropagation());
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'diary-rating-title');
+  modal.tabIndex = -1;
+  modal.addEventListener('click', (event) => event.stopPropagation());
+  modal.addEventListener('submit', handleSubmit);
 
   const header = document.createElement('div');
-  header.style.display = 'flex';
-  header.style.justifyContent = 'space-between';
-  header.style.alignItems = 'center';
-  const title = document.createElement('div');
-  title.style.fontWeight = '600';
-  title.style.fontSize = '18px';
+  header.className = 'diary-modal-header';
+  const titleRow = document.createElement('div');
+  titleRow.className = 'diary-modal-title-row';
+  const title = document.createElement('h2');
+  title.id = 'diary-rating-title';
+  title.style.margin = '0';
+  title.style.fontSize = '20px';
   title.textContent = 'Rate this route';
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
-  closeBtn.textContent = '×';
   closeBtn.className = 'diary-modal-close';
+  closeBtn.setAttribute('aria-label', 'Close rating dialog');
+  closeBtn.textContent = '×';
   closeBtn.addEventListener('click', closeRatingModal);
-  header.appendChild(title);
-  header.appendChild(closeBtn);
+  titleRow.appendChild(title);
+  titleRow.appendChild(closeBtn);
+  header.appendChild(titleRow);
+
+  activeStepLabel = document.createElement('div');
+  activeStepLabel.className = 'diary-step-label';
+  header.appendChild(activeStepLabel);
+  const subtitle = document.createElement('p');
+  subtitle.style.margin = '6px 0 0';
+  subtitle.style.color = '#475569';
+  subtitle.textContent = `${routeFeature.properties?.from || 'Origin'} → ${routeFeature.properties?.to || 'Destination'}`;
+  header.appendChild(subtitle);
   modal.appendChild(header);
 
-  const subtitle = document.createElement('p');
-  subtitle.style.margin = '8px 0 16px';
-  subtitle.style.fontSize = '13px';
-  subtitle.style.color = '#475569';
-  subtitle.textContent = `How safe did this trip feel? ${routeFeature.properties?.from || 'Origin'} → ${routeFeature.properties?.to || 'Destination'}`;
-  modal.appendChild(subtitle);
-
-  const form = document.createElement('form');
-  form.style.display = 'flex';
-  form.style.flexDirection = 'column';
-  form.style.gap = '16px';
-  form.className = 'diary-modal-body';
-  form.style.maxHeight = 'calc(82vh - 140px)';
-  form.style.paddingRight = '2px';
-
-  form.appendChild(createStarSelector(currentState));
-  form.appendChild(createTagSelector(currentState));
-  form.appendChild(createSegmentOverrideSection(currentState));
-  form.appendChild(createNotesSection(currentState));
-
+  activeBody = document.createElement('div');
+  activeBody.className = 'diary-modal-body';
+  modal.appendChild(activeBody);
   errorEl = document.createElement('div');
-  errorEl.style.color = '#b91c1c';
-  errorEl.style.fontSize = '13px';
-  errorEl.style.minHeight = '18px';
-  form.appendChild(errorEl);
-
-  const actions = document.createElement('div');
-  actions.style.display = 'flex';
-  actions.style.gap = '12px';
-  actions.style.marginTop = '8px';
-
-  const cancel = document.createElement('button');
-  cancel.type = 'button';
-  cancel.textContent = 'Cancel';
-  cancel.style.flex = '1';
-  cancel.style.padding = '10px 12px';
-  cancel.style.border = '1px solid #e2e8f0';
-  cancel.style.borderRadius = '10px';
-  cancel.style.background = '#fff';
-  cancel.style.cursor = 'pointer';
-  cancel.style.fontWeight = '600';
-  cancel.addEventListener('click', closeRatingModal);
-
-  submitBtn = document.createElement('button');
-  submitBtn.type = 'submit';
-  submitBtn.textContent = 'Submit rating';
-  submitBtn.style.flex = '1';
-  submitBtn.style.padding = '10px 12px';
-  submitBtn.style.border = 'none';
-  submitBtn.style.borderRadius = '10px';
-  submitBtn.style.background = '#10b981';
-  submitBtn.style.color = '#fff';
-  submitBtn.style.fontWeight = '600';
-  submitBtn.style.cursor = 'pointer';
-
-  actions.appendChild(cancel);
-  actions.appendChild(submitBtn);
-  form.appendChild(actions);
-
-  form.addEventListener('submit', handleSubmit);
-
-  modal.appendChild(form);
+  errorEl.className = 'diary-error';
+  errorEl.setAttribute('role', 'alert');
+  modal.appendChild(errorEl);
 
   activeBackdrop = backdrop;
   activeModal = modal;
+  backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
-  document.body.appendChild(modal);
+  setBackgroundInert(backdrop);
+  renderCurrentStep();
 
-  escapeHandler = (e) => {
-    if (e.key === 'Escape') {
-      closeRatingModal();
-    }
+  escapeHandler = (event) => {
+    if (event.key === 'Escape') closeRatingModal();
+    if (event.key === 'Tab') trapModalFocus(event);
   };
   document.addEventListener('keydown', escapeHandler);
+  closeBtn.focus?.();
 }
 
 export function closeRatingModal() {
-  if (activeBackdrop) {
-    activeBackdrop.remove();
-    activeBackdrop = null;
-  }
-  if (activeModal) {
-    activeModal.remove();
-    activeModal = null;
-  }
-  if (escapeHandler) {
-    document.removeEventListener('keydown', escapeHandler);
-    escapeHandler = null;
-  }
-  currentState = null;
+  const opener = activeOpener;
+  activeBackdrop?.remove();
+  activeModal?.remove();
+  if (escapeHandler && typeof document !== 'undefined') document.removeEventListener('keydown', escapeHandler);
+  restoreBackgroundInert();
+  activeBackdrop = null;
+  activeModal = null;
+  activeBody = null;
+  activeStepLabel = null;
   errorEl = null;
   submitBtn = null;
+  escapeHandler = null;
+  currentState = null;
+  activeOpener = null;
+  if (opener?.isConnected !== false) opener?.focus?.();
+}
+
+function setBackgroundInert(backdrop) {
+  backgroundInertState = Array.from(document.body.children)
+    .filter((element) => element !== backdrop)
+    .map((element) => ({ element, inert: element.inert }));
+  backgroundInertState.forEach(({ element }) => {
+    element.inert = true;
+  });
+}
+
+function restoreBackgroundInert() {
+  backgroundInertState.forEach(({ element, inert }) => {
+    element.inert = inert;
+  });
+  backgroundInertState = [];
+}
+
+function trapModalFocus(event) {
+  if (!activeModal) return;
+  const focusable = Array.from(activeModal.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+  )).filter((element) => element.tabIndex >= 0);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    activeModal.focus();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (!activeModal.contains(document.activeElement) || document.activeElement === first)) {
+    event.preventDefault();
+    focusable[focusable.length - 1].focus();
+  } else if (!event.shiftKey && (!activeModal.contains(document.activeElement) || document.activeElement === last)) {
+    event.preventDefault();
+    focusable[0].focus();
+  }
 }
 
 export function finalizeDiarySubmission({
@@ -270,388 +326,328 @@ export function finalizeDiarySubmission({
 }) {
   if (state?.signal?.aborted || !isCurrent()) return false;
   const onSuccess = state?.onSuccess;
+  state?.clearDraft?.();
   close();
   onSuccess?.({ payload, response });
   return true;
 }
 
-function createStarSelector(state) {
+function renderCurrentStep(focusTarget = null) {
+  const state = currentState;
+  if (!state || !activeBody || !activeModal) return;
+  setError('');
+  activeBody.replaceChildren();
+  activeModal.querySelector?.('.diary-modal-footer')?.remove();
+  const stepIndex = STEP_ORDER.indexOf(state.step);
+  activeStepLabel.textContent = `Step ${stepIndex + 1} of 3 · ${STEP_TITLES[state.step]}`;
+
+  if (state.step === 'overall') activeBody.appendChild(createStarSelector(state));
+  if (state.step === 'details') {
+    activeBody.appendChild(createTagSelector(state));
+    activeBody.appendChild(createNotesSection(state));
+  }
+  if (state.step === 'segments') activeBody.appendChild(createSegmentOverrideSection(state));
+  activeModal.appendChild(createFooter(state));
+  restoreRerenderFocus(focusTarget);
+}
+
+function restoreRerenderFocus(focusTarget) {
+  if (!focusTarget || !activeBody) return;
+  if (focusTarget.type === 'step') {
+    const selector = {
+      overall: '[role="radio"][tabindex="0"]',
+      details: '.diary-tag',
+      segments: 'input[type="checkbox"]',
+    }[focusTarget.value];
+    activeBody.querySelector(selector)?.focus?.();
+    return;
+  }
+  const target = Array.from(activeBody.querySelectorAll('[data-focus-type]')).find((element) => (
+    element.dataset.focusType === focusTarget.type && element.dataset.focusValue === focusTarget.value
+  ));
+  if (target) target.focus?.();
+  else if (focusTarget.type === 'tag') activeBody.querySelector('[aria-label="Add another tag"]')?.focus?.();
+}
+
+function createHeading(title, description) {
   const wrapper = document.createElement('div');
-  const label = document.createElement('div');
-  label.textContent = 'Overall safety';
-  label.style.fontWeight = '600';
-  wrapper.appendChild(label);
+  const heading = document.createElement('h3');
+  heading.style.margin = '0 0 6px';
+  heading.textContent = title;
+  const hint = document.createElement('p');
+  hint.style.margin = '0';
+  hint.style.color = '#64748b';
+  hint.textContent = description;
+  wrapper.appendChild(heading);
+  wrapper.appendChild(hint);
+  return wrapper;
+}
 
+function createStarSelector(state) {
+  const wrapper = createHeading('Overall safety', 'Choose a star rating before continuing.');
   const row = document.createElement('div');
-  row.style.display = 'flex';
-  row.style.gap = '6px';
-  row.style.marginTop = '6px';
-  row.style.alignItems = 'center';
-
-  const stars = [];
-  for (let i = 1; i <= 5; i += 1) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = '★';
-    btn.style.fontSize = '24px';
-    btn.style.lineHeight = '24px';
-    btn.style.border = 'none';
-    btn.style.background = 'transparent';
-    btn.style.cursor = 'pointer';
-    btn.style.color = i <= state.overallRating ? '#fbbf24' : '#e2e8f0';
-    btn.addEventListener('click', () => {
-      state.overallRating = i;
-      stars.forEach((starBtn, idx) => {
-        starBtn.style.color = idx < i ? '#fbbf24' : '#cbd5f5';
-      });
+  row.className = 'diary-stars';
+  row.setAttribute('role', 'radiogroup');
+  row.setAttribute('aria-label', 'Overall safety rating');
+  for (let rating = 1; rating <= 5; rating += 1) {
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'diary-star';
+    star.textContent = '★';
+    star.dataset.focusType = 'star';
+    star.dataset.focusValue = String(rating);
+    star.setAttribute('role', 'radio');
+    star.setAttribute('aria-label', `${rating} star${rating === 1 ? '' : 's'}`);
+    star.setAttribute('aria-checked', String(rating === state.overallRating));
+    star.tabIndex = rating === (state.overallRating || 1) ? 0 : -1;
+    star.classList.toggle('is-filled', rating <= (state.overallRating || 0));
+    star.addEventListener('click', () => selectStarRating(state, rating));
+    star.addEventListener('keydown', (event) => {
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      let nextRating = rating;
+      if (event.key === 'Home') nextRating = 1;
+      else if (event.key === 'End') nextRating = 5;
+      else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextRating = rating === 5 ? 1 : rating + 1;
+      else nextRating = rating === 1 ? 5 : rating - 1;
+      selectStarRating(state, nextRating);
     });
-    stars.push(btn);
-    row.appendChild(btn);
+    row.appendChild(star);
   }
   wrapper.appendChild(row);
   return wrapper;
 }
 
-function createTagSelector(state) {
-  const wrapper = document.createElement('div');
-  const label = document.createElement('div');
-  label.textContent = 'Top tags (pick up to 3)';
-  label.style.fontWeight = '600';
-  wrapper.appendChild(label);
-
-  const chips = document.createElement('div');
-  chips.style.display = 'flex';
-  chips.style.flexWrap = 'wrap';
-  chips.style.gap = '8px';
-  chips.style.marginTop = '8px';
-  chips.style.maxHeight = '120px';
-  chips.style.overflowY = 'auto';
-
-  function renderChips() {
-    chips.innerHTML = '';
-    const picked = state.tags;
-    DEFAULT_TAG_CHIPS.forEach((tag) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.textContent = tag.replace(/_/g, ' ');
-      chip.style.border = '1px solid #e2e8f0';
-      chip.style.borderRadius = '999px';
-      chip.style.padding = '6px 12px';
-      chip.style.fontSize = '12px';
-      chip.style.cursor = 'pointer';
-      chip.style.background = '#fff';
-      const updateStyle = () => {
-        const active = picked.has(tag);
-        chip.style.background = active ? '#10b981' : '#fff';
-        chip.style.color = active ? '#fff' : '#0f172a';
-        chip.style.borderColor = active ? '#10b981' : '#e2e8f0';
-      };
-      chip.addEventListener('click', () => {
-        if (picked.has(tag)) {
-          picked.delete(tag);
-        } else {
-          if (picked.size >= 3) {
-            setError('Select at most three tags.');
-            return;
-          }
-          picked.add(tag);
-        }
-        setError('');
-        updateStyle();
-        refreshSelect();
-      });
-      updateStyle();
-      chips.appendChild(chip);
-    });
-
-    // render any extra selected tags not in default chips
-    Array.from(picked).forEach((tag) => {
-      if (DEFAULT_TAG_CHIPS.includes(tag)) return;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.textContent = tag.replace(/_/g, ' ');
-      chip.style.border = '1px solid #10b981';
-      chip.style.borderRadius = '999px';
-      chip.style.padding = '6px 12px';
-      chip.style.fontSize = '12px';
-      chip.style.cursor = 'pointer';
-      chip.style.background = '#10b981';
-      chip.style.color = '#fff';
-      chip.addEventListener('click', () => {
-        picked.delete(tag);
-        refreshSelect();
-        renderChips();
-      });
-      chips.appendChild(chip);
-    });
-  }
-
-  const selectWrap = document.createElement('div');
-  selectWrap.style.display = 'flex';
-  selectWrap.style.alignItems = 'center';
-  selectWrap.style.gap = '8px';
-  selectWrap.style.marginTop = '8px';
-  const selectLabel = document.createElement('div');
-  selectLabel.textContent = 'More tags';
-  selectLabel.style.fontSize = '12px';
-  selectLabel.style.color = '#475569';
-  const select = document.createElement('select');
-  select.style.flex = '1';
-  select.style.padding = '8px 10px';
-  select.style.border = '1px solid #e2e8f0';
-  select.style.borderRadius = '10px';
-  select.style.fontSize = '12px';
-
-  function refreshSelect() {
-    const picked = state.tags;
-    const unused = ALL_TAGS.filter((tag) => !picked.has(tag));
-    select.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = unused.length ? 'Add a tag…' : 'All tags selected';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    select.appendChild(placeholder);
-    unused.forEach((tag) => {
-      const opt = document.createElement('option');
-      opt.value = tag;
-      opt.textContent = tag.replace(/_/g, ' ');
-      select.appendChild(opt);
-    });
-    select.disabled = unused.length === 0 || picked.size >= 3;
-  }
-
-  select.addEventListener('change', () => {
-    const value = select.value;
-    if (!value) return;
-    if (state.tags.size >= 3) {
-      setError('Select at most three tags.');
-      select.value = '';
-      return;
-    }
-    state.tags.add(value);
-    setError('');
-    select.value = '';
-    refreshSelect();
-    renderChips();
-  });
-
-  wrapper.appendChild(chips);
-  selectWrap.appendChild(selectLabel);
-  selectWrap.appendChild(select);
-  wrapper.appendChild(selectWrap);
-  refreshSelect();
-  renderChips();
-  return wrapper;
+function selectStarRating(state, rating) {
+  state.overallRating = rating;
+  persistDraft(state);
+  renderCurrentStep({ type: 'star', value: String(rating) });
 }
 
-function createSegmentOverrideSection(state) {
-  const wrapper = document.createElement('div');
-  const label = document.createElement('div');
-  label.textContent = 'Segment overrides (optional, up to 2)';
-  label.style.fontWeight = '600';
-  wrapper.appendChild(label);
-
-  const hint = document.createElement('div');
-  hint.style.fontSize = '12px';
-  hint.style.color = '#64748b';
-  hint.style.marginTop = '4px';
-  hint.textContent = 'Use this if certain blocks felt safer or riskier than the overall trip.';
-  wrapper.appendChild(hint);
-
-  const list = document.createElement('div');
-  list.style.display = 'flex';
-  list.style.flexDirection = 'column';
-  list.style.gap = '8px';
-  list.style.marginTop = '8px';
-
-  const segmentIds = state.route.properties?.segment_ids || [];
-  if (segmentIds.length === 0) {
-    const empty = document.createElement('div');
-    empty.textContent = 'No segments available for overrides.';
-    empty.style.fontSize = '12px';
-    empty.style.color = '#64748b';
-    list.appendChild(empty);
-  }
-
-  // Gather segment data with safety scores for sorting
-  const segmentsData = segmentIds.map((segmentId, idx) => {
-    const segmentFeature = state.segmentLookup?.get?.(segmentId) || state.segmentLookup?.[segmentId];
-    const safetyScore = Number(segmentFeature?.properties?.[SCORE_PROP]) || 3;
-    const label = getSegmentDisplayLabel(segmentFeature, idx + 1);
-    return { segmentId, idx, safetyScore, label };
+function createTagSelector(state) {
+  const wrapper = createHeading('What shaped your rating?', 'Pick 1–3 tags. You can save after this step.');
+  const chips = document.createElement('div');
+  chips.className = 'diary-tag-list';
+  const visibleTags = [...new Set([...DEFAULT_TAG_CHIPS, ...state.tags])];
+  visibleTags.forEach((tag) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'diary-tag';
+    chip.textContent = tag.replace(/_/g, ' ');
+    chip.dataset.focusType = 'tag';
+    chip.dataset.focusValue = tag;
+    chip.setAttribute('aria-pressed', String(state.tags.has(tag)));
+    chip.addEventListener('click', () => {
+      if (state.tags.has(tag)) state.tags.delete(tag);
+      else if (state.tags.size < 3) state.tags.add(tag);
+      else {
+        setError('Select at most three tags.');
+        return;
+      }
+      persistDraft(state);
+      renderCurrentStep({ type: 'tag', value: tag });
+    });
+    chips.appendChild(chip);
   });
+  wrapper.appendChild(chips);
 
-  // Sort by safety score (lowest first = most concerning segments)
-  const sortedSegments = segmentsData.slice().sort((a, b) => a.safetyScore - b.safetyScore);
-
-  // Show top 3 worst segments by default, rest in collapsible
-  const topSegments = sortedSegments.slice(0, 3);
-  const restSegments = sortedSegments.slice(3);
-
-  const createSegmentRow = ({ segmentId, idx, label }) => {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.justifyContent = 'space-between';
-    row.style.alignItems = 'center';
-    row.style.border = '1px solid #e2e8f0';
-    row.style.borderRadius = '10px';
-    row.style.padding = '8px 10px';
-    row.title = segmentId;
-
-    const labelWrap = document.createElement('div');
-    labelWrap.style.display = 'flex';
-    labelWrap.style.flexDirection = 'column';
-    labelWrap.style.fontSize = '12px';
-    labelWrap.style.color = '#475569';
-    const friendly = label || `Segment ${idx + 1}`;
-    const labelStrong = document.createElement('strong');
-    labelStrong.style.color = '#0f172a';
-    labelStrong.textContent = friendly;
-    labelWrap.appendChild(labelStrong);
-
-    const controls = document.createElement('div');
-    controls.style.display = 'flex';
-    controls.style.gap = '6px';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.style.cursor = 'pointer';
-    const select = document.createElement('select');
-    for (let rating = 1; rating <= 5; rating += 1) {
-      const option = document.createElement('option');
-      option.value = rating;
-      option.textContent = `${rating}★`;
-      select.appendChild(option);
-    }
-    select.disabled = true;
-    select.style.borderRadius = '8px';
-    select.style.border = '1px solid #e2e8f0';
-    select.style.padding = '6px';
-    select.addEventListener('change', () => {
-      if (state.overrides.has(segmentId)) {
-        state.overrides.set(segmentId, Number(select.value));
-      }
-    });
-
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) {
-        if (state.overrides.size >= 2) {
-          checkbox.checked = false;
-          setError('Only two segment overrides are supported.');
-          return;
-        }
-        select.disabled = false;
-        state.overrides.set(segmentId, Number(select.value));
-      } else {
-        select.disabled = true;
-        state.overrides.delete(segmentId);
-      }
-      setError('');
-    });
-
-    controls.appendChild(checkbox);
-    controls.appendChild(select);
-    row.appendChild(labelWrap);
-    row.appendChild(controls);
-    return row;
-  };
-
-  // Add top segments (worst safety scores)
-  if (topSegments.length > 0) {
-    const topHint = document.createElement('div');
-    topHint.textContent = 'Lowest-rated segments (tap to flag specific blocks):';
-    topHint.style.fontSize = '12px';
-    topHint.style.color = '#64748b';
-    topHint.style.marginBottom = '6px';
-    list.appendChild(topHint);
-
-    topSegments.forEach(seg => {
-      list.appendChild(createSegmentRow(seg));
-    });
-  }
-
-  // Add collapsible section for rest
-  if (restSegments.length > 0) {
-    const details = document.createElement('details');
-    details.style.marginTop = '8px';
-    const summary = document.createElement('summary');
-    summary.textContent = `Show ${restSegments.length} more segment${restSegments.length > 1 ? 's' : ''}`;
-    summary.style.fontSize = '12px';
-    summary.style.color = '#475569';
-    summary.style.cursor = 'pointer';
-    summary.style.padding = '6px 0';
-    details.appendChild(summary);
-
-    const moreList = document.createElement('div');
-    moreList.style.display = 'flex';
-    moreList.style.flexDirection = 'column';
-    moreList.style.gap = '8px';
-    moreList.style.marginTop = '8px';
-
-    restSegments.forEach(seg => {
-      moreList.appendChild(createSegmentRow(seg));
-    });
-
-    details.appendChild(moreList);
-    list.appendChild(details);
-  }
-
-  wrapper.appendChild(list);
+  const select = document.createElement('select');
+  select.className = 'diary-field';
+  select.setAttribute('aria-label', 'Add another tag');
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Add another tag…';
+  placeholder.selected = true;
+  placeholder.disabled = true;
+  select.appendChild(placeholder);
+  ALL_TAGS.filter((tag) => !state.tags.has(tag)).forEach((tag) => {
+    const option = document.createElement('option');
+    option.value = tag;
+    option.textContent = tag.replace(/_/g, ' ');
+    select.appendChild(option);
+  });
+  select.disabled = state.tags.size >= 3;
+  select.addEventListener('change', () => {
+    const tag = select.value;
+    if (tag && state.tags.size < 3) state.tags.add(tag);
+    persistDraft(state);
+    renderCurrentStep({ type: 'tag', value: tag });
+  });
+  wrapper.appendChild(select);
   return wrapper;
 }
 
 function createNotesSection(state) {
   const wrapper = document.createElement('div');
-  const label = document.createElement('div');
-  label.textContent = 'Optional notes';
-  label.style.fontWeight = '600';
-  wrapper.appendChild(label);
+  wrapper.style.marginTop = '18px';
+  const label = document.createElement('label');
+  label.htmlFor = 'diary-rating-notes';
+  label.style.display = 'block';
+  label.style.fontWeight = '700';
+  label.style.marginBottom = '6px';
+  label.textContent = 'Notes (optional)';
   const input = document.createElement('textarea');
-  input.rows = 3;
+  input.id = 'diary-rating-notes';
+  input.className = 'diary-field';
+  input.rows = 4;
   input.maxLength = 200;
   input.placeholder = 'Add a short note (200 characters max).';
-  input.style.width = '100%';
-  input.style.borderRadius = '10px';
-  input.style.border = '1px solid #e2e8f0';
-  input.style.padding = '10px';
-  input.style.font = '13px/1.4 "Inter", system-ui, sans-serif';
-  state.noteInput = input;
+  input.value = state.notes;
+  input.addEventListener('input', () => {
+    state.notes = input.value;
+    persistDraft(state);
+  });
+  wrapper.appendChild(label);
   wrapper.appendChild(input);
   return wrapper;
+}
+
+function createSegmentOverrideSection(state) {
+  const wrapper = createHeading('Segment details (optional)', 'Only the three lowest-rated segments are shown. Choose at most two.');
+  const segments = selectLowestRatedSegments(state.route, state.segmentLookup);
+  if (segments.length === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No segments available for overrides.';
+    wrapper.appendChild(empty);
+    return wrapper;
+  }
+
+  segments.forEach(({ segmentId, index, feature }) => {
+    const row = document.createElement('div');
+    row.className = 'diary-segment-row';
+    row.title = segmentId;
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = state.overrides.has(segmentId);
+    checkbox.dataset.focusType = 'segment';
+    checkbox.dataset.focusValue = segmentId;
+    checkbox.setAttribute('aria-label', `Override ${getSegmentDisplayLabel(feature, index + 1)}`);
+    const label = document.createElement('strong');
+    label.textContent = getSegmentDisplayLabel(feature, index + 1);
+    const select = document.createElement('select');
+    select.className = 'diary-field';
+    select.style.width = 'auto';
+    select.disabled = !checkbox.checked;
+    for (let rating = 1; rating <= 5; rating += 1) {
+      const option = document.createElement('option');
+      option.value = String(rating);
+      option.textContent = `${rating}★`;
+      select.appendChild(option);
+    }
+    select.value = String(state.overrides.get(segmentId) || state.overallRating || 3);
+    checkbox.addEventListener('change', () => {
+      if (!checkbox.checked) {
+        state.overrides.delete(segmentId);
+        persistDraft(state);
+        renderCurrentStep({ type: 'segment', value: segmentId });
+        return;
+      }
+      const result = setSegmentOverride(state.overrides, segmentId, select.value);
+      if (!result.ok) {
+        checkbox.checked = false;
+        setError(result.error);
+        return;
+      }
+      persistDraft(state);
+      renderCurrentStep({ type: 'segment', value: segmentId });
+    });
+    select.addEventListener('change', () => {
+      const result = setSegmentOverride(state.overrides, segmentId, select.value);
+      if (!result.ok) setError(result.error);
+      else persistDraft(state);
+    });
+    row.appendChild(checkbox);
+    row.appendChild(label);
+    row.appendChild(select);
+    wrapper.appendChild(row);
+  });
+  return wrapper;
+}
+
+function createFooter(state) {
+  const footer = document.createElement('div');
+  footer.className = 'diary-modal-footer';
+  if (state.step !== 'overall') {
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'diary-button-secondary';
+    back.textContent = 'Back';
+    back.addEventListener('click', () => changeStep(state.step === 'segments' ? 'details' : 'overall'));
+    footer.appendChild(back);
+  }
+  if (state.step === 'overall') {
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'diary-button-primary';
+    next.textContent = 'Continue';
+    next.addEventListener('click', () => {
+      const result = validateRatingStep(state);
+      if (!result.ok) setError(result.error);
+      else changeStep('details');
+    });
+    footer.appendChild(next);
+  } else {
+    if (state.step === 'details') {
+      const segments = document.createElement('button');
+      segments.type = 'button';
+      segments.className = 'diary-button-link';
+      segments.textContent = 'Add segment details';
+      segments.addEventListener('click', () => {
+        const result = validateRatingStep(state);
+        if (!result.ok) setError(result.error);
+        else changeStep('segments');
+      });
+      footer.appendChild(segments);
+    }
+    submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'diary-button-primary';
+    submitBtn.textContent = 'Save rating';
+    footer.appendChild(submitBtn);
+  }
+  return footer;
+}
+
+function changeStep(step) {
+  if (!currentState) return;
+  currentState.step = step;
+  persistDraft(currentState);
+  renderCurrentStep({ type: 'step', value: step });
+}
+
+function buildPayload(state) {
+  const routeProps = state.route.properties || {};
+  const payload = {
+    route_id: routeProps.route_id,
+    segment_ids: routeProps.segment_ids || [],
+    overall_rating: state.overallRating,
+    tags: Array.from(state.tags),
+    segment_overrides: Array.from(state.overrides, ([segment_id, rating]) => ({ segment_id, rating })),
+    mode: (routeProps.mode || 'walk').toLowerCase() === 'bike' ? 'bike' : 'walk',
+    user_hash: state.userHash,
+    timestamp: new Date().toISOString(),
+  };
+  const notes = state.notes.trim();
+  if (notes) payload.notes = notes;
+  return payload;
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
   const state = currentState;
   if (!state || state.signal?.aborted) return;
+  const detailsValidation = validateRatingStep({ ...state, step: 'details' });
   if (!state.overallRating) {
     setError('Select an overall rating.');
     return;
   }
-  if (state.tags.size === 0) {
-    setError('Pick at least one tag.');
+  if (!detailsValidation.ok) {
+    setError(detailsValidation.error);
     return;
   }
-  const routeProps = state.route.properties || {};
-  const overrides = Array.from(state.overrides.entries()).map(([segment_id, rating]) => ({ segment_id, rating }));
-  const payload = {
-    route_id: routeProps.route_id,
-    segment_ids: routeProps.segment_ids || [],
-    overall_rating: state.overallRating,
-    tags: Array.from(state.tags),
-    segment_overrides: overrides,
-    mode: (routeProps.mode || 'walk').toLowerCase() === 'bike' ? 'bike' : 'walk',
-    user_hash: state.userHash,
-    timestamp: new Date().toISOString(),
-  };
-  const notesValue = state.noteInput?.value?.trim();
-  if (notesValue) {
-    payload.notes = notesValue;
-  }
-
+  const payload = buildPayload(state);
   if (!validatePayload(payload)) {
-    const message = ajv.errorsText(validatePayload.errors, { separator: '\n' });
-    setError(message);
+    setError(ajv.errorsText(validatePayload.errors, { separator: '\n' }));
     return;
   }
 
@@ -660,31 +656,24 @@ async function handleSubmit(event) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting…';
   }
-
   try {
     console.info('[Diary] submit payload', payload);
     const response = await submitDiary(payload, { signal: state.signal });
     if (currentState !== state || state.signal?.aborted) return;
     console.info('[Diary] submit response', response);
-    finalizeDiarySubmission({
-      state,
-      payload,
-      response,
-      isCurrent: () => currentState === state,
-    });
-  } catch (err) {
-    if (currentState === state && !state.signal?.aborted && err?.name !== 'AbortError') {
-      setError(err?.message || 'Submission failed.');
+    finalizeDiarySubmission({ state, payload, response, isCurrent: () => currentState === state });
+  } catch (error) {
+    if (currentState === state && !state.signal?.aborted && error?.name !== 'AbortError') {
+      setError(error?.message || 'Submission failed.');
     }
   } finally {
     if (currentState === state && !state.signal?.aborted && submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit rating';
+      submitBtn.textContent = 'Save rating';
     }
   }
 }
 
 function setError(message) {
-  if (!errorEl) return;
-  errorEl.textContent = message || '';
+  if (errorEl) errorEl.textContent = message || '';
 }

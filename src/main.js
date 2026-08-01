@@ -6,12 +6,17 @@ import {
   initPanel,
   readModeFromURL,
   writeCrimeStateToURL,
-  writeModeToURL,
 } from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
+import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfaces.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
-import { applyCrimeViewState, decodeCrimeViewState, hasCrimeViewState } from './state/crime_view_state.js';
+import {
+  applyCrimeViewState,
+  decodeCrimeViewState,
+  encodeCrimeViewState,
+  hasCrimeViewState,
+} from './state/crime_view_state.js';
 
 const query = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search || '')
@@ -40,8 +45,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   const initialMode = setViewMode(readModeFromURL(), { silent: true });
   const map = initMap({ mode: initialMode, center: store.centerLonLat || undefined });
   const chartsPane = document.getElementById('charts');
-  initAboutPanel();
-  writeModeToURL(initialMode);
+  const aboutController = initAboutPanel({ initialMode });
+  const modeSurfaces = createModeSurfacePresenter({ documentRef: document, aboutController });
+  const writeMode = createModeUrlWriter({
+    getHref: () => window.location.href,
+    replaceHref: (href) => window.history.replaceState({}, '', href),
+    getCrimeQuery: () => encodeCrimeViewState(store),
+  });
+  writeMode(initialMode);
 
   let coordinator = null;
   let analysisHistoryController = null;
@@ -68,14 +79,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     map,
     diaryFeatureEnabled,
     getCurrentMode: () => store.viewMode,
-    writeMode: writeModeToURL,
+    writeMode,
+    onModeIntent: modeSurfaces.showIntent,
+    onModeSettled: modeSurfaces.settle,
+    onShortStatusChange: modeSurfaces.showStatus,
     chartsPane,
     diaryMount,
     loadCrimeController: () => import('./routes_crime/index.js')
       .then((module) => module.initCrimeMode(map, {
         isActive: () => store.viewMode === 'crime',
-        onCoverageChange: () => panel.syncFromStore?.(),
-        onPointChange: () => panel.syncFromStore?.(),
+        onCoverageChange: () => {
+          if (store.viewMode === 'crime') panel.syncFromStore?.();
+        },
+        onPointChange: () => {
+          if (store.viewMode === 'crime') panel.syncFromStore?.();
+        },
       })),
     loadDiaryModule: () => import('./routes_diary/index.js'),
     getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),

@@ -6,7 +6,47 @@
  * Initialize the about panel with toggle button and collapsible content.
  * Panel sits at top of page, slides down when opened, Esc to close.
  */
-export function initAboutPanel() {
+export function getAboutContent(mode = 'crime') {
+  const content = mode === 'diary'
+    ? {
+        title: 'Route Safety Diary.',
+        description: 'Record a route experience, review local history, and explore sample community patterns. Entries are saved only in this browser unless you export a backup.',
+        howTo: 'Choose a route, simulate or finish the trip, then add a short rating. Sample community content is demo data, not shared user submissions.',
+        notes: 'Diary ratings are personal observations and are not a measure of objective safety. Export a backup before clearing browser data.',
+      }
+    : {
+        title: 'Crime Explorer.',
+        description: 'Explore reported crime incidents by location, time window, offense groups, district, or census tract.',
+        howTo: 'Choose Buffer, District, or Tract, select the area on the map, set the time window, then refine the included offense groups.',
+        notes: 'Reported locations may be generalized and reporting can lag. Use these records as one source of context, not a complete measure of safety.',
+      };
+  return `
+    <div class="about-content">
+      <h3 id="about-title" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">Philadelphia Engagement Explorer</h3>
+      <div style="margin-bottom:12px;">
+        <strong style="color:#1f2937;">${content.title}</strong>
+        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.description}</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="color:#1f2937;">How to use.</strong>
+        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.howTo}</p>
+      </div>
+      <div style="margin-bottom:0;">
+        <strong style="color:#1f2937;">Important notes.</strong>
+        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.notes}</p>
+      </div>
+      <p style="margin:12px 0 0;font-size:13px;">
+        <a href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">View source and methodology on GitHub</a>
+      </p>
+    </div>
+  `;
+}
+
+export function resolveAboutMount(documentRef = globalThis.document) {
+  return documentRef?.querySelector?.('[data-app-help]') || documentRef?.body || null;
+}
+
+export function initAboutPanel({ initialMode = 'crime' } = {}) {
   // Check if already initialized
   if (document.getElementById('about-panel')) {
     return;
@@ -21,9 +61,9 @@ export function initAboutPanel() {
   btn.id = 'about-toggle';
   btn.className = 'about-toggle';
   btn.setAttribute('aria-expanded', 'false');
-  btn.setAttribute('aria-label', 'About this dashboard');
-  btn.title = 'About this dashboard';
-  btn.textContent = '?';
+  btn.setAttribute('aria-label', 'Open help and data guidance');
+  btn.setAttribute('title', 'Help and data guidance');
+  btn.textContent = 'Help';
 
   // Create panel
   const panel = document.createElement('div');
@@ -34,48 +74,13 @@ export function initAboutPanel() {
   panel.setAttribute('aria-labelledby', 'about-title');
 
   // Panel content
-  panel.innerHTML = `
-    <div class="about-content">
-      <h3 id="about-title" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">Philadelphia Engagement Explorer</h3>
-
-      <div style="margin-bottom:12px;">
-        <strong style="color:#1f2937;">Purpose.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Explore recent incident patterns and try a local-first route safety diary without creating an account or sending personal entries to a server.
-        </p>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <strong style="color:#1f2937;">How to use.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Choose <em>Query Mode</em> (Buffer, District, or Tract), select area or click map, set time window, then refine by offense groups or drilldown.
-        </p>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <strong style="color:#1f2937;">Data sources.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Crime incidents (OpenDataPhilly CARTO API), live Police Districts (City ArcGIS), live Census Tracts (TIGERweb/PASDA), and live ACS 2024 estimates through Census Reporter, with bundled fallbacks for outages. Diary ratings remain browser-demo data unless a Diary API is configured.
-        </p>
-      </div>
-
-      <div style="margin-bottom:0;">
-        <strong style="color:#1f2937;">Important notes.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">
-          Locations are geocoded to 100-block level (not exact addresses). Reporting can lag by days or weeks. Use as one factor among many when evaluating neighborhoods.
-        </p>
-      </div>
-
-      <p style="margin:12px 0 0;font-size:13px;">
-        <a href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">View source and methodology on GitHub</a>
-      </p>
-    </div>
-  `;
+  let currentMode = initialMode === 'diary' ? 'diary' : 'crime';
+  panel.innerHTML = getAboutContent(currentMode);
 
   // Assemble
   root.appendChild(btn);
   root.appendChild(panel);
-  document.body.appendChild(root);
+  resolveAboutMount(document)?.appendChild(root);
 
   // Add styles
   injectStyles();
@@ -93,6 +98,13 @@ export function initAboutPanel() {
       btn.click(); // Trigger toggle
     }
   });
+
+  return Object.freeze({
+    setMode(mode) {
+      currentMode = mode === 'diary' ? 'diary' : 'crime';
+      panel.innerHTML = getAboutContent(currentMode);
+    },
+  });
 }
 
 /**
@@ -107,33 +119,31 @@ function injectStyles() {
   style.id = 'about-panel-styles';
   style.textContent = `
     .about-toggle {
-      position: fixed;
-      top: 10px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      border: none;
-      background: #111;
-      color: #fff;
+      position: static;
+      min-width: 64px;
+      min-height: var(--control-target, 44px);
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid #d7dee8;
+      background: #fff;
+      color: #102033;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      z-index: 1200;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: background 0.2s ease;
+      transition: background 0.2s ease, border-color 0.2s ease;
     }
     .about-toggle:hover {
-      background: #333;
+      background: #f6f8fb;
+      border-color: #0b5cad;
     }
-    .about-toggle:focus {
-      outline: 2px solid #3b82f6;
+    .about-toggle:focus-visible {
+      outline: 2px solid #0b5cad;
       outline-offset: 2px;
     }
 
     .about-panel {
       position: fixed;
-      top: 0;
+      top: var(--app-bar-height, 60px);
       left: 0;
       right: 0;
       background: rgba(255, 255, 255, 0.98);
@@ -143,7 +153,11 @@ function injectStyles() {
       transform: translateY(-100%);
       transition: transform 0.25s ease;
     }
+    .about-panel[aria-hidden="true"] {
+      display: none;
+    }
     .about-panel.about--open {
+      display: block;
       transform: translateY(0);
     }
 
@@ -159,8 +173,8 @@ function injectStyles() {
         padding: 12px 16px;
       }
       .about-toggle {
-        top: 8px;
-        right: 8px;
+        min-width: 52px;
+        padding: 0 10px;
       }
     }
   `;

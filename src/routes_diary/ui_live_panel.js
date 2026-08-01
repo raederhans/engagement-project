@@ -75,6 +75,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   actionsCard.appendChild(notice);
 
   const rateWrap = document.createElement('div');
+  rateWrap.className = 'diary-rate-action';
   rateWrap.style.marginTop = '10px';
   const rateBtn = createPrimaryButton('Rate this route');
   rateBtn.style.width = '100%';

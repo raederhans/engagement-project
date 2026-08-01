@@ -12,6 +12,7 @@ export function attachDistrictPopup(map, layer = 'districts-fill', {
   let popup;
   let active = true;
   const clickHandler = async (e) => {
+    if (!active || store.queryMode !== 'district') return;
     try {
       const f = e.features && e.features[0];
       if (!f) return;

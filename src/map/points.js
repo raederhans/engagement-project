@@ -35,6 +35,16 @@ function unclusteredColorExpression() {
   return expr;
 }
 
+export function clusterTextColorExpression() {
+  return [
+    'step',
+    ['get', 'point_count'],
+    '#112',
+    100,
+    '#fff',
+  ];
+}
+
 /**
  * Fetch GeoJSON points limited by time window and bbox, and render clusters/unclustered.
  * @param {import('maplibre-gl').Map} map
@@ -116,7 +126,7 @@ export async function refreshPoints(map, {
         'text-size': 12
       },
       paint: {
-        'text-color': '#112'
+        'text-color': clusterTextColorExpression()
       }
     });
   }
@@ -171,7 +181,6 @@ function ensureBanner(text) {
     el = document.createElement('div');
     el.id = 'banner';
     Object.assign(el.style, {
-      position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)',
       background: 'rgba(255, 247, 233, 0.95)', color: '#7c2d12', padding: '8px 12px',
       border: '1px solid #facc15', borderRadius: '6px', zIndex: 30, font: '13px/1.4 system-ui, sans-serif'
     });

@@ -29,14 +29,27 @@
     </style>
   </head>
   <body>
+    <header class="app-bar" aria-label="Application">
+      <div class="app-bar__identity">
+        <h1><span class="app-title__full">Philadelphia Engagement Explorer</span><span class="app-title__compact" aria-hidden="true">PHL Explorer</span></h1>
+        <p>Explore a location, then review its local patterns.</p>
+      </div>
+      <div class="app-bar__tools">
+        <nav class="app-bar__modes" data-mode-switch-mount aria-label="Explorer mode"></nav>
+        <p class="app-bar__status" data-app-data-status data-phase="loading" role="status" aria-live="polite">Connecting to live data…</p>
+        <div class="app-bar__help" data-app-help></div>
+      </div>
+    </header>
     <div id="map"></div>
     <div id="legend"></div>
     <div id="tooltip"></div>
-    <div id="sidepanel" style="position:fixed; left:12px; top:12px; z-index:18; width:300px; max-height:88vh; overflow:auto; background:rgba(255,255,255,0.97); padding:12px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
-      <div style="font:600 14px/1.2 system-ui, sans-serif; margin-bottom:8px;">Controls</div>
-      <div id="dataStatus" role="status" aria-live="polite" style="margin-bottom:8px;padding:7px 9px;border-radius:6px;background:#f1f5f9;color:#475569;font:12px/1.35 system-ui;">Connecting to live data…</div>
+    <div id="sidepanel" data-sheet-state="half" style="position:fixed; left:12px; top:12px; z-index:18; width:300px; max-height:88vh; overflow:auto; background:rgba(255,255,255,0.97); padding:12px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
+      <div class="task-panel__heading">
+        <h2>Explore a location</h2>
+        <p>Choose an area, then refine the historical crime view.</p>
+      </div>
 
-      <label for="queryModeSel" style="display:block; font-size:12px; color:#374151;">Query Mode</label>
+      <label for="queryModeSel" style="display:block; font-size:12px; color:#374151;">Analysis area</label>
       <select id="queryModeSel" style="width:100%; margin-bottom:4px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
         <option value="buffer" selected>Buffer</option>
         <option value="district">Police District</option>
@@ -45,17 +58,20 @@
       <div id="queryModeHelp" style="color:#64748b; font-size:12px; margin-bottom:8px;">Buffer mode: click “Select on map”, then click map to set center.</div>
       <button id="clearSelBtn" style="display:none; margin-bottom:8px; padding:6px 8px; border:1px solid #94a3b8; background:#f8fafc; border-radius:6px; cursor:pointer;">Clear selection</button>
       <div id="bufferSelectRow">
-        <label for="addrA" style="display:block; font-size:12px; color:#374151;">Point A</label>
+        <label for="addrA" style="display:block; font-size:12px; color:#374151;">Selected area</label>
         <div style="display:flex; gap:6px; margin-bottom:8px;">
           <input id="addrA" type="search" placeholder="1500 Market St" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
           <button id="searchABtn" type="button">Find</button>
-          <button id="useCenterBtn" type="button">Map</button>
+          <button id="useCenterBtn" type="button">Pick on map</button>
         </div>
-        <label for="addrB" style="display:block; font-size:12px; color:#374151;">Point B</label>
-        <div style="display:flex; gap:6px; margin-bottom:8px;">
-          <input id="addrB" type="search" placeholder="Broad St & Girard Ave" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
-          <button id="searchBBtn" type="button">Find</button>
-          <button id="usePointBBtn" type="button">Map</button>
+        <button id="compareAreaBtn" type="button" aria-expanded="false" aria-controls="comparisonFields">Compare another area</button>
+        <div id="comparisonFields" hidden aria-hidden="true">
+          <label for="addrB" style="display:block; font-size:12px; color:#374151;">Comparison area</label>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <input id="addrB" type="search" placeholder="Broad St & Girard Ave" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
+            <button id="searchBBtn" type="button">Find</button>
+            <button id="usePointBBtn" type="button">Pick on map</button>
+          </div>
         </div>
         <div id="addressStatus" aria-live="polite" style="display:none;color:#475569;font-size:12px;margin-bottom:8px;"></div>
         <div id="useMapHint" style="display:none; color:#64748b; font-size:12px; margin-top:-4px; margin-bottom:8px;">Click the map to set the selected point. Press Esc to cancel.</div>
@@ -70,6 +86,19 @@
           </select>
         </div>
       </div>
+
+      <div class="quick-window" aria-label="Quick time window">
+        <button id="preset6" type="button">Latest 6 months</button>
+        <button id="preset12" type="button">Latest 12 months</button>
+      </div>
+
+      <details id="advancedFilters">
+        <summary>More filters</summary>
+        <div class="advanced-filters__body">
+          <details class="data-details">
+            <summary>Data details</summary>
+            <div id="dataStatus" role="status" aria-live="polite">Connecting to live data…</div>
+          </details>
 
       <div id="rateRow" style="display:flex; gap:10px; margin-bottom:8px;">
         <div style="flex:1;">
@@ -110,10 +139,6 @@
         <option value="12">12 months</option>
         <option value="24">24 months</option>
       </select>
-      <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button id="preset6" style="flex:1; padding:6px 8px; border:1px solid #94a3b8; background:#f1f5f9; border-radius:6px; cursor:pointer;">Last 6m</button>
-        <button id="preset12" style="flex:1; padding:6px 8px; border:1px solid #94a3b8; background:#f1f5f9; border-radius:6px; cursor:pointer;">Last 12m</button>
-      </div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px;">
         <button id="shareViewBtn" type="button">Copy view</button>
         <button id="exportJsonBtn" type="button">JSON</button>
@@ -144,7 +169,7 @@
             </select>
           </div>
           <div style="flex:1;">
-            <label for="classBinsRange" style="display:block; font-size:12px; color:#374151;">Bins (<span id="classBinsVal">5</span>)</label>
+            <label for="classBinsRange" style="display:block; font-size:12px; color:#374151;"><span>Bins</span> (<span id="classBinsVal">5</span>)</label>
             <input id="classBinsRange" type="range" min="3" max="9" step="1" value="5" style="width:100%;" />
           </div>
         </div>
@@ -166,7 +191,7 @@
             </select>
           </div>
           <div style="flex:1;">
-            <label for="classOpacityRange" style="display:block; font-size:12px; color:#374151;">Opacity (<span id="classOpacityVal">0.75</span>)</label>
+            <label for="classOpacityRange" style="display:block; font-size:12px; color:#374151;"><span>Opacity</span> (<span id="classOpacityVal">0.75</span>)</label>
             <input id="classOpacityRange" type="range" min="0.2" max="1" step="0.05" value="0.75" style="width:100%;" />
           </div>
         </div>
@@ -175,23 +200,30 @@
           <input id="classCustomInput" type="text" placeholder="10,25,50,100" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
         </div>
       </div>
-    </div>
-    <div id="compare-card" style="position:fixed; left:12px; bottom:12px; z-index:18; width:300px; background:rgba(255,255,255,0.97); padding:10px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
-      <div style="font:600 13px/1.2 system-ui, sans-serif; margin-bottom:6px;">Compare (A vs B)</div>
-      <div style="font:12px/1.4 system-ui, sans-serif; color:#475569;">Waiting for data…</div>
-    </div>
-    <div id="charts" style="position:fixed; right:12px; top:12px; z-index:15; width:420px; max-height:80vh; overflow:auto; background:rgba(255,255,255,0.95); padding:10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
-      <div style="font:600 13px/1.2 system-ui, sans-serif; margin:4px 0 8px;">Charts</div>
-      <div style="margin-bottom:10px">
-        <canvas id="chart-monthly" height="140"></canvas>
+        </div>
+      </details>
+      <div id="compare-card" style="position:fixed; left:12px; bottom:12px; z-index:18; width:300px; background:rgba(255,255,255,0.97); padding:10px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
+        <p class="crime-summary__empty">Choose a location to create an analysis summary.</p>
       </div>
-      <div style="margin-bottom:10px">
-        <canvas id="chart-topn" height="160"></canvas>
-      </div>
-      <div>
-        <canvas id="chart-7x24" height="180"></canvas>
-      </div>
+      <aside id="results-drawer" aria-label="Analysis details">
+        <div id="charts">
+          <h2>Analysis details</h2>
+          <div style="margin-bottom:10px">
+            <h3>Crime over time</h3>
+            <canvas id="chart-monthly" height="140"></canvas>
+          </div>
+          <div style="margin-bottom:10px">
+            <h3>Top offenses</h3>
+            <canvas id="chart-topn" height="160"></canvas>
+          </div>
+          <div>
+            <h3>Day and hour</h3>
+            <canvas id="chart-7x24" height="180"></canvas>
+          </div>
+        </div>
+      </aside>
     </div>
     <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/ui/sheet_controller.js"></script>
   </body>
   </html>

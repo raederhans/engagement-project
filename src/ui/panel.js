@@ -22,6 +22,19 @@ function debounce(fn, wait = 300) {
   return debounced;
 }
 
+export function setComparisonFieldsVisible({ button, fields }, visible) {
+  const expanded = Boolean(visible);
+  if (fields) {
+    fields.hidden = !expanded;
+    fields.setAttribute('aria-hidden', String(!expanded));
+  }
+  if (button) {
+    button.textContent = expanded ? 'Remove comparison' : 'Compare another area';
+    button.setAttribute('aria-expanded', String(expanded));
+  }
+  return expanded;
+}
+
 /**
  * Wire the side panel controls to the store and notify on changes.
  * @param {import('../state/store.js').Store} store
@@ -33,22 +46,30 @@ export function initPanel(store, handlers) {
     return { diaryMount: null, analysisHistoryMount: null };
   }
 
-  let crimeShell = panelRoot.querySelector('[data-panel-view="crime"]');
+  const sheetContent = panelRoot.querySelector(':scope > .sheet-content');
+  const panelContentRoot = sheetContent || panelRoot;
+  const sheetHandle = panelRoot.querySelector(':scope > .sheet-handle');
+  sheetHandle?.remove();
+
+  let crimeShell = panelContentRoot.querySelector('[data-panel-view="crime"]');
   if (!crimeShell) {
     crimeShell = document.createElement('div');
     crimeShell.dataset.panelView = 'crime';
     const fragment = document.createDocumentFragment();
-    while (panelRoot.firstChild) {
-      fragment.appendChild(panelRoot.firstChild);
+    while (panelContentRoot.firstChild) {
+      fragment.appendChild(panelContentRoot.firstChild);
     }
     crimeShell.appendChild(fragment);
-    panelRoot.appendChild(crimeShell);
+    panelContentRoot.appendChild(crimeShell);
   }
+  if (sheetHandle) panelRoot.prepend(sheetHandle);
 
   const compareCard = document.getElementById('compare-card');
   const chartsPanel = document.getElementById('charts');
+  const resultsDrawer = document.getElementById('results-drawer');
   if (compareCard && compareCard.parentElement !== crimeShell) crimeShell.appendChild(compareCard);
-  if (chartsPanel && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
+  if (chartsPanel && resultsDrawer && !resultsDrawer.contains(chartsPanel)) resultsDrawer.appendChild(chartsPanel);
+  else if (chartsPanel && !resultsDrawer && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
 
   let analysisHistoryMount = crimeShell.querySelector('[data-analysis-history-mount]');
   if (!analysisHistoryMount) {
@@ -60,66 +81,45 @@ export function initPanel(store, handlers) {
   }
   let analysisHistorySync = null;
 
-  let diaryShell = panelRoot.querySelector('[data-panel-view="diary"]');
+  let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
   if (!diaryShell) {
     diaryShell = document.createElement('div');
     diaryShell.dataset.panelView = 'diary';
     diaryShell.style.display = 'none';
-    diaryShell.style.font = '13px/1.4 "Inter", system-ui, sans-serif';
+    diaryShell.style.font = 'inherit';
     diaryShell.style.color = '#0f172a';
     diaryShell.style.padding = '4px 0 8px';
-    panelRoot.appendChild(diaryShell);
+    panelContentRoot.appendChild(diaryShell);
   } else {
     diaryShell.innerHTML = '';
   }
 
-  let toggleRow = panelRoot.querySelector('[data-panel-view="mode-toggle"]');
+  const toggleMount = document.querySelector('[data-mode-switch-mount]') || panelRoot;
+  let toggleRow = document.querySelector('[data-panel-view="mode-toggle"]');
   if (!toggleRow) {
     toggleRow = document.createElement('div');
     toggleRow.dataset.panelView = 'mode-toggle';
-    toggleRow.style.display = 'flex';
-    toggleRow.style.gap = '6px';
-    toggleRow.style.marginBottom = '10px';
-    toggleRow.style.alignItems = 'center';
-    panelRoot.insertBefore(toggleRow, crimeShell);
+    toggleRow.className = 'mode-switch';
+    toggleMount.appendChild(toggleRow);
   } else {
     toggleRow.innerHTML = '';
+    if (toggleRow.parentElement !== toggleMount) toggleMount.appendChild(toggleRow);
   }
 
-  const toggleLabel = document.createElement('span');
-  toggleLabel.textContent = 'Mode:';
-  toggleLabel.style.font = '600 12px/1.2 system-ui';
-  toggleLabel.style.color = '#0f172a';
-  toggleRow.appendChild(toggleLabel);
-
   const toggleGroup = document.createElement('div');
-  toggleGroup.style.display = 'flex';
-  toggleGroup.style.flex = '1';
-  toggleGroup.style.border = '1px solid #cbd5e1';
-  toggleGroup.style.borderRadius = '999px';
-  toggleGroup.style.overflow = 'hidden';
+  toggleGroup.className = 'mode-switch__group';
   toggleRow.appendChild(toggleGroup);
 
   const crimeBtn = document.createElement('button');
   crimeBtn.type = 'button';
   crimeBtn.textContent = 'Crime';
-  crimeBtn.style.flex = '1';
-  crimeBtn.style.padding = '6px 10px';
-  crimeBtn.style.border = 'none';
-  crimeBtn.style.cursor = 'pointer';
-  crimeBtn.style.font = '600 12px/1 system-ui';
-  crimeBtn.style.background = 'transparent';
+  crimeBtn.className = 'mode-switch__button';
   toggleGroup.appendChild(crimeBtn);
 
   const diaryBtn = document.createElement('button');
   diaryBtn.type = 'button';
   diaryBtn.textContent = 'Diary';
-  diaryBtn.style.flex = '1';
-  diaryBtn.style.padding = '6px 10px';
-  diaryBtn.style.border = 'none';
-  diaryBtn.style.cursor = store.diaryFeatureOn ? 'pointer' : 'not-allowed';
-  diaryBtn.style.font = '600 12px/1 system-ui';
-  diaryBtn.style.background = 'transparent';
+  diaryBtn.className = 'mode-switch__button';
   diaryBtn.disabled = !store.diaryFeatureOn;
   diaryBtn.title = store.diaryFeatureOn ? 'View Route Safety Diary' : 'Disabled in this build';
   toggleGroup.appendChild(diaryBtn);
@@ -136,10 +136,10 @@ export function initPanel(store, handlers) {
 
   const updateModeButtons = (mode) => {
     const isDiary = mode === 'diary';
-    crimeBtn.style.background = isDiary ? 'transparent' : '#0f172a';
-    crimeBtn.style.color = isDiary ? '#0f172a' : '#ffffff';
-    diaryBtn.style.background = isDiary ? '#0f172a' : 'transparent';
-    diaryBtn.style.color = isDiary ? '#ffffff' : '#0f172a';
+    crimeBtn.classList.toggle('is-active', !isDiary);
+    diaryBtn.classList.toggle('is-active', isDiary);
+    crimeBtn.setAttribute('aria-pressed', String(!isDiary));
+    diaryBtn.setAttribute('aria-pressed', String(isDiary));
     crimeShell.style.display = isDiary ? 'none' : '';
     diaryShell.style.display = isDiary ? '' : 'none';
   };
@@ -160,6 +160,8 @@ export function initPanel(store, handlers) {
 
   const addrA = document.getElementById('addrA');
   const addrB = document.getElementById('addrB');
+  const compareAreaBtn = document.getElementById('compareAreaBtn');
+  const comparisonFields = document.getElementById('comparisonFields');
   const searchABtn = document.getElementById('searchABtn');
   const searchBBtn = document.getElementById('searchBBtn');
   const useCenterBtn = document.getElementById('useCenterBtn');
@@ -187,13 +189,11 @@ export function initPanel(store, handlers) {
   const exportCsvBtn = document.getElementById('exportCsvBtn');
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
-  // Status HUD container (under header)
-  const headerEl = crimeShell.firstElementChild; // "Controls" header
+  const dataDetails = document.querySelector('.data-details');
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
   hudEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
-  if (headerEl && headerEl.nextSibling) headerEl.parentElement.insertBefore(hudEl, headerEl.nextSibling);
-  else if (headerEl) headerEl.parentElement.appendChild(hudEl);
+  dataDetails?.appendChild(hudEl);
   // Choropleth controls
   const classMethodSel = document.getElementById('classMethodSel');
   const classBinsRange = document.getElementById('classBinsRange');
@@ -213,6 +213,25 @@ export function initPanel(store, handlers) {
     handlers.onChange?.();
   }, 300);
 
+  const syncComparisonControls = () => {
+    const visible = store.queryMode === 'buffer' && Boolean(store.centerB3857 || store.centerBLonLat);
+    setComparisonFieldsVisible({ button: compareAreaBtn, fields: comparisonFields }, visible);
+  };
+  compareAreaBtn?.addEventListener('click', () => {
+    const show = comparisonFields?.hidden !== false;
+    setComparisonFieldsVisible({ button: compareAreaBtn, fields: comparisonFields }, show);
+    if (show) {
+      addrB?.focus();
+      return;
+    }
+    store.centerB3857 = null;
+    store.centerBLonLat = null;
+    store.addressB = '';
+    if (addrB) addrB.value = '';
+    if (store.selectTarget === 'B') store.selectMode = 'idle';
+    onChange();
+  });
+
   addrA?.addEventListener('input', () => geocodeOwner.cancel('A'));
   addrB?.addEventListener('input', () => geocodeOwner.cancel('B'));
   onViewModeChange((mode) => {
@@ -229,8 +248,8 @@ export function initPanel(store, handlers) {
       document.body.style.cursor = 'crosshair';
     } else {
       store.selectMode = 'idle';
-      if (useCenterBtn) useCenterBtn.textContent = 'Map';
-      if (usePointBBtn) usePointBBtn.textContent = 'Map';
+      if (useCenterBtn) useCenterBtn.textContent = 'Pick on map';
+      if (usePointBBtn) usePointBBtn.textContent = 'Pick on map';
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
@@ -392,6 +411,9 @@ export function initPanel(store, handlers) {
     if (clearSelBtn) clearSelBtn.style.display = isBuffer ? 'none' : '';
     if (rateRow) rateRow.style.display = mode === 'tract' ? 'flex' : 'none';
     if (rateSel) rateSel.disabled = mode !== 'tract';
+    if (compareAreaBtn) compareAreaBtn.style.display = isBuffer ? '' : 'none';
+    if (isBuffer) syncComparisonControls();
+    else setComparisonFieldsVisible({ button: compareAreaBtn, fields: comparisonFields }, false);
     if (queryModeHelp) {
       queryModeHelp.textContent = (
         mode === 'buffer'
@@ -425,8 +447,8 @@ export function initPanel(store, handlers) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && store.selectMode === 'point') {
       store.selectMode = 'idle';
-      if (useCenterBtn) useCenterBtn.textContent = 'Map';
-      if (usePointBBtn) usePointBBtn.textContent = 'Map';
+      if (useCenterBtn) useCenterBtn.textContent = 'Pick on map';
+      if (usePointBBtn) usePointBBtn.textContent = 'Pick on map';
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
@@ -670,6 +692,7 @@ export function writeModeToURL(mode) {
 
 export function writeCrimeStateToURL(state) {
   if (typeof window === 'undefined' || typeof window.history === 'undefined') return;
+  if (state?.viewMode !== 'crime') return;
   const current = new URLSearchParams(window.location.search || '');
   const crime = new URLSearchParams(encodeCrimeViewState(state));
   const mode = current.get('mode');
