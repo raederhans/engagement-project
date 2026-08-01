@@ -54,7 +54,7 @@
     "streets:segment": "node scripts/segment_streets_phl.mjs"
   },
   "dependencies": {
-    "@turf/turf": "^6.5.0",
+    "@turf/turf": "^7.3.5",
     "ajv": "^8.20.0",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.21",
