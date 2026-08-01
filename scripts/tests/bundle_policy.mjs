@@ -15,6 +15,7 @@ const crime = manifest['src/routes_crime/index.js'];
 const diary = manifest['src/routes_diary/index.js'];
 const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
+const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 
 assert.ok(entry?.isEntry, 'Vite manifest must contain index.html as the application entry');
 assert.deepEqual(
@@ -23,8 +24,9 @@ assert.deepEqual(
     'src/routes_crime/index.js',
     'src/routes_diary/index.js',
     'src/routes_diary/ui_insights_panel.js',
+    'src/analysis/analysis_history_controller.js',
   ]),
-  'Entry must keep Crime, Diary, and Diary Insights behind direct lazy boundaries',
+  'Entry must keep Crime, Diary, Diary Insights, and Analysis History behind direct lazy boundaries',
 );
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
@@ -34,6 +36,7 @@ assert.deepEqual(
 assert.ok(diary, 'Vite manifest must contain the Diary lazy chunk');
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
+assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
 assert.ok(
   !Object.keys(manifest).some((key) => key.includes('__vite-browser-external')),
   'Browser bundles must not contain the Node filesystem compatibility shim',
@@ -46,6 +49,8 @@ const budgets = [
   ['Charts', charts, 233_791, 79_747],
   // Includes local-history trend/tag/heatmap rendering and the device-only data bridge.
   ['Diary Insights', insights, 11_200, 3_600],
+  // Includes cached comparison rendering plus truthful refresh cancellation/freshness states.
+  ['Analysis History', analysisHistory, 23_000, 7_800],
 ];
 const measurements = [];
 

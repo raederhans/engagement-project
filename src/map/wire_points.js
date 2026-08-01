@@ -63,6 +63,14 @@ export function wirePoints(map, deps) {
   let requestController = null;
   let retryTimer = null;
   let toastTimer = null;
+  let programmaticMoveOwner = null;
+
+  const settleProgrammaticMove = (completed) => {
+    if (!programmaticMoveOwner) return;
+    const owner = programmaticMoveOwner;
+    programmaticMoveOwner = null;
+    owner.resolve(Boolean(completed));
+  };
 
   const cancelRetry = () => {
     if (retryTimer == null) return;
@@ -119,7 +127,7 @@ export function wirePoints(map, deps) {
         return { applied: false };
       }
       backoffIdx = 0;
-      return result;
+      return result ?? { applied: true };
     } catch (error) {
       const stale = !active
         || generation !== requestGeneration
@@ -142,7 +150,7 @@ export function wirePoints(map, deps) {
           void run(filtersOverride, { signal: ownerSignal, shouldApply: ownerShouldApply });
         }
       }, delay);
-      return { applied: false };
+      return { status: 'failed' };
     } finally {
       ownerSignal?.removeEventListener('abort', abortFromOwner);
       if (requestController === controller) requestController = null;
@@ -151,7 +159,13 @@ export function wirePoints(map, deps) {
 
   const debouncedMoveEnd = createDebounced(() => void run(), 300, scheduler);
   const onMoveEnd = () => {
-    if (active) debouncedMoveEnd();
+    if (!active) return;
+    if (programmaticMoveOwner) {
+      if (!programmaticMoveOwner.armed) return;
+      settleProgrammaticMove(true);
+      return;
+    }
+    debouncedMoveEnd();
   };
   const onLoad = () => void run();
 
@@ -164,16 +178,42 @@ export function wirePoints(map, deps) {
 
   return {
     refresh: run,
+    runProgrammaticMapMove(action) {
+      if (typeof action !== 'function') return Promise.resolve(false);
+      if (!active) {
+        action();
+        return Promise.resolve(false);
+      }
+      settleProgrammaticMove(false);
+      let resolveMove;
+      const completion = new Promise((resolve) => { resolveMove = resolve; });
+      const owner = { resolve: resolveMove, armed: false };
+      programmaticMoveOwner = owner;
+      try {
+        action();
+      } catch (error) {
+        settleProgrammaticMove(false);
+        return Promise.reject(error);
+      }
+      if (programmaticMoveOwner === owner) owner.armed = true;
+      if (map.isMoving?.() !== true) settleProgrammaticMove(true);
+      return completion;
+    },
     clear() {
+      settleProgrammaticMove(false);
       invalidate();
       clearCrimePointsImpl(map);
     },
     setActive(next) {
       active = Boolean(next);
-      if (!active) invalidate();
+      if (!active) {
+        settleProgrammaticMove(false);
+        invalidate();
+      }
     },
     destroy() {
       active = false;
+      settleProgrammaticMove(false);
       invalidate();
       map.off('load', onLoad);
       map.off('moveend', onMoveEnd);

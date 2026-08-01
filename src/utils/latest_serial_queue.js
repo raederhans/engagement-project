@@ -29,7 +29,7 @@ export function createLatestSerialQueue(run) {
   let tail = Promise.resolve();
   let currentController = null;
 
-  return (value) => {
+  const schedule = (value) => {
     currentController?.abort(new DOMException('Superseded by a newer queued value.', 'AbortError'));
     const controller = new AbortController();
     currentController = controller;
@@ -47,4 +47,13 @@ export function createLatestSerialQueue(run) {
     tail = task.catch(() => {});
     return task;
   };
+
+  schedule.cancel = (reason = new DOMException('Cancelled current queued value.', 'AbortError')) => {
+    latestToken += 1;
+    if (!currentController || currentController.signal.aborted) return false;
+    currentController.abort(reason);
+    return true;
+  };
+
+  return schedule;
 }

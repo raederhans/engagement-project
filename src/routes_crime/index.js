@@ -61,6 +61,24 @@ function captureCrimeSnapshot() {
   return readCrimeSnapshot(store);
 }
 
+export function normalizeCrimeRefreshResult(result) {
+  if (result?.status === 'failed') return { status: 'failed' };
+  if (result?.status === 'live' || result?.applied === true) return { status: 'live' };
+  return { status: 'superseded' };
+}
+
+export function classifyCrimeRefreshJobs(results) {
+  let superseded = false;
+  for (const result of results) {
+    if (result?.status === 'rejected') return { status: 'failed' };
+    const value = result?.value;
+    if (!value || value.status === 'failed') return { status: 'failed' };
+    if (value.status === 'superseded' || value.applied === false) superseded = true;
+    else if (value.status !== 'live' && value.applied !== true) return { status: 'failed' };
+  }
+  return superseded ? { applied: false } : { applied: true };
+}
+
 export function createCrimeSynchronousActions({
   map,
   isControllerActive,
@@ -103,6 +121,7 @@ export async function initCrimeMode(map, {
   let hoverCleanup = null;
   let popupCleanup = null;
   let tractOutlineData = null;
+  let currentTractSnapshotProvenance = null;
 
   try {
     await initCoverageAndDefaults();
@@ -133,11 +152,11 @@ export async function initCrimeMode(map, {
     pointsController.setActive(false);
   } else {
     initLegend();
-    await refreshOwner.refresh();
   }
 
   async function refreshAll(snapshot, { signal, isCurrent }) {
     if (!active || !isActive() || !isCurrent()) return { applied: false };
+    currentTractSnapshotProvenance = null;
     const {
       start,
       end,
@@ -159,6 +178,7 @@ export async function initCrimeMode(map, {
     syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode });
 
     try {
+      let nextTractSnapshotProvenance = null;
       if (adminLevel === 'tracts') {
         const merged = await getTractsMerged({
           per10k,
@@ -169,6 +189,7 @@ export async function initCrimeMode(map, {
         });
         if (!isCurrent()) return { applied: false };
         renderTractsChoropleth(map, merged);
+        nextTractSnapshotProvenance = merged.provenance || null;
         clearCrimeResultsUnavailable();
         reconcileCrimeLayerVisibility(map, snapshot);
         if (queryMode === 'tract' && selectedTractGEOID) {
@@ -194,11 +215,13 @@ export async function initCrimeMode(map, {
         }
         wireDistrictSelection();
       }
+      if (isCurrent()) currentTractSnapshotProvenance = nextTractSnapshotProvenance;
     } catch (error) {
       if (!isCurrent()) return { applied: false };
+      currentTractSnapshotProvenance = null;
       console.warn('Boundary refresh failed:', error);
       markCrimeResultsUnavailable(map, 'Map and charts are unavailable for the current filters. Try again.');
-      return { applied: false };
+      return { status: 'failed' };
     }
 
     if (!isCurrent()) return { applied: false };
@@ -230,11 +253,16 @@ export async function initCrimeMode(map, {
     for (const result of results) {
       if (result.status === 'rejected') console.warn('Crime dashboard refresh failed:', result.reason);
     }
-    return { applied: true };
+    return classifyCrimeRefreshJobs(results);
   }
 
-  function requestRefresh() {
-    return refreshOwner.refresh();
+  async function requestRefresh({ signal } = {}) {
+    try {
+      return normalizeCrimeRefreshResult(await refreshOwner.refresh({ signal }));
+    } catch (error) {
+      console.warn('Crime refresh failed:', error);
+      return { status: 'failed', error: String(error?.message || error) };
+    }
   }
 
   function wireTractSelection() {
@@ -330,8 +358,14 @@ export async function initCrimeMode(map, {
 
   return {
     requestRefresh,
+    runProgrammaticMapMove: pointsController.runProgrammaticMapMove,
     updateBuffer: synchronousActions.updateBuffer,
     setTractsOverlayVisible: synchronousActions.setTractsOverlayVisible,
+    getCurrentProvenance() {
+      return currentTractSnapshotProvenance
+        ? { tractSnapshot: structuredClone(currentTractSnapshotProvenance) }
+        : {};
+    },
     setActive(next) {
       active = Boolean(next);
       refreshOwner.setActive(active);
@@ -340,12 +374,9 @@ export async function initCrimeMode(map, {
       else for (const layerId of CRIME_LAYER_IDS) {
         if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
       }
-      if (active) {
-        if (store.centerLonLat) {
-          upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
-        }
-        void requestRefresh();
-      } else {
+      if (active && store.centerLonLat) {
+        upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
+      } else if (!active) {
         pointsController.clear();
         markerA?.remove();
         markerB?.remove();

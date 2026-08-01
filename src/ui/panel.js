@@ -11,10 +11,15 @@ import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../u
 
 function debounce(fn, wait = 300) {
   let t;
-  return (...args) => {
+  const debounced = (...args) => {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), wait);
   };
+  debounced.cancel = () => {
+    clearTimeout(t);
+    t = null;
+  };
+  return debounced;
 }
 
 /**
@@ -25,7 +30,7 @@ function debounce(fn, wait = 300) {
 export function initPanel(store, handlers) {
   const panelRoot = document.getElementById('sidepanel');
   if (!panelRoot) {
-    return { diaryMount: null };
+    return { diaryMount: null, analysisHistoryMount: null };
   }
 
   let crimeShell = panelRoot.querySelector('[data-panel-view="crime"]');
@@ -44,6 +49,16 @@ export function initPanel(store, handlers) {
   const chartsPanel = document.getElementById('charts');
   if (compareCard && compareCard.parentElement !== crimeShell) crimeShell.appendChild(compareCard);
   if (chartsPanel && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
+
+  let analysisHistoryMount = crimeShell.querySelector('[data-analysis-history-mount]');
+  if (!analysisHistoryMount) {
+    analysisHistoryMount = document.createElement('section');
+    analysisHistoryMount.dataset.analysisHistoryMount = '';
+    analysisHistoryMount.setAttribute('aria-label', 'Recent analyses');
+    if (compareCard) crimeShell.insertBefore(analysisHistoryMount, compareCard);
+    else crimeShell.appendChild(analysisHistoryMount);
+  }
+  let analysisHistorySync = null;
 
   let diaryShell = panelRoot.querySelector('[data-panel-view="diary"]');
   if (!diaryShell) {
@@ -246,7 +261,9 @@ export function initPanel(store, handlers) {
         addressStatus.style.color = '#065f46';
         addressStatus.textContent = `Point ${target}: ${result.address}`;
       }
-      handlers.onAddressResolved?.(target, result);
+      onChange.cancel();
+      const moveCompleted = await handlers.onAddressResolved?.(target, result);
+      if (moveCompleted === false) return;
       onChange();
     } catch (error) {
       if (addressStatus) {
@@ -585,13 +602,22 @@ export function initPanel(store, handlers) {
     if (exportCsvBtn) exportCsvBtn.disabled = !exportReady;
     applyModeUI();
     writeCrimeStateToURL(store);
+    analysisHistorySync?.();
     void updateHUD();
   }
 
   syncFromStore();
   void updateHUD();
 
-  return { diaryMount: diaryShell, syncFromStore };
+  return {
+    diaryMount: diaryShell,
+    analysisHistoryMount,
+    syncFromStore,
+    setAnalysisHistorySync(callback) {
+      analysisHistorySync = typeof callback === 'function' ? callback : null;
+      analysisHistorySync?.();
+    },
+  };
 }
 
 export function describeCoverageStatus(state) {

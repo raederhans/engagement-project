@@ -122,15 +122,15 @@ test('refresh accepts a captured filter snapshot without reading live filters ag
     },
     refreshPointsImpl: async (_map, params) => {
       receivedFilters = params;
-      return { applied: true };
     },
     clearCrimePointsImpl: () => {},
     showToast: () => {},
     hideToast: () => {},
   });
 
-  await controller.refresh({ start: 'captured', end: 'snapshot' });
+  const result = await controller.refresh({ start: 'captured', end: 'snapshot' });
 
+  assert.deepEqual(result, { applied: true });
   assert.equal(filterReads, 0);
   assert.equal(receivedFilters.start, 'captured');
   assert.equal(receivedFilters.end, 'snapshot');
@@ -279,7 +279,7 @@ test('destroy aborts work, cancels debounce/retry timers, and removes listeners'
 });
 
 test('destroy clears retry and toast timers created by an active failure', async () => {
-  const map = createMap();
+  const map = createMap({ loaded: false });
   const scheduler = createScheduler();
   const pending = deferred();
   const controller = wirePoints(map, {
@@ -290,10 +290,9 @@ test('destroy clears retry and toast timers created by an active failure', async
     hideToast: () => {},
     scheduler,
   });
-  await Promise.resolve();
+  const request = controller.refresh();
   pending.reject(new Error('network unavailable'));
-  await Promise.resolve();
-  await Promise.resolve();
+  assert.deepEqual(await request, { status: 'failed' });
 
   assert.equal(scheduler.timers.size, 2);
   controller.destroy();
@@ -331,5 +330,115 @@ test('moveend stays idle while inactive and resumes through the same listener', 
   callback();
   await Promise.resolve();
   assert.equal(refreshCount, 1);
+  controller.destroy();
+});
+
+test('programmatic movement refreshes once from final bounds and preserves no-move, user-pan, and cancellation semantics', async () => {
+  const map = createMap({ loaded: false });
+  const scheduler = createScheduler();
+  let moving = false;
+  let bounds = [-75.2, 39.9, -75.1, 40];
+  const refreshBounds = [];
+  map.isMoving = () => moving;
+  map.getBounds = () => ({
+    getWest: () => bounds[0],
+    getSouth: () => bounds[1],
+    getEast: () => bounds[2],
+    getNorth: () => bounds[3],
+  });
+  const controller = wirePoints(map, {
+    getFilters: () => ({}),
+    refreshPointsImpl: async (currentMap) => {
+      const current = currentMap.getBounds();
+      refreshBounds.push([current.getWest(), current.getSouth(), current.getEast(), current.getNorth()]);
+      return { applied: true };
+    },
+    clearCrimePointsImpl: () => {},
+    showToast: () => {},
+    hideToast: () => {},
+    scheduler,
+  });
+  const moveend = map.handlers.get('moveend');
+
+  const moveCompleted = controller.runProgrammaticMapMove(() => { moving = true; });
+  const ownedRefresh = moveCompleted.then((completed) => (
+    completed ? controller.refresh() : { applied: false }
+  ));
+  await Promise.resolve();
+  assert.deepEqual(refreshBounds, []);
+  bounds = [-75.18, 39.92, -75.08, 40.02];
+  moving = false;
+  moveend();
+  assert.deepEqual(await ownedRefresh, { applied: true });
+  assert.equal(scheduler.timers.size, 0);
+  assert.deepEqual(refreshBounds, [[-75.18, 39.92, -75.08, 40.02]]);
+
+  bounds = [-75.17, 39.93, -75.07, 40.03];
+  const noMoveCompleted = await controller.runProgrammaticMapMove(() => {});
+  assert.equal(noMoveCompleted, true);
+  await controller.refresh();
+  assert.deepEqual(refreshBounds.at(-1), bounds);
+
+  bounds = [-75.16, 39.94, -75.06, 40.04];
+  moveend();
+  const [userTimerId, userCallback] = scheduler.timers.entries().next().value;
+  scheduler.timers.delete(userTimerId);
+  userCallback();
+  await Promise.resolve();
+  assert.deepEqual(refreshBounds.at(-1), bounds);
+
+  await assert.rejects(
+    controller.runProgrammaticMapMove(() => { throw new Error('flyTo failed'); }),
+    /flyTo failed/,
+  );
+  await controller.refresh();
+  assert.equal(refreshBounds.length, 4);
+
+  moving = true;
+  const cancelledMove = controller.runProgrammaticMapMove(() => {});
+  const cancelledRefresh = cancelledMove.then((completed) => (
+    completed ? controller.refresh() : { applied: false }
+  ));
+  controller.setActive(false);
+  assert.equal(await cancelledMove, false);
+  assert.deepEqual(await cancelledRefresh, { applied: false });
+  assert.equal(refreshBounds.length, 4);
+  controller.destroy();
+});
+
+test('a replacement programmatic move ignores the synchronous moveend emitted while stopping the old animation', async () => {
+  const map = createMap({ loaded: false });
+  const scheduler = createScheduler();
+  let moving = false;
+  map.isMoving = () => moving;
+  const controller = wirePoints(map, {
+    getFilters: () => ({}),
+    refreshPointsImpl: async () => ({ applied: true }),
+    clearCrimePointsImpl: () => {},
+    showToast: () => {},
+    hideToast: () => {},
+    scheduler,
+  });
+  const moveend = map.handlers.get('moveend');
+
+  const firstMove = controller.runProgrammaticMapMove(() => { moving = true; });
+  let secondSettled = false;
+  const secondMove = controller.runProgrammaticMapMove(() => {
+    moveend(); // MapLibre stops the first animation synchronously inside flyTo().
+    moving = true;
+  }).then((completed) => {
+    secondSettled = true;
+    return completed;
+  });
+
+  assert.equal(await firstMove, false);
+  await Promise.resolve();
+  assert.equal(secondSettled, false);
+  assert.equal(scheduler.timers.size, 0);
+
+  moving = false;
+  moveend();
+  assert.equal(await secondMove, true);
+  assert.equal(scheduler.timers.size, 0);
   controller.destroy();
 });

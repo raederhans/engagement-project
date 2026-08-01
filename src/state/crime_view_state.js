@@ -118,3 +118,31 @@ export function applyCrimeViewState(target, decoded, { setMode } = {}) {
   if (decoded.centerBLonLat) target.setComparisonPoint?.('B', ...decoded.centerBLonLat, decoded.addressB);
   return target;
 }
+
+export function replaceCrimeViewState(target, decoded, { setMode } = {}) {
+  const canonical = decodeCrimeViewState(encodeCrimeViewState(decoded || {}));
+  Object.assign(target, {
+    centerLonLat: null,
+    center3857: null,
+    centerBLonLat: null,
+    centerB3857: null,
+    addressA: null,
+    addressB: null,
+    selectedTypes: [],
+    selectedGroups: [],
+    selectedDrilldownCodes: [],
+    selectedDistrictCode: null,
+    selectedTractGEOID: null,
+    selectMode: 'idle',
+    selectTarget: 'A',
+  });
+  Object.assign(target, canonical);
+  setMode?.(canonical.queryMode);
+  if (canonical.centerLonLat) {
+    target.setComparisonPoint?.('A', ...canonical.centerLonLat, canonical.addressA);
+  }
+  if (canonical.centerBLonLat) {
+    target.setComparisonPoint?.('B', ...canonical.centerBLonLat, canonical.addressB);
+  }
+  return target;
+}

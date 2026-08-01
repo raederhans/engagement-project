@@ -1,3 +1,5 @@
+import { waitForOwnedPromise } from '../utils/latest_serial_queue.js';
+
 function isAbortError(error) {
   return error?.name === 'AbortError';
 }
@@ -13,8 +15,8 @@ export function readCrimeSnapshot(source) {
     centerLonLat: source.centerLonLat ? [...source.centerLonLat] : null,
     centerB3857: source.centerB3857 ? [...source.centerB3857] : null,
     centerBLonLat: source.centerBLonLat ? [...source.centerBLonLat] : null,
-    addressA: source.addressA || 'Point A',
-    addressB: source.addressB || 'Point B',
+    addressA: source.addressA ?? null,
+    addressB: source.addressB ?? null,
     adminLevel: source.adminLevel,
     per10k: source.per10k,
   };
@@ -32,8 +34,9 @@ export function createCrimeRefreshOwner({ readSnapshot, runRefresh }) {
   };
 
   return {
-    async refresh() {
+    async refresh({ signal: ownerSignal } = {}) {
       if (!active) return { applied: false };
+      if (ownerSignal?.aborted) return { applied: false };
 
       invalidate();
       const requestGeneration = generation;
@@ -46,14 +49,17 @@ export function createCrimeRefreshOwner({ readSnapshot, runRefresh }) {
           && generation === requestGeneration
           && !requestController.signal.aborted,
       };
+      const abortFromOwner = () => requestController.abort(ownerSignal.reason);
+      ownerSignal?.addEventListener('abort', abortFromOwner, { once: true });
 
       try {
-        const result = await runRefresh(snapshot, context);
+        const result = await waitForOwnedPromise(runRefresh(snapshot, context), requestController.signal);
         return context.isCurrent() ? (result ?? { applied: true }) : { applied: false };
       } catch (error) {
         if (!context.isCurrent() || isAbortError(error)) return { applied: false };
         throw error;
       } finally {
+        ownerSignal?.removeEventListener('abort', abortFromOwner);
         if (generation === requestGeneration) controller = null;
       }
     },
