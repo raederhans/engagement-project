@@ -2,7 +2,7 @@
 
 ## Status
 
-Autopilot `ultragoal`: Stage 1 implementation, final independent review, and UltraQA are complete; GitHub delivery remains.
+Complete. Stage 1 implementation, independent review, UltraQA, GitHub integration, Pages deployment, and production verification all passed.
 
 ## Checklist
 
@@ -14,7 +14,7 @@ Autopilot `ultragoal`: Stage 1 implementation, final independent review, and Ult
 - [x] Implement Analysis Artifact and local repository.
 - [x] Implement history UI and lifecycle integration.
 - [x] Run cleaner, independent code review, and UltraQA.
-- [ ] Commit, push, PR, CI, merge, Pages verification, archive.
+- [x] Commit, push, PR, CI, merge, Pages verification, archive.
 
 ## Evidence log
 
@@ -37,7 +37,13 @@ Autopilot `ultragoal`: Stage 1 implementation, final independent review, and Ult
 | Independent gates | Code review `APPROVE` with 0 findings; architecture `APPROVE/CLEAR`; simplifier removed one redundant variable and reported no correctness blocker. |
 | AI slop cleaner | Changed-file scan found no masking fallback; removed redundant `pendingAddressMove`; retained independently justified restore and snapshot terminal state. Post-cleaner validation/browser gates passed. |
 | UltraQA | One adversarial cycle passed normal lifecycle, malformed/corrupt input, cancellation, stale owners, Diary isolation, blocked IndexedDB upgrade, API failure, parallel map moves, timeout, dirty-worktree, and exit-code scenarios. See `ultraqa-report.md`. |
+| Runtime delivery | Lore commit `ce5376969790f7be19781ee3177c812eb53e9aa5` merged through PR `#33` as `b286237079e6ae9a56d97f233a796b3a6d804922`. |
+| Main CI | Run `30683315363` passed all validation and browser smoke steps. |
+| Pages | Run `30683315403` built and deployed successfully. Root HTML and entry `assets/index-DqeV5vZ5.js` returned HTTP 200; entry length `892126`. |
+| Production Diary | Direct Diary displayed Route Safety Diary while History chunk=false, Analysis DB=false, and Crime requests empty. |
+| Production Crime | Recent analyses and Save analysis appeared; History chunk `analysis_history_controller-BkdNHpFx.js` returned 200; `engagement-analysis` v1 opened; CARTO, Police, and TIGER requests returned 200; console 0 errors and 0 warnings. |
 
-## Open items
+## Remaining low-priority items
 
-- Complete GitHub delivery after those final gates pass.
+- GitHub Actions reports upstream Node 20 deprecation annotations while forcing the pinned actions to Node 24; runs remain successful.
+- Local History is intentionally device-specific and can be removed by browser storage eviction.
