@@ -230,7 +230,12 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page.getByRole('button', { name: '社区示例', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await captureExperienceScreenshot(page, testInfo, 'diary-sample-community-zh');
+  await captureExperienceScreenshot(
+    page,
+    testInfo,
+    'diary-sample-community-zh',
+    { maxDiffPixelRatio: 0.01 },
+  );
   await page.getByRole('button', { name: '切换到英文' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('button', { name: 'Sample community', exact: true })).toHaveAttribute('aria-pressed', 'true');

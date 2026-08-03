@@ -18,13 +18,20 @@ const baselines = [
 ];
 
 const fixtureUrl = new URL('./support/deterministic_browser_fixture.mjs', import.meta.url);
-const [fixture, config] = await Promise.all([
+const [fixture, config, experienceSpec] = await Promise.all([
   readFile(fixtureUrl, 'utf8'),
   readFile(new URL('../../playwright.config.mjs', import.meta.url), 'utf8'),
+  readFile(new URL('./visual_experience.spec.mjs', import.meta.url), 'utf8'),
 ]);
 assert.match(fixture, /toHaveScreenshot\(/, 'visual experience tests must compare screenshots');
 assert.doesNotMatch(fixture, /PLAYWRIGHT_VISUAL_COMPARE/, 'CI comparison must not be optional');
 assert.doesNotMatch(fixture, /\bmask\s*[:,]/, 'a full-map mask can obscure the product UI');
+assert.match(fixture, /maxDiffPixelRatio\s*=\s*0\.005/, 'the default screenshot budget must remain at 0.5%');
+assert.match(
+  experienceSpec,
+  /captureExperienceScreenshot\(\s*page,\s*testInfo,\s*'diary-sample-community-zh',\s*\{ maxDiffPixelRatio: 0\.01 \},\s*\)/,
+  'only the CJK cross-runner snapshot may use the explicit 1% glyph-rasterization budget',
+);
 assert.match(config, /snapshotPathTemplate:[^\n]*\{platform\}/, 'snapshot baselines must be platform-specific');
 
 let verified = 0;

@@ -199,7 +199,12 @@ export async function auditSeriousAccessibility(page) {
   ];
 }
 
-export async function captureExperienceScreenshot(page, testInfo, name, { locator = null } = {}) {
+export async function captureExperienceScreenshot(
+  page,
+  testInfo,
+  name,
+  { locator = null, maxDiffPixelRatio = 0.005 } = {},
+) {
   await page.addStyleTag({ content: `
     *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
     #map { background: #edf2f7 !important; }
@@ -211,7 +216,7 @@ export async function captureExperienceScreenshot(page, testInfo, name, { locato
   await expect(target).toHaveScreenshot(`${name}.png`, {
     animations: 'disabled',
     caret: 'hide',
-    maxDiffPixelRatio: 0.005,
+    maxDiffPixelRatio,
   });
 }
 
