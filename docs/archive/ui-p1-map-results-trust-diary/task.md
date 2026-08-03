@@ -2,7 +2,7 @@
 
 ## Current status
 
-P1-1 through P1-4, Stage 5 verification, and the localization reconciliation portion of Stage 6 are complete. PR #42 merged as `b4168d6`; the combined P1 head is locally green and Draft PR #41 now awaits exact-head CI, main merge, Pages verification, and archival.
+P1-1 through P1-4 and Stage 6 are complete. PR #42 merged the reviewed bilingual layer into P1, PR #41 merged the final head into `main` as `5985b71`, and exact main CI, Pages, and public Crime/Diary bilingual verification passed. This record is ready for archival.
 
 ## Checklist
 
@@ -19,13 +19,13 @@ P1-1 through P1-4, Stage 5 verification, and the localization reconciliation por
 - [x] Add and observe failing P1-4 tests.
 - [x] Implement and verify P1-4.
 - [x] Run full validation, dependency audit, bundle policy, browser matrix, accessibility audit, and independent reviews.
-- [ ] Merge the completed localization work without rewriting history, push, verify CI/Pages, and archive the task record.
+- [x] Merge the completed localization work without rewriting history, push, verify CI/Pages, and archive the task record.
 
 ## Validation evidence
 
 | Command or check | Result |
 | --- | --- |
-| Primary localization checkout | `codex/bilingual-localization@d383e30` matches its pushed remote branch; the only remaining dirty path is an unrelated user-owned `.gitignore`, which this task did not touch. |
+| Initial primary localization checkout | `codex/bilingual-localization@d383e30` matched its pushed remote branch; the only remaining dirty path was an unrelated user-owned `.gitignore`, which this task did not touch. |
 | Initial isolated checkout | Clean `codex/p1-ui` at `f956ab2`, tracking `origin/main`. |
 | Baseline full validation | `VITE_FEATURE_DIARY=1 npm run validate` passed: demo and tract data valid, all tests green, build and bundle policy green, 0 dependency vulnerabilities. |
 | P1-1 targeted regressions | Selection-gated incidents, cluster expansion, stale ownership, and panel-aware camera behavior passed 37/37 targeted checks; desktop and mobile behavior were smoke-tested with zero console errors or warnings. |
@@ -44,9 +44,10 @@ P1-1 through P1-4, Stage 5 verification, and the localization reconciliation por
 | Combined P1 validation | On `b4168d6`, `VITE_FEATURE_DIARY=1 VITE_TRACT_CRIME_SNAPSHOT=1 npm run validate` passed all data checks and 18 test groups, production build, and bundle policy. |
 | Combined P1 browser and audit | `npm run test:browser-smoke` passed with `consoleErrors=0` and `pageErrors=0`; `npm audit --audit-level=high` found 0 vulnerabilities; ports 4173 and 5173 were free afterward. |
 | Combined P1 bundle | Entry `872,332 / 234,081 gzip`; Crime `33,663 / 11,795`; Diary `199,940 / 60,300`; Charts `209,897 / 71,569`; P1 translations `8,856 / 3,134`; total `dist` `3,967,480` bytes. All established limits passed. |
+| Final PR and main integration | PR #41 exact-head CI run `30797097157` passed on `f21e482`; PR #41 then merged by ordinary merge commit `5985b71896113ebf3f1ae9530ef6a05abe579e38`. |
+| Main CI and Pages | Main CI run `30797232222` passed its complete validate and browser-smoke job; Pages run `30797232104` built and deployed the same main SHA. |
+| Public production verification | `https://raederhans.github.io/engagement-project/` returned HTTP 200; Crime and Diary passed English/Chinese switching, 390×844 had 0 px horizontal overflow, and the clean-browser check recorded 0 console errors and 0 page errors. |
 
-## Open risks and remaining work
+## Residual non-blocking risks
 
-- PR #41 still requires exact-head CI after the localization merge, followed by main CI, Pages, and public bilingual verification.
-- This P1 branch remains Draft until its final task-record commit and exact-head CI are complete.
 - MapLibre still triggers Vite's generic 500 kB warning; the stricter project bundle budgets pass, and a map-runtime migration remains outside this P1 scope.

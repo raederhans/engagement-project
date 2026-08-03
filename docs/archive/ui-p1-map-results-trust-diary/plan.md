@@ -45,7 +45,7 @@ A calm civic map workspace: the basemap stays readable, one selected place or ro
 - [x] Stage 3: P1-3 live/fallback/local/sample status semantics and Sample Community truthfulness.
 - [x] Stage 4: P1-4 Diary route focus, decision-first comparison, scoped Insights, and secondary simulator.
 - [x] Stage 5: full repository validation, browser matrix, accessibility check, bundle audit, and independent reviews.
-- [ ] Stage 6: merge the completed localization delivery without history rewriting, resolve user-visible-copy conflicts deliberately, integrate, deploy, and verify production.
+- [x] Stage 6: merge the completed localization delivery without history rewriting, resolve user-visible-copy conflicts deliberately, integrate, deploy, and verify production.
 
 ## Acceptance criteria
 

@@ -2,7 +2,7 @@
 
 ## Current status
 
-The bilingual delivery passed independent architecture and code review, exact-head CI, and merged through PR #42 into `codex/p1-ui` as `b4168d6`. The combined P1 head also passed local full validation, browser smoke, bundle policy, and audit; production integration and archival remain.
+The bilingual delivery is complete. PR #42 passed independent review and exact-head CI before merging into P1; PR #41 merged the combined delivery into `main@5985b71`; main CI, Pages, and public Crime/Diary bilingual verification passed. This record is ready for archival.
 
 ## Checklist
 
@@ -19,6 +19,7 @@ The bilingual delivery passed independent architecture and code review, exact-he
 - [x] Localize all P1-added or changed visible copy and extend the corresponding tests.
 - [x] Run feature-enabled full validation, browser smoke, bundle policy, localization audit, and diff/review checks.
 - [x] Push and create or update the localization PR without merging PR #41 or deploying Pages.
+- [x] Merge the reviewed localization and P1 delivery through ordinary history, verify main CI/Pages/public behavior, and archive the task record.
 
 ## Validation evidence
 
@@ -53,10 +54,12 @@ The bilingual delivery passed independent architecture and code review, exact-he
 | Reviewed browser smoke | PASS with both feature flags: Diary simulator remains active across locale changes; Crime cached summary/date/history refresh in Chinese without new CARTO requests; `consoleErrors=0`, `pageErrors=0`. |
 | Reviewed dependency and diff checks | `npm audit --audit-level=high` found 0 vulnerabilities; `git diff --check` passed. |
 | Independent review | Architecture reviewer returned `PASS`; code reviewer returned `APPROVE`; both specifically rechecked the stable locale-listener lifecycle and found no open issue. |
+| Final integration | PR #42 exact-head CI run `30796767554` passed and merged as `b4168d6`; PR #41 exact-head CI run `30797097157` passed and merged into `main` as `5985b71`. |
+| Main deployment | Main CI run `30797232222` and Pages run `30797232104` succeeded on `5985b71`. |
+| Public bilingual smoke | The public Pages URL returned HTTP 200; Crime and Diary switched between English and Chinese, mobile overflow was 0 px, and the clean-browser run recorded `consoleErrors=0` and `pageErrors=0`. |
 
-## Open risks and remaining work
+## Residual non-blocking risks
 
 - Vite still emits its pre-existing large-entry advisory, but the enforced raw/gzip bundle budgets pass.
 - Raw third-party/API diagnostic details remain untranslated when shown after a localized summary; stable application-owned errors are localized.
 - Unrelated `.gitignore` WIP remains intentionally unstaged.
-- PR #42 is merged. PR #41 remains Draft until its exact-head CI and final record commit pass, after which main/Pages/public verification and archival remain.
