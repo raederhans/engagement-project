@@ -1,8 +1,8 @@
 # Task
 
-## Current status
+## Status
 
-Local P0 implementation, browser acceptance, independent review, and commit-isolated validation are complete. Draft PR #39 is open; its first CI run exposed outdated browser-smoke interactions, whose focused fix now passes locally under the exact CI environment. Remote rerun, Pages integration, and record archival remain.
+Complete. The P0 task-first map shell, responsive layout, progressive Crime analysis, mode ownership, and staged Diary rating flow are merged, deployed, and verified on the public GitHub Pages site.
 
 ## Checklist
 
@@ -20,7 +20,7 @@ Local P0 implementation, browser acceptance, independent review, and commit-isol
 - [x] Run full local validation and dependency audit.
 - [x] Run deterministic browser acceptance at all required viewports.
 - [x] Complete independent code, architecture, and design review.
-- [ ] Commit, publish, integrate, verify CI/Pages, and archive the task records.
+- [x] Commit, publish, integrate, verify CI/Pages, and archive the task records.
 
 ## Validation evidence
 
@@ -40,10 +40,16 @@ Local P0 implementation, browser acceptance, independent review, and commit-isol
 | Independent review | Final code review and final visual review both returned `APPROVE`; no P0 code or visual blockers remain. |
 | Browser health | Final local Crime/Diary session reported 0 console errors and 0 warnings. |
 | CI browser-smoke repair | Updated the existing smoke to use the rating radio name, staged Continue/Save flow, progressive data details, explicit More filters/Compare actions, and the compact summary contract. With `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`, the full smoke passed with 0 console errors and 0 page errors. |
+| Pull request | PR `#39` merged as `8ac70018f905133792c4a673f33f8f1afcdec438`; only P0 runtime, tests, and task records were included. |
+| Main CI | Run `30781936454` passed full validation and browser smoke in 1m7s. |
+| Pages deployment | Run `30781936413` completed both build and deploy successfully. |
+| Public assets | Root, `assets/index-CZK0rpXj.js`, `assets/index-D-zp2W0_.css`, and `assets/routes_crime-BLOdJ4c3.js` returned HTTP 200. |
+| Public Crime | At 390×844 and 844×390, the map and half sheet coexisted with zero horizontal overflow; the public page reported 0 errors and 0 warnings. |
+| Public Diary | Direct Diary loaded its demo route; the 390×844 staged flow kept `Save rating` fully visible and submitted successfully with 0 errors and 0 warnings. |
 
-## Open risks and remaining work
+## Remaining follow-ups
 
 - Existing inline HTML and style ownership can make broad visual changes hard to test; prefer extracting only clear shell responsibilities.
 - Browser evidence must distinguish immediate visual feedback from external API completion.
 - Visual-tool ignore/log residue is not part of this task and must not enter a commit.
-- A concurrent bilingual-localization task has unstaged expected-red work in the same checkout; the P0 commit must exclude it and be validated from its own snapshot.
+- The bilingual-localization task remains a separate delivery and may continue from the merged P0 baseline.
