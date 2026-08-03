@@ -277,6 +277,101 @@ test('completed Crime analysis renders a compact trustworthy summary before deta
   assert.match(html, /Data through Jul 31, 2026/i);
   assert.match(html, /Historical data, not a live safety alert/i);
   assert.doesNotMatch(html, /Compare A vs B/i);
+  assert.doesNotMatch(html, /crime-comparison-details/i);
+});
+
+test('two-area summary offers one detailed comparison submenu from existing metrics', async () => {
+  const { buildCrimeSummaryHtml } = await import('../../src/compare/card.js');
+  const html = buildCrimeSummaryHtml({
+    a: {
+      label: '1500 Market Street',
+      total: 42,
+      per10k: 28,
+      top3: [
+        { text_general_code: 'Theft', n: 18 },
+        { text_general_code: 'Burglary', n: 9 },
+      ],
+      delta30: 0.125,
+    },
+    b: {
+      label: 'North Broad Street',
+      total: 30,
+      per10k: 20,
+      top3: [
+        { text_general_code: 'Assault', n: 12 },
+        { text_general_code: 'Theft', n: 6 },
+      ],
+      delta30: -0.05,
+    },
+  });
+
+  assert.match(html, /<details[^>]*class="crime-comparison-details"/i);
+  assert.match(html, /Detailed comparison/i);
+  assert.match(html, /1500 Market Street recorded 12 more incidents than North Broad Street \(40\.0% higher\)/i);
+  assert.match(html, /<table[^>]*class="crime-comparison-table"/i);
+  assert.match(html, /Reported incidents[\s\S]*42[\s\S]*30/i);
+  assert.match(html, /Per 10,000 people[\s\S]*28\.0[\s\S]*20\.0/i);
+  assert.match(html, /Recent 30-day change[\s\S]*\+12\.5%[\s\S]*-5\.0%/i);
+  assert.match(html, /Theft[\s\S]*18 · 42\.9%/i);
+  assert.match(html, /Assault[\s\S]*12 · 40\.0%/i);
+  assert.match(html, /descriptive historical comparison/i);
+});
+
+test('detailed comparison keeps unavailable metrics truthful and handles a zero baseline', async () => {
+  const { buildCrimeSummaryHtml } = await import('../../src/compare/card.js');
+  const html = buildCrimeSummaryHtml({
+    a: { label: 'Point A', total: 8, per10k: null, top3: [], delta30: null },
+    b: { label: 'Point B', total: 0, per10k: null, top3: [], delta30: null },
+  });
+
+  assert.match(html, /Point A recorded 8 more incidents than Point B/i);
+  assert.doesNotMatch(html, /Infinity|NaN/);
+  assert.match(html, /Per 10,000 people[\s\S]*Not available[\s\S]*Not available/i);
+  assert.match(html, /Recent 30-day change[\s\S]*Not available[\s\S]*Not available/i);
+  assert.equal((html.match(/Not available/g) || []).length, 4);
+  assert.match(html, /No category data available/i);
+});
+
+test('comparison disclosure state survives a rerendered details element', async () => {
+  const { bindComparisonDisclosure } = await import('../../src/compare/card.js');
+  assert.equal(typeof bindComparisonDisclosure, 'function');
+  const state = { open: false };
+  const createDetails = () => ({
+    open: false,
+    listeners: new Map(),
+    addEventListener(name, listener) { this.listeners.set(name, listener); },
+  });
+
+  const first = createDetails();
+  bindComparisonDisclosure(first, state);
+  first.open = true;
+  first.listeners.get('toggle')();
+  assert.equal(state.open, true);
+
+  const rerendered = createDetails();
+  bindComparisonDisclosure(rerendered, state);
+  assert.equal(rerendered.open, true);
+});
+
+test('comparison disclosure state belongs to one default compare view', async () => {
+  const source = await readFile(new URL('../../src/compare/card.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /^const comparisonDisclosureState\s*=/m);
+  assert.match(
+    source,
+    /function createDefaultCompareView\([^)]*\)\s*\{[\s\S]*?const comparisonDisclosureState\s*=\s*\{\s*open:\s*false\s*\}/,
+  );
+});
+
+test('detailed comparison disclosure meets touch and reduced-motion contracts', async () => {
+  const css = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+  assert.match(
+    css,
+    /\.crime-comparison-details\s*>\s*summary\s*\{[^}]*min-height:\s*var\(--control-target\)/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.crime-comparison-category__track span\s*\{[^}]*transition:\s*none\s*!important/s,
+  );
 });
 
 test('current analysis exposes one canonical selected state immediately', async () => {
