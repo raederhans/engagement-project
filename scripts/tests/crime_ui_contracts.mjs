@@ -428,6 +428,22 @@ test('comparison controls stay hidden until the user asks for another area', asy
   assert.equal(attributes.get('fields:aria-hidden'), 'true');
 });
 
+test('drilldown menu rows follow the available options up to a compact ceiling', async () => {
+  const { fitMultiSelectRows } = await import('../../src/ui/panel.js');
+  const select = { size: 6, options: { length: 0 } };
+
+  assert.equal(fitMultiSelectRows(select), 1);
+  assert.equal(select.size, 1);
+
+  select.options.length = 3;
+  assert.equal(fitMultiSelectRows(select), 3);
+  assert.equal(select.size, 3);
+
+  select.options.length = 11;
+  assert.equal(fitMultiSelectRows(select), 6);
+  assert.equal(select.size, 6);
+});
+
 test('the default Crime basemap is visually muted behind analytical overlays', async () => {
   const { resolveMapStyle } = await import('../../src/config.js');
   const style = resolveMapStyle('crime');
