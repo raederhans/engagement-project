@@ -5,7 +5,7 @@
  * runs the route simulator, and applies local rating/aggregation updates.
  */
 
-import { mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, highlightSegments } from '../map/segments_layer.js';
+import { closeSegmentPopup, mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, highlightSegments } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
 import { DIARY_ROUTES_URL, DIARY_SEGMENTS_URL, HAS_DIARY_LIGHT_STYLE } from '../config.js';
@@ -37,7 +37,8 @@ import {
 } from './data_normalization.js';
 import { renderLiveRoutePanel } from './ui_live_panel.js';
 import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
-import { renderCommunityPanel } from './ui_community_panel.js';
+import { createSampleCommunityModel, renderCommunityPanel } from './ui_community_panel.js';
+import { describeDiaryDataScope } from '../ui/data_scope.js';
 import { publicUrl } from '../utils/public_url.js';
 import {
   createDiarySession,
@@ -56,9 +57,14 @@ import {
   serializeDiaryBackup,
 } from './local_repository.js';
 import { downloadTextFile } from '../utils/export_analysis.js';
-import { resolveAlternativeForRoute, summarizeAlternativeBenefit } from './alternative_route.js';
+import {
+  describeAlternativeTradeoff,
+  resolveAlternativeForRoute,
+  summarizeAlternativeBenefit,
+} from './alternative_route.js';
 import { buildSimulationCoordinates } from './route_simulator.js';
 import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { fitBoundsWithPanel, geometryBounds } from '../map/camera_fit.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
@@ -82,18 +88,7 @@ function localizedDiaryError(error, fallbackKey) {
   };
   return knownKeys[message] ? t(knownKeys[message]) : (message || t(fallbackKey));
 }
-
-const DEMO_COMMUNITY_SEGMENTS = [
-  { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tagsKey: 'demo.segment1Tags' },
-  { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tagsKey: 'demo.segment2Tags' },
-  { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tagsKey: 'demo.segment3Tags' },
-];
-
-const DEMO_COMMENTS = [
-  { id: 'c1', user: 'SarahK', agoKey: 'demo.twoHoursAgo', textKey: 'demo.comment1' },
-  { id: 'c2', user: 'BikePhilly', agoKey: 'demo.fiveHoursAgo', textKey: 'demo.comment2' },
-  { id: 'c3', user: 'TrailRunner', agoKey: 'demo.oneDayAgo', textKey: 'demo.comment3' },
-];
+const SAMPLE_COMMUNITY = createSampleCommunityModel();
 
 const segmentLookup = new Map();
 
@@ -157,6 +152,17 @@ const ROUTE_SAFETY_EXPRESSION = [
 ];
 let historyPeriodFilter = '30d';
 let historyModeFilter = 'all';
+
+function diaryInsightsContext(mode = store.diaryViewMode, route = currentRoute) {
+  return {
+    mode,
+    routeId: mode === 'live' ? route?.properties?.route_id ?? null : null,
+  };
+}
+
+function syncDiaryInsightsContext(mode = store.diaryViewMode) {
+  currentInsightsPort?.setViewContext(diaryInsightsContext(mode));
+}
 
 function clearDiaryTimeout(id) {
   if (id == null) return;
@@ -437,6 +443,9 @@ function ensureDiaryPanel(routes, options = {}) {
   if (typeof document === 'undefined') return;
   if (!routes) return;
   const mountTarget = options?.mountInto || null;
+  const onScopeChange = typeof options?.onScopeChange === 'function'
+    ? options.onScopeChange
+    : () => {};
 
   if (mountTarget && diaryPanelEl !== mountTarget) {
     diaryPanelEl = mountTarget;
@@ -509,7 +518,6 @@ function ensureDiaryPanel(routes, options = {}) {
     btn.className = 'diary-view-pill';
     btn.addEventListener('click', ownPanelHandler(() => {
       setDiaryViewMode(mode);
-      currentInsightsPort?.setViewContext(mode);
       renderActivePanel();
     }));
     return { btn, mode };
@@ -527,15 +535,20 @@ function ensureDiaryPanel(routes, options = {}) {
 
   const syncPills = () => {
     pills.forEach((p) => {
-      p.btn.classList.toggle('is-active', store.diaryViewMode === p.mode);
+      const selected = store.diaryViewMode === p.mode;
+      p.btn.classList.toggle('is-active', selected);
+      p.btn.setAttribute('aria-pressed', String(selected));
     });
   };
 
   const renderActivePanel = () => {
+    onScopeChange(describeDiaryDataScope(store.diaryViewMode));
     syncPills();
+    if (store.diaryViewMode !== 'live') clearLiveDiaryMapState();
     body.innerHTML = '';
     clearLiveRefs();
     if (store.diaryViewMode === 'history') {
+      syncDiaryInsightsContext('history');
       renderMyRoutesPanel(
         body,
         {
@@ -584,12 +597,10 @@ function ensureDiaryPanel(routes, options = {}) {
         }
       );
     } else if (store.diaryViewMode === 'community') {
+      syncDiaryInsightsContext('community');
       renderCommunityPanel(
         body,
-        {
-          segments: DEMO_COMMUNITY_SEGMENTS,
-          comments: DEMO_COMMENTS,
-        }
+        SAMPLE_COMMUNITY
       );
     } else {
       const refs = renderLiveRoutePanel(
@@ -626,7 +637,6 @@ function ensureDiaryPanel(routes, options = {}) {
           onTimeFilterChange: ownPanelHandler((val) => setDiaryTimeFilter(val)),
           onOpenHistory: ownPanelHandler(() => {
             setDiaryViewMode('history');
-            currentInsightsPort?.setViewContext('history');
             renderActivePanel();
           }),
         }
@@ -653,14 +663,15 @@ function ensureDiaryPanel(routes, options = {}) {
         if (routeSelectEl) {
           routeSelectEl.value = desiredRouteId;
         }
-        selectRoute(desiredRouteId, { fitBounds: false });
+        selectRoute(desiredRouteId, { fitBounds: true });
+      } else {
+        syncDiaryInsightsContext('live');
       }
-      applyAltToggleState(store.diaryAltEnabled, { update: true });
+      applyAltToggleState(store.diaryAltEnabled, { update: false });
       hydrateSimulatorFromPrefs();
     }
   };
 
-  currentInsightsPort?.setViewContext(store.diaryViewMode);
   currentInsightsPort?.setEntries(localDiaryEntries);
   refreshDiaryPanel = renderActivePanel;
   renderActivePanel();
@@ -731,25 +742,39 @@ function focusHistoryRouteOnMap(route) {
   fitMapToRoute(feature);
 }
 
+export function createRouteSummaryModel(route) {
+  const props = route?.properties || {};
+  const length = Number(props.length_m) || 0;
+  const mode = String(props.mode || 'walk').toLowerCase();
+  return Object.freeze({
+    from: String(props.from || t('diary.start')),
+    to: String(props.to || t('diary.destination')),
+    mode: t(mode === 'bike' ? 'diary.bike' : 'diary.walk'),
+    distance: length >= 1000
+      ? `${(length / 1000).toFixed(1).replace(/\.0$/, '')} km`
+      : `${Math.round(length)} m`,
+    duration: t('diary.minutes', { count: Number(props.duration_min) || 0 }),
+  });
+}
+
 function renderRouteSummary(route) {
   if (!summaryStripEl) return;
   if (!route) {
     setTranslatedText(summaryStripEl, 'diary.selectRouteDetails');
     return;
   }
-  const props = route.properties || {};
+  const model = createRouteSummaryModel(route);
   const pieces = [
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.from || t('diary.start'))}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.from)}</div>`,
     `<div style="color:#94a3b8;font-weight:600;font-size:12px;">${escapeHtml(t('diary.to'))}</div>`,
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.to || t('diary.destination'))}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.to)}</div>`,
   ];
   summaryStripEl.innerHTML = `
-    <div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(props.name || props.route_id)}</div>
     <div style="display:flex;align-items:center;gap:6px;">${pieces.join('')}</div>
     <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(t(props.mode === 'bike' ? 'diary.bike' : 'diary.walk'))}</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${Number(props.length_m || 0).toLocaleString()} m</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(t('diary.minutes', { count: Number(props.duration_min) || 0 }))}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.mode)}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.distance)}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.duration)}</span>
     </div>`;
 }
 
@@ -762,6 +787,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
   currentRoute = feature;
   // TODO: docs/M3_ROUTE_BOUNDARY_INTEGRATION.md — compute route boundary context (districts/tracts) before we render or submit.
   setSelectedRouteId(routeId);
+  if (store.diaryViewMode === 'live') syncDiaryInsightsContext('live');
   setSimPanelState({ playing: false, progress: 0, routeId });
   renderRouteSummary(feature);
   if (routeSelectEl && routeSelectEl.value !== routeId) {
@@ -779,7 +805,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
       width: 7,
       opacity: isCommunity ? 0.7 : 0.95,
     });
-    if (fitBounds) {
+    if (fitBounds && !store.diaryAltEnabled) {
       fitMapToRoute(feature);
     }
   }
@@ -789,28 +815,22 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
 }
 
 function fitMapToRoute(route) {
-  if (!mapRef || typeof mapRef.fitBounds !== 'function') return;
-  const coordinates = extractLineCoordinates(route?.geometry);
-  if (!coordinates.length) return;
-  let minLng = coordinates[0][0];
-  let maxLng = coordinates[0][0];
-  let minLat = coordinates[0][1];
-  let maxLat = coordinates[0][1];
-  coordinates.forEach(([lng, lat]) => {
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-  });
-  if (Number.isFinite(minLng) && Number.isFinite(maxLng) && Number.isFinite(minLat) && Number.isFinite(maxLat)) {
-    mapRef.fitBounds(
-      [
-        [minLng, minLat],
-        [maxLng, maxLat],
-      ],
-      { padding: 80, duration: 650 }
-    );
-  }
+  return fitMapToRoutes(route);
+}
+
+function fitMapToRoutes(...routes) {
+  if (!mapRef || !diarySessionIsCurrent()) return false;
+  const features = routes.filter(Boolean);
+  const bounds = geometryBounds({ type: 'FeatureCollection', features });
+  return fitBoundsWithPanel(mapRef, bounds);
+}
+
+export function fitCurrentDiarySelection() {
+  if (store.diaryViewMode !== 'live') return false;
+  const alt = store.diaryAltEnabled && currentRoute
+    ? resolveAlternativeForRoute(currentRoute, { getSegment: (id) => segmentLookup.get(id) })
+    : null;
+  return fitMapToRoutes(currentRoute, alt?.feature);
 }
 
 function openRouteRating() {
@@ -916,7 +936,7 @@ function refreshAfterCta(message) {
 }
 
 async function onAgreeClick(segmentId) {
-  if (!segmentId) return;
+  if (!segmentId || store.diaryViewMode !== 'live') return;
   if (isThrottled(segmentId, 'agree')) {
     showToast(t('diary.recordedSession'));
     return;
@@ -928,7 +948,7 @@ async function onAgreeClick(segmentId) {
 }
 
 async function onFeelsSaferClick(segmentId) {
-  if (!segmentId) return;
+  if (!segmentId || store.diaryViewMode !== 'live') return;
   if (isThrottled(segmentId, 'safer')) {
     showToast(t('diary.recordedSession'));
     return;
@@ -940,7 +960,7 @@ async function onFeelsSaferClick(segmentId) {
 }
 
 function handleSegmentAction(payload) {
-  if (!payload || !payload.action || !payload.segmentId) return;
+  if (store.diaryViewMode !== 'live' || !payload || !payload.action || !payload.segmentId) return;
   if (payload.action === 'agree') {
     void onAgreeClick(payload.segmentId);
   } else if (payload.action === 'safer') {
@@ -975,7 +995,18 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
       opacity: store.diaryViewMode === 'community' ? 0.6 : 0.75,
       dasharray: [0.6, 0.9],
     });
+    fitMapToRoutes(currentRoute, altInfo.feature);
   }
+}
+
+function clearLiveDiaryMapState() {
+  closeRatingModal();
+  closeSegmentPopup();
+  teardownSim({ silent: true });
+  if (!mapRef) return;
+  clearRouteOverlay(mapRef, DIARY_ROUTE_PRIMARY_SOURCE_ID);
+  clearRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID);
+  clearSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID);
 }
 
 function renderAltSummary(route, altInfo) {
@@ -993,20 +1024,18 @@ function renderAltSummary(route, altInfo) {
     setTranslatedText(altSummaryEl, 'diary.alternativeUnavailable');
     return;
   }
-  const avoided = Math.max(0, summary.pLow - summary.aLow);
-  const deltaLabel = t('diary.minuteDelta', { count: `${summary.deltaMin > 0 ? '+' : ''}${summary.deltaMin.toFixed(1)}` });
-  const pctLabel = t('diary.distanceDelta', { count: summary.overheadPct.toFixed(1) });
-  let reason = t('diary.currentBest');
-  if (avoided > 0) {
-    reason = t('diary.avoidsLowRated', { count: avoided });
-  } else if (summary.overheadPct <= 0) {
-    reason = t('diary.noDistancePenalty');
-  }
-  altSummaryEl.innerHTML = `
-    <div style="font-weight:600;color:#0f172a;font-size:12px;">${escapeHtml(t('diary.alternativeComparison'))}</div>
-    <div style="font-size:12px;color:#334155;margin-top:2px;">${deltaLabel} • ${pctLabel}</div>
-    <div style="font-size:12px;color:#475569;margin-top:4px;">${reason}</div>
-  `;
+  const tradeoff = describeAlternativeTradeoff(summary);
+  altSummaryEl.replaceChildren();
+  const benefit = document.createElement('div');
+  benefit.style.cssText = 'font-weight:600;color:#0f172a;font-size:12px;';
+  benefit.textContent = tradeoff.benefit;
+  const cost = document.createElement('div');
+  cost.style.cssText = 'font-size:12px;color:#334155;margin-top:2px;';
+  cost.textContent = tradeoff.cost;
+  const caveat = document.createElement('div');
+  caveat.style.cssText = 'font-size:12px;color:#64748b;margin-top:4px;';
+  caveat.textContent = tradeoff.caveat;
+  altSummaryEl.append(benefit, cost, caveat);
 }
 
 function applyAltToggleState(enabled, { update = true } = {}) {
@@ -1497,21 +1526,21 @@ export async function initDiaryMode(map, options = {}) {
       mountSegmentsLayer(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments, {
         signal: session.signal,
         isCurrent,
+        canInteract: () => store.diaryViewMode === 'live',
         onAction: guardDiaryCommit(handleSegmentAction, session, ownerIsCurrent),
       });
       layerMounted = true;
     }
 
     routesRef = routes;
-    ensureDiaryPanel(routes, { mountInto: mountTarget });
+    const publishScope = typeof options?.onScopeChange === 'function'
+      ? guardDiaryCommit(options.onScopeChange, session, ownerIsCurrent)
+      : () => {};
+    ensureDiaryPanel(routes, {
+      mountInto: mountTarget,
+      onScopeChange: publishScope,
+    });
     if (localStorageWarning) showToast(localStorageWarning, 5000);
-    const defaultRoute = routes.features?.[0];
-    if (defaultRoute?.properties?.route_id) {
-      if (routeSelectEl) {
-        routeSelectEl.value = defaultRoute.properties.route_id;
-      }
-      selectRoute(defaultRoute.properties.route_id, { fitBounds: false });
-    }
     return { ...stats, status: 'ready' };
   } catch (err) {
     if (!isCurrent()) {

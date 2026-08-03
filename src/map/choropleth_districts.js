@@ -8,9 +8,9 @@ import { districtNames } from '../utils/district_names.js';
  * @param {{start:string,end:string,types?:string[]}} params
  * @returns {Promise<object>} Joined GeoJSON FeatureCollection
  */
-export async function getDistrictsMerged({ start, end, types, signal }) {
+export async function getDistrictsMerged({ start, end, types, signal, onSourceResolved }) {
   const [geo, resp] = await Promise.all([
-    fetchPoliceDistrictsCachedFirst({ signal }),
+    fetchPoliceDistrictsCachedFirst({ signal, onSourceResolved }),
     fetchByDistrict({ start, end, types, signal }),
   ]);
   const rows = Array.isArray(resp?.rows) ? resp.rows : resp;

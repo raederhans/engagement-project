@@ -1,4 +1,6 @@
 import { createDiaryCard, createSectionTitle, createPill, createPrimaryButton, createSecondaryButton, createMutedCard } from './ui_common.js';
+import '../i18n/diary_live.js';
+import '../i18n/p1.js';
 import { setTranslatedText, t } from '../i18n/index.js';
 
 export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
@@ -110,14 +112,18 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   container.appendChild(actionsCard);
 
   // Simulator
-  const simCard = createDiaryCard();
-  const simulatorTitle = createSectionTitle(t('diary.simulator'));
-  setTranslatedText(simulatorTitle, 'diary.simulator');
-  simCard.appendChild(simulatorTitle);
+  const simCard = document.createElement('details');
+  simCard.className = 'diary-card diary-progressive-surface';
+  simCard.open = false;
+  const simSummary = document.createElement('summary');
+  setTranslatedText(simSummary, 'diary.previewRoute');
+  simCard.appendChild(simSummary);
+  const simContent = document.createElement('div');
+  simContent.className = 'diary-progressive-surface__content';
   const simHint = document.createElement('div');
   simHint.className = 'diary-muted-text';
   setTranslatedText(simHint, 'diary.simulatorHint');
-  simCard.appendChild(simHint);
+  simContent.appendChild(simHint);
 
   const simControls = document.createElement('div');
   simControls.style.display = 'flex';
@@ -145,13 +151,13 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   refs.finishButtonEl = finishBtn;
   simControls.appendChild(finishBtn);
 
-  simCard.appendChild(simControls);
+  simContent.appendChild(simControls);
 
   const playbackLabel = document.createElement('div');
   playbackLabel.className = 'diary-label';
   playbackLabel.style.marginTop = '12px';
   setTranslatedText(playbackLabel, 'diary.playbackSpeed');
-  simCard.appendChild(playbackLabel);
+  simContent.appendChild(playbackLabel);
 
   const playbackRow = document.createElement('div');
   playbackRow.style.display = 'flex';
@@ -166,7 +172,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
     refs.speedButtons.push(btn);
     playbackRow.appendChild(btn);
   });
-  simCard.appendChild(playbackRow);
+  simContent.appendChild(playbackRow);
+  simCard.appendChild(simContent);
   container.appendChild(simCard);
 
   // Filters

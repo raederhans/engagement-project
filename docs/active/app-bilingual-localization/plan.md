@@ -28,6 +28,10 @@ Add complete English and Simplified Chinese presentation to the application and 
 - [x] Stage 4: Localize the shell, Crime surfaces, Diary surfaces, secondary panels, map feedback, validation, and errors.
 - [x] Stage 5: Re-check README accuracy and add Chinese project documentation.
 - [x] Stage 6: Run focused tests, full validation, static untranslated-copy audit, live preview smoke, review, and first-principles simplification check.
+- [x] Stage 7: Merge `origin/codex/p1-ui@614e88c` without rewriting history and reconcile shared-file conflicts without changing P1 behavior.
+- [x] Stage 8: Inventory and localize every P1-added or changed user-visible string, including data scope, provenance, map selection, Summary/History, route decisions, Insights, and Simulator surfaces.
+- [x] Stage 9: Extend localization and P1 contract tests, then run the full feature-enabled validation, browser smoke, bundle policy, untranslated-copy audit, and final review.
+- [ ] Stage 10: Push the reconciled localization branch and create or update a localization PR layered on the Draft P1 branch; do not merge PR #41 or deploy Pages.
 
 ## Acceptance criteria
 
@@ -39,6 +43,8 @@ Add complete English and Simplified Chinese presentation to the application and 
 - Reader-facing README/project instructions are available in Chinese, and English commands/current feature claims match the repository.
 - Existing behavior, IDs, query parameters, storage keys, data schemas, and bundle limits remain compatible.
 - Targeted localization/UI tests and `npm run validate` pass.
+- P1 behavior from `966ffaa` remains intact, and all P1-visible copy switches language without a reload or state loss.
+- The final validation, browser smoke, bundle policy, and localization audit pass with both Diary and tract-crime feature flags enabled.
 
 ## Non-goals
 

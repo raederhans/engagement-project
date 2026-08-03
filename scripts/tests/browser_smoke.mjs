@@ -8,6 +8,16 @@ import { preview } from 'vite';
 const manifest = JSON.parse(await readFile(new URL('../../dist/.vite/manifest.json', import.meta.url), 'utf8'));
 const historyChunk = manifest['src/analysis/analysis_history_controller.js']?.file;
 assert.ok(historyChunk, 'Browser smoke requires the Analysis History lazy chunk in the Vite manifest');
+const builtJavaScript = await Promise.all(
+  Object.values(manifest)
+    .map((record) => record.file)
+    .filter((file) => file?.endsWith('.js'))
+    .map((file) => readFile(new URL(`../../dist/${file}`, import.meta.url), 'utf8')),
+);
+assert.ok(
+  builtJavaScript.some((source) => source.includes('tract_crime_counts_last12m.json')),
+  'Browser smoke requires a dist build with VITE_TRACT_CRIME_SNAPSHOT=1.',
+);
 
 const server = await preview({
   preview: { host: '127.0.0.1', port: 4173, strictPort: true },
@@ -177,6 +187,10 @@ try {
     false,
     'Diary direct load must not create the engagement-analysis database',
   );
+  const insightsToggle = page.locator('.diary-insights-toggle');
+  await insightsToggle.click();
+  assert.equal(await insightsToggle.getAttribute('aria-expanded'), 'true');
+  await page.locator('.diary-insights-content').waitFor({ state: 'visible' });
 
   await page.getByRole('button', { name: 'Rate this route' }).click();
   await page.getByRole('radio', { name: '5 stars' }).click();
@@ -191,6 +205,9 @@ try {
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
   await page.getByText('Illustrative, read-only sample data. No comments or ratings are shared with other people.').waitFor();
   assert.equal(await page.locator('[data-panel-view="diary"] input[type="range"]').count(), 0);
+  const sampleItem = page.locator('.diary-community-item').first();
+  await sampleItem.waitFor();
+  assert.equal(await sampleItem.evaluate((element) => getComputedStyle(element).cursor), 'default');
 
   await page.getByRole('button', { name: 'Crime', exact: true }).click();
   await page.getByRole('button', { name: 'Diary', exact: true }).click();
@@ -199,12 +216,15 @@ try {
   await page.locator('[data-panel-view="crime"]').waitFor({ state: 'visible' });
 
   requests.length = 0;
+  const pointRefreshRequestsBeforeCrimeEntry = networkControl.pointRefreshRequests;
   await page.goto(new URL('?mode=crime&utm_source=portfolio', baseUrl).href, { waitUntil: 'domcontentloaded' });
   await page.locator('#dataStatus').filter({ hasText: 'Live crime coverage' }).waitFor({ state: 'attached' });
-  await page.waitForFunction(() => {
-    const compareText = document.getElementById('compare-card')?.textContent || '';
-    return /12 reported incidents/.test(compareText) && /Most common/.test(compareText);
-  });
+  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCrimeEntry,
+    0,
+    'An unselected Crime entry must not request citywide incident points',
+  );
   await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('24');
   assert.equal(await page.locator('#startMonth').inputValue(), '2024-08');

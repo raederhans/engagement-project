@@ -71,7 +71,9 @@ test('language switch is a focused component initialized before the rest of the 
 
 test('all declared translation keys exist in both catalogs', async () => {
   requireFile(runtimeUrl, 'localization runtime');
+  await import(new URL('src/i18n/diary_live.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
+  await import(new URL('src/i18n/p1.js', projectRoot));
   const { messages } = await import(runtimeUrl);
   const candidateFiles = [
     'index.html',
@@ -80,6 +82,7 @@ test('all declared translation keys exist in both catalogs', async () => {
     'src/ui/about.js',
     'src/ui/panel.js',
     'src/ui/mode_surfaces.js',
+    'src/ui/data_scope.js',
     'src/ui/analysis_history_panel.js',
     'src/analysis/analysis_history_controller.js',
     'src/ui/sheet_controller.js',
@@ -91,6 +94,7 @@ test('all declared translation keys exist in both catalogs', async () => {
     'src/routes_diary/ui_my_routes_panel.js',
     'src/routes_diary/ui_insights_panel.js',
     'src/routes_diary/ui_community_panel.js',
+    'src/routes_diary/alternative_route.js',
     'src/charts/diary_insights.js',
     'src/charts/index.js',
     'src/map/initMap.js',
@@ -128,6 +132,7 @@ test('every reader-visible UI surface participates in localization', () => {
     'src/ui/about.js',
     'src/ui/panel.js',
     'src/ui/mode_surfaces.js',
+    'src/ui/data_scope.js',
     'src/ui/analysis_history_panel.js',
     'src/analysis/analysis_history_controller.js',
     'src/ui/sheet_controller.js',
@@ -139,6 +144,7 @@ test('every reader-visible UI surface participates in localization', () => {
     'src/routes_diary/ui_my_routes_panel.js',
     'src/routes_diary/ui_insights_panel.js',
     'src/routes_diary/ui_community_panel.js',
+    'src/routes_diary/alternative_route.js',
     'src/charts/diary_insights.js',
     'src/charts/index.js',
     'src/map/initMap.js',
@@ -155,4 +161,27 @@ test('every reader-visible UI surface participates in localization', () => {
     const source = readFileSync(new URL(relative, projectRoot), 'utf8');
     assert.match(source, /\/i18n\/(?:index|history)\.js|\.\.\/i18n\/(?:index|history)\.js/, `${relative} is not wired to i18n`);
   }
+});
+
+test('P1 scope, insights, route tradeoff, and sample copy switch to Chinese from the shared runtime', async () => {
+  const { setLanguage } = await import(runtimeUrl);
+  const { describeDiaryDataScope } = await import(new URL('src/ui/data_scope.js', projectRoot));
+  const { describeDiaryInsightsContext } = await import(new URL('src/charts/diary_insights.js', projectRoot));
+  const { describeAlternativeTradeoff } = await import(new URL('src/routes_diary/alternative_route.js', projectRoot));
+  const { createSampleCommunityModel } = await import(new URL('src/routes_diary/ui_community_panel.js', projectRoot));
+
+  setLanguage('en');
+  const sampleScope = describeDiaryDataScope('community');
+  assert.equal(sampleScope.shortLabel, 'Sample');
+  assert.equal(describeDiaryInsightsContext('live').title, 'Current route insights');
+  assert.equal(describeAlternativeTradeoff({ pLow: 2, aLow: 1, deltaMin: 5, overheadPct: 10 }).benefit, 'Avoids 1 low-rated segment');
+
+  setLanguage('zh-CN');
+  assert.equal(sampleScope.resolve().shortLabel, '示例');
+  assert.equal(describeDiaryInsightsContext('live').title, '当前路线洞察');
+  assert.equal(describeAlternativeTradeoff({ pLow: 2, aLow: 1, deltaMin: 5, overheadPct: 10 }).benefit, '避开 1 个低评分路段');
+  const sample = createSampleCommunityModel();
+  assert.equal(sample.observations[0].labelKey, 'diary.sampleExample1');
+  assert.equal(sample.observations[0].textKey, 'diary.sampleObservation1');
+  setLanguage('en');
 });

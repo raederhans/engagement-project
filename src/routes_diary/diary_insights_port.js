@@ -1,7 +1,7 @@
 export function createDiaryInsightsPort(insights = {}) {
   return Object.freeze({
-    setViewContext(mode) {
-      insights?.setViewContext?.(mode);
+    setViewContext(context) {
+      insights?.setViewContext?.(context);
     },
     refresh() {
       insights?.refresh?.();

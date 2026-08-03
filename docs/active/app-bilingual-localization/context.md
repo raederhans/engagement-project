@@ -3,7 +3,8 @@
 ## Current truth
 
 - Repository: `raederhans/engagement-project`.
-- Working branch: `codex/bilingual-localization`, created directly from `origin/main@f956ab2` while preserving the existing unstaged localization WIP.
+- Working branch: `codex/bilingual-localization@d383e30`, matching `origin/codex/bilingual-localization@d383e30` before P1 reconciliation.
+- P1 handoff: `origin/codex/p1-ui@614e88c`, with runtime commit `966ffaa`; both P1 and localization independently descend from `origin/main@f956ab2`.
 - P0 UI runtime commits were merged by PR #39 as `8ac7001`; P0 records were archived by PR #40 as `f956ab2`. Current local HEAD and `origin/main` both point to `f956ab2`.
 - The only unrelated dirty file is `.gitignore`; it is not owned by this task and must not be staged or committed.
 - The application is vanilla JavaScript with Vite and MapLibre; there is no existing localization module or dependency.
@@ -23,6 +24,9 @@
 | 2026-08-03 | Correct README validation and Pages deployment descriptions, and add `README.zh-CN.md`. | Reader-facing project setup is bilingual and matches the current package/Vite/workflow contracts. |
 | 2026-08-03 | Keep Analysis History translations in their own lazy chunk. | Both the existing entry/history bundle budgets and complete bilingual history copy remain intact. |
 | 2026-08-03 | Bind MapLibre canvas, navigation, attribution, and marker accessibility labels to the app catalog. | Third-party-created controls switch language with the rest of the interface. |
+| 2026-08-03 | Reconcile P1 with an ordinary merge, never rebase or force-push. | Both branch histories remain reviewable and the localization remote can advance by fast-forward push. |
+| 2026-08-03 | Keep the localization PR layered on `codex/p1-ui` unless an existing PR contract requires otherwise. | PR #41 remains the P1 delivery to `main`; the localization review shows only the bilingual delta and does not merge or deploy P1. |
+| 2026-08-03 | Keep shared P1 copy in a focused lazy catalog and keep Live-route simulator copy inside the Diary lazy boundary. | Complete P1 localization stays below the existing entry, Diary, and new P1 catalog budgets without raising a limit. |
 
 ## Live process ownership
 
@@ -31,8 +35,10 @@
 | Previous quick preview on 127.0.0.1:5173 | root | `C:\Users\raede\AppData\Local\Temp\codex-engagement-project\preview-5173.log` | No listener present on 2026-08-03; a fresh preview is required for final bilingual smoke. |
 | Previous P0 preview on 127.0.0.1:4173 | P0 task owner | `C:\Users\raede\AppData\Local\Temp\engagement-ui-p0-preview-20260801.log` | No listener present on 2026-08-03. |
 | Full repository validation | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-validate-final.log` | Complete: `npm run validate` exited 0 with 257/257 tests and bundle policy PASS. |
-| Bilingual dev preview | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-preview.log` | Running at `http://127.0.0.1:5173/`; the listener PID is intentionally treated as transient. |
-| Browser smoke | root | `C:\Users\raede\AppData\Local\Temp\engagement-browser-smoke.log` | Complete with `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; consoleErrors=0 and pageErrors=0. |
+| Bilingual dev preview | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-preview.log` | Stopped before P1 integration; prior owned PID 38492 was terminated and port 5173 verified free. |
+| P1 reconciliation validation | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-validate-final.log` | Complete with both feature flags: 291/291 tests, production build, and bundle policy passed. |
+| Browser smoke | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-browser-smoke.log` | Complete against the feature-enabled production build; consoleErrors=0 and pageErrors=0; owned server stopped. |
+| Dependency audit | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-npm-audit.log` | Complete: `npm audit --audit-level=high` found 0 vulnerabilities. |
 
 ## Handoff
 
@@ -42,4 +48,4 @@
 
 ## Next step
 
-Create and push a localization-only commit while leaving `.gitignore` unstaged and keeping the dev preview running.
+Create the no-history-rewrite merge commit, fast-forward the localization remote, and create or update its Draft PR while leaving `.gitignore` unstaged and PR #41 untouched.

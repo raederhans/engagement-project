@@ -11,10 +11,17 @@ import { TRACT_CRIME_SNAPSHOT_ENABLED } from "../config.js";
  * @param {{per10k?:boolean}} opts
  * @returns {Promise<{geojson: object, values: number[]}>}
  */
-export async function getTractsMerged({ per10k = false, windowStart, windowEnd, types = [], signal } = {}) {
+export async function getTractsMerged({
+  per10k = false,
+  windowStart,
+  windowEnd,
+  types = [],
+  signal,
+  onSourceResolved,
+} = {}) {
   const [gj, stats] = await Promise.all([
-    fetchTractsCachedFirst({ signal }),
-    fetchTractStatsCachedFirst({ signal }),
+    fetchTractsCachedFirst({ signal, onSourceResolved }),
+    fetchTractStatsCachedFirst({ signal, onSourceResolved }),
   ]);
   let snapshot = null;
   if (TRACT_CRIME_SNAPSHOT_ENABLED) {

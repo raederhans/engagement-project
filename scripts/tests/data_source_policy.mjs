@@ -30,6 +30,7 @@ test('project geography and crime coverage are defined once', () => {
 test('police boundary cancellation never falls through to the bundled fallback', async (t) => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  const resolvedSources = [];
   const controller = new AbortController();
   const reason = new DOMException('Boundary refresh superseded', 'AbortError');
   t.after(() => {
@@ -46,16 +47,21 @@ test('police boundary cancellation never falls through to the bundled fallback',
   };
 
   await assert.rejects(
-    boundaries.fetchPoliceDistrictsCachedFirst({ signal: controller.signal }),
+    boundaries.fetchPoliceDistrictsCachedFirst({
+      signal: controller.signal,
+      onSourceResolved: (meta) => resolvedSources.push(meta),
+    }),
     (error) => error === reason,
   );
   assert.equal(calls.length, 1);
   assert.equal(calls[0].signal.aborted, true);
+  assert.deepEqual(resolvedSources, []);
 });
 
 test('police districts still use the bundled fallback for an ordinary live failure', async (t) => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  const resolvedSources = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
   });
@@ -76,16 +82,26 @@ test('police districts still use the bundled fallback for an ordinary live failu
     });
   };
 
-  const result = await boundaries.fetchPoliceDistrictsCachedFirst();
+  const result = await boundaries.fetchPoliceDistrictsCachedFirst({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
   assert.equal(result.features.length, 21);
   assert.equal(calls.length, 2);
   assert.match(calls[0], /^https:\/\/policegis\.phila\.gov\//);
   assert.match(calls[1], /data\/police_districts\.geojson$/);
+  assert.deepEqual(resolvedSources, [{
+    dataset: 'police-districts',
+    kind: 'fallback',
+    provider: 'Bundled boundary snapshot',
+    url: calls[1],
+    cacheHit: false,
+  }]);
 });
 
 test('police districts prefer the live city API before the bundled fallback', async (t) => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  const resolvedSources = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
   });
@@ -105,18 +121,155 @@ test('police districts prefer the live city API before the bundled fallback', as
     });
   };
 
-  const result = await boundaries.fetchPoliceDistrictsCachedFirst();
+  const result = await boundaries.fetchPoliceDistrictsCachedFirst({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
   assert.equal(result.features.length, 21);
   assert.match(calls[0], /^https:\/\/policegis\.phila\.gov\//);
+  assert.deepEqual(resolvedSources, [{
+    dataset: 'police-districts',
+    kind: 'live',
+    provider: 'Philadelphia Police GIS',
+    url: calls[0],
+    cacheHit: false,
+  }]);
+});
+
+test('tract boundary memory cache preserves the resolved live source metadata', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const resolvedSources = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    boundaries.fetchTractsPreferred._cache = null;
+    boundaries.fetchTractsPreferred._cacheMeta = null;
+  });
+  boundaries.fetchTractsPreferred._cache = null;
+  boundaries.fetchTractsPreferred._cacheMeta = null;
+
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({
+      type: 'FeatureCollection',
+      features: Array.from({ length: 300 }, (_, index) => ({
+        type: 'Feature',
+        properties: {
+          STATE: '42',
+          COUNTY: '101',
+          TRACT: String(index).padStart(6, '0'),
+        },
+        geometry: null,
+      })),
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/geo+json' },
+    });
+  };
+
+  const first = await boundaries.fetchTractsPreferred({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
+  const second = await boundaries.fetchTractsPreferred({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
+
+  assert.equal(first, second);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(resolvedSources, [
+    {
+      dataset: 'census-tract-boundaries',
+      kind: 'live',
+      provider: 'Official tract boundary API',
+      url: calls[0],
+      cacheHit: false,
+    },
+    {
+      dataset: 'census-tract-boundaries',
+      kind: 'live',
+      provider: 'Official tract boundary API',
+      url: calls[0],
+      cacheHit: true,
+    },
+  ]);
+});
+
+test('tract boundary fallback reports its bundled source while cancellation reports nothing', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const fallbackCalls = [];
+  const fallbackSources = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+    boundaries.fetchTractsPreferred._cache = null;
+    boundaries.fetchTractsPreferred._cacheMeta = null;
+  });
+  boundaries.fetchTractsPreferred._cache = null;
+  boundaries.fetchTractsPreferred._cacheMeta = null;
+  Date.now = () => originalNow() + (11 * 60_000);
+
+  globalThis.fetch = async (url) => {
+    fallbackCalls.push(String(url));
+    if (!String(url).endsWith('/data/tracts_phl.geojson')) {
+      throw new Error('live tract boundary unavailable');
+    }
+    return new Response(JSON.stringify({
+      type: 'FeatureCollection',
+      features: Array.from({ length: 300 }, (_, index) => ({
+        type: 'Feature',
+        properties: {
+          STATE: '42',
+          COUNTY: '101',
+          TRACT: String(index).padStart(6, '0'),
+        },
+        geometry: null,
+      })),
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/geo+json' },
+    });
+  };
+
+  await boundaries.fetchTractsPreferred({
+    onSourceResolved: (meta) => fallbackSources.push(meta),
+  });
+  assert.deepEqual(fallbackSources, [{
+    dataset: 'census-tract-boundaries',
+    kind: 'fallback',
+    provider: 'Bundled tract snapshot',
+    url: fallbackCalls.at(-1),
+    cacheHit: false,
+  }]);
+
+  boundaries.fetchTractsPreferred._cache = null;
+  boundaries.fetchTractsPreferred._cacheMeta = null;
+  const controller = new AbortController();
+  const reason = new DOMException('Tract refresh superseded', 'AbortError');
+  const cancelledSources = [];
+  globalThis.fetch = async () => {
+    controller.abort(reason);
+    throw reason;
+  };
+
+  await assert.rejects(
+    boundaries.fetchTractsPreferred({
+      signal: controller.signal,
+      onSourceResolved: (meta) => cancelledSources.push(meta),
+    }),
+    (error) => error === reason,
+  );
+  assert.deepEqual(cancelledSources, []);
 });
 
 test('ACS uses configured live endpoints first and falls back to the validated snapshot', async () => {
   assert.equal(typeof acs.fetchTractStatsPreferred, 'function');
 
   const liveCalls = [];
+  const liveSources = [];
   const liveRows = await acs.fetchTractStatsPreferred({
     endpoints: { population: 'live:population', poverty: 'live:poverty' },
     localUrl: 'local:snapshot',
+    onSourceResolved: (meta) => liveSources.push(meta),
     fetchJsonImpl: async (url) => {
       liveCalls.push(url);
       if (url === 'live:population') {
@@ -135,6 +288,13 @@ test('ACS uses configured live endpoints first and falls back to the validated s
     },
   });
   assert.deepEqual(liveCalls, ['live:population', 'live:poverty']);
+  assert.deepEqual(liveSources, [{
+    dataset: 'census-tract-statistics',
+    kind: 'live',
+    provider: 'Configured Census API',
+    url: 'live:population',
+    cacheHit: false,
+  }]);
   assert.deepEqual(liveRows[0], {
     geoid: '42101000100',
     pop: 100,
@@ -145,6 +305,7 @@ test('ACS uses configured live endpoints first and falls back to the validated s
   });
 
   const fallbackCalls = [];
+  const fallbackSources = [];
   const snapshot = [{
     geoid: '42101000100',
     pop: 90,
@@ -156,6 +317,8 @@ test('ACS uses configured live endpoints first and falls back to the validated s
   const fallbackRows = await acs.fetchTractStatsPreferred({
     endpoints: { population: 'live:population', poverty: 'live:poverty' },
     localUrl: 'local:snapshot',
+    reporterUrl: '',
+    onSourceResolved: (meta) => fallbackSources.push(meta),
     fetchJsonImpl: async (url) => {
       fallbackCalls.push(url);
       if (url.startsWith('live:')) throw new Error('upstream unavailable');
@@ -164,12 +327,22 @@ test('ACS uses configured live endpoints first and falls back to the validated s
   });
   assert.ok(fallbackCalls.includes('local:snapshot'));
   assert.deepEqual(fallbackRows, snapshot);
+  assert.deepEqual(fallbackSources, [{
+    dataset: 'census-tract-statistics',
+    kind: 'fallback',
+    provider: 'Bundled ACS snapshot',
+    url: 'local:snapshot',
+    vintage: config.ACS_SNAPSHOT_YEAR,
+    asOf: `${config.ACS_SNAPSHOT_YEAR}-12-31`,
+    cacheHit: false,
+  }]);
 });
 
 test('ACS cancellation does not probe Census Reporter or the local snapshot', async () => {
   const controller = new AbortController();
   const reason = new DOMException('ACS refresh superseded', 'AbortError');
   const calls = [];
+  const resolvedSources = [];
 
   await assert.rejects(
     acs.fetchTractStatsPreferred({
@@ -177,6 +350,7 @@ test('ACS cancellation does not probe Census Reporter or the local snapshot', as
       endpoints: { population: 'live:population', poverty: 'live:poverty' },
       reporterUrl: 'live:reporter',
       localUrl: 'local:snapshot',
+      onSourceResolved: (meta) => resolvedSources.push(meta),
       fetchJsonImpl: async (url, options = {}) => {
         calls.push({ url, signal: options.signal });
         if (url === 'live:population') {
@@ -192,14 +366,20 @@ test('ACS cancellation does not probe Census Reporter or the local snapshot', as
 
   assert.deepEqual(calls.map((call) => call.url), ['live:population', 'live:poverty']);
   assert.ok(calls.every((call) => call.signal === controller.signal));
+  assert.deepEqual(resolvedSources, []);
 });
 
 test('ACS can use the keyless online Census Reporter feed', async () => {
   assert.match(config.CENSUS_REPORTER_ACS_URL, /^https:\/\/api\.censusreporter\.org\//);
   assert.equal(typeof acs.fetchTractStatsFromCensusReporter, 'function');
 
-  const rows = await acs.fetchTractStatsFromCensusReporter({
+  const resolvedSources = [];
+  const rows = await acs.fetchTractStatsPreferred({
+    endpoints: {},
     url: 'live:census-reporter',
+    reporterUrl: 'live:census-reporter',
+    localUrl: 'local:snapshot',
+    onSourceResolved: (meta) => resolvedSources.push(meta),
     fetchJsonImpl: async () => ({
       release: { id: 'acs2024_5yr' },
       data: {
@@ -220,6 +400,66 @@ test('ACS can use the keyless online Census Reporter feed', async () => {
     renter_count: 20,
     median_income: 50000,
     poverty_pct: 12.5,
+  }]);
+  assert.deepEqual(resolvedSources, [{
+    dataset: 'census-tract-statistics',
+    kind: 'live',
+    provider: 'Census Reporter',
+    url: 'live:census-reporter',
+    vintage: '2024',
+    asOf: '2024-12-31',
+    cacheHit: false,
+  }]);
+});
+
+test('Census Reporter cache hits preserve release vintage and as-of provenance', async () => {
+  let calls = 0;
+  const fetchJsonImpl = async () => {
+    calls += 1;
+    return {
+      release: { id: 'acs2024_5yr' },
+      data: {
+        '14000US42101000100': {
+          B01003: { estimate: { B01003001: 100 } },
+          B25003: { estimate: { B25003001: 40, B25003003: 20 } },
+          B19013: { estimate: { B19013001: 50000 } },
+          B17001: { estimate: { B17001001: 80, B17001002: 10 } },
+        },
+      },
+    };
+  };
+  const firstSources = [];
+  const secondSources = [];
+  const options = {
+    endpoints: {},
+    reporterUrl: 'live:census-reporter-cache',
+    localUrl: 'local:snapshot',
+    fetchJsonImpl,
+  };
+
+  const first = await acs.fetchTractStatsPreferred({
+    ...options,
+    onSourceResolved: (meta) => firstSources.push(meta),
+  });
+  const second = await acs.fetchTractStatsPreferred({
+    ...options,
+    onSourceResolved: (meta) => secondSources.push(meta),
+  });
+
+  assert.equal(calls, 1);
+  assert.deepEqual(second, first);
+  assert.deepEqual(firstSources, [{
+    dataset: 'census-tract-statistics',
+    kind: 'live',
+    provider: 'Census Reporter',
+    url: 'live:census-reporter-cache',
+    vintage: '2024',
+    asOf: '2024-12-31',
+    cacheHit: false,
+  }]);
+  assert.deepEqual(secondSources, [{
+    ...firstSources[0],
+    cacheHit: true,
   }]);
 });
 

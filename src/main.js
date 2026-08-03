@@ -25,6 +25,7 @@ const query = typeof window !== 'undefined'
   : new URLSearchParams('');
 const diaryFeatureEnabled = import.meta?.env?.VITE_FEATURE_DIARY === '1'
   || query.get('mode') === 'diary';
+let coordinator = null;
 
 const diaryInsightsLoader = createDiaryInsightsLoader({
   loadModule: () => import('./routes_diary/ui_insights_panel.js'),
@@ -36,7 +37,10 @@ const diaryInsightsLoader = createDiaryInsightsLoader({
     else document.body.appendChild(root);
     return root;
   },
-  createHost: (module, root) => module.createDiaryInsightsHost(root),
+  createHost: (module, root) => module.createDiaryInsightsHost(
+    root,
+    (expanded) => expanded && coordinator?.fitCurrentDiarySelection(),
+  ),
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -58,10 +62,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   writeMode(initialMode);
 
-  let coordinator = null;
   let analysisHistoryController = null;
   let analysisHistoryPromise = null;
   const refreshCrime = async () => {
+    analysisHistoryController?.setCurrentArtifact(null);
     const result = await coordinator?.requestCrimeRefresh();
     if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     return result;
@@ -70,11 +74,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     onChange: refreshCrime,
     onRadiusInput: () => coordinator?.updateCrimeBuffer(),
     getMapCenter: () => map.getCenter(),
-    onAddressResolved: async (_target, result) => {
-      return coordinator.runCrimeMapMove(() => {
-        map.flyTo({ center: result.lngLat, zoom: Math.max(map.getZoom(), 13) });
-      });
-    },
+    onAddressResolved: async () => coordinator.fitCurrentCrimeSelection({ force: true }),
     onTractsOverlayToggle: (visible) => coordinator?.setTractsOverlayVisible(visible),
   });
   const { diaryMount, analysisHistoryMount } = panel;
@@ -87,6 +87,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     onModeIntent: modeSurfaces.showIntent,
     onModeSettled: modeSurfaces.settle,
     onShortStatusChange: modeSurfaces.showStatus,
+    onDataScopeChange: modeSurfaces.showDataScope,
     chartsPane,
     diaryMount,
     loadCrimeController: () => import('./routes_crime/index.js')
@@ -98,6 +99,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         onPointChange: () => {
           if (store.viewMode === 'crime') panel.syncFromStore?.();
         },
+        onSelectionChange: (_key, { origin } = {}) => {
+          if (origin === 'map') analysisHistoryController?.setCurrentArtifact(null);
+        },
+        onDataScopeChange: modeSurfaces.showDataScope,
       })),
     loadDiaryModule: () => import('./routes_diary/index.js'),
     getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),
@@ -113,6 +118,7 @@ window.addEventListener('DOMContentLoaded', async () => {
           store,
           syncControls: () => panel.syncFromStore?.(),
           syncCanonicalUrl: () => writeCrimeStateToURL(store),
+          focusAnalysis: () => coordinator.fitCurrentCrimeSelection({ force: true }),
           scheduleCrime: () => coordinator.schedule('crime'),
           cancelCrimeTransition: () => coordinator.cancelCurrentTransition(),
           getCurrentCrimeProvenance: () => coordinator.getCurrentCrimeProvenance(),

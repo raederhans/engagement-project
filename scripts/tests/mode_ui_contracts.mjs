@@ -74,6 +74,133 @@ test('mode intent publishes synchronously before lazy work and exposes a short s
   });
 });
 
+test('expanded Diary insights can refit only the active Diary selection', async () => {
+  let fits = 0;
+  const harness = coordinatorOptions({ initialMode: 'diary' });
+  harness.options.loadDiaryModule = async () => ({
+    async initDiaryMode() { return { status: 'ready' }; },
+    teardownDiaryMode() {},
+    fitCurrentDiarySelection() { fits += 1; return true; },
+  });
+  const coordinator = createModeCoordinator(harness.options);
+
+  await coordinator.schedule('diary');
+  assert.equal(coordinator.fitCurrentDiarySelection(), true);
+  assert.equal(fits, 1);
+
+  harness.setCurrentMode('crime');
+  await coordinator.schedule('crime');
+  assert.equal(coordinator.fitCurrentDiarySelection(), false);
+  assert.equal(fits, 1);
+
+  const mainSource = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
+  assert.match(mainSource, /\(expanded\)\s*=>\s*expanded\s*&&\s*coordinator\?\.fitCurrentDiarySelection/);
+});
+
+test('semantic data scope distinguishes live, fallback, local, and sample content', async () => {
+  const {
+    describeCrimeDataScope,
+    describeDiaryDataScope,
+  } = await import('../../src/ui/data_scope.js');
+
+  assert.deepEqual(describeCrimeDataScope({
+    coverageMax: '2026-07-30',
+    sources: [
+      { dataset: 'incidents', kind: 'live', source: 'CARTO' },
+      { dataset: 'districts', kind: 'live', source: 'Philadelphia Police GIS' },
+    ],
+  }), {
+    mode: 'crime',
+    kind: 'live',
+    shortLabel: 'Live · Jul 30',
+    accessibleLabel: 'Live Philadelphia crime data through Jul 30, 2026.',
+    details: [
+      'Incidents: live CARTO · through Jul 30, 2026',
+      'Districts: live Philadelphia Police GIS',
+    ],
+  });
+
+  const fallback = describeCrimeDataScope({
+    coverageMax: '2026-07-30',
+    sources: [
+      { dataset: 'incidents', kind: 'live', source: 'CARTO' },
+      { dataset: 'tracts', kind: 'fallback', source: 'Bundled tract snapshot' },
+    ],
+  });
+  assert.equal(fallback.kind, 'fallback');
+  assert.equal(fallback.shortLabel, 'Fallback · Jul 30');
+  assert.doesNotMatch(fallback.accessibleLabel, /all data (?:is|are) live/i);
+  assert.match(fallback.details.join(' '), /Bundled tract snapshot/);
+
+  assert.deepEqual(describeDiaryDataScope('history'), {
+    mode: 'diary',
+    kind: 'local',
+    shortLabel: 'Local',
+    accessibleLabel: 'My Routes ratings are saved only on this device.',
+    details: ['Saved on this device · not shared online'],
+  });
+  assert.deepEqual(describeDiaryDataScope('community'), {
+    mode: 'diary',
+    kind: 'sample',
+    shortLabel: 'Sample',
+    accessibleLabel: 'Sample Community is illustrative, read-only sample data.',
+    details: ['Illustrative sample · read-only · not shared'],
+  });
+});
+
+test('ready scope details are cleared or replaced when status returns to loading or failed', async () => {
+  const { createModeSurfacePresenter } = await import('../../src/ui/mode_surfaces.js');
+  const attributes = new Map();
+  const status = {
+    dataset: {},
+    textContent: '',
+    setAttribute(name, value) { attributes.set(name, value); },
+    removeAttribute(name) { attributes.delete(name); },
+  };
+  const details = { dataset: {}, textContent: '' };
+  const documentRef = {
+    querySelector(selector) {
+      if (selector === '[data-app-data-status]') return status;
+      if (selector === '[data-app-source-details]') return details;
+      return null;
+    },
+    querySelectorAll() { return []; },
+    getElementById() { return null; },
+  };
+  const presenter = createModeSurfacePresenter({ documentRef });
+  const scope = {
+    mode: 'crime',
+    kind: 'fallback',
+    shortLabel: 'Fallback · Jul 30',
+    accessibleLabel: 'Some sources use a published fallback.',
+    details: ['Tracts: fallback Bundled tract snapshot'],
+  };
+
+  presenter.showIntent('crime');
+  presenter.showDataScope(scope);
+  presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
+  assert.equal(status.textContent, 'Crime loading');
+  assert.equal(status.dataset.scopeKind, undefined);
+
+  presenter.showStatus({ mode: 'crime', phase: 'ready', label: 'Crime data ready' });
+  assert.equal(status.textContent, 'Fallback · Jul 30');
+  assert.equal(status.dataset.scopeKind, 'fallback');
+  assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
+  assert.equal(details.textContent, scope.details[0]);
+
+  presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
+  assert.equal(status.textContent, 'Crime loading');
+  assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(details.dataset.scopeKind, undefined);
+  assert.equal(details.textContent, '');
+
+  presenter.showStatus({ mode: 'crime', phase: 'failed', label: 'Crime data unavailable' });
+  assert.equal(status.textContent, 'Crime data unavailable');
+  assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(details.dataset.scopeKind, undefined);
+  assert.equal(details.textContent, 'Crime data unavailable');
+});
+
 test('stale async mode work cannot replace the final mode status or surface', async () => {
   const diaryGate = deferred();
   const surfaceEvents = [];

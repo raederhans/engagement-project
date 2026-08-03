@@ -1,15 +1,6 @@
 import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
-function button(key, action, id, reportActionError) {
-  const element = document.createElement('button');
-  element.type = 'button';
-  element.className = 'analysis-history__action';
-  setTranslatedText(element, key);
-  element.addEventListener('click', () => {
-    void Promise.resolve(action(id)).catch(reportActionError);
-  });
-  return element;
-}
+const HISTORY_CLASS = 'analysis-history__';
 
 function snapshotLabel(artifact) {
   const generatedAt = artifact.resultSummary?.generatedAt;
@@ -18,16 +9,27 @@ function snapshotLabel(artifact) {
     : t('history.noSnapshot');
 }
 
+function button(key, action, id, reportActionError) {
+  const element = document.createElement('button');
+  element.type = 'button';
+  element.className = HISTORY_CLASS + 'action';
+  setTranslatedText(element, key);
+  element.addEventListener('click', () => {
+    void Promise.resolve(action(id)).catch(reportActionError);
+  });
+  return element;
+}
+
 export function createAnalysisHistoryView(mount, actions) {
   mount.replaceChildren();
   mount.className = 'analysis-history';
 
   const heading = document.createElement('div');
-  heading.className = 'analysis-history__heading';
+  heading.className = HISTORY_CLASS + 'heading';
   setTranslatedText(heading, 'history.title');
 
   const saveRow = document.createElement('div');
-  saveRow.className = 'analysis-history__save';
+  saveRow.className = HISTORY_CLASS + 'save';
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
   titleInput.maxLength = 120;
@@ -39,23 +41,25 @@ export function createAnalysisHistoryView(mount, actions) {
   saveRow.append(titleInput, saveButton);
 
   const snapshot = document.createElement('div');
-  snapshot.className = 'analysis-history__snapshot';
+  snapshot.className = HISTORY_CLASS + 'snapshot';
   snapshot.hidden = true;
   const status = document.createElement('div');
-  status.className = 'analysis-history__status';
+  status.className = HISTORY_CLASS + 'status';
   status.setAttribute('aria-live', 'polite');
   const warning = document.createElement('div');
-  warning.className = 'analysis-history__warning';
+  warning.className = HISTORY_CLASS + 'warning';
   const list = document.createElement('div');
-  list.className = 'analysis-history__list';
+  list.className = HISTORY_CLASS + 'list';
   mount.append(heading, saveRow, snapshot, status, warning, list);
-  let lastRenderModel = null;
-  let refreshSnapshotTranslation = null;
+  let lastRenderModel;
+  let refreshSnapshotTranslation;
+  let currentArtifactId;
+  let renderedCards = new Map();
 
   const reportActionError = (error) => {
     status.dataset.tone = 'warning';
     if (error?.message) {
-      status.removeAttribute?.('data-i18n');
+      status.removeAttribute('data-i18n');
       status.textContent = error.message;
     } else {
       setTranslatedText(status, 'history.failed');
@@ -67,26 +71,30 @@ export function createAnalysisHistoryView(mount, actions) {
 
   function renderItem(artifact) {
     const card = document.createElement('article');
-    card.className = 'analysis-history__item';
+    card.className = HISTORY_CLASS + 'item';
+    card.dataset.artifactId = artifact.id;
     const title = document.createElement('div');
-    title.className = 'analysis-history__title';
+    title.className = HISTORY_CLASS + 'title';
     title.textContent = artifact.title;
     const meta = document.createElement('div');
-    meta.className = 'analysis-history__meta';
+    meta.className = HISTORY_CLASS + 'meta';
     setTranslatedText(meta, 'history.meta', {
       mode: artifact.viewState.queryMode,
       month: artifact.viewState.startMonth || t('history.current'),
       date: new Date(artifact.updatedAt).toLocaleString(),
     });
     const dataStatus = document.createElement('div');
-    dataStatus.className = 'analysis-history__data-status';
-    if (artifact.dataStatus === 'provenance-mismatch') setTranslatedText(dataStatus, 'history.needsRefresh');
-    else if (artifact.dataStatus === 'unknown') setTranslatedText(dataStatus, 'history.sourceUnknown');
-    else setTranslatedText(dataStatus, 'history.sourcesCurrent');
+    dataStatus.className = HISTORY_CLASS + 'data-status';
+    setTranslatedText(dataStatus, artifact.dataStatus === 'provenance-mismatch'
+      ? 'history.needsRefresh'
+      : artifact.dataStatus === 'unknown'
+        ? 'history.sourceUnknown'
+        : 'history.sourcesCurrent');
     const controls = document.createElement('div');
-    controls.className = 'analysis-history__actions';
+    controls.className = HISTORY_CLASS + 'actions';
+    const openButton = button('history.open', actions.onRestore, artifact.id, reportActionError);
     controls.append(
-      button('history.open', actions.onRestore, artifact.id, reportActionError),
+      openButton,
       button('history.share', actions.onShare, artifact.id, reportActionError),
       button('history.export', actions.onExport, artifact.id, reportActionError),
       button('history.rename', () => {
@@ -96,23 +104,30 @@ export function createAnalysisHistoryView(mount, actions) {
       button('history.delete', actions.onDelete, artifact.id, reportActionError),
     );
     card.append(title, meta, dataStatus, controls);
+    card._open = openButton;
+    renderedCards.set(artifact.id, card);
     return card;
   }
 
-  function renderModel({ items, warnings, canSave, pending }) {
+  function renderModel(model) {
+    lastRenderModel = model;
+    const { items, warnings, canSave, pending } = model;
+    const warningCount = warnings?.length || 0;
     saveButton.disabled = pending || !canSave;
     titleInput.disabled = pending;
-    if (warnings?.length) {
-      setTranslatedText(warning, warnings.length === 1 ? 'history.warningOne' : 'history.warningMany', {
-        count: warnings.length,
+    if (warningCount) {
+      setTranslatedText(warning, warningCount === 1 ? 'history.warningOne' : 'history.warningMany', {
+        count: warningCount,
       });
     } else {
       warning.textContent = '';
     }
+    renderedCards = new Map();
     list.replaceChildren(...items.map(renderItem));
+    syncCurrentArtifact();
     if (!items.length) {
       const empty = document.createElement('div');
-      empty.className = 'analysis-history__empty';
+      empty.className = HISTORY_CLASS + 'empty';
       setTranslatedText(empty, 'history.empty');
       list.appendChild(empty);
     }
@@ -123,11 +138,21 @@ export function createAnalysisHistoryView(mount, actions) {
     refreshSnapshotTranslation?.();
   });
 
+  function syncCurrentArtifact() {
+    for (const [id, card] of renderedCards) {
+      if (id === currentArtifactId) card.setAttribute('aria-current', 'true');
+      else card.removeAttribute('aria-current');
+    }
+  }
+
+  function showLocalizedSnapshot(translate) {
+    snapshot.hidden = false;
+    refreshSnapshotTranslation = translate;
+    translate();
+  }
+
   return Object.freeze({
-    render(model) {
-      lastRenderModel = model;
-      renderModel(model);
-    },
+    render: renderModel,
     renderEligibility({ canSave, pending }) {
       saveButton.disabled = pending || !canSave;
       titleInput.disabled = pending;
@@ -139,31 +164,33 @@ export function createAnalysisHistoryView(mount, actions) {
     clearDraft() {
       titleInput.value = '';
     },
+    setCurrentArtifact(id) {
+      currentArtifactId = id || null;
+      syncCurrentArtifact();
+    },
+    focusRestoreAction(id) {
+      renderedCards.get(id)?._open.focus();
+    },
     showStatus(message, tone = 'info') {
       status.dataset.tone = tone;
       status.textContent = message;
     },
     showSnapshot(artifact) {
-      snapshot.hidden = false;
-      refreshSnapshotTranslation = () => {
+      showLocalizedSnapshot(() => {
         setTranslatedText(snapshot, 'history.refreshing', { snapshot: snapshotLabel(artifact) });
-      };
-      refreshSnapshotTranslation();
+      });
     },
     showSnapshotState(artifact, refreshStatus) {
-      snapshot.hidden = false;
-      refreshSnapshotTranslation = () => {
-        let localizedOutcome = t('history.failedOutcome');
-        if (refreshStatus === 'cancelled') localizedOutcome = t('history.cancelled');
-        else if (refreshStatus === 'superseded') localizedOutcome = t('history.superseded');
-        const localizedRemainder = artifact.resultSummary ? t('history.snapshotShown') : t('history.noCachedComparison');
+      showLocalizedSnapshot(() => {
+        let outcomeKey = 'history.failedOutcome';
+        if (refreshStatus === 'cancelled') outcomeKey = 'history.cancelled';
+        else if (refreshStatus === 'superseded') outcomeKey = 'history.superseded';
         setTranslatedText(snapshot, 'history.refreshState', {
           snapshot: snapshotLabel(artifact),
-          outcome: localizedOutcome,
-          remainder: localizedRemainder,
+          outcome: t(outcomeKey),
+          remainder: t(artifact.resultSummary ? 'history.snapshotShown' : 'history.noCachedComparison'),
         });
-      };
-      refreshSnapshotTranslation();
+      });
     },
     clearSnapshot() {
       snapshot.hidden = true;

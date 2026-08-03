@@ -17,6 +17,7 @@ const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
+const p1Messages = Object.values(manifest).find((record) => record.name === 'p1');
 
 assert.ok(entry?.isEntry, 'Vite manifest must contain index.html as the application entry');
 assert.deepEqual(
@@ -40,6 +41,7 @@ assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
 assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain Analysis History translations as a lazy chunk');
+assert.ok(p1Messages, 'Vite manifest must keep P1 translations in a shared lazy chunk');
 assert.ok(
   !Object.keys(manifest).some((key) => key.includes('__vite-browser-external')),
   'Browser bundles must not contain the Node filesystem compatibility shim',
@@ -56,6 +58,8 @@ const budgets = [
   ['Analysis History', analysisHistory, 23_000, 7_800],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
+  // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.
+  ['P1 translations', p1Messages, 9_000, 3_300],
 ];
 const measurements = [];
 

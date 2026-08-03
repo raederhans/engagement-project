@@ -83,9 +83,9 @@ export function initPanel(store, handlers) {
     analysisHistoryMount = document.createElement('section');
     analysisHistoryMount.dataset.analysisHistoryMount = '';
     setTranslatedAttribute(analysisHistoryMount, 'history.label', 'aria-label');
-    if (compareCard) crimeShell.insertBefore(analysisHistoryMount, compareCard);
-    else crimeShell.appendChild(analysisHistoryMount);
+    crimeShell.appendChild(analysisHistoryMount);
   }
+  placeAnalysisHistoryAfterSummary({ crimeShell, compareCard, analysisHistoryMount });
   let analysisHistorySync = null;
 
   let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
@@ -202,6 +202,11 @@ export function initPanel(store, handlers) {
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
   const dataDetails = document.querySelector('.data-details');
+  const sourceScopeEl = document.createElement('div');
+  sourceScopeEl.dataset.appSourceDetails = '';
+  sourceScopeEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
+  setTranslatedText(sourceScopeEl, 'app.connecting');
+  dataDetails?.appendChild(sourceScopeEl);
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
   hudEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
@@ -666,6 +671,20 @@ export function initPanel(store, handlers) {
       analysisHistorySync?.();
     },
   };
+}
+
+export function placeAnalysisHistoryAfterSummary({
+  crimeShell,
+  compareCard,
+  analysisHistoryMount,
+} = {}) {
+  if (!crimeShell || !analysisHistoryMount) return false;
+  if (!compareCard || compareCard.parentElement !== crimeShell) {
+    crimeShell.appendChild(analysisHistoryMount);
+    return true;
+  }
+  crimeShell.insertBefore(analysisHistoryMount, compareCard.nextSibling || null);
+  return true;
 }
 
 export function describeCoverageStatus(state) {
