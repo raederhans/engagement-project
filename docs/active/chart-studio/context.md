@@ -40,4 +40,4 @@ Only this task directory, its registry row, right-drawer chart markup/styles, `s
 
 ## Next step
 
-Create the scoped Lore commit, push `codex/chart-studio`, and open or update a stacked PR without merging or deploying it.
+Wait for review of Draft PR #50. Resolve its PR #49 base deliberately before merge; do not combine it automatically with the separate uncommitted P1-5-8 chart work.

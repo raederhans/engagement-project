@@ -2,7 +2,7 @@
 
 ## Current status
 
-Implementation, review, and local validation are complete. The scoped commit and stacked remote delivery remain.
+Implementation, review, local validation, product commit, and stacked Draft PR are complete.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ Implementation, review, and local validation are complete. The scoped commit and
 - [x] Implement chart transformations, controls, insights, localization, and styling.
 - [x] Run focused tests and full flagged validation.
 - [x] Run bundle policy, browser smoke, bilingual desktop/mobile QA, and dependency audit.
-- [ ] Complete the scoped Lore commit and push.
+- [x] Complete the scoped Lore commit and push.
 
 ## Validation evidence
 
@@ -31,9 +31,12 @@ Implementation, review, and local validation are complete. The scoped commit and
 | Local browser QA | English/Chinese controls and insights, indexed/count, count/share/Pareto, heat/weekday/hour, palette, classification, desktop/mobile overflow, and fixed canvas heights passed; runtime logs had 0 warnings/errors. |
 | Dependency audit | `npm audit --audit-level=high` found 0 vulnerabilities. |
 | Final review | Removed misleading partial-current-month trend conclusions, corrected Pareto to the top x axis, wrapped long category labels, and retained the no-refetch/cache contract. |
+| Product delivery | Product commit `b33a5bb1ab160bee049b298d58902c36c4e87e5a` pushed to `codex/chart-studio`; Draft PR #50 is stacked on PR #49. |
+| Product exact-head CI | GitHub run `30809187442` passed `validate` in 1m10s, including dependency audit, full validate, Playwright install, and browser smoke. |
 
 ## Open risks and remaining work
 
 - This branch is stacked on PR #49 and should not merge independently before its base is resolved.
 - P1-5-8 has uncommitted overlapping chart/style/test work; no cross-worktree changes or automatic conflict resolution are authorized.
 - The implementation intentionally keeps chart preferences in the current page session rather than adding persistence or URL schema.
+- Draft PR #50 must remain stacked until PR #49 is resolved; no merge or Pages deployment was performed.

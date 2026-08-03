@@ -39,7 +39,7 @@ Turn the right-side Crime charts into a bilingual chart studio that offers a few
 - [x] Stage 3: Add and observe focused failing chart-model and control contracts.
 - [x] Stage 4: Implement the minimal chart studio, bilingual copy, and responsive styling.
 - [x] Stage 5: Run focused/full validation, bundle policy, browser smoke, bilingual QA, audit, and review.
-- [ ] Stage 6: Create a scoped Lore commit and push/update the stacked delivery without merging or deploying unrelated branches.
+- [x] Stage 6: Create a scoped Lore commit and push a stacked Draft PR without merging or deploying unrelated branches.
 
 ## Acceptance criteria
 
