@@ -1,4 +1,4 @@
-import { attachClusterExpansion, clearCrimePoints, refreshPoints } from './points.js';
+import { attachClusterExpansion, attachIncidentDetails, clearCrimePoints, refreshPoints } from './points.js';
 import { t } from '../i18n/index.js';
 
 function createDebounced(fn, wait, scheduler) {
@@ -68,6 +68,7 @@ export function wirePoints(map, deps) {
   let toastTimer = null;
   let programmaticMoveOwner = null;
   let clusterCleanup = null;
+  let incidentCleanup = null;
 
   const settleProgrammaticMove = (completed) => {
     if (!programmaticMoveOwner) return;
@@ -97,6 +98,7 @@ export function wirePoints(map, deps) {
     cancelRetry();
     debouncedMoveEnd.cancel();
     cancelToast();
+    incidentCleanup?.closePopup?.();
   };
 
   const run = async (
@@ -143,6 +145,9 @@ export function wirePoints(map, deps) {
           runMapMove: runProgrammaticMapMove,
           refresh: () => run(),
         });
+      }
+      if (!incidentCleanup && map.getLayer?.('unclustered')) {
+        incidentCleanup = attachIncidentDetails(map);
       }
       return result ?? { applied: true };
     } catch (error) {
@@ -226,6 +231,7 @@ export function wirePoints(map, deps) {
       settleProgrammaticMove(false);
       invalidate();
       clearCrimePointsImpl(map);
+      incidentCleanup?.closePopup?.();
     },
     setActive(next) {
       active = Boolean(next);
@@ -242,6 +248,8 @@ export function wirePoints(map, deps) {
       map.off('moveend', onMoveEnd);
       clusterCleanup?.();
       clusterCleanup = null;
+      incidentCleanup?.();
+      incidentCleanup = null;
     },
   };
 }

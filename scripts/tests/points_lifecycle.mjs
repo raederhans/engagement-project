@@ -189,6 +189,65 @@ test('cluster activation expands through the GeoJSON source and owns the camera 
   assert.equal(handlers.has('click:clusters'), false);
 });
 
+test('an unclustered incident opens escaped details and releases its map listeners', async () => {
+  const points = await import('../../src/map/points.js');
+  assert.equal(typeof points.attachIncidentDetails, 'function');
+
+  const handlers = new Map();
+  const canvas = { style: { cursor: '' } };
+  const map = {
+    on(event, layer, handler) { handlers.set(`${event}:${layer}`, handler); },
+    off(event, layer, handler) {
+      if (handlers.get(`${event}:${layer}`) === handler) handlers.delete(`${event}:${layer}`);
+    },
+    getCanvas: () => canvas,
+  };
+  const popup = {
+    setLngLat(value) { this.lngLat = value; return this; },
+    setHTML(value) { this.html = value; return this; },
+    addTo(value) { this.map = value; return this; },
+    remove() { this.removed = true; },
+  };
+  const cleanup = points.attachIncidentDetails(map, {
+    createPopup: () => popup,
+  });
+
+  handlers.get('mouseenter:unclustered')();
+  assert.equal(canvas.style.cursor, 'pointer');
+  handlers.get('click:unclustered')({
+    lngLat: { lng: -75.16, lat: 39.95 },
+    features: [{
+      geometry: { type: 'Point', coordinates: [-75.17, 39.96] },
+      properties: {
+        text_general_code: '<img src=x onerror=alert(1)>',
+        dispatch_date_time: '2026-07-15T14:35:00Z',
+        location_block: '1500 MARKET ST & <script>',
+        dc_dist: '09',
+      },
+    }],
+  });
+
+  assert.deepEqual(popup.lngLat, [-75.17, 39.96]);
+  assert.equal(popup.map, map);
+  assert.match(popup.html, /Incident details/i);
+  assert.match(popup.html, /Jul 15, 2026/i);
+  assert.match(popup.html, /1500 MARKET ST &amp; &lt;script&gt;/);
+  assert.doesNotMatch(popup.html, /<img|<script>/i);
+
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  setLanguage('zh-CN');
+  assert.match(popup.html, /事件详情/);
+  assert.match(popup.html, /2026年7月15日/);
+  setLanguage('en');
+
+  cleanup();
+  assert.equal(popup.removed, true);
+  assert.equal(canvas.style.cursor, '');
+  assert.equal(handlers.has('click:unclustered'), false);
+  assert.equal(handlers.has('mouseenter:unclustered'), false);
+  assert.equal(handlers.has('mouseleave:unclustered'), false);
+});
+
 test('cluster expansion disables animation when reduced motion is requested', async () => {
   const handlers = new Map();
   const cameraMoves = [];

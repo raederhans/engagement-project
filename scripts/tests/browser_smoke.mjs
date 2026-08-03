@@ -421,6 +421,20 @@ try {
   await page.locator('.analysis-history__empty').waitFor();
   assert.equal(await artifactCard(page, 'Renamed A-only').count(), 0);
 
+  const pointRequestsBeforeClear = networkControl.pointRefreshRequests;
+  await page.locator('#clearSelBtn').filter({ hasText: 'Remove map point' }).click();
+  await page.waitForFunction(() => !new URLSearchParams(window.location.search).has('a'));
+  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  assert.equal(await page.locator('#addrA').inputValue(), '');
+  assert.equal(await page.locator('#addrB').inputValue(), '');
+  assert.equal(await page.locator('#clearSelBtn').isHidden(), true);
+  assert.equal(new URL(page.url()).searchParams.has('b'), false);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRequestsBeforeClear,
+    0,
+    'Removing the buffer point must not trigger a citywide incident request',
+  );
+
   const layout = await page.evaluate(() => {
     const side = document.getElementById('sidepanel');
     const compare = document.getElementById('compare-card');

@@ -189,6 +189,22 @@ export function setAnalysisMode(mode) {
   return normalized;
 }
 
+export function clearCrimeAnalysisSelection(state = store) {
+  state.selectedDistrictCode = null;
+  state.selectedTractGEOID = null;
+  if (state.queryMode === 'buffer') {
+    state.center3857 = null;
+    state.centerLonLat = null;
+    state.centerB3857 = null;
+    state.centerBLonLat = null;
+    state.addressA = '';
+    state.addressB = '';
+  }
+  state.selectMode = 'idle';
+  state.selectTarget = 'A';
+  return state;
+}
+
 export function applyCoverageToState(state, { min, max }) {
   if (!max) throw new Error('Crime coverage is unavailable: maximum date is missing.');
   const maxDate = dayjs(max);
