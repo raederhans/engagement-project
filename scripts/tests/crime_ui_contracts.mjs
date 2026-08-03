@@ -17,6 +17,42 @@ test('dense Crime clusters switch to a high-contrast white count label', async (
   ]);
 });
 
+test('tract outline appearance updates existing map paint without replacing data', async () => {
+  const { setTractsOutlineStyle, upsertTractsOutline } = await import('../../src/map/tracts_layers.js');
+  assert.equal(typeof setTractsOutlineStyle, 'function');
+  const layers = new Map();
+  const sources = new Map();
+  const paintUpdates = [];
+  const map = {
+    getSource: (id) => sources.get(id) || null,
+    addSource: (id, source) => sources.set(id, { ...source, setData(data) { this.data = data; } }),
+    getLayer: (id) => layers.get(id) || null,
+    addLayer: (layer) => layers.set(layer.id, layer),
+    setLayoutProperty() {},
+    setPaintProperty: (...args) => paintUpdates.push(args),
+  };
+  const data = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: null }] };
+
+  upsertTractsOutline(map, data, { lineWidth: 1.5, lineOpacity: 0.4 });
+  assert.equal(layers.get('tracts-outline-line').paint['line-width'], 1.5);
+  assert.equal(layers.get('tracts-outline-line').paint['line-opacity'], 0.4);
+  assert.equal(setTractsOutlineStyle(map, { lineWidth: 2.5, lineOpacity: 0.7 }), true);
+  assert.deepEqual(paintUpdates, [
+    ['tracts-outline-line', 'line-width', 2.5],
+    ['tracts-outline-line', 'line-opacity', 0.7],
+  ]);
+  assert.equal(setTractsOutlineStyle({ getLayer: () => null }, { lineWidth: 2, lineOpacity: 0.5 }), false);
+});
+
+test('tract rendering ensures the outline layer exists before choropleth state is applied', async () => {
+  const source = await readFile(new URL('../../src/map/render_choropleth_tracts.js', import.meta.url), 'utf8');
+  assert.match(source, /upsertTractsOutline\(map,\s*geojson\)/);
+  assert.ok(
+    source.indexOf('upsertTractsOutline(map, geojson)') < source.indexOf('const unavailable'),
+    'the outline must exist for available, zero, and unavailable tract data',
+  );
+});
+
 test('Crime exposes one primary analytical layer for each analysis mode', async () => {
   const crime = await import('../../src/routes_crime/index.js');
   assert.equal(typeof crime.resolveCrimePrimaryLayer, 'function');

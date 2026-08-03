@@ -3,13 +3,8 @@ import { decodeCrimeViewState, encodeCrimeViewState } from '../state/crime_view_
 export const ANALYSIS_ARTIFACT_KIND = 'engagement-analysis-artifact';
 export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 1;
 export const ANALYSIS_TITLE_MAX_LENGTH = 120;
-const VIEW_STATE_KEYS = new Set([
-  'queryMode', 'startMonth', 'durationMonths', 'radius', 'selectedGroups',
-  'selectedDrilldownCodes', 'selectedDistrictCode', 'selectedTractGEOID',
-  'overlayTractsLines', 'centerLonLat', 'centerBLonLat', 'addressA', 'addressB',
-  'per10k', 'classMethod', 'classBins', 'classPalette', 'classOpacity',
-  'classCustomBreaks',
-]);
+const DEFAULT_VIEW_STATE = decodeCrimeViewState('');
+const VIEW_STATE_KEYS = new Set(Object.keys(DEFAULT_VIEW_STATE));
 const ARTIFACT_KEYS = new Set([
   'kind', 'schemaVersion', 'id', 'title', 'createdAt', 'updatedAt',
   'viewState', 'resultSummary', 'provenance',
@@ -73,14 +68,24 @@ function normalizeViewStateForCreation(value) {
   return decodeCrimeViewState(encodeCrimeViewState(value));
 }
 
-function validateViewState(value, { allowOmittedFields = false } = {}) {
+function validateViewState(value, {
+  allowOmittedFields = false,
+  allowLegacyTractStyle = false,
+} = {}) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact view state.');
   requireKeys(value, VIEW_STATE_KEYS, 'view state');
-  const canonical = normalizeViewStateForCreation(value);
+  const candidate = allowLegacyTractStyle
+    ? {
+        tractWidth: DEFAULT_VIEW_STATE.tractWidth,
+        tractOpacity: DEFAULT_VIEW_STATE.tractOpacity,
+        ...value,
+      }
+    : value;
+  const canonical = normalizeViewStateForCreation(candidate);
   const expected = allowOmittedFields
-    ? Object.fromEntries(Object.keys(value).map((key) => [key, canonical[key]]))
+    ? Object.fromEntries(Object.keys(candidate).map((key) => [key, canonical[key]]))
     : canonical;
-  if (JSON.stringify(stableJson(value)) !== JSON.stringify(stableJson(expected))) {
+  if (JSON.stringify(stableJson(candidate)) !== JSON.stringify(stableJson(expected))) {
     throw new Error('Invalid analysis artifact view state.');
   }
   if (canonical.queryMode === 'buffer' && !canonical.centerLonLat) {
@@ -261,7 +266,7 @@ export function validateAnalysisArtifact(value) {
     title: requireText(value.title, 'title', ANALYSIS_TITLE_MAX_LENGTH),
     createdAt: requireTimestamp(value.createdAt, 'creation timestamp'),
     updatedAt: requireTimestamp(value.updatedAt, 'update timestamp'),
-    viewState: validateViewState(value.viewState),
+    viewState: validateViewState(value.viewState, { allowLegacyTractStyle: true }),
     resultSummary: normalizeResultSummary(value.resultSummary),
     provenance: normalizeProvenance(value.provenance),
   };

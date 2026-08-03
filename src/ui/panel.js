@@ -5,7 +5,12 @@ import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
 import { createLatestGeocodeOwner } from '../api/geocoder.js';
-import { CRIME_VIEW_QUERY_KEYS, encodeCrimeViewState } from '../state/crime_view_state.js';
+import {
+  CRIME_VIEW_QUERY_KEYS,
+  encodeCrimeViewState,
+  TRACT_OUTLINE_OPACITY_DEFAULT,
+  TRACT_OUTLINE_WIDTH_DEFAULT,
+} from '../state/crime_view_state.js';
 import { getLastComparison } from '../compare/card.js';
 import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../utils/export_analysis.js';
 import {
@@ -201,6 +206,11 @@ export function initPanel(store, handlers) {
   const exportCsvBtn = document.getElementById('exportCsvBtn');
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
+  const tractOutlineControls = document.getElementById('tractOutlineControls');
+  const tractOutlineWidthRange = document.getElementById('tractOutlineWidthRange');
+  const tractOutlineWidthVal = document.getElementById('tractOutlineWidthVal');
+  const tractOutlineOpacityRange = document.getElementById('tractOutlineOpacityRange');
+  const tractOutlineOpacityVal = document.getElementById('tractOutlineOpacityVal');
   const dataDetails = document.querySelector('.data-details');
   const sourceScopeEl = document.createElement('div');
   sourceScopeEl.dataset.appSourceDetails = '';
@@ -229,6 +239,35 @@ export function initPanel(store, handlers) {
     writeCrimeStateToURL(store);
     handlers.onChange?.();
   }, 300);
+
+  function syncTractOutlineUI() {
+    const enabled = Boolean(store.overlayTractsLines);
+    if (tractOutlineControls) tractOutlineControls.setAttribute('aria-disabled', String(!enabled));
+    if (tractOutlineWidthRange) {
+      tractOutlineWidthRange.value = String(store.tractWidth ?? TRACT_OUTLINE_WIDTH_DEFAULT);
+      tractOutlineWidthRange.disabled = !enabled;
+    }
+    if (tractOutlineOpacityRange) {
+      tractOutlineOpacityRange.value = String(store.tractOpacity ?? TRACT_OUTLINE_OPACITY_DEFAULT);
+      tractOutlineOpacityRange.disabled = !enabled;
+    }
+    if (tractOutlineWidthVal) {
+      tractOutlineWidthVal.value = `${Number(store.tractWidth ?? TRACT_OUTLINE_WIDTH_DEFAULT).toFixed(1)} px`;
+    }
+    if (tractOutlineOpacityVal) {
+      tractOutlineOpacityVal.value = `${Math.round(Number(store.tractOpacity ?? TRACT_OUTLINE_OPACITY_DEFAULT) * 100)}%`;
+    }
+  }
+
+  function applyTractOutlineStyleInput() {
+    store.tractWidth = Number(tractOutlineWidthRange?.value) || TRACT_OUTLINE_WIDTH_DEFAULT;
+    store.tractOpacity = Number(tractOutlineOpacityRange?.value) || TRACT_OUTLINE_OPACITY_DEFAULT;
+    syncTractOutlineUI();
+    handlers.onTractsOutlineStyleChange?.({
+      lineWidth: store.tractWidth,
+      lineOpacity: store.tractOpacity,
+    });
+  }
 
   const syncComparisonControls = () => {
     const visible = store.queryMode === 'buffer' && Boolean(store.centerB3857 || store.centerBLonLat);
@@ -392,8 +431,15 @@ export function initPanel(store, handlers) {
   overlayTractsChk?.addEventListener('change', () => {
     store.overlayTractsLines = overlayTractsChk.checked;
     handlers.onTractsOverlayToggle?.(store.overlayTractsLines);
+    syncTractOutlineUI();
+    writeCrimeStateToURL(store);
     updateHUD();
   });
+
+  tractOutlineWidthRange?.addEventListener('input', applyTractOutlineStyleInput);
+  tractOutlineOpacityRange?.addEventListener('input', applyTractOutlineStyleInput);
+  tractOutlineWidthRange?.addEventListener('change', () => writeCrimeStateToURL(store));
+  tractOutlineOpacityRange?.addEventListener('change', () => writeCrimeStateToURL(store));
 
   // Choropleth controls wiring
   function syncClassUI() {
@@ -476,6 +522,7 @@ export function initPanel(store, handlers) {
   if (startMonth && store.startMonth) startMonth.value = store.startMonth;
   if (durationSel) durationSel.value = String(store.durationMonths || 6);
   if (overlayTractsChk) overlayTractsChk.checked = store.overlayTractsLines || false;
+  syncTractOutlineUI();
   // Clarify overlay label + tooltip
   if (overlayLabel) {
     setTranslatedText(overlayLabel, 'crime.tractBoundaries');
@@ -637,6 +684,8 @@ export function initPanel(store, handlers) {
       startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    if (overlayTractsChk) overlayTractsChk.checked = Boolean(store.overlayTractsLines);
+    syncTractOutlineUI();
     if (dataStatus) {
       const status = describeCoverageStatus(store);
       dataStatus.dataset.tone = status.tone;

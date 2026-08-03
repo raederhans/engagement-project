@@ -15,7 +15,7 @@ import {
 } from '../map/selection_layers.js';
 import { clearBufferA, clearBufferB, upsertBufferA, upsertBufferB } from '../map/buffer_overlay.js';
 import { hideLegend, initLegend, showLegend } from '../map/legend.js';
-import { upsertTractsOutline } from '../map/tracts_layers.js';
+import { setTractsOutlineStyle as updateTractsOutlineStyle, upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
 import { createMapMarker, localizeMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
@@ -140,6 +140,10 @@ export function createCrimeSynchronousActions({
         visible ? 'visible' : 'none',
       );
       return true;
+    },
+    setTractsOutlineStyle(style) {
+      if (!ownsMap()) return false;
+      return updateTractsOutlineStyle(map, style);
     },
   });
 }
@@ -522,6 +526,7 @@ export async function initCrimeMode(map, {
     fitCurrentSelection,
     updateBuffer: synchronousActions.updateBuffer,
     setTractsOverlayVisible: synchronousActions.setTractsOverlayVisible,
+    setTractsOutlineStyle: synchronousActions.setTractsOutlineStyle,
     getCurrentProvenance() {
       return currentTractSnapshotProvenance
         ? { tractSnapshot: structuredClone(currentTractSnapshotProvenance) }

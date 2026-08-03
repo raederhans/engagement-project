@@ -69,6 +69,18 @@ test('Crime task panel leads with location and defers comparison and advanced co
   assert.doesNotMatch(html, />Controls<\/div>/i);
 });
 
+test('tract boundary controls expose focused width and opacity adjustments', async () => {
+  const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  assert.match(html, /id="tractOutlineControls"/);
+  assert.match(html, /id="tractOutlineWidthRange"[^>]*type="range"[^>]*min="0\.5"[^>]*max="3"[^>]*step="0\.5"/);
+  assert.match(html, /id="tractOutlineOpacityRange"[^>]*type="range"[^>]*min="0\.1"[^>]*max="1"[^>]*step="0\.1"/);
+  assert.match(html, /data-i18n="crime\.tractWidth"/);
+  assert.match(html, /data-i18n="crime\.tractOpacity"/);
+  assert.match(panel, /onTractsOutlineStyleChange/);
+  assert.match(panel, /tractOutlineWidthRange\.disabled\s*=\s*!enabled/);
+  assert.match(panel, /tractOutlineOpacityRange\.disabled\s*=\s*!enabled/);
+});
+
 test('desktop and mobile controls use the product target-size tokens', () => {
   assert.match(css, /--control-target:\s*44px\s*;/);
   assert.match(css, /@media\s*\([^)]*max-width:\s*720px[^)]*\)[\s\S]*--control-target:\s*48px\s*;/);

@@ -3,10 +3,12 @@ const CLASS_METHODS = new Set(['quantile', 'equal', 'custom']);
 const CLASS_PALETTES = new Set(['Blues', 'YlGnBu', 'OrRd', 'PuBuGn', 'Greens', 'Purples', 'BuGn', 'BuPu', 'GnBu', 'YlOrRd', 'RdBu']);
 const DURATION_OPTIONS = new Set([3, 6, 12, 24]);
 const RADIUS_OPTIONS = new Set([400, 800]);
+export const TRACT_OUTLINE_WIDTH_DEFAULT = 0.5;
+export const TRACT_OUTLINE_OPACITY_DEFAULT = 0.9;
 export const CRIME_VIEW_QUERY_KEYS = new Set([
   'analysis', 'start', 'months', 'radius', 'groups', 'codes', 'district', 'tract',
-  'tractLines', 'a', 'b', 'labelA', 'labelB', 'rate', 'class', 'bins', 'palette',
-  'opacity', 'breaks',
+  'tractLines', 'tractWidth', 'tractOpacity', 'a', 'b', 'labelA', 'labelB', 'rate',
+  'class', 'bins', 'palette', 'opacity', 'breaks',
 ]);
 
 function finiteNumber(value, fallback = null) {
@@ -49,6 +51,27 @@ function boundedNumber(value, fallback, min, max) {
   return number >= min && number <= max ? number : fallback;
 }
 
+function clampedNumber(value, fallback, min, max) {
+  return Math.max(min, Math.min(max, finiteNumber(value, fallback)));
+}
+
+export function normalizeTractOutlineStyle(value = {}) {
+  return {
+    lineWidth: clampedNumber(
+      value.lineWidth ?? value.tractWidth,
+      TRACT_OUTLINE_WIDTH_DEFAULT,
+      0.5,
+      3,
+    ),
+    lineOpacity: clampedNumber(
+      value.lineOpacity ?? value.tractOpacity,
+      TRACT_OUTLINE_OPACITY_DEFAULT,
+      0.1,
+      1,
+    ),
+  };
+}
+
 function label(value) {
   const text = String(value || '').trim();
   return text ? text.slice(0, 160) : null;
@@ -61,6 +84,7 @@ export function hasCrimeViewState(value) {
 
 export function encodeCrimeViewState(state) {
   const params = new URLSearchParams();
+  const tractStyle = normalizeTractOutlineStyle(state);
   params.set('analysis', MODES.has(state.queryMode) ? state.queryMode : 'buffer');
   if (state.startMonth) params.set('start', state.startMonth);
   params.set('months', String(optionNumber(state.durationMonths, DURATION_OPTIONS, 12)));
@@ -70,6 +94,8 @@ export function encodeCrimeViewState(state) {
   if (state.selectedDistrictCode) params.set('district', state.selectedDistrictCode);
   if (state.selectedTractGEOID) params.set('tract', state.selectedTractGEOID);
   if (state.overlayTractsLines) params.set('tractLines', '1');
+  if (tractStyle.lineWidth !== TRACT_OUTLINE_WIDTH_DEFAULT) params.set('tractWidth', String(tractStyle.lineWidth));
+  if (tractStyle.lineOpacity !== TRACT_OUTLINE_OPACITY_DEFAULT) params.set('tractOpacity', String(tractStyle.lineOpacity));
   if (point(state.centerLonLat)) params.set('a', point(state.centerLonLat).join(','));
   if (point(state.centerBLonLat)) params.set('b', point(state.centerBLonLat).join(','));
   if (state.addressA) params.set('labelA', state.addressA);
@@ -87,6 +113,10 @@ export function decodeCrimeViewState(value) {
   const params = value instanceof URLSearchParams ? value : new URLSearchParams(String(value || '').replace(/^\?/, ''));
   const queryMode = MODES.has(params.get('analysis')) ? params.get('analysis') : 'buffer';
   const startMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get('start') || '') ? params.get('start') : null;
+  const tractStyle = normalizeTractOutlineStyle({
+    lineWidth: params.get('tractWidth'),
+    lineOpacity: params.get('tractOpacity'),
+  });
   return {
     queryMode,
     startMonth,
@@ -97,6 +127,8 @@ export function decodeCrimeViewState(value) {
     selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(params.get('district') || '') ? params.get('district') : null,
     selectedTractGEOID: queryMode === 'tract' && /^\d{11}$/.test(params.get('tract') || '') ? params.get('tract') : null,
     overlayTractsLines: params.get('tractLines') === '1',
+    tractWidth: tractStyle.lineWidth,
+    tractOpacity: tractStyle.lineOpacity,
     centerLonLat: point(params.get('a')),
     centerBLonLat: point(params.get('b')),
     addressA: label(params.get('labelA')),

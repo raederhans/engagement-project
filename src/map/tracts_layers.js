@@ -2,13 +2,15 @@
  * Census tract layer management: outlines overlay + fill (choropleth when active)
  */
 import { store } from '../state/store.js';
+import { normalizeTractOutlineStyle } from '../state/crime_view_state.js';
 
 /**
  * Add or update tract outline layer (thin dark-gray, always visible)
  * @param {import('maplibre-gl').Map} map
  * @param {object} fc - GeoJSON FeatureCollection
+ * @param {{lineWidth?:number,lineOpacity?:number}} [styleProps]
  */
-export function upsertTractsOutline(map, fc) {
+export function upsertTractsOutline(map, fc, styleProps = {}) {
   if (!fc || !fc.features || fc.features.length === 0) {
     console.warn('upsertTractsOutline: empty or invalid FeatureCollection');
     return;
@@ -16,6 +18,10 @@ export function upsertTractsOutline(map, fc) {
 
   const sourceId = 'tracts-outline';
   const layerId = 'tracts-outline-line';
+  const style = normalizeTractOutlineStyle({
+    lineWidth: styleProps.lineWidth ?? store.tractWidth,
+    lineOpacity: styleProps.lineOpacity ?? store.tractOpacity,
+  });
 
   // Add or update source
   if (map.getSource(sourceId)) {
@@ -48,8 +54,8 @@ export function upsertTractsOutline(map, fc) {
       layout: { visibility: 'none' },
       paint: {
         'line-color': '#555',
-        'line-width': 0.5,
-        'line-opacity': 0.9,
+        'line-width': style.lineWidth,
+        'line-opacity': style.lineOpacity,
       },
     }, beforeId);
 
@@ -58,7 +64,23 @@ export function upsertTractsOutline(map, fc) {
       const vis = store.overlayTractsLines ? 'visible' : 'none';
       map.setLayoutProperty(layerId, 'visibility', vis);
     } catch {}
+  } else {
+    setTractsOutlineStyle(map, style);
   }
+}
+
+/**
+ * Update only the existing tract outline paint. This does not refetch or replace data.
+ * @param {import('maplibre-gl').Map} map
+ * @param {{lineWidth?:number,lineOpacity?:number}} styleProps
+ */
+export function setTractsOutlineStyle(map, styleProps = {}) {
+  const layerId = 'tracts-outline-line';
+  if (!map?.getLayer?.(layerId) || typeof map.setPaintProperty !== 'function') return false;
+  const style = normalizeTractOutlineStyle(styleProps);
+  map.setPaintProperty(layerId, 'line-width', style.lineWidth);
+  map.setPaintProperty(layerId, 'line-opacity', style.lineOpacity);
+  return true;
 }
 
 /**

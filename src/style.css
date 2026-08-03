@@ -1278,6 +1278,43 @@ summary {
   padding-top: 12px;
 }
 
+.tract-outline-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 8px 0 12px 20px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--border);
+  color: var(--ink-muted);
+}
+
+.tract-outline-controls[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+.tract-outline-controls__title {
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tract-outline-controls label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.tract-outline-controls output {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tract-outline-controls input[type="range"] {
+  width: 100%;
+  margin: 0 0 4px;
+}
+
 .data-details {
   margin: 0 0 16px;
   padding: 0 12px;

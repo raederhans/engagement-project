@@ -54,6 +54,18 @@ test('repository module exposes the Stage 1 persistence contract', () => {
   assert.equal(ANALYSIS_UPDATED_AT_INDEX, 'updatedAt');
 });
 
+test('schema v1 records created before tract outline controls receive compatible defaults', () => {
+  const legacy = structuredClone(artifact('legacy-outline-style'));
+  delete legacy.viewState.tractWidth;
+  delete legacy.viewState.tractOpacity;
+
+  const validated = validateAnalysisArtifact(legacy);
+
+  assert.equal(validated.schemaVersion, 1);
+  assert.equal(validated.viewState.tractWidth, 0.5);
+  assert.equal(validated.viewState.tractOpacity, 0.9);
+});
+
 test('business repository validates writes and lists valid rows newest-first', async () => {
   const rows = new Map();
   const adapter = {

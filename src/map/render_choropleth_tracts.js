@@ -1,5 +1,10 @@
 import { updateLegend, hideLegend } from './legend.js';
-import { upsertTractsFill, showTractsFill, hideTractsFill } from './tracts_layers.js';
+import {
+  hideTractsFill,
+  showTractsFill,
+  upsertTractsFill,
+  upsertTractsOutline,
+} from './tracts_layers.js';
 import { store } from '../state/store.js';
 import { computeBreaks, makePalette, toMapLibreStep } from '../utils/classify.js';
 import { setTranslatedText, t } from '../i18n/index.js';
@@ -12,6 +17,7 @@ import { setTranslatedText, t } from '../i18n/index.js';
  */
 export function renderTractsChoropleth(map, merged) {
   const geojson = merged?.geojson || merged; // Handle both formats
+  upsertTractsOutline(map, geojson);
   const values = merged?.values || (geojson?.features || []).map((f) => Number(f?.properties?.value) || 0);
   const subtitle = merged?.legendSubtitle || '';
   const unavailable = merged?.dataStatus === 'unavailable';

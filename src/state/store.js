@@ -4,6 +4,10 @@
 import dayjs from 'dayjs';
 import { expandGroupsToCodes } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
+import {
+  TRACT_OUTLINE_OPACITY_DEFAULT,
+  TRACT_OUTLINE_WIDTH_DEFAULT,
+} from './crime_view_state.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -105,6 +109,8 @@ export const store = /** @type {Store} */ ({
   selectedDistrictCode: null,
   selectedTractGEOID: null,
   overlayTractsLines: false, // Show tract boundaries overlay in district mode
+  tractWidth: TRACT_OUTLINE_WIDTH_DEFAULT,
+  tractOpacity: TRACT_OUTLINE_OPACITY_DEFAULT,
   didAutoAlignAdmin: false, // One-time auto-align flag for Tract mode → adminLevel 'tracts'
   // [DIARY_FLAG] Route Safety Diary placeholder state (M1 prep, no behavior yet)
   diaryMode: false,        // Whether diary mode is active
