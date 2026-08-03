@@ -31,7 +31,7 @@
 | Previous quick preview on 127.0.0.1:5173 | root | `C:\Users\raede\AppData\Local\Temp\codex-engagement-project\preview-5173.log` | No listener present on 2026-08-03; a fresh preview is required for final bilingual smoke. |
 | Previous P0 preview on 127.0.0.1:4173 | P0 task owner | `C:\Users\raede\AppData\Local\Temp\engagement-ui-p0-preview-20260801.log` | No listener present on 2026-08-03. |
 | Full repository validation | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-validate-final.log` | Complete: `npm run validate` exited 0 with 257/257 tests and bundle policy PASS. |
-| Bilingual dev preview | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-preview.log` | Running at `http://127.0.0.1:5173/` on PID 33320; retained for the user. |
+| Bilingual dev preview | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-preview.log` | Running at `http://127.0.0.1:5173/`; the listener PID is intentionally treated as transient. |
 | Browser smoke | root | `C:\Users\raede\AppData\Local\Temp\engagement-browser-smoke.log` | Complete with `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; consoleErrors=0 and pageErrors=0. |
 
 ## Handoff
