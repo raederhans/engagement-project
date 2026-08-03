@@ -13,6 +13,7 @@ import { buildSegmentCardHtml } from '../../src/map/segments_layer.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
 import { applyRecentPreset } from '../../src/ui/panel.js';
 import {
+  buildCrimePointsSQL,
   buildCountBufferSQL,
   buildHeatmap7x24TractSQL,
   buildMonthlyTractSQL,
@@ -70,6 +71,15 @@ test('EPSG:3857 buffer filters use the CARTO web-mercator geometry column', () =
     radiusM: 400,
   });
   assert.match(sql, /ST_DWithin\(the_geom_webmercator,/);
+});
+
+test('incident point queries include the source row key used only for current-result synchronization', () => {
+  const sql = buildCrimePointsSQL({
+    start: '2026-01-01',
+    end: '2026-02-01',
+    bbox: [-8_370_000, 4_850_000, -8_360_000, 4_860_000],
+  });
+  assert.match(sql, /^SELECT cartodb_id, the_geom,/);
 });
 
 test('tract filters keep both the envelope and polygon in EPSG:4326', () => {

@@ -1,9 +1,6 @@
 import { fetchPoints } from '../api/crime.js';
 import { categoryColorPairs } from '../utils/types.js';
-import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
-import { formatLocalizedDate } from '../i18n/date.js';
-import { escapeHtml } from '../utils/html.js';
-import maplibregl from 'maplibre-gl';
+import { setTranslatedText } from '../i18n/index.js';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fit.js';
 
 const noticeActionHandlers = new WeakMap();
@@ -103,65 +100,25 @@ export function attachClusterExpansion(map, {
   };
 }
 
-function incidentDetailRow(labelKey, value) {
-  return `<div><dt>${escapeHtml(t(labelKey))}</dt><dd>${escapeHtml(value || t('summary.metricUnavailable'))}</dd></div>`;
+export function incidentResultKey(feature, { generation = 0, index = 0 } = {}) {
+  if (feature?.id != null) return String(feature.id);
+  const sourceRow = feature?.properties?.cartodb_id;
+  if (sourceRow != null) return `carto:${sourceRow}`;
+  return `result:${generation}:${index}`;
 }
 
-function incidentDetailsHtml(properties = {}) {
-  const occurred = formatLocalizedDate(properties.dispatch_date_time) || t('summary.metricUnavailable');
-  return `<article><h3>${escapeHtml(t('map.incidentDetails'))}</h3><dl>${incidentDetailRow('map.incidentOffense', properties.text_general_code)}${incidentDetailRow('map.incidentOccurred', occurred)}${incidentDetailRow('map.incidentLocation', properties.location_block)}${incidentDetailRow('map.incidentDistrict', properties.dc_dist)}</dl></article>`;
-}
-
-export function attachIncidentDetails(map, {
-  layerId = 'unclustered',
-  createPopup = () => new maplibregl.Popup({ closeButton: true }),
-} = {}) {
-  let popup = null;
-  let latestProperties = null;
-  const closePopup = () => {
-    popup?.remove();
-    popup = null;
-  };
-  const releaseLanguage = onLanguageChange(() => {
-    if (popup && latestProperties) popup.setHTML(incidentDetailsHtml(latestProperties));
-  });
-  const onClick = (event) => {
-    const feature = event?.features?.[0];
-    const coordinates = feature?.geometry?.type === 'Point'
-      ? feature.geometry.coordinates?.slice()
-      : null;
-    if (!Array.isArray(coordinates) || coordinates.length < 2) return;
-    while (Math.abs(Number(event?.lngLat?.lng) - coordinates[0]) > 180) {
-      coordinates[0] += Number(event.lngLat.lng) > coordinates[0] ? 360 : -360;
-    }
-    latestProperties = feature.properties || {};
-    closePopup();
-    popup = createPopup()
-      .setLngLat(coordinates)
-      .setHTML(incidentDetailsHtml(latestProperties))
-      .addTo(map);
-  };
-  const onEnter = () => {
-    const canvas = map.getCanvas?.();
-    if (canvas) canvas.style.cursor = 'pointer';
-  };
-  const onLeave = () => {
-    const canvas = map.getCanvas?.();
-    if (canvas) canvas.style.cursor = '';
-  };
-  map.on('click', layerId, onClick);
-  map.on('mouseenter', layerId, onEnter);
-  map.on('mouseleave', layerId, onLeave);
-  const cleanup = () => {
-    map.off('click', layerId, onClick);
-    map.off('mouseenter', layerId, onEnter);
-    map.off('mouseleave', layerId, onLeave);
-    onLeave();
-    closePopup();
-    releaseLanguage();
-  };
-  cleanup.closePopup = closePopup;
-  return cleanup;
+export function prepareIncidentGeoJson(geo, generation = 0) {
+  const source = geo?.type === 'FeatureCollection' ? geo : { type: 'FeatureCollection', features: [] };
+  const features = Array.isArray(source.features)
+    ? source.features.map((feature, index) => {
+      const key = incidentResultKey(feature, { generation, index });
+      return {
+        ...feature,
+        id: key,
+      };
+    })
+    : [];
+  return { ...source, features };
 }
 
 /**
@@ -178,6 +135,7 @@ export async function refreshPoints(map, {
   queryMode,
   selectedDistrictCode,
   signal,
+  resultGeneration = 0,
   fetchPointsImpl = fetchPoints,
   shouldApply = () => true,
 } = {}) {
@@ -186,8 +144,9 @@ export async function refreshPoints(map, {
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
   if (signal?.aborted) return { applied: false };
-  const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
+  const sourceGeo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
   if (signal?.aborted || !shouldApply()) return { applied: false };
+  const geo = prepareIncidentGeoJson(sourceGeo, resultGeneration);
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
 
   // Add or update source
@@ -260,7 +219,14 @@ export async function refreshPoints(map, {
     if (count === 0) {
       ensurePointsNotice({ map, key: 'map.noPointIncidents' });
       if (existsUnclustered) map.removeLayer(unclusteredId);
-      return;
+      return {
+        applied: true,
+        generation: resultGeneration,
+        status: 'empty',
+        geo,
+        count,
+        tooMany: false,
+      };
     }
     hideBanner();
     if (!existsUnclustered) {
@@ -279,6 +245,14 @@ export async function refreshPoints(map, {
       });
     }
   }
+  return {
+    applied: true,
+    generation: resultGeneration,
+    status: tooMany ? 'dense' : 'ready',
+    geo,
+    count,
+    tooMany,
+  };
 }
 
 export function clearCrimePoints(map) {
@@ -342,6 +316,6 @@ export function ensurePointsNotice({
 }
 
 function hideBanner() {
-  const el = document.getElementById('banner');
+  const el = globalThis.document?.getElementById?.('banner');
   if (el) el.style.display = 'none';
 }

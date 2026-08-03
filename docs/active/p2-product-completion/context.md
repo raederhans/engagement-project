@@ -22,6 +22,11 @@
 | 2026-08-03 | Keep `src/style.css` as the single ordered entry and split rules into five responsibility owners without reordering selectors. | Makes future UI changes reviewable while preserving the P1 cascade and one-file production CSS. |
 | 2026-08-03 | Create one simulator per committed Diary session and keep `routes_diary/index.js` as the stable lazy facade. | Timers, lifecycle listeners, and late callbacks are released by instance identity without changing public imports or eager-loading Diary. |
 | 2026-08-03 | Update only the Linux/Windows desktop Help baseline for adaptive Drilldown rows introduced in `32d84d2`. | Repairs a missing visual artifact from the earlier P2 integration; the baseline update is kept separate from the behavior-preserving Stage 2 refactor. |
+| 2026-08-03 | Make the point-response generation the single source for both MapLibre and the incident list. | Prevents duplicate API requests and selection drift; stale generations cannot commit to either sink. |
+| 2026-08-03 | Use CARTO `cartodb_id` only as an in-memory current-result key. | Provides deterministic map/list identity without implying a durable public incident identifier or leaking it into shares, history, or exports. |
+| 2026-08-03 | Keep incident results inside the existing results drawer and lazy-load their controller only after an authorized point query. | Preserves one mobile sheet, keeps initial Crime within its existing budget, and places current incidents before charts and history. |
+| 2026-08-03 | Preserve list focus and explicitly scroll only a list-activated incident into view. | Keyboard selection remains stable after the inserted detail panel; map selection does not force the sheet or list to move. |
+| 2026-08-03 | Treat a failed incident-results chunk as a recoverable refresh failure, not a permanent map-only fallback. | The rejected lazy-load promise is cleared, the user receives an explicit failure toast, and the next refresh retries without loading the chunk merely to clear idle state. |
 
 ## Live process ownership
 
@@ -29,6 +34,7 @@
 | --- | --- | --- | --- |
 | Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract will be reused after later P2 layers. |
 | Stage 2 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, single worker, no snapshot-wide update: 24 pass and 6 intentional skips; process stopped and generated diagnostics removed. |
+| Stage 3 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, one serial worker: 27 pass and 6 intentional skips. Six incident baselines plus the intentionally changed Crime analysis baselines were generated for Windows/Linux; repeated incident runs were stable and all preview processes stopped. |
 
 ## Handoff
 
@@ -38,4 +44,4 @@
 
 ## Next step
 
-Implement one synchronized incident-results controller and task-oriented navigation next. The map and list must share the same point-response generation, selection model, escaped detail model, and stale-owner fence.
+Implement recoverable partial-failure states and result-level provenance without clearing successful data from other sources.

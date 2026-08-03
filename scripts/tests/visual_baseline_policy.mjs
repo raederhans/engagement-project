@@ -6,6 +6,7 @@ const platforms = ['win32', 'linux'];
 const projects = ['desktop', 'portrait', 'landscape'];
 const baselines = [
   'crime-analysis.png',
+  'crime-incident-results.png',
   'diary-live.png',
   'diary-insights-expanded.png',
   'crime-help-data-details.png',

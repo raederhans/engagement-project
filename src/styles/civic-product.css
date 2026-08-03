@@ -175,6 +175,50 @@ summary {
   line-height: 1.45;
 }
 
+.crime-task-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: -6px 0 18px;
+}
+
+.crime-task-nav button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: var(--control-target);
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font: 650 11px/1.15 var(--font-product);
+  text-align: left;
+  cursor: pointer;
+}
+
+.crime-task-nav button > span:first-child {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.crime-task-nav button:hover {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+
+.crime-task-nav button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
 #sidepanel label {
   margin-bottom: 5px;
   color: var(--ink-muted);
@@ -331,6 +375,187 @@ summary {
 #compare-card.is-current-analysis {
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgba(10, 108, 116, 0.12);
+}
+
+.incident-results {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.incident-results:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -3px;
+}
+
+.incident-results__header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.incident-results__header > p:not(.crime-summary__eyebrow),
+.incident-results__state,
+.incident-results__item span,
+.incident-results__item small {
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.incident-results__header > p:not(.crime-summary__eyebrow) {
+  margin: 5px 0 0;
+}
+
+.incident-results__header [role="status"] {
+  min-height: 18px;
+  font-weight: 650;
+}
+
+.incident-results__selected {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(200, 107, 0, 0.42);
+  border-left: 4px solid var(--selected);
+  border-radius: 9px;
+  background: #fffaf4;
+}
+
+.incident-results__selected h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.incident-results__selected dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.incident-results__selected dl > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
+  gap: 8px;
+}
+
+.incident-results__selected dt {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.incident-results__selected dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.incident-results__state {
+  margin: 12px 0 8px;
+}
+
+.incident-results__list {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.incident-results__item > button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: var(--control-target);
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.incident-results__item > button:hover {
+  border-color: #a9bfd3;
+  background: var(--surface-muted);
+}
+
+.incident-results__item > button[aria-current="true"] {
+  border-color: rgba(200, 107, 0, 0.52);
+  border-left-color: var(--selected);
+  background: #fffaf4;
+}
+
+.incident-results__item > button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.incident-results__item strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incident-results__item span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.incident-results__item small {
+  font-variant-numeric: tabular-nums;
+}
+
+.incident-results__edit,
+.incident-results__more {
+  width: 100%;
+  margin-top: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .incident-results__item > button {
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .task-panel__heading {
+    margin: 4px 0 8px;
+  }
+
+  .task-panel__heading p {
+    display: none;
+  }
+
+  .crime-task-nav {
+    gap: 4px;
+    margin: 0 0 8px;
+  }
+
+  .crime-task-nav button {
+    grid-template-columns: 20px minmax(0, 1fr);
+    min-height: 44px;
+    padding: 4px 6px;
+  }
+
+  .crime-task-nav button > span:first-child {
+    width: 20px;
+    height: 20px;
+  }
+
+  #queryModeHelp {
+    display: none;
+  }
 }
 
 .crime-summary__empty,

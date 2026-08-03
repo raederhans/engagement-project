@@ -1,5 +1,12 @@
-import { attachClusterExpansion, attachIncidentDetails, clearCrimePoints, refreshPoints } from './points.js';
-import { t } from '../i18n/index.js';
+import {
+  attachClusterExpansion,
+  clearCrimePoints,
+  incidentResultKey,
+  refreshPoints,
+} from './points.js';
+import { onLanguageChange, t } from '../i18n/index.js';
+import { formatLocalizedDate } from '../i18n/date.js';
+import { escapeHtml } from '../utils/html.js';
 
 function createDebounced(fn, wait, scheduler) {
   let timer = null;
@@ -58,6 +65,8 @@ export function wirePoints(map, deps) {
     scheduler = globalThis,
     shouldRefresh = () => true,
     autoRefresh = true,
+    incidentResultsController = null,
+    _loadIncidentModule = () => import('../routes_crime/incident_results_controller.js'),
   } = deps;
   const backoffs = [2000, 4000, 8000];
   let backoffIdx = 0;
@@ -68,7 +77,38 @@ export function wirePoints(map, deps) {
   let toastTimer = null;
   let programmaticMoveOwner = null;
   let clusterCleanup = null;
-  let incidentCleanup = null;
+  let incidentResults = incidentResultsController;
+  let incidentResultsPromise = null;
+  let destroyed = false;
+
+  const loadIncidentResults = () => {
+    if (incidentResults) return Promise.resolve(incidentResults);
+    if (destroyed || !globalThis.document?.getElementById?.('incident-results')) {
+      return Promise.resolve(null);
+    }
+    incidentResultsPromise ||= _loadIncidentModule()
+      .then((module) => {
+        const controller = module.createIncidentResultsController(map, {
+          translate: t,
+          languageChange: onLanguageChange,
+          getResultKey: incidentResultKey,
+          formatDate: formatLocalizedDate,
+          escape: escapeHtml,
+        });
+        if (destroyed) {
+          controller.destroy();
+          return null;
+        }
+        incidentResults = controller;
+        return controller;
+      })
+      .catch((error) => {
+        incidentResultsPromise = null;
+        console.warn('Incident results failed to initialize:', error);
+        throw error;
+      });
+    return incidentResultsPromise;
+  };
 
   const settleProgrammaticMove = (completed) => {
     if (!programmaticMoveOwner) return;
@@ -98,7 +138,6 @@ export function wirePoints(map, deps) {
     cancelRetry();
     debouncedMoveEnd.cancel();
     cancelToast();
-    incidentCleanup?.closePopup?.();
   };
 
   const run = async (
@@ -110,11 +149,21 @@ export function wirePoints(map, deps) {
     if (!shouldRefresh(filters)) {
       invalidate();
       clearCrimePointsImpl(map);
+      incidentResults?.clear?.();
       return { applied: false, status: 'idle' };
     }
     invalidate();
     const requestGeneration = generation;
     const controller = new AbortController();
+    const isCurrent = () => active
+      && generation === requestGeneration
+      && !controller.signal.aborted
+      && !ownerSignal?.aborted
+      && ownerShouldApply();
+    const incidentResultsTask = loadIncidentResults();
+    void incidentResultsTask.then((controller) => {
+      if (isCurrent()) controller?.setLoading?.();
+    }, () => {});
     const abortFromOwner = () => controller.abort(ownerSignal.reason);
     ownerSignal?.addEventListener('abort', abortFromOwner, { once: true });
     if (ownerSignal?.aborted) abortFromOwner();
@@ -124,20 +173,19 @@ export function wirePoints(map, deps) {
       const result = await refreshPointsImpl(map, {
         ...filters,
         signal: controller.signal,
-        shouldApply: () => active
-          && generation === requestGeneration
-          && !controller.signal.aborted
-          && !ownerSignal?.aborted
-          && ownerShouldApply(),
+        resultGeneration: requestGeneration,
+        shouldApply: isCurrent,
       });
-      if (!active
-        || generation !== requestGeneration
-        || controller.signal.aborted
-        || ownerSignal?.aborted
-        || !ownerShouldApply()) {
-        return { applied: false };
-      }
+      if (!isCurrent()) return { applied: false };
       backoffIdx = 0;
+      if (result?.applied && result.geo) {
+        const incidentController = await incidentResultsTask;
+        if (!isCurrent()) return { applied: false };
+        incidentController?.replaceResults?.({
+          ...result,
+          generation: requestGeneration,
+        });
+      }
       if (!clusterCleanup) {
         clusterCleanup = attachClusterExpansion(map, {
           isActive: () => active,
@@ -146,20 +194,13 @@ export function wirePoints(map, deps) {
           refresh: () => run(),
         });
       }
-      if (!incidentCleanup && map.getLayer?.('unclustered')) {
-        incidentCleanup = attachIncidentDetails(map);
-      }
       return result ?? { applied: true };
     } catch (error) {
-      const stale = !active
-        || generation !== requestGeneration
-        || controller.signal.aborted
-        || ownerSignal?.aborted
-        || !ownerShouldApply()
-        || isAbortError(error);
+      const stale = !isCurrent() || isAbortError(error);
       if (stale) return { applied: false };
 
-      showToast(t('map.pointsRetrying'));
+      incidentResults?.setFailed?.();
+      showToast(t(incidentResults ? 'map.pointsRetrying' : 'incidents.failed'));
       toastTimer = scheduler.setTimeout(() => {
         toastTimer = null;
         hideToast();
@@ -168,7 +209,7 @@ export function wirePoints(map, deps) {
       backoffIdx += 1;
       retryTimer = scheduler.setTimeout(() => {
         retryTimer = null;
-        if (active && generation === requestGeneration) {
+        if (isCurrent()) {
           void run(filtersOverride, { signal: ownerSignal, shouldApply: ownerShouldApply });
         }
       }, delay);
@@ -231,16 +272,18 @@ export function wirePoints(map, deps) {
       settleProgrammaticMove(false);
       invalidate();
       clearCrimePointsImpl(map);
-      incidentCleanup?.closePopup?.();
+      incidentResults?.clear?.();
     },
     setActive(next) {
       active = Boolean(next);
       if (!active) {
         settleProgrammaticMove(false);
         invalidate();
+        incidentResults?.clear?.();
       }
     },
     destroy() {
+      destroyed = true;
       active = false;
       settleProgrammaticMove(false);
       invalidate();
@@ -248,8 +291,8 @@ export function wirePoints(map, deps) {
       map.off('moveend', onMoveEnd);
       clusterCleanup?.();
       clusterCleanup = null;
-      incidentCleanup?.();
-      incidentCleanup = null;
+      incidentResults?.destroy?.();
+      incidentResults = null;
     },
   };
 }

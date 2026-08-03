@@ -21,6 +21,7 @@ import {
   setTranslatedText,
   t,
 } from '../i18n/index.js';
+import { initCrimeTaskNavigation } from './crime_task_nav.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -105,6 +106,7 @@ export function initPanel(store, handlers) {
     panelContentRoot.appendChild(crimeShell);
   }
   if (sheetHandle) panelRoot.prepend(sheetHandle);
+  initCrimeTaskNavigation({ root: crimeShell });
 
   const compareCard = document.getElementById('compare-card');
   const chartsPanel = document.getElementById('charts');
@@ -120,7 +122,7 @@ export function initPanel(store, handlers) {
     setTranslatedAttribute(analysisHistoryMount, 'history.label', 'aria-label');
     crimeShell.appendChild(analysisHistoryMount);
   }
-  placeAnalysisHistoryAfterSummary({ crimeShell, compareCard, analysisHistoryMount });
+  placeAnalysisHistoryAfterResults({ crimeShell, resultsDrawer, analysisHistoryMount });
   let analysisHistorySync = null;
 
   let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
@@ -745,17 +747,17 @@ export function initPanel(store, handlers) {
   };
 }
 
-export function placeAnalysisHistoryAfterSummary({
+export function placeAnalysisHistoryAfterResults({
   crimeShell,
-  compareCard,
+  resultsDrawer,
   analysisHistoryMount,
 } = {}) {
   if (!crimeShell || !analysisHistoryMount) return false;
-  if (!compareCard || compareCard.parentElement !== crimeShell) {
+  if (!resultsDrawer || resultsDrawer.parentElement !== crimeShell) {
     crimeShell.appendChild(analysisHistoryMount);
     return true;
   }
-  crimeShell.insertBefore(analysisHistoryMount, compareCard.nextSibling || null);
+  crimeShell.insertBefore(analysisHistoryMount, resultsDrawer.nextSibling || null);
   return true;
 }
 

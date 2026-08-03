@@ -28,6 +28,11 @@
         <h2 data-i18n="crime.taskTitle">Explore a location</h2>
         <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
       </div>
+      <nav class="crime-task-nav" data-crime-task-nav data-i18n-aria-label="crime.taskSteps" aria-label="Analysis steps">
+        <button type="button" data-task-target="queryModeSel"><span aria-hidden="true">1</span><span data-i18n="crime.taskStepExplore">Explore</span></button>
+        <button type="button" data-task-target="compare-card"><span aria-hidden="true">2</span><span data-i18n="crime.taskStepSummary">Summary</span></button>
+        <button type="button" data-task-target="incident-results"><span aria-hidden="true">3</span><span data-i18n="crime.taskStepIncidents">Incidents</span></button>
+      </nav>
 
       <label class="field-label" for="queryModeSel" data-i18n="crime.areaLabel">Analysis area</label>
       <select id="queryModeSel" class="field field--compact">
@@ -191,11 +196,24 @@
       </section>
         </div>
       </details>
-      <div id="compare-card" class="result-card" role="status" aria-live="polite">
+      <div id="compare-card" class="result-card" role="status" aria-live="polite" tabindex="-1">
         <p class="crime-summary__empty" data-i18n="crime.summaryEmpty">Choose a location to create an analysis summary.</p>
       </div>
       <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
-        <div id="charts">
+        <section id="incident-results" class="incident-results" aria-labelledby="incident-results-title" aria-busy="false" tabindex="-1">
+          <header class="incident-results__header">
+            <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Current map</p>
+            <h2 id="incident-results-title" data-i18n="incidents.title">Review incidents</h2>
+            <p data-i18n="incidents.description">These are reported incidents returned for the current map view.</p>
+            <p data-incident-results-status role="status" aria-live="polite" data-i18n="incidents.idle">Choose an analysis area to review incidents in the current map.</p>
+          </header>
+          <article class="incident-results__selected" data-selected-incident aria-live="polite" hidden></article>
+          <p class="incident-results__state" data-incident-results-state data-i18n="incidents.idle">Choose an analysis area to review incidents in the current map.</p>
+          <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
+          <ol class="incident-results__list" data-incident-results-list></ol>
+          <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show 50 more</button>
+        </section>
+        <div id="charts" tabindex="-1">
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
           <details id="chart-display-settings" class="chart-settings">
             <summary data-i18n="chart.settings">Display settings</summary>

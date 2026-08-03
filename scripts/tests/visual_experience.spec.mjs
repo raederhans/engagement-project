@@ -14,6 +14,61 @@ function desktopOnly(testInfo) {
   test.skip(testInfo.project.name !== 'desktop', 'Detailed state coverage runs once; responsive routes run in every viewport.');
 }
 
+const INCIDENT_FIXTURE = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.166154, 39.95218] },
+      properties: {
+        cartodb_id: 101,
+        dispatch_date_time: '2026-07-30T18:30:00Z',
+        text_general_code: '<img src=x onerror=alert(1)>',
+        location_block: '1500 MARKET ST & <script>alert(2)</script>',
+        dc_dist: '09',
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.1649, 39.953] },
+      properties: {
+        cartodb_id: 102,
+        dispatch_date_time: '2026-07-29T09:15:00Z',
+        text_general_code: 'Thefts',
+        location_block: '1400 MARKET ST',
+        dc_dist: '09',
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.168, 39.9515] },
+      properties: {
+        cartodb_id: 103,
+        dispatch_date_time: '2026-07-28T14:05:00Z',
+        text_general_code: 'Vandalism/Criminal Mischief',
+        location_block: '1600 MARKET ST',
+        dc_dist: '09',
+      },
+    },
+  ],
+};
+
+async function installIncidentPointFixture(page) {
+  await page.route('https://phl.carto.com/**', async (route) => {
+    const request = route.request();
+    const parameters = new URLSearchParams(request.postData() || '');
+    const sql = parameters.get('q') || '';
+    if (parameters.get('format') === 'GeoJSON' && /SELECT\s+cartodb_id/i.test(sql)) {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(INCIDENT_FIXTURE),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 async function expectMinimumTouchTarget(locator, minimum = 44) {
   await expect(locator).toBeVisible();
   const box = await locator.boundingBox();
@@ -95,6 +150,39 @@ test('Crime direct route restores URL state and keeps its primary action usable'
     await expectMinimumTouchTarget(page.locator('.maplibregl-ctrl-attrib-button'));
   }
   await captureExperienceScreenshot(page, testInfo, 'crime-analysis');
+});
+
+test('Crime incident results stay synchronized, escaped, and keyboard reachable', async ({ page }, testInfo) => {
+  await installIncidentPointFixture(page);
+  await gotoMode(page, 'crime');
+  await page.locator('#addrA').fill('1500 Market St');
+  await page.locator('#addrA').press('Enter');
+
+  const rows = page.locator('.incident-results__item > button');
+  await expect(rows).toHaveCount(3);
+  await page.getByRole('button', { name: 'Incidents', exact: true }).click();
+  const firstRow = rows.first();
+  await tabTo(page, firstRow);
+  await page.keyboard.press('Enter');
+
+  await expect(firstRow).toBeFocused();
+  await expect(firstRow).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('.incident-results__item > button[aria-current="true"]')).toHaveCount(1);
+  const selected = page.locator('[data-selected-incident]');
+  await expect(selected).toBeVisible();
+  await expect(selected).toContainText('<img src=x onerror=alert(1)>');
+  await expect(selected).toContainText('1500 MARKET ST & <script>alert(2)</script>');
+  await expect(selected.locator('img, script')).toHaveCount(0);
+  await expect(page.locator('.maplibregl-popup')).toBeVisible();
+  await expect(firstRow).toBeInViewport();
+  await expectMinimumTouchTarget(firstRow);
+  await assertFocusNotObscured(firstRow);
+  await assertNoHorizontalOverflow(page);
+  expect(
+    await auditSeriousAccessibility(page),
+    'crime incident-result accessibility issues',
+  ).toEqual([]);
+  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results');
 });
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
