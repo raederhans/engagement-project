@@ -37,12 +37,47 @@ function unclusteredColorExpression() {
   return expr;
 }
 
-export function clusterTextColorExpression() {
+const CLUSTER_COLORS = ['#9cdcf6', '#52b5e9', '#2f83c9', '#1f497b'];
+const CLUSTER_RADII = [14, 18, 24, 30];
+
+export function clusterCountBreaks(pointCount) {
+  const total = Math.max(0, Math.floor(Number(pointCount) || 0));
+  if (total < 2) return [];
+  const breaks = [];
+  for (let index = 1; index < CLUSTER_COLORS.length; index += 1) {
+    const threshold = Math.min(total, Math.max(2, Math.round(total ** (index / CLUSTER_COLORS.length))));
+    if (threshold !== breaks[breaks.length - 1]) breaks.push(threshold);
+  }
+  return breaks;
+}
+
+function clusterStepExpression(pointCount, stops) {
+  const breaks = clusterCountBreaks(pointCount);
+  if (breaks.length === 0) return stops[0];
+  const expression = ['step', ['get', 'point_count'], stops[0]];
+  const stopOffset = stops.length - breaks.length;
+  for (let index = 0; index < breaks.length; index += 1) {
+    expression.push(breaks[index], stops[stopOffset + index]);
+  }
+  return expression;
+}
+
+export function clusterColorExpression(pointCount) {
+  return clusterStepExpression(pointCount, CLUSTER_COLORS);
+}
+
+export function clusterRadiusExpression(pointCount) {
+  return clusterStepExpression(pointCount, CLUSTER_RADII);
+}
+
+export function clusterTextColorExpression(pointCount) {
+  const breaks = clusterCountBreaks(pointCount);
+  if (breaks.length === 0) return '#112';
   return [
     'step',
     ['get', 'point_count'],
     '#112',
-    100,
+    breaks[breaks.length - 1],
     '#fff',
   ];
 }
@@ -123,6 +158,9 @@ export async function refreshPoints(map, {
   const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
   if (signal?.aborted || !shouldApply()) return { applied: false };
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
+  const clusterColor = clusterColorExpression(count);
+  const clusterRadius = clusterRadiusExpression(count);
+  const clusterTextColor = clusterTextColorExpression(count);
 
   // Add or update source
   if (map.getSource(srcId)) {
@@ -145,25 +183,14 @@ export async function refreshPoints(map, {
       source: srcId,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': [
-          'step',
-          ['get', 'point_count'],
-          '#9cdcf6',
-          10, '#52b5e9',
-          50, '#2f83c9',
-          100, '#1f497b'
-        ],
-        'circle-radius': [
-          'step',
-          ['get', 'point_count'],
-          14,
-          10, 18,
-          50, 24,
-          100, 30
-        ],
+        'circle-color': clusterColor,
+        'circle-radius': clusterRadius,
         'circle-opacity': 0.85
       }
     });
+  } else {
+    map.setPaintProperty(clusterId, 'circle-color', clusterColor);
+    map.setPaintProperty(clusterId, 'circle-radius', clusterRadius);
   }
 
   // Cluster count labels
@@ -179,9 +206,11 @@ export async function refreshPoints(map, {
         'text-size': 12
       },
       paint: {
-        'text-color': clusterTextColorExpression()
+        'text-color': clusterTextColor
       }
     });
+  } else {
+    map.setPaintProperty(clusterCountId, 'text-color', clusterTextColor);
   }
 
   // Unclustered single points

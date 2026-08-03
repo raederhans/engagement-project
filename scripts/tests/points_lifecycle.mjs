@@ -85,6 +85,51 @@ test('refreshPoints forwards AbortSignal and stale success cannot mutate the map
   assert.deepEqual(map.mutations, []);
 });
 
+test('refreshPoints reapplies the cluster count scale when filtered totals change', async () => {
+  const paintMutations = [];
+  const source = { setData() {} };
+  const map = {
+    getBounds: () => ({
+      getWest: () => -75.2,
+      getSouth: () => 39.9,
+      getEast: () => -75.1,
+      getNorth: () => 40,
+    }),
+    getSource: (id) => (id === 'crime-points' ? source : null),
+    getLayer: (id) => ['clusters', 'cluster-count', 'unclustered'].includes(id) ? { id } : null,
+    setPaintProperty: (...args) => paintMutations.push(args),
+  };
+  const originalDocument = globalThis.document;
+  globalThis.document = { getElementById: () => null };
+  try {
+    await refreshPoints(map, {
+      start: '2026-01-01',
+      end: '2026-02-01',
+      types: ['Burglary Non-Residential'],
+      fetchPointsImpl: async () => ({
+        type: 'FeatureCollection',
+        features: Array.from({ length: 16 }, (_, id) => ({ id })),
+      }),
+    });
+  } finally {
+    globalThis.document = originalDocument;
+  }
+
+  assert.deepEqual(paintMutations, [
+    ['clusters', 'circle-color', [
+      'step', ['get', 'point_count'], '#9cdcf6',
+      2, '#52b5e9', 4, '#2f83c9', 8, '#1f497b',
+    ]],
+    ['clusters', 'circle-radius', [
+      'step', ['get', 'point_count'], 14,
+      2, 18, 4, 24, 8, 30,
+    ]],
+    ['cluster-count', 'text-color', [
+      'step', ['get', 'point_count'], '#112', 8, '#fff',
+    ]],
+  ]);
+});
+
 test('a newer refresh aborts the superseded request', async () => {
   const map = createMap();
   const requests = [];

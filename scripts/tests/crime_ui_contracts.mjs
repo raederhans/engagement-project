@@ -6,13 +6,32 @@ import { readFile } from 'node:fs/promises';
 import { store } from '../../src/state/store.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
 
-test('dense Crime clusters switch to a high-contrast white count label', async () => {
-  const { clusterTextColorExpression } = await import('../../src/map/points.js');
-  assert.deepEqual(clusterTextColorExpression(), [
+test('Crime cluster count scale adapts to the currently filtered point total', async () => {
+  const {
+    clusterColorExpression,
+    clusterCountBreaks,
+    clusterRadiusExpression,
+    clusterTextColorExpression,
+  } = await import('../../src/map/points.js');
+
+  assert.equal(clusterColorExpression(0), '#9cdcf6');
+  assert.equal(clusterRadiusExpression(0), 14);
+  assert.equal(clusterTextColorExpression(0), '#112');
+  assert.deepEqual(clusterCountBreaks(10_000), [10, 100, 1000]);
+  assert.deepEqual(clusterCountBreaks(16), [2, 4, 8]);
+  assert.deepEqual(clusterColorExpression(16), [
+    'step',
+    ['get', 'point_count'],
+    '#9cdcf6',
+    2, '#52b5e9',
+    4, '#2f83c9',
+    8, '#1f497b',
+  ]);
+  assert.deepEqual(clusterTextColorExpression(16), [
     'step',
     ['get', 'point_count'],
     '#112',
-    100,
+    8,
     '#fff',
   ]);
 });
