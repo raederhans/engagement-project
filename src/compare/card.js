@@ -16,10 +16,6 @@ function detailText(key, params = {}) {
   return escapeHtml(t(key, params));
 }
 
-function fmtPct(v) {
-  return v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
-}
-
 const DEFAULT_FETCHERS = {
   fetchCountBuffer,
   fetchTopTypesBuffer,
@@ -74,6 +70,7 @@ export function getLastComparisonSnapshot(filters) {
 }
 
 function formatDateRange(start, end) {
+  if (!start || !end) return t('summary.selectedWindow');
   const first = dayjs(start);
   const last = dayjs(end).subtract(1, 'day');
   if (!first.isValid() || !last.isValid()) return t('summary.selectedWindow');
@@ -102,6 +99,16 @@ function finiteMetric(value, formatter) {
     : detailText('summary.metricUnavailable');
 }
 
+function averagePer30Days(total, start, end) {
+  if (!start || !end) return null;
+  const first = dayjs(start);
+  const last = dayjs(end);
+  if (!first.isValid() || !last.isValid()) return null;
+  const days = last.diff(first, 'day', true);
+  if (!Number.isFinite(days) || days <= 0) return null;
+  return ((Number(total) || 0) * 30) / days;
+}
+
 function comparisonInsight(a, b) {
   const aTotal = Number(a?.total) || 0;
   const bTotal = Number(b?.total) || 0;
@@ -117,11 +124,10 @@ function comparisonInsight(a, b) {
   });
 }
 
-function renderCategoryList(point, fallbackLabel) {
-  const label = point?.label || fallbackLabel;
+function renderCategoryItems(point) {
   const total = Number(point?.total) || 0;
   const rows = Array.isArray(point?.top3) ? point.top3.slice(0, 3) : [];
-  const content = rows.length
+  return rows.length
     ? `<ol>${rows.map((row) => {
         const count = Math.max(0, Number(row?.n) || 0);
         const share = total > 0 ? Math.min(100, (count / total) * 100) : 0;
@@ -134,13 +140,17 @@ function renderCategoryList(point, fallbackLabel) {
         </li>`;
       }).join('')}</ol>`
     : `<p class="crime-comparison-categories__empty">${detailText('summary.noCategoryData')}</p>`;
+}
+
+function renderCategoryList(point, fallbackLabel) {
+  const label = point?.label || fallbackLabel;
   return `<section class="crime-comparison-categories__area">
     <h5>${escapeHtml(label)}</h5>
-    ${content}
+    ${renderCategoryItems(point)}
   </section>`;
 }
 
-function renderComparisonDetails(a, b) {
+function renderComparisonDetails(a, b, { start, end } = {}) {
   const aLabel = a?.label || t('summary.selectedArea');
   const bLabel = b?.label || t('summary.comparisonArea');
   const metricUnavailable = () => detailText('summary.metricUnavailable');
@@ -148,8 +158,8 @@ function renderComparisonDetails(a, b) {
   const totalB = Number(b?.total) || 0;
   const rateA = finiteMetric(a?.per10k, (value) => value.toFixed(1));
   const rateB = finiteMetric(b?.per10k, (value) => value.toFixed(1));
-  const trendA = a?.delta30 == null ? metricUnavailable() : fmtPct(Number(a.delta30));
-  const trendB = b?.delta30 == null ? metricUnavailable() : fmtPct(Number(b.delta30));
+  const averageA = finiteMetric(averagePer30Days(totalA, start, end), (value) => value.toFixed(1));
+  const averageB = finiteMetric(averagePer30Days(totalB, start, end), (value) => value.toFixed(1));
 
   return `<details class="crime-comparison-details">
     <summary>${detailText('summary.detailedComparison')}</summary>
@@ -165,7 +175,7 @@ function renderComparisonDetails(a, b) {
           <tbody>
             <tr><th scope="row">${detailText('summary.reportedMetric')}</th><td>${totalA}</td><td>${totalB}</td></tr>
             <tr><th scope="row">${detailText('summary.per10kMetric')}</th><td>${rateA}</td><td>${rateB}</td></tr>
-            <tr><th scope="row">${detailText('summary.recentChangeMetric')}</th><td>${trendA}</td><td>${trendB}</td></tr>
+            <tr><th scope="row">${detailText('summary.average30Metric')}</th><td>${averageA}</td><td>${averageB}</td></tr>
           </tbody>
         </table>
       </div>
@@ -199,7 +209,11 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
     return `<p class="crime-summary__empty" data-i18n="crime.summaryEmpty">${t('crime.summaryEmpty')}</p>`;
   }
   const topCategory = a.top3?.[0]?.text_general_code || t('summary.noCategory');
-  const coverageLabel = dayjs(coverageDate).isValid()
+  const average30 = averagePer30Days(a.total, start, end);
+  const average30Label = average30 == null
+    ? detailText('summary.metricUnavailable')
+    : localized('summary.average30Value', { count: average30.toFixed(1) });
+  const coverageLabel = coverageDate && dayjs(coverageDate).isValid()
     ? formatCalendarDate(coverageDate)
     : t('summary.latestDate');
   const comparison = b ? `
@@ -207,7 +221,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
       <h3 data-i18n="summary.areaComparison">${t('summary.areaComparison')}</h3>
       ${renderComparisonPoint(t('summary.selectedArea'), a)}
       ${renderComparisonPoint(t('summary.comparisonArea'), b)}
-      ${renderComparisonDetails(a, b)}
+      ${renderComparisonDetails(a, b, { start, end })}
     </div>` : '';
 
   return `
@@ -216,8 +230,12 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
       <h2 id="crime-summary-title">${localized('summary.reportedIncidents', { count: Number(a.total) || 0 })}</h2>
       <dl class="crime-summary__metrics">
         <div><dt data-i18n="summary.mostCommon">${t('summary.mostCommon')}</dt><dd>${escapeHtml(topCategory)}</dd></div>
-        <div><dt data-i18n="summary.last30">${t('summary.last30')}</dt><dd>${fmtPct(a.delta30)}</dd></div>
+        <div><dt data-i18n="summary.average30Metric">${t('summary.average30Metric')}</dt><dd>${average30Label}</dd></div>
       </dl>
+      <section class="crime-summary-categories" aria-label="${escapeHtml(t('summary.selectionCategories'))}" data-i18n-aria-label="summary.selectionCategories">
+        <h3 data-i18n="summary.selectionCategories">${t('summary.selectionCategories')}</h3>
+        ${renderCategoryItems(a)}
+      </section>
       <p class="crime-summary__context">${localized('summary.context', { range: formatDateRange(start, end), coverage: coverageLabel })}</p>
       <p class="crime-summary__notice" data-i18n="summary.notice">${t('summary.notice')}</p>
       ${comparison}
@@ -324,14 +342,9 @@ export async function updateCompare(
 
     const readPoint = async (pointCenter, label) => {
       if (!pointCenter) return null;
-      const end30 = dayjs(end);
-      const start30 = dayjs(end30).subtract(30, 'day').format('YYYY-MM-DD');
-      const prior30Start = dayjs(start30).subtract(30, 'day').format('YYYY-MM-DD');
-      const [total, topResponse, last30, prior30, population] = await Promise.all([
+      const [total, topResponse, population] = await Promise.all([
         compareFetchers.fetchCountBuffer({ start, end, types, center3857: pointCenter, radiusM, signal }),
         compareFetchers.fetchTopTypesBuffer({ start, end, types, center3857: pointCenter, radiusM, limit: 3, signal }),
-        compareFetchers.fetchCountBuffer({ start: start30, end, types, center3857: pointCenter, radiusM, signal }),
-        compareFetchers.fetchCountBuffer({ start: prior30Start, end: start30, types, center3857: pointCenter, radiusM, signal }),
         adminLevel === 'tracts'
           ? compareFetchers.estimatePopInBuffer({ center3857: pointCenter, radiusM, signal })
           : Promise.resolve({ pop: 0 }),
@@ -346,7 +359,7 @@ export async function updateCompare(
         total,
         per10k: adminLevel === 'tracts' && population.pop > 0 ? (total / population.pop) * 10000 : null,
         top3,
-        delta30: prior30 === 0 ? null : (last30 - prior30) / prior30,
+        delta30: null,
       };
     };
     const [a, b] = await Promise.all([

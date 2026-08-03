@@ -359,7 +359,11 @@ test('completed Crime analysis renders a compact trustworthy summary before deta
     a: {
       label: '1500 Market Street',
       total: 42,
-      top3: [{ text_general_code: 'Theft', n: 18 }],
+      top3: [
+        { text_general_code: 'Theft', n: 18 },
+        { text_general_code: 'Burglary', n: 9 },
+        { text_general_code: 'Robbery', n: 6 },
+      ],
       delta30: 0.125,
     },
     b: null,
@@ -372,11 +376,28 @@ test('completed Crime analysis renders a compact trustworthy summary before deta
   assert.match(html, /Analysis summary/i);
   assert.match(html, /42 reported incidents/i);
   assert.match(html, /Most common[\s\S]*Theft/i);
+  assert.match(html, /Average per 30 days[\s\S]*7\.0 incidents/i);
+  assert.match(html, /Top categories in this selection[\s\S]*Theft[\s\S]*18 · 42\.9%[\s\S]*Burglary[\s\S]*9 · 21\.4%/i);
   assert.match(html, /Jan 1[\s\S]*Jun 30, 2026/i);
   assert.match(html, /Data through Jul 31, 2026/i);
   assert.match(html, /Historical data, not a live safety alert/i);
+  assert.doesNotMatch(html, /Last 30 days|Recent 30-day change|-100\.0%/i);
   assert.doesNotMatch(html, /Compare A vs B/i);
   assert.doesNotMatch(html, /crime-comparison-details/i);
+});
+
+test('analysis summary names the latest available date when coverage metadata is absent', async () => {
+  const { buildCrimeSummaryHtml } = await import('../../src/compare/card.js');
+  const html = buildCrimeSummaryHtml({
+    a: { label: 'Point A', total: 1, top3: [], delta30: null },
+    b: null,
+  }, {
+    start: '2026-01-01',
+    end: '2026-02-01',
+  });
+
+  assert.match(html, /Data through latest available date/i);
+  assert.doesNotMatch(html, /Data through null/i);
 });
 
 test('two-area summary offers one detailed comparison submenu from existing metrics', async () => {
@@ -402,6 +423,9 @@ test('two-area summary offers one detailed comparison submenu from existing metr
       ],
       delta30: -0.05,
     },
+  }, {
+    start: '2026-01-01',
+    end: '2026-07-01',
   });
 
   assert.match(html, /<details[^>]*class="crime-comparison-details"/i);
@@ -410,7 +434,8 @@ test('two-area summary offers one detailed comparison submenu from existing metr
   assert.match(html, /<table[^>]*class="crime-comparison-table"/i);
   assert.match(html, /Reported incidents[\s\S]*42[\s\S]*30/i);
   assert.match(html, /Per 10,000 people[\s\S]*28\.0[\s\S]*20\.0/i);
-  assert.match(html, /Recent 30-day change[\s\S]*\+12\.5%[\s\S]*-5\.0%/i);
+  assert.match(html, /Average per 30 days[\s\S]*7\.0[\s\S]*5\.0/i);
+  assert.doesNotMatch(html, /Recent 30-day change|\+12\.5%|-5\.0%/i);
   assert.match(html, /Theft[\s\S]*18 · 42\.9%/i);
   assert.match(html, /Assault[\s\S]*12 · 40\.0%/i);
   assert.match(html, /descriptive historical comparison/i);
@@ -426,8 +451,9 @@ test('detailed comparison keeps unavailable metrics truthful and handles a zero 
   assert.match(html, /Point A recorded 8 more incidents than Point B/i);
   assert.doesNotMatch(html, /Infinity|NaN/);
   assert.match(html, /Per 10,000 people[\s\S]*Not available[\s\S]*Not available/i);
-  assert.match(html, /Recent 30-day change[\s\S]*Not available[\s\S]*Not available/i);
-  assert.equal((html.match(/Not available/g) || []).length, 4);
+  assert.match(html, /Average per 30 days[\s\S]*Not available[\s\S]*Not available/i);
+  assert.match(html, /Selected time window/i);
+  assert.equal((html.match(/Not available/g) || []).length, 5);
   assert.match(html, /No category data available/i);
 });
 
