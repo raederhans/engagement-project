@@ -16,6 +16,10 @@ import {
   writeJsonAtomic,
 } from '../lib/tract_crime_snapshot.mjs';
 import { fetchFirstValidTractSource } from '../lib/tract_source.mjs';
+import {
+  compactFeatureCollectionCoordinates,
+  compactPublishedGeoJson,
+} from '../lib/public_geojson_artifacts.mjs';
 import { runPrecompute } from '../precompute_tract_crime.mjs';
 import * as tractFetcher from '../fetch_tracts.mjs';
 
@@ -257,6 +261,55 @@ test('atomic JSON writing replaces the destination and leaves no temp file', asy
     '{\n  "rows": [\n    {\n      "geoid": "42101000100",\n      "n": 7\n    }\n  ]\n}\n',
   );
   assert.deepEqual(await readdir(directory), ['snapshot.json']);
+});
+
+test('published boundary compaction preserves feature truth while limiting coordinate precision', () => {
+  const source = {
+    type: 'FeatureCollection',
+    name: 'test-boundaries',
+    features: [{
+      type: 'Feature',
+      id: 'district-1',
+      properties: { code: '01', label: 'Central' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-75.123456789, 39.987654321],
+          [-75.12, 39.98],
+          [-75.123456789, 39.987654321],
+        ]],
+      },
+    }],
+  };
+
+  const compacted = compactFeatureCollectionCoordinates(source, { precision: 6 });
+
+  assert.notEqual(compacted, source);
+  assert.deepEqual(compacted.features[0].properties, source.features[0].properties);
+  assert.equal(compacted.features[0].id, 'district-1');
+  assert.deepEqual(compacted.features[0].geometry.coordinates[0][0], [-75.123457, 39.987654]);
+  assert.deepEqual(compacted.features[0].geometry.coordinates[0][2], [-75.123457, 39.987654]);
+});
+
+test('published GeoJSON compaction writes only declared dist artifacts', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'engagement-public-geojson-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const dataDir = path.join(directory, 'data');
+  await import('node:fs/promises').then(({ mkdir }) => mkdir(dataDir, { recursive: true }));
+  const destination = path.join(dataDir, 'tracts.geojson');
+  await writeFile(destination, JSON.stringify(tractCollection));
+
+  const results = await compactPublishedGeoJson({
+    distDir: directory,
+    artifacts: ['data/tracts.geojson'],
+    precision: 6,
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].relativePath, 'data/tracts.geojson');
+  assert.equal(results[0].featureCount, 2);
+  assert.deepEqual((await readdir(dataDir)).sort(), ['tracts.geojson']);
+  assert.equal(JSON.parse(await readFile(destination, 'utf8')).features.length, 2);
 });
 
 test('atomic JSON writing can keep large published GeoJSON compact', async (t) => {

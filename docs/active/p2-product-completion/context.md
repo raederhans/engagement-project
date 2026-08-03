@@ -17,12 +17,13 @@
 | 2026-08-03 | Integrate the five stacked product deliveries before splitting shared CSS or adding more overlapping UI. | Avoids turning existing semantic conflicts into cross-file extraction conflicts. |
 | 2026-08-03 | Preserve P1 behavior and visual contracts as admission gates for every P2 phase. | P2 cannot trade accessibility or truthfulness for new features. |
 | 2026-08-03 | Keep the product backend-free through P2. | Diary remains local-only and all shared/community/GPS capabilities stay out of scope. |
+| 2026-08-03 | Compact only the published boundary copies to six decimal places after each build. | Preserves readable source data and sub-meter fallback geometry while recovering about 720 KB of deployable budget instead of raising the 4 MB limit. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| None yet | root agent | n/a | Long tests and preview have not started. |
+| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete for the Chart Studio layer. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,284,167 bytes. The same single-owner contract will be reused after later P2 layers. |
 
 ## Handoff
 
@@ -32,4 +33,4 @@
 
 ## Next step
 
-Map the unique commits and semantic conflict surfaces for the five stacked deliveries, then integrate the comparison-detail layer first with its focused tests.
+Integrate incident details next, keeping point lifecycle and P1 notices under the current Crime controller.

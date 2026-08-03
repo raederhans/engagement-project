@@ -2,14 +2,14 @@
 
 ## Current status
 
-P2 execution is active. Comparison details and adaptive drilldown rows have been semantically replayed on current main without regressing the P1 class-based and accessibility contracts.
+P2 execution is active. Comparison and Chart Studio layers are admitted on current main; the chart presentation remains cache-only, bilingual, accessible, and within a newly recovered deployable-artifact budget.
 
 ## Checklist
 
 - [x] Verify `origin/main`, all worktrees, branch heads, dirt, and user-owned WIP.
 - [x] Create the isolated P2 integration worktree and branch.
 - [x] Integrate and verify PR #49 comparison details.
-- [ ] Integrate and verify PR #50 chart studio.
+- [x] Integrate and verify PR #50 chart studio.
 - [ ] Integrate and verify PR #51 incident details.
 - [ ] Integrate and verify PR #53 summary insights.
 - [ ] Integrate and verify PR #55 custom radius.
@@ -30,6 +30,8 @@ P2 execution is active. Comparison details and adaptive drilldown rows have been
 | Existing PR CI | PRs #49, #50, #51, #53, and #55 each report a successful `validate` check on their current head. |
 | P2 worktree | Clean `codex/p2-product-completion` created from current `origin/main`. |
 | Comparison integration | Detailed A/B metrics, truthful unavailable states, preserved disclosure state, and adaptive native drilldown rows pass `test:ui-p0`, `test:i18n`, and `test:p1-ui`; dynamic bars use class-owned native progress elements. |
+| Chart Studio integration | Indexed/count trends, count/share/Pareto categories, temporal views, insights, and cached display preferences pass 9 chart contracts plus the P0, P1, and bilingual gates. |
+| Artifact budget recovery | Build-only six-decimal boundary compaction preserves source data and published feature counts; `verify:bundle` passes at 3,284,167 bytes without increasing any budget. |
 
 ## Open risks and remaining work
 
