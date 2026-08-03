@@ -3,9 +3,9 @@
 ## Current truth
 
 - Repository: `raederhans/engagement-project`.
-- Working branch: `codex/bilingual-localization@3860e44`, matching `origin/codex/bilingual-localization@3860e44` before the final review-fix commit.
-- P1 handoff: `origin/codex/p1-ui@614e88c`, with runtime commit `966ffaa`; both P1 and localization independently descend from `origin/main@f956ab2`.
-- P0 UI runtime commits were merged by PR #39 as `8ac7001`; P0 records were archived by PR #40 as `f956ab2`. Current local HEAD and `origin/main` both point to `f956ab2`.
+- Final localization branch: `codex/bilingual-localization@65ac92f`; PR #42 merged it into P1 as `b4168d6`, and PR #41 merged the combined delivery into `main@5985b71`.
+- Final P1 branch: `origin/codex/p1-ui@f21e482`, with runtime commit `966ffaa`; PR #42 merged localization as `b4168d6` before the final task-record commit.
+- P0 UI runtime commits were merged by PR #39 as `8ac7001`; P0 records were archived by PR #40 as `f956ab2`, which was the shared base for P1 and localization before final integration.
 - The only unrelated dirty file is `.gitignore`; it is not owned by this task and must not be staged or committed.
 - The application is vanilla JavaScript with Vite and MapLibre; localization remains framework-free and dependency-free.
 - Existing UI contracts are Node tests under `scripts/tests/`, and `npm run validate` is the repository-wide gate.
@@ -31,6 +31,8 @@
 | 2026-08-03 | Treat language changes as presentation refreshes, not business-action replays. | Diary simulator/camera state, pending rating submissions, comparison results, chart outcomes, and cached data survive a language switch without resets, duplicate writes, refetches, or stale-result resurrection. |
 | 2026-08-03 | Keep app-language listeners in a stable module-level registry across controller initialization. | Subscribers registered before app startup remain active, while replaced controllers are disconnected and cannot publish duplicate or stale language changes. |
 | 2026-08-03 | Move chart-only copy into the existing Charts lazy boundary rather than raising the P1 translation budget. | Reader-visible chart labels are bilingual and the established bundle limits remain unchanged. |
+| 2026-08-03 | Merge PR #42 into P1, then merge PR #41 into `main` only after exact-head validation. | The bilingual layer and P1 behavior landed with reviewable ordinary merge history. |
+| 2026-08-03 | Verify main CI, Pages, and the public Crime/Diary experience in both languages. | The localization task satisfies its runtime, documentation, deployment, and accessibility acceptance criteria. |
 
 ## Live process ownership
 
@@ -43,6 +45,7 @@
 | P1 reconciliation validation | root | command output captured in the task run | Complete with both feature flags: demo and 408-tract data checks, all test groups, production build, and bundle policy passed. |
 | Browser smoke | root | task-owned port 4173 | Complete against the feature-enabled production build; Diary live state and Crime locale refresh passed with `consoleErrors=0` and `pageErrors=0`; owned server stopped. |
 | Dependency audit | root | command output captured in the task run | Complete: `npm audit --audit-level=high` found 0 vulnerabilities. |
+| Public Pages verification | root | `https://raederhans.github.io/engagement-project/` | Complete after main CI and Pages: English/Chinese Crime and Diary, mobile overflow, console errors, and page errors passed. |
 
 ## Handoff
 
@@ -52,4 +55,4 @@
 
 ## Next step
 
-PR #42 passed exact-head CI run `30796767554` and merged into `codex/p1-ui` as `b4168d6`. Complete PR #41 exact-head CI and production integration before archiving this record.
+Archive this completed record together with the P1 record and synchronize the worktree registry through a docs-only closeout PR.

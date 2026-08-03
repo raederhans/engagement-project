@@ -2,17 +2,17 @@
 
 ## Current truth
 
-- Primary checkout: `C:/Users/raede/Desktop/dev/engagement_project`, branch `codex/bilingual-localization@65ac92f`, pushed to the matching remote branch; only an unrelated user-owned `.gitignore` remains dirty.
-- Isolated P1 checkout: `C:/Users/raede/Desktop/dev/engagement_project-p1-ui`, branch `codex/p1-ui@b4168d6`, matching its remote after PR #42 merged the complete bilingual layer; Draft PR #41 targets `main`.
+- Primary checkout: `C:/Users/raede/Desktop/dev/engagement_project`, branch `codex/bilingual-localization@65ac92f`; only an unrelated user-owned `.gitignore` remains dirty.
+- Closeout checkout: `C:/Users/raede/Desktop/dev/engagement_project-p1-ui`, branch `codex/p1-localization-closeout` from `origin/main@5985b71` after PR #41 merged the final P1 head.
 - P0 UI is merged and publicly verified. Its shell, responsive sheet, mode ownership, progressive details, and staged Diary rating are protected behavior.
 - Product-integrity P1 features already present include A/B comparison, share/restore, export, data-source infrastructure, IndexedDB My Routes, and Sample Community read-only semantics.
-- P1-1 through P1-4 and the bilingual UI are integrated on one review head. The remaining work is exact-head CI, main merge, Pages deployment, public verification, and task-record archival.
+- P1-1 through P1-4 and the bilingual UI are integrated on `main`, with CI, Pages, and public desktop/mobile bilingual verification complete. Only task-record archival remains.
 
 ## Decisions and deviations
 
 | Time | Evidence or decision | Impact |
 | --- | --- | --- |
-| 2026-08-03 | The primary checkout contains uncommitted localization work across nearly every P1 hotspot. | P1 implementation is isolated in a separate worktree and will rebase after localization is committed. |
+| 2026-08-03 | The primary checkout contains uncommitted localization work across nearly every P1 hotspot. | P1 implementation is isolated in a separate worktree so later integration can preserve both owners without touching the dirty checkout. |
 | 2026-08-03 | The user requested P1-1 through P1-4 in order. | Stages are sequential; each stage gets failing tests and targeted verification before the next begins. |
 | 2026-08-03 | Existing Vite, MapLibre, public API, and browser-local persistence contracts are already verified. | No framework, dependency, backend, or major map-runtime change is permitted. |
 | 2026-08-03 | P1-1 through P1-4 reached targeted green in sequence. | The remaining work is combined-diff validation, browser evidence, independent review, and Git integration only. |
@@ -21,6 +21,8 @@
 | 2026-08-03 | Runtime commit `966ffaa` was pushed and Draft PR `#41` opened. | The delivery is reviewable but intentionally not mergeable as a completed product until Stage 6. |
 | 2026-08-03 | PR #42 passed two independent reviews and exact-head CI, then merged by ordinary merge commit `b4168d6`. | P1 behavior and complete English/Chinese copy now share one history without rebase or force-push. |
 | 2026-08-03 | The combined P1 head passed feature-enabled full validation, browser smoke, bundle policy, and dependency audit. | PR #41 can advance after its exact-head GitHub `validate` succeeds. |
+| 2026-08-03 | PR #41 exact-head CI passed and ordinary merge commit `5985b71` landed on `main`. | The complete P1 and localization delivery is now the repository baseline. |
+| 2026-08-03 | Main CI `30797232222`, Pages `30797232104`, and public Crime/Diary bilingual smoke passed. | Stage 6 is complete and both active records can be archived. |
 
 ## Live process ownership
 
@@ -42,4 +44,4 @@ Shared validation resources are limited to this worktree's `node_modules/`, `dis
 
 ## Next step
 
-Wait for PR #41 exact-head CI on `b4168d6`, update the final integration record, then merge to `main` and verify main CI, Pages, and the public bilingual Crime/Diary experience.
+Archive this record together with the bilingual-localization record and synchronize the worktree registry through a docs-only closeout PR.
