@@ -147,13 +147,13 @@ function createDefaultCompareView(context = {}) {
     error(error) {
       if (savedComparisonActive) return;
       render(() => {
-        element.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">${localized('summary.failed', { message: error?.message || error })}</div>`;
+        element.innerHTML = `<div class="crime-summary__status crime-summary__status--error">${localized('summary.failed', { message: error?.message || error })}</div>`;
         applyTranslations(element);
       });
     },
     empty(message, key = null) {
       render(() => {
-        element.innerHTML = `<div style="font:12px system-ui;color:#64748b">${escapeHtml(key ? t(key) : message)}</div>`;
+        element.innerHTML = `<div class="crime-summary__status crime-summary__status--empty">${escapeHtml(key ? t(key) : message)}</div>`;
       });
     },
   };

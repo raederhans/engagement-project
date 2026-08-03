@@ -3,6 +3,8 @@ import { categoryColorPairs } from '../utils/types.js';
 import { setTranslatedText } from '../i18n/index.js';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fit.js';
 
+const noticeActionHandlers = new WeakMap();
+
 function project3857(lon, lat) {
   const R = 6378137;
   const x = R * (lon * Math.PI / 180);
@@ -189,10 +191,10 @@ export async function refreshPoints(map, {
   const existsUnclustered = !!map.getLayer(unclusteredId);
   if (tooMany) {
     if (existsUnclustered) map.removeLayer(unclusteredId);
-    ensureBanner('map.tooManyPoints');
+    ensurePointsNotice({ map, key: 'map.tooManyPoints' });
   } else {
     if (count === 0) {
-      ensureBanner('map.noPointIncidents');
+      ensurePointsNotice({ map, key: 'map.noPointIncidents' });
       if (existsUnclustered) map.removeLayer(unclusteredId);
       return;
     }
@@ -228,19 +230,51 @@ export function clearCrimePoints(map) {
   hideBanner();
 }
 
-function ensureBanner(key) {
-  let el = document.getElementById('banner');
+export function ensurePointsNotice({
+  documentRef = globalThis.document,
+  map,
+  key,
+  prefersReducedMotion: motionPreference = defaultPrefersReducedMotion,
+} = {}) {
+  let el = documentRef?.getElementById?.('banner');
   if (!el) {
-    el = document.createElement('div');
+    el = documentRef?.createElement?.('div');
+    if (!el) return null;
     el.id = 'banner';
-    Object.assign(el.style, {
-      background: 'rgba(255, 247, 233, 0.95)', color: '#7c2d12', padding: '8px 12px',
-      border: '1px solid #facc15', borderRadius: '6px', zIndex: 30, font: '13px/1.4 system-ui, sans-serif'
-    });
-    document.body.appendChild(el);
+    el.className = 'points-notice';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+
+    const message = documentRef.createElement('span');
+    message.className = 'points-notice__message';
+    el.appendChild(message);
+
+    const action = documentRef.createElement('button');
+    action.type = 'button';
+    action.className = 'points-notice__action';
+    setTranslatedText(action, 'map.zoomIn');
+    el.appendChild(action);
+    documentRef.body?.appendChild?.(el);
   }
-  setTranslatedText(el, key);
+
+  const message = el.querySelector?.('.points-notice__message');
+  setTranslatedText(message, key);
+  const action = el.querySelector?.('.points-notice__action');
+  const actionable = key === 'map.tooManyPoints' && typeof map?.zoomIn === 'function';
+  if (action) {
+    action.hidden = !actionable;
+    const previousHandler = noticeActionHandlers.get(action);
+    if (previousHandler) action.removeEventListener('click', previousHandler);
+    if (actionable) {
+      const clickHandler = () => map.zoomIn({ duration: motionPreference() ? 0 : 300 });
+      noticeActionHandlers.set(action, clickHandler);
+      action.addEventListener('click', clickHandler);
+    } else {
+      noticeActionHandlers.delete(action);
+    }
+  }
   el.style.display = 'block';
+  return el;
 }
 
 function hideBanner() {

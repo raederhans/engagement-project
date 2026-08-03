@@ -1,5 +1,5 @@
-import './style.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import './style.css';
 import { initializeTranslations } from './i18n/index.js';
 import { initMap } from './map/initMap.js';
 import { setAnalysisMode, store, setViewMode, onViewModeChange } from './state/store.js';
@@ -11,6 +11,7 @@ import {
 import { initAboutPanel } from './ui/about.js';
 import { initLanguageSwitch } from './ui/language_switch.js';
 import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfaces.js';
+import { setSheetState } from './ui/sheet_controller.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
 import {
@@ -39,7 +40,22 @@ const diaryInsightsLoader = createDiaryInsightsLoader({
   },
   createHost: (module, root) => module.createDiaryInsightsHost(
     root,
-    (expanded) => expanded && coordinator?.fitCurrentDiarySelection(),
+    (expanded) => {
+      if (!expanded) return;
+      coordinator?.fitCurrentDiarySelection();
+      const compactLayout = window.matchMedia(
+        '(max-width: 720px), (max-width: 900px) and (orientation: landscape)',
+      ).matches;
+      if (!compactLayout) return;
+      const sheet = document.getElementById('sidepanel');
+      if (sheet) setSheetState(sheet, 'full');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.requestAnimationFrame(() => root.scrollIntoView({
+        block: 'start',
+        inline: 'nearest',
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      }));
+    },
   ),
 });
 

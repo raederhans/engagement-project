@@ -318,19 +318,20 @@ test('comparison controls stay hidden until the user asks for another area', asy
   const fields = {
     hidden: true,
     setAttribute(name, value) { attributes.set(`fields:${name}`, value); },
+    removeAttribute(name) { attributes.delete(`fields:${name}`); },
   };
 
   setComparisonFieldsVisible({ button, fields }, true);
   assert.equal(fields.hidden, false);
   assert.equal(button.textContent, 'Remove comparison');
   assert.equal(attributes.get('aria-expanded'), 'true');
-  assert.equal(attributes.get('fields:aria-hidden'), 'false');
+  assert.equal(attributes.has('fields:aria-hidden'), false);
 
   setComparisonFieldsVisible({ button, fields }, false);
   assert.equal(fields.hidden, true);
   assert.equal(button.textContent, 'Compare another area');
   assert.equal(attributes.get('aria-expanded'), 'false');
-  assert.equal(attributes.get('fields:aria-hidden'), 'true');
+  assert.equal(attributes.has('fields:aria-hidden'), false);
 });
 
 test('the default Crime basemap is visually muted behind analytical overlays', async () => {

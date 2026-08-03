@@ -33,7 +33,7 @@ export function setComparisonFieldsVisible({ button, fields }, visible) {
   const expanded = Boolean(visible);
   if (fields) {
     fields.hidden = !expanded;
-    fields.setAttribute('aria-hidden', String(!expanded));
+    fields.removeAttribute?.('aria-hidden');
   }
   if (button) {
     setTranslatedText(button, expanded ? 'crime.compareRemove' : 'crime.compareAdd');
@@ -92,10 +92,8 @@ export function initPanel(store, handlers) {
   if (!diaryShell) {
     diaryShell = document.createElement('div');
     diaryShell.dataset.panelView = 'diary';
+    diaryShell.className = 'panel-view panel-view--diary';
     diaryShell.style.display = 'none';
-    diaryShell.style.font = 'inherit';
-    diaryShell.style.color = '#0f172a';
-    diaryShell.style.padding = '4px 0 8px';
     panelContentRoot.appendChild(diaryShell);
   } else {
     diaryShell.innerHTML = '';
@@ -136,11 +134,11 @@ export function initPanel(store, handlers) {
   toggleGroup.appendChild(diaryBtn);
 
   diaryShell.innerHTML = `
-    <div data-i18n="diary.title" style="font:600 14px/1.2 system-ui;margin-bottom:8px;">${t('diary.title')}</div>
-    <div data-i18n="diary.placeholderRoute" style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#f8fafc;color:#475569;font-size:12px;">
+    <div class="panel-view__title" data-i18n="diary.title">${t('diary.title')}</div>
+    <div class="panel-placeholder panel-placeholder--route" data-i18n="diary.placeholderRoute">
       ${t('diary.placeholderRoute')}
     </div>
-    <div data-i18n="diary.placeholderActions" style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;background:#fefce8;color:#854d0e;font-size:12px;">
+    <div class="panel-placeholder panel-placeholder--actions" data-i18n="diary.placeholderActions">
       ${t('diary.placeholderActions')}
     </div>
   `;
@@ -204,12 +202,12 @@ export function initPanel(store, handlers) {
   const dataDetails = document.querySelector('.data-details');
   const sourceScopeEl = document.createElement('div');
   sourceScopeEl.dataset.appSourceDetails = '';
-  sourceScopeEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
+  sourceScopeEl.className = 'data-details__meta';
   setTranslatedText(sourceScopeEl, 'app.connecting');
   dataDetails?.appendChild(sourceScopeEl);
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
-  hudEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
+  hudEl.className = 'data-details__meta';
   dataDetails?.appendChild(hudEl);
   // Choropleth controls
   const classMethodSel = document.getElementById('classMethodSel');
@@ -261,13 +259,13 @@ export function initPanel(store, handlers) {
       store.selectTarget = target;
       if (target === 'A' && useCenterBtn) setTranslatedText(useCenterBtn, 'crime.cancel');
       if (target === 'B' && usePointBBtn) setTranslatedText(usePointBBtn, 'crime.cancel');
-      if (useMapHint) useMapHint.style.display = 'block';
+      useMapHint?.classList.remove('is-hidden');
       document.body.style.cursor = 'crosshair';
     } else {
       store.selectMode = 'idle';
       if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
       if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
-      if (useMapHint) useMapHint.style.display = 'none';
+      useMapHint?.classList.add('is-hidden');
       document.body.style.cursor = '';
     }
   }
@@ -281,8 +279,8 @@ export function initPanel(store, handlers) {
     const draft = input.value.trim();
     button?.setAttribute('disabled', '');
     if (addressStatus) {
-      addressStatus.style.display = 'block';
-      addressStatus.style.color = '#475569';
+      addressStatus.classList.remove('is-hidden');
+      addressStatus.dataset.tone = 'pending';
       setTranslatedText(addressStatus, 'crime.findingPoint', { target });
     }
     try {
@@ -294,7 +292,7 @@ export function initPanel(store, handlers) {
       input.value = result.address;
       store.setComparisonPoint(target, ...result.lngLat, result.address);
       if (addressStatus) {
-        addressStatus.style.color = '#065f46';
+        addressStatus.dataset.tone = 'ready';
         setTranslatedText(addressStatus, 'crime.pointResolved', { target, address: result.address });
       }
       onChange.cancel();
@@ -303,7 +301,7 @@ export function initPanel(store, handlers) {
       onChange();
     } catch (error) {
       if (addressStatus) {
-        addressStatus.style.color = '#991b1b';
+        addressStatus.dataset.tone = 'error';
         addressStatus.removeAttribute('data-i18n');
         delete addressStatus.dataset.i18nParams;
         addressStatus.textContent = error?.message || String(error);
@@ -399,7 +397,7 @@ export function initPanel(store, handlers) {
   function syncClassUI() {
     if (classBinsVal) classBinsVal.textContent = String(store.classBins || 5);
     if (classOpacityVal) classOpacityVal.textContent = String((store.classOpacity || 0.75).toFixed(2));
-    if (classCustomRow) classCustomRow.style.display = (store.classMethod === 'custom') ? '' : 'none';
+    classCustomRow?.classList.toggle('is-hidden', store.classMethod !== 'custom');
   }
   classMethodSel?.addEventListener('change', () => {
     store.classMethod = classMethodSel.value;
@@ -426,8 +424,8 @@ export function initPanel(store, handlers) {
     const isBuffer = mode === 'buffer';
     if (bufferSelectRow) bufferSelectRow.style.display = isBuffer ? '' : 'none';
     if (bufferRadiusRow) bufferRadiusRow.style.display = isBuffer ? '' : 'none';
-    if (useMapHint) useMapHint.style.display = (isBuffer && store.selectMode === 'point') ? 'block' : 'none';
-    if (clearSelBtn) clearSelBtn.style.display = isBuffer ? 'none' : '';
+    useMapHint?.classList.toggle('is-hidden', !(isBuffer && store.selectMode === 'point'));
+    clearSelBtn?.classList.toggle('is-hidden', isBuffer);
     if (rateRow) rateRow.style.display = mode === 'tract' ? 'flex' : 'none';
     if (rateSel) rateSel.disabled = mode !== 'tract';
     if (compareAreaBtn) compareAreaBtn.style.display = isBuffer ? '' : 'none';
@@ -462,7 +460,7 @@ export function initPanel(store, handlers) {
       store.selectMode = 'idle';
       if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
       if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
-      if (useMapHint) useMapHint.style.display = 'none';
+      useMapHint?.classList.add('is-hidden');
       document.body.style.cursor = '';
     }
   });
@@ -643,8 +641,6 @@ export function initPanel(store, handlers) {
       dataStatus.removeAttribute('data-i18n');
       delete dataStatus.dataset.i18nParams;
       dataStatus.textContent = status.text;
-      dataStatus.style.background = status.tone === 'error' ? '#fef2f2' : status.tone === 'ready' ? '#ecfdf5' : '#f1f5f9';
-      dataStatus.style.color = status.tone === 'error' ? '#991b1b' : status.tone === 'ready' ? '#065f46' : '#475569';
     }
     const exportReady = store.coverageStatus === 'ready';
     if (exportJsonBtn) exportJsonBtn.disabled = !exportReady;

@@ -83,19 +83,22 @@ test('step validation allows saving from Details but still enforces one to three
 });
 
 test('rating modal source keeps the accessibility and responsive layout contracts', async () => {
-  const source = await readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8');
+  const [source, css] = await Promise.all([
+    readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+  ]);
 
   assert.match(source, /role', 'dialog'/);
   assert.match(source, /aria-modal', 'true'/);
   assert.match(source, /aria-labelledby'/);
   assert.match(source, /rating\.step/);
-  assert.match(source, /position:\s*sticky/);
-  assert.match(source, /min-(?:width|height):\s*48px/);
-  assert.match(source, /@media \(max-width: 640px\)/);
-  assert.match(source, /width:\s*100vw/);
-  assert.match(source, /height:\s*100dvh/);
   assert.match(source, /backdrop\.appendChild\(modal\)/);
   assert.doesNotMatch(source, /document\.body\.appendChild\(modal\)/);
+  assert.doesNotMatch(source, /injectModalStyles|document\.createElement\(['"]style['"]\)/);
+  assert.match(css, /\.diary-modal-footer\s*\{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.diary-modal-(?:close|footer button)[^{]*\{[^}]*min-(?:width|height):\s*48px/s);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.diary-modal-card\s*\{[^}]*width:\s*100vw[^}]*height:\s*100dvh/s);
+  assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
 
 test('rating modal manages focus, background inertness, and radio semantics', async () => {

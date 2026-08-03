@@ -458,29 +458,12 @@ function ensureDiaryPanel(routes, options = {}) {
     const panel = mountTarget || document.createElement('div');
     if (!mountTarget) {
       panel.id = 'diary-route-panel';
-      panel.style.position = 'absolute';
-      panel.style.top = '88px';
-      panel.style.left = '24px';
-      panel.style.width = '280px';
-      panel.style.zIndex = '20';
-      panel.style.background = 'rgba(255,255,255,0.95)';
-      panel.style.border = '1px solid #e5e7eb';
-      panel.style.borderRadius = '12px';
-      panel.style.boxShadow = '0 10px 30px rgba(15,23,42,0.08)';
-      panel.style.padding = '16px';
-      panel.style.font = '13px/1.4 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      panel.style.color = '#0f172a';
+      panel.className = 'diary-panel-shell diary-panel-shell--floating';
       panel.setAttribute('data-diary-floating', 'true');
       document.body.appendChild(panel);
       diaryPanelFloating = true;
     } else {
-      panel.style.position = 'relative';
-      panel.style.background = '#fff';
-      panel.style.border = '1px solid #e2e8f0';
-      panel.style.borderRadius = '12px';
-      panel.style.padding = '16px';
-      panel.style.boxShadow = 'inset 0 0 0 1px rgba(148,163,184,0.2)';
-      panel.style.minHeight = '220px';
+      panel.classList.add('diary-panel-shell', 'diary-panel-shell--embedded');
       diaryPanelFloating = false;
     }
     diaryPanelEl = panel;
@@ -490,15 +473,12 @@ function ensureDiaryPanel(routes, options = {}) {
   diaryPanelEl.classList.add('diary-panel-shell');
 
   const title = document.createElement('div');
-  title.style.display = 'flex';
-  title.style.flexDirection = 'column';
-  title.style.gap = '2px';
+  title.className = 'diary-panel-heading';
   const titleText = document.createElement('h3');
   setTranslatedText(titleText, 'diary.demoTitle');
   const subtitle = document.createElement('div');
+  subtitle.className = 'diary-panel-subtitle';
   setTranslatedText(subtitle, 'diary.demoSubtitle');
-  subtitle.style.color = '#6b7280';
-  subtitle.style.fontSize = '12px';
   title.appendChild(titleText);
   title.appendChild(subtitle);
   diaryPanelEl.appendChild(title);
@@ -649,6 +629,12 @@ function ensureDiaryPanel(routes, options = {}) {
       altToggleEl = refs.altToggleEl || null;
       altSummaryEl = refs.altSummaryEl || null;
       panelNoticeEl = refs.panelNoticeEl || null;
+      if (panelNoticeEl) {
+        panelNoticeEl.classList.add('diary-panel-notice');
+        panelNoticeEl.setAttribute('role', 'status');
+        panelNoticeEl.setAttribute('aria-live', 'polite');
+        panelNoticeEl.setAttribute('aria-atomic', 'true');
+      }
       playButtonEl = refs.playButtonEl || null;
       pauseButtonEl = refs.pauseButtonEl || null;
       finishButtonEl = refs.finishButtonEl || null;
@@ -778,16 +764,16 @@ function renderRouteSummary(route) {
   }
   const model = createRouteSummaryModel(route);
   const pieces = [
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.from)}</div>`,
-    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">${escapeHtml(t('diary.to'))}</div>`,
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.to)}</div>`,
+    `<div class="diary-route-summary__place">${escapeHtml(model.from)}</div>`,
+    `<div class="diary-route-summary__separator">${escapeHtml(t('diary.to'))}</div>`,
+    `<div class="diary-route-summary__place">${escapeHtml(model.to)}</div>`,
   ];
   summaryStripEl.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;">${pieces.join('')}</div>
-    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.mode)}</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.distance)}</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(model.duration)}</span>
+    <div class="diary-route-summary__path">${pieces.join('')}</div>
+    <div class="diary-route-summary__meta">
+      <span class="diary-chip diary-chip--neutral">${escapeHtml(model.mode)}</span>
+      <span class="diary-chip diary-chip--neutral">${escapeHtml(model.distance)}</span>
+      <span class="diary-chip diary-chip--neutral">${escapeHtml(model.duration)}</span>
     </div>`;
 }
 
@@ -807,8 +793,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     routeSelectEl.value = routeId;
   }
   if (rateButtonEl) {
-    rateButtonEl.disabled = false;
-    rateButtonEl.style.opacity = '1';
+    setDisabledState(rateButtonEl, false);
   }
   if (mapRef) {
     const isCommunity = store.diaryViewMode === 'community';
@@ -1040,13 +1025,13 @@ function renderAltSummary(route, altInfo) {
   const tradeoff = describeAlternativeTradeoff(summary);
   altSummaryEl.replaceChildren();
   const benefit = document.createElement('div');
-  benefit.style.cssText = 'font-weight:600;color:#0f172a;font-size:12px;';
+  benefit.className = 'diary-alternative-summary__benefit';
   benefit.textContent = tradeoff.benefit;
   const cost = document.createElement('div');
-  cost.style.cssText = 'font-size:12px;color:#334155;margin-top:2px;';
+  cost.className = 'diary-alternative-summary__cost';
   cost.textContent = tradeoff.cost;
   const caveat = document.createElement('div');
-  caveat.style.cssText = 'font-size:12px;color:#64748b;margin-top:4px;';
+  caveat.className = 'diary-alternative-summary__caveat';
   caveat.textContent = tradeoff.caveat;
   altSummaryEl.append(benefit, cost, caveat);
 }
@@ -1274,21 +1259,23 @@ export function teardownDiaryTransient(
 function updateSimButtons() {
   const hasRoute = Boolean(currentRoute);
   if (playButtonEl) {
-    playButtonEl.disabled = !hasRoute || (sim.active && !sim.paused);
-    playButtonEl.style.opacity = playButtonEl.disabled ? '0.6' : '1';
+    setDisabledState(playButtonEl, !hasRoute || (sim.active && !sim.paused));
   }
   if (pauseButtonEl) {
-    pauseButtonEl.disabled = !hasRoute || !sim.hasStarted || sim.paused;
-    pauseButtonEl.style.opacity = pauseButtonEl.disabled ? '0.6' : '1';
+    setDisabledState(pauseButtonEl, !hasRoute || !sim.hasStarted || sim.paused);
   }
   if (finishButtonEl) {
-    finishButtonEl.disabled = !hasRoute || !sim.hasStarted;
-    finishButtonEl.style.opacity = finishButtonEl.disabled ? '0.6' : '1';
+    setDisabledState(finishButtonEl, !hasRoute || !sim.hasStarted);
   }
   if (rateButtonEl) {
-    rateButtonEl.disabled = !hasRoute;
-    rateButtonEl.style.opacity = rateButtonEl.disabled ? '0.6' : '1';
+    setDisabledState(rateButtonEl, !hasRoute);
   }
+}
+
+function setDisabledState(element, disabled) {
+  if (!element) return;
+  element.disabled = Boolean(disabled);
+  element.classList?.toggle?.('is-disabled', element.disabled);
 }
 
 function hydrateSimulatorFromPrefs() {
@@ -1337,18 +1324,11 @@ function showToast(message, duration = 2600) {
     }
   }
   const wrapper = document.createElement('div');
+  wrapper.className = 'toast diary-toast';
+  wrapper.setAttribute('role', 'status');
+  wrapper.setAttribute('aria-live', 'polite');
+  wrapper.setAttribute('aria-atomic', 'true');
   wrapper.textContent = message;
-  wrapper.style.position = 'fixed';
-  wrapper.style.top = '24px';
-  wrapper.style.left = '50%';
-  wrapper.style.transform = 'translateX(-50%)';
-  wrapper.style.background = '#0f172a';
-  wrapper.style.color = '#fff';
-  wrapper.style.padding = '10px 16px';
-  wrapper.style.borderRadius = '999px';
-  wrapper.style.boxShadow = '0 12px 30px rgba(15,23,42,0.25)';
-  wrapper.style.font = '13px/1.4 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  wrapper.style.zIndex = '2000';
   document.body.appendChild(wrapper);
   toastEl = wrapper;
   const session = currentDiarySession;
@@ -1364,13 +1344,8 @@ function showToast(message, duration = 2600) {
 
 function showPanelNotice(message, tone = 'success', duration = 3000) {
   if (!panelNoticeEl) return;
-  const palette = tone === 'error'
-    ? { bg: '#fee2e2', fg: '#991b1b' }
-    : tone === 'info'
-      ? { bg: '#eff6ff', fg: '#1e3a8a' }
-      : { bg: '#ecfdf5', fg: '#065f46' };
-  panelNoticeEl.style.background = palette.bg;
-  panelNoticeEl.style.color = palette.fg;
+  panelNoticeEl.classList.remove('is-error', 'is-info', 'is-success');
+  panelNoticeEl.classList.add(`is-${tone === 'error' || tone === 'info' ? tone : 'success'}`);
   panelNoticeEl.textContent = message;
   panelNoticeEl.style.display = 'block';
   if (panelNoticeTimer) {

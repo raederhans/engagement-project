@@ -414,13 +414,13 @@ export async function initCrimeMode(map, {
     if (centerLonLat) {
       markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
       markerA.setLngLat(centerLonLat).addTo(map);
-      localizeMapMarker(markerA);
+      localizeMapMarker(markerA, { labelKey: 'map.markerA' });
       upsertBufferA(map, { centerLonLat, radiusM });
     }
     if (centerBLonLat) {
       markerB ||= createMapMarker({ color: '#0a6c74', className: 'analysis-marker analysis-marker--b' });
       markerB.setLngLat(centerBLonLat).addTo(map);
-      localizeMapMarker(markerB);
+      localizeMapMarker(markerB, { labelKey: 'map.markerB' });
       upsertBufferB(map, { centerLonLat: centerBLonLat, radiusM });
     }
   }

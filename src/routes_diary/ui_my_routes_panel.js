@@ -1,5 +1,5 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
-import { setTranslatedText, t } from '../i18n/index.js';
+import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 import { formatCalendarDate } from '../i18n/date.js';
 
 export function refreshMyRoutesDates(root) {
@@ -13,12 +13,11 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   const { period = '30d', mode = 'all', routes = [] } = state;
 
   const filters = document.createElement('div');
-  filters.style.display = 'flex';
-  filters.style.gap = '8px';
-  filters.style.marginBottom = '10px';
+  filters.className = 'diary-route-filters';
 
   const periodSelect = document.createElement('select');
   periodSelect.className = 'diary-select';
+  setTranslatedAttribute(periodSelect, 'diary.periodFilter', 'aria-label');
   ['30d', '7d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
@@ -31,6 +30,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
 
   const modeSelect = document.createElement('select');
   modeSelect.className = 'diary-select';
+  setTranslatedAttribute(modeSelect, 'diary.modeFilter', 'aria-label');
   [
     { value: 'all', key: 'diary.allModes' },
     { value: 'walk', key: 'diary.walk' },
@@ -77,9 +77,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   historyCard.appendChild(historyTitle);
 
   const list = document.createElement('div');
-  list.style.display = 'flex';
-  list.style.flexDirection = 'column';
-  list.style.gap = '8px';
+  list.className = 'diary-route-history-list';
   historyCard.appendChild(list);
 
   if (!routes.length) {
@@ -106,22 +104,16 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
     row.setAttribute('data-id', item.id);
     row.addEventListener('click', () => handlers.onSelect?.(item));
     const left = document.createElement('div');
-    left.style.display = 'flex';
-    left.style.flexDirection = 'column';
-    left.style.gap = '2px';
+    left.className = 'diary-history-item__details';
     const date = document.createElement('div');
-    date.style.fontSize = '12px';
-    date.style.color = '#6b7280';
+    date.className = 'diary-history-item__date';
     date.dataset.diaryDate = item.createdAt;
     date.textContent = formatCalendarDate(item.createdAt, { includeYear: false }) || item.date;
     const label = document.createElement('div');
-    label.style.fontSize = '13px';
-    label.style.fontWeight = '600';
-    label.style.color = '#0f172a';
+    label.className = 'diary-history-item__label';
     label.textContent = item.label;
     const modeLabel = document.createElement('div');
-    modeLabel.style.fontSize = '12px';
-    modeLabel.style.color = '#475569';
+    modeLabel.className = 'diary-history-item__mode';
     setTranslatedText(modeLabel, item.mode === 'bike' ? 'diary.bikeWithIcon' : 'diary.walkWithIcon');
     left.appendChild(date);
     left.appendChild(label);

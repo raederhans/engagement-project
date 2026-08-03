@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import { MAP_STYLES, resolveMapStyle } from '../config.js';
 import { setTranslatedAttribute } from '../i18n/index.js';
+import { prefersReducedMotion } from './camera_fit.js';
 
 const DEFAULT_CENTER = [-75.1652, 39.9526];
 const DEFAULT_ZOOM = 11;
@@ -78,17 +79,22 @@ function localizeMapControls(map) {
   setTranslatedAttribute(map.getCanvas?.(), 'map.canvas', 'aria-label');
 }
 
-function createResetExtentControl({ documentRef, initialView }) {
+export function createResetExtentControl({
+  documentRef,
+  initialView,
+  windowRef = globalThis.window,
+} = {}) {
   let map;
   let button;
   const resetMap = () => {
-    map?.easeTo({
+    const view = {
       center: initialView.center,
       zoom: initialView.zoom,
       bearing: 0,
       pitch: 0,
-      duration: 350,
-    });
+    };
+    if (prefersReducedMotion(windowRef)) map?.jumpTo?.(view);
+    else map?.easeTo?.({ ...view, duration: 350 });
   };
 
   return {
@@ -119,9 +125,14 @@ export function createMapMarker(options = {}) {
   return new maplibregl.Marker(options);
 }
 
-export function localizeMapMarker(marker) {
+export function localizeMapMarker(marker, {
+  labelKey = 'map.marker',
+  interactive = false,
+} = {}) {
   const element = marker.getElement?.();
-  setTranslatedAttribute(element, 'map.marker', 'title');
-  setTranslatedAttribute(element, 'map.marker', 'aria-label');
+  setTranslatedAttribute(element, labelKey, 'title');
+  setTranslatedAttribute(element, labelKey, 'aria-label');
+  element?.setAttribute?.('role', 'img');
+  if (!interactive) element?.setAttribute?.('tabindex', '-1');
   return marker;
 }

@@ -27,7 +27,8 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   assert.match(html, /id="results-drawer"[^>]*aria-label="Analysis details"/i);
   assert.match(css, /#results-drawer\s*\{[^}]*position:\s*fixed[^}]*right:/s);
   assert.doesNotMatch(html, /id="charts"[^>]*style=/i);
-  assert.match(css, /#results-drawer\s+\.progressive-surface:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*!important/s);
+  assert.match(css, /#results-drawer\s+\.progressive-surface:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*;/s);
+  assert.doesNotMatch(css, /!important/);
   assert.match(panel, /resultsDrawer\.contains\(chartsPanel\)/);
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
@@ -79,7 +80,7 @@ test('mobile mode switching and the sheet handle keep 44px touch targets', () =>
   assert.doesNotMatch(css, /\.sheet-handle\s*\{[^}]*min-height:\s*32px/s);
   assert.doesNotMatch(css, /\.mode-switch__button\s*\{[^}]*min-height:\s*42px/s);
   assert.doesNotMatch(css, /\.mode-switch__button\s*\{[^}]*min-height:\s*calc\(var\(--control-target\)\s*-\s*6px\)/s);
-  assert.match(css, /\.sheet-handle\s*\{[^}]*min-height:\s*44px\s*!important/s);
+  assert.match(css, /\.sheet-handle\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.mode-switch__button\s*\{[^}]*min-height:\s*44px/s);
   assert.match(
     css,
@@ -106,12 +107,9 @@ test('mobile sheet exposes collapsed, half, and full layout states', () => {
   assert.match(css, /--sheet-collapsed-height:\s*(?:96|104|112)px\s*;/);
   assert.match(css, /--sheet-half-height:\s*58(?:\.0)?dvh\s*;/);
   assert.match(css, /--sheet-full-height:\s*(?:88|90|92)(?:\.0)?dvh\s*;/);
-  const finalMobileRule = css.lastIndexOf('@media (max-width: 720px)');
-  const finalFullWidthOverride = css.lastIndexOf('width: 100% !important;');
-  assert.ok(finalMobileRule >= 0);
-  assert.ok(
-    finalFullWidthOverride > finalMobileRule,
-    'the final mobile cascade must restore a full-width bottom sheet',
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*right:\s*0[^}]*left:\s*0[^}]*width:\s*100%/s,
   );
 });
 
@@ -127,29 +125,27 @@ test('responsive rules cover portrait, landscape, and low-height screens', () =>
   assert.match(css, /@media[^\r\n{]*orientation:\s*landscape[^\r\n{]*\{/);
   assert.match(css, /@media[^\r\n{]*max-height:\s*640px[^\r\n{]*\{/);
   const finalLandscapeRule = css.lastIndexOf('@media (max-width: 900px) and (orientation: landscape)');
-  const finalDesktopPanel = css.lastIndexOf('width: 360px !important;');
-  assert.ok(
-    finalLandscapeRule > finalDesktopPanel,
-    'the final landscape cascade must override the desktop side panel',
-  );
+  assert.ok(finalLandscapeRule >= 0);
   const landscapeCss = css.slice(finalLandscapeRule);
-  assert.match(landscapeCss, /#sidepanel\s*\{[^}]*bottom:\s*0\s*!important[^}]*width:\s*100%\s*!important/s);
+  assert.match(landscapeCss, /#sidepanel\s*\{[^}]*bottom:\s*0[^}]*width:\s*100%/s);
   assert.match(landscapeCss, /\.sheet-handle\s*\{[^}]*display:\s*grid/s);
+  assert.doesNotMatch(landscapeCss, /!important/);
 });
 
-test('small-screen Diary keeps its primary route action visible', async () => {
+test('small-screen Diary keeps its primary route action inside the sheet scroll owner', async () => {
   const livePanel = await readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8');
   assert.match(livePanel, /rateWrap\.className\s*=\s*['"]diary-rate-action['"]/);
-  assert.match(css, /\.diary-rate-action\s*\{[^}]*position:\s*static/s);
-  assert.doesNotMatch(css, /\.diary-rate-action\s*\{[^}]*position:\s*fixed/s);
+  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
+  assert.match(css, /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static/s);
+  assert.match(css, /\[data-panel-view="diary"\]\s*\{[^}]*padding-bottom:\s*0/s);
+  assert.match(css, /\.sheet-content\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto[^}]*safe-area-inset-bottom/s);
+  assert.match(css, /\.diary-insights-root\s*\{[^}]*position:\s*relative[^}]*z-index:\s*29/s);
 });
 
-test('small-screen Crime keeps the map-pick action visible', () => {
-  assert.match(css, /#useCenterBtn\s*\{[^}]*position:\s*fixed[^}]*bottom:/s);
-  assert.match(
-    css,
-    /\[data-panel-view="crime"\]\s*\{[^}]*padding-bottom:\s*76px/s,
-  );
+test('small-screen Crime keeps the map-pick action in the sheet flow', () => {
+  assert.match(html, /class="search-control"[\s\S]*?id="useCenterBtn"/);
+  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?#useCenterBtn\s*\{[^}]*position:\s*static/s);
+  assert.doesNotMatch(css, /#useCenterBtn\s*\{[^}]*position:\s*fixed/s);
 });
 
 test('the shell prevents horizontal scrolling and respects reduced motion', () => {

@@ -85,7 +85,6 @@ const ratingSchema = {
 };
 const validatePayload = ajv.compile(ratingSchema);
 
-let modalStylesInjected = false;
 let activeBackdrop = null;
 let activeModal = null;
 let activeBody = null;
@@ -108,81 +107,6 @@ export function submitSegmentFeedback(payload, { submit = submitDiary, signal } 
     segment_overrides: segmentId ? [{ segment_id: segmentId, rating }] : [],
     mode: 'walk',
   }, { signal });
-}
-
-function injectModalStyles() {
-  if (modalStylesInjected || typeof document === 'undefined') return;
-  const style = document.createElement('style');
-  style.textContent = `
-    .diary-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2500;
-    }
-    .diary-modal-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 18px;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
-      color: #0f172a;
-      display: flex;
-      flex-direction: column;
-      font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-      max-height: min(720px, 88vh);
-      overflow: hidden;
-      width: min(560px, 92vw);
-      z-index: 2501;
-    }
-    .diary-modal-header { padding: 20px 20px 12px; }
-    .diary-modal-title-row { align-items: center; display: flex; justify-content: space-between; }
-    .diary-modal-close, .diary-star {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      cursor: pointer;
-      display: inline-flex;
-      justify-content: center;
-      min-height: 48px;
-      min-width: 48px;
-    }
-    .diary-modal-close { color: #475569; font-size: 28px; }
-    .diary-step-label { color: #64748b; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .diary-modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 24px; }
-    .diary-modal-footer {
-      background: #fff;
-      border-top: 1px solid #e2e8f0;
-      bottom: 0;
-      display: flex;
-      gap: 10px;
-      padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
-      position: sticky;
-      z-index: 1;
-    }
-    .diary-modal-footer button { border-radius: 10px; cursor: pointer; flex: 1; font-weight: 700; min-height: 48px; padding: 10px 12px; }
-    .diary-button-primary { background: #10b981; border: 0; color: #fff; }
-    .diary-button-secondary { background: #fff; border: 1px solid #cbd5e1; color: #334155; }
-    .diary-button-link { background: #fff; border: 0; color: #047857; }
-    .diary-stars { display: flex; gap: 4px; justify-content: space-between; margin-top: 16px; }
-    .diary-star { color: #cbd5e1; font-size: 36px; line-height: 1; }
-    .diary-star.is-filled { color: #f59e0b; }
-    .diary-tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-    .diary-tag { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; cursor: pointer; min-height: 40px; padding: 8px 12px; }
-    .diary-tag[aria-pressed="true"] { background: #10b981; border-color: #10b981; color: #fff; }
-    .diary-field { border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font: inherit; padding: 10px; width: 100%; }
-    .diary-segment-row { align-items: center; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; gap: 12px; justify-content: space-between; margin-top: 10px; padding: 10px; }
-    .diary-error { color: #b91c1c; font-size: 13px; min-height: 20px; padding: 0 20px; }
-    @media (max-width: 640px) {
-      .diary-modal-backdrop { align-items: stretch; }
-      .diary-modal-card { border: 0; border-radius: 0; height: 100dvh; max-height: none; width: 100vw; }
-      .diary-modal-header { padding-top: calc(12px + env(safe-area-inset-top)); }
-    }
-  `;
-  document.head.appendChild(style);
-  modalStylesInjected = true;
 }
 
 function persistDraft(state = currentState) {
@@ -220,7 +144,6 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     clearDraft: () => clearRatingDraft(routeId),
   };
 
-  injectModalStyles();
   const backdrop = document.createElement('div');
   backdrop.className = 'diary-modal-backdrop';
   backdrop.addEventListener('click', closeRatingModal);
@@ -240,8 +163,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   titleRow.className = 'diary-modal-title-row';
   const title = document.createElement('h2');
   title.id = 'diary-rating-title';
-  title.style.margin = '0';
-  title.style.fontSize = '20px';
+  title.className = 'diary-modal-title';
   setTranslatedText(title, 'rating.title');
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -257,8 +179,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   activeStepLabel.className = 'diary-step-label';
   header.appendChild(activeStepLabel);
   const subtitle = document.createElement('p');
-  subtitle.style.margin = '6px 0 0';
-  subtitle.style.color = '#475569';
+  subtitle.className = 'diary-modal-subtitle';
   subtitle.textContent = `${routeFeature.properties?.from || t('rating.origin')} → ${routeFeature.properties?.to || t('rating.destination')}`;
   header.appendChild(subtitle);
   modal.appendChild(header);
@@ -402,11 +323,10 @@ function restoreRerenderFocus(focusTarget) {
 function createHeading(titleKey, descriptionKey) {
   const wrapper = document.createElement('div');
   const heading = document.createElement('h3');
-  heading.style.margin = '0 0 6px';
+  heading.className = 'diary-form-heading-title';
   setTranslatedText(heading, titleKey);
   const hint = document.createElement('p');
-  hint.style.margin = '0';
-  hint.style.color = '#64748b';
+  hint.className = 'diary-form-heading-hint';
   setTranslatedText(hint, descriptionKey);
   wrapper.appendChild(heading);
   wrapper.appendChild(hint);
@@ -510,12 +430,10 @@ function createTagSelector(state) {
 
 function createNotesSection(state) {
   const wrapper = document.createElement('div');
-  wrapper.style.marginTop = '18px';
+  wrapper.className = 'diary-notes-section';
   const label = document.createElement('label');
   label.htmlFor = 'diary-rating-notes';
-  label.style.display = 'block';
-  label.style.fontWeight = '700';
-  label.style.marginBottom = '6px';
+  label.className = 'diary-field-label';
   setTranslatedText(label, 'rating.notes');
   const input = document.createElement('textarea');
   input.id = 'diary-rating-notes';
@@ -558,8 +476,10 @@ function createSegmentOverrideSection(state) {
     const label = document.createElement('strong');
     label.textContent = getSegmentDisplayLabel(feature, index + 1);
     const select = document.createElement('select');
-    select.className = 'diary-field';
-    select.style.width = 'auto';
+    select.className = 'diary-field diary-segment-rating';
+    setTranslatedAttribute(select, 'rating.segmentRating', 'aria-label', {
+      segment: getSegmentDisplayLabel(feature, index + 1),
+    });
     select.disabled = !checkbox.checked;
     for (let rating = 1; rating <= 5; rating += 1) {
       const option = document.createElement('option');
@@ -613,6 +533,7 @@ function createFooter(state) {
     const next = document.createElement('button');
     next.type = 'button';
     next.className = 'diary-button-primary';
+    next.disabled = state.pending || state.overallRating == null;
     setTranslatedText(next, 'rating.continue');
     next.addEventListener('click', () => {
       const result = validateRatingStep(state);

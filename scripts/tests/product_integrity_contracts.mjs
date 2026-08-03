@@ -117,7 +117,9 @@ test('mobile layout keeps results in the same scroll column as controls', async 
   assert.match(mainSource, /if\s*\(diaryShell\)\s*diaryShell\.after\(root\)/);
   assert.doesNotMatch(mainSource, /\(diaryShell \|\| document\.body\)\.appendChild\(root\)/);
   assert.match(styleSource, /@media\s*\(max-width:\s*720px\)/);
-  assert.match(styleSource, /#sidepanel[\s\S]*#compare-card[\s\S]*position:\s*static\s*!important/);
+  assert.match(styleSource, /#compare-card,\s*\n#charts\s*\{[^}]*position:\s*static/s);
+  assert.match(styleSource, /@media\s*\(max-width:\s*720px\)[\s\S]*#sidepanel\s*\{[^}]*bottom:\s*0/s);
+  assert.doesNotMatch(styleSource, /!important/, 'mobile layout must not depend on cascade overrides');
 });
 
 test('coverage initializes one explicit calendar range and a visible ready state', (t) => {

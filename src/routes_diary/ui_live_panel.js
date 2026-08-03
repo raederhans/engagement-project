@@ -1,7 +1,7 @@
 import { createDiaryCard, createSectionTitle, createPill, createPrimaryButton, createSecondaryButton, createMutedCard } from './ui_common.js';
 import '../i18n/diary_live.js';
 import '../i18n/p1.js';
-import { setTranslatedText, t } from '../i18n/index.js';
+import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
 export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   container.innerHTML = '';
@@ -15,6 +15,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   const routeSelect = document.createElement('select');
   routeSelect.className = 'diary-select';
+  setTranslatedAttribute(routeSelect, 'diary.chooseRoute', 'aria-label');
   routeSelect.addEventListener('change', (event) => {
     const routeId = event.target.value;
     if (routeId && handlers.onRouteSelect) {
@@ -26,12 +27,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   const summary = createMutedCard();
   summary.id = 'diary-route-summary';
-  summary.style.minHeight = '72px';
-  summary.style.display = 'flex';
-  summary.style.flexDirection = 'column';
-  summary.style.gap = '4px';
+  summary.classList.add('diary-route-summary');
   setTranslatedText(summary, 'diary.selectRouteDetails');
-  summary.style.marginTop = '10px';
   refs.summaryEl = summary;
   routeCard.appendChild(summary);
   container.appendChild(routeCard);
@@ -46,14 +43,10 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   actionsCard.appendChild(actionsHeader);
 
   const altToggleRow = document.createElement('label');
-  altToggleRow.style.display = 'flex';
-  altToggleRow.style.alignItems = 'center';
-  altToggleRow.style.gap = '8px';
-  altToggleRow.style.fontSize = '13px';
-  altToggleRow.style.color = '#475569';
+  altToggleRow.className = 'diary-alt-toggle';
   const altToggle = document.createElement('input');
   altToggle.type = 'checkbox';
-  altToggle.style.cursor = 'pointer';
+  altToggle.className = 'diary-alt-toggle__control';
   altToggle.addEventListener('change', () => {
     handlers.onToggleAlt?.(altToggle.checked);
   });
@@ -65,34 +58,22 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   actionsCard.appendChild(altToggleRow);
 
   const altSummary = createMutedCard();
-  altSummary.style.marginTop = '8px';
-  altSummary.style.fontSize = '12px';
-  altSummary.style.color = '#334155';
+  altSummary.classList.add('diary-alt-summary');
   setTranslatedText(altSummary, 'diary.alternativeHint');
   refs.altSummaryEl = altSummary;
   actionsCard.appendChild(altSummary);
 
   const notice = document.createElement('div');
-  notice.style.marginTop = '8px';
-  notice.style.borderRadius = '8px';
-  notice.style.padding = '8px 10px';
-  notice.style.fontSize = '12px';
-  notice.style.display = 'none';
-  notice.style.background = '#ecfdf5';
-  notice.style.color = '#065f46';
+  notice.className = 'diary-panel-notice is-success';
   refs.panelNoticeEl = notice;
   actionsCard.appendChild(notice);
 
   const rateWrap = document.createElement('div');
   rateWrap.className = 'diary-rate-action';
-  rateWrap.style.marginTop = '10px';
   const rateBtn = createPrimaryButton(t('diary.rateRoute'));
+  rateBtn.classList.add('diary-rate-action__button');
   setTranslatedText(rateBtn, 'diary.rateRoute');
-  rateBtn.style.width = '100%';
-  rateBtn.style.padding = '12px 14px';
-  rateBtn.style.fontSize = '14px';
   rateBtn.disabled = !state.canRate;
-  rateBtn.style.opacity = state.canRate ? '1' : '0.7';
   rateBtn.addEventListener('click', () => {
     if (!rateBtn.disabled) {
       handlers.onRate?.();
@@ -104,9 +85,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   const hint = document.createElement('div');
   setTranslatedText(hint, 'diary.roadGridHint');
-  hint.className = 'diary-muted-text';
-  hint.style.marginTop = '8px';
-  hint.style.lineHeight = '1.4';
+  hint.className = 'diary-muted-text diary-road-grid-hint';
   actionsCard.appendChild(hint);
 
   container.appendChild(actionsCard);
@@ -126,27 +105,25 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   simContent.appendChild(simHint);
 
   const simControls = document.createElement('div');
-  simControls.style.display = 'flex';
-  simControls.style.gap = '8px';
-  simControls.style.marginTop = '10px';
+  simControls.className = 'diary-sim-controls';
 
   const playBtn = createSecondaryButton(t('diary.play'));
+  playBtn.classList.add('diary-flex-button');
   setTranslatedText(playBtn, 'diary.play');
-  playBtn.style.flex = '1';
   playBtn.addEventListener('click', () => handlers.onPlay?.());
   refs.playButtonEl = playBtn;
   simControls.appendChild(playBtn);
 
   const pauseBtn = createSecondaryButton(t('diary.pause'));
+  pauseBtn.classList.add('diary-flex-button');
   setTranslatedText(pauseBtn, 'diary.pause');
-  pauseBtn.style.flex = '1';
   pauseBtn.addEventListener('click', () => handlers.onPause?.());
   refs.pauseButtonEl = pauseBtn;
   simControls.appendChild(pauseBtn);
 
   const finishBtn = createSecondaryButton(t('diary.finishRate'));
+  finishBtn.classList.add('diary-flex-button');
   setTranslatedText(finishBtn, 'diary.finishRate');
-  finishBtn.style.flex = '1';
   finishBtn.addEventListener('click', () => handlers.onFinish?.());
   refs.finishButtonEl = finishBtn;
   simControls.appendChild(finishBtn);
@@ -154,20 +131,18 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   simContent.appendChild(simControls);
 
   const playbackLabel = document.createElement('div');
-  playbackLabel.className = 'diary-label';
-  playbackLabel.style.marginTop = '12px';
+  playbackLabel.className = 'diary-label diary-label--playback';
   setTranslatedText(playbackLabel, 'diary.playbackSpeed');
   simContent.appendChild(playbackLabel);
 
   const playbackRow = document.createElement('div');
-  playbackRow.style.display = 'flex';
-  playbackRow.style.gap = '6px';
+  playbackRow.className = 'diary-playback-row';
   const speeds = [0.5, 1, 2];
   refs.speedButtons = [];
   speeds.forEach((value) => {
     const btn = createPill(`${value}×`, { active: state.playbackSpeed === value });
+    btn.classList.add('diary-flex-button');
     btn.dataset.speed = String(value);
-    btn.style.flex = '1';
     btn.addEventListener('click', () => handlers.onSpeedChange?.(value));
     refs.speedButtons.push(btn);
     playbackRow.appendChild(btn);
@@ -183,13 +158,13 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   filterCard.appendChild(filtersTitle);
 
   const periodLabel = document.createElement('div');
-  periodLabel.className = 'diary-label';
+  periodLabel.className = 'diary-label diary-label--period';
   setTranslatedText(periodLabel, 'diary.demoPeriod');
-  periodLabel.style.marginTop = '8px';
   filterCard.appendChild(periodLabel);
 
   const periodSelect = document.createElement('select');
   periodSelect.className = 'diary-select';
+  setTranslatedAttribute(periodSelect, 'diary.demoPeriod', 'aria-label');
   [
     { value: 'day', key: 'diary.singleDay' },
     { value: 'week', key: 'diary.last7Days' },
@@ -205,13 +180,13 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   filterCard.appendChild(periodSelect);
 
   const timeLabel = document.createElement('div');
-  timeLabel.className = 'diary-label';
+  timeLabel.className = 'diary-label diary-label--time';
   setTranslatedText(timeLabel, 'diary.timeOfDay');
-  timeLabel.style.marginTop = '10px';
   filterCard.appendChild(timeLabel);
 
   const timeSelect = document.createElement('select');
   timeSelect.className = 'diary-select';
+  setTranslatedAttribute(timeSelect, 'diary.timeOfDay', 'aria-label');
   [
     { value: 'all', key: 'diary.allHours' },
     { value: 'day', key: 'diary.daytime' },
@@ -228,9 +203,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   filterCard.appendChild(timeSelect);
 
   const historyBtn = createPill(t('diary.openRoutes'), { active: false });
+  historyBtn.classList.add('diary-full-width-action');
   setTranslatedText(historyBtn, 'diary.openRoutes');
-  historyBtn.style.marginTop = '10px';
-  historyBtn.style.width = '100%';
   historyBtn.addEventListener('click', () => handlers.onOpenHistory?.());
   filterCard.appendChild(historyBtn);
 

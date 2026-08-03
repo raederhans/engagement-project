@@ -23,19 +23,19 @@ function showToastInDom(message) {
   if (!element) {
     element = document.createElement('div');
     element.id = 'toast';
-    Object.assign(element.style, {
-      position: 'fixed', right: '12px', bottom: '12px', zIndex: 40,
-      background: 'rgba(17,24,39,0.9)', color: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px'
-    });
+    element.className = 'toast';
+    element.hidden = true;
+    element.setAttribute('role', 'status');
+    element.setAttribute('aria-live', 'polite');
     document.body.appendChild(element);
   }
   element.textContent = message;
-  element.style.display = 'block';
+  element.hidden = false;
 }
 
 function hideToastInDom() {
   const toast = document.getElementById('toast');
-  if (toast) toast.style.display = 'none';
+  if (toast) toast.hidden = true;
 }
 
 function isAbortError(error) {

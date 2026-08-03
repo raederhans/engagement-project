@@ -67,7 +67,7 @@ export function renderDistrictChoropleth(map, merged) {
     const status = document.getElementById('charts-status') || (() => {
       const d = document.createElement('div');
       d.id = 'charts-status';
-      d.style.cssText = 'position:absolute;right:16px;top:16px;padding:8px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);background:#fff;font:14px/1.4 system-ui';
+      d.className = 'chart-status';
       pane.appendChild(d);
       return d;
     })();
