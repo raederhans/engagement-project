@@ -7,6 +7,7 @@ import { writeCrimeStateToURL } from '../../src/ui/panel.js';
 import { readFile } from 'node:fs/promises';
 
 const aboutSource = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
+const productCss = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
 
 function deferred() {
   let resolve;
@@ -94,7 +95,8 @@ test('expanded Diary insights can refit only the active Diary selection', async 
   assert.equal(fits, 1);
 
   const mainSource = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
-  assert.match(mainSource, /\(expanded\)\s*=>\s*expanded\s*&&\s*coordinator\?\.fitCurrentDiarySelection/);
+  assert.match(mainSource, /\(expanded\)\s*=>\s*\{[\s\S]*?if\s*\(!expanded\)\s*return;[\s\S]*?coordinator\?\.fitCurrentDiarySelection\(\);/);
+  assert.match(mainSource, /if\s*\(!compactLayout\)\s*return;[\s\S]*?setSheetState\(sheet, ['"]full['"]\)/);
 });
 
 test('semantic data scope distinguishes live, fallback, local, and sample content', async () => {
@@ -329,11 +331,12 @@ test('global Help control mounts inside the app bar when its slot exists', () =>
 
 test('closed Help content is removed from layout and interaction', () => {
   assert.match(
-    aboutSource,
+    productCss,
     /\.about-panel\[aria-hidden=['"]true['"]\]\s*\{[^}]*display:\s*none\s*;/s,
   );
   assert.match(
-    aboutSource,
+    productCss,
     /\.about-panel\.about--open\s*\{[^}]*display:\s*block\s*;/s,
   );
+  assert.doesNotMatch(aboutSource, /document\.createElement\(['"]style['"]\)|injectStyles/);
 });

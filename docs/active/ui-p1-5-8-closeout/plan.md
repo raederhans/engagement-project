@@ -14,12 +14,12 @@ Complete the original UI report's remaining P1 scope: accessibility governance, 
 
 ## Stages
 
-- [ ] Stage 1: Audit `origin/main` and the parallel QoL branch against P1-5 through P1-8.
-- [ ] Stage 2: Add failing accessibility, design-system, mobile, and visual-regression contracts.
-- [ ] Stage 3: Implement P1-5 accessibility and non-map information improvements.
-- [ ] Stage 4: Implement P1-6 design tokens, shared component styles, and high-value inline-style migration.
-- [ ] Stage 5: Implement P1-7 mobile copy, density feedback, search, toast, and touch-target improvements.
-- [ ] Stage 6: Implement P1-8 deterministic visual and experience CI.
+- [x] Stage 1: Audit `origin/main` and the parallel QoL branch against P1-5 through P1-8.
+- [x] Stage 2: Add failing accessibility, design-system, mobile, and visual-regression contracts.
+- [x] Stage 3: Implement P1-5 accessibility and non-map information improvements.
+- [x] Stage 4: Implement P1-6 design tokens, shared component styles, and high-value inline-style migration.
+- [x] Stage 5: Implement P1-7 mobile copy, density feedback, search, toast, and touch-target improvements.
+- [x] Stage 6: Implement P1-8 deterministic visual and experience CI.
 - [ ] Stage 7: Run independent review, reconcile parallel work, validate, publish through PR, verify CI/Pages, and archive.
 
 ## Acceptance criteria

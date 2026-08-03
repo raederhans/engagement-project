@@ -103,6 +103,7 @@ async function verifyWorkflowPolicy() {
   const approvedUses = new Map([
     ['actions/checkout', '3d3c42e5aac5ba805825da76410c181273ba90b1'],
     ['actions/setup-node', '820762786026740c76f36085b0efc47a31fe5020'],
+    ['actions/upload-artifact', 'ea165f8d65b6e75b540449e92b4886f43607fa02'],
     ['actions/configure-pages', '45bfe0192ca1faeb007ade9deae92b16b8254a0d'],
     ['actions/upload-pages-artifact', 'fc324d3547104276b827a68afc52ff2a11cc49c9'],
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],
@@ -110,6 +111,7 @@ async function verifyWorkflowPolicy() {
   const expectedUseCounts = new Map([
     ['actions/checkout', 4],
     ['actions/setup-node', 3],
+    ['actions/upload-artifact', 1],
     ['actions/configure-pages', 1],
     ['actions/upload-pages-artifact', 1],
     ['actions/deploy-pages', 1],

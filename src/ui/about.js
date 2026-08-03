@@ -12,24 +12,24 @@ export function getAboutContent(mode = 'crime') {
   const modeKey = isDiary ? 'diary' : 'crime';
   return `
     <div class="about-content">
-      <h3 id="about-title" data-i18n="help.productTitle" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">${t('help.productTitle')}</h3>
+      <h3 id="about-title" class="about-content__title" data-i18n="help.productTitle">${t('help.productTitle')}</h3>
 
-      <div style="margin-bottom:12px;">
-        <strong data-i18n="help.${modeKey}Title" style="color:#1f2937;">${t(`help.${modeKey}Title`)}</strong>
-        <p data-i18n="help.${modeKey}Description" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}Description`)}</p>
+      <div class="about-content__section">
+        <strong class="about-content__heading" data-i18n="help.${modeKey}Title">${t(`help.${modeKey}Title`)}</strong>
+        <p class="about-content__copy" data-i18n="help.${modeKey}Description">${t(`help.${modeKey}Description`)}</p>
       </div>
 
-      <div style="margin-bottom:12px;">
-        <strong data-i18n="help.howTo" style="color:#1f2937;">${t('help.howTo')}</strong>
-        <p data-i18n="help.${modeKey}HowTo" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}HowTo`)}</p>
+      <div class="about-content__section">
+        <strong class="about-content__heading" data-i18n="help.howTo">${t('help.howTo')}</strong>
+        <p class="about-content__copy" data-i18n="help.${modeKey}HowTo">${t(`help.${modeKey}HowTo`)}</p>
       </div>
 
-      <div style="margin-bottom:0;">
-        <strong data-i18n="help.important" style="color:#1f2937;">${t('help.important')}</strong>
-        <p data-i18n="help.${modeKey}Notes" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}Notes`)}</p>
+      <div class="about-content__section about-content__section--last">
+        <strong class="about-content__heading" data-i18n="help.important">${t('help.important')}</strong>
+        <p class="about-content__copy" data-i18n="help.${modeKey}Notes">${t(`help.${modeKey}Notes`)}</p>
       </div>
 
-      <p style="margin:12px 0 0;font-size:13px;">
+      <p class="about-content__source">
         <a data-i18n="help.sourceLink" href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">${t('help.sourceLink')}</a>
       </p>
     </div>
@@ -63,8 +63,10 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
   const panel = document.createElement('div');
   panel.id = 'about-panel';
   panel.className = 'about-panel';
+  btn.setAttribute('aria-controls', panel.id);
   panel.setAttribute('aria-hidden', 'true');
-  panel.setAttribute('role', 'dialog');
+  panel.inert = true;
+  panel.setAttribute('role', 'region');
   panel.setAttribute('aria-labelledby', 'about-title');
 
   // Panel content
@@ -77,20 +79,24 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
   root.appendChild(panel);
   resolveAboutMount(document)?.appendChild(root);
 
-  // Add styles
-  injectStyles();
+  const setOpen = (isOpen, { restoreFocus = false } = {}) => {
+    panel.classList.toggle('about--open', isOpen);
+    btn.setAttribute('aria-expanded', String(isOpen));
+    panel.setAttribute('aria-hidden', String(!isOpen));
+    panel.inert = !isOpen;
+    if (restoreFocus) btn.focus();
+  };
 
   // Toggle handler
   btn.addEventListener('click', () => {
-    const isOpen = panel.classList.toggle('about--open');
-    btn.setAttribute('aria-expanded', String(isOpen));
-    panel.setAttribute('aria-hidden', String(!isOpen));
+    setOpen(!panel.classList.contains('about--open'));
   });
 
   // Esc to close
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && panel.classList.contains('about--open')) {
-      btn.click(); // Trigger toggle
+      e.preventDefault();
+      setOpen(false, { restoreFocus: true });
     }
   });
 
@@ -101,78 +107,4 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
       applyTranslations(panel);
     },
   });
-}
-
-/**
- * Inject CSS styles for about panel
- */
-function injectStyles() {
-  if (document.getElementById('about-panel-styles')) {
-    return; // Already injected
-  }
-
-  const style = document.createElement('style');
-  style.id = 'about-panel-styles';
-  style.textContent = `
-    .about-toggle {
-      position: static;
-      min-width: 64px;
-      min-height: var(--control-target, 44px);
-      padding: 0 14px;
-      border-radius: 8px;
-      border: 1px solid #d7dee8;
-      background: #fff;
-      color: #102033;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-    .about-toggle:hover {
-      background: #f6f8fb;
-      border-color: #0b5cad;
-    }
-    .about-toggle:focus-visible {
-      outline: 2px solid #0b5cad;
-      outline-offset: 2px;
-    }
-
-    .about-panel {
-      position: fixed;
-      top: var(--app-bar-height, 60px);
-      left: 0;
-      right: 0;
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      z-index: 1199;
-      transform: translateY(-100%);
-      transition: transform 0.25s ease;
-    }
-    .about-panel[aria-hidden="true"] {
-      display: none;
-    }
-    .about-panel.about--open {
-      display: block;
-      transform: translateY(0);
-    }
-
-    .about-content {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 16px 20px;
-    }
-
-    @media (max-width: 768px) {
-      .about-content {
-        max-width: 100%;
-        padding: 12px 16px;
-      }
-      .about-toggle {
-        min-width: 52px;
-        padding: 0 10px;
-      }
-    }
-  `;
-  document.head.appendChild(style);
 }

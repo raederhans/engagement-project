@@ -1,5 +1,5 @@
 import '../i18n/p1.js';
-import { setTranslatedText, t } from '../i18n/index.js';
+import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
 
@@ -200,7 +200,7 @@ function renderTrend(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
   setTranslatedText(header, 'diary.trend');
-  header.style.cssText = 'font:600 14px/1.3 "Inter",system-ui;color:#0f172a';
+  header.className = 'diary-insights__heading diary-insights__heading--primary';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
@@ -209,7 +209,7 @@ function renderTrend(container) {
     : insightsContext.mode === 'community'
       ? 'diary.trendCommunity'
       : 'diary.trendLive');
-  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
+  subtitle.className = 'diary-insights__subtitle';
   container.appendChild(subtitle);
 
   const trend = insightsContext.mode === 'community'
@@ -224,14 +224,14 @@ function renderTrend(container) {
   }
 
   const chart = document.createElement('div');
-  chart.style.cssText = 'display:flex;align-items:flex-end;gap:8px;height:68px';
+  chart.className = 'diary-insights__trend-chart';
   const max = Math.max(...trend, 1);
   const trendLabels = insightsContext.mode === 'community'
     ? [t('diary.start'), '0.5 km', '1.0 km', '1.5 km', t('diary.end')]
     : trend.map((_, index) => `#${index + 1}`);
   trend.forEach((v, idx) => {
     const bar = document.createElement('div');
-    bar.style.cssText = 'flex:1;border-radius:6px;border:1px solid rgba(15,23,42,.05)';
+    bar.className = 'diary-insights__trend-bar';
     bar.style.background = safetyColor(v);
     bar.style.height = `${Math.max(24, (v / max) * 60)}px`;
     bar.title = `${trendLabels[idx]} · ${v.toFixed(1)}`;
@@ -240,7 +240,7 @@ function renderTrend(container) {
   container.appendChild(chart);
 
   const labels = document.createElement('div');
-  labels.style.cssText = 'display:flex;justify-content:space-between;margin-top:6px;font:12px/1.2 "Inter",system-ui;color:#475569';
+  labels.className = 'diary-insights__trend-labels';
   trendLabels.forEach((label) => {
     const lbl = document.createElement('span');
     lbl.textContent = label;
@@ -253,16 +253,16 @@ function renderTags(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
   setTranslatedText(header, 'diary.topTags');
-  header.style.cssText = 'font:600 13px/1.3 "Inter",system-ui;color:#0f172a';
+  header.className = 'diary-insights__heading';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
   setTranslatedText(subtitle, `diary.insights.${insightsContext.mode}.tagsSubtitle`);
-  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
+  subtitle.className = 'diary-insights__subtitle';
   container.appendChild(subtitle);
 
   const controls = document.createElement('div');
-  controls.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center';
+  controls.className = 'diary-insights__controls';
 
   const scopes = [
     { value: 'route', key: 'diary.scopeRoute' },
@@ -291,6 +291,7 @@ function renderTags(container) {
 
   const windowSelect = document.createElement('select');
   windowSelect.className = 'diary-select';
+  setTranslatedAttribute(windowSelect, 'diary.insightsWindow', 'aria-label');
   ['7d', '30d', '90d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
@@ -314,15 +315,14 @@ function renderTags(container) {
   container.appendChild(controls);
 
   const barsWrap = document.createElement('div');
-  barsWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  barsWrap.className = 'diary-insights__tag-list';
   container.appendChild(barsWrap);
 
   const syncAll = () => {
     scopes.forEach((scope) => {
       if (scope.btn) {
         const active = insightsState.scope === scope.value;
-        scope.btn.style.background = active ? '#0ea5e9' : '#fff';
-        scope.btn.style.color = active ? '#fff' : '#0f172a';
+        scope.btn.classList.toggle('is-active', active);
       }
     });
   };
@@ -342,19 +342,19 @@ function renderTags(container) {
     const max = Math.max(...dataset.map((t) => t.value), 1);
     dataset.forEach((tag) => {
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:8px';
+      row.className = 'diary-insights__tag-row';
       const label = document.createElement('div');
       label.textContent = translatedTagLabel(tag.label);
-      label.style.cssText = 'flex:1;font:13px/1.3 "Inter",system-ui;color:#0f172a';
+      label.className = 'diary-insights__tag-label';
       const barWrap = document.createElement('div');
-      barWrap.style.cssText = 'flex:2;background:#eef2ff;border:1px solid #e2e8f0;border-radius:999px;height:12px;overflow:hidden';
+      barWrap.className = 'diary-insights__tag-track';
       const bar = document.createElement('div');
-      bar.style.cssText = 'height:100%;background:#60a5fa';
+      bar.className = 'diary-insights__tag-fill';
       bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
       barWrap.appendChild(bar);
       const value = document.createElement('div');
       value.textContent = tag.value;
-      value.style.cssText = 'font:12px/1.2 "Inter",system-ui;color:#0f172a';
+      value.className = 'diary-insights__tag-value';
       row.appendChild(label);
       row.appendChild(barWrap);
       row.appendChild(value);
@@ -369,23 +369,23 @@ function renderHeatmap(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
   setTranslatedText(header, 'diary.weekdayTime');
-  header.style.cssText = 'font:600 13px/1.3 "Inter",system-ui;color:#0f172a';
+  header.className = 'diary-insights__heading';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
   setTranslatedText(subtitle, `diary.insights.${insightsContext.mode}.heatmapSubtitle`);
-  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
+  subtitle.className = 'diary-insights__subtitle';
   container.appendChild(subtitle);
 
   const grid = document.createElement('div');
-  grid.style.cssText = `display:grid;grid-template-columns:84px repeat(${heatmapWindowKeys.length},1fr);gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fafc;max-width:100%;overflow-x:auto`;
+  grid.className = 'diary-insights__heatmap';
 
   const empty = document.createElement('div');
   grid.appendChild(empty);
   heatmapWindowKeys.forEach((windowKey) => {
     const cell = document.createElement('div');
     setTranslatedText(cell, `diary.time.${windowKey}`);
-    cell.style.cssText = 'font:11px/1.3 "Inter",system-ui;color:#475569;text-align:center;padding:2px 0';
+    cell.className = 'diary-insights__heatmap-window';
     grid.appendChild(cell);
   });
 
@@ -396,11 +396,11 @@ function renderHeatmap(container) {
   heatmapDayKeys.forEach((dayKey, rowIdx) => {
     const label = document.createElement('div');
     setTranslatedText(label, `diary.day.${dayKey}`);
-    label.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#0f172a;padding:2px 0';
+    label.className = 'diary-insights__heatmap-day';
     grid.appendChild(label);
     values[rowIdx].forEach((val) => {
       const cell = document.createElement('div');
-      cell.style.cssText = 'height:22px;border-radius:6px';
+      cell.className = 'diary-insights__heatmap-cell';
       cell.style.background = barColor(val / maxValue);
       cell.title = `${t(`diary.day.${dayKey}`)} · ${val}`;
       grid.appendChild(cell);

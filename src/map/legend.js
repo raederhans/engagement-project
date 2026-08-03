@@ -15,19 +15,8 @@ export function initLegend(containerId = 'legend') {
   if (!legendContainer) {
     legendContainer = document.createElement('div');
     legendContainer.id = containerId;
-    Object.assign(legendContainer.style, {
-      position: 'fixed',
-      bottom: '12px',
-      right: '12px',
-      zIndex: '10',
-      background: 'rgba(255,255,255,0.95)',
-      padding: '10px 12px',
-      borderRadius: '6px',
-      font: '12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-      maxWidth: '200px',
-      display: 'none', // Hidden by default
-    });
+    legendContainer.className = 'map-legend';
+    legendContainer.hidden = true;
     document.body.appendChild(legendContainer);
   }
 }
@@ -46,13 +35,17 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
     return;
   }
 
-  // Build legend HTML
   const rows = [];
 
-  // Title row
-  rows.push(`<div style="font-weight:600; margin-bottom:4px;">${title || t('map.legend')}</div>`);
+  const titleElement = document.createElement('div');
+  titleElement.className = 'map-legend__title';
+  titleElement.textContent = title || t('map.legend');
+  rows.push(titleElement);
   if (subtitle) {
-    rows.push(`<div style="font-size:11px; color:#6b7280; margin-bottom:6px;">${subtitle}</div>`);
+    const subtitleElement = document.createElement('div');
+    subtitleElement.className = 'map-legend__subtitle';
+    subtitleElement.textContent = subtitle;
+    rows.push(subtitleElement);
   }
 
   // First range: 0 to breaks[0]
@@ -68,23 +61,28 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
   const lastColorIdx = Math.min(breaks.length, colors.length - 1);
   rows.push(renderRow(colors[lastColorIdx], `${breaks[breaks.length - 1]}+ ${unit}`));
 
-  legendContainer.innerHTML = rows.join('');
-  legendContainer.style.display = 'block';
+  legendContainer.replaceChildren(...rows);
+  legendContainer.hidden = false;
 }
 
 /**
  * Render a single legend row (swatch + label)
  * @param {string} color - Hex color
  * @param {string} label - Text label
- * @returns {string} HTML string
+ * @returns {HTMLElement} Legend row element
  */
 function renderRow(color, label) {
-  return `
-    <div class="legend-row" style="display:flex; align-items:center; margin-bottom:4px;">
-      <div class="swatch" style="display:inline-block; width:16px; height:16px; margin-right:8px; background:${color}; border:1px solid #ccc; border-radius:2px;"></div>
-      <span style="font-size:11px; color:#333;">${label}</span>
-    </div>
-  `;
+  const row = document.createElement('div');
+  row.className = 'map-legend__row';
+  const swatch = document.createElement('span');
+  swatch.className = 'map-legend__swatch';
+  swatch.style.backgroundColor = color;
+  swatch.setAttribute('aria-hidden', 'true');
+  const labelElement = document.createElement('span');
+  labelElement.className = 'map-legend__label';
+  labelElement.textContent = label;
+  row.append(swatch, labelElement);
+  return row;
 }
 
 /**
@@ -92,7 +90,7 @@ function renderRow(color, label) {
  */
 export function hideLegend() {
   if (legendContainer) {
-    legendContainer.style.display = 'none';
+    legendContainer.hidden = true;
   }
 }
 
@@ -101,6 +99,6 @@ export function hideLegend() {
  */
 export function showLegend() {
   if (legendContainer) {
-    legendContainer.style.display = 'block';
+    legendContainer.hidden = false;
   }
 }

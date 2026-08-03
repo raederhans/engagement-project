@@ -29,7 +29,7 @@ function ensureSheetContentRegion(sheet) {
   return content;
 }
 
-function setSheetState(sheet, state) {
+export function setSheetState(sheet, state) {
   sheet.dataset.sheetState = SHEET_STATES.includes(state) ? state : 'half';
   const handle = sheet.querySelector('.sheet-handle');
   const content = ensureSheetContentRegion(sheet);
@@ -60,7 +60,17 @@ function addSheetHandle(sheet) {
     });
     sheet.prepend(handle);
   }
-  ensureSheetContentRegion(sheet);
+  const content = ensureSheetContentRegion(sheet);
+  if (!sheet.dataset.focusVisibilityBound) {
+    sheet.dataset.focusVisibilityBound = 'true';
+    sheet.addEventListener('focusin', (event) => {
+      if (!content.contains(event.target)) return;
+      if (sheet.dataset.sheetState === 'collapsed') setSheetState(sheet, 'half');
+      globalThis.requestAnimationFrame?.(() => {
+        event.target?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+      });
+    });
+  }
   setSheetState(sheet, sheet.dataset.sheetState);
 }
 

@@ -51,8 +51,7 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     contentEl.id = contentId;
     contentEl.className = 'diary-insights-content';
     introEl = document.createElement('div');
-    introEl.className = 'diary-muted-text';
-    introEl.style.marginBottom = '4px';
+    introEl.className = 'diary-muted-text diary-insights-intro';
     trendEl = document.createElement('div');
     trendEl.className = 'diary-card diary-insights-section';
     tagsEl = document.createElement('div');

@@ -367,7 +367,6 @@ function wirePopupInteractions(popup, {
     const action = target.getAttribute('data-diary-action');
     const segmentId = target.getAttribute('data-segment-id');
     target.setAttribute('disabled', 'disabled');
-    target.style.cursor = 'not-allowed';
     if (typeof onAction === 'function' && action && segmentId) {
       onAction({ action, segmentId });
     }
@@ -388,9 +387,9 @@ function deriveTitle(props) {
 }
 
 function riskDescriptor(mean) {
-  if (mean < 2.5) return { label: t('segment.riskHigh'), color: '#b91c1c' };
-  if (mean < 4) return { label: t('segment.riskModerate'), color: '#92400e' };
-  return { label: t('segment.riskSafe'), color: '#15803d' };
+  if (mean < 2.5) return { label: t('segment.riskHigh'), className: 'is-high' };
+  if (mean < 4) return { label: t('segment.riskModerate'), className: 'is-moderate' };
+  return { label: t('segment.riskSafe'), className: 'is-safe' };
 }
 
 function confidenceLabel(nEff) {
@@ -486,16 +485,16 @@ export function buildSegmentCardHtml(props, state = {}) {
     : `<div class="diary-muted-text">${escapeHtml(t('segment.noIssues'))}</div>`;
 
   const submissionLine = submissionResult
-    ? `<div class="diary-muted-text" style="margin-top:6px;">${segmentSubmissionMessage(submissionResult)}</div>`
+    ? `<div class="diary-muted-text diary-segment-feedback-status">${segmentSubmissionMessage(submissionResult)}</div>`
     : '';
   const errorLine = submissionError
-    ? `<div class="diary-muted-text" style="margin-top:6px;color:#b91c1c;">${escapeHtml(t('segment.feedbackFailed'))}</div>`
+    ? `<div class="diary-muted-text diary-segment-feedback-status is-error" role="alert">${escapeHtml(t('segment.feedbackFailed'))}</div>`
     : '';
 
   const inputTags = Object.entries(ISSUE_TAGS).map(([cat, items]) => {
     return `
-      <div style="margin-top:6px;">
-        <div class="diary-muted-text" style="text-transform:capitalize;">${escapeHtml(t(`segment.category.${cat}`))}</div>
+      <div class="diary-segment-issue-group">
+        <div class="diary-muted-text diary-segment-issue-category">${escapeHtml(t(`segment.category.${cat}`))}</div>
         <div class="diary-chip-group">
           ${items
             .map((item) => {
@@ -508,7 +507,7 @@ export function buildSegmentCardHtml(props, state = {}) {
     `;
   }).join('');
 
-  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">${escapeHtml(t('segment.feelsSafer'))}</button>`;
+  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip diary-chip--safer">${escapeHtml(t('segment.feelsSafer'))}</button>`;
 
   if (mode === 'input') {
     return `
@@ -517,12 +516,12 @@ export function buildSegmentCardHtml(props, state = {}) {
           <div class="diary-segment-title">${title}</div>
           <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
         </div>
-        <div class="diary-segment-stars" style="margin-bottom:4px;">${editableStars}</div>
+        <div class="diary-segment-stars diary-segment-stars--input">${editableStars}</div>
         <div class="diary-muted-text">${ratingCopy}</div>
         ${errorLine}
-        <div style="margin-top:10px;font-weight:700;font-size:12px;">${escapeHtml(t('segment.mainIssues'))}</div>
+        <div class="diary-segment-section-title">${escapeHtml(t('segment.mainIssues'))}</div>
         ${inputTags}
-        <div class="diary-segment-actions" style="justify-content:flex-end;">
+        <div class="diary-segment-actions diary-segment-actions--end">
           <button type="button" class="diary-chip secondary" data-role="cancel-feedback">${escapeHtml(t('segment.cancel'))}</button>
           <button type="button" class="diary-chip primary" data-role="submit-feedback" ${rating < 1 ? 'disabled' : ''}>${escapeHtml(t('segment.submitRating'))}</button>
         </div>
@@ -536,24 +535,24 @@ export function buildSegmentCardHtml(props, state = {}) {
         <div class="diary-segment-title">${title}</div>
         <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
       </div>
-      <div class="diary-muted-text" style="font-weight:700;color:#0f172a;margin-bottom:4px;">${escapeHtml(t('segment.communityScore'))}</div>
+      <div class="diary-muted-text diary-segment-heading">${escapeHtml(t('segment.communityScore'))}</div>
       <div class="diary-segment-score-row">
         <div class="diary-segment-score">${scoreDisplay}</div>
         <div>
           <div class="diary-segment-stars">${readonlyStars}</div>
-          <div class="diary-segment-risk-label"><span style="color:${risk.color};font-weight:700;">${escapeHtml(risk.label)}</span> — ${escapeHtml(t('segment.basedOnReports', { count: nEff || t('segment.few'), confidence }))}</div>
+          <div class="diary-segment-risk-label"><span class="diary-segment-risk ${risk.className}">${escapeHtml(risk.label)}</span> — ${escapeHtml(t('segment.basedOnReports', { count: nEff || t('segment.few'), confidence }))}</div>
           ${submissionLine}
         </div>
       </div>
-      <div style="margin-top:8px;">
-        <div class="diary-muted-text" style="font-weight:700;color:#0f172a;">${escapeHtml(t('segment.topIssues'))}</div>
-        <div class="diary-chip-group" style="margin-top:4px;">${topIssuesHtml}</div>
+      <div class="diary-segment-issues-summary">
+        <div class="diary-muted-text diary-segment-heading">${escapeHtml(t('segment.topIssues'))}</div>
+        <div class="diary-chip-group diary-chip-group--compact">${topIssuesHtml}</div>
       </div>
       <div class="diary-segment-actions">
         <button data-diary-action="agree" data-segment-id="${safeSegmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>${escapeHtml(t('segment.agree'))}</button>
         <button data-role="enter-edit" class="diary-chip primary">${escapeHtml(t('segment.addFeedback'))}</button>
       </div>
-      <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${saferBtn}</div>
+      <div class="diary-segment-safer-action">${saferBtn}</div>
     </div>
   `;
 }

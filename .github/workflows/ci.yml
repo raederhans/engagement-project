@@ -46,3 +46,20 @@ jobs:
           VITE_FEATURE_DIARY: '1'
           VITE_TRACT_CRIME_SNAPSHOT: '1'
         run: npm run test:browser-smoke
+
+      - name: Run visual experience checks
+        env:
+          VITE_FEATURE_DIARY: '1'
+          VITE_TRACT_CRIME_SNAPSHOT: '1'
+        run: npm run test:visual-experience
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-diagnostics-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

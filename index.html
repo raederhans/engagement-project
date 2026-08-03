@@ -6,27 +6,6 @@
     <title data-i18n="app.documentTitle">Philadelphia Engagement Explorer</title>
     <meta name="description" data-i18n-content="app.description" content="Explore Philadelphia crime patterns, compare two locations, and try a browser-local route safety diary." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <style>
-      html, body { height: 100%; margin: 0; }
-      #map { position: absolute; inset: 0; }
-      #legend {
-        position: fixed; bottom: 12px; right: 12px; z-index: 1010;
-        background: rgba(255,255,255,0.95); padding: 10px 12px; border-radius: 8px;
-        font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-        max-width: 200px;
-      }
-      @media (max-width: 768px) {
-        #legend { bottom: 72px; }
-      }
-      #legend .swatch { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: middle; }
-      #legend .row { white-space: nowrap; }
-      #tooltip {
-        position: fixed; pointer-events: none; z-index: 20; display: none;
-        background: rgba(0,0,0,0.8); color: #fff; padding: 6px 8px; border-radius: 4px; font-size: 12px;
-        transform: translate(8px, -8px);
-      }
-    </style>
   </head>
   <body>
     <header class="app-bar" data-i18n-aria-label="app.label" aria-label="Application">
@@ -44,44 +23,44 @@
     <div id="map"></div>
     <div id="legend"></div>
     <div id="tooltip"></div>
-    <div id="sidepanel" data-sheet-state="half" style="position:fixed; left:12px; top:12px; z-index:18; width:300px; max-height:88vh; overflow:auto; background:rgba(255,255,255,0.97); padding:12px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
+    <div id="sidepanel" class="task-panel sheet" data-sheet-state="half">
       <div class="task-panel__heading">
         <h2 data-i18n="crime.taskTitle">Explore a location</h2>
         <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
       </div>
 
-      <label for="queryModeSel" data-i18n="crime.areaLabel" style="display:block; font-size:12px; color:#374151;">Analysis area</label>
-      <select id="queryModeSel" style="width:100%; margin-bottom:4px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
-        <option value="buffer" data-i18n="crime.area.buffer" selected>Buffer</option>
+      <label class="field-label" for="queryModeSel" data-i18n="crime.areaLabel">Analysis area</label>
+      <select id="queryModeSel" class="field field--compact">
+        <option value="buffer" data-i18n="crime.area.buffer" selected>Around a point</option>
         <option value="district" data-i18n="crime.area.district">Police District</option>
         <option value="tract" data-i18n="crime.area.tract">Census Tract</option>
       </select>
-      <div id="queryModeHelp" data-i18n="crime.modeHelp.buffer" style="color:#64748b; font-size:12px; margin-bottom:8px;">Buffer mode: click “Pick on map”, then click the map to set the center.</div>
-      <button id="clearSelBtn" data-i18n="crime.clearSelection" style="display:none; margin-bottom:8px; padding:6px 8px; border:1px solid #94a3b8; background:#f8fafc; border-radius:6px; cursor:pointer;">Clear selection</button>
+      <div id="queryModeHelp" class="field-help" data-i18n="crime.modeHelp.buffer">Around a point: choose “Pick on map”, then click the map to set the center.</div>
+      <button id="clearSelBtn" class="button button--secondary is-hidden" data-i18n="crime.clearSelection">Clear selection</button>
       <div id="bufferSelectRow">
-        <label for="addrA" data-i18n="crime.selectedArea" style="display:block; font-size:12px; color:#374151;">Selected area</label>
-        <div style="display:flex; gap:6px; margin-bottom:8px;">
-          <input id="addrA" type="search" data-i18n-placeholder="crime.address.primaryPlaceholder" placeholder="1500 Market St" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
-          <button id="searchABtn" type="button" data-i18n="crime.find">Find</button>
-          <button id="useCenterBtn" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
+        <label class="field-label" for="addrA" data-i18n="crime.selectedArea">Selected area</label>
+        <div class="search-control">
+          <input id="addrA" class="field search-control__input" type="search" name="address-a" autocomplete="street-address" enterkeyhint="search" aria-describedby="addressStatus" data-i18n-placeholder="crime.address.primaryPlaceholder" placeholder="1500 Market St" />
+          <button id="searchABtn" class="button button--secondary" type="button" data-i18n="crime.find">Find</button>
+          <button id="useCenterBtn" class="button button--primary" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
         </div>
-        <button id="compareAreaBtn" type="button" data-i18n="crime.compareAdd" aria-expanded="false" aria-controls="comparisonFields">Compare another area</button>
-        <div id="comparisonFields" hidden aria-hidden="true">
-          <label for="addrB" data-i18n="crime.comparisonArea" style="display:block; font-size:12px; color:#374151;">Comparison area</label>
-          <div style="display:flex; gap:6px; margin-bottom:8px;">
-            <input id="addrB" type="search" data-i18n-placeholder="crime.address.comparisonPlaceholder" placeholder="Broad St & Girard Ave" style="min-width:0;flex:1; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
-            <button id="searchBBtn" type="button" data-i18n="crime.find">Find</button>
-            <button id="usePointBBtn" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
+        <button id="compareAreaBtn" class="button button--dashed" type="button" data-i18n="crime.compareAdd" aria-expanded="false" aria-controls="comparisonFields">Compare another area</button>
+        <div id="comparisonFields" hidden>
+          <label class="field-label" for="addrB" data-i18n="crime.comparisonArea">Comparison area</label>
+          <div class="search-control">
+            <input id="addrB" class="field search-control__input" type="search" name="address-b" autocomplete="street-address" enterkeyhint="search" aria-describedby="addressStatus" data-i18n-placeholder="crime.address.comparisonPlaceholder" placeholder="Broad St & Girard Ave" />
+            <button id="searchBBtn" class="button button--secondary" type="button" data-i18n="crime.find">Find</button>
+            <button id="usePointBBtn" class="button button--primary" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
           </div>
         </div>
-        <div id="addressStatus" aria-live="polite" style="display:none;color:#475569;font-size:12px;margin-bottom:8px;"></div>
-        <div id="useMapHint" data-i18n="crime.mapHint" style="display:none; color:#64748b; font-size:12px; margin-top:-4px; margin-bottom:8px;">Click the map to set the selected point. Press Esc to cancel.</div>
+        <div id="addressStatus" class="status-badge is-hidden" role="status" aria-live="polite"></div>
+        <div id="useMapHint" class="field-help is-hidden" data-i18n="crime.mapHint">Click the map to set the selected point. Press Esc to cancel.</div>
       </div>
 
-      <div style="display:flex; gap:10px; margin-bottom:8px;">
-        <div id="bufferRadiusRow" style="flex:1;">
-          <label for="radiusSel" data-i18n="crime.radius" style="display:block; font-size:12px; color:#374151;">Radius</label>
-          <select id="radiusSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+      <div class="field-row">
+        <div id="bufferRadiusRow" class="field-group">
+          <label class="field-label" for="radiusSel" data-i18n="crime.radius">Radius</label>
+          <select id="radiusSel" class="field">
             <option value="400">400 m</option>
             <option value="800">800 m</option>
           </select>
@@ -101,25 +80,25 @@
             <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Connecting to live data…</div>
           </details>
 
-      <div id="rateRow" style="display:flex; gap:10px; margin-bottom:8px;">
-        <div style="flex:1;">
-          <label for="rateSel" data-i18n="crime.rate" style="display:block; font-size:12px; color:#374151;">Rate</label>
-          <select id="rateSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+      <div id="rateRow" class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="rateSel" data-i18n="crime.rate">Rate</label>
+          <select id="rateSel" class="field">
             <option value="counts" data-i18n="crime.counts" selected>Counts</option>
             <option value="per10k" data-i18n="crime.per10k">per-10k</option>
           </select>
         </div>
       </div>
 
-      <div style="margin-bottom:8px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#374151; cursor:pointer;">
-          <input type="checkbox" id="overlayTractsChk" style="width:14px; height:14px;">
+      <div class="field-group">
+        <label class="checkbox-field">
+          <input type="checkbox" id="overlayTractsChk">
           <span data-i18n="crime.tractOverlay">Show tracts overlay</span>
         </label>
       </div>
 
-      <label for="groupSel" data-i18n="crime.offenseGroups" style="display:block; font-size:12px; color:#374151;">Offense Groups</label>
-      <select id="groupSel" multiple size="6" style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+      <label class="field-label" for="groupSel" data-i18n="crime.offenseGroups">Offense Groups</label>
+      <select id="groupSel" class="field field--list" multiple size="6">
         <option value="property" data-i18n="crime.group.property">Property</option>
         <option value="vehicle" data-i18n="crime.group.vehicle">Vehicle</option>
         <option value="burglary" data-i18n="crime.group.burglary">Burglary</option>
@@ -128,27 +107,27 @@
         <option value="vandalism_other" data-i18n="crime.group.vandalismOther">Vandalism/Other</option>
       </select>
 
-      <label for="fineSel" data-i18n="crime.drilldown" style="display:block; font-size:12px; color:#374151;">Drilldown</label>
-      <select id="fineSel" multiple size="6" style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;"></select>
+      <label class="field-label" for="fineSel" data-i18n="crime.drilldown">Drilldown</label>
+      <select id="fineSel" class="field field--list" multiple size="6"></select>
 
-      <label for="startMonth" data-i18n="crime.startMonth" style="display:block; font-size:12px; color:#374151;">Start month</label>
-      <input id="startMonth" type="month" style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
-      <label for="durationSel" data-i18n="crime.duration" style="display:block; font-size:12px; color:#374151;">Duration</label>
-      <select id="durationSel" style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+      <label class="field-label" for="startMonth" data-i18n="crime.startMonth">Start month</label>
+      <input id="startMonth" class="field field--spaced" type="month" />
+      <label class="field-label" for="durationSel" data-i18n="crime.duration">Duration</label>
+      <select id="durationSel" class="field field--spaced">
         <option value="3" data-i18n="crime.months" data-i18n-params='{"count":3}'>3 months</option>
         <option value="6" data-i18n="crime.months" data-i18n-params='{"count":6}' selected>6 months</option>
         <option value="12" data-i18n="crime.months" data-i18n-params='{"count":12}'>12 months</option>
         <option value="24" data-i18n="crime.months" data-i18n-params='{"count":24}'>24 months</option>
       </select>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px;">
-        <button id="shareViewBtn" type="button" data-i18n="crime.copyView">Copy view</button>
-        <button id="exportJsonBtn" type="button">JSON</button>
-        <button id="exportCsvBtn" type="button">CSV</button>
+      <div class="button-grid button-grid--three">
+        <button id="shareViewBtn" class="button button--secondary" type="button" data-i18n="crime.copyView">Copy view</button>
+        <button id="exportJsonBtn" class="button button--secondary" type="button">JSON</button>
+        <button id="exportCsvBtn" class="button button--secondary" type="button">CSV</button>
       </div>
 
-      <details id="help-card" style="margin-top:8px;">
+      <details id="help-card" class="progressive-surface">
         <summary data-i18n="crime.help">Help</summary>
-        <ul style="padding-left:18px; font-size:12px; color:#374151;">
+        <ul class="help-list">
           <li data-i18n="crime.help1">Pick a location (Pick on map) and radius for buffer A.</li>
           <li data-i18n="crime.help2">The time window uses a start month and duration.</li>
           <li data-i18n="crime.help3">Offense groups and drilldown control which codes are included.</li>
@@ -158,26 +137,26 @@
         </ul>
       </details>
 
-      <div id="choropleth-controls" style="margin-top:10px; padding-top:8px; border-top:1px solid #e5e7eb;">
-        <div data-i18n="crime.choropleth" style="font:600 13px/1.2 system-ui, sans-serif; margin:4px 0 8px;">Choropleth</div>
-        <div style="display:flex; gap:8px; margin-bottom:6px;">
-          <div style="flex:1;">
-            <label for="classMethodSel" data-i18n="crime.method" style="display:block; font-size:12px; color:#374151;">Method</label>
-            <select id="classMethodSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+      <section id="choropleth-controls" class="section-block">
+        <h3 class="section-heading" data-i18n="crime.choropleth">Choropleth</h3>
+        <div class="field-row field-row--dense">
+          <div class="field-group">
+            <label class="field-label" for="classMethodSel" data-i18n="crime.method">Method</label>
+            <select id="classMethodSel" class="field">
               <option value="quantile" data-i18n="crime.quantile" selected>Quantile</option>
               <option value="equal" data-i18n="crime.equalInterval">Equal Interval</option>
               <option value="custom" data-i18n="crime.custom">Custom</option>
             </select>
           </div>
-          <div style="flex:1;">
-            <label for="classBinsRange" style="display:block; font-size:12px; color:#374151;"><span data-i18n="crime.bins">Bins</span> (<span id="classBinsVal">5</span>)</label>
-            <input id="classBinsRange" type="range" min="3" max="9" step="1" value="5" style="width:100%;" />
+          <div class="field-group">
+            <label class="field-label" for="classBinsRange"><span data-i18n="crime.bins">Bins</span> (<span id="classBinsVal">5</span>)</label>
+            <input id="classBinsRange" class="field-range" type="range" min="3" max="9" step="1" value="5" />
           </div>
         </div>
-        <div style="display:flex; gap:8px; margin-bottom:6px;">
-          <div style="flex:1;">
-            <label for="classPaletteSel" data-i18n="crime.palette" style="display:block; font-size:12px; color:#374151;">Palette</label>
-            <select id="classPaletteSel" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+        <div class="field-row field-row--dense">
+          <div class="field-group">
+            <label class="field-label" for="classPaletteSel" data-i18n="crime.palette">Palette</label>
+            <select id="classPaletteSel" class="field">
               <option>Blues</option>
               <option>YlGnBu</option>
               <option>OrRd</option>
@@ -191,33 +170,33 @@
               <option>RdBu</option>
             </select>
           </div>
-          <div style="flex:1;">
-            <label for="classOpacityRange" style="display:block; font-size:12px; color:#374151;"><span data-i18n="crime.opacity">Opacity</span> (<span id="classOpacityVal">0.75</span>)</label>
-            <input id="classOpacityRange" type="range" min="0.2" max="1" step="0.05" value="0.75" style="width:100%;" />
+          <div class="field-group">
+            <label class="field-label" for="classOpacityRange"><span data-i18n="crime.opacity">Opacity</span> (<span id="classOpacityVal">0.75</span>)</label>
+            <input id="classOpacityRange" class="field-range" type="range" min="0.2" max="1" step="0.05" value="0.75" />
           </div>
         </div>
-        <div id="classCustomRow" style="display:none;">
-          <label for="classCustomInput" data-i18n="crime.customBreaks" style="display:block; font-size:12px; color:#374151;">Custom breaks (comma-separated)</label>
-          <input id="classCustomInput" type="text" placeholder="10,25,50,100" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px;" />
+        <div id="classCustomRow" class="field-group is-hidden">
+          <label class="field-label" for="classCustomInput" data-i18n="crime.customBreaks">Custom breaks (comma-separated)</label>
+          <input id="classCustomInput" class="field" type="text" placeholder="10,25,50,100" />
         </div>
-      </div>
+      </section>
         </div>
       </details>
-      <div id="compare-card" style="position:fixed; left:12px; bottom:12px; z-index:18; width:300px; background:rgba(255,255,255,0.97); padding:10px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.15)">
+      <div id="compare-card" class="result-card" role="status" aria-live="polite">
         <p class="crime-summary__empty" data-i18n="crime.summaryEmpty">Choose a location to create an analysis summary.</p>
       </div>
-      <aside id="results-drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
+      <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
         <div id="charts">
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
-          <div style="margin-bottom:10px">
+          <div class="chart-frame">
             <h3 data-i18n="crime.chartMonthly">Crime over time</h3>
             <canvas id="chart-monthly" height="140"></canvas>
           </div>
-          <div style="margin-bottom:10px">
+          <div class="chart-frame chart-frame--tall">
             <h3 data-i18n="crime.topOffenses">Top offenses</h3>
             <canvas id="chart-topn" height="160"></canvas>
           </div>
-          <div>
+          <div class="chart-frame">
             <h3 data-i18n="crime.dayHour">Day and hour</h3>
             <canvas id="chart-7x24" height="180"></canvas>
           </div>

@@ -33,8 +33,8 @@ export function attachDistrictPopup(map, layer = 'districts-fill', {
         .map((row) => `${row.text_general_code} (${Number(row.n) || 0})`)
         .join(', ');
       const html = `
-        <div style="min-width:220px">
-          <div style="font-weight:600">${safeName} (${safeCode})</div>
+        <div class="district-popup">
+          <div class="district-popup__title">${safeName} (${safeCode})</div>
           <div>${escapeHtml(t('crime.popupTotal', { count: Number(n) || 0 }))}</div>
           <div>${escapeHtml(t('crime.popupTop3', { items: topRowsLabel || '—' }))}</div>
         </div>`;
