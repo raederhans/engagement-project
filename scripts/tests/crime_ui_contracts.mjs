@@ -72,6 +72,105 @@ test('incident layers stay hidden until a buffer analysis has an intentional loc
   assert.equal(crime.resolveCrimeLayerVisibility('clusters', selected), 'visible');
 });
 
+test('clearing a buffer location removes dependent comparison state', async () => {
+  const stateModule = await import('../../src/state/store.js');
+  assert.equal(typeof stateModule.clearCrimeAnalysisSelection, 'function');
+  const state = {
+    queryMode: 'buffer',
+    center3857: [1, 2],
+    centerLonLat: [-75.16, 39.95],
+    centerB3857: [3, 4],
+    centerBLonLat: [-75.15, 39.96],
+    addressA: 'Point A',
+    addressB: 'Point B',
+    selectedDistrictCode: '09',
+    selectedTractGEOID: '42101000100',
+    selectMode: 'point',
+    selectTarget: 'B',
+  };
+
+  stateModule.clearCrimeAnalysisSelection(state);
+
+  assert.deepEqual(state, {
+    queryMode: 'buffer',
+    center3857: null,
+    centerLonLat: null,
+    centerB3857: null,
+    centerBLonLat: null,
+    addressA: '',
+    addressB: '',
+    selectedDistrictCode: null,
+    selectedTractGEOID: null,
+    selectMode: 'idle',
+    selectTarget: 'A',
+  });
+});
+
+test('clearing a district or tract selection preserves the saved buffer location', async () => {
+  const { clearCrimeAnalysisSelection } = await import('../../src/state/store.js');
+  for (const [queryMode, selectedKey] of [
+    ['district', 'selectedDistrictCode'],
+    ['tract', 'selectedTractGEOID'],
+  ]) {
+    const state = {
+      queryMode,
+      center3857: [1, 2],
+      centerLonLat: [-75.16, 39.95],
+      centerB3857: [3, 4],
+      centerBLonLat: [-75.15, 39.96],
+      addressA: 'Point A',
+      addressB: 'Point B',
+      selectedDistrictCode: '09',
+      selectedTractGEOID: '42101000100',
+      selectMode: 'idle',
+      selectTarget: 'A',
+    };
+
+    clearCrimeAnalysisSelection(state);
+
+    assert.deepEqual(state.centerLonLat, [-75.16, 39.95]);
+    assert.deepEqual(state.centerBLonLat, [-75.15, 39.96]);
+    assert.equal(state.addressA, 'Point A');
+    assert.equal(state.addressB, 'Point B');
+    assert.equal(state[selectedKey], null);
+  }
+});
+
+test('clear-selection visibility follows the active analysis selection', async () => {
+  const panel = await import('../../src/ui/panel.js');
+  assert.equal(typeof panel.shouldShowCrimeClearSelection, 'function');
+  assert.equal(panel.shouldShowCrimeClearSelection({ queryMode: 'buffer', centerLonLat: null }), false);
+  assert.equal(panel.shouldShowCrimeClearSelection({ queryMode: 'buffer', centerLonLat: [-75.16, 39.95] }), true);
+  assert.equal(panel.shouldShowCrimeClearSelection({ queryMode: 'district', selectedDistrictCode: null }), false);
+  assert.equal(panel.shouldShowCrimeClearSelection({ queryMode: 'district', selectedDistrictCode: '09' }), true);
+  assert.equal(panel.shouldShowCrimeClearSelection({ queryMode: 'tract', selectedTractGEOID: '42101000100' }), true);
+});
+
+test('buffer overlay reconciliation removes stale A and B markers independently', async () => {
+  const crime = await import('../../src/routes_crime/index.js');
+  assert.equal(typeof crime.reconcileBufferOverlays, 'function');
+  const removed = [];
+  const cleared = [];
+  const markerA = { remove: () => removed.push('A') };
+  const markerB = { remove: () => removed.push('B') };
+
+  const result = crime.reconcileBufferOverlays({
+    map: {},
+    queryMode: 'buffer',
+    centerLonLat: null,
+    centerBLonLat: null,
+    radiusM: 800,
+    markerA,
+    markerB,
+    clearA: () => cleared.push('A'),
+    clearB: () => cleared.push('B'),
+  });
+
+  assert.deepEqual(result, { markerA: null, markerB: null });
+  assert.deepEqual(removed, ['A', 'B']);
+  assert.deepEqual(cleared, ['A', 'B']);
+});
+
 test('camera padding reserves the visible desktop panel and mobile sheet', async () => {
   const {
     bufferBounds,

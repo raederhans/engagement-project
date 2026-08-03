@@ -1,6 +1,9 @@
 import { fetchPoints } from '../api/crime.js';
 import { categoryColorPairs } from '../utils/types.js';
-import { setTranslatedText } from '../i18n/index.js';
+import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { formatLocalizedDate } from '../i18n/date.js';
+import { escapeHtml } from '../utils/html.js';
+import maplibregl from 'maplibre-gl';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fit.js';
 
 const noticeActionHandlers = new WeakMap();
@@ -98,6 +101,67 @@ export function attachClusterExpansion(map, {
     map.off('mouseleave', layerId, onLeave);
     onLeave();
   };
+}
+
+function incidentDetailRow(labelKey, value) {
+  return `<div><dt>${escapeHtml(t(labelKey))}</dt><dd>${escapeHtml(value || t('summary.metricUnavailable'))}</dd></div>`;
+}
+
+function incidentDetailsHtml(properties = {}) {
+  const occurred = formatLocalizedDate(properties.dispatch_date_time) || t('summary.metricUnavailable');
+  return `<article><h3>${escapeHtml(t('map.incidentDetails'))}</h3><dl>${incidentDetailRow('map.incidentOffense', properties.text_general_code)}${incidentDetailRow('map.incidentOccurred', occurred)}${incidentDetailRow('map.incidentLocation', properties.location_block)}${incidentDetailRow('map.incidentDistrict', properties.dc_dist)}</dl></article>`;
+}
+
+export function attachIncidentDetails(map, {
+  layerId = 'unclustered',
+  createPopup = () => new maplibregl.Popup({ closeButton: true }),
+} = {}) {
+  let popup = null;
+  let latestProperties = null;
+  const closePopup = () => {
+    popup?.remove();
+    popup = null;
+  };
+  const releaseLanguage = onLanguageChange(() => {
+    if (popup && latestProperties) popup.setHTML(incidentDetailsHtml(latestProperties));
+  });
+  const onClick = (event) => {
+    const feature = event?.features?.[0];
+    const coordinates = feature?.geometry?.type === 'Point'
+      ? feature.geometry.coordinates?.slice()
+      : null;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) return;
+    while (Math.abs(Number(event?.lngLat?.lng) - coordinates[0]) > 180) {
+      coordinates[0] += Number(event.lngLat.lng) > coordinates[0] ? 360 : -360;
+    }
+    latestProperties = feature.properties || {};
+    closePopup();
+    popup = createPopup()
+      .setLngLat(coordinates)
+      .setHTML(incidentDetailsHtml(latestProperties))
+      .addTo(map);
+  };
+  const onEnter = () => {
+    const canvas = map.getCanvas?.();
+    if (canvas) canvas.style.cursor = 'pointer';
+  };
+  const onLeave = () => {
+    const canvas = map.getCanvas?.();
+    if (canvas) canvas.style.cursor = '';
+  };
+  map.on('click', layerId, onClick);
+  map.on('mouseenter', layerId, onEnter);
+  map.on('mouseleave', layerId, onLeave);
+  const cleanup = () => {
+    map.off('click', layerId, onClick);
+    map.off('mouseenter', layerId, onEnter);
+    map.off('mouseleave', layerId, onLeave);
+    onLeave();
+    closePopup();
+    releaseLanguage();
+  };
+  cleanup.closePopup = closePopup;
+  return cleanup;
 }
 
 /**

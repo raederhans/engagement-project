@@ -92,6 +92,29 @@ export function hasActiveIncidentSelection(state) {
     && state.centerLonLat.length >= 2;
 }
 
+export function reconcileBufferOverlays({
+  map,
+  queryMode,
+  centerLonLat,
+  centerBLonLat,
+  markerA = null,
+  markerB = null,
+  clearA = clearBufferA,
+  clearB = clearBufferB,
+} = {}) {
+  if (queryMode !== 'buffer' || !centerLonLat) {
+    markerA?.remove();
+    markerA = null;
+    clearA(map);
+  }
+  if (queryMode !== 'buffer' || !centerBLonLat) {
+    markerB?.remove();
+    markerB = null;
+    clearB(map);
+  }
+  return { markerA, markerB };
+}
+
 export function crimeSelectionKey(state) {
   if (state?.queryMode === 'district' && state.selectedDistrictCode) {
     return `district:${String(state.selectedDistrictCode).padStart(2, '0')}`;
@@ -325,21 +348,19 @@ export async function initCrimeMode(map, {
       pointsController.clear();
     }
     jobs.push(updateCharts(snapshot, { signal, shouldApply: isCurrent }));
-    if (center3857) {
-      jobs.push(updateCompare({
-        start,
-        end,
-        types,
-        center3857,
-        centerB3857,
-        addressA,
-        addressB,
-        radiusM,
-        adminLevel,
-        per10k,
-        coverageDate: store.coverageMax,
-      }, { signal, shouldApply: isCurrent }));
-    }
+    jobs.push(updateCompare({
+      start,
+      end,
+      types,
+      center3857,
+      centerB3857,
+      addressA,
+      addressB,
+      radiusM,
+      adminLevel,
+      per10k,
+      coverageDate: store.coverageMax,
+    }, { signal, shouldApply: isCurrent }));
     const results = await Promise.allSettled(jobs);
     if (!isCurrent()) return { applied: false };
     for (const result of results) {
@@ -403,14 +424,15 @@ export async function initCrimeMode(map, {
   }
 
   function syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode }) {
-    if (queryMode !== 'buffer') {
-      removeBufferOverlay(map);
-      markerA?.remove();
-      markerB?.remove();
-      markerA = null;
-      markerB = null;
-      return;
-    }
+    ({ markerA, markerB } = reconcileBufferOverlays({
+      map,
+      queryMode,
+      centerLonLat,
+      centerBLonLat,
+      markerA,
+      markerB,
+    }));
+    if (queryMode !== 'buffer') return;
     if (centerLonLat) {
       markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
       markerA.setLngLat(centerLonLat).addTo(map);

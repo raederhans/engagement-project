@@ -23,7 +23,7 @@
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete for the Chart Studio layer. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,284,167 bytes. The same single-owner contract will be reused after later P2 layers. |
+| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through Incident Details. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,286,677 bytes. The same single-owner contract will be reused after later P2 layers. |
 
 ## Handoff
 
@@ -33,4 +33,4 @@
 
 ## Next step
 
-Integrate incident details next, keeping point lifecycle and P1 notices under the current Crime controller.
+Integrate the selected-window summary insights next and remove any obsolete short-window comparison requests.

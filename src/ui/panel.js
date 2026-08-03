@@ -1,6 +1,12 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
-import { normalizeCoverageWindow, setAnalysisMode, setViewMode, onViewModeChange } from '../state/store.js';
+import {
+  clearCrimeAnalysisSelection,
+  normalizeCoverageWindow,
+  setAnalysisMode,
+  setViewMode,
+  onViewModeChange,
+} from '../state/store.js';
 import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
@@ -49,6 +55,13 @@ export function fitMultiSelectRows(select, maxRows = 6) {
   const rows = Math.max(1, Math.min(Math.floor(optionCount), Math.floor(ceiling)));
   select.size = rows;
   return rows;
+}
+
+export function shouldShowCrimeClearSelection(state) {
+  if (state?.queryMode === 'buffer') return Array.isArray(state.centerLonLat);
+  if (state?.queryMode === 'district') return Boolean(state.selectedDistrictCode);
+  if (state?.queryMode === 'tract') return Boolean(state.selectedTractGEOID);
+  return false;
 }
 
 /**
@@ -438,7 +451,10 @@ export function initPanel(store, handlers) {
     if (bufferSelectRow) bufferSelectRow.style.display = isBuffer ? '' : 'none';
     if (bufferRadiusRow) bufferRadiusRow.style.display = isBuffer ? '' : 'none';
     useMapHint?.classList.toggle('is-hidden', !(isBuffer && store.selectMode === 'point'));
-    clearSelBtn?.classList.toggle('is-hidden', isBuffer);
+    if (clearSelBtn) {
+      clearSelBtn.classList.toggle('is-hidden', !shouldShowCrimeClearSelection(store));
+      setTranslatedText(clearSelBtn, isBuffer ? 'crime.clearLocation' : 'crime.clearSelection');
+    }
     if (rateRow) rateRow.style.display = mode === 'tract' ? 'flex' : 'none';
     if (rateSel) rateSel.disabled = mode !== 'tract';
     if (compareAreaBtn) compareAreaBtn.style.display = isBuffer ? '' : 'none';
@@ -461,9 +477,12 @@ export function initPanel(store, handlers) {
 
   // Clear selection
   clearSelBtn?.addEventListener('click', () => {
-    store.selectedDistrictCode = null;
-    store.selectedTractGEOID = null;
-    applyModeUI();
+    clearCrimeAnalysisSelection(store);
+    if (addressStatus) addressStatus.textContent = '';
+    if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
+    if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
+    document.body.style.cursor = '';
+    syncFromStore();
     onChange();
   });
 
