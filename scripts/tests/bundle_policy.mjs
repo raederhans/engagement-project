@@ -36,7 +36,9 @@ assert.deepEqual(
   new Set(['src/charts/index.js']),
   'Crime must keep Charts behind its lazy boundary',
 );
-assert.ok(diary, 'Vite manifest must contain the Diary lazy chunk');
+assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
+assert.equal(entry.css?.length, 1, 'Split product styles must compile into one initial stylesheet');
+assert.equal(diary.css, undefined, 'Diary must not introduce delayed mode-only CSS or a flash of unstyled content');
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readProductCss } from './helpers/css_source.mjs';
 
 import {
   describeDiaryInsightsContext,
@@ -136,7 +137,7 @@ test('Diary insights disclosure exposes stable expanded state and controlled con
 });
 
 test('Diary insights content is visible when expanded and hidden only by the disclosure state', async () => {
-  const style = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+  const style = await readProductCss();
   assert.match(style, /\.diary-insights-content\s*\{[^}]*display:\s*flex/s);
   assert.match(style, /\.diary-insights-content\[hidden\]\s*\{[^}]*display:\s*none/s);
 });

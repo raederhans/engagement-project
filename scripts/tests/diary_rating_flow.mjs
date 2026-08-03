@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const ratingFlow = await import('../../src/routes_diary/rating_flow.js').catch(() => ({}));
 const formSubmit = await import('../../src/routes_diary/form_submit.js').catch(() => ({}));
@@ -85,7 +86,7 @@ test('step validation allows saving from Details but still enforces one to three
 test('rating modal source keeps the accessibility and responsive layout contracts', async () => {
   const [source, css] = await Promise.all([
     readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
 
   assert.match(source, /role', 'dialog'/);

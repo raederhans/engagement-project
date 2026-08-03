@@ -11,8 +11,27 @@ import * as tractView from '../../src/map/tracts_view.js';
 import * as panelModule from '../../src/ui/panel.js';
 import { buildTopTypesSQL } from '../../src/utils/sql.js';
 import { getSegmentDisplayLabel } from '../../src/routes_diary/labels.js';
+import { readProductCss } from './helpers/css_source.mjs';
+import {
+  createRouteSummaryModel as createRouteSummaryModelOwner,
+  filterLocalDiaryEntries as filterLocalDiaryEntriesOwner,
+} from '../../src/routes_diary/diary_view_models.js';
+import {
+  loadDemoRoutes as loadDemoRoutesOwner,
+  loadDemoSegments as loadDemoSegmentsOwner,
+} from '../../src/routes_diary/diary_seed_data.js';
 
 const { store } = stateModule;
+
+test('Diary view models have one focused owner and remain available from the lazy facade', () => {
+  assert.equal(diaryModule.createRouteSummaryModel, createRouteSummaryModelOwner);
+  assert.equal(diaryModule.filterLocalDiaryEntries, filterLocalDiaryEntriesOwner);
+});
+
+test('Diary seed loading has one cache owner and remains available from the lazy facade', () => {
+  assert.equal(diaryModule.loadDemoSegments, loadDemoSegmentsOwner);
+  assert.equal(diaryModule.loadDemoRoutes, loadDemoRoutesOwner);
+});
 
 function preserveStore(t) {
   const snapshot = {
@@ -111,7 +130,7 @@ test('Crime controls expose one time model and one geography model', async () =>
 test('mobile layout keeps results in the same scroll column as controls', async () => {
   const [mainSource, styleSource] = await Promise.all([
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
   assert.match(mainSource, /appendChild\(root\)|append\(root\)/);
   assert.match(mainSource, /if\s*\(diaryShell\)\s*diaryShell\.after\(root\)/);
@@ -901,7 +920,7 @@ test('Community UI is explicitly sample-only and has no fake post action', async
   const [communitySource, liveSource, styleSource] = await Promise.all([
     readFile(new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
   assert.match(communitySource, /diary\.sampleCommunity/);
   assert.match(communitySource, /diary\.communityNotice/);

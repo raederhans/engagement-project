@@ -19,12 +19,16 @@
 | 2026-08-03 | Keep the product backend-free through P2. | Diary remains local-only and all shared/community/GPS capabilities stay out of scope. |
 | 2026-08-03 | Compact only the published boundary copies to six decimal places after each build. | Preserves readable source data and sub-meter fallback geometry while recovering about 720 KB of deployable budget instead of raising the 4 MB limit. |
 | 2026-08-03 | Admit custom radii through the existing share-state contract and P1 field system. | Preserves progressive disclosure, avoids queries while typing, and makes non-preset analyses reproducible without a new state channel. |
+| 2026-08-03 | Keep `src/style.css` as the single ordered entry and split rules into five responsibility owners without reordering selectors. | Makes future UI changes reviewable while preserving the P1 cascade and one-file production CSS. |
+| 2026-08-03 | Create one simulator per committed Diary session and keep `routes_diary/index.js` as the stable lazy facade. | Timers, lifecycle listeners, and late callbacks are released by instance identity without changing public imports or eager-loading Diary. |
+| 2026-08-03 | Update only the Linux/Windows desktop Help baseline for adaptive Drilldown rows introduced in `32d84d2`. | Repairs a missing visual artifact from the earlier P2 integration; the baseline update is kept separate from the behavior-preserving Stage 2 refactor. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
 | Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract will be reused after later P2 layers. |
+| Stage 2 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, single worker, no snapshot-wide update: 24 pass and 6 intentional skips; process stopped and generated diagnostics removed. |
 
 ## Handoff
 
@@ -34,4 +38,4 @@
 
 ## Next step
 
-Split CSS and Diary ownership next, locking behavior and lazy boundaries before moving implementation.
+Implement one synchronized incident-results controller and task-oriented navigation next. The map and list must share the same point-response generation, selection model, escaped detail model, and stale-owner fence.

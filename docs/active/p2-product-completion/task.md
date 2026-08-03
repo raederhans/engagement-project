@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. All five stacked product deliveries are admitted on current main; CSS and Diary ownership extraction is the next implementation stage.
+P2 execution is active. All five stacked product deliveries are admitted on current main, and the CSS/Diary ownership split is verified. Task-oriented navigation and synchronized map/list results are next.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ P2 execution is active. All five stacked product deliveries are admitted on curr
 - [x] Integrate and verify PR #51 incident details.
 - [x] Integrate and verify PR #53 summary insights.
 - [x] Integrate and verify PR #55 custom radius.
-- [ ] Split CSS and Diary ownership with behavior locks.
+- [x] Split CSS and Diary ownership with behavior locks.
 - [ ] Implement task flow and map/list dual-channel analysis.
 - [ ] Implement recoverable data states and result-level provenance.
 - [ ] Complete Diary local lifecycle and unified artifacts.
@@ -36,9 +36,14 @@ P2 execution is active. All five stacked product deliveries are admitted on curr
 | Summary Insights integration | Summary and A/B detail use the selected analysis window, show average per 30 days and category composition, avoid sparse 30-day comparisons, and pass product, UI, async, P1, i18n, build, and bundle gates. |
 | Custom radius integration | Presets plus a progressive custom 100-10000 metre input round-trip through URL/share state; drafts do not query and each committed value refreshes once. P0, product, i18n, P1, async, build, and bundle gates pass. |
 | Full stacked bundle admission | `verify:bundle` passes at 3,288,581 bytes; the entry is 879,137 bytes and all lazy feature chunks remain within their project budgets. |
+| CSS ownership | The canonical 3,193-line stylesheet is now an ordered five-owner entry (`tokens-base`, `diary-map-ui`, `workbench-shell`, `civic-product`, `crime-charts-responsive`); normalized rules and cascade order match the pre-split source. |
+| Diary ownership | Seed loading/cache, pure view models, and the simulator are focused modules behind the existing lazy facade; each active Diary session owns its exact simulator instance and cleanup. |
+| Stage 2 behavior gates | `npm run validate`, `npm audit --audit-level=high`, and bundle policy pass; Diary remains a dynamic entry with no delayed CSS, the entry emits one stylesheet, and `dist` is 3,289,764 bytes. |
+| Stage 2 visual gates | Windows deterministic experience run: 24 pass and 6 intentional project skips across desktop, portrait, and landscape. The Linux and Windows desktop Help baseline was deliberately aligned to the earlier adaptive Drilldown-row behavior. |
+| Stage 2 independent review | Architecture review returned `APPROVE/CLEAR`; session identity, timer/listener cleanup, lazy CSS, facade compatibility, and stale-owner fencing have no blocking or medium findings. |
 
 ## Open risks and remaining work
 
 - The historical five-PR dependency stack has been semantically replayed on current main; the old branches remain untouched as audit evidence.
-- The exact final browser/visual resource owner and port will be recorded before long verification begins.
-- Later product phases remain pending until the existing stacked functionality is admitted on current main.
+- Stage 2 used one root-owned Playwright worker on port `4178`; it was stopped after the verified run and generated reports were removed.
+- The next product risk is selection drift between MapLibre points and a non-map incident result path; both must consume one response generation rather than issue duplicate queries.

@@ -24,8 +24,8 @@ Advance the backend-free public project from a polished map demo into a recovera
 ## Stages
 
 - [x] Stage 1: Protect existing worktrees and semantically integrate PRs #49, #50, #51, #53, and #55.
-- [ ] Stage 2: Split CSS and Diary ownership while locking current behavior and visuals.
-- [ ] Stage 3: Complete task-oriented navigation, custom radius, and map/list dual-channel analysis.
+- [x] Stage 2: Split CSS and Diary ownership while locking current behavior and visuals.
+- [ ] Stage 3: Complete task-oriented navigation and map/list dual-channel analysis; custom radius is already admitted from Stage 1.
 - [ ] Stage 4: Add recoverable partial-failure states and result-level provenance.
 - [ ] Stage 5: Complete the local Diary lifecycle and unified artifact model.
 - [ ] Stage 6: Extend WebGL, Axe, cross-platform CI, data-contract, and performance gates.

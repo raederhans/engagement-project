@@ -1,0 +1,249 @@
+:root {
+  --font-product: Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: var(--radius-card);
+  --radius-sheet: 16px;
+  --motion-fast: 120ms ease;
+  --motion-panel: 180ms ease;
+  --control-target: 44px;
+  --app-bar-height: 60px;
+  --sheet-collapsed-height: 104px;
+  --sheet-half-height: 58dvh;
+  --sheet-full-height: 90dvh;
+  --panel-width: 360px;
+  --surface: #ffffff;
+  --surface-muted: #f6f8fb;
+  --ink: #102033;
+  --ink-muted: #526273;
+  --border: #d7dee8;
+  --brand: #0b5cad;
+  --brand-strong: #084985;
+  --diary-accent: #0a6c74;
+  --selected: #c86b00;
+  --success: #18794e;
+  --warning: #a15c00;
+  --error: #b42318;
+  --shadow-surface: 0 12px 36px rgba(16, 32, 51, 0.14);
+  --surface-white: var(--surface);
+  --border-subtle: var(--border);
+  --text-main: var(--ink);
+  --text-muted: var(--ink-muted);
+  --safety-high: #34d399;
+  --safety-med: #fbbf24;
+  --safety-low: #f87171;
+  --density-blue: #60a5fa;
+  --diary-primary: #047857;
+  --diary-primary-hover: #065f46;
+  --map-bg: var(--surface-muted);
+  --map-water: #e5e7eb;
+  --map-road: #ffffff;
+  --map-text: #9ca3af;
+  font-family: var(--font-product);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ink);
+  background-color: var(--map-bg);
+}
+
+.analysis-history{margin:12px 0;padding:10px;border:1px solid #dbe4ee;border-radius:10px;background:#f8fafc;font:12px/1.4 var(--font-product);color:#0f172a}
+.analysis-history__heading{font-size:13px;font-weight:700;margin-bottom:8px}
+.analysis-history__save{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.analysis-history__save input{min-width:0;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px}
+.analysis-history button{border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;padding:5px 7px;cursor:pointer}
+.analysis-history button:disabled{cursor:not-allowed;opacity:.55}
+.analysis-history__snapshot,.analysis-history__status,.analysis-history__warning{margin-top:7px;color:#475569}
+.analysis-history__snapshot{border-left:3px solid #f59e0b;padding-left:7px;color:#854d0e}
+.analysis-history__status[data-tone="success"]{color:#047857}
+.analysis-history__status[data-tone="warning"],.analysis-history__warning{color:#9a3412}
+.analysis-history__list{display:grid;gap:7px;margin-top:8px}
+.analysis-history__item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+.analysis-history__item[aria-current="true"]{border-color:#0a6c74;box-shadow:0 0 0 2px rgba(10,108,116,.12)}
+.analysis-history__title{font-weight:700;overflow-wrap:anywhere}
+.analysis-history__meta,.analysis-history__empty{margin-top:2px;color:#64748b}
+.analysis-history__data-status{margin-top:3px;color:#475569;font-weight:600}
+.analysis-history__actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--map-bg);
+  color: var(--text-main);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.button,
+.field,
+.status-badge,
+.task-panel,
+.result-card,
+.drawer,
+.sheet,
+.section-heading {
+  box-sizing: border-box;
+  font-family: var(--font-product);
+}
+
+.button {
+  min-height: var(--control-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: #eef5fc;
+  color: var(--brand-strong);
+}
+
+.button:focus-visible,
+.field:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button--primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--brand-strong);
+  color: #fff;
+}
+
+.button--dashed {
+  border-style: dashed;
+  color: var(--brand);
+}
+
+.field {
+  width: 100%;
+  min-height: var(--control-target);
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.field--compact {
+  margin-bottom: var(--space-1);
+}
+
+.field--spaced,
+.field--list {
+  margin-bottom: var(--space-2);
+}
+
+.field--list {
+  min-height: auto;
+}
+
+.custom-radius-row {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.custom-radius-row[hidden] {
+  display: none;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.field-help {
+  margin-bottom: var(--space-2);
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.field-row,
+.search-control {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.field-row--dense {
+  gap: var(--space-2);
+  margin-bottom: 6px;
+}
+
+.field-group,
+.search-control__input {
+  min-width: 0;
+  flex: 1;
+}
+
+.field-range {
+  width: 100%;
+  min-height: var(--control-target);
+}
+
+.checkbox-field {
+  min-height: var(--control-target);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  width: 20px;
+  height: 20px;
+}
+
+.status-badge {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.status-badge[data-tone="success"] { color: var(--success); }
+.status-badge[data-tone="error"] { color: var(--error); }

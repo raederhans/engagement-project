@@ -7,10 +7,12 @@ import test from 'node:test';
 import * as mapInit from '../../src/map/initMap.js';
 import * as points from '../../src/map/points.js';
 import { messages } from '../../src/i18n/messages.js';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/, (match) => match.slice(1)));
 const html = await readFile(path.join(root, 'index.html'), 'utf8');
-const css = await readFile(path.join(root, 'src', 'style.css'), 'utf8');
+const styleEntry = await readFile(path.join(root, 'src', 'style.css'), 'utf8');
+const css = await readProductCss();
 const diaryInsightsSource = await readFile(path.join(root, 'src', 'charts', 'diary_insights.js'), 'utf8');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 
@@ -105,6 +107,19 @@ test('P1 design system has one canonical product layer instead of cascade patche
   assert.match(css, /--motion-fast:/);
   assert.doesNotMatch(css, /\bInter\b/);
   assert.doesNotMatch(css, /\bsystem-ui\b/);
+});
+
+test('stylesheet ownership is explicit and preserves the canonical cascade order', () => {
+  const imports = [...styleEntry.matchAll(/@import\s+['"]([^'"]+)['"]\s*;/g)]
+    .map((match) => match[1]);
+  assert.deepEqual(imports, [
+    './styles/tokens-base.css',
+    './styles/diary-map-ui.css',
+    './styles/workbench-shell.css',
+    './styles/civic-product.css',
+    './styles/crime-charts-responsive.css',
+  ]);
+  assert.equal((css.match(/^:root\s*\{/gm) || []).length, 1);
 });
 
 test('Diary static panel styling is class-owned while insight dimensions remain data-driven', async () => {

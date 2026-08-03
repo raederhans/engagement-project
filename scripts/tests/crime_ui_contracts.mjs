@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 import { store } from '../../src/state/store.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
+import { readProductCss } from './helpers/css_source.mjs';
 
 test('dense Crime clusters switch to a high-contrast white count label', async () => {
   const { clusterTextColorExpression } = await import('../../src/map/points.js');
@@ -489,7 +490,7 @@ test('comparison disclosure state belongs to one default compare view', async ()
 });
 
 test('detailed comparison disclosure meets touch and reduced-motion contracts', async () => {
-  const css = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+  const css = await readProductCss();
   assert.match(
     css,
     /\.crime-comparison-details\s*>\s*summary\s*\{[^}]*min-height:\s*var\(--control-target\)/s,
@@ -586,7 +587,7 @@ test('the default Crime basemap is visually muted behind analytical overlays', a
 test('Crime map notices sit below the global app bar', async () => {
   const [pointsSource, css] = await Promise.all([
     readFile(new URL('../../src/map/points.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
   assert.doesNotMatch(pointsSource, /position:\s*'fixed',\s*top:\s*'12px'/);
   assert.match(css, /#banner\s*\{[^}]*bottom:\s*52px[^}]*left:\s*384px/s);

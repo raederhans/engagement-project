@@ -5,9 +5,10 @@ import { createModeCoordinator } from '../../src/mode_coordinator.js';
 import * as about from '../../src/ui/about.js';
 import { writeCrimeStateToURL } from '../../src/ui/panel.js';
 import { readFile } from 'node:fs/promises';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const aboutSource = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
-const productCss = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+const productCss = await readProductCss();
 
 function deferred() {
   let resolve;

@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
-const css = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+const css = await readProductCss();
 
 test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /<header\b[^>]*class="[^"]*app-bar[^"]*"[^>]*>/i);
