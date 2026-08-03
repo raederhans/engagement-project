@@ -31,7 +31,7 @@ Add complete English and Simplified Chinese presentation to the application and 
 - [x] Stage 7: Merge `origin/codex/p1-ui@614e88c` without rewriting history and reconcile shared-file conflicts without changing P1 behavior.
 - [x] Stage 8: Inventory and localize every P1-added or changed user-visible string, including data scope, provenance, map selection, Summary/History, route decisions, Insights, and Simulator surfaces.
 - [x] Stage 9: Extend localization and P1 contract tests, then run the full feature-enabled validation, browser smoke, bundle policy, untranslated-copy audit, and final review.
-- [ ] Stage 10: Push the reconciled localization branch and create or update a localization PR layered on the Draft P1 branch; do not merge PR #41 or deploy Pages.
+- [x] Stage 10: Push the reconciled localization branch and create or update a localization PR layered on the Draft P1 branch; do not merge PR #41 or deploy Pages.
 
 ## Acceptance criteria
 

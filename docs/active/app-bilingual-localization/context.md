@@ -3,7 +3,7 @@
 ## Current truth
 
 - Repository: `raederhans/engagement-project`.
-- Working branch: `codex/bilingual-localization@d383e30`, matching `origin/codex/bilingual-localization@d383e30` before P1 reconciliation.
+- Working branch: `codex/bilingual-localization@541cb1d`, matching `origin/codex/bilingual-localization@541cb1d` after P1 reconciliation.
 - P1 handoff: `origin/codex/p1-ui@614e88c`, with runtime commit `966ffaa`; both P1 and localization independently descend from `origin/main@f956ab2`.
 - P0 UI runtime commits were merged by PR #39 as `8ac7001`; P0 records were archived by PR #40 as `f956ab2`. Current local HEAD and `origin/main` both point to `f956ab2`.
 - The only unrelated dirty file is `.gitignore`; it is not owned by this task and must not be staged or committed.
@@ -27,6 +27,7 @@
 | 2026-08-03 | Reconcile P1 with an ordinary merge, never rebase or force-push. | Both branch histories remain reviewable and the localization remote can advance by fast-forward push. |
 | 2026-08-03 | Keep the localization PR layered on `codex/p1-ui` unless an existing PR contract requires otherwise. | PR #41 remains the P1 delivery to `main`; the localization review shows only the bilingual delta and does not merge or deploy P1. |
 | 2026-08-03 | Keep shared P1 copy in a focused lazy catalog and keep Live-route simulator copy inside the Diary lazy boundary. | Complete P1 localization stays below the existing entry, Diary, and new P1 catalog budgets without raising a limit. |
+| 2026-08-03 | Create Draft PR #42 with `codex/p1-ui` as its base. | Localization remains a reviewable layer over Draft PR #41; neither PR was merged and Pages was not deployed. |
 
 ## Live process ownership
 
@@ -48,4 +49,4 @@
 
 ## Next step
 
-Create the no-history-rewrite merge commit, fast-forward the localization remote, and create or update its Draft PR while leaving `.gitignore` unstaged and PR #41 untouched.
+Wait for Draft PR #42 GitHub validation and review; keep PR #41 Draft and do not deploy Pages until the layered delivery is accepted.

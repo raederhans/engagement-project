@@ -2,7 +2,7 @@
 
 ## Current status
 
-The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88c` through an ordinary merge. P1-visible-copy coverage and feature-enabled local verification are complete; commit, push, and Draft PR update remain.
+The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88c` through merge commit `541cb1d`, pushed without history rewriting, and opened as layered Draft PR #42. Local implementation and verification are complete; GitHub validation and review remain external gates.
 
 ## Checklist
 
@@ -18,7 +18,7 @@ The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88
 - [x] Merge P1 without rewriting remote history and preserve all P1 behavior.
 - [x] Localize all P1-added or changed visible copy and extend the corresponding tests.
 - [x] Run feature-enabled full validation, browser smoke, bundle policy, localization audit, and diff/review checks.
-- [ ] Push and create or update the localization PR without merging PR #41 or deploying Pages.
+- [x] Push and create or update the localization PR without merging PR #41 or deploying Pages.
 
 ## Validation evidence
 
@@ -44,10 +44,12 @@ The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88
 | P1 browser smoke | PASS against the feature-enabled production build; `consoleErrors=0`, `pageErrors=0`; restore, failure, freshness, and IndexedDB paths passed; 4173/5173 were free afterward. |
 | Dependency audit | `npm audit --audit-level=high`: 0 vulnerabilities. |
 | Final diff review | No conflict markers; `git diff --check` and staged diff checks passed; `.gitignore` remained unstaged. |
+| Merge commit and remote | `541cb1d` has parents `d383e30` and `614e88c`; `origin/codex/bilingual-localization` advanced by ordinary fast-forward push. |
+| Localization PR | Draft PR #42 targets `codex/p1-ui`; PR #41 remains Draft; no merge or Pages deployment was performed. |
 
 ## Open risks and remaining work
 
 - Vite still emits its pre-existing large-entry advisory, but the enforced raw/gzip bundle budgets pass.
 - Raw third-party/API diagnostic details remain untranslated when shown after a localized summary; stable application-owned errors are localized.
 - Unrelated `.gitignore` WIP remains intentionally unstaged.
-- The localization branch still needs its merge commit, remote fast-forward push, Draft PR update, and GitHub validation; PR #41 must remain Draft and Pages must not be deployed.
+- Draft PR #42 GitHub validation and review are still pending; PR #41 remains Draft and Pages must not be deployed.
