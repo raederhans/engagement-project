@@ -64,7 +64,7 @@
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.21",
     "idb": "8.0.3",
-    "maplibre-gl": "^4.5.0"
+    "maplibre-gl": "^6.1.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
