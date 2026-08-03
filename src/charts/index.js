@@ -15,7 +15,41 @@ import {
   fetch7x24Tract,
 } from '../api/crime.js';
 import '../i18n/crime_charts.js';
-import { onLanguageChange, t } from '../i18n/index.js';
+import { applyTranslations, getLanguage, onLanguageChange, t } from '../i18n/index.js';
+
+const DEFAULT_CHART_PREFERENCES = Object.freeze({
+  palette: 'blue',
+  showLabels: true,
+  monthlyView: 'indexed',
+  topView: 'count',
+  categoryLimit: 8,
+  temporalView: 'heat',
+  classification: 'quantile',
+});
+
+export function createChartPreferenceStore(initial = {}) {
+  let preferences = { ...DEFAULT_CHART_PREFERENCES, ...initial };
+  return Object.freeze({
+    read() { return Object.freeze({ ...preferences }); },
+    update(key, value) {
+      if (!Object.hasOwn(DEFAULT_CHART_PREFERENCES, key)) return this.read();
+      preferences = { ...preferences, [key]: key === 'categoryLimit' ? Number(value) : value };
+      return this.read();
+    },
+  });
+}
+
+const defaultChartPreferences = createChartPreferenceStore();
+
+function numberFormatter(maximumFractionDigits = 0) {
+  return new Intl.NumberFormat(getLanguage(), { maximumFractionDigits });
+}
+
+function signedPercent(value) {
+  if (!Number.isFinite(value)) return '—';
+  const prefix = value > 0 ? '+' : '';
+  return `${prefix}${numberFormatter(1).format(value)}%`;
+}
 
 export function getCrimeChartCopy() {
   return Object.freeze({
@@ -23,7 +57,44 @@ export function getCrimeChartCopy() {
     selectedArea: t('chart.selectedArea'),
     topOffenseTypes: t('chart.topOffenseTypes'),
     heatmap: t('chart.heatmap'),
-    hourValue: (hour, count) => t('chart.hourValue', { hour, count }),
+    indexedAxis: t('chart.axis.indexed'),
+    cityCountAxis: t('chart.axis.cityCount'),
+    areaCountAxis: t('chart.axis.areaCount'),
+    countAxis: t('chart.axis.count'),
+    shareAxis: t('chart.axis.share'),
+    cumulativeShare: t('chart.axis.cumulative'),
+    weekdayTotal: t('chart.weekdayTotal'),
+    hourTotal: t('chart.hourTotal'),
+    monthValue: (series, count, index, indexed) => indexed
+      ? t('chart.tooltip.month', { series, count: numberFormatter().format(count), index: numberFormatter(1).format(index) })
+      : `${series}: ${t('chart.tooltip.count', { count: numberFormatter().format(count) })}`,
+    categoryValue: (count, share) => t('chart.tooltip.category', { count: numberFormatter().format(count), share: numberFormatter(1).format(share) }),
+    shareValue: (share) => t('chart.tooltip.share', { share: numberFormatter(1).format(share) }),
+    countValue: (count) => t('chart.tooltip.count', { count: numberFormatter().format(count) }),
+    hourValue: (hour, count, day) => t('chart.hourValue', { day, hour, count: numberFormatter().format(count) }),
+    hourLabel: (hour) => `${String(hour).padStart(2, '0')}:00`,
+    hourShort: (hour) => `${hour}:00`,
+    monthlyInsight(model) {
+      if (model?.hasArea) return t('chart.insight.monthlyBoth', { city: signedPercent(model.cityChange), area: signedPercent(model.areaChange) });
+      if (Number.isFinite(model?.cityChange)) return t('chart.insight.monthlyCity', { city: signedPercent(model.cityChange) });
+      return t('chart.insight.noData');
+    },
+    topInsight(model) {
+      if (!model?.topLabel || !model.topCount) return t('chart.insight.noData');
+      return t('chart.insight.top', {
+        category: model.topLabel,
+        count: numberFormatter().format(model.topCount),
+        share: numberFormatter(1).format(model.topShare),
+      });
+    },
+    temporalInsight(model) {
+      if (!model?.peakCount) return t('chart.insight.noData');
+      return t('chart.insight.peakPeriod', {
+        day: this.weekdays[model.peakDay],
+        hour: String(model.peakHour).padStart(2, '0'),
+        count: numberFormatter().format(model.peakCount),
+      });
+    },
     weekdays: Object.freeze([
       t('chart.day.sun'),
       t('chart.day.mon'),
@@ -50,10 +121,11 @@ function renderCachedCharts(payload, sinks) {
     return true;
   }
   const copy = getCrimeChartCopy();
+  const preferences = defaultChartPreferences.read();
   sinks.status(payload.statusKey ? t(payload.statusKey) : '', payload.statusKey ? { key: payload.statusKey } : undefined);
-  sinks.monthly(payload.cityRows, payload.areaRows, copy);
-  sinks.top(payload.topRows, copy);
-  sinks.heat(payload.heatMatrix, copy);
+  sinks.monthly(payload.cityRows, payload.areaRows, copy, preferences);
+  sinks.top(payload.topRows, copy, preferences);
+  sinks.heat(payload.heatMatrix, copy, preferences);
   return true;
 }
 
@@ -110,28 +182,73 @@ function getStatusElement() {
   return status;
 }
 
+function writeInsight(id, text) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = text;
+}
+
+let controlsBound = false;
+
+function syncChartControls(preferences) {
+  const charts = document.getElementById('charts');
+  if (charts) charts.dataset.temporalView = preferences.temporalView;
+  for (const button of document.querySelectorAll('[data-chart-setting][data-chart-value]')) {
+    button.setAttribute('aria-pressed', String(preferences[button.dataset.chartSetting] === button.dataset.chartValue));
+  }
+  const classification = document.getElementById('chartClassificationSel');
+  if (classification) classification.disabled = preferences.temporalView !== 'heat';
+}
+
+function bindChartControls() {
+  if (typeof document === 'undefined') return;
+  applyTranslations(document);
+  if (controlsBound) return;
+  controlsBound = true;
+  const rerender = () => defaultChartLocaleCache.refresh(createDefaultChartSinks());
+  for (const button of document.querySelectorAll('[data-chart-setting][data-chart-value]')) {
+    button.addEventListener('click', () => {
+      const next = defaultChartPreferences.update(button.dataset.chartSetting, button.dataset.chartValue);
+      syncChartControls(next);
+      rerender();
+    });
+  }
+  for (const control of document.querySelectorAll('select[data-chart-setting], input[data-chart-setting]')) {
+    control.addEventListener('change', () => {
+      const value = control.type === 'checkbox' ? control.checked : control.value;
+      const next = defaultChartPreferences.update(control.dataset.chartSetting, value);
+      syncChartControls(next);
+      rerender();
+    });
+  }
+  syncChartControls(defaultChartPreferences.read());
+}
+
 function createDefaultChartSinks() {
+  bindChartControls();
   return {
     status(message) {
       getStatusElement().textContent = message;
     },
-    monthly(cityRows, areaRows) {
+    monthly(cityRows, areaRows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-monthly');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-monthly');
-      renderMonthly(context, cityRows, areaRows, getCrimeChartCopy());
+      const model = renderMonthly(context, cityRows, areaRows, copy, { valueMode: preferences.monthlyView, palette: preferences.palette, showLabels: preferences.showLabels });
+      writeInsight('chart-monthly-insight', copy.monthlyInsight(model.insight));
     },
-    top(rows) {
+    top(rows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-topn');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-topn');
-      renderTopN(context, rows, getCrimeChartCopy());
+      const model = renderTopN(context, rows, copy, { valueMode: preferences.topView, categoryLimit: preferences.categoryLimit, palette: preferences.palette, showLabels: preferences.showLabels });
+      writeInsight('chart-topn-insight', copy.topInsight(model.insight));
     },
-    heat(matrix) {
+    heat(matrix, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-7x24');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-7x24');
-      render7x24(context, matrix, getCrimeChartCopy());
+      const model = render7x24(context, matrix, copy, { view: preferences.temporalView, classification: preferences.classification, palette: preferences.palette, showLabels: preferences.showLabels });
+      writeInsight('chart-7x24-insight', copy.temporalInsight(model.insight));
     },
     error(error, {
       report = true,
@@ -225,6 +342,7 @@ export async function updateAllCharts(
       statusKey = 'crime.noIncidents';
     }
     const copy = getCrimeChartCopy();
+    const preferences = defaultChartPreferences.read();
     localeCache?.store({
       kind: 'charts',
       cityRows: byMonthRows(cityRows),
@@ -235,11 +353,11 @@ export async function updateAllCharts(
     });
     chartSinks.status(statusKey ? t(statusKey) : '', statusKey ? { key: statusKey } : undefined);
     if (!isFresh()) return { applied: false };
-    chartSinks.monthly(byMonthRows(cityRows), byMonthRows(bufRows), copy);
+    chartSinks.monthly(byMonthRows(cityRows), byMonthRows(bufRows), copy, preferences);
     if (!isFresh()) return { applied: false };
-    chartSinks.top(topRows, copy);
+    chartSinks.top(topRows, copy, preferences);
     if (!isFresh()) return { applied: false };
-    chartSinks.heat(buildMatrix(heatRows), copy);
+    chartSinks.heat(buildMatrix(heatRows), copy, preferences);
     if (!isFresh()) return { applied: false };
     return { applied: true };
   } catch (e) {

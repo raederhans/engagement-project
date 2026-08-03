@@ -209,18 +209,83 @@
       <aside id="results-drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
         <div id="charts">
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
-          <div style="margin-bottom:10px">
-            <h3 data-i18n="crime.chartMonthly">Crime over time</h3>
-            <canvas id="chart-monthly" height="140"></canvas>
-          </div>
-          <div style="margin-bottom:10px">
-            <h3 data-i18n="crime.topOffenses">Top offenses</h3>
-            <canvas id="chart-topn" height="160"></canvas>
-          </div>
-          <div>
-            <h3 data-i18n="crime.dayHour">Day and hour</h3>
-            <canvas id="chart-7x24" height="180"></canvas>
-          </div>
+          <details id="chart-display-settings" class="chart-settings">
+            <summary data-i18n="chart.settings">Display settings</summary>
+            <div class="chart-settings__grid">
+              <label for="chartPaletteSel">
+                <span data-i18n="chart.palette">Palette</span>
+                <select id="chartPaletteSel" data-chart-setting="palette">
+                  <option value="blue" data-i18n="chart.palette.blue" selected>Blue</option>
+                  <option value="teal" data-i18n="chart.palette.teal">Teal</option>
+                  <option value="contrast" data-i18n="chart.palette.contrast">High contrast</option>
+                </select>
+              </label>
+              <label class="chart-settings__check" for="chartLabelsChk">
+                <input id="chartLabelsChk" type="checkbox" data-chart-setting="showLabels" checked>
+                <span data-i18n="chart.showLabels">Show values</span>
+              </label>
+            </div>
+          </details>
+          <section class="chart-card" aria-labelledby="chart-monthly-title">
+            <div class="chart-card__heading">
+              <div>
+                <h3 id="chart-monthly-title" data-i18n="crime.chartMonthly">Crime over time</h3>
+                <p data-i18n="chart.monthlySubtitle">Compare direction first, then inspect raw volume.</p>
+              </div>
+            </div>
+            <div id="chart-monthly-controls" class="chart-options" role="group" data-i18n-aria-label="chart.monthlyViewLabel" aria-label="Time trend view">
+              <button type="button" data-chart-setting="monthlyView" data-chart-value="indexed" aria-pressed="true" data-i18n="chart.view.indexed">Indexed trend</button>
+              <button type="button" data-chart-setting="monthlyView" data-chart-value="count" aria-pressed="false" data-i18n="chart.view.count">Counts</button>
+            </div>
+            <div class="chart-canvas chart-canvas--monthly"><canvas id="chart-monthly"></canvas></div>
+            <p id="chart-monthly-insight" class="chart-insight" aria-live="polite"></p>
+          </section>
+          <section class="chart-card" aria-labelledby="chart-topn-title">
+            <div class="chart-card__heading chart-card__heading--split">
+              <div>
+                <h3 id="chart-topn-title" data-i18n="crime.topOffenses">Top offenses</h3>
+                <p data-i18n="chart.topSubtitle">Rank types and inspect their share of the selected result.</p>
+              </div>
+              <label class="chart-card__compact-select" for="chartCategoryLimitSel">
+                <span data-i18n="chart.categoryCount">Categories</span>
+                <select id="chartCategoryLimitSel" data-chart-setting="categoryLimit">
+                  <option value="5">5</option>
+                  <option value="8" selected>8</option>
+                  <option value="12">12</option>
+                </select>
+              </label>
+            </div>
+            <div id="chart-topn-controls" class="chart-options" role="group" data-i18n-aria-label="chart.topViewLabel" aria-label="Offense value view">
+              <button type="button" data-chart-setting="topView" data-chart-value="count" aria-pressed="true" data-i18n="chart.view.count">Counts</button>
+              <button type="button" data-chart-setting="topView" data-chart-value="share" aria-pressed="false" data-i18n="chart.view.share">Share</button>
+              <button type="button" data-chart-setting="topView" data-chart-value="pareto" aria-pressed="false" data-i18n="chart.view.pareto">Pareto</button>
+            </div>
+            <div class="chart-canvas chart-canvas--top"><canvas id="chart-topn"></canvas></div>
+            <p id="chart-topn-insight" class="chart-insight" aria-live="polite"></p>
+          </section>
+          <section class="chart-card" aria-labelledby="chart-7x24-title">
+            <div class="chart-card__heading chart-card__heading--split">
+              <div>
+                <h3 id="chart-7x24-title" data-i18n="crime.dayHour">Day and hour</h3>
+                <p data-i18n="chart.temporalSubtitle">Find the peak cell or summarize by weekday or hour.</p>
+              </div>
+              <label class="chart-card__compact-select" for="chartClassificationSel">
+                <span data-i18n="chart.classification">Classification</span>
+                <select id="chartClassificationSel" data-chart-setting="classification">
+                  <option value="quantile" data-i18n="chart.classification.quantile" selected>Quantile</option>
+                  <option value="equal" data-i18n="chart.classification.equal">Equal interval</option>
+                  <option value="continuous" data-i18n="chart.classification.continuous">Continuous</option>
+                </select>
+              </label>
+            </div>
+            <div id="chart-7x24-controls" class="chart-options" role="group" data-i18n-aria-label="chart.temporalViewLabel" aria-label="Time period view">
+              <button type="button" data-chart-setting="temporalView" data-chart-value="heat" aria-pressed="true" data-i18n="chart.view.heat">Heat grid</button>
+              <button type="button" data-chart-setting="temporalView" data-chart-value="weekday" aria-pressed="false" data-i18n="chart.view.weekday">Weekday</button>
+              <button type="button" data-chart-setting="temporalView" data-chart-value="hour" aria-pressed="false" data-i18n="chart.view.hour">Hour</button>
+            </div>
+            <div class="chart-canvas chart-canvas--temporal"><canvas id="chart-7x24"></canvas></div>
+            <p id="chart-7x24-insight" class="chart-insight" aria-live="polite"></p>
+          </section>
         </div>
       </aside>
     </div>

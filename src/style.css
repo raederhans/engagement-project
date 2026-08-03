@@ -1586,14 +1586,197 @@ summary {
 }
 
 #charts h2 {
-  margin: 8px 0 20px;
+  margin: 8px 0 14px;
   font-size: 20px;
 }
 
 #charts h3 {
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--ink);
   font-size: 15px;
+}
+
+.chart-settings {
+  margin: 0 0 12px;
+  border: 1px solid #d7e2ee;
+  border-radius: 10px;
+  background: #f8fbfe;
+}
+
+.chart-settings > summary {
+  min-height: 42px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-settings__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.chart-settings__grid label,
+.chart-card__compact-select {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.chart-settings__grid select,
+.chart-card__compact-select select {
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #b9cadc;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.chart-settings__grid .chart-settings__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  align-self: end;
+  color: var(--ink);
+}
+
+.chart-settings__check input {
+  width: 18px;
+  height: 18px;
+}
+
+.chart-card {
+  margin: 0 0 14px;
+  padding: 13px;
+  border: 1px solid #d9e3ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.045);
+}
+
+.chart-card__heading {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.chart-card__heading--split {
+  justify-content: space-between;
+}
+
+.chart-card__heading p {
+  margin: 3px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.chart-card__compact-select {
+  flex: 0 0 92px;
+}
+
+.chart-options {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #edf3f8;
+}
+
+.chart-options button {
+  min-height: 34px;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #526477;
+  font: 650 11px/1.2 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.chart-options button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--brand-strong);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.13);
+}
+
+.chart-options button:focus-visible,
+.chart-settings summary:focus-visible,
+.chart-settings select:focus-visible,
+.chart-card select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.chart-canvas {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-canvas--monthly { height: 210px; }
+.chart-canvas--top { height: 260px; }
+.chart-canvas--temporal { height: 240px; }
+
+.chart-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+}
+
+.chart-insight {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-left: 3px solid #0f766e;
+  border-radius: 0 7px 7px 0;
+  background: #f0fdfa;
+  color: #164e63;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+#charts[data-temporal-view]:not([data-temporal-view="heat"]) #chartClassificationSel {
+  opacity: 0.6;
+}
+
+@media (max-width: 460px) {
+  .chart-settings__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    padding: 11px;
+  }
+
+  .chart-card__heading--split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px;
+  }
+
+  .chart-options button {
+    min-height: 40px;
+    padding-inline: 5px;
+  }
+
+  .chart-canvas--monthly { height: 200px; }
+  .chart-canvas--top { height: 250px; }
+  .chart-canvas--temporal { height: 225px; }
 }
 
 .mode-skeleton {
