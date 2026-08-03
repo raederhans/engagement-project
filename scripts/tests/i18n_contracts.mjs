@@ -49,6 +49,8 @@ test('localization runtime normalizes, persists, translates, and notifies', asyn
   assert.equal(controller.getLanguage(), 'zh-CN');
   assert.equal(controller.t('language.switch'), 'English');
   assert.equal(controller.t('crime.findingPoint', { target: 'A' }), '正在查找 A 点…');
+  assert.equal(messages.en['map.marker'], 'Map marker. Drag to adjust the location.');
+  assert.equal(messages['zh-CN']['map.marker'], '地图标记，可拖动调整位置。');
 
   const observed = [];
   const unsubscribe = controller.subscribe((language) => observed.push(language));

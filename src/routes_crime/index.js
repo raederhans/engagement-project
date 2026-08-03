@@ -27,6 +27,9 @@ import {
   geometryBounds,
 } from '../map/camera_fit.js';
 import { describeCrimeDataScope } from '../ui/data_scope.js';
+import { wireSettledMarkerDrag } from './draggable_marker.js';
+
+export { wireSettledMarkerDrag };
 
 const CRIME_LAYER_IDS = [
   'districts-fill',
@@ -154,6 +157,8 @@ export async function initCrimeMode(map, {
   const mapReady = waitForMapReady(map);
   let markerA = null;
   let markerB = null;
+  let disposeMarkerADrag = null;
+  let disposeMarkerBDrag = null;
   let tractClickWired = false;
   let districtClickWired = false;
   let active = true;
@@ -403,26 +408,74 @@ export async function initCrimeMode(map, {
   }
 
   function syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode }) {
+    const removeMarkerA = () => {
+      disposeMarkerADrag?.();
+      disposeMarkerADrag = null;
+      markerA?.remove();
+      markerA = null;
+    };
+    const removeMarkerB = () => {
+      disposeMarkerBDrag?.();
+      disposeMarkerBDrag = null;
+      markerB?.remove();
+      markerB = null;
+    };
+    const updateDraggedPoint = (target, { lng, lat }) => {
+      store.setComparisonPoint(target, lng, lat, t('crime.mapPoint', { target }));
+      const center = target === 'B' ? store.centerBLonLat : store.centerLonLat;
+      if (target === 'B') upsertBufferB(map, { centerLonLat: center, radiusM: store.radius });
+      else upsertBufferA(map, { centerLonLat: center, radiusM: store.radius });
+    };
+    const wireMarkerDrag = (marker, target) => wireSettledMarkerDrag(marker, {
+      isActive: () => active && isActive() && store.queryMode === 'buffer',
+      onDragStart: () => {
+        refreshOwner.cancel();
+        publishCurrentSelection(undefined, { origin: 'map' });
+      },
+      onMove: (position) => {
+        updateDraggedPoint(target, position);
+        publishCurrentSelection(undefined, { origin: 'drag' });
+      },
+      onSettled: (position) => {
+        updateDraggedPoint(target, position);
+        publishCurrentSelection(undefined, { origin: 'map' });
+        onPointChange(target);
+        void requestRefresh();
+      },
+    });
+
     if (queryMode !== 'buffer') {
       removeBufferOverlay(map);
-      markerA?.remove();
-      markerB?.remove();
-      markerA = null;
-      markerB = null;
+      removeMarkerA();
+      removeMarkerB();
       return;
     }
     if (centerLonLat) {
-      markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
+      if (!markerA) {
+        markerA = createMapMarker({
+          color: '#c86b00',
+          className: 'analysis-marker analysis-marker--a',
+          draggable: true,
+        });
+        disposeMarkerADrag = wireMarkerDrag(markerA, 'A');
+      }
       markerA.setLngLat(centerLonLat).addTo(map);
       localizeMapMarker(markerA);
       upsertBufferA(map, { centerLonLat, radiusM });
-    }
+    } else removeMarkerA();
     if (centerBLonLat) {
-      markerB ||= createMapMarker({ color: '#0a6c74', className: 'analysis-marker analysis-marker--b' });
+      if (!markerB) {
+        markerB = createMapMarker({
+          color: '#0a6c74',
+          className: 'analysis-marker analysis-marker--b',
+          draggable: true,
+        });
+        disposeMarkerBDrag = wireMarkerDrag(markerB, 'B');
+      }
       markerB.setLngLat(centerBLonLat).addTo(map);
       localizeMapMarker(markerB);
       upsertBufferB(map, { centerLonLat: centerBLonLat, radiusM });
-    }
+    } else removeMarkerB();
   }
 
   async function ensureTractOutline({ signal, isCurrent, onSourceResolved }) {
@@ -544,6 +597,10 @@ export async function initCrimeMode(map, {
       } else if (!active) {
         lastCameraSelectionKey = null;
         pointsController.clear();
+        disposeMarkerADrag?.();
+        disposeMarkerBDrag?.();
+        disposeMarkerADrag = null;
+        disposeMarkerBDrag = null;
         markerA?.remove();
         markerB?.remove();
         markerA = null;

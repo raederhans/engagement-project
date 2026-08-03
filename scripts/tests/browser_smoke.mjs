@@ -421,6 +421,54 @@ try {
   await page.locator('.analysis-history__empty').waitFor();
   assert.equal(await artifactCard(page, 'Renamed A-only').count(), 0);
 
+  const markerA = page.locator('.analysis-marker--a');
+  await markerA.waitFor();
+  assert.equal(
+    await markerA.getAttribute('title'),
+    'Map marker. Drag to adjust the location.',
+  );
+  const markerBounds = await markerA.boundingBox();
+  assert.ok(markerBounds, 'Draggable Point A marker must have visible bounds');
+  const pointRefreshRequestsBeforeDrag = networkControl.pointRefreshRequests;
+  const markerCenter = {
+    x: markerBounds.x + markerBounds.width / 2,
+    y: markerBounds.y + markerBounds.height / 2,
+  };
+  await page.mouse.move(
+    markerCenter.x,
+    markerCenter.y,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    markerBounds.x + markerBounds.width / 2 + 36,
+    markerBounds.y + markerBounds.height / 2 + 18,
+    { steps: 6 },
+  );
+  await page.waitForTimeout(500);
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeDrag,
+    'Holding a dragged marker still must not start Crime calculation',
+  );
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeDrag,
+    'The marker settle delay must elapse before Crime calculation starts',
+  );
+  await page.waitForResponse((response) => {
+    const request = response.request();
+    return request.url().startsWith('https://phl.carto.com/')
+      && /format=GeoJSON/i.test(decodeURIComponent(request.postData() || ''));
+  });
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeDrag,
+    1,
+    'The final settled marker position must start exactly one Crime calculation',
+  );
+  assert.equal(await page.locator('#addrA').inputValue(), 'Map point A');
+
   const layout = await page.evaluate(() => {
     const side = document.getElementById('sidepanel');
     const compare = document.getElementById('compare-card');

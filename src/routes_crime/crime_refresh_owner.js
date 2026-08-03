@@ -63,6 +63,9 @@ export function createCrimeRefreshOwner({ readSnapshot, runRefresh }) {
         if (generation === requestGeneration) controller = null;
       }
     },
+    cancel() {
+      invalidate();
+    },
     setActive(next) {
       const shouldActivate = Boolean(next);
       if (active === shouldActivate) return;

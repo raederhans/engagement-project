@@ -125,7 +125,7 @@ const messagePairs = Object.freeze({
 
   'map.resetExtent': ['Reset map extent', '重置地图范围'],
   'map.canvas': ['Map', '地图'],
-  'map.marker': ['Map marker', '地图标记'],
+  'map.marker': ['Map marker. Drag to adjust the location.', '地图标记，可拖动调整位置。'],
   'map.zoomIn': ['Zoom in', '放大'],
   'map.zoomOut': ['Zoom out', '缩小'],
   'map.resetBearing': ['Reset bearing to north', '重置为正北方向'],

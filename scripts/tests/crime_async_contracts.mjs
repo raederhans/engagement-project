@@ -51,6 +51,93 @@ test('each refresh reads one snapshot and superseding aborts the previous genera
   assert.deepEqual(await second, { applied: true });
 });
 
+test('manual cancellation aborts the active Crime refresh without starting another generation', async () => {
+  const gate = deferred();
+  let snapshotReads = 0;
+  let activeSignal = null;
+  const owner = createCrimeRefreshOwner({
+    readSnapshot: () => ({ sequence: ++snapshotReads }),
+    runRefresh: (_snapshot, context) => {
+      activeSignal = context.signal;
+      return gate.promise;
+    },
+  });
+
+  const refresh = owner.refresh();
+  assert.equal(typeof owner.cancel, 'function');
+  owner.cancel();
+
+  assert.equal(activeSignal.aborted, true);
+  assert.equal(snapshotReads, 1);
+  gate.resolve({ applied: true });
+  assert.deepEqual(await refresh, { applied: false });
+});
+
+test('marker dragging updates position immediately and refreshes once after the final settle delay', async () => {
+  const { wireSettledMarkerDrag } = await import('../../src/routes_crime/index.js');
+  assert.equal(typeof wireSettledMarkerDrag, 'function');
+
+  const listeners = new Map();
+  const marker = {
+    position: { lng: -75.16, lat: 39.95 },
+    on(event, listener) { listeners.set(event, listener); return this; },
+    off(event, listener) {
+      if (listeners.get(event) === listener) listeners.delete(event);
+      return this;
+    },
+    getLngLat() { return this.position; },
+  };
+  const timers = new Map();
+  const waits = [];
+  let nextTimerId = 1;
+  const scheduler = {
+    setTimeout(callback, wait) {
+      const id = nextTimerId++;
+      timers.set(id, callback);
+      waits.push(wait);
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  const dragStarts = [];
+  const moves = [];
+  const settled = [];
+  const dispose = wireSettledMarkerDrag(marker, {
+    scheduler,
+    onDragStart: () => dragStarts.push('start'),
+    onMove: (position) => moves.push(position),
+    onSettled: (position) => settled.push(position),
+  });
+
+  listeners.get('dragstart')();
+  marker.position = { lng: -75.17, lat: 39.96 };
+  listeners.get('drag')();
+  listeners.get('dragend')();
+  assert.deepEqual(dragStarts, ['start']);
+  assert.deepEqual(moves, [{ lng: -75.17, lat: 39.96 }]);
+  assert.deepEqual(settled, []);
+  assert.deepEqual(waits, [350]);
+  assert.equal(timers.size, 1);
+
+  listeners.get('dragstart')();
+  assert.equal(timers.size, 0);
+  marker.position = { lng: -75.18, lat: 39.97 };
+  listeners.get('drag')();
+  listeners.get('dragend')();
+  const [timerId, callback] = timers.entries().next().value;
+  timers.delete(timerId);
+  callback();
+
+  assert.deepEqual(moves, [
+    { lng: -75.17, lat: 39.96 },
+    { lng: -75.18, lat: 39.97 },
+  ]);
+  assert.deepEqual(settled, [{ lng: -75.18, lat: 39.97 }]);
+  dispose();
+  assert.equal(timers.size, 0);
+  assert.equal(listeners.size, 0);
+});
+
 test('deactivation invalidates work and reactivation uses a fresh signal', async () => {
   const runs = [];
   const owner = createCrimeRefreshOwner({
