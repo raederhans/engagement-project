@@ -13,7 +13,7 @@ Product implementation committed as `25b509a` on `codex/comparison-detail-menu`;
 - [x] Run targeted and full validation.
 - [x] Run browser smoke and bilingual desktop/mobile QA.
 - [x] Complete architecture and code review.
-- [ ] Push and open PR.
+- [x] Push and open PR #49.
 
 ## Validation evidence
 
@@ -35,4 +35,4 @@ Product implementation committed as `25b509a` on `codex/comparison-detail-menu`;
 ## Open risks and remaining work
 
 - Existing `Analysis History` raw bundle is 22 bytes below its current 23,000-byte policy ceiling; this feature does not modify that chunk or its budget.
-- Remote CI remains pending until the branch and PR are published.
+- PR #49 is open at `https://github.com/raederhans/engagement-project/pull/49`; exact-head CI remains pending.

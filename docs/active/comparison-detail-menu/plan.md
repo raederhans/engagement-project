@@ -31,7 +31,7 @@ Turn the two-area Crime comparison from two repetitive count rows into an option
 - [x] Stage 2: Add focused failing rendering and interaction contracts.
 - [x] Stage 3: Implement the minimal detailed comparison submenu and bilingual styling.
 - [x] Stage 4: Run targeted/full validation, browser smoke, and desktop/mobile bilingual QA.
-- [ ] Stage 5: Review, commit, push, and open an independent PR.
+- [x] Stage 5: Review, commit, push, and open an independent PR.
 
 ## Acceptance criteria
 

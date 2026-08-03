@@ -31,4 +31,4 @@ Only this task directory, the registry row, comparison rendering/localization/st
 
 ## Next step
 
-Push `codex/comparison-detail-menu`, open an independent PR against `main`, and wait for exact-head CI.
+Wait for exact-head CI on PR #49; do not merge or deploy in this task.
