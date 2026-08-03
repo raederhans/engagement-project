@@ -70,6 +70,28 @@ test('Crime task panel leads with location and defers comparison and advanced co
   assert.doesNotMatch(html, />Controls<\/div>/i);
 });
 
+test('Crime buffer radius offers useful presets and an accessible custom value', async () => {
+  const radiusSelect = html.match(/<select\b[^>]*id="radiusSel"[^>]*>([\s\S]*?)<\/select>/i)?.[1] || '';
+  const values = [...radiusSelect.matchAll(/<option\b[^>]*value="([^"]+)"/gi)].map((match) => match[1]);
+  assert.deepEqual(values, ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  assert.match(html, /id="customRadiusRow"[^>]*class="[^"]*custom-radius-row[^"]*"[^>]*hidden/i);
+  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*min="100"[^>]*max="10000"[^>]*step="1"/i);
+  assert.doesNotMatch(html.match(/<div\b[^>]*id="bufferRadiusRow"[\s\S]*?<\/div>\s*<div\b[^>]*class="field-group"/i)?.[0] || '', /\sstyle=/i);
+  assert.match(css, /\.custom-radius-row\s*\{[^}]*display:\s*grid/s);
+
+  const { describeRadiusControlState } = await import('../../src/ui/panel.js');
+  assert.deepEqual(describeRadiusControlState(400), {
+    selectValue: '400',
+    customValue: '400',
+    customVisible: false,
+  });
+  assert.deepEqual(describeRadiusControlState(1375), {
+    selectValue: 'custom',
+    customValue: '1375',
+    customVisible: true,
+  });
+});
+
 test('desktop and mobile controls use the product target-size tokens', () => {
   assert.match(css, /--control-target:\s*44px\s*;/);
   assert.match(css, /@media\s*\([^)]*max-width:\s*720px[^)]*\)[\s\S]*--control-target:\s*48px\s*;/);

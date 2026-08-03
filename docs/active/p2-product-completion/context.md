@@ -18,12 +18,13 @@
 | 2026-08-03 | Preserve P1 behavior and visual contracts as admission gates for every P2 phase. | P2 cannot trade accessibility or truthfulness for new features. |
 | 2026-08-03 | Keep the product backend-free through P2. | Diary remains local-only and all shared/community/GPS capabilities stay out of scope. |
 | 2026-08-03 | Compact only the published boundary copies to six decimal places after each build. | Preserves readable source data and sub-meter fallback geometry while recovering about 720 KB of deployable budget instead of raising the 4 MB limit. |
+| 2026-08-03 | Admit custom radii through the existing share-state contract and P1 field system. | Preserves progressive disclosure, avoids queries while typing, and makes non-preset analyses reproducible without a new state channel. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through Summary Insights. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,287,215 bytes. The same single-owner contract will be reused after later P2 layers. |
+| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract will be reused after later P2 layers. |
 
 ## Handoff
 
@@ -33,4 +34,4 @@
 
 ## Next step
 
-Integrate custom radius next, retaining the current design-system markup and URL restoration contract.
+Split CSS and Diary ownership next, locking behavior and lazy boundaries before moving implementation.

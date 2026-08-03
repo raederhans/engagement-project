@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. Comparison, Chart Studio, Incident Details, and selected-window Summary Insights are admitted on current main; obsolete 30-day side queries are removed.
+P2 execution is active. All five stacked product deliveries are admitted on current main; CSS and Diary ownership extraction is the next implementation stage.
 
 ## Checklist
 
@@ -12,7 +12,7 @@ P2 execution is active. Comparison, Chart Studio, Incident Details, and selected
 - [x] Integrate and verify PR #50 chart studio.
 - [x] Integrate and verify PR #51 incident details.
 - [x] Integrate and verify PR #53 summary insights.
-- [ ] Integrate and verify PR #55 custom radius.
+- [x] Integrate and verify PR #55 custom radius.
 - [ ] Split CSS and Diary ownership with behavior locks.
 - [ ] Implement task flow and map/list dual-channel analysis.
 - [ ] Implement recoverable data states and result-level provenance.
@@ -34,9 +34,11 @@ P2 execution is active. Comparison, Chart Studio, Incident Details, and selected
 | Artifact budget recovery | Build-only six-decimal boundary compaction preserves source data and published feature counts; `verify:bundle` passes at 3,284,167 bytes without increasing any budget. |
 | Incident Details integration | Unclustered points expose escaped bilingual details, clear-selection reconciles markers/buffers/comparison state, and stale point lifecycles remain fenced; points, Crime async, P0, P1, i18n, build, and bundle gates pass. |
 | Summary Insights integration | Summary and A/B detail use the selected analysis window, show average per 30 days and category composition, avoid sparse 30-day comparisons, and pass product, UI, async, P1, i18n, build, and bundle gates. |
+| Custom radius integration | Presets plus a progressive custom 100-10000 metre input round-trip through URL/share state; drafts do not query and each committed value refreshes once. P0, product, i18n, P1, async, build, and bundle gates pass. |
+| Full stacked bundle admission | `verify:bundle` passes at 3,288,581 bytes; the entry is 879,137 bytes and all lazy feature chunks remain within their project budgets. |
 
 ## Open risks and remaining work
 
-- The five deliveries form a dependency stack and cannot be merged independently onto current main without resolving P1 semantic overlap.
+- The historical five-PR dependency stack has been semantically replayed on current main; the old branches remain untouched as audit evidence.
 - The exact final browser/visual resource owner and port will be recorded before long verification begins.
 - Later product phases remain pending until the existing stacked functionality is admitted on current main.

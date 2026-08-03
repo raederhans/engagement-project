@@ -64,6 +64,19 @@ export function shouldShowCrimeClearSelection(state) {
   return false;
 }
 
+const BUFFER_RADIUS_PRESETS = new Set([200, 400, 800, 1200, 1600, 2400]);
+
+export function describeRadiusControlState(value) {
+  const parsed = Number(value);
+  const radius = Number.isInteger(parsed) && parsed >= 100 && parsed <= 10_000 ? parsed : 400;
+  const customVisible = !BUFFER_RADIUS_PRESETS.has(radius);
+  return {
+    selectValue: customVisible ? 'custom' : String(radius),
+    customValue: String(radius),
+    customVisible,
+  };
+}
+
 /**
  * Wire the side panel controls to the store and notify on changes.
  * @param {import('../state/store.js').Store} store
@@ -207,6 +220,8 @@ export function initPanel(store, handlers) {
   const bufferSelectRow = document.getElementById('bufferSelectRow');
   const bufferRadiusRow = document.getElementById('bufferRadiusRow');
   const radiusSel = document.getElementById('radiusSel');
+  const customRadiusRow = document.getElementById('customRadiusRow');
+  const customRadiusInput = document.getElementById('customRadiusInput');
   const groupSel = document.getElementById('groupSel');
   const fineSel = document.getElementById('fineSel');
   const rateSel = document.getElementById('rateSel');
@@ -337,13 +352,41 @@ export function initPanel(store, handlers) {
   addrA?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('A'); });
   addrB?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('B'); });
 
-  const radiusImmediate = () => {
-    store.radius = Number(radiusSel.value) || 400;
-    handlers.onRadiusInput?.(store.radius);
+  function syncRadiusControls() {
+    const state = describeRadiusControlState(store.radius);
+    if (radiusSel) radiusSel.value = state.selectValue;
+    if (customRadiusInput) customRadiusInput.value = state.customValue;
+    if (customRadiusRow) customRadiusRow.hidden = !state.customVisible;
+  }
+  function applyRadius(value) {
+    const radius = Number(value);
+    if (!Number.isInteger(radius) || radius < 100 || radius > 10_000 || store.radius === radius) return;
+    store.radius = radius;
+    handlers.onRadiusInput?.(radius);
     onChange();
-  };
-  radiusSel?.addEventListener('change', radiusImmediate);
-  radiusSel?.addEventListener('input', radiusImmediate);
+  }
+  radiusSel?.addEventListener('change', () => {
+    if (radiusSel.value === 'custom') {
+      if (customRadiusRow) customRadiusRow.hidden = false;
+      customRadiusInput?.focus();
+      return;
+    }
+    applyRadius(radiusSel.value);
+    syncRadiusControls();
+  });
+  customRadiusInput?.addEventListener('change', () => {
+    if (customRadiusInput.reportValidity()) {
+      applyRadius(customRadiusInput.value);
+      syncRadiusControls();
+    }
+  });
+  customRadiusInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && customRadiusInput.reportValidity()) {
+      event.preventDefault();
+      applyRadius(customRadiusInput.value);
+      syncRadiusControls();
+    }
+  });
 
   async function populateDrilldown(values, { preserveSelection = false } = {}) {
     const requestedCodes = preserveSelection ? [...(store.selectedDrilldownCodes || [])] : [];
@@ -498,7 +541,6 @@ export function initPanel(store, handlers) {
   });
 
   // initialize defaults
-  if (radiusSel) radiusSel.value = String(store.radius || 400);
   if (addrA) addrA.value = store.addressA || '';
   if (addrB) addrB.value = store.addressB || '';
   if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
@@ -668,6 +710,7 @@ export function initPanel(store, handlers) {
       startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    syncRadiusControls();
     if (dataStatus) {
       const status = describeCoverageStatus(store);
       dataStatus.dataset.tone = status.tone;

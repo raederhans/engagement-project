@@ -447,7 +447,7 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     queryMode: 'tract',
     startMonth: '2025-08',
     durationMonths: 12,
-    radius: 400,
+    radius: 1375,
     selectedGroups: ['vehicle'],
     selectedDrilldownCodes: ['Motor Vehicle Theft'],
     selectedDistrictCode: null,
@@ -468,7 +468,7 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     queryMode: 'tract',
     startMonth: '2025-08',
     durationMonths: 12,
-    radius: 400,
+    radius: 1375,
     selectedGroups: ['vehicle'],
     selectedDrilldownCodes: ['Motor Vehicle Theft'],
     selectedDistrictCode: null,
@@ -497,6 +497,17 @@ test('shared Crime state ignores unrelated parameters and rejects invalid ranges
   assert.equal(decoded.startMonth, null);
   assert.equal(decoded.classBins, 5);
   assert.equal(decoded.classOpacity, 0.75);
+});
+
+test('shared Crime state accepts bounded integer custom buffer radii', async () => {
+  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  for (const radius of [100, 200, 1375, 2400, 10_000]) {
+    assert.equal(decodeCrimeViewState(`radius=${radius}`).radius, radius);
+    assert.equal(new URLSearchParams(encodeCrimeViewState({ radius })).get('radius'), String(radius));
+  }
+  for (const radius of [99, 10_001, 1375.5, 'not-a-radius']) {
+    assert.equal(decodeCrimeViewState(`radius=${radius}`).radius, 400);
+  }
 });
 
 test('analysis artifacts normalize a versioned contract and keep refresh state transient', async () => {

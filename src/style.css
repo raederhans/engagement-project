@@ -170,6 +170,16 @@ body {
   min-height: auto;
 }
 
+.custom-radius-row {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.custom-radius-row[hidden] {
+  display: none;
+}
+
 .field-label {
   display: block;
   margin-bottom: 5px;
@@ -1156,7 +1166,6 @@ body {
 .status-badge[data-tone="pending"] { color: var(--ink-muted); }
 .status-badge[data-tone="ready"] { color: var(--success); }
 .status-badge[data-tone="error"] { color: var(--error); }
-
 .diary-panel-shell {
   display: flex;
   flex-direction: column;
