@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const projectRoot = new URL('../../', import.meta.url);
 const runtimeUrl = new URL('src/i18n/index.js', projectRoot);
+const dateUrl = new URL('src/i18n/date.js', projectRoot);
 const switchUrl = new URL('src/ui/language_switch.js', projectRoot);
 const html = readFileSync(new URL('index.html', projectRoot), 'utf8');
 const diaryDemoHtml = readFileSync(new URL('diary-demo.html', projectRoot), 'utf8');
@@ -57,6 +58,33 @@ test('localization runtime normalizes, persists, translates, and notifies', asyn
   assert.deepEqual(observed, ['en']);
 });
 
+test('language listeners registered before initialization remain active', async () => {
+  const {
+    initializeTranslations,
+    onLanguageChange,
+    setLanguage,
+  } = await import(runtimeUrl);
+  const observed = [];
+  const unsubscribe = onLanguageChange((language) => observed.push(language));
+  const documentRef = {
+    documentElement: { lang: '' },
+    matches: () => false,
+    querySelectorAll: () => [],
+  };
+
+  initializeTranslations({
+    documentRef,
+    storage: { getItem: () => 'en', setItem() {} },
+    navigatorRef: { languages: ['en-US'] },
+  });
+  setLanguage('zh-CN');
+
+  assert.deepEqual(observed, ['zh-CN']);
+  assert.equal(documentRef.documentElement.lang, 'zh-CN');
+  unsubscribe();
+  setLanguage('en');
+});
+
 test('language switch is a focused component initialized before the rest of the UI', () => {
   requireFile(switchUrl, 'language switch component');
   const source = readFileSync(switchUrl, 'utf8');
@@ -69,9 +97,46 @@ test('language switch is a focused component initialized before the rest of the 
   assert.match(diaryDemoSource, /initLanguageSwitch/);
 });
 
+test('dates follow the selected application language instead of the browser locale', async () => {
+  requireFile(dateUrl, 'localized date formatter');
+  const { setLanguage } = await import(runtimeUrl);
+  const { formatCalendarDate, formatLocalizedDate } = await import(dateUrl);
+
+  setLanguage('en');
+  assert.equal(formatCalendarDate('2026-07-31'), 'Jul 31, 2026');
+  assert.match(formatLocalizedDate('2026-07-31T08:30:00.000Z'), /Jul|7/);
+
+  setLanguage('zh-CN');
+  assert.match(formatCalendarDate('2026-07-31'), /2026年7月31日/);
+  assert.doesNotMatch(formatCalendarDate('2026-07-31'), /Jul/i);
+  setLanguage('en');
+});
+
+test('Crime chart renderers receive localized copy and contain no reader-visible English fallback', async () => {
+  const chartFiles = [
+    'src/charts/line_monthly.js',
+    'src/charts/bar_topn.js',
+    'src/charts/heat_7x24.js',
+  ];
+  for (const relative of chartFiles) {
+    const source = readFileSync(new URL(relative, projectRoot), 'utf8');
+    assert.doesNotMatch(source, /Citywide|Buffer A|Top-N offense types|\bhr \$\{|\['Sun','Mon','Tue','Wed','Thu','Fri','Sat'\]/);
+  }
+  const charts = await import(new URL('src/charts/index.js', projectRoot));
+  assert.equal(typeof charts.getCrimeChartCopy, 'function');
+  const { setLanguage } = await import(runtimeUrl);
+  setLanguage('en');
+  assert.equal(charts.getCrimeChartCopy().citywide, 'Citywide');
+  setLanguage('zh-CN');
+  assert.equal(charts.getCrimeChartCopy().citywide, '全市');
+  assert.equal(charts.getCrimeChartCopy().weekdays[0], '周日');
+  setLanguage('en');
+});
+
 test('all declared translation keys exist in both catalogs', async () => {
   requireFile(runtimeUrl, 'localization runtime');
   await import(new URL('src/i18n/diary_live.js', projectRoot));
+  await import(new URL('src/i18n/crime_charts.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));
   const { messages } = await import(runtimeUrl);

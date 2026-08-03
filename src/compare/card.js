@@ -2,7 +2,8 @@ import dayjs from "dayjs";
 import { fetchCountBuffer, fetchTopTypesBuffer } from "../api/crime.js";
 import { estimatePopInBuffer } from "../utils/pop_buffer.js";
 import { escapeHtml } from "../utils/html.js";
-import { applyTranslations, t } from '../i18n/index.js';
+import { applyTranslations, onLanguageChange, t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
 
 function localized(key, params = {}) {
   const serialized = Object.keys(params).length
@@ -23,6 +24,9 @@ const DEFAULT_FETCHERS = {
 
 let lastComparison = null;
 let savedComparisonActive = false;
+let refreshDefaultCompareView = null;
+
+onLanguageChange(() => refreshDefaultCompareView?.());
 
 export function setCurrentAnalysisSelection(element, selectionKey) {
   if (!element) return false;
@@ -69,10 +73,12 @@ function formatDateRange(start, end) {
   const first = dayjs(start);
   const last = dayjs(end).subtract(1, 'day');
   if (!first.isValid() || !last.isValid()) return t('summary.selectedWindow');
+  const firstDate = first.format('YYYY-MM-DD');
+  const lastDate = last.format('YYYY-MM-DD');
   if (first.year() === last.year()) {
-    return `${first.format('MMM D')} – ${last.format('MMM D, YYYY')}`;
+    return `${formatCalendarDate(firstDate, { includeYear: false })} – ${formatCalendarDate(lastDate)}`;
   }
-  return `${first.format('MMM D, YYYY')} – ${last.format('MMM D, YYYY')}`;
+  return `${formatCalendarDate(firstDate)} – ${formatCalendarDate(lastDate)}`;
 }
 
 function renderComparisonPoint(label, point) {
@@ -94,7 +100,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
   }
   const topCategory = a.top3?.[0]?.text_general_code || t('summary.noCategory');
   const coverageLabel = dayjs(coverageDate).isValid()
-    ? dayjs(coverageDate).format('MMM D, YYYY')
+    ? formatCalendarDate(coverageDate)
     : t('summary.latestDate');
   const comparison = b ? `
     <div class="crime-comparison" aria-label="${t('summary.areaComparisonLabel')}" data-i18n-aria-label="summary.areaComparisonLabel">
@@ -120,23 +126,35 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
 function createDefaultCompareView(context = {}) {
   const element = document.getElementById('compare-card');
   if (!element) return null;
+  const render = (commit) => {
+    refreshDefaultCompareView = commit;
+    commit();
+  };
   return {
     pending() {
       if (savedComparisonActive) return;
-      element.innerHTML = `<div class="crime-summary__loading" role="status" data-i18n="summary.updating">${t('summary.updating')}</div>`;
-      applyTranslations(element);
+      render(() => {
+        element.innerHTML = `<div class="crime-summary__loading" role="status" data-i18n="summary.updating">${t('summary.updating')}</div>`;
+        applyTranslations(element);
+      });
     },
     success(result) {
-      element.innerHTML = buildCrimeSummaryHtml(result, context);
-      applyTranslations(element);
+      render(() => {
+        element.innerHTML = buildCrimeSummaryHtml(result, context);
+        applyTranslations(element);
+      });
     },
     error(error) {
       if (savedComparisonActive) return;
-      element.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">${localized('summary.failed', { message: error?.message || error })}</div>`;
-      applyTranslations(element);
+      render(() => {
+        element.innerHTML = `<div style="color:#b91c1c; font:12px system-ui">${localized('summary.failed', { message: error?.message || error })}</div>`;
+        applyTranslations(element);
+      });
     },
-    empty(message) {
-      element.innerHTML = `<div style="font:12px system-ui;color:#64748b">${escapeHtml(message)}</div>`;
+    empty(message, key = null) {
+      render(() => {
+        element.innerHTML = `<div style="font:12px system-ui;color:#64748b">${escapeHtml(key ? t(key) : message)}</div>`;
+      });
     },
   };
 }
@@ -146,7 +164,7 @@ export function renderSavedComparison(resultSummary, { view } = {}) {
   if (!compareView) return false;
   if (!resultSummary?.generatedAt || !resultSummary?.comparison) {
     savedComparisonActive = false;
-    compareView.empty?.(t('summary.savedEmpty'));
+    compareView.empty?.(t('summary.savedEmpty'), 'summary.savedEmpty');
     return false;
   }
   savedComparisonActive = true;

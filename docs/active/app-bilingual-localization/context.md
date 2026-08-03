@@ -3,11 +3,11 @@
 ## Current truth
 
 - Repository: `raederhans/engagement-project`.
-- Working branch: `codex/bilingual-localization@541cb1d`, matching `origin/codex/bilingual-localization@541cb1d` after P1 reconciliation.
+- Working branch: `codex/bilingual-localization@3860e44`, matching `origin/codex/bilingual-localization@3860e44` before the final review-fix commit.
 - P1 handoff: `origin/codex/p1-ui@614e88c`, with runtime commit `966ffaa`; both P1 and localization independently descend from `origin/main@f956ab2`.
 - P0 UI runtime commits were merged by PR #39 as `8ac7001`; P0 records were archived by PR #40 as `f956ab2`. Current local HEAD and `origin/main` both point to `f956ab2`.
 - The only unrelated dirty file is `.gitignore`; it is not owned by this task and must not be staged or committed.
-- The application is vanilla JavaScript with Vite and MapLibre; there is no existing localization module or dependency.
+- The application is vanilla JavaScript with Vite and MapLibre; localization remains framework-free and dependency-free.
 - Existing UI contracts are Node tests under `scripts/tests/`, and `npm run validate` is the repository-wide gate.
 - No repository-root `lessons learned.md` exists.
 
@@ -28,6 +28,9 @@
 | 2026-08-03 | Keep the localization PR layered on `codex/p1-ui` unless an existing PR contract requires otherwise. | PR #41 remains the P1 delivery to `main`; the localization review shows only the bilingual delta and does not merge or deploy P1. |
 | 2026-08-03 | Keep shared P1 copy in a focused lazy catalog and keep Live-route simulator copy inside the Diary lazy boundary. | Complete P1 localization stays below the existing entry, Diary, and new P1 catalog budgets without raising a limit. |
 | 2026-08-03 | Create Draft PR #42 with `codex/p1-ui` as its base. | Localization remains a reviewable layer over Draft PR #41; neither PR was merged and Pages was not deployed. |
+| 2026-08-03 | Treat language changes as presentation refreshes, not business-action replays. | Diary simulator/camera state, pending rating submissions, comparison results, chart outcomes, and cached data survive a language switch without resets, duplicate writes, refetches, or stale-result resurrection. |
+| 2026-08-03 | Keep app-language listeners in a stable module-level registry across controller initialization. | Subscribers registered before app startup remain active, while replaced controllers are disconnected and cannot publish duplicate or stale language changes. |
+| 2026-08-03 | Move chart-only copy into the existing Charts lazy boundary rather than raising the P1 translation budget. | Reader-visible chart labels are bilingual and the established bundle limits remain unchanged. |
 
 ## Live process ownership
 
@@ -35,11 +38,11 @@
 | --- | --- | --- | --- |
 | Previous quick preview on 127.0.0.1:5173 | root | `C:\Users\raede\AppData\Local\Temp\codex-engagement-project\preview-5173.log` | No listener present on 2026-08-03; a fresh preview is required for final bilingual smoke. |
 | Previous P0 preview on 127.0.0.1:4173 | P0 task owner | `C:\Users\raede\AppData\Local\Temp\engagement-ui-p0-preview-20260801.log` | No listener present on 2026-08-03. |
-| Full repository validation | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-validate-final.log` | Complete: `npm run validate` exited 0 with 257/257 tests and bundle policy PASS. |
+| Full repository validation | root | command output captured in the task run | Complete on the reviewed diff with both feature flags: all 18 groups, production build, and bundle policy passed. |
 | Bilingual dev preview | root | `C:\Users\raede\AppData\Local\Temp\engagement-i18n-preview.log` | Stopped before P1 integration; prior owned PID 38492 was terminated and port 5173 verified free. |
-| P1 reconciliation validation | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-validate-final.log` | Complete with both feature flags: 291/291 tests, production build, and bundle policy passed. |
-| Browser smoke | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-browser-smoke.log` | Complete against the feature-enabled production build; consoleErrors=0 and pageErrors=0; owned server stopped. |
-| Dependency audit | root | `C:\Users\raede\AppData\Local\Temp\engagement-p1-i18n-npm-audit.log` | Complete: `npm audit --audit-level=high` found 0 vulnerabilities. |
+| P1 reconciliation validation | root | command output captured in the task run | Complete with both feature flags: demo and 408-tract data checks, all test groups, production build, and bundle policy passed. |
+| Browser smoke | root | task-owned port 4173 | Complete against the feature-enabled production build; Diary live state and Crime locale refresh passed with `consoleErrors=0` and `pageErrors=0`; owned server stopped. |
+| Dependency audit | root | command output captured in the task run | Complete: `npm audit --audit-level=high` found 0 vulnerabilities. |
 
 ## Handoff
 
@@ -49,4 +52,4 @@
 
 ## Next step
 
-Review Draft PR #42; its GitHub `validate` run `30793889757` passed. Keep PR #41 Draft and do not deploy Pages until the layered delivery is accepted.
+Commit and push the reviewed fixes, wait for PR #42 exact-head CI, then merge it into `codex/p1-ui`. Keep PR #41 Draft until the combined P1 head is revalidated.

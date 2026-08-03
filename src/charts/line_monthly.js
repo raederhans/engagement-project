@@ -20,7 +20,7 @@ let chart;
  * @param {{m:string,n:number}[]} citySeries
  * @param {{m:string,n:number}[]} bufferSeries
  */
-export function renderMonthly(ctx, citySeries, bufferSeries) {
+export function renderMonthly(ctx, citySeries, bufferSeries, copy = {}) {
   const labels = unifyLabels(citySeries, bufferSeries);
   const cityVals = valuesFor(labels, citySeries);
   const bufVals = valuesFor(labels, bufferSeries);
@@ -31,8 +31,8 @@ export function renderMonthly(ctx, citySeries, bufferSeries) {
     data: {
       labels,
       datasets: [
-        { label: 'Citywide', data: cityVals, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.2)', tension: 0.2 },
-        { label: 'Buffer A', data: bufVals, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.2)', tension: 0.2 },
+        { label: copy.citywide || '', data: cityVals, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.2)', tension: 0.2 },
+        { label: copy.selectedArea || '', data: bufVals, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.2)', tension: 0.2 },
       ],
     },
     options: {

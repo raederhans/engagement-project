@@ -192,6 +192,20 @@ try {
   assert.equal(await insightsToggle.getAttribute('aria-expanded'), 'true');
   await page.locator('.diary-insights-content').waitFor({ state: 'visible' });
 
+  const simulator = page.locator('details.diary-progressive-surface');
+  await simulator.locator(':scope > summary').click();
+  const diaryRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
+  const selectedRouteBeforeLanguageChange = await diaryRouteSelect.inputValue();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Pause', exact: true }).isEnabled(), true);
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
+  assert.equal(await diaryRouteSelect.inputValue(), selectedRouteBeforeLanguageChange);
+  assert.equal(await page.getByRole('button', { name: '暂停', exact: true }).isEnabled(), true);
+  assert.equal(await page.getByRole('button', { name: '播放', exact: true }).isDisabled(), true);
+  await page.getByRole('button', { name: '切换到英文' }).click();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+
   await page.getByRole('button', { name: 'Rate this route' }).click();
   await page.getByRole('radio', { name: '5 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -245,6 +259,19 @@ try {
     1,
     'One settled geocode must own exactly one Crime refresh API generation',
   );
+  const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+  const localizedComparisonText = await page.locator('#compare-card').textContent();
+  assert.match(localizedComparisonText, /数据截至/);
+  assert.match(localizedComparisonText, /2026年7月30日/);
+  assert.match(await page.locator('.analysis-history').textContent(), /最近的分析/);
+  assert.equal(
+    requests.filter((url) => url.startsWith('https://phl.carto.com/')).length,
+    cartoRequestsBeforeLanguageChange,
+    'Language switching must redraw cached Crime results without refetching data',
+  );
+  await page.getByRole('button', { name: '切换到英文' }).click();
 
   await page.getByLabel('Analysis title').fill('A-only artifact');
   await page.getByRole('button', { name: 'Save analysis' }).click();

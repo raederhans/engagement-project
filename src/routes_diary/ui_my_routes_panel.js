@@ -1,5 +1,12 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
 import { setTranslatedText, t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
+
+export function refreshMyRoutesDates(root) {
+  for (const element of root?.querySelectorAll?.('[data-diary-date]') || []) {
+    element.textContent = formatCalendarDate(element.dataset.diaryDate, { includeYear: false }) || '';
+  }
+}
 
 export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   container.innerHTML = '';
@@ -105,7 +112,8 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
     const date = document.createElement('div');
     date.style.fontSize = '12px';
     date.style.color = '#6b7280';
-    date.textContent = item.date;
+    date.dataset.diaryDate = item.createdAt;
+    date.textContent = formatCalendarDate(item.createdAt, { includeYear: false }) || item.date;
     const label = document.createElement('div');
     label.style.fontSize = '13px';
     label.style.fontWeight = '600';

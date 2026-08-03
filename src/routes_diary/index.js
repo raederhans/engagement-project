@@ -36,7 +36,7 @@ import {
   extractLineCoordinates,
 } from './data_normalization.js';
 import { renderLiveRoutePanel } from './ui_live_panel.js';
-import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
+import { refreshMyRoutesDates, renderMyRoutesPanel } from './ui_my_routes_panel.js';
 import { createSampleCommunityModel, renderCommunityPanel } from './ui_community_panel.js';
 import { describeDiaryDataScope } from '../ui/data_scope.js';
 import { publicUrl } from '../utils/public_url.js';
@@ -63,7 +63,8 @@ import {
   summarizeAlternativeBenefit,
 } from './alternative_route.js';
 import { buildSimulationCoordinates } from './route_simulator.js';
-import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { applyTranslations, onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
 import { fitBoundsWithPanel, geometryBounds } from '../map/camera_fit.js';
 
 const SIM_INTERVAL_MS = 400;
@@ -141,6 +142,7 @@ let localRepository = diaryLocalRepository;
 let localDiaryEntries = [];
 let localStorageWarning = null;
 let refreshDiaryPanel = null;
+let refreshDiaryCopy = null;
 let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -673,6 +675,17 @@ function ensureDiaryPanel(routes, options = {}) {
   };
 
   currentInsightsPort?.setEntries(localDiaryEntries);
+  refreshDiaryCopy = () => {
+    onScopeChange(describeDiaryDataScope(store.diaryViewMode));
+    applyTranslations(diaryPanelEl);
+    refreshMyRoutesDates(diaryPanelEl);
+    if (store.diaryViewMode === 'live') {
+      renderRouteSummary(currentRoute);
+      updateAlternativeRoute({ refreshOnly: true });
+      updateSimButtons();
+    }
+    currentInsightsPort?.refresh();
+  };
   refreshDiaryPanel = renderActivePanel;
   renderActivePanel();
 }
@@ -685,7 +698,7 @@ export function filterLocalDiaryEntries(entries = [], { period = '30d', mode = '
     .filter((entry) => cutoff == null || new Date(entry.createdAt).getTime() >= cutoff)
     .map((entry) => ({
       ...entry,
-      date: new Date(entry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: formatCalendarDate(entry.createdAt, { includeYear: false }),
     }));
 }
 
@@ -1481,7 +1494,7 @@ export async function initDiaryMode(map, options = {}) {
     mapRef = map;
     session.addCleanup(onLanguageChange(() => {
       if (!isCurrent()) return;
-      if (refreshDiaryPanel) refreshDiaryPanel();
+      if (refreshDiaryCopy) refreshDiaryCopy();
       else currentInsightsPort?.refresh();
     }));
     session.addCleanup(() => cleanupDiaryMode(
@@ -1589,6 +1602,7 @@ function cleanupDiaryMode(
       diaryPanelFloating = false;
       currentRoute = null;
       refreshDiaryPanel = null;
+      refreshDiaryCopy = null;
     },
     () => { if (toastEl) toastEl.remove(); },
     () => { if (toastTimer) clearDiaryTimeout(toastTimer); },

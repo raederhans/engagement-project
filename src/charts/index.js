@@ -14,7 +14,62 @@ import {
   fetchTopTypesTract,
   fetch7x24Tract,
 } from '../api/crime.js';
-import { t } from '../i18n/index.js';
+import '../i18n/crime_charts.js';
+import { onLanguageChange, t } from '../i18n/index.js';
+
+export function getCrimeChartCopy() {
+  return Object.freeze({
+    citywide: t('chart.citywide'),
+    selectedArea: t('chart.selectedArea'),
+    topOffenseTypes: t('chart.topOffenseTypes'),
+    heatmap: t('chart.heatmap'),
+    hourValue: (hour, count) => t('chart.hourValue', { hour, count }),
+    weekdays: Object.freeze([
+      t('chart.day.sun'),
+      t('chart.day.mon'),
+      t('chart.day.tue'),
+      t('chart.day.wed'),
+      t('chart.day.thu'),
+      t('chart.day.fri'),
+      t('chart.day.sat'),
+    ]),
+  });
+}
+
+function renderCachedCharts(payload, sinks) {
+  if (!payload || !sinks) return false;
+  if (payload.kind === 'status') {
+    sinks.status(t(payload.statusKey), { key: payload.statusKey });
+    return true;
+  }
+  if (payload.kind === 'error') {
+    sinks.error(payload.error, {
+      report: false,
+      message: t('chart.unavailable', { message: payload.error?.message || payload.error }),
+    });
+    return true;
+  }
+  const copy = getCrimeChartCopy();
+  sinks.status(payload.statusKey ? t(payload.statusKey) : '', payload.statusKey ? { key: payload.statusKey } : undefined);
+  sinks.monthly(payload.cityRows, payload.areaRows, copy);
+  sinks.top(payload.topRows, copy);
+  sinks.heat(payload.heatMatrix, copy);
+  return true;
+}
+
+export function createChartLocaleCache() {
+  let payload = null;
+  return Object.freeze({
+    store(nextPayload) { payload = nextPayload; },
+    refresh(sinks) { return renderCachedCharts(payload, sinks); },
+  });
+}
+
+const defaultChartLocaleCache = createChartLocaleCache();
+
+onLanguageChange(() => {
+  if (typeof document !== 'undefined') defaultChartLocaleCache.refresh(createDefaultChartSinks());
+});
 
 function byMonthRows(rows) {
   return (rows || []).map((r) => ({ m: dayjs(r.m).format('YYYY-MM'), n: Number(r.n) || 0 }));
@@ -64,23 +119,26 @@ function createDefaultChartSinks() {
       const canvas = document.getElementById('chart-monthly');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-monthly');
-      renderMonthly(context, cityRows, areaRows);
+      renderMonthly(context, cityRows, areaRows, getCrimeChartCopy());
     },
     top(rows) {
       const canvas = document.getElementById('chart-topn');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-topn');
-      renderTopN(context, rows);
+      renderTopN(context, rows, getCrimeChartCopy());
     },
     heat(matrix) {
       const canvas = document.getElementById('chart-7x24');
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-7x24');
-      render7x24(context, matrix);
+      render7x24(context, matrix, getCrimeChartCopy());
     },
-    error(error) {
-      console.error(error);
-      getStatusElement().innerText = t('chart.unavailable', { message: error?.message || error });
+    error(error, {
+      report = true,
+      message = t('chart.unavailable', { message: error?.message || error }),
+    } = {}) {
+      if (report) console.error(error);
+      getStatusElement().innerText = message;
     },
   };
 }
@@ -100,10 +158,14 @@ export async function updateAllCharts(
     shouldApply = () => true,
     fetchers,
     sinks,
+    chartCache,
   } = {},
 ) {
   const chartFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
   const chartSinks = sinks ?? createDefaultChartSinks();
+  const localeCache = chartCache === undefined
+    ? (sinks ? null : defaultChartLocaleCache)
+    : chartCache;
   const isFresh = () => !signal?.aborted && shouldApply();
 
   try {
@@ -118,6 +180,7 @@ export async function updateAllCharts(
     } else if (queryMode === 'buffer') {
       if (!center3857) {
         if (!isFresh()) return { applied: false };
+        localeCache?.store({ kind: 'status', statusKey: 'chart.pickCenterTip' });
         chartSinks.status(t('chart.pickCenterTip'));
         return { applied: true };
       }
@@ -152,28 +215,39 @@ export async function updateAllCharts(
     const topRows = Array.isArray(topn?.rows) ? topn.rows : topn;
     const heatRows = Array.isArray(heat?.rows) ? heat.rows : heat;
 
-    chartSinks.status('');
-    if (!isFresh()) return { applied: false };
-    chartSinks.monthly(byMonthRows(cityRows), byMonthRows(bufRows));
-    if (!isFresh()) return { applied: false };
-    chartSinks.top(topRows);
-    if (!isFresh()) return { applied: false };
-    chartSinks.heat(buildMatrix(heatRows));
-    if (!isFresh()) return { applied: false };
-
-    // Empty-window banner
+    let statusKey = null;
     const allZeroCity = (Array.isArray(cityRows) && cityRows.length > 0) ? cityRows.every(r => Number(r.n||0) === 0) : false;
     const noneTop = !Array.isArray(topRows) || topRows.length === 0;
     const noneHeat = !Array.isArray(heatRows) || heatRows.length === 0;
     if (queryMode === 'tract' && (Array.isArray(bufRows) ? bufRows.length === 0 : true) && noneTop && noneHeat) {
-      chartSinks.status(t('chart.noTractIncidents'));
+      statusKey = 'chart.noTractIncidents';
     } else if (allZeroCity && noneTop && noneHeat) {
-      chartSinks.status(t('crime.noIncidents'));
+      statusKey = 'crime.noIncidents';
     }
+    const copy = getCrimeChartCopy();
+    localeCache?.store({
+      kind: 'charts',
+      cityRows: byMonthRows(cityRows),
+      areaRows: byMonthRows(bufRows),
+      topRows,
+      heatMatrix: buildMatrix(heatRows),
+      statusKey,
+    });
+    chartSinks.status(statusKey ? t(statusKey) : '', statusKey ? { key: statusKey } : undefined);
+    if (!isFresh()) return { applied: false };
+    chartSinks.monthly(byMonthRows(cityRows), byMonthRows(bufRows), copy);
+    if (!isFresh()) return { applied: false };
+    chartSinks.top(topRows, copy);
+    if (!isFresh()) return { applied: false };
+    chartSinks.heat(buildMatrix(heatRows), copy);
+    if (!isFresh()) return { applied: false };
     return { applied: true };
   } catch (e) {
     if (!isFresh() || isAbortError(e)) return { applied: false };
-    chartSinks.error(e);
+    localeCache?.store({ kind: 'error', error: e });
+    chartSinks.error(e, {
+      message: t('chart.unavailable', { message: e?.message || e }),
+    });
     throw e;
   }
 }

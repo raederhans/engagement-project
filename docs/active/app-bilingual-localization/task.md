@@ -2,7 +2,7 @@
 
 ## Current status
 
-The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88c` through merge commit `541cb1d`, pushed without history rewriting, and opened as layered Draft PR #42. Local verification and GitHub `validate` are complete; review remains the external gate.
+The bilingual delivery is layered over P1 in Draft PR #42. Independent architecture and code reviews found and then verified fixes for state-preserving language changes, locale-owned dates and charts, single-flight rating submission, current chart-outcome caching, and pre-initialization listener lifetime. The reviewed fix set is locally green and ready for its final commit, push, exact-head CI, and merge into `codex/p1-ui`.
 
 ## Checklist
 
@@ -47,10 +47,16 @@ The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88
 | Merge commit and remote | `541cb1d` has parents `d383e30` and `614e88c`; `origin/codex/bilingual-localization` advanced by ordinary fast-forward push. |
 | Localization PR | Draft PR #42 targets `codex/p1-ui`; PR #41 remains Draft; no merge or Pages deployment was performed. |
 | GitHub validation | PR #42 CI run `30793889757` passed dependency audit, full validation, Playwright installation, and browser smoke. |
+| Review-fix regressions | `npm run test:i18n`: 9/9; Analysis History: 26/26; product integrity: 50/50. Diary simulator/camera, pending rating, comparison/date, chart copy/cache, and early-listener regressions are covered. |
+| Reviewed feature-enabled gate | `VITE_FEATURE_DIARY=1 VITE_TRACT_CRIME_SNAPSHOT=1 npm run validate` exited 0: demo and 408-tract snapshots, all 18 test groups, production build, and bundle policy passed. |
+| Reviewed bundle policy | Entry `872,332 / 234,081 gzip`; Crime `33,663 / 11,795`; Diary `199,940 / 60,300`; Charts `209,897 / 71,569`; Analysis History translations `3,546 / 1,487`; P1 translations `8,856 / 3,134`; total `dist` `3,967,348` bytes. No limit was raised. |
+| Reviewed browser smoke | PASS with both feature flags: Diary simulator remains active across locale changes; Crime cached summary/date/history refresh in Chinese without new CARTO requests; `consoleErrors=0`, `pageErrors=0`. |
+| Reviewed dependency and diff checks | `npm audit --audit-level=high` found 0 vulnerabilities; `git diff --check` passed. |
+| Independent review | Architecture reviewer returned `PASS`; code reviewer returned `APPROVE`; both specifically rechecked the stable locale-listener lifecycle and found no open issue. |
 
 ## Open risks and remaining work
 
 - Vite still emits its pre-existing large-entry advisory, but the enforced raw/gzip bundle budgets pass.
 - Raw third-party/API diagnostic details remain untranslated when shown after a localized summary; stable application-owned errors are localized.
 - Unrelated `.gitignore` WIP remains intentionally unstaged.
-- Draft PR #42 still needs review; PR #41 remains Draft and Pages must not be deployed.
+- Draft PR #42 has passed independent review; its reviewed fix commit still needs exact-head CI and merge into P1. PR #41 remains Draft until the combined P1 head is revalidated.

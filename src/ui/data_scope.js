@@ -1,5 +1,6 @@
 import '../i18n/p1.js';
-import { getLanguage, t } from '../i18n/index.js';
+import { t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
 
 const DATASET_LABEL_KEYS = Object.freeze({
   incidents: 'scope.dataset.incidents',
@@ -8,18 +9,6 @@ const DATASET_LABEL_KEYS = Object.freeze({
   demographics: 'scope.dataset.demographics',
   'tract-crime': 'scope.dataset.tractCrime',
 });
-
-function formatDate(value, { includeYear = true } = {}) {
-  if (!value) return null;
-  const date = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(getLanguage() === 'zh-CN' ? 'zh-CN' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-    ...(includeYear ? { year: 'numeric' } : {}),
-    timeZone: 'UTC',
-  }).format(date);
-}
 
 function normalizeSource(source) {
   if (!source?.dataset || !source?.kind) return null;
@@ -36,7 +25,7 @@ function normalizeSource(source) {
 function sourceDetail(source, coverageMax) {
   const label = t(DATASET_LABEL_KEYS[source.dataset] || source.dataset);
   const kind = t(source.kind === 'fallback' ? 'scope.fallback' : 'scope.live').toLowerCase();
-  const date = formatDate(source.asOf || (source.dataset === 'incidents' ? coverageMax : null));
+  const date = formatCalendarDate(source.asOf || (source.dataset === 'incidents' ? coverageMax : null));
   return t('scope.sourceDetail', {
     dataset: label,
     kind,
@@ -57,8 +46,8 @@ export function describeCrimeDataScope({ coverageMax = null, sources = [] } = {}
   const normalizedSources = sources.map(normalizeSource).filter(Boolean);
   const hasFallback = normalizedSources.some((source) => source.kind === 'fallback');
   const kind = hasFallback ? 'fallback' : 'live';
-  const shortDate = formatDate(coverageMax, { includeYear: false });
-  const longDate = formatDate(coverageMax);
+  const shortDate = formatCalendarDate(coverageMax, { includeYear: false });
+  const longDate = formatCalendarDate(coverageMax);
   const shortLabel = `${t(hasFallback ? 'scope.fallback' : 'scope.live')}${shortDate ? ` · ${shortDate}` : ''}`;
   const accessibleLabel = t(hasFallback ? 'scope.crime.fallback' : 'scope.crime.live', {
     date: longDate

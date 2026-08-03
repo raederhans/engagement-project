@@ -11,6 +11,8 @@ import {
 import { createModeCoordinator } from '../../src/mode_coordinator.js';
 import * as compareCard from '../../src/compare/card.js';
 import { createAnalysisHistoryView } from '../../src/ui/analysis_history_panel.js';
+import { getLanguage, setLanguage } from '../../src/i18n/index.js';
+import { formatLocalizedDate } from '../../src/i18n/date.js';
 
 class FakeElement extends EventTarget {
   constructor() {
@@ -606,7 +608,9 @@ test('failed and superseded restores keep an explicit saved-snapshot terminal st
 
 test('history view uses result generation time and renders truthful terminal snapshot text', () => {
   const originalDocument = globalThis.document;
+  const originalLanguage = getLanguage();
   globalThis.document = { createElement: () => new FakeElement() };
+  setLanguage('en');
   try {
     const mount = new FakeElement();
     const view = createAnalysisHistoryView(mount, {
@@ -621,9 +625,13 @@ test('history view uses result generation time and renders truthful terminal sna
     });
     const snapshot = mount.children[2];
     view.showSnapshot(artifact);
-    assert.match(snapshot.textContent, new RegExp(new Date(artifact.resultSummary.generatedAt).toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.doesNotMatch(snapshot.textContent, new RegExp(new Date(artifact.updatedAt).toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(snapshot.textContent, new RegExp(formatLocalizedDate(artifact.resultSummary.generatedAt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.doesNotMatch(snapshot.textContent, new RegExp(formatLocalizedDate(artifact.updatedAt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(snapshot.textContent, /Refreshing live data/);
+    setLanguage('zh-CN');
+    assert.match(snapshot.textContent, /2026年7月31日/);
+    assert.match(snapshot.textContent, /正在刷新实时数据/);
+    setLanguage('en');
     view.showSnapshotState(artifact, 'failed');
     assert.match(snapshot.textContent, /refresh failed/i);
     view.showSnapshotState(artifact, 'superseded');
@@ -640,6 +648,7 @@ test('history view uses result generation time and renders truthful terminal sna
     assert.match(snapshot.textContent, /refresh was cancelled/i);
     assert.doesNotMatch(snapshot.textContent, /Refreshing live data/i);
   } finally {
+    setLanguage(originalLanguage);
     globalThis.document = originalDocument;
   }
 });

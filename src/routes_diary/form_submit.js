@@ -216,6 +216,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     notes: draft.notes,
     onSuccess,
     signal,
+    pending: false,
     clearDraft: () => clearRatingDraft(routeId),
   };
 
@@ -603,6 +604,7 @@ function createFooter(state) {
     const back = document.createElement('button');
     back.type = 'button';
     back.className = 'diary-button-secondary';
+    back.disabled = state.pending;
     setTranslatedText(back, 'rating.back');
     back.addEventListener('click', () => changeStep(state.step === 'segments' ? 'details' : 'overall'));
     footer.appendChild(back);
@@ -623,6 +625,7 @@ function createFooter(state) {
       const segments = document.createElement('button');
       segments.type = 'button';
       segments.className = 'diary-button-link';
+      segments.disabled = state.pending;
       setTranslatedText(segments, 'rating.addSegments');
       segments.addEventListener('click', () => {
         const result = validateRatingStep(state);
@@ -634,7 +637,8 @@ function createFooter(state) {
     submitBtn = document.createElement('button');
     submitBtn.type = 'submit';
     submitBtn.className = 'diary-button-primary';
-    setTranslatedText(submitBtn, 'rating.save');
+    submitBtn.disabled = state.pending;
+    setTranslatedText(submitBtn, state.pending ? 'rating.submitting' : 'rating.save');
     footer.appendChild(submitBtn);
   }
   return footer;
@@ -667,7 +671,7 @@ function buildPayload(state) {
 async function handleSubmit(event) {
   event.preventDefault();
   const state = currentState;
-  if (!state || state.signal?.aborted) return;
+  if (!state || state.pending || state.signal?.aborted) return;
   const detailsValidation = validateRatingStep({ ...state, step: 'details' });
   if (!state.overallRating) {
     setError(t('rating.selectOverall'));
@@ -684,25 +688,46 @@ async function handleSubmit(event) {
   }
 
   setError('');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    setTranslatedText(submitBtn, 'rating.submitting');
-  }
   try {
     console.info('[Diary] submit payload', payload);
-    const response = await submitDiary(payload, { signal: state.signal });
-    if (currentState !== state || state.signal?.aborted) return;
+    const result = await runRatingSubmission({
+      state,
+      payload,
+      submit: submitDiary,
+      isCurrent: () => currentState === state,
+      onPendingChange: () => {
+        if (currentState === state) renderCurrentStep();
+      },
+    });
+    if (!result.applied) return;
+    const { response } = result;
     console.info('[Diary] submit response', response);
     finalizeDiarySubmission({ state, payload, response, isCurrent: () => currentState === state });
   } catch (error) {
     if (currentState === state && !state.signal?.aborted && error?.name !== 'AbortError') {
       setError(error?.message || t('rating.submissionFailed'));
     }
+  }
+}
+
+export async function runRatingSubmission({
+  state,
+  payload,
+  submit = submitDiary,
+  isCurrent = () => true,
+  onPendingChange = () => {},
+} = {}) {
+  if (!state || state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
+  if (state.pending) return { applied: false, reason: 'pending' };
+  state.pending = true;
+  onPendingChange(true);
+  try {
+    const response = await submit(payload, { signal: state.signal });
+    if (state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
+    return { applied: true, response };
   } finally {
-    if (currentState === state && !state.signal?.aborted && submitBtn) {
-      submitBtn.disabled = false;
-      setTranslatedText(submitBtn, 'rating.save');
-    }
+    state.pending = false;
+    onPendingChange(false);
   }
 }
 

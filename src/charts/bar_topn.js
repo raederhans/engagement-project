@@ -7,7 +7,7 @@ let chart;
  * @param {HTMLCanvasElement|CanvasRenderingContext2D} ctx
  * @param {{text_general_code:string, n:number}[]} rows
  */
-export function renderTopN(ctx, rows) {
+export function renderTopN(ctx, rows, copy = {}) {
   const labels = (rows || []).map((r) => r.text_general_code);
   const values = (rows || []).map((r) => Number(r.n) || 0);
 
@@ -17,7 +17,7 @@ export function renderTopN(ctx, rows) {
     data: {
       labels,
       datasets: [
-        { label: 'Top-N offense types', data: values, backgroundColor: '#60a5fa' },
+        { label: copy.topOffenseTypes || '', data: values, backgroundColor: '#60a5fa' },
       ],
     },
     options: {

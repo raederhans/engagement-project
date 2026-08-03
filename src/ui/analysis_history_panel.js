@@ -1,11 +1,12 @@
 import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
+import { formatLocalizedDate } from '../i18n/date.js';
 
 const HISTORY_CLASS = 'analysis-history__';
 
 function snapshotLabel(artifact) {
   const generatedAt = artifact.resultSummary?.generatedAt;
   return generatedAt
-    ? t('history.savedSnapshot', { date: new Date(generatedAt).toLocaleString() })
+    ? t('history.savedSnapshot', { date: formatLocalizedDate(generatedAt) })
     : t('history.noSnapshot');
 }
 
@@ -81,7 +82,7 @@ export function createAnalysisHistoryView(mount, actions) {
     setTranslatedText(meta, 'history.meta', {
       mode: artifact.viewState.queryMode,
       month: artifact.viewState.startMonth || t('history.current'),
-      date: new Date(artifact.updatedAt).toLocaleString(),
+      date: formatLocalizedDate(artifact.updatedAt),
     });
     const dataStatus = document.createElement('div');
     dataStatus.className = HISTORY_CLASS + 'data-status';

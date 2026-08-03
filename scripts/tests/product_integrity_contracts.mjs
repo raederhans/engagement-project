@@ -962,6 +962,91 @@ test('buffer Top-N chart receives the same offense filter as monthly and heat ch
   assert.deepEqual(topParams.types, ['Robbery Firearm']);
 });
 
+test('Crime charts can redraw localized copy from cached data without refetching', async () => {
+  const { createChartLocaleCache } = await import('../../src/charts/index.js');
+  assert.equal(typeof createChartLocaleCache, 'function');
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  const cache = createChartLocaleCache();
+  let fetchCalls = 0;
+  const emptyRows = async () => {
+    fetchCalls += 1;
+    return { rows: [] };
+  };
+  const copies = [];
+  const statuses = [];
+  const errors = [];
+  const sinks = {
+    status(message) { statuses.push(message); },
+    monthly(_city, _area, copy) { copies.push(copy); },
+    top(_rows, copy) { copies.push(copy); },
+    heat(_matrix, copy) { copies.push(copy); },
+    error(error, options) { errors.push([error, options]); },
+  };
+
+  setLanguage('en');
+  await updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: [1, 2],
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, {
+    fetchers: {
+      fetchMonthlySeriesCity: emptyRows,
+      fetchMonthlySeriesBuffer: emptyRows,
+      fetchTopTypesBuffer: emptyRows,
+      fetch7x24Buffer: emptyRows,
+    },
+    sinks,
+    chartCache: cache,
+  });
+  const fetchCallsAfterInitialRender = fetchCalls;
+  assert.equal(copies[0].citywide, 'Citywide');
+
+  setLanguage('zh-CN');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(fetchCalls, fetchCallsAfterInitialRender);
+  assert.equal(copies.at(-1).citywide, '全市');
+  assert.equal(copies.at(-1).weekdays[0], '周日');
+
+  const copiesBeforeStatusOnly = copies.length;
+  await updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: null,
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, { sinks, chartCache: cache });
+  setLanguage('en');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(statuses.at(-1), 'Tip: click the map to set a center and show buffer-based charts.');
+  assert.equal(copies.length, copiesBeforeStatusOnly);
+
+  await assert.rejects(updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: [1, 2],
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, {
+    fetchers: {
+      fetchMonthlySeriesCity: async () => { throw new Error('offline'); },
+    },
+    sinks,
+    chartCache: cache,
+  }), /offline/);
+  const copiesBeforeErrorRefresh = copies.length;
+  setLanguage('zh-CN');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(copies.length, copiesBeforeErrorRefresh);
+  assert.equal(errors.at(-1)[1].report, false);
+  assert.match(errors.at(-1)[1].message, /图表不可用/);
+  setLanguage('en');
+});
+
 test('Top-N SQL applies the resolved offense filter', () => {
   const sql = buildTopTypesSQL({
     start: '2025-08-01',

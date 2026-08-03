@@ -17,7 +17,7 @@ function valueToColor(v, max) {
  * @param {HTMLCanvasElement|CanvasRenderingContext2D} ctx
  * @param {number[][]} matrix - 7 rows (0=Sun..6=Sat) x 24 cols
  */
-export function render7x24(ctx, matrix) {
+export function render7x24(ctx, matrix, copy = {}) {
   const data = [];
   let vmax = 0;
   for (let d = 0; d < 7; d++) {
@@ -29,7 +29,7 @@ export function render7x24(ctx, matrix) {
   }
 
   const dataset = {
-    label: '7x24',
+    label: copy.heatmap || '7×24',
     data,
     pointRadius: 6,
     pointStyle: 'rectRounded',
@@ -45,10 +45,10 @@ export function render7x24(ctx, matrix) {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => `hr ${ctx.raw.x}: ${ctx.raw.v}` } } },
+      plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => copy.hourValue?.(ctx.raw.x, ctx.raw.v) || `${ctx.raw.x}: ${ctx.raw.v}` } } },
       scales: {
         x: { type: 'linear', min: 0, max: 23, ticks: { stepSize: 3 } },
-        y: { type: 'linear', min: 0, max: 6, ticks: { callback: (v) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][v] } },
+        y: { type: 'linear', min: 0, max: 6, ticks: { callback: (v) => copy.weekdays?.[v] || String(v) } },
       },
       elements: { point: { hoverRadius: 7 } },
     },

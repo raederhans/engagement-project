@@ -85,14 +85,16 @@ export function renderCommunityPanel(container, state = {}) {
     row.style.fontSize = '12px';
     const author = document.createElement('strong');
     author.style.color = '#0f172a';
-    author.textContent = observation.labelKey ? t(observation.labelKey) : observation.label;
+    if (observation.labelKey) setTranslatedText(author, observation.labelKey);
+    else author.textContent = observation.label;
     const badge = document.createElement('span');
     badge.className = 'diary-sample-badge';
     setTranslatedText(badge, 'diary.sampleBadge');
     const text = document.createElement('div');
     text.style.marginTop = '2px';
     text.style.color = '#111827';
-    text.textContent = observation.textKey ? t(observation.textKey) : observation.text;
+    if (observation.textKey) setTranslatedText(text, observation.textKey);
+    else text.textContent = observation.text;
     row.append(author, badge, text);
     list.appendChild(row);
   });

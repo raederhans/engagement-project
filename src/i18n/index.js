@@ -56,8 +56,17 @@ export function createI18nController({
   return Object.freeze(controller);
 }
 
-let appController = createI18nController();
 let activeDocument = null;
+const languageListeners = new Set();
+
+function publishLanguage(language) {
+  if (activeDocument?.documentElement) activeDocument.documentElement.lang = language;
+  applyTranslations(activeDocument);
+  for (const listener of languageListeners) listener(language);
+}
+
+let appController = createI18nController();
+let releaseControllerSubscription = appController.subscribe(publishLanguage);
 
 function readParams(element) {
   if (!element?.dataset?.i18nParams) return {};
@@ -101,14 +110,12 @@ export function initializeTranslations({
   navigatorRef = globalThis.navigator,
 } = {}) {
   activeDocument = documentRef || null;
+  releaseControllerSubscription?.();
   appController = createI18nController({
     storage,
     navigatorLanguages: navigatorRef?.languages || [navigatorRef?.language].filter(Boolean),
   });
-  appController.subscribe((language) => {
-    if (activeDocument?.documentElement) activeDocument.documentElement.lang = language;
-    applyTranslations(activeDocument);
-  });
+  releaseControllerSubscription = appController.subscribe(publishLanguage);
   if (activeDocument?.documentElement) activeDocument.documentElement.lang = appController.getLanguage();
   applyTranslations(activeDocument);
   return appController;
@@ -131,7 +138,9 @@ export function t(key, params) {
 }
 
 export function onLanguageChange(listener) {
-  return appController.subscribe(listener);
+  if (typeof listener !== 'function') return () => {};
+  languageListeners.add(listener);
+  return () => languageListeners.delete(listener);
 }
 
 function writeParams(element, params) {
