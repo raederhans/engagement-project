@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import { submitSegmentFeedback } from '../routes_diary/form_submit.js';
 import { escapeHtml } from '../utils/html.js';
+import { t } from '../i18n/index.js';
 import {
   DIARY_SEGMENTS_SOURCE_ID,
   DIARY_SEGMENTS_LAYER_ID,
@@ -374,28 +375,28 @@ function wirePopupInteractions(popup, {
 }
 
 function deriveTitle(props) {
-  const name = props[STREET_NAME_PROP] || props.name || props.street || props[SEGMENT_ID_PROP] || props.id || 'Segment';
+  const name = props[STREET_NAME_PROP] || props.name || props.street || props[SEGMENT_ID_PROP] || props.id || t('segment.name');
   const dir = (props.direction || props.dir || props.oneway || '').toString().toUpperCase();
   let dirLabel = '';
   if (dir === 'B' || dir === 'BOTH') dirLabel = '';
-  else if (dir === 'WB') dirLabel = 'Westbound';
-  else if (dir === 'EB') dirLabel = 'Eastbound';
-  else if (dir === 'NB') dirLabel = 'Northbound';
-  else if (dir === 'SB') dirLabel = 'Southbound';
+  else if (dir === 'WB') dirLabel = t('segment.westbound');
+  else if (dir === 'EB') dirLabel = t('segment.eastbound');
+  else if (dir === 'NB') dirLabel = t('segment.northbound');
+  else if (dir === 'SB') dirLabel = t('segment.southbound');
   const titled = dirLabel ? `${name} (${dirLabel})` : name;
   return titled;
 }
 
 function riskDescriptor(mean) {
-  if (mean < 2.5) return { label: 'High risk', color: '#b91c1c' };
-  if (mean < 4) return { label: 'Moderate risk', color: '#92400e' };
-  return { label: 'Generally safe', color: '#15803d' };
+  if (mean < 2.5) return { label: t('segment.riskHigh'), color: '#b91c1c' };
+  if (mean < 4) return { label: t('segment.riskModerate'), color: '#92400e' };
+  return { label: t('segment.riskSafe'), color: '#15803d' };
 }
 
 function confidenceLabel(nEff) {
-  if (nEff >= 50) return 'high confidence';
-  if (nEff >= 10) return 'medium confidence';
-  return 'low confidence';
+  if (nEff >= 50) return t('segment.confidenceHigh');
+  if (nEff >= 10) return t('segment.confidenceMedium');
+  return t('segment.confidenceLow');
 }
 
 function renderStars(value, { editable = false } = {}) {
@@ -408,20 +409,9 @@ function renderStars(value, { editable = false } = {}) {
 }
 
 function tagLabel(id) {
-  const map = {
-    aggressive_drivers: 'Aggressive drivers',
-    poor_lighting: 'Poor lighting',
-    construction: 'Construction',
-    potholes: 'Potholes / road damage',
-    missing_sidewalk: 'Missing sidewalk / bike lane',
-    poor_signage: 'Poor signage',
-    blind_spots: 'Blind spots',
-    flooding: 'Flooding / ice',
-    speeding: 'Speeding traffic',
-    illegal_parking: 'Illegal parking',
-    crime_risk: 'Feels personally unsafe',
-  };
-  return map[id] || id.replace(/_/g, ' ');
+  const key = `tag.${id}`;
+  const translated = t(key);
+  return translated === key ? id.replace(/_/g, ' ') : translated;
 }
 
 function tagCategory(id) {
@@ -451,31 +441,17 @@ function deriveTopIssues(props) {
 }
 
 const ISSUE_TAGS = {
-  infrastructure: [
-    { id: 'potholes', label: tagLabel('potholes') },
-    { id: 'missing_sidewalk', label: tagLabel('missing_sidewalk') },
-    { id: 'poor_signage', label: tagLabel('poor_signage') },
-    { id: 'construction', label: tagLabel('construction') },
-  ],
-  environment: [
-    { id: 'poor_lighting', label: tagLabel('poor_lighting') },
-    { id: 'blind_spots', label: tagLabel('blind_spots') },
-    { id: 'flooding', label: tagLabel('flooding') },
-  ],
-  behavior: [
-    { id: 'aggressive_drivers', label: tagLabel('aggressive_drivers') },
-    { id: 'speeding', label: tagLabel('speeding') },
-    { id: 'illegal_parking', label: tagLabel('illegal_parking') },
-    { id: 'crime_risk', label: tagLabel('crime_risk') },
-  ],
+  infrastructure: ['potholes', 'missing_sidewalk', 'poor_signage', 'construction'],
+  environment: ['poor_lighting', 'blind_spots', 'flooding'],
+  behavior: ['aggressive_drivers', 'speeding', 'illegal_parking', 'crime_risk'],
 };
 
 const RATING_COPY = {
-  1: 'Very unsafe – I would avoid this segment if possible.',
-  2: 'Unsafe – I felt clearly at risk here.',
-  3: 'Average – I needed to stay alert.',
-  4: 'Safe – only minor issues.',
-  5: 'Very safe – comfortable and stress-free.',
+  1: 'segment.rating1',
+  2: 'segment.rating2',
+  3: 'segment.rating3',
+  4: 'segment.rating4',
+  5: 'segment.rating5',
 };
 
 export function buildSegmentCardHtml(props, state = {}) {
@@ -495,7 +471,7 @@ export function buildSegmentCardHtml(props, state = {}) {
   const risk = riskDescriptor(mean);
   const confidence = confidenceLabel(nEff);
   const scoreDisplay = mean ? mean.toFixed(1) : '—';
-  const ratingCopy = rating ? RATING_COPY[rating] : 'Select how safe you felt on this segment.';
+  const ratingCopy = rating ? t(RATING_COPY[rating]) : t('segment.selectSafety');
   const readonlyStars = renderStars(Math.round(mean), { editable: false });
   const editableStars = renderStars(rating, { editable: true });
   const topIssuesHtml = topIssues.length
@@ -507,24 +483,24 @@ export function buildSegmentCardHtml(props, state = {}) {
         return `<span class="diary-chip ${tagCategory(t.id)}">${label}${countLabel}</span>`;
       })
       .join('')
-    : '<div class="diary-muted-text">No issues reported yet.</div>';
+    : `<div class="diary-muted-text">${escapeHtml(t('segment.noIssues'))}</div>`;
 
   const submissionLine = submissionResult
     ? `<div class="diary-muted-text" style="margin-top:6px;">${segmentSubmissionMessage(submissionResult)}</div>`
     : '';
   const errorLine = submissionError
-    ? '<div class="diary-muted-text" style="margin-top:6px;color:#b91c1c;">Feedback could not be submitted. Nothing was saved.</div>'
+    ? `<div class="diary-muted-text" style="margin-top:6px;color:#b91c1c;">${escapeHtml(t('segment.feedbackFailed'))}</div>`
     : '';
 
   const inputTags = Object.entries(ISSUE_TAGS).map(([cat, items]) => {
     return `
       <div style="margin-top:6px;">
-        <div class="diary-muted-text" style="text-transform:capitalize;">${cat}</div>
+        <div class="diary-muted-text" style="text-transform:capitalize;">${escapeHtml(t(`segment.category.${cat}`))}</div>
         <div class="diary-chip-group">
           ${items
             .map((item) => {
-              const active = selectedTags.includes(item.id);
-              return `<button type="button" class="diary-chip ${tagCategory(item.id)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`;
+              const active = selectedTags.includes(item);
+              return `<button type="button" class="diary-chip ${tagCategory(item)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${escapeHtml(item)}">${escapeHtml(tagLabel(item))}</button>`;
             })
             .join('')}
         </div>
@@ -532,23 +508,23 @@ export function buildSegmentCardHtml(props, state = {}) {
     `;
   }).join('');
 
-  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">Feels safer ✨</button>`;
+  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip" style="border-style:dashed;align-self:flex-start;">${escapeHtml(t('segment.feelsSafer'))}</button>`;
 
   if (mode === 'input') {
     return `
       <div class="diary-segment-card">
         <div class="diary-segment-header">
           <div class="diary-segment-title">${title}</div>
-          <button class="diary-segment-close" data-role="close" aria-label="Close">×</button>
+          <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
         </div>
         <div class="diary-segment-stars" style="margin-bottom:4px;">${editableStars}</div>
         <div class="diary-muted-text">${ratingCopy}</div>
         ${errorLine}
-        <div style="margin-top:10px;font-weight:700;font-size:12px;">What were the main issues?</div>
+        <div style="margin-top:10px;font-weight:700;font-size:12px;">${escapeHtml(t('segment.mainIssues'))}</div>
         ${inputTags}
         <div class="diary-segment-actions" style="justify-content:flex-end;">
-          <button type="button" class="diary-chip secondary" data-role="cancel-feedback">Cancel</button>
-          <button type="button" class="diary-chip primary" data-role="submit-feedback" ${rating < 1 ? 'disabled' : ''}>Submit rating</button>
+          <button type="button" class="diary-chip secondary" data-role="cancel-feedback">${escapeHtml(t('segment.cancel'))}</button>
+          <button type="button" class="diary-chip primary" data-role="submit-feedback" ${rating < 1 ? 'disabled' : ''}>${escapeHtml(t('segment.submitRating'))}</button>
         </div>
       </div>
     `;
@@ -558,24 +534,24 @@ export function buildSegmentCardHtml(props, state = {}) {
     <div class="diary-segment-card">
       <div class="diary-segment-header">
         <div class="diary-segment-title">${title}</div>
-        <button class="diary-segment-close" data-role="close" aria-label="Close">×</button>
+        <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
       </div>
-      <div class="diary-muted-text" style="font-weight:700;color:#0f172a;margin-bottom:4px;">Community safety score</div>
+      <div class="diary-muted-text" style="font-weight:700;color:#0f172a;margin-bottom:4px;">${escapeHtml(t('segment.communityScore'))}</div>
       <div class="diary-segment-score-row">
         <div class="diary-segment-score">${scoreDisplay}</div>
         <div>
           <div class="diary-segment-stars">${readonlyStars}</div>
-          <div class="diary-segment-risk-label"><span style="color:${risk.color};font-weight:700;">${risk.label}</span> — Based on ${nEff || 'few'} reports (${confidence})</div>
+          <div class="diary-segment-risk-label"><span style="color:${risk.color};font-weight:700;">${escapeHtml(risk.label)}</span> — ${escapeHtml(t('segment.basedOnReports', { count: nEff || t('segment.few'), confidence }))}</div>
           ${submissionLine}
         </div>
       </div>
       <div style="margin-top:8px;">
-        <div class="diary-muted-text" style="font-weight:700;color:#0f172a;">Top issues</div>
+        <div class="diary-muted-text" style="font-weight:700;color:#0f172a;">${escapeHtml(t('segment.topIssues'))}</div>
         <div class="diary-chip-group" style="margin-top:4px;">${topIssuesHtml}</div>
       </div>
       <div class="diary-segment-actions">
-        <button data-diary-action="agree" data-segment-id="${safeSegmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>Agree</button>
-        <button data-role="enter-edit" class="diary-chip primary">Add Feedback</button>
+        <button data-diary-action="agree" data-segment-id="${safeSegmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>${escapeHtml(t('segment.agree'))}</button>
+        <button data-role="enter-edit" class="diary-chip primary">${escapeHtml(t('segment.addFeedback'))}</button>
       </div>
       <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${saferBtn}</div>
     </div>
@@ -673,12 +649,12 @@ export async function submitSegmentCardFeedback({
 
 function segmentSubmissionMessage(response) {
   if (response?.persisted === true) {
-    return 'Thanks — your feedback was saved.';
+    return t('segment.saved');
   }
   if (response?.mode === 'demo' && response?.persisted === false) {
-    return 'Browser demo only — this feedback was not saved and was not added to community aggregates.';
+    return t('segment.demoOnly');
   }
-  return 'Submission completed, but persistence could not be confirmed.';
+  return t('segment.persistenceUnknown');
 }
 
 function ensureSource(map, id, data) {

@@ -16,6 +16,7 @@ import {
 import { setAnalysisMode, setViewMode } from '../state/store.js';
 import { downloadTextFile } from '../utils/export_analysis.js';
 import { createAnalysisHistoryView } from '../ui/analysis_history_panel.js';
+import { t } from '../i18n/index.js';
 
 const PRIVATE_SHARE_KEYS = ['artifact', 'artifactId', 'title', 'result'];
 const ANALYSIS_SOURCES = [
@@ -26,10 +27,10 @@ const ANALYSIS_SOURCES = [
 ];
 
 function defaultTitle(state) {
-  let mode = 'Buffer';
-  if (state.queryMode === 'tract') mode = 'Tract';
-  else if (state.queryMode === 'district') mode = 'District';
-  return `${mode} analysis · ${state.startMonth || 'current window'}`;
+  let mode = t('crime.area.buffer');
+  if (state.queryMode === 'tract') mode = t('crime.area.tract');
+  else if (state.queryMode === 'district') mode = t('crime.area.district');
+  return t('history.defaultTitle', { mode, window: state.startMonth || t('history.currentWindow') });
 }
 
 function resultSummaryFor(snapshot) {
@@ -86,7 +87,7 @@ export function createAnalysisHistoryController({
     `${JSON.stringify(artifact, null, 2)}\n`,
     'application/json',
   ),
-  confirmDelete = (artifact) => window.confirm(`Delete “${artifact.title}”?`),
+  confirmDelete = (artifact) => window.confirm(t('history.deleteConfirm', { title: artifact.title })),
   currentHref = () => window.location.href,
 } = {}) {
   if (!store || !repository || !view) throw new Error('Analysis history requires store, repository, and view.');
@@ -129,7 +130,7 @@ export function createAnalysisHistoryController({
       return result;
     } catch (error) {
       view.render({ items: [], warnings: [{ id: null, message: error?.message || String(error) }], canSave: false, pending: false });
-      view.showStatus('Local analysis history is unavailable in this browser.', 'warning');
+      view.showStatus(t('history.unavailable'), 'warning');
       return { items: [], warnings: [{ id: null, message: error?.message || String(error) }] };
     }
   }
@@ -148,7 +149,7 @@ export function createAnalysisHistoryController({
 
   async function save(title = defaultTitle(store)) {
     if (!canSaveAnalysis(store)) {
-      view.showStatus('Choose a valid geography and wait for live coverage before saving.', 'warning');
+      view.showStatus(t('history.saveIneligible'), 'warning');
       return { status: 'ineligible' };
     }
     try {
@@ -163,11 +164,11 @@ export function createAnalysisHistoryController({
         await repository.save(artifact);
         view.clearDraft?.();
         await load();
-        view.showStatus('Analysis saved in this browser.', 'success');
+        view.showStatus(t('history.saved'), 'success');
         return { status: 'saved', artifact };
       });
     } catch (error) {
-      view.showStatus(`Analysis could not be saved locally: ${error?.message || error}`, 'warning');
+      view.showStatus(t('history.saveFailed', { message: error?.message || error }), 'warning');
       return { status: 'failed', error };
     }
   }
@@ -181,7 +182,7 @@ export function createAnalysisHistoryController({
       artifact = await repository.get(id);
     } catch (error) {
       if (!isCurrentRestore(token)) return { status: 'superseded' };
-      view.showStatus(`Saved analysis could not be opened: ${error?.message || error}`, 'warning');
+      view.showStatus(t('history.openFailed', { message: error?.message || error }), 'warning');
       return { status: 'failed', error };
     }
     if (!isCurrentRestore(token)) return { status: 'superseded' };
@@ -215,14 +216,14 @@ export function createAnalysisHistoryController({
         const status = refresh?.status === 'superseded' ? 'superseded' : 'failed';
         renderComparison(artifact.resultSummary);
         view.showSnapshotState?.(artifact, status);
-        view.showStatus('Saved settings are visible, but live data could not be refreshed.', 'warning');
+        view.showStatus(t('history.liveRefreshFailed'), 'warning');
       }
       return { status: refresh?.status || 'failed', artifact };
     } catch (error) {
       if (!isCurrentRestore(token) || currentRestoreArtifact !== artifact) return { status: 'superseded' };
       renderComparison(artifact.resultSummary);
       view.showSnapshotState?.(artifact, 'failed');
-      view.showStatus(`Saved settings are visible, but live data could not be refreshed: ${error?.message || error}`, 'warning');
+      view.showStatus(t('history.liveRefreshError', { message: error?.message || error }), 'warning');
       return { status: 'failed', artifact, error };
     } finally {
       if (isCurrentRestore(token) && currentRestoreArtifact === artifact) currentRestoreArtifact = null;
@@ -273,7 +274,7 @@ export function createAnalysisHistoryController({
       if (!artifact) return { status: 'missing' };
       const url = buildAnalysisShareUrl(artifact, currentHref());
       await copyText(url);
-      view.showStatus('Share link copied. It contains settings only, not saved results.', 'success');
+      view.showStatus(t('history.shareCopied'), 'success');
       return { status: 'copied', url };
     },
   });

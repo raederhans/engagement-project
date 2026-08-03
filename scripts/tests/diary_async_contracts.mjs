@@ -27,6 +27,7 @@ import {
   DIARY_ROUTE_PRIMARY_SOURCE_ID,
   DIARY_SEGMENTS_HIT_LAYER_ID,
 } from '../../src/routes_diary/map_ids.js';
+import { getLanguage, setLanguage } from '../../src/i18n/index.js';
 
 function deferred() {
   let resolve;
@@ -1164,6 +1165,105 @@ test('initial Diary route receives one panel-aware camera fit', async (t) => {
   assert.equal(fits.length, 1);
   assert.deepEqual(fits[0][1], [[-75.17, 39.95], [-75.16, 39.96]]);
   assert.deepEqual(fits[0][2].padding, { top: 24, right: 24, bottom: 24, left: 24 });
+});
+
+test('switching language preserves a running Diary simulator and camera', async (t) => {
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const originalLanguage = getLanguage();
+  const originalDiaryFeatureOn = store.diaryFeatureOn;
+  const originalDiaryViewMode = store.diaryViewMode;
+  const originalSelectedRouteId = store.selectedRouteId;
+  const originalDiaryAltEnabled = store.diaryAltEnabled;
+  const originalSimState = structuredClone(store.simState);
+  const fakeDocument = createFakeDocument();
+  const fakeWindow = new EventTarget();
+  fakeWindow.sessionStorage = { getItem: () => null, setItem() {} };
+  const timerEvents = [];
+  let nextTimerId = 0;
+  globalThis.document = fakeDocument;
+  globalThis.window = fakeWindow;
+  globalThis.setInterval = () => {
+    const id = `interval-${++nextTimerId}`;
+    timerEvents.push(['set', id]);
+    return id;
+  };
+  globalThis.clearInterval = (id) => timerEvents.push(['clear', id]);
+  store.diaryFeatureOn = true;
+  store.diaryViewMode = 'live';
+  store.selectedRouteId = null;
+  store.diaryAltEnabled = true;
+  store.simState = { playing: false, progress: 0, routeId: null };
+  setLanguage('en');
+  const segments = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { segment_id: 'seg-1', street_name: 'Test Street', decayed_mean: 3, n_eff: 1 },
+      geometry: { type: 'LineString', coordinates: [[-75.17, 39.95], [-75.16, 39.96]] },
+    }],
+  };
+  const routes = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {
+        route_id: 'route-1',
+        name: 'Test route',
+        from: 'A',
+        to: 'B',
+        segment_ids: ['seg-1'],
+        mode: 'walk',
+      },
+      geometry: { type: 'LineString', coordinates: [[-75.17, 39.95], [-75.16, 39.96]] },
+    }],
+  };
+  const map = createDiaryMapFake();
+  const mount = new FakeElement('div');
+
+  t.after(() => {
+    teardownDiaryMode(map);
+    setLanguage(originalLanguage);
+    globalThis.document = originalDocument;
+    globalThis.window = originalWindow;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+    store.diaryFeatureOn = originalDiaryFeatureOn;
+    store.diaryViewMode = originalDiaryViewMode;
+    store.selectedRouteId = originalSelectedRouteId;
+    store.diaryAltEnabled = originalDiaryAltEnabled;
+    store.simState = originalSimState;
+  });
+
+  await initDiaryMode(map, {
+    mountInto: mount,
+    isCurrent: () => true,
+    addNetworkLayerImpl: async () => ({ applied: false, reason: 'disabled' }),
+    loadDemoSegmentsImpl: async () => structuredClone(segments),
+    loadDemoRoutesImpl: async () => structuredClone(routes),
+  });
+
+  const play = findElement(mount, (element) => (
+    element.tagName === 'BUTTON' && element.textContent === 'Play'
+  ));
+  assert.ok(play);
+  play.dispatchEvent(new Event('click'));
+  assert.equal(store.simState.playing, true);
+  const stateBeforeLanguageChange = structuredClone(store.simState);
+  const fitCountBeforeLanguageChange = map.mutations.filter(([kind]) => kind === 'fit-bounds').length;
+  const timerEventsBeforeLanguageChange = structuredClone(timerEvents);
+
+  setLanguage('zh-CN');
+
+  assert.deepEqual(store.simState, stateBeforeLanguageChange);
+  assert.equal(store.selectedRouteId, 'route-1');
+  assert.equal(
+    map.mutations.filter(([kind]) => kind === 'fit-bounds').length,
+    fitCountBeforeLanguageChange,
+  );
+  assert.deepEqual(timerEvents, timerEventsBeforeLanguageChange);
 });
 
 test('detached non-Live Diary controls cannot mutate a newer session', async (t) => {

@@ -36,7 +36,7 @@ import {
   extractLineCoordinates,
 } from './data_normalization.js';
 import { renderLiveRoutePanel } from './ui_live_panel.js';
-import { renderMyRoutesPanel } from './ui_my_routes_panel.js';
+import { refreshMyRoutesDates, renderMyRoutesPanel } from './ui_my_routes_panel.js';
 import { createSampleCommunityModel, renderCommunityPanel } from './ui_community_panel.js';
 import { describeDiaryDataScope } from '../ui/data_scope.js';
 import { publicUrl } from '../utils/public_url.js';
@@ -63,6 +63,8 @@ import {
   summarizeAlternativeBenefit,
 } from './alternative_route.js';
 import { buildSimulationCoordinates } from './route_simulator.js';
+import { applyTranslations, onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
 import { fitBoundsWithPanel, geometryBounds } from '../map/camera_fit.js';
 
 const SIM_INTERVAL_MS = 400;
@@ -77,6 +79,16 @@ const ROUTE_URL_CANDIDATES = [
   publicUrl('data/routes_phl.demo.geojson'),
 ].filter(Boolean);
 
+function localizedDiaryError(error, fallbackKey) {
+  const message = error?.message || String(error || '');
+  const knownKeys = {
+    'Diary backup is not valid JSON.': 'diary.backupInvalidJson',
+    'Unsupported Diary backup schema.': 'diary.backupUnsupported',
+    'Invalid Diary entry in backup.': 'diary.backupInvalidEntry',
+    'Local Diary storage is unavailable in this browser.': 'diary.localStorageUnavailable',
+  };
+  return knownKeys[message] ? t(knownKeys[message]) : (message || t(fallbackKey));
+}
 const SAMPLE_COMMUNITY = createSampleCommunityModel();
 
 const segmentLookup = new Map();
@@ -130,6 +142,7 @@ let localRepository = diaryLocalRepository;
 let localDiaryEntries = [];
 let localStorageWarning = null;
 let refreshDiaryPanel = null;
+let refreshDiaryCopy = null;
 let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -358,7 +371,7 @@ function buildRouteOverlayCollection(routeFeature, idsKey = ROUTE_SEG_IDS_PROP) 
     });
   });
   if (missing.length) {
-    const label = props[ROUTE_NAME_PROP] || `${props[ROUTE_FROM_PROP] || 'Start'} → ${props[ROUTE_TO_PROP] || 'Destination'}`;
+    const label = props[ROUTE_NAME_PROP] || `${props[ROUTE_FROM_PROP] || t('diary.start')} → ${props[ROUTE_TO_PROP] || t('diary.destination')}`;
     console.warn(`[Diary] Route '${label}' skipped ${missing.length} missing segments: ${missing.join(', ')}`);
   }
   return features.length ? { type: 'FeatureCollection', features } : routeFeature;
@@ -481,9 +494,9 @@ function ensureDiaryPanel(routes, options = {}) {
   title.style.flexDirection = 'column';
   title.style.gap = '2px';
   const titleText = document.createElement('h3');
-  titleText.textContent = 'Route Safety Diary (demo)';
+  setTranslatedText(titleText, 'diary.demoTitle');
   const subtitle = document.createElement('div');
-  subtitle.textContent = 'Philadelphia • demo data';
+  setTranslatedText(subtitle, 'diary.demoSubtitle');
   subtitle.style.color = '#6b7280';
   subtitle.style.fontSize = '12px';
   title.appendChild(titleText);
@@ -500,10 +513,10 @@ function ensureDiaryPanel(routes, options = {}) {
     panelSession,
     panelOwnerIsCurrent,
   );
-  const makePill = (label, mode) => {
+  const makePill = (key, mode) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = label;
+    setTranslatedText(btn, key);
     btn.className = 'diary-view-pill';
     btn.addEventListener('click', ownPanelHandler(() => {
       setDiaryViewMode(mode);
@@ -512,9 +525,9 @@ function ensureDiaryPanel(routes, options = {}) {
     return { btn, mode };
   };
   const pills = [
-    makePill('Live route', 'live'),
-    makePill('My routes', 'history'),
-    makePill('Sample community', 'community'),
+    makePill('diary.tab.live', 'live'),
+    makePill('diary.tab.history', 'history'),
+    makePill('diary.tab.community', 'community'),
   ];
   pills.forEach((p) => viewSwitcher.appendChild(p.btn));
   diaryPanelEl.appendChild(viewSwitcher);
@@ -578,9 +591,9 @@ function ensureDiaryPanel(routes, options = {}) {
               currentInsightsPort?.setEntries(localDiaryEntries);
               currentInsightsPort?.refresh();
               renderActivePanel();
-              showToast(`Imported ${localDiaryEntries.length} local Diary entr${localDiaryEntries.length === 1 ? 'y' : 'ies'}.`);
+              showToast(t('diary.importedEntries', { count: localDiaryEntries.length }));
             } catch (error) {
-              showToast(error?.message || 'Diary backup could not be imported.');
+              showToast(localizedDiaryError(error, 'diary.importFailed'));
             }
           }),
         }
@@ -662,6 +675,17 @@ function ensureDiaryPanel(routes, options = {}) {
   };
 
   currentInsightsPort?.setEntries(localDiaryEntries);
+  refreshDiaryCopy = () => {
+    onScopeChange(describeDiaryDataScope(store.diaryViewMode));
+    applyTranslations(diaryPanelEl);
+    refreshMyRoutesDates(diaryPanelEl);
+    if (store.diaryViewMode === 'live') {
+      renderRouteSummary(currentRoute);
+      updateAlternativeRoute({ refreshOnly: true });
+      updateSimButtons();
+    }
+    currentInsightsPort?.refresh();
+  };
   refreshDiaryPanel = renderActivePanel;
   renderActivePanel();
 }
@@ -674,7 +698,7 @@ export function filterLocalDiaryEntries(entries = [], { period = '30d', mode = '
     .filter((entry) => cutoff == null || new Date(entry.createdAt).getTime() >= cutoff)
     .map((entry) => ({
       ...entry,
-      date: new Date(entry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: formatCalendarDate(entry.createdAt, { includeYear: false }),
     }));
 }
 
@@ -684,7 +708,7 @@ function populateRouteOptions(routes) {
   routeSelectEl.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Select a route';
+  setTranslatedText(placeholder, 'diary.selectRoute');
   routeSelectEl.appendChild(placeholder);
   routes.features.forEach((feature) => {
     const props = feature.properties || {};
@@ -734,27 +758,28 @@ function focusHistoryRouteOnMap(route) {
 export function createRouteSummaryModel(route) {
   const props = route?.properties || {};
   const length = Number(props.length_m) || 0;
+  const mode = String(props.mode || 'walk').toLowerCase();
   return Object.freeze({
-    from: String(props.from || 'Start'),
-    to: String(props.to || 'Destination'),
-    mode: `${String(props.mode || 'walk').slice(0, 1).toUpperCase()}${String(props.mode || 'walk').slice(1).toLowerCase()}`,
+    from: String(props.from || t('diary.start')),
+    to: String(props.to || t('diary.destination')),
+    mode: t(mode === 'bike' ? 'diary.bike' : 'diary.walk'),
     distance: length >= 1000
       ? `${(length / 1000).toFixed(1).replace(/\.0$/, '')} km`
       : `${Math.round(length)} m`,
-    duration: `${Number(props.duration_min) || 0} min`,
+    duration: t('diary.minutes', { count: Number(props.duration_min) || 0 }),
   });
 }
 
 function renderRouteSummary(route) {
   if (!summaryStripEl) return;
   if (!route) {
-    summaryStripEl.textContent = 'Select a route to see its details.';
+    setTranslatedText(summaryStripEl, 'diary.selectRouteDetails');
     return;
   }
   const model = createRouteSummaryModel(route);
   const pieces = [
     `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.from)}</div>`,
-    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">to</div>`,
+    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">${escapeHtml(t('diary.to'))}</div>`,
     `<div style="font-weight:700;color:#0f172a;">${escapeHtml(model.to)}</div>`,
   ];
   summaryStripEl.innerHTML = `
@@ -859,12 +884,10 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
   }
   refreshAlternativeRoute();
   const persisted = response?.persisted !== false && response?.mode !== 'demo';
-  notify(persisted
-    ? 'Thanks — your feedback has been saved.'
-    : 'Thanks — your feedback was applied to this browser demo only.');
+  notify(persisted ? t('diary.feedbackSaved') : t('diary.feedbackDemoOnly'));
   const affectedSegmentIds = deriveAffectedSegmentIds(payload);
   const affectedCount = affectedSegmentIds.size || 1;
-  notifyPanel(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
+  notifyPanel(t('diary.confidenceImproved', { count: affectedCount }));
   highlightSegments(Array.from(affectedSegmentIds));
   const entry = createDiaryEntry({ payload, routeFeature });
   const owningSession = currentDiarySession;
@@ -879,12 +902,12 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
     currentInsightsPort?.setEntries(localDiaryEntries);
     currentInsightsPort?.refresh();
     if (store.diaryViewMode === 'history') refreshDiaryPanel?.();
-    notify('Saved locally on this device.');
+    notify(t('diary.savedLocally'));
   }).catch((error) => {
     console.warn('[Diary] Local save failed:', error);
     if (owningSession && currentDiarySession !== owningSession) return;
-    notify(`Rating applied for this session, but it was not saved locally: ${error?.message || error}`);
-    notifyPanel('Local storage failed. Export is unavailable until a rating can be saved.');
+    notify(t('diary.localSaveFailed', { message: localizedDiaryError(error, 'diary.localStorageUnavailable') }));
+    notifyPanel(t('diary.storageExportUnavailable'));
   });
 }
 
@@ -928,25 +951,25 @@ function refreshAfterCta(message) {
 async function onAgreeClick(segmentId) {
   if (!segmentId || store.diaryViewMode !== 'live') return;
   if (isThrottled(segmentId, 'agree')) {
-    showToast('Recorded for this session');
+    showToast(t('diary.recordedSession'));
     return;
   }
   const updated = aggregation.bumpConfidence(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'agree');
-  refreshAfterCta('Thanks — confidence increased');
+  refreshAfterCta(t('diary.confidenceIncreased'));
 }
 
 async function onFeelsSaferClick(segmentId) {
   if (!segmentId || store.diaryViewMode !== 'live') return;
   if (isThrottled(segmentId, 'safer')) {
-    showToast('Recorded for this session');
+    showToast(t('diary.recordedSession'));
     return;
   }
   const updated = aggregation.nudgeSafer(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'safer');
-  refreshAfterCta('Noted — feels safer now');
+  refreshAfterCta(t('diary.feelsSaferNoted'));
 }
 
 function handleSegmentAction(payload) {
@@ -1002,16 +1025,16 @@ function clearLiveDiaryMapState() {
 function renderAltSummary(route, altInfo) {
   if (!altSummaryEl) return;
   if (!route) {
-    altSummaryEl.textContent = 'Select a route to compare alternatives.';
+    setTranslatedText(altSummaryEl, 'diary.selectAlternative');
     return;
   }
   if (!altInfo) {
-    altSummaryEl.textContent = 'Alternative data unavailable.';
+    setTranslatedText(altSummaryEl, 'diary.alternativeUnavailable');
     return;
   }
   const summary = summarizeAlternativeBenefit(route, altInfo.meta, { countLowRated });
   if (!summary) {
-    altSummaryEl.textContent = 'Alternative data unavailable.';
+    setTranslatedText(altSummaryEl, 'diary.alternativeUnavailable');
     return;
   }
   const tradeoff = describeAlternativeTradeoff(summary);
@@ -1469,6 +1492,11 @@ export async function initDiaryMode(map, options = {}) {
     currentDiaryOwnerIsCurrent = ownerIsCurrent;
     currentInsightsPort = insightsPort;
     mapRef = map;
+    session.addCleanup(onLanguageChange(() => {
+      if (!isCurrent()) return;
+      if (refreshDiaryCopy) refreshDiaryCopy();
+      else currentInsightsPort?.refresh();
+    }));
     session.addCleanup(() => cleanupDiaryMode(
       map,
       insightsPort,
@@ -1496,7 +1524,7 @@ export async function initDiaryMode(map, options = {}) {
     } catch (error) {
       console.warn('[Diary] Local history unavailable:', error);
       localDiaryEntries = [];
-      localStorageWarning = error?.message || 'Local Diary storage is unavailable.';
+      localStorageWarning = localizedDiaryError(error, 'diary.localStorageUnavailable');
     }
     if (!isCurrent()) {
       disposeDiarySession(session);
@@ -1574,6 +1602,7 @@ function cleanupDiaryMode(
       diaryPanelFloating = false;
       currentRoute = null;
       refreshDiaryPanel = null;
+      refreshDiaryCopy = null;
     },
     () => { if (toastEl) toastEl.remove(); },
     () => { if (toastTimer) clearDiaryTimeout(toastTimer); },

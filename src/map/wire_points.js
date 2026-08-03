@@ -1,4 +1,5 @@
 import { attachClusterExpansion, clearCrimePoints, refreshPoints } from './points.js';
+import { t } from '../i18n/index.js';
 
 function createDebounced(fn, wait, scheduler) {
   let timer = null;
@@ -153,7 +154,7 @@ export function wirePoints(map, deps) {
         || isAbortError(error);
       if (stale) return { applied: false };
 
-      showToast('Points refresh failed; retrying shortly.');
+      showToast(t('map.pointsRetrying'));
       toastTimer = scheduler.setTimeout(() => {
         toastTimer = null;
         hideToast();

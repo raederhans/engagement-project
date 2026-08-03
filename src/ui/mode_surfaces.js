@@ -1,21 +1,23 @@
 import { CRIME_VIEW_QUERY_KEYS } from '../state/crime_view_state.js';
+import { applyTranslations, onLanguageChange, t } from '../i18n/index.js';
 
 const MODE_HELP = Object.freeze({
   crime: [
-    'Pick a location or geography, then choose a verified time window.',
-    'Offense groups and drilldown codes control which crime incidents are included.',
-    'Open data details for source dates, limitations, and fallback status.',
+    'help.crimeItem1',
+    'help.crimeItem2',
+    'help.crimeItem3',
   ],
   diary: [
-    'Choose a route, simulate or finish a trip, then add a short safety rating.',
-    'Diary entries are saved only in this browser unless you export a backup.',
-    'Sample community results are demo data and are not shared submissions.',
+    'help.diaryItem1',
+    'help.diaryItem2',
+    'help.diaryItem3',
   ],
 });
 
 export function getModeHelpItems(mode) {
-  return [...MODE_HELP[mode === 'diary' ? 'diary' : 'crime']];
+  return MODE_HELP[mode === 'diary' ? 'diary' : 'crime'].map((key) => t(key));
 }
+
 export function createModeUrlWriter({ getHref, replaceHref, getCrimeQuery }) {
   let crimeQuery = new URLSearchParams(getCrimeQuery?.() || '');
 
@@ -38,11 +40,13 @@ export function createModeUrlWriter({ getHref, replaceHref, getCrimeQuery }) {
 
 function replaceHelp(helpCard, mode) {
   if (!helpCard) return;
-  const normalized = mode === 'diary' ? 'diary' : 'crime';
-  const title = normalized === 'diary' ? 'Diary Help' : 'Crime Help';
-  const items = MODE_HELP[normalized].map((item) => `<li>${item}</li>`).join('');
-  helpCard.innerHTML = `<summary>${title}</summary><ul>${items}</ul>`;
+  const prefix = mode === 'diary' ? 'diary' : 'crime';
+  const titleKey = `help.${prefix}TitleShort`;
+  const items = MODE_HELP[prefix].map((key) => `<li data-i18n="${key}">${t(key)}</li>`).join('');
+  helpCard.innerHTML = `<summary data-i18n="${titleKey}">${t(titleKey)}</summary><ul>${items}</ul>`;
+  applyTranslations(helpCard);
 }
+
 function removeSkeletons(documentRef) {
   for (const skeleton of documentRef.querySelectorAll?.('[data-mode-skeleton]') || []) {
     skeleton.remove();
@@ -60,10 +64,14 @@ export function createModeSurfacePresenter({
   const renderStatus = () => {
     const status = documentRef?.querySelector?.('[data-app-data-status]');
     if (!status || !currentStatus || currentStatus.mode !== currentMode) return;
-    const scope = scopes.get(currentMode);
+    const storedScope = scopes.get(currentMode);
+    const scope = storedScope?.resolve?.() || storedScope;
     const showScope = currentStatus.phase === 'ready' && scope;
     status.dataset.phase = currentStatus.phase;
-    status.textContent = showScope ? scope.shortLabel : currentStatus.label;
+    const prefix = currentStatus.mode === 'diary' ? 'diary' : 'crime';
+    const suffix = currentStatus.phase === 'loading' ? 'Loading' : currentStatus.phase === 'ready' ? 'Ready' : 'Unavailable';
+    const statusLabel = t(`mode.status.${prefix}${suffix}`);
+    status.textContent = showScope ? scope.shortLabel : statusLabel;
     if (showScope) {
       status.dataset.scopeKind = scope.kind;
       status.setAttribute('aria-label', scope.accessibleLabel);
@@ -81,7 +89,7 @@ export function createModeSurfacePresenter({
       details.textContent = scope.details.join(' · ');
     } else {
       delete details.dataset.scopeKind;
-      details.textContent = currentStatus.phase === 'failed' ? currentStatus.label : '';
+      details.textContent = currentStatus.phase === 'failed' ? statusLabel : '';
     }
   };
 
@@ -97,10 +105,10 @@ export function createModeSurfacePresenter({
       skeleton.setAttribute('role', 'status');
       skeleton.setAttribute('aria-live', 'polite');
       skeleton.className = 'mode-skeleton';
-      const title = currentMode === 'diary' ? 'Preparing Route Safety Diary' : 'Preparing Crime Explorer';
+      const titleKey = currentMode === 'diary' ? 'mode.preparingDiary' : 'mode.preparingCrime';
       skeleton.innerHTML = `
-        <strong>${title}</strong>
-        <span>Loading controls and data…</span>
+        <strong data-i18n="${titleKey}">${t(titleKey)}</strong>
+        <span data-i18n="mode.loadingControls">${t('mode.loadingControls')}</span>
       `;
       surface.insertBefore(skeleton, surface.firstChild || null);
     }
@@ -129,6 +137,8 @@ export function createModeSurfacePresenter({
     scopes.set(scope.mode, scope);
     renderStatus();
   };
+
+  onLanguageChange(renderStatus);
 
   return Object.freeze({ showIntent, settle, showStatus, showDataScope });
 }

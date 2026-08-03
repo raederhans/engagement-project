@@ -8,6 +8,13 @@ import { createLatestGeocodeOwner } from '../api/geocoder.js';
 import { CRIME_VIEW_QUERY_KEYS, encodeCrimeViewState } from '../state/crime_view_state.js';
 import { getLastComparison } from '../compare/card.js';
 import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../utils/export_analysis.js';
+import {
+  applyTranslations,
+  onLanguageChange,
+  setTranslatedAttribute,
+  setTranslatedText,
+  t,
+} from '../i18n/index.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -29,7 +36,7 @@ export function setComparisonFieldsVisible({ button, fields }, visible) {
     fields.setAttribute('aria-hidden', String(!expanded));
   }
   if (button) {
-    button.textContent = expanded ? 'Remove comparison' : 'Compare another area';
+    setTranslatedText(button, expanded ? 'crime.compareRemove' : 'crime.compareAdd');
     button.setAttribute('aria-expanded', String(expanded));
   }
   return expanded;
@@ -75,7 +82,7 @@ export function initPanel(store, handlers) {
   if (!analysisHistoryMount) {
     analysisHistoryMount = document.createElement('section');
     analysisHistoryMount.dataset.analysisHistoryMount = '';
-    analysisHistoryMount.setAttribute('aria-label', 'Recent analyses');
+    setTranslatedAttribute(analysisHistoryMount, 'history.label', 'aria-label');
     crimeShell.appendChild(analysisHistoryMount);
   }
   placeAnalysisHistoryAfterSummary({ crimeShell, compareCard, analysisHistoryMount });
@@ -112,27 +119,32 @@ export function initPanel(store, handlers) {
 
   const crimeBtn = document.createElement('button');
   crimeBtn.type = 'button';
-  crimeBtn.textContent = 'Crime';
+  setTranslatedText(crimeBtn, 'mode.crime');
   crimeBtn.className = 'mode-switch__button';
   toggleGroup.appendChild(crimeBtn);
 
   const diaryBtn = document.createElement('button');
   diaryBtn.type = 'button';
-  diaryBtn.textContent = 'Diary';
+  setTranslatedText(diaryBtn, 'mode.diary');
   diaryBtn.className = 'mode-switch__button';
   diaryBtn.disabled = !store.diaryFeatureOn;
-  diaryBtn.title = store.diaryFeatureOn ? 'View Route Safety Diary' : 'Disabled in this build';
+  setTranslatedAttribute(
+    diaryBtn,
+    store.diaryFeatureOn ? 'mode.diaryTitle' : 'mode.diaryDisabled',
+    'title',
+  );
   toggleGroup.appendChild(diaryBtn);
 
   diaryShell.innerHTML = `
-    <div style="font:600 14px/1.2 system-ui;margin-bottom:8px;">Route Safety Diary</div>
-    <div style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#f8fafc;color:#475569;font-size:12px;">
-      Route selection and alternative toggle will appear here.
+    <div data-i18n="diary.title" style="font:600 14px/1.2 system-ui;margin-bottom:8px;">${t('diary.title')}</div>
+    <div data-i18n="diary.placeholderRoute" style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#f8fafc;color:#475569;font-size:12px;">
+      ${t('diary.placeholderRoute')}
     </div>
-    <div style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;background:#fefce8;color:#854d0e;font-size:12px;">
-      Rate, simulator, and summary will appear here.
+    <div data-i18n="diary.placeholderActions" style="border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;background:#fefce8;color:#854d0e;font-size:12px;">
+      ${t('diary.placeholderActions')}
     </div>
   `;
+  applyTranslations(diaryShell);
 
   const updateModeButtons = (mode) => {
     const isDiary = mode === 'diary';
@@ -193,7 +205,7 @@ export function initPanel(store, handlers) {
   const sourceScopeEl = document.createElement('div');
   sourceScopeEl.dataset.appSourceDetails = '';
   sourceScopeEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
-  sourceScopeEl.textContent = 'Resolving public data sources…';
+  setTranslatedText(sourceScopeEl, 'app.connecting');
   dataDetails?.appendChild(sourceScopeEl);
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
@@ -247,14 +259,14 @@ export function initPanel(store, handlers) {
     if (store.selectMode !== 'point') {
       store.selectMode = 'point';
       store.selectTarget = target;
-      if (target === 'A' && useCenterBtn) useCenterBtn.textContent = 'Cancel';
-      if (target === 'B' && usePointBBtn) usePointBBtn.textContent = 'Cancel';
+      if (target === 'A' && useCenterBtn) setTranslatedText(useCenterBtn, 'crime.cancel');
+      if (target === 'B' && usePointBBtn) setTranslatedText(usePointBBtn, 'crime.cancel');
       if (useMapHint) useMapHint.style.display = 'block';
       document.body.style.cursor = 'crosshair';
     } else {
       store.selectMode = 'idle';
-      if (useCenterBtn) useCenterBtn.textContent = 'Pick on map';
-      if (usePointBBtn) usePointBBtn.textContent = 'Pick on map';
+      if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
+      if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
@@ -271,7 +283,7 @@ export function initPanel(store, handlers) {
     if (addressStatus) {
       addressStatus.style.display = 'block';
       addressStatus.style.color = '#475569';
-      addressStatus.textContent = `Finding point ${target}…`;
+      setTranslatedText(addressStatus, 'crime.findingPoint', { target });
     }
     try {
       const owned = await geocodeOwner.resolve(target, draft, {
@@ -283,7 +295,7 @@ export function initPanel(store, handlers) {
       store.setComparisonPoint(target, ...result.lngLat, result.address);
       if (addressStatus) {
         addressStatus.style.color = '#065f46';
-        addressStatus.textContent = `Point ${target}: ${result.address}`;
+        setTranslatedText(addressStatus, 'crime.pointResolved', { target, address: result.address });
       }
       onChange.cancel();
       const moveCompleted = await handlers.onAddressResolved?.(target, result);
@@ -292,6 +304,8 @@ export function initPanel(store, handlers) {
     } catch (error) {
       if (addressStatus) {
         addressStatus.style.color = '#991b1b';
+        addressStatus.removeAttribute('data-i18n');
+        delete addressStatus.dataset.i18nParams;
         addressStatus.textContent = error?.message || String(error);
       }
     } finally {
@@ -320,11 +334,11 @@ export function initPanel(store, handlers) {
     if (fineSel) {
       if (values.length === 0) {
         // No parent groups selected
-        fineSel.innerHTML = '<option disabled>Select a group first</option>';
+        fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
         fineSel.disabled = true;
       } else {
         fineSel.disabled = false;
-        fineSel.innerHTML = '<option disabled>Loading...</option>';
+        fineSel.innerHTML = `<option data-i18n="crime.loadingCodes" disabled>${t('crime.loadingCodes')}</option>`;
 
         try {
           const { start, end } = store.getStartEnd();
@@ -332,7 +346,7 @@ export function initPanel(store, handlers) {
 
           fineSel.innerHTML = '';
           if (availableCodes.length === 0) {
-            fineSel.innerHTML = '<option disabled>No sub-codes in this window</option>';
+          fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
           } else {
             for (const c of availableCodes) {
               const opt = document.createElement('option');
@@ -347,7 +361,7 @@ export function initPanel(store, handlers) {
           }
         } catch (err) {
           console.warn('Failed to fetch available codes:', err);
-          fineSel.innerHTML = '<option disabled>Error loading codes</option>';
+        fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
         }
       }
     }
@@ -420,13 +434,7 @@ export function initPanel(store, handlers) {
     if (isBuffer) syncComparisonControls();
     else setComparisonFieldsVisible({ button: compareAreaBtn, fields: comparisonFields }, false);
     if (queryModeHelp) {
-      queryModeHelp.textContent = (
-        mode === 'buffer'
-          ? 'Buffer mode: click “Select on map”, then click map to set center.'
-          : mode === 'district'
-            ? 'District mode: click a police district on the map to select it.'
-            : 'Tract mode: click a census tract to select it.'
-      );
+      setTranslatedText(queryModeHelp, `crime.modeHelp.${mode}`);
     }
   }
 
@@ -452,8 +460,8 @@ export function initPanel(store, handlers) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && store.selectMode === 'point') {
       store.selectMode = 'idle';
-      if (useCenterBtn) useCenterBtn.textContent = 'Pick on map';
-      if (usePointBBtn) usePointBBtn.textContent = 'Pick on map';
+      if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
+      if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
       if (useMapHint) useMapHint.style.display = 'none';
       document.body.style.cursor = '';
     }
@@ -470,9 +478,9 @@ export function initPanel(store, handlers) {
   if (overlayTractsChk) overlayTractsChk.checked = store.overlayTractsLines || false;
   // Clarify overlay label + tooltip
   if (overlayLabel) {
-    overlayLabel.textContent = 'Show tract boundaries (outlines)';
-    const tip = 'Outlines only. Choose Census Tract mode to see tract data. Citywide crime fill appears when the validated snapshot matches the selected time window.';
-    overlayLabel.title = tip; overlayTractsChk.title = tip;
+    setTranslatedText(overlayLabel, 'crime.tractBoundaries');
+    setTranslatedAttribute(overlayLabel, 'crime.tractBoundariesTitle', 'title');
+    setTranslatedAttribute(overlayTractsChk, 'crime.tractBoundariesTitle', 'title');
   }
   if (classMethodSel) classMethodSel.value = store.classMethod || 'quantile';
   if (classBinsRange) classBinsRange.value = String(store.classBins || 5);
@@ -483,7 +491,7 @@ export function initPanel(store, handlers) {
 
   // Initialize drilldown select (disabled until groups are selected)
   if (fineSel) {
-    fineSel.innerHTML = '<option disabled>Select a group first</option>';
+    fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
     fineSel.disabled = true;
   }
 
@@ -528,16 +536,16 @@ export function initPanel(store, handlers) {
     writeCrimeStateToURL(store);
     try {
       await navigator.clipboard.writeText(window.location.href);
-      shareViewBtn.textContent = 'Copied';
-      setTimeout(() => { shareViewBtn.textContent = 'Copy view'; }, 1500);
+      setTranslatedText(shareViewBtn, 'crime.copied');
+      setTimeout(() => { setTranslatedText(shareViewBtn, 'crime.copyView'); }, 1500);
     } catch {
-      shareViewBtn.textContent = 'URL updated';
+      setTranslatedText(shareViewBtn, 'crime.urlUpdated');
     }
   });
 
   function currentExport() {
     const filters = store.getFilters();
-    if (store.coverageStatus !== 'ready') throw new Error('Live crime coverage is not ready for export.');
+    if (store.coverageStatus !== 'ready') throw new Error(t('crime.exportNotReady'));
     return buildAnalysisExport({ filters, comparison: getLastComparison(filters) });
   }
   exportJsonBtn?.addEventListener('click', () => {
@@ -558,7 +566,9 @@ export function initPanel(store, handlers) {
   function showExportError(error) {
     if (!dataStatus) return;
     dataStatus.dataset.tone = 'error';
-    dataStatus.textContent = error?.message || 'Export is unavailable.';
+    dataStatus.removeAttribute('data-i18n');
+    delete dataStatus.dataset.i18nParams;
+    dataStatus.textContent = error?.message || t('crime.exportUnavailable');
   }
 
   // --- Status HUD helpers ---
@@ -599,11 +609,21 @@ export function initPanel(store, handlers) {
     if (!hudEl) return;
     const mode = store.queryMode || 'buffer';
     const admin = store.adminLevel || 'districts';
-    const charts = (mode === 'tract' && !!store.selectedTractGEOID) ? 'Online' : (mode === 'buffer' ? (store.center3857 ? 'Online' : 'Idle') : 'Online');
+    const chartsKey = (mode === 'tract' && !!store.selectedTractGEOID)
+      ? 'crime.online'
+      : mode === 'buffer'
+        ? (store.center3857 ? 'crime.online' : 'crime.idle')
+        : 'crime.online';
     const meta = await ensureSnapshotMeta();
-    const snapshotDate = meta?.coverageDate || meta?.generatedAt?.slice(0, 10) || 'unavailable';
-    const match = meta && windowMatch(meta) ? 'matches selected window' : 'does not match selected window';
-    hudEl.textContent = `Mode: ${mode} · Geography: ${admin} · Charts: ${charts}. Tract snapshot: ${snapshotDate} (${match}).`;
+    const snapshotDate = meta?.coverageDate || meta?.generatedAt?.slice(0, 10) || t('crime.unavailable');
+    const match = t(meta && windowMatch(meta) ? 'crime.snapshotMatch' : 'crime.snapshotMismatch');
+    setTranslatedText(hudEl, 'crime.hud', {
+      mode: t(`crime.area.${mode}`),
+      geography: t(admin === 'tracts' ? 'crime.area.tract' : 'crime.area.district'),
+      charts: t(chartsKey),
+      snapshot: snapshotDate,
+      match,
+    });
   }
 
   function syncFromStore() {
@@ -620,6 +640,8 @@ export function initPanel(store, handlers) {
     if (dataStatus) {
       const status = describeCoverageStatus(store);
       dataStatus.dataset.tone = status.tone;
+      dataStatus.removeAttribute('data-i18n');
+      delete dataStatus.dataset.i18nParams;
       dataStatus.textContent = status.text;
       dataStatus.style.background = status.tone === 'error' ? '#fef2f2' : status.tone === 'ready' ? '#ecfdf5' : '#f1f5f9';
       dataStatus.style.color = status.tone === 'error' ? '#991b1b' : status.tone === 'ready' ? '#065f46' : '#475569';
@@ -635,6 +657,10 @@ export function initPanel(store, handlers) {
 
   syncFromStore();
   void updateHUD();
+  onLanguageChange(() => {
+    syncFromStore();
+    applyTranslations(panelRoot);
+  });
 
   return {
     diaryMount: diaryShell,
@@ -665,16 +691,20 @@ export function describeCoverageStatus(state) {
   if (state.coverageStatus === 'error') {
     return {
       tone: 'error',
-      text: state.coverageError || 'Crime coverage is unavailable.',
+      text: state.coverageError || t('crime.coverageUnavailable'),
     };
   }
   if (state.coverageStatus === 'ready') {
     return {
       tone: 'ready',
-      text: `Live crime coverage: ${state.coverageMin || 'unknown'} to ${state.coverageMax}${state.coverageNotice ? ` · ${state.coverageNotice}` : ''}`,
+      text: t('crime.coverageReady', {
+        min: state.coverageMin || t('crime.unknown'),
+        max: state.coverageMax,
+        notice: state.coverageNotice ? ` · ${state.coverageNotice}` : '',
+      }),
     };
   }
-  return { tone: 'loading', text: 'Connecting to live crime data…' };
+  return { tone: 'loading', text: t('crime.coverageConnecting') };
 }
 
 function recentStartMonth(durationMonths, coverageMax) {

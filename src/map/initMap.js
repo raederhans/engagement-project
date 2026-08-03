@@ -1,5 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import { MAP_STYLES, resolveMapStyle } from '../config.js';
+import { setTranslatedAttribute } from '../i18n/index.js';
 
 const DEFAULT_CENTER = [-75.1652, 39.9526];
 const DEFAULT_ZOOM = 11;
@@ -51,6 +52,7 @@ export function installDefaultMapControls(map, {
   const reset = createResetExtentControl({ documentRef, initialView });
   map.addControl(navigation, 'top-right');
   map.addControl(reset, 'top-right');
+  localizeMapControls(map);
 
   return {
     remove() {
@@ -58,6 +60,22 @@ export function installDefaultMapControls(map, {
       map.removeControl?.(navigation);
     },
   };
+}
+
+function localizeMapControls(map) {
+  const container = map.getContainer?.();
+  const bindings = [
+    ['.maplibregl-ctrl-zoom-in', 'map.zoomIn'],
+    ['.maplibregl-ctrl-zoom-out', 'map.zoomOut'],
+    ['.maplibregl-ctrl-compass', 'map.resetBearing'],
+    ['.maplibregl-ctrl-attrib-button', 'map.toggleAttribution'],
+  ];
+  for (const [selector, key] of bindings) {
+    const element = container?.querySelector?.(selector);
+    setTranslatedAttribute(element, key, 'title');
+    setTranslatedAttribute(element, key, 'aria-label');
+  }
+  setTranslatedAttribute(map.getCanvas?.(), 'map.canvas', 'aria-label');
 }
 
 function createResetExtentControl({ documentRef, initialView }) {
@@ -81,8 +99,8 @@ function createResetExtentControl({ documentRef, initialView }) {
       button = documentRef.createElement('button');
       button.type = 'button';
       button.className = 'map-reset-control__button';
-      button.title = 'Reset map extent';
-      button.setAttribute('aria-label', 'Reset map extent');
+      setTranslatedAttribute(button, 'map.resetExtent', 'title');
+      setTranslatedAttribute(button, 'map.resetExtent', 'aria-label');
       button.textContent = '⌂';
       button.addEventListener('click', resetMap);
       container.appendChild?.(button);
@@ -99,4 +117,11 @@ function createResetExtentControl({ documentRef, initialView }) {
 
 export function createMapMarker(options = {}) {
   return new maplibregl.Marker(options);
+}
+
+export function localizeMapMarker(marker) {
+  const element = marker.getElement?.();
+  setTranslatedAttribute(element, 'map.marker', 'title');
+  setTranslatedAttribute(element, 'map.marker', 'aria-label');
+  return marker;
 }

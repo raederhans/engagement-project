@@ -5,6 +5,7 @@ import {
   setDiaryInsightEntries,
 } from '../charts/diary_insights.js';
 import { createDiaryCard, createSectionTitle, createSecondaryButton } from './ui_common.js';
+import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
 
 export function createDiaryInsightsHost(root, onExpandedChange) {
   if (!root || typeof document === 'undefined') return null;
@@ -33,12 +34,12 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     const header = document.createElement('div');
     header.className = 'diary-insights-header';
     const titleWrap = document.createElement('div');
-    titleEl = createSectionTitle('Current route insights');
+    titleEl = createSectionTitle(t('diary.insights.live.title'));
     hintEl = document.createElement('div');
     hintEl.className = 'diary-muted-text';
     titleWrap.append(titleEl, hintEl);
 
-    toggleBtn = createSecondaryButton('Insights ▸');
+    toggleBtn = createSecondaryButton(t('diary.insightsCollapsed'));
     toggleBtn.classList.add('diary-insights-toggle');
     toggleBtn.setAttribute('aria-controls', contentId);
     toggleBtn.addEventListener('click', () => setCollapsed(!collapsed));
@@ -83,7 +84,7 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     collapsed = !!next;
     build();
     contentEl.hidden = collapsed;
-    toggleBtn.textContent = collapsed ? 'Insights ▸' : 'Insights ▾';
+    setTranslatedText(toggleBtn, collapsed ? 'diary.insightsCollapsed' : 'diary.insightsExpanded');
     toggleBtn.setAttribute('aria-expanded', String(!collapsed));
     if (!collapsed) updateContent();
     onExpandedChange?.(!collapsed);
@@ -91,6 +92,10 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
 
   build();
   setCollapsed(true);
+  onLanguageChange(() => {
+    updateScopeCopy();
+    updateContent();
+  });
 
   return {
     show() {

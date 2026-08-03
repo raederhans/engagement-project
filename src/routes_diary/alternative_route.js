@@ -3,6 +3,8 @@ import {
   ROUTE_ALT_SEG_IDS_PROP,
   ROUTE_SEG_IDS_PROP,
 } from './data_normalization.js';
+import '../i18n/p1.js';
+import { t } from '../i18n/index.js';
 
 export function resolveAlternativeForRoute(routeFeature, { getSegment } = {}) {
   if (!routeFeature) return null;
@@ -67,22 +69,25 @@ export function describeAlternativeTradeoff(summary) {
   const avoided = Math.max(0, Number(summary.pLow || 0) - Number(summary.aLow || 0));
   const deltaMinutes = Number(summary.deltaMin) || 0;
   const distanceDelta = Number(summary.overheadPct) || 0;
+  const formattedMinutes = Number.isInteger(Math.abs(deltaMinutes))
+    ? Math.abs(deltaMinutes)
+    : Math.abs(deltaMinutes).toFixed(1);
   const duration = deltaMinutes > 0
-    ? `${Number.isInteger(deltaMinutes) ? deltaMinutes : deltaMinutes.toFixed(1)} min longer`
+    ? t('diary.alternative.minutesLonger', { count: formattedMinutes })
     : deltaMinutes < 0
-      ? `${Number.isInteger(Math.abs(deltaMinutes)) ? Math.abs(deltaMinutes) : Math.abs(deltaMinutes).toFixed(1)} min shorter`
-      : 'Same estimated duration';
+      ? t('diary.alternative.minutesShorter', { count: formattedMinutes })
+      : t('diary.alternative.sameDuration');
   const distance = distanceDelta > 0
-    ? `${Math.round(distanceDelta)}% farther`
+    ? t('diary.alternative.farther', { count: Math.round(distanceDelta) })
     : distanceDelta < 0
-      ? `${Math.round(Math.abs(distanceDelta))}% shorter`
-      : 'same distance';
+      ? t('diary.alternative.shorter', { count: Math.round(Math.abs(distanceDelta)) })
+      : t('diary.alternative.sameDistance');
   return Object.freeze({
     benefit: avoided > 0
-      ? `Avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'}`
-      : 'No lower-rated segments avoided',
+      ? t(avoided === 1 ? 'diary.alternative.avoidsOne' : 'diary.alternative.avoidsMany', { count: avoided })
+      : t('diary.alternative.noAvoided'),
     cost: `${duration} · ${distance}`,
-    caveat: 'Based on sample route ratings, not live conditions.',
+    caveat: t('diary.alternative.caveat'),
     hasBenefit: avoided > 0,
   });
 }

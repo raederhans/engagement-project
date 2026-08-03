@@ -1,5 +1,6 @@
 import './style.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { initializeTranslations } from './i18n/index.js';
 import { initMap } from './map/initMap.js';
 import { setAnalysisMode, store, setViewMode, onViewModeChange } from './state/store.js';
 import {
@@ -8,6 +9,7 @@ import {
   writeCrimeStateToURL,
 } from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
+import { initLanguageSwitch } from './ui/language_switch.js';
 import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfaces.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
@@ -42,6 +44,8 @@ const diaryInsightsLoader = createDiaryInsightsLoader({
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
+  initializeTranslations({ documentRef: document, storage: window.localStorage, navigatorRef: window.navigator });
+  initLanguageSwitch({ documentRef: document });
   const sharedParams = new URLSearchParams(window.location.search || '');
   if (hasCrimeViewState(sharedParams)) {
     applyCrimeViewState(store, decodeCrimeViewState(sharedParams), { setMode: setAnalysisMode });
@@ -107,7 +111,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const ensureAnalysisHistory = () => {
     if (!analysisHistoryMount || store.viewMode !== 'crime' || coordinator.getActiveMode() !== 'crime') return null;
     if (!analysisHistoryPromise) {
-      analysisHistoryPromise = import('./analysis/analysis_history_controller.js')
+      analysisHistoryPromise = import('./i18n/history.js')
+        .then(() => import('./analysis/analysis_history_controller.js'))
         .then((module) => module.initAnalysisHistory({
           mount: analysisHistoryMount,
           store,

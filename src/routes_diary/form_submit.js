@@ -9,6 +9,7 @@ import {
   setSegmentOverride,
   validateRatingStep,
 } from './rating_flow.js';
+import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
 const ALL_TAGS = [
   'poor_lighting',
@@ -26,7 +27,28 @@ const ALL_TAGS = [
 ];
 const DEFAULT_TAG_CHIPS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'construction_blockage', 'dogs', 'other'];
 const STEP_ORDER = ['overall', 'details', 'segments'];
-const STEP_TITLES = { overall: 'Overall', details: 'Details', segments: 'Segments' };
+const STEP_TITLE_KEYS = {
+  overall: 'rating.step.overall',
+  details: 'rating.step.details',
+  segments: 'rating.step.segments',
+};
+
+function translatedTagLabel(tag) {
+  const key = `tag.${String(tag || '').trim().toLowerCase()}`;
+  const translated = t(key);
+  return translated === key ? String(tag || '').replace(/_/g, ' ') : translated;
+}
+
+function localizeRatingError(message) {
+  const keys = {
+    'Select an overall rating.': 'rating.selectOverall',
+    'Pick at least one tag.': 'rating.pickOneTag',
+    'Select at most three tags.': 'rating.maxTags',
+    'Select a rating from 1 to 5.': 'rating.selectOneToFive',
+    'Only two segment overrides are supported.': 'rating.maxOverrides',
+  };
+  return keys[message] ? t(keys[message]) : message;
+}
 
 const ajv = new Ajv({ allErrors: true });
 const ratingSchema = {
@@ -74,6 +96,7 @@ let escapeHandler = null;
 let currentState = null;
 let activeOpener = null;
 let backgroundInertState = [];
+let releaseLanguageChange = null;
 
 export function submitSegmentFeedback(payload, { submit = submitDiary, signal } = {}) {
   const segmentId = String(payload?.segmentId || '').trim();
@@ -193,6 +216,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     notes: draft.notes,
     onSuccess,
     signal,
+    pending: false,
     clearDraft: () => clearRatingDraft(routeId),
   };
 
@@ -218,11 +242,11 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   title.id = 'diary-rating-title';
   title.style.margin = '0';
   title.style.fontSize = '20px';
-  title.textContent = 'Rate this route';
+  setTranslatedText(title, 'rating.title');
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'diary-modal-close';
-  closeBtn.setAttribute('aria-label', 'Close rating dialog');
+  setTranslatedAttribute(closeBtn, 'rating.close', 'aria-label');
   closeBtn.textContent = '×';
   closeBtn.addEventListener('click', closeRatingModal);
   titleRow.appendChild(title);
@@ -235,7 +259,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   const subtitle = document.createElement('p');
   subtitle.style.margin = '6px 0 0';
   subtitle.style.color = '#475569';
-  subtitle.textContent = `${routeFeature.properties?.from || 'Origin'} → ${routeFeature.properties?.to || 'Destination'}`;
+  subtitle.textContent = `${routeFeature.properties?.from || t('rating.origin')} → ${routeFeature.properties?.to || t('rating.destination')}`;
   header.appendChild(subtitle);
   modal.appendChild(header);
 
@@ -253,6 +277,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   document.body.appendChild(backdrop);
   setBackgroundInert(backdrop);
   renderCurrentStep();
+  releaseLanguageChange = onLanguageChange(() => renderCurrentStep());
 
   escapeHandler = (event) => {
     if (event.key === 'Escape') closeRatingModal();
@@ -268,6 +293,8 @@ export function closeRatingModal() {
   activeModal?.remove();
   if (escapeHandler && typeof document !== 'undefined') document.removeEventListener('keydown', escapeHandler);
   restoreBackgroundInert();
+  releaseLanguageChange?.();
+  releaseLanguageChange = null;
   activeBackdrop = null;
   activeModal = null;
   activeBody = null;
@@ -339,7 +366,10 @@ function renderCurrentStep(focusTarget = null) {
   activeBody.replaceChildren();
   activeModal.querySelector?.('.diary-modal-footer')?.remove();
   const stepIndex = STEP_ORDER.indexOf(state.step);
-  activeStepLabel.textContent = `Step ${stepIndex + 1} of 3 · ${STEP_TITLES[state.step]}`;
+  setTranslatedText(activeStepLabel, 'rating.step', {
+    current: stepIndex + 1,
+    title: t(STEP_TITLE_KEYS[state.step]),
+  });
 
   if (state.step === 'overall') activeBody.appendChild(createStarSelector(state));
   if (state.step === 'details') {
@@ -366,29 +396,29 @@ function restoreRerenderFocus(focusTarget) {
     element.dataset.focusType === focusTarget.type && element.dataset.focusValue === focusTarget.value
   ));
   if (target) target.focus?.();
-  else if (focusTarget.type === 'tag') activeBody.querySelector('[aria-label="Add another tag"]')?.focus?.();
+  else if (focusTarget.type === 'tag') activeBody.querySelector('[data-role="add-tag"]')?.focus?.();
 }
 
-function createHeading(title, description) {
+function createHeading(titleKey, descriptionKey) {
   const wrapper = document.createElement('div');
   const heading = document.createElement('h3');
   heading.style.margin = '0 0 6px';
-  heading.textContent = title;
+  setTranslatedText(heading, titleKey);
   const hint = document.createElement('p');
   hint.style.margin = '0';
   hint.style.color = '#64748b';
-  hint.textContent = description;
+  setTranslatedText(hint, descriptionKey);
   wrapper.appendChild(heading);
   wrapper.appendChild(hint);
   return wrapper;
 }
 
 function createStarSelector(state) {
-  const wrapper = createHeading('Overall safety', 'Choose a star rating before continuing.');
+  const wrapper = createHeading('rating.overallTitle', 'rating.overallHint');
   const row = document.createElement('div');
   row.className = 'diary-stars';
   row.setAttribute('role', 'radiogroup');
-  row.setAttribute('aria-label', 'Overall safety rating');
+  setTranslatedAttribute(row, 'rating.overallAria', 'aria-label');
   for (let rating = 1; rating <= 5; rating += 1) {
     const star = document.createElement('button');
     star.type = 'button';
@@ -397,7 +427,7 @@ function createStarSelector(state) {
     star.dataset.focusType = 'star';
     star.dataset.focusValue = String(rating);
     star.setAttribute('role', 'radio');
-    star.setAttribute('aria-label', `${rating} star${rating === 1 ? '' : 's'}`);
+    setTranslatedAttribute(star, rating === 1 ? 'rating.starOne' : 'rating.starMany', 'aria-label', { count: rating });
     star.setAttribute('aria-checked', String(rating === state.overallRating));
     star.tabIndex = rating === (state.overallRating || 1) ? 0 : -1;
     star.classList.toggle('is-filled', rating <= (state.overallRating || 0));
@@ -425,7 +455,7 @@ function selectStarRating(state, rating) {
 }
 
 function createTagSelector(state) {
-  const wrapper = createHeading('What shaped your rating?', 'Pick 1–3 tags. You can save after this step.');
+  const wrapper = createHeading('rating.tagsTitle', 'rating.tagsHint');
   const chips = document.createElement('div');
   chips.className = 'diary-tag-list';
   const visibleTags = [...new Set([...DEFAULT_TAG_CHIPS, ...state.tags])];
@@ -433,7 +463,7 @@ function createTagSelector(state) {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'diary-tag';
-    chip.textContent = tag.replace(/_/g, ' ');
+    chip.textContent = translatedTagLabel(tag);
     chip.dataset.focusType = 'tag';
     chip.dataset.focusValue = tag;
     chip.setAttribute('aria-pressed', String(state.tags.has(tag)));
@@ -441,7 +471,7 @@ function createTagSelector(state) {
       if (state.tags.has(tag)) state.tags.delete(tag);
       else if (state.tags.size < 3) state.tags.add(tag);
       else {
-        setError('Select at most three tags.');
+        setError(t('rating.maxTags'));
         return;
       }
       persistDraft(state);
@@ -453,17 +483,18 @@ function createTagSelector(state) {
 
   const select = document.createElement('select');
   select.className = 'diary-field';
-  select.setAttribute('aria-label', 'Add another tag');
+  select.dataset.role = 'add-tag';
+  setTranslatedAttribute(select, 'rating.addTag', 'aria-label');
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Add another tag…';
+  setTranslatedText(placeholder, 'rating.addTagOption');
   placeholder.selected = true;
   placeholder.disabled = true;
   select.appendChild(placeholder);
   ALL_TAGS.filter((tag) => !state.tags.has(tag)).forEach((tag) => {
     const option = document.createElement('option');
     option.value = tag;
-    option.textContent = tag.replace(/_/g, ' ');
+    option.textContent = translatedTagLabel(tag);
     select.appendChild(option);
   });
   select.disabled = state.tags.size >= 3;
@@ -485,13 +516,13 @@ function createNotesSection(state) {
   label.style.display = 'block';
   label.style.fontWeight = '700';
   label.style.marginBottom = '6px';
-  label.textContent = 'Notes (optional)';
+  setTranslatedText(label, 'rating.notes');
   const input = document.createElement('textarea');
   input.id = 'diary-rating-notes';
   input.className = 'diary-field';
   input.rows = 4;
   input.maxLength = 200;
-  input.placeholder = 'Add a short note (200 characters max).';
+  setTranslatedAttribute(input, 'rating.notesPlaceholder', 'placeholder');
   input.value = state.notes;
   input.addEventListener('input', () => {
     state.notes = input.value;
@@ -503,11 +534,11 @@ function createNotesSection(state) {
 }
 
 function createSegmentOverrideSection(state) {
-  const wrapper = createHeading('Segment details (optional)', 'Only the three lowest-rated segments are shown. Choose at most two.');
+  const wrapper = createHeading('rating.segmentDetailsTitle', 'rating.segmentDetailsHint');
   const segments = selectLowestRatedSegments(state.route, state.segmentLookup);
   if (segments.length === 0) {
     const empty = document.createElement('p');
-    empty.textContent = 'No segments available for overrides.';
+    setTranslatedText(empty, 'rating.noSegments');
     wrapper.appendChild(empty);
     return wrapper;
   }
@@ -521,7 +552,9 @@ function createSegmentOverrideSection(state) {
     checkbox.checked = state.overrides.has(segmentId);
     checkbox.dataset.focusType = 'segment';
     checkbox.dataset.focusValue = segmentId;
-    checkbox.setAttribute('aria-label', `Override ${getSegmentDisplayLabel(feature, index + 1)}`);
+    setTranslatedAttribute(checkbox, 'rating.override', 'aria-label', {
+      segment: getSegmentDisplayLabel(feature, index + 1),
+    });
     const label = document.createElement('strong');
     label.textContent = getSegmentDisplayLabel(feature, index + 1);
     const select = document.createElement('select');
@@ -545,7 +578,7 @@ function createSegmentOverrideSection(state) {
       const result = setSegmentOverride(state.overrides, segmentId, select.value);
       if (!result.ok) {
         checkbox.checked = false;
-        setError(result.error);
+        setError(localizeRatingError(result.error));
         return;
       }
       persistDraft(state);
@@ -553,7 +586,7 @@ function createSegmentOverrideSection(state) {
     });
     select.addEventListener('change', () => {
       const result = setSegmentOverride(state.overrides, segmentId, select.value);
-      if (!result.ok) setError(result.error);
+      if (!result.ok) setError(localizeRatingError(result.error));
       else persistDraft(state);
     });
     row.appendChild(checkbox);
@@ -571,7 +604,8 @@ function createFooter(state) {
     const back = document.createElement('button');
     back.type = 'button';
     back.className = 'diary-button-secondary';
-    back.textContent = 'Back';
+    back.disabled = state.pending;
+    setTranslatedText(back, 'rating.back');
     back.addEventListener('click', () => changeStep(state.step === 'segments' ? 'details' : 'overall'));
     footer.appendChild(back);
   }
@@ -579,10 +613,10 @@ function createFooter(state) {
     const next = document.createElement('button');
     next.type = 'button';
     next.className = 'diary-button-primary';
-    next.textContent = 'Continue';
+    setTranslatedText(next, 'rating.continue');
     next.addEventListener('click', () => {
       const result = validateRatingStep(state);
-      if (!result.ok) setError(result.error);
+      if (!result.ok) setError(localizeRatingError(result.error));
       else changeStep('details');
     });
     footer.appendChild(next);
@@ -591,10 +625,11 @@ function createFooter(state) {
       const segments = document.createElement('button');
       segments.type = 'button';
       segments.className = 'diary-button-link';
-      segments.textContent = 'Add segment details';
+      segments.disabled = state.pending;
+      setTranslatedText(segments, 'rating.addSegments');
       segments.addEventListener('click', () => {
         const result = validateRatingStep(state);
-        if (!result.ok) setError(result.error);
+        if (!result.ok) setError(localizeRatingError(result.error));
         else changeStep('segments');
       });
       footer.appendChild(segments);
@@ -602,7 +637,8 @@ function createFooter(state) {
     submitBtn = document.createElement('button');
     submitBtn.type = 'submit';
     submitBtn.className = 'diary-button-primary';
-    submitBtn.textContent = 'Save rating';
+    submitBtn.disabled = state.pending;
+    setTranslatedText(submitBtn, state.pending ? 'rating.submitting' : 'rating.save');
     footer.appendChild(submitBtn);
   }
   return footer;
@@ -635,14 +671,14 @@ function buildPayload(state) {
 async function handleSubmit(event) {
   event.preventDefault();
   const state = currentState;
-  if (!state || state.signal?.aborted) return;
+  if (!state || state.pending || state.signal?.aborted) return;
   const detailsValidation = validateRatingStep({ ...state, step: 'details' });
   if (!state.overallRating) {
-    setError('Select an overall rating.');
+    setError(t('rating.selectOverall'));
     return;
   }
   if (!detailsValidation.ok) {
-    setError(detailsValidation.error);
+    setError(localizeRatingError(detailsValidation.error));
     return;
   }
   const payload = buildPayload(state);
@@ -652,25 +688,46 @@ async function handleSubmit(event) {
   }
 
   setError('');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting…';
-  }
   try {
     console.info('[Diary] submit payload', payload);
-    const response = await submitDiary(payload, { signal: state.signal });
-    if (currentState !== state || state.signal?.aborted) return;
+    const result = await runRatingSubmission({
+      state,
+      payload,
+      submit: submitDiary,
+      isCurrent: () => currentState === state,
+      onPendingChange: () => {
+        if (currentState === state) renderCurrentStep();
+      },
+    });
+    if (!result.applied) return;
+    const { response } = result;
     console.info('[Diary] submit response', response);
     finalizeDiarySubmission({ state, payload, response, isCurrent: () => currentState === state });
   } catch (error) {
     if (currentState === state && !state.signal?.aborted && error?.name !== 'AbortError') {
-      setError(error?.message || 'Submission failed.');
+      setError(error?.message || t('rating.submissionFailed'));
     }
+  }
+}
+
+export async function runRatingSubmission({
+  state,
+  payload,
+  submit = submitDiary,
+  isCurrent = () => true,
+  onPendingChange = () => {},
+} = {}) {
+  if (!state || state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
+  if (state.pending) return { applied: false, reason: 'pending' };
+  state.pending = true;
+  onPendingChange(true);
+  try {
+    const response = await submit(payload, { signal: state.signal });
+    if (state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
+    return { applied: true, response };
   } finally {
-    if (currentState === state && !state.signal?.aborted && submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Save rating';
-    }
+    state.pending = false;
+    onPendingChange(false);
   }
 }
 

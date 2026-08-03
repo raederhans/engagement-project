@@ -1033,7 +1033,23 @@ summary {
   opacity: 0.45;
 }
 
+.language-switch {
+  min-width: 72px;
+  min-height: var(--control-target, 44px);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 600 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
 
+.language-switch:hover {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+  background: #f6f8fb;
+}
 
 .mode-switch__button:focus-visible,
 .app-bar button:focus-visible {
@@ -1506,6 +1522,10 @@ summary {
     padding-inline: 9px;
   }
 
+  .language-switch {
+    min-width: 58px;
+    padding-inline: 8px;
+  }
 
   .app-bar__status {
     max-width: 96px;
@@ -1551,6 +1571,12 @@ summary {
     font-size: 13px;
   }
 
+  .language-switch {
+    min-width: 52px;
+    min-height: var(--control-target);
+    padding-inline: 6px;
+    font-size: 12px;
+  }
 
   .app-bar__status {
     max-width: 60px;

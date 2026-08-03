@@ -17,9 +17,10 @@ import { clearBufferA, clearBufferB, upsertBufferA, upsertBufferB } from '../map
 import { hideLegend, initLegend, showLegend } from '../map/legend.js';
 import { upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
-import { createMapMarker } from '../map/initMap.js';
+import { createMapMarker, localizeMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
 import { createCrimeRefreshOwner, readCrimeSnapshot } from './crime_refresh_owner.js';
+import { setTranslatedText, t } from '../i18n/index.js';
 import {
   bufferBounds,
   fitBoundsWithPanel,
@@ -360,7 +361,7 @@ export async function initCrimeMode(map, {
         sources.push({
           dataset: 'tract-crime',
           kind: 'fallback',
-          source: 'Validated tract snapshot',
+          sourceKey: 'scope.source.validatedTractSnapshot',
           asOf: currentTractSnapshotProvenance.coverageDate,
         });
       }
@@ -413,11 +414,13 @@ export async function initCrimeMode(map, {
     if (centerLonLat) {
       markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
       markerA.setLngLat(centerLonLat).addTo(map);
+      localizeMapMarker(markerA);
       upsertBufferA(map, { centerLonLat, radiusM });
     }
     if (centerBLonLat) {
       markerB ||= createMapMarker({ color: '#0a6c74', className: 'analysis-marker analysis-marker--b' });
       markerB.setLngLat(centerBLonLat).addTo(map);
+      localizeMapMarker(markerB);
       upsertBufferB(map, { centerLonLat: centerBLonLat, radiusM });
     }
   }
@@ -457,7 +460,7 @@ export async function initCrimeMode(map, {
   map.on('click', (event) => {
     if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
     const target = store.selectTarget === 'B' ? 'B' : 'A';
-    store.setComparisonPoint(target, event.lngLat.lng, event.lngLat.lat, `Map point ${target}`);
+    store.setComparisonPoint(target, event.lngLat.lng, event.lngLat.lat, t('crime.mapPoint', { target }));
     publishCurrentSelection(undefined, { origin: 'map' });
     onPointChange(target);
     syncComparisonOverlays({
@@ -469,7 +472,7 @@ export async function initCrimeMode(map, {
     store.selectMode = 'idle';
     for (const id of ['useCenterBtn', 'usePointBBtn']) {
       const button = document.getElementById(id);
-      if (button) button.textContent = 'Pick on map';
+      if (button) setTranslatedText(button, 'crime.pickOnMap');
     }
     const hint = document.getElementById('useMapHint');
     if (hint) hint.style.display = 'none';
