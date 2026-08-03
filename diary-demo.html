@@ -2,16 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Route Safety Diary Demo</title>
+    <title data-i18n="diary.demoDocumentTitle">Route Safety Diary Demo</title>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@^4.5.0/dist/maplibre-gl.css" />
     <style>
       body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; display: block; background: #f8fafc; }
       #app { display: flex; height: 100vh; }
       #diary-panel { width: 360px; overflow: auto; border-right: 1px solid #e2e8f0; padding: 12px; box-sizing: border-box; }
       #map { flex: 1; min-height: 100vh; }
+      [data-language-switch-mount] { position: fixed; right: 52px; top: 10px; z-index: 100; }
+      .language-switch { min-height: 40px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #0f172a; cursor: pointer; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 2px 8px rgba(15,23,42,.14); }
     </style>
   </head>
   <body>
+    <div data-language-switch-mount></div>
     <div id="app">
       <div id="diary-panel"></div>
       <div id="map"></div>

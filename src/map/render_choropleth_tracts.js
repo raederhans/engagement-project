@@ -2,6 +2,7 @@ import { updateLegend, hideLegend } from './legend.js';
 import { upsertTractsFill, showTractsFill, hideTractsFill } from './tracts_layers.js';
 import { store } from '../state/store.js';
 import { computeBreaks, makePalette, toMapLibreStep } from '../utils/classify.js';
+import { setTranslatedText, t } from '../i18n/index.js';
 
 /**
  * Render tracts choropleth, masking low-population tracts via __mask flag.
@@ -25,9 +26,9 @@ export function renderTractsChoropleth(map, merged) {
     hideTractsFill(map);
     showOutlinesOnlyBanner(unavailable
       ? merged.statusMessage
-      : 'No tract incidents matched the selected filters.');
+      : t('crime.noTractIncidents'));
   } else {
-    updateLegend({ title: 'Census Tracts', unit: '', breaks, colors, subtitle });
+    updateLegend({ title: t('crime.censusTracts'), unit: '', breaks, colors, subtitle });
 
     // Build step expression for fill color
     const { paintProps } = toMapLibreStep(breaks, colors, { opacity: store.classOpacity });
@@ -65,7 +66,12 @@ function showOutlinesOnlyBanner(message) {
     });
     document.body.appendChild(banner);
   }
-  banner.textContent = message || 'Census tracts: outlines visible. Choropleth data is unavailable.';
+  if (message) {
+    banner.removeAttribute('data-i18n');
+    banner.textContent = message;
+  } else {
+    setTranslatedText(banner, 'crime.tractsUnavailable');
+  }
   banner.style.display = 'block';
 }
 

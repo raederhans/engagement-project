@@ -2,6 +2,7 @@ import {
   createLatestSerialQueue,
   waitForOwnedPromise,
 } from './utils/latest_serial_queue.js';
+import { setTranslatedText, t } from './i18n/index.js';
 
 async function waitForTransition(promise, signal) {
   try {
@@ -41,6 +42,7 @@ export function createModeCoordinator({
   onModeIntent = () => {},
   onModeSettled = () => {},
   onShortStatusChange = () => {},
+  onDataScopeChange = () => {},
   reportError = (label, error) => console.error(`[${label}]`, error),
 }) {
   let crimeControllerPromise = null;
@@ -53,15 +55,14 @@ export function createModeCoordinator({
   let shortStatus = Object.freeze({
     mode: getCurrentMode() === 'diary' ? 'diary' : 'crime',
     phase: 'idle',
-    label: 'Data idle',
+    label: t('mode.status.idle'),
   });
   const statusListeners = new Set();
 
   const statusLabel = (mode, phase) => {
-    const name = mode === 'diary' ? 'Diary' : 'Crime';
-    if (phase === 'loading') return `${name} loading`;
-    if (phase === 'ready') return `${name} data ready`;
-    return `${name} data unavailable`;
+    const prefix = mode === 'diary' ? 'diary' : 'crime';
+    const suffix = phase === 'loading' ? 'Loading' : phase === 'ready' ? 'Ready' : 'Unavailable';
+    return t(`mode.status.${prefix}${suffix}`);
   };
 
   const publishStatus = (mode, phase) => {
@@ -162,6 +163,9 @@ export function createModeCoordinator({
           insights: diaryInsights,
           signal,
           isCurrent: ownsMode,
+          onScopeChange: (scope) => {
+            if (ownsMode()) onDataScopeChange(scope);
+          },
         }), signal);
         if (!initResult.completed || !ownsMode()) {
           module.teardownDiaryMode(map);
@@ -169,7 +173,7 @@ export function createModeCoordinator({
         }
         if (initResult.value?.status !== 'ready') {
           diaryMount?.replaceChildren?.();
-          if (diaryMount) diaryMount.textContent = 'Diary data is unavailable. Reload to try again.';
+          if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
           activeMode = null;
           settleMode(mode, 'failed', ownsMode);
           return;
@@ -271,6 +275,17 @@ export function createModeCoordinator({
       })) return completion;
       action();
       return Promise.resolve(true);
+    },
+    fitCurrentCrimeSelection(options) {
+      let completion = Promise.resolve(false);
+      if (withCurrentCrime((controller) => {
+        completion = controller.fitCurrentSelection(options);
+      })) return completion;
+      return completion;
+    },
+    fitCurrentDiarySelection() {
+      if (activeMode !== 'diary' || getCurrentMode() !== 'diary' || !diaryModule) return false;
+      return diaryModule.fitCurrentDiarySelection?.() || false;
     },
     updateCrimeBuffer() {
       return withCurrentCrime((controller) => controller.updateBuffer());

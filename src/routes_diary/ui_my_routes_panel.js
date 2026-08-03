@@ -1,4 +1,12 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
+import { setTranslatedText, t } from '../i18n/index.js';
+import { formatCalendarDate } from '../i18n/date.js';
+
+export function refreshMyRoutesDates(root) {
+  for (const element of root?.querySelectorAll?.('[data-diary-date]') || []) {
+    element.textContent = formatCalendarDate(element.dataset.diaryDate, { includeYear: false }) || '';
+  }
+}
 
 export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   container.innerHTML = '';
@@ -14,7 +22,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   ['30d', '7d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
-    opt.textContent = value === '30d' ? 'Last 30 days' : value === '7d' ? 'Last 7 days' : 'All time';
+    setTranslatedText(opt, value === '30d' ? 'diary.last30Days' : value === '7d' ? 'diary.last7Days' : 'diary.allTime');
     periodSelect.appendChild(opt);
   });
   periodSelect.value = period;
@@ -24,13 +32,13 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   const modeSelect = document.createElement('select');
   modeSelect.className = 'diary-select';
   [
-    { value: 'all', label: 'All modes' },
-    { value: 'walk', label: 'Walk' },
-    { value: 'bike', label: 'Bike' },
+    { value: 'all', key: 'diary.allModes' },
+    { value: 'walk', key: 'diary.walk' },
+    { value: 'bike', key: 'diary.bike' },
   ].forEach((opt) => {
     const option = document.createElement('option');
     option.value = opt.value;
-    option.textContent = opt.label;
+    setTranslatedText(option, opt.key);
     modeSelect.appendChild(option);
   });
   modeSelect.value = mode;
@@ -43,13 +51,13 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   const exportButton = document.createElement('button');
   exportButton.type = 'button';
   exportButton.className = 'diary-chip secondary';
-  exportButton.textContent = 'Export local data';
+  setTranslatedText(exportButton, 'diary.exportLocal');
   exportButton.disabled = routes.length === 0;
   exportButton.addEventListener('click', () => handlers.onExport?.());
   const importButton = document.createElement('button');
   importButton.type = 'button';
   importButton.className = 'diary-chip secondary';
-  importButton.textContent = 'Import backup';
+  setTranslatedText(importButton, 'diary.importBackup');
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'application/json,.json';
@@ -64,7 +72,9 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   container.appendChild(dataActions);
 
   const historyCard = createDiaryCard();
-  historyCard.appendChild(createSectionTitle('Route history'));
+  const historyTitle = createSectionTitle(t('diary.routeHistory'));
+  setTranslatedText(historyTitle, 'diary.routeHistory');
+  historyCard.appendChild(historyTitle);
 
   const list = document.createElement('div');
   list.style.display = 'flex';
@@ -75,7 +85,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   if (!routes.length) {
     const empty = document.createElement('div');
     empty.className = 'diary-muted-text';
-    empty.textContent = 'No local route ratings yet. Rate a demo route to add it here.';
+    setTranslatedText(empty, 'diary.noLocalRatings');
     list.appendChild(empty);
   }
 
@@ -102,7 +112,8 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
     const date = document.createElement('div');
     date.style.fontSize = '12px';
     date.style.color = '#6b7280';
-    date.textContent = item.date;
+    date.dataset.diaryDate = item.createdAt;
+    date.textContent = formatCalendarDate(item.createdAt, { includeYear: false }) || item.date;
     const label = document.createElement('div');
     label.style.fontSize = '13px';
     label.style.fontWeight = '600';
@@ -111,7 +122,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
     const modeLabel = document.createElement('div');
     modeLabel.style.fontSize = '12px';
     modeLabel.style.color = '#475569';
-    modeLabel.textContent = item.mode === 'bike' ? '🚲 Bike' : '🚶 Walk';
+    setTranslatedText(modeLabel, item.mode === 'bike' ? 'diary.bikeWithIcon' : 'diary.walkWithIcon');
     left.appendChild(date);
     left.appendChild(label);
     left.appendChild(modeLabel);

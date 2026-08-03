@@ -42,10 +42,18 @@ export async function fetchTracts({ signal } = {}) {
  * Prefer the live City endpoint and use the bundled copy only when the API is
  * unavailable or malformed.
  */
-export async function fetchPoliceDistrictsPreferred({ signal } = {}) {
+export async function fetchPoliceDistrictsPreferred({ signal, onSourceResolved } = {}) {
   throwIfAborted(signal);
   try {
-    return await fetchPoliceDistricts({ signal });
+    const live = await fetchPoliceDistricts({ signal });
+    reportResolvedSource(onSourceResolved, {
+      dataset: 'police-districts',
+      kind: 'live',
+      provider: 'Philadelphia Police GIS',
+      url: PD_GEOJSON,
+      cacheHit: false,
+    });
+    return live;
   } catch (liveError) {
     if (isCancellation(liveError, signal)) throw cancellationReason(liveError, signal);
     const local = await fetchGeoJson(POLICE_DISTRICTS_FALLBACK, {
@@ -59,6 +67,13 @@ export async function fetchPoliceDistrictsPreferred({ signal } = {}) {
         'Neither the live nor bundled police district source is valid.',
       );
     }
+    reportResolvedSource(onSourceResolved, {
+      dataset: 'police-districts',
+      kind: 'fallback',
+      provider: 'Bundled boundary snapshot',
+      url: POLICE_DISTRICTS_FALLBACK,
+      cacheHit: false,
+    });
     return local;
   }
 }
@@ -67,9 +82,17 @@ export async function fetchPoliceDistrictsPreferred({ signal } = {}) {
  * Prefer official/current tract APIs, then use the bundled geometry as a
  * resilience fallback. Successful data is memoized for the browser session.
  */
-export async function fetchTractsPreferred({ signal } = {}) {
+export async function fetchTractsPreferred({ signal, onSourceResolved } = {}) {
   throwIfAborted(signal);
-  if (fetchTractsPreferred._cache) return fetchTractsPreferred._cache;
+  if (fetchTractsPreferred._cache) {
+    if (fetchTractsPreferred._cacheMeta) {
+      reportResolvedSource(onSourceResolved, {
+        ...fetchTractsPreferred._cacheMeta,
+        cacheHit: true,
+      });
+    }
+    return fetchTractsPreferred._cache;
+  }
 
   const errors = [];
   for (const url of TRACT_GEOJSON_ENDPOINTS) {
@@ -84,7 +107,16 @@ export async function fetchTractsPreferred({ signal } = {}) {
         throw new Error(`Tract source returned fewer than 300 features: ${url}`);
       }
       const normalized = normalizeTracts(raw);
+      const sourceMeta = {
+        dataset: 'census-tract-boundaries',
+        kind: 'live',
+        provider: 'Official tract boundary API',
+        url,
+        cacheHit: false,
+      };
       fetchTractsPreferred._cache = normalized;
+      fetchTractsPreferred._cacheMeta = sourceMeta;
+      reportResolvedSource(onSourceResolved, sourceMeta);
       return normalized;
     } catch (error) {
       if (isCancellation(error, signal)) throw cancellationReason(error, signal);
@@ -102,7 +134,16 @@ export async function fetchTractsPreferred({ signal } = {}) {
       throw new Error('Bundled tract fallback is invalid.');
     }
     const normalized = normalizeTracts(local);
+    const sourceMeta = {
+      dataset: 'census-tract-boundaries',
+      kind: 'fallback',
+      provider: 'Bundled tract snapshot',
+      url: TRACTS_FALLBACK,
+      cacheHit: false,
+    };
     fetchTractsPreferred._cache = normalized;
+    fetchTractsPreferred._cacheMeta = sourceMeta;
+    reportResolvedSource(onSourceResolved, sourceMeta);
     return normalized;
   } catch (error) {
     if (isCancellation(error, signal)) throw cancellationReason(error, signal);
@@ -171,4 +212,11 @@ function isCancellation(error, signal) {
 
 function cancellationReason(error, signal) {
   return signal?.reason ?? error ?? new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function reportResolvedSource(callback, metadata) {
+  if (typeof callback !== 'function') return;
+  try {
+    callback({ ...metadata });
+  } catch {}
 }

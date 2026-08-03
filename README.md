@@ -1,12 +1,16 @@
 # Philadelphia Crime Dashboard + Route Safety Diary
 
+[中文说明](README.zh-CN.md) | English
+
 [![CI](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml/badge.svg)](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](package.json)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An interactive web dashboard for exploring Philadelphia crime patterns and a
-browser-based Route Safety Diary prototype. The project uses vanilla
-JavaScript, MapLibre GL JS, Chart.js, Turf, and Vite.
+An English and Simplified Chinese interactive web dashboard for exploring
+Philadelphia crime patterns and a browser-based Route Safety Diary prototype.
+Use the language button in the app bar to switch languages; the preference is
+saved in the current browser. The project uses vanilla JavaScript, MapLibre GL
+JS, Chart.js, Turf, and Vite.
 
 > [!IMPORTANT]
 > The Route Safety Diary currently uses demo data and local browser state. It
@@ -23,6 +27,7 @@ JavaScript, MapLibre GL JS, Chart.js, Turf, and Vite.
 - Monthly comparisons, top-offense charts, and a 7 x 24 activity heatmap.
 - Per-capita rates using ACS population data.
 - Viewport filtering and clustering for larger result sets.
+- English and Simplified Chinese UI, help, status, and error copy.
 
 ### Route Safety Diary Prototype
 
@@ -71,8 +76,11 @@ npm run validate
 The gate runs:
 
 - `npm run data:check` — validates the checked-in demo GeoJSON.
-- `npm test` — runs the diary math and aggregation regression scripts.
-- `npm run build` — creates the production bundle in `dist/`.
+- `npm test` — runs the complete unit and contract-test suite, including the
+  bilingual UI contract.
+- `npm run build:manifest` — creates the production bundle and Vite manifest in
+  `dist/`.
+- `npm run verify:bundle` — checks the production entry and lazy-chunk budgets.
 
 Individual commands remain available when working on a narrow area:
 
@@ -106,6 +114,7 @@ npm run data:segment:streets
 src/
   api/              External data access and normalization
   charts/           Crime and diary visualizations
+  i18n/             English and Simplified Chinese message catalogs/runtime
   map/              MapLibre layers and interactions
   routes_diary/     Route Safety Diary state and UI
   state/            Shared application state
@@ -139,9 +148,10 @@ npm run build
 ```
 
 Serve the generated `dist/` directory with a static host. This repository does
-not currently publish a package to npm or GitHub Packages. A GitHub Pages
-deployment would also need the Vite base path configured for
-`/engagement-project/` before publishing.
+not currently publish a package to npm or GitHub Packages. The checked-in Vite
+configuration automatically uses the repository path during GitHub Actions,
+and `.github/workflows/deploy-pages.yml` builds and deploys `main` to GitHub
+Pages.
 
 ## Documentation
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import '../../src/i18n/history.js';
 import {
   buildAnalysisShareUrl,
   createAnalysisHistoryController,
@@ -10,6 +11,8 @@ import {
 import { createModeCoordinator } from '../../src/mode_coordinator.js';
 import * as compareCard from '../../src/compare/card.js';
 import { createAnalysisHistoryView } from '../../src/ui/analysis_history_panel.js';
+import { getLanguage, setLanguage } from '../../src/i18n/index.js';
+import { formatLocalizedDate } from '../../src/i18n/date.js';
 
 class FakeElement extends EventTarget {
   constructor() {
@@ -22,11 +25,14 @@ class FakeElement extends EventTarget {
     this.style = {};
     this.textContent = '';
     this.value = '';
+    this.attributes = new Map();
   }
 
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = [...children]; }
-  setAttribute() {}
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  removeAttribute(name) { this.attributes.delete(name); }
+  focus() { globalThis.document.activeElement = this; }
 }
 
 function deferred() {
@@ -79,6 +85,8 @@ function createHarness(overrides = {}) {
     clearSnapshot() { calls.push(['snapshot-clear']); },
     setPending(value) { calls.push(['pending', value]); },
     clearDraft() { calls.push(['draft-clear']); },
+    setCurrentArtifact(id) { calls.push(['current-artifact', id]); },
+    focusRestoreAction(id) { calls.push(['history-focus', id]); },
   };
   const store = {
     coverageStatus: 'ready',
@@ -118,6 +126,7 @@ function createHarness(overrides = {}) {
     setViewMode: (mode, options) => calls.push(['view-mode', mode, options]),
     syncControls: () => calls.push(['sync-controls']),
     syncCanonicalUrl: () => calls.push(['sync-url']),
+    focusAnalysis: () => { calls.push(['focus-analysis']); return Promise.resolve(true); },
     scheduleCrime: async () => { calls.push(['schedule']); return { status: 'live' }; },
     renderSavedComparison: (summary) => calls.push(['render-comparison', summary]),
     copyText: async (value) => calls.push(['copy', value]),
@@ -214,6 +223,155 @@ test('restore consumes the coordinator Crime schedule as its only refresh', asyn
   const failed = createHarness({ scheduleCrime: async () => ({ status: 'failed' }) });
   assert.equal((await failed.controller.restore('analysis-1')).status, 'failed');
   assert.equal(failed.calls.some(([kind]) => kind === 'snapshot-clear'), false);
+});
+
+test('restore selects and focuses the saved analysis before live refresh begins', async () => {
+  const harness = createHarness();
+  await harness.controller.restore('analysis-1');
+  const kinds = harness.calls.map(([kind]) => kind);
+
+  assert.ok(kinds.indexOf('replace') < kinds.indexOf('current-artifact'));
+  assert.ok(kinds.indexOf('current-artifact') < kinds.indexOf('focus-analysis'));
+  assert.ok(kinds.indexOf('focus-analysis') < kinds.indexOf('schedule'));
+  assert.deepEqual(
+    harness.calls.find(([kind]) => kind === 'current-artifact'),
+    ['current-artifact', 'analysis-1'],
+  );
+});
+
+test('restore waits for map focus to finish before starting its single live refresh', async () => {
+  const focusGate = deferred();
+  let refreshCalls = 0;
+  const harness = createHarness({
+    focusAnalysis: () => focusGate.promise,
+    scheduleCrime: async () => {
+      refreshCalls += 1;
+      return { status: 'live' };
+    },
+  });
+
+  const restoring = harness.controller.restore('analysis-1');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(refreshCalls, 0);
+
+  focusGate.resolve(true);
+  assert.equal((await restoring).status, 'live');
+  assert.equal(refreshCalls, 1);
+});
+
+test('focus failure warns and still permits the current restore to refresh once', async () => {
+  const originalWarn = console.warn;
+  const warnings = [];
+  let refreshCalls = 0;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    const harness = createHarness({
+      focusAnalysis: async () => { throw new Error('Camera unavailable'); },
+      scheduleCrime: async () => {
+        refreshCalls += 1;
+        return { status: 'live' };
+      },
+    });
+
+    assert.equal((await harness.controller.restore('analysis-1')).status, 'live');
+    assert.equal(refreshCalls, 1);
+    assert.equal(
+      warnings.some(([message, error]) => /map focus failed/i.test(message)
+        && /Camera unavailable/.test(error?.message || '')),
+      true,
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('a restore superseded while focusing never starts its Crime refresh', async () => {
+  const olderFocus = deferred();
+  let refreshCalls = 0;
+  const harness = createHarness({
+    focusAnalysis: (state) => (state.addressA === 'City Hall'
+      ? olderFocus.promise
+      : Promise.resolve(true)),
+    scheduleCrime: async () => {
+      refreshCalls += 1;
+      return { status: 'live' };
+    },
+  });
+  harness.rows.set('analysis-2', savedArtifact({
+    id: 'analysis-2',
+    viewState: {
+      ...savedArtifact().viewState,
+      addressA: 'Second location',
+    },
+  }));
+
+  const olderRestore = harness.controller.restore('analysis-1');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(refreshCalls, 0);
+  assert.equal((await harness.controller.restore('analysis-2')).status, 'live');
+  assert.equal(refreshCalls, 1);
+
+  olderFocus.resolve(true);
+  assert.deepEqual(await olderRestore, { status: 'superseded' });
+  assert.equal(refreshCalls, 1);
+});
+
+test('history view marks only the opened saved analysis as current', () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: () => new FakeElement() };
+  try {
+    const mount = new FakeElement();
+    const view = createAnalysisHistoryView(mount, {
+      onSave() {}, onRestore() {}, onRename() {}, onDelete() {}, onExport() {}, onShare() {},
+    });
+    view.render({
+      items: [
+        savedArtifact({ id: 'analysis-1' }),
+        savedArtifact({ id: 'analysis-2', title: 'Second analysis' }),
+      ],
+      warnings: [],
+      canSave: true,
+      pending: false,
+    });
+    view.setCurrentArtifact('analysis-2');
+    const list = mount.children[5];
+    assert.equal(list.children[0].attributes.has('aria-current'), false);
+    assert.equal(list.children[1].attributes.get('aria-current'), 'true');
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
+test('history view restores focus to the opened analysis after the list is redrawn', () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = {
+    activeElement: null,
+    createElement: () => new FakeElement(),
+  };
+  try {
+    const mount = new FakeElement();
+    const view = createAnalysisHistoryView(mount, {
+      onSave() {}, onRestore() {}, onRename() {}, onDelete() {}, onExport() {}, onShare() {},
+    });
+    const model = {
+      items: [savedArtifact({ id: 'analysis-1' })],
+      warnings: [],
+      canSave: true,
+      pending: false,
+    };
+    view.render(model);
+
+    const firstOpenButton = mount.children[5].children[0].children[3].children[0];
+    firstOpenButton.focus();
+    view.render(model);
+    view.focusRestoreAction('analysis-1');
+
+    const restoredFocus = globalThis.document.activeElement;
+    assert.notEqual(restoredFocus, firstOpenButton);
+    assert.equal(restoredFocus.textContent, 'Open');
+  } finally {
+    globalThis.document = originalDocument;
+  }
 });
 
 test('a partially successful failed restore repaints the saved comparison before its failed terminal', async () => {
@@ -450,7 +608,9 @@ test('failed and superseded restores keep an explicit saved-snapshot terminal st
 
 test('history view uses result generation time and renders truthful terminal snapshot text', () => {
   const originalDocument = globalThis.document;
+  const originalLanguage = getLanguage();
   globalThis.document = { createElement: () => new FakeElement() };
+  setLanguage('en');
   try {
     const mount = new FakeElement();
     const view = createAnalysisHistoryView(mount, {
@@ -465,9 +625,13 @@ test('history view uses result generation time and renders truthful terminal sna
     });
     const snapshot = mount.children[2];
     view.showSnapshot(artifact);
-    assert.match(snapshot.textContent, new RegExp(new Date(artifact.resultSummary.generatedAt).toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.doesNotMatch(snapshot.textContent, new RegExp(new Date(artifact.updatedAt).toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(snapshot.textContent, new RegExp(formatLocalizedDate(artifact.resultSummary.generatedAt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.doesNotMatch(snapshot.textContent, new RegExp(formatLocalizedDate(artifact.updatedAt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(snapshot.textContent, /Refreshing live data/);
+    setLanguage('zh-CN');
+    assert.match(snapshot.textContent, /2026年7月31日/);
+    assert.match(snapshot.textContent, /正在刷新实时数据/);
+    setLanguage('en');
     view.showSnapshotState(artifact, 'failed');
     assert.match(snapshot.textContent, /refresh failed/i);
     view.showSnapshotState(artifact, 'superseded');
@@ -484,6 +648,7 @@ test('history view uses result generation time and renders truthful terminal sna
     assert.match(snapshot.textContent, /refresh was cancelled/i);
     assert.doesNotMatch(snapshot.textContent, /Refreshing live data/i);
   } finally {
+    setLanguage(originalLanguage);
     globalThis.document = originalDocument;
   }
 });
@@ -675,7 +840,7 @@ test('panel stays storage-agnostic and main loads history only after Crime becom
   assert.match(mainSource, /refreshFreshness\(/);
   assert.doesNotMatch(viewSource, /innerHTML\s*=/);
   assert.match(viewSource, /title\.textContent = artifact\.title/);
-  assert.match(viewSource, /Needs refresh/);
-  assert.match(viewSource, /Source status unknown/);
+  assert.match(viewSource, /history\.needsRefresh/);
+  assert.match(viewSource, /history\.sourceUnknown/);
   assert.match(viewSource, /Promise\.resolve\(action\(id\)\)\.catch\(reportActionError\)/);
 });

@@ -1,3 +1,6 @@
+import '../i18n/p1.js';
+import { setTranslatedText, t } from '../i18n/index.js';
+
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
 
 const DEMO_TAGS = {
@@ -70,8 +73,8 @@ const DEMO_TAGS = {
 };
 
 const insightsState = { scope: 'route', window: '30d' };
-const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const heatmapWindows = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Late night'];
+const heatmapDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const heatmapWindowKeys = ['morning', 'midday', 'afternoon', 'evening', 'lateNight'];
 const heatmapValues = [
   [0.15, 0.12, 0.2, 0.32, 0.22],
   [0.14, 0.2, 0.35, 0.62, 0.38],
@@ -82,8 +85,59 @@ const heatmapValues = [
   [0.08, 0.12, 0.2, 0.28, 0.2],
 ];
 
-let insightsContext = 'live'; // 'live' | 'history' | 'community'
+let insightsContext = { mode: 'live', routeId: null };
 let localInsightEntries = [];
+
+const CONTEXT_COPY = {
+  live: {
+    title: 'diary.insights.live.title',
+    hint: 'diary.insights.live.hint',
+    intro: 'diary.insights.live.intro',
+    emptyTrend: 'diary.insights.live.emptyTrend',
+    emptyTags: 'diary.insights.live.emptyTags',
+  },
+  history: {
+    title: 'diary.insights.history.title',
+    hint: 'diary.insights.history.hint',
+    intro: 'diary.insights.history.intro',
+    emptyTrend: 'diary.insights.history.emptyTrend',
+    emptyTags: 'diary.insights.history.emptyTags',
+  },
+  community: {
+    title: 'diary.insights.community.title',
+    hint: 'diary.insights.community.hint',
+    intro: 'diary.insights.community.intro',
+    emptyTrend: 'diary.insights.community.emptyTrend',
+    emptyTags: 'diary.insights.community.emptyTags',
+  },
+};
+
+export function normalizeDiaryInsightsContext(value) {
+  const candidate = typeof value === 'string' ? { mode: value } : (value || {});
+  const mode = candidate.mode === 'history'
+    ? 'history'
+    : candidate.mode === 'community'
+      ? 'community'
+      : 'live';
+  const routeId = mode === 'live' && candidate.routeId != null && String(candidate.routeId).trim()
+    ? String(candidate.routeId)
+    : null;
+  return { mode, routeId };
+}
+
+export function describeDiaryInsightsContext(value) {
+  const { mode } = normalizeDiaryInsightsContext(value);
+  return Object.fromEntries(Object.entries(CONTEXT_COPY[mode]).map(([name, key]) => [name, t(key)]));
+}
+
+export function selectDiaryInsightEntries(entries = [], value = insightsContext) {
+  if (!Array.isArray(entries)) return [];
+  const context = normalizeDiaryInsightsContext(value);
+  if (context.mode === 'community') return [];
+  if (context.mode === 'history') return entries.slice();
+  if (!context.routeId) return [];
+  return entries.filter((entry) => String(entry?.routeId ?? entry?.route_id ?? '') === context.routeId);
+}
 
 export function deriveLocalDiaryInsights(entries = []) {
   const normalized = entries
@@ -127,58 +181,58 @@ function safetyColor(value) {
   return '#f87171';
 }
 
+function translatedTagLabel(label) {
+  const normalized = String(label || '').trim().toLowerCase().replaceAll(' ', '_');
+  const key = `tag.${normalized}`;
+  const translated = t(key);
+  return translated === key ? normalized.replaceAll('_', ' ') : translated;
+}
+
 function entriesForWindow(windowName) {
-  if (windowName === 'all') return localInsightEntries;
+  const scopedEntries = selectDiaryInsightEntries(localInsightEntries, insightsContext);
+  if (windowName === 'all') return scopedEntries;
   const days = windowName === '7d' ? 7 : windowName === '90d' ? 90 : 30;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return localInsightEntries.filter((entry) => new Date(entry.createdAt).getTime() >= cutoff);
+  return scopedEntries.filter((entry) => new Date(entry.createdAt).getTime() >= cutoff);
 }
 
 function renderTrend(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Trend';
-  header.style.font = '600 14px/1.3 "Inter", system-ui';
-  header.style.color = '#0f172a';
+  setTranslatedText(header, 'diary.trend');
+  header.style.cssText = 'font:600 14px/1.3 "Inter",system-ui;color:#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'history'
-    ? 'Avg safety score along saved routes'
-    : insightsContext === 'community'
-      ? 'Area demo visuals'
-      : 'Avg safety score along the route';
-  subtitle.style.font = '12px/1.3 "Inter", system-ui';
-  subtitle.style.color = '#64748b';
-  subtitle.style.marginBottom = '8px';
+  setTranslatedText(subtitle, insightsContext.mode === 'history'
+    ? 'diary.trendHistory'
+    : insightsContext.mode === 'community'
+      ? 'diary.trendCommunity'
+      : 'diary.trendLive');
+  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
   container.appendChild(subtitle);
 
-  const trend = insightsContext === 'community'
+  const trend = insightsContext.mode === 'community'
     ? demoTrend
     : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).trend;
   if (!trend.length) {
     const empty = document.createElement('div');
     empty.className = 'diary-muted-text';
-    empty.textContent = 'No saved ratings in this period.';
+    setTranslatedText(empty, CONTEXT_COPY[insightsContext.mode].emptyTrend);
     container.appendChild(empty);
     return;
   }
 
   const chart = document.createElement('div');
-  chart.style.display = 'flex';
-  chart.style.alignItems = 'flex-end';
-  chart.style.gap = '8px';
-  chart.style.height = '68px';
+  chart.style.cssText = 'display:flex;align-items:flex-end;gap:8px;height:68px';
   const max = Math.max(...trend, 1);
-  const trendLabels = insightsContext === 'community'
-    ? ['Start', '0.5 km', '1.0 km', '1.5 km', 'End']
+  const trendLabels = insightsContext.mode === 'community'
+    ? [t('diary.start'), '0.5 km', '1.0 km', '1.5 km', t('diary.end')]
     : trend.map((_, index) => `#${index + 1}`);
   trend.forEach((v, idx) => {
     const bar = document.createElement('div');
-    bar.style.flex = '1';
-    bar.style.borderRadius = '6px';
+    bar.style.cssText = 'flex:1;border-radius:6px;border:1px solid rgba(15,23,42,.05)';
     bar.style.background = safetyColor(v);
-    bar.style.border = '1px solid rgba(15,23,42,0.05)';
     bar.style.height = `${Math.max(24, (v / max) * 60)}px`;
     bar.title = `${trendLabels[idx]} · ${v.toFixed(1)}`;
     chart.appendChild(bar);
@@ -186,11 +240,7 @@ function renderTrend(container) {
   container.appendChild(chart);
 
   const labels = document.createElement('div');
-  labels.style.display = 'flex';
-  labels.style.justifyContent = 'space-between';
-  labels.style.marginTop = '6px';
-  labels.style.font = '12px/1.2 "Inter", system-ui';
-  labels.style.color = '#475569';
+  labels.style.cssText = 'display:flex;justify-content:space-between;margin-top:6px;font:12px/1.2 "Inter",system-ui;color:#475569';
   trendLabels.forEach((label) => {
     const lbl = document.createElement('span');
     lbl.textContent = label;
@@ -202,35 +252,28 @@ function renderTrend(container) {
 function renderTags(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Top Tags';
-  header.style.font = '600 13px/1.3 "Inter", system-ui';
-  header.style.color = '#0f172a';
+  setTranslatedText(header, 'diary.topTags');
+  header.style.cssText = 'font:600 13px/1.3 "Inter",system-ui;color:#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'community' ? 'Sample feedback counts' : 'Ratings saved on this device';
-  subtitle.style.font = '12px/1.3 "Inter", system-ui';
-  subtitle.style.color = '#64748b';
-  subtitle.style.marginBottom = '8px';
+  setTranslatedText(subtitle, `diary.insights.${insightsContext.mode}.tagsSubtitle`);
+  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
   container.appendChild(subtitle);
 
   const controls = document.createElement('div');
-  controls.style.display = 'flex';
-  controls.style.flexWrap = 'wrap';
-  controls.style.gap = '6px';
-  controls.style.marginBottom = '8px';
-  controls.style.alignItems = 'center';
+  controls.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center';
 
   const scopes = [
-    { value: 'route', label: 'This route' },
-    { value: 'area', label: 'Nearby area' },
-    { value: 'city', label: 'Citywide' },
+    { value: 'route', key: 'diary.scopeRoute' },
+    { value: 'area', key: 'diary.scopeArea' },
+    { value: 'city', key: 'diary.scopeCity' },
   ];
   scopes.forEach((scope) => {
-    if (insightsContext !== 'community') return;
+    if (insightsContext.mode !== 'community') return;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = scope.label;
+    setTranslatedText(btn, scope.key);
     btn.className = 'diary-pill-btn';
     const sync = () => {
       const active = insightsState.scope === scope.value;
@@ -251,14 +294,14 @@ function renderTags(container) {
   ['7d', '30d', '90d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
-    opt.textContent =
+    setTranslatedText(opt,
       value === '7d'
-        ? 'Last week'
+        ? 'diary.lastWeek'
         : value === '30d'
-          ? 'Last 30d'
+          ? 'diary.last30d'
           : value === '90d'
-            ? 'Last 90d'
-            : 'All time';
+            ? 'diary.last90d'
+            : 'diary.allTime');
     windowSelect.appendChild(opt);
   });
   windowSelect.value = insightsState.window;
@@ -271,9 +314,7 @@ function renderTags(container) {
   container.appendChild(controls);
 
   const barsWrap = document.createElement('div');
-  barsWrap.style.display = 'flex';
-  barsWrap.style.flexDirection = 'column';
-  barsWrap.style.gap = '8px';
+  barsWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
   container.appendChild(barsWrap);
 
   const syncAll = () => {
@@ -287,44 +328,33 @@ function renderTags(container) {
   };
 
   function renderBars() {
-    const dataset = insightsContext === 'community'
+    const dataset = insightsContext.mode === 'community'
       ? ((DEMO_TAGS[insightsState.scope] && DEMO_TAGS[insightsState.scope][insightsState.window]) || [])
       : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).tags;
     barsWrap.innerHTML = '';
     if (!dataset.length) {
       const empty = document.createElement('div');
       empty.className = 'diary-muted-text';
-      empty.textContent = 'No saved tags in this period.';
+      setTranslatedText(empty, CONTEXT_COPY[insightsContext.mode].emptyTags);
       barsWrap.appendChild(empty);
       return;
     }
     const max = Math.max(...dataset.map((t) => t.value), 1);
     dataset.forEach((tag) => {
       const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.gap = '8px';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px';
       const label = document.createElement('div');
-      label.textContent = tag.label;
-      label.style.flex = '1';
-      label.style.font = '13px/1.3 "Inter", system-ui';
-      label.style.color = '#0f172a';
+      label.textContent = translatedTagLabel(tag.label);
+      label.style.cssText = 'flex:1;font:13px/1.3 "Inter",system-ui;color:#0f172a';
       const barWrap = document.createElement('div');
-      barWrap.style.flex = '2';
-      barWrap.style.background = '#eef2ff';
-      barWrap.style.border = '1px solid #e2e8f0';
-      barWrap.style.borderRadius = '999px';
-      barWrap.style.height = '12px';
-      barWrap.style.overflow = 'hidden';
+      barWrap.style.cssText = 'flex:2;background:#eef2ff;border:1px solid #e2e8f0;border-radius:999px;height:12px;overflow:hidden';
       const bar = document.createElement('div');
-      bar.style.height = '100%';
+      bar.style.cssText = 'height:100%;background:#60a5fa';
       bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
-      bar.style.background = '#60a5fa';
       barWrap.appendChild(bar);
       const value = document.createElement('div');
       value.textContent = tag.value;
-      value.style.font = '12px/1.2 "Inter", system-ui';
-      value.style.color = '#0f172a';
+      value.style.cssText = 'font:12px/1.2 "Inter",system-ui;color:#0f172a';
       row.appendChild(label);
       row.appendChild(barWrap);
       row.appendChild(value);
@@ -338,61 +368,41 @@ function renderTags(container) {
 function renderHeatmap(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Weekday × time window';
-  header.style.font = '600 13px/1.3 "Inter", system-ui';
-  header.style.color = '#0f172a';
+  setTranslatedText(header, 'diary.weekdayTime');
+  header.style.cssText = 'font:600 13px/1.3 "Inter",system-ui;color:#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'community'
-    ? 'Sample intensity (higher Tue–Fri evenings)'
-    : 'When ratings were saved on this device';
-  subtitle.style.font = '12px/1.3 "Inter", system-ui';
-  subtitle.style.color = '#64748b';
-  subtitle.style.marginBottom = '8px';
+  setTranslatedText(subtitle, `diary.insights.${insightsContext.mode}.heatmapSubtitle`);
+  subtitle.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#64748b;margin-bottom:8px';
   container.appendChild(subtitle);
 
   const grid = document.createElement('div');
-  grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = `84px repeat(${heatmapWindows.length}, 1fr)`;
-  grid.style.gap = '8px';
-  grid.style.alignItems = 'center';
-  grid.style.border = '1px solid #e2e8f0';
-  grid.style.borderRadius = '12px';
-  grid.style.padding = '10px';
-  grid.style.background = '#f8fafc';
-  grid.style.maxWidth = '100%';
-  grid.style.overflowX = 'auto';
+  grid.style.cssText = `display:grid;grid-template-columns:84px repeat(${heatmapWindowKeys.length},1fr);gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fafc;max-width:100%;overflow-x:auto`;
 
   const empty = document.createElement('div');
   grid.appendChild(empty);
-  heatmapWindows.forEach((w) => {
+  heatmapWindowKeys.forEach((windowKey) => {
     const cell = document.createElement('div');
-    cell.textContent = w;
-    cell.style.font = '11px/1.3 "Inter", system-ui';
-    cell.style.color = '#475569';
-    cell.style.textAlign = 'center';
-    cell.style.padding = '2px 0';
+    setTranslatedText(cell, `diary.time.${windowKey}`);
+    cell.style.cssText = 'font:11px/1.3 "Inter",system-ui;color:#475569;text-align:center;padding:2px 0';
     grid.appendChild(cell);
   });
 
-  const values = insightsContext === 'community'
+  const values = insightsContext.mode === 'community'
     ? heatmapValues
     : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).heatmap;
   const maxValue = Math.max(...values.flat(), 1);
-  heatmapDays.forEach((day, rowIdx) => {
+  heatmapDayKeys.forEach((dayKey, rowIdx) => {
     const label = document.createElement('div');
-    label.textContent = day;
-    label.style.font = '12px/1.3 "Inter", system-ui';
-    label.style.color = '#0f172a';
-    label.style.padding = '2px 0';
+    setTranslatedText(label, `diary.day.${dayKey}`);
+    label.style.cssText = 'font:12px/1.3 "Inter",system-ui;color:#0f172a;padding:2px 0';
     grid.appendChild(label);
     values[rowIdx].forEach((val) => {
       const cell = document.createElement('div');
-      cell.style.height = '22px';
-      cell.style.borderRadius = '6px';
+      cell.style.cssText = 'height:22px;border-radius:6px';
       cell.style.background = barColor(val / maxValue);
-      cell.title = `${day} · ${val}`;
+      cell.title = `${t(`diary.day.${dayKey}`)} · ${val}`;
       grid.appendChild(cell);
     });
   });
@@ -402,7 +412,7 @@ function renderHeatmap(container) {
 
 export function renderInsightsSections(trendEl, tagsEl, heatEl, opts = {}) {
   if (opts?.context) {
-    insightsContext = opts.context === 'history' ? 'history' : opts.context === 'community' ? 'community' : 'live';
+    insightsContext = normalizeDiaryInsightsContext(opts.context);
   }
   if (trendEl) renderTrend(trendEl);
   if (tagsEl) renderTags(tagsEl);

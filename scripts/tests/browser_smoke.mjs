@@ -8,6 +8,16 @@ import { preview } from 'vite';
 const manifest = JSON.parse(await readFile(new URL('../../dist/.vite/manifest.json', import.meta.url), 'utf8'));
 const historyChunk = manifest['src/analysis/analysis_history_controller.js']?.file;
 assert.ok(historyChunk, 'Browser smoke requires the Analysis History lazy chunk in the Vite manifest');
+const builtJavaScript = await Promise.all(
+  Object.values(manifest)
+    .map((record) => record.file)
+    .filter((file) => file?.endsWith('.js'))
+    .map((file) => readFile(new URL(`../../dist/${file}`, import.meta.url), 'utf8')),
+);
+assert.ok(
+  builtJavaScript.some((source) => source.includes('tract_crime_counts_last12m.json')),
+  'Browser smoke requires a dist build with VITE_TRACT_CRIME_SNAPSHOT=1.',
+);
 
 const server = await preview({
   preview: { host: '127.0.0.1', port: 4173, strictPort: true },
@@ -118,6 +128,7 @@ try {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     permissions: ['clipboard-read', 'clipboard-write'],
+    locale: 'en-US',
   });
   const page = await context.newPage();
   const networkControl = {
@@ -176,6 +187,24 @@ try {
     false,
     'Diary direct load must not create the engagement-analysis database',
   );
+  const insightsToggle = page.locator('.diary-insights-toggle');
+  await insightsToggle.click();
+  assert.equal(await insightsToggle.getAttribute('aria-expanded'), 'true');
+  await page.locator('.diary-insights-content').waitFor({ state: 'visible' });
+
+  const simulator = page.locator('details.diary-progressive-surface');
+  await simulator.locator(':scope > summary').click();
+  const diaryRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
+  const selectedRouteBeforeLanguageChange = await diaryRouteSelect.inputValue();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Pause', exact: true }).isEnabled(), true);
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
+  assert.equal(await diaryRouteSelect.inputValue(), selectedRouteBeforeLanguageChange);
+  assert.equal(await page.getByRole('button', { name: '暂停', exact: true }).isEnabled(), true);
+  assert.equal(await page.getByRole('button', { name: '播放', exact: true }).isDisabled(), true);
+  await page.getByRole('button', { name: '切换到英文' }).click();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
 
   await page.getByRole('button', { name: 'Rate this route' }).click();
   await page.getByRole('radio', { name: '5 stars' }).click();
@@ -190,6 +219,9 @@ try {
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
   await page.getByText('Illustrative, read-only sample data. No comments or ratings are shared with other people.').waitFor();
   assert.equal(await page.locator('[data-panel-view="diary"] input[type="range"]').count(), 0);
+  const sampleItem = page.locator('.diary-community-item').first();
+  await sampleItem.waitFor();
+  assert.equal(await sampleItem.evaluate((element) => getComputedStyle(element).cursor), 'default');
 
   await page.getByRole('button', { name: 'Crime', exact: true }).click();
   await page.getByRole('button', { name: 'Diary', exact: true }).click();
@@ -198,12 +230,15 @@ try {
   await page.locator('[data-panel-view="crime"]').waitFor({ state: 'visible' });
 
   requests.length = 0;
+  const pointRefreshRequestsBeforeCrimeEntry = networkControl.pointRefreshRequests;
   await page.goto(new URL('?mode=crime&utm_source=portfolio', baseUrl).href, { waitUntil: 'domcontentloaded' });
   await page.locator('#dataStatus').filter({ hasText: 'Live crime coverage' }).waitFor({ state: 'attached' });
-  await page.waitForFunction(() => {
-    const compareText = document.getElementById('compare-card')?.textContent || '';
-    return /12 reported incidents/.test(compareText) && /Most common/.test(compareText);
-  });
+  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCrimeEntry,
+    0,
+    'An unselected Crime entry must not request citywide incident points',
+  );
   await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('24');
   assert.equal(await page.locator('#startMonth').inputValue(), '2024-08');
@@ -224,6 +259,19 @@ try {
     1,
     'One settled geocode must own exactly one Crime refresh API generation',
   );
+  const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+  const localizedComparisonText = await page.locator('#compare-card').textContent();
+  assert.match(localizedComparisonText, /数据截至/);
+  assert.match(localizedComparisonText, /2026年7月30日/);
+  assert.match(await page.locator('.analysis-history').textContent(), /最近的分析/);
+  assert.equal(
+    requests.filter((url) => url.startsWith('https://phl.carto.com/')).length,
+    cartoRequestsBeforeLanguageChange,
+    'Language switching must redraw cached Crime results without refetching data',
+  );
+  await page.getByRole('button', { name: '切换到英文' }).click();
 
   await page.getByLabel('Analysis title').fill('A-only artifact');
   await page.getByRole('button', { name: 'Save analysis' }).click();

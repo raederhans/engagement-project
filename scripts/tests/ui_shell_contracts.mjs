@@ -21,7 +21,7 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
   assert.doesNotMatch(controller, /enhanceProgressiveSurface\(['"]compare-card['"]/);
-  assert.match(controller, /enhanceProgressiveSurface\(['"]charts['"],\s*['"]View charts and details['"]\)/);
+  assert.match(controller, /enhanceProgressiveSurface\(['"]charts['"],\s*['"]sheet\.viewDetails['"]\)/);
   assert.match(controller, /document\.createElement\(['"]details['"]\)/);
   assert.doesNotMatch(controller, /details\.open\s*=\s*true/);
   assert.match(html, /id="results-drawer"[^>]*aria-label="Analysis details"/i);
@@ -30,6 +30,34 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   assert.match(css, /#results-drawer\s+\.progressive-surface:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*!important/s);
   assert.match(panel, /resultsDrawer\.contains\(chartsPanel\)/);
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
+});
+
+test('current analysis summary is mounted before recent analyses', async () => {
+  const { placeAnalysisHistoryAfterSummary } = await import('../../src/ui/panel.js');
+  assert.equal(typeof placeAnalysisHistoryAfterSummary, 'function');
+  const shell = {
+    children: [],
+    appendChild(child) {
+      child.parentElement = this;
+      this.children.push(child);
+    },
+    insertBefore(child, reference) {
+      child.parentElement = this;
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(child);
+      else this.children.splice(index, 0, child);
+    },
+  };
+  const summary = { parentElement: null, nextSibling: null };
+  const details = { parentElement: null };
+  const history = { parentElement: null };
+  shell.appendChild(summary);
+  shell.appendChild(details);
+  summary.nextSibling = details;
+
+  placeAnalysisHistoryAfterSummary({ crimeShell: shell, compareCard: summary, analysisHistoryMount: history });
+
+  assert.deepEqual(shell.children, [summary, history, details]);
 });
 
 test('Crime task panel leads with location and defers comparison and advanced controls', () => {

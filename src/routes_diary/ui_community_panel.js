@@ -1,28 +1,49 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
+import '../i18n/p1.js';
+import { setTranslatedText, t } from '../i18n/index.js';
+
+export function createSampleCommunityModel() {
+  return Object.freeze({
+    segments: Object.freeze([
+      { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tagsKey: 'demo.segment1Tags' },
+      { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tagsKey: 'demo.segment2Tags' },
+      { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tagsKey: 'demo.segment3Tags' },
+    ]),
+    observations: Object.freeze([
+      { id: 'c1', label: 'Example 1', labelKey: 'diary.sampleExample1', sample: true, text: 'South St Bridge can feel uncomfortable after dark.', textKey: 'diary.sampleObservation1' },
+      { id: 'c2', label: 'Example 2', labelKey: 'diary.sampleExample2', sample: true, text: 'Watch for vehicles edging into the bike lane near 34th.', textKey: 'diary.sampleObservation2' },
+      { id: 'c3', label: 'Example 3', labelKey: 'diary.sampleExample3', sample: true, text: 'Pine Street illustrates a calmer route option in this sample.', textKey: 'diary.sampleObservation3' },
+    ]),
+  });
+}
 
 export function renderCommunityPanel(container, state = {}) {
   container.innerHTML = '';
   const segments = state.segments || [];
-  const comments = state.comments || [];
+  const observations = state.observations || [];
 
   const notice = createDiaryCard();
-  notice.appendChild(createSectionTitle('Sample Community'));
+  const communityTitle = createSectionTitle(t('diary.sampleCommunity'));
+  setTranslatedText(communityTitle, 'diary.sampleCommunity');
+  notice.appendChild(communityTitle);
   const noticeText = document.createElement('div');
   noticeText.className = 'diary-muted-text';
-  noticeText.textContent = 'Illustrative, read-only sample data. No comments or ratings are shared with other people.';
+  setTranslatedText(noticeText, 'diary.communityNotice');
   notice.appendChild(noticeText);
   container.appendChild(notice);
 
   // High concern segments
   const segmentsCard = createDiaryCard();
-  segmentsCard.appendChild(createSectionTitle('High concern segments'));
+  const concernTitle = createSectionTitle(t('diary.highConcern'));
+  setTranslatedText(concernTitle, 'diary.highConcern');
+  segmentsCard.appendChild(concernTitle);
   const segList = document.createElement('div');
   segList.style.display = 'flex';
   segList.style.flexDirection = 'column';
   segList.style.gap = '8px';
   segments.forEach((seg) => {
     const btn = document.createElement('div');
-    btn.className = 'diary-history-item';
+    btn.className = 'diary-community-item';
     const title = document.createElement('div');
     title.style.fontWeight = '700';
     title.style.fontSize = '13px';
@@ -34,7 +55,7 @@ export function renderCommunityPanel(container, state = {}) {
     const tags = document.createElement('div');
     tags.style.fontSize = '12px';
     tags.style.color = '#475569';
-    tags.textContent = `Tags: ${seg.tags}`;
+    setTranslatedText(tags, 'diary.tags', { tags: seg.tagsKey ? t(seg.tagsKey) : seg.tags });
     const badge = document.createElement('div');
     badge.className = 'diary-score-pill';
     badge.classList.add(seg.score < 2.5 ? 'is-bad' : seg.score < 4 ? 'is-mid' : 'is-good');
@@ -50,27 +71,31 @@ export function renderCommunityPanel(container, state = {}) {
 
   // Comments
   const commentsCard = createDiaryCard();
-  commentsCard.appendChild(createSectionTitle('Community comments'));
+  const commentsTitle = createSectionTitle(t('diary.exampleObservations'));
+  setTranslatedText(commentsTitle, 'diary.exampleObservations');
+  commentsCard.appendChild(commentsTitle);
   const list = document.createElement('div');
   list.style.display = 'flex';
   list.style.flexDirection = 'column';
   list.style.gap = '6px';
-  comments.forEach((c) => {
+  observations.forEach((observation) => {
     const row = document.createElement('div');
     row.style.borderBottom = '1px solid #e5e7eb';
     row.style.paddingBottom = '6px';
     row.style.fontSize = '12px';
     const author = document.createElement('strong');
     author.style.color = '#0f172a';
-    author.textContent = c.user;
-    const age = document.createElement('span');
-    age.style.color = '#94a3b8';
-    age.textContent = ` ${c.ago}`;
+    if (observation.labelKey) setTranslatedText(author, observation.labelKey);
+    else author.textContent = observation.label;
+    const badge = document.createElement('span');
+    badge.className = 'diary-sample-badge';
+    setTranslatedText(badge, 'diary.sampleBadge');
     const text = document.createElement('div');
     text.style.marginTop = '2px';
     text.style.color = '#111827';
-    text.textContent = c.text;
-    row.append(author, age, text);
+    if (observation.textKey) setTranslatedText(text, observation.textKey);
+    else text.textContent = observation.text;
+    row.append(author, badge, text);
     list.appendChild(row);
   });
   commentsCard.appendChild(list);

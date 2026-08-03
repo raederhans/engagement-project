@@ -1,42 +1,36 @@
 /**
  * Collapsible "About" panel with smooth slide-down animation
  */
+import { applyTranslations, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
 /**
  * Initialize the about panel with toggle button and collapsible content.
  * Panel sits at top of page, slides down when opened, Esc to close.
  */
 export function getAboutContent(mode = 'crime') {
-  const content = mode === 'diary'
-    ? {
-        title: 'Route Safety Diary.',
-        description: 'Record a route experience, review local history, and explore sample community patterns. Entries are saved only in this browser unless you export a backup.',
-        howTo: 'Choose a route, simulate or finish the trip, then add a short rating. Sample community content is demo data, not shared user submissions.',
-        notes: 'Diary ratings are personal observations and are not a measure of objective safety. Export a backup before clearing browser data.',
-      }
-    : {
-        title: 'Crime Explorer.',
-        description: 'Explore reported crime incidents by location, time window, offense groups, district, or census tract.',
-        howTo: 'Choose Buffer, District, or Tract, select the area on the map, set the time window, then refine the included offense groups.',
-        notes: 'Reported locations may be generalized and reporting can lag. Use these records as one source of context, not a complete measure of safety.',
-      };
+  const isDiary = mode === 'diary';
+  const modeKey = isDiary ? 'diary' : 'crime';
   return `
     <div class="about-content">
-      <h3 id="about-title" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">Philadelphia Engagement Explorer</h3>
+      <h3 id="about-title" data-i18n="help.productTitle" style="margin-top:0; font-size:16px; font-weight:600; color:#111;">${t('help.productTitle')}</h3>
+
       <div style="margin-bottom:12px;">
-        <strong style="color:#1f2937;">${content.title}</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.description}</p>
+        <strong data-i18n="help.${modeKey}Title" style="color:#1f2937;">${t(`help.${modeKey}Title`)}</strong>
+        <p data-i18n="help.${modeKey}Description" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}Description`)}</p>
       </div>
+
       <div style="margin-bottom:12px;">
-        <strong style="color:#1f2937;">How to use.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.howTo}</p>
+        <strong data-i18n="help.howTo" style="color:#1f2937;">${t('help.howTo')}</strong>
+        <p data-i18n="help.${modeKey}HowTo" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}HowTo`)}</p>
       </div>
+
       <div style="margin-bottom:0;">
-        <strong style="color:#1f2937;">Important notes.</strong>
-        <p style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${content.notes}</p>
+        <strong data-i18n="help.important" style="color:#1f2937;">${t('help.important')}</strong>
+        <p data-i18n="help.${modeKey}Notes" style="margin:4px 0 0 0; color:#374151; font-size:13px; line-height:1.5;">${t(`help.${modeKey}Notes`)}</p>
       </div>
+
       <p style="margin:12px 0 0;font-size:13px;">
-        <a href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">View source and methodology on GitHub</a>
+        <a data-i18n="help.sourceLink" href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">${t('help.sourceLink')}</a>
       </p>
     </div>
   `;
@@ -61,9 +55,9 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
   btn.id = 'about-toggle';
   btn.className = 'about-toggle';
   btn.setAttribute('aria-expanded', 'false');
-  btn.setAttribute('aria-label', 'Open help and data guidance');
-  btn.setAttribute('title', 'Help and data guidance');
-  btn.textContent = 'Help';
+  setTranslatedAttribute(btn, 'help.openLabel', 'aria-label');
+  setTranslatedAttribute(btn, 'help.title', 'title');
+  setTranslatedText(btn, 'help.button');
 
   // Create panel
   const panel = document.createElement('div');
@@ -76,6 +70,7 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
   // Panel content
   let currentMode = initialMode === 'diary' ? 'diary' : 'crime';
   panel.innerHTML = getAboutContent(currentMode);
+  applyTranslations(panel);
 
   // Assemble
   root.appendChild(btn);
@@ -103,6 +98,7 @@ export function initAboutPanel({ initialMode = 'crime' } = {}) {
     setMode(mode) {
       currentMode = mode === 'diary' ? 'diary' : 'crime';
       panel.innerHTML = getAboutContent(currentMode);
+      applyTranslations(panel);
     },
   });
 }

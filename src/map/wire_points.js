@@ -1,4 +1,5 @@
-import { clearCrimePoints, refreshPoints } from './points.js';
+import { attachClusterExpansion, clearCrimePoints, refreshPoints } from './points.js';
+import { t } from '../i18n/index.js';
 
 function createDebounced(fn, wait, scheduler) {
   let timer = null;
@@ -55,6 +56,8 @@ export function wirePoints(map, deps) {
     showToast = showToastInDom,
     hideToast = hideToastInDom,
     scheduler = globalThis,
+    shouldRefresh = () => true,
+    autoRefresh = true,
   } = deps;
   const backoffs = [2000, 4000, 8000];
   let backoffIdx = 0;
@@ -64,6 +67,7 @@ export function wirePoints(map, deps) {
   let retryTimer = null;
   let toastTimer = null;
   let programmaticMoveOwner = null;
+  let clusterCleanup = null;
 
   const settleProgrammaticMove = (completed) => {
     if (!programmaticMoveOwner) return;
@@ -100,6 +104,12 @@ export function wirePoints(map, deps) {
     { signal: ownerSignal, shouldApply: ownerShouldApply = () => true } = {},
   ) => {
     if (!active || ownerSignal?.aborted || !ownerShouldApply()) return { applied: false };
+    const filters = filtersOverride === undefined ? getFilters() : filtersOverride;
+    if (!shouldRefresh(filters)) {
+      invalidate();
+      clearCrimePointsImpl(map);
+      return { applied: false, status: 'idle' };
+    }
     invalidate();
     const requestGeneration = generation;
     const controller = new AbortController();
@@ -107,7 +117,6 @@ export function wirePoints(map, deps) {
     ownerSignal?.addEventListener('abort', abortFromOwner, { once: true });
     if (ownerSignal?.aborted) abortFromOwner();
     requestController = controller;
-    const filters = filtersOverride === undefined ? getFilters() : filtersOverride;
 
     try {
       const result = await refreshPointsImpl(map, {
@@ -127,6 +136,14 @@ export function wirePoints(map, deps) {
         return { applied: false };
       }
       backoffIdx = 0;
+      if (!clusterCleanup) {
+        clusterCleanup = attachClusterExpansion(map, {
+          isActive: () => active,
+          getGeneration: () => generation,
+          runMapMove: runProgrammaticMapMove,
+          refresh: () => run(),
+        });
+      }
       return result ?? { applied: true };
     } catch (error) {
       const stale = !active
@@ -137,7 +154,7 @@ export function wirePoints(map, deps) {
         || isAbortError(error);
       if (stale) return { applied: false };
 
-      showToast('Points refresh failed; retrying shortly.');
+      showToast(t('map.pointsRetrying'));
       toastTimer = scheduler.setTimeout(() => {
         toastTimer = null;
         hideToast();
@@ -157,7 +174,7 @@ export function wirePoints(map, deps) {
     }
   };
 
-  const debouncedMoveEnd = createDebounced(() => void run(), 300, scheduler);
+  const debouncedMoveEnd = createDebounced((filters) => void run(filters), 300, scheduler);
   const onMoveEnd = () => {
     if (!active) return;
     if (programmaticMoveOwner) {
@@ -165,40 +182,46 @@ export function wirePoints(map, deps) {
       settleProgrammaticMove(true);
       return;
     }
-    debouncedMoveEnd();
+    const filters = getFilters();
+    if (!shouldRefresh(filters)) return;
+    debouncedMoveEnd(filters);
   };
-  const onLoad = () => void run();
+  const onLoad = () => {
+    const filters = getFilters();
+    if (shouldRefresh(filters)) void run(filters);
+  };
 
-  if (map.loaded?.() || map.isStyleLoaded?.()) {
-    void run();
-  } else {
-    map.once('load', onLoad);
+  const runProgrammaticMapMove = (action) => {
+    if (typeof action !== 'function') return Promise.resolve(false);
+    if (!active) {
+      action();
+      return Promise.resolve(false);
+    }
+    settleProgrammaticMove(false);
+    let resolveMove;
+    const completion = new Promise((resolve) => { resolveMove = resolve; });
+    const owner = { resolve: resolveMove, armed: false };
+    programmaticMoveOwner = owner;
+    try {
+      action();
+    } catch (error) {
+      settleProgrammaticMove(false);
+      return Promise.reject(error);
+    }
+    if (programmaticMoveOwner === owner) owner.armed = true;
+    if (map.isMoving?.() !== true) settleProgrammaticMove(true);
+    return completion;
+  };
+
+  if (autoRefresh) {
+    if (map.loaded?.() || map.isStyleLoaded?.()) onLoad();
+    else map.once('load', onLoad);
   }
   map.on('moveend', onMoveEnd);
 
   return {
     refresh: run,
-    runProgrammaticMapMove(action) {
-      if (typeof action !== 'function') return Promise.resolve(false);
-      if (!active) {
-        action();
-        return Promise.resolve(false);
-      }
-      settleProgrammaticMove(false);
-      let resolveMove;
-      const completion = new Promise((resolve) => { resolveMove = resolve; });
-      const owner = { resolve: resolveMove, armed: false };
-      programmaticMoveOwner = owner;
-      try {
-        action();
-      } catch (error) {
-        settleProgrammaticMove(false);
-        return Promise.reject(error);
-      }
-      if (programmaticMoveOwner === owner) owner.armed = true;
-      if (map.isMoving?.() !== true) settleProgrammaticMove(true);
-      return completion;
-    },
+    runProgrammaticMapMove,
     clear() {
       settleProgrammaticMove(false);
       invalidate();
@@ -217,6 +240,8 @@ export function wirePoints(map, deps) {
       invalidate();
       map.off('load', onLoad);
       map.off('moveend', onMoveEnd);
+      clusterCleanup?.();
+      clusterCleanup = null;
     },
   };
 }

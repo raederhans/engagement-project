@@ -17,7 +17,11 @@ export function attachHover(map, layer = 'districts-fill') {
     tip.style.left = `${e.point.x}px`;
     tip.style.top = `${e.point.y}px`;
     tip.style.display = 'block';
-    tip.textContent = `District ${id}${name ? ' -'+name : ''}: ${val}`;
+    tip.textContent = t('map.districtTooltip', {
+      id,
+      name: name ? ` -${name}` : '',
+      value: val,
+    });
   };
 
   const leaveHandler = () => {
@@ -32,3 +36,4 @@ export function attachHover(map, layer = 'districts-fill') {
     tip.style.display = 'none';
   };
 }
+import { t } from '../i18n/index.js';

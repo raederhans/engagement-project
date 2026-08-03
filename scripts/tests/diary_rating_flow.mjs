@@ -4,6 +4,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const ratingFlow = await import('../../src/routes_diary/rating_flow.js').catch(() => ({}));
+const formSubmit = await import('../../src/routes_diary/form_submit.js').catch(() => ({}));
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => { resolve = resolvePromise; });
+  return { promise, resolve };
+}
 
 test('a new route draft requires an explicit overall rating and restores only its route', () => {
   assert.equal(typeof ratingFlow.createRatingDraft, 'function');
@@ -81,7 +88,7 @@ test('rating modal source keeps the accessibility and responsive layout contract
   assert.match(source, /role', 'dialog'/);
   assert.match(source, /aria-modal', 'true'/);
   assert.match(source, /aria-labelledby'/);
-  assert.match(source, /Step \$\{stepIndex \+ 1\} of 3/);
+  assert.match(source, /rating\.step/);
   assert.match(source, /position:\s*sticky/);
   assert.match(source, /min-(?:width|height):\s*48px/);
   assert.match(source, /@media \(max-width: 640px\)/);
@@ -114,4 +121,35 @@ test('rating modal manages focus, background inertness, and radio semantics', as
   assert.match(source, /renderCurrentStep\(\{ type: 'segment', value: segmentId \}\)/);
   assert.match(source, /renderCurrentStep\(\{ type: 'step', value: step \}\)/);
   assert.match(source, /restoreRerenderFocus\(focusTarget\)/);
+  assert.match(source, /state\.pending/);
+  assert.match(source, /submitBtn\.disabled = state\.pending/);
+  assert.match(source, /if \(!state \|\| state\.pending \|\| state\.signal\?\.aborted\) return/);
+});
+
+test('rating submission remains single-flight while locale rerenders', async () => {
+  assert.equal(typeof formSubmit.runRatingSubmission, 'function');
+  const gate = deferred();
+  const calls = [];
+  const state = { pending: false, signal: new AbortController().signal };
+  const options = {
+    state,
+    payload: { route_id: 'route-1' },
+    submit: async (payload) => {
+      calls.push(payload);
+      await gate.promise;
+      return { ok: true };
+    },
+    isCurrent: () => true,
+  };
+
+  const first = formSubmit.runRatingSubmission(options);
+  assert.equal(state.pending, true);
+  const duplicate = await formSubmit.runRatingSubmission(options);
+  assert.deepEqual(duplicate, { applied: false, reason: 'pending' });
+  assert.equal(calls.length, 1);
+
+  gate.resolve();
+  assert.deepEqual(await first, { applied: true, response: { ok: true } });
+  assert.equal(state.pending, false);
+  assert.equal(calls.length, 1);
 });

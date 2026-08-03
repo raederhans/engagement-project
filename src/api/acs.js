@@ -1,7 +1,13 @@
-import { ACS_API_ENDPOINTS, CENSUS_REPORTER_ACS_URL } from '../config.js';
+import {
+  ACS_API_ENDPOINTS,
+  ACS_SNAPSHOT_YEAR,
+  CENSUS_REPORTER_ACS_URL,
+} from '../config.js';
 import { fetchJson } from '../utils/http.js';
 
 const ACS_LOCAL_URL = new URL('../data/acs_tracts_2023_pa101.json', import.meta.url).href;
+const CENSUS_REPORTER_CACHE_TTL = 24 * 60 * 60_000;
+const censusReporterCaches = new WeakMap();
 
 /**
  * Fetch and normalize tract metrics from Census-compatible live endpoints.
@@ -35,13 +41,23 @@ export async function fetchTractStatsPreferred({
   localUrl = ACS_LOCAL_URL,
   fetchJsonImpl = fetchJson,
   signal,
+  onSourceResolved,
 } = {}) {
   throwIfAborted(signal);
   const liveErrors = [];
   if (endpoints?.population && endpoints?.poverty) {
     try {
       const live = await fetchTractStats({ endpoints, fetchJsonImpl, signal });
-      if (isValidNormalizedRows(live)) return live;
+      if (isValidNormalizedRows(live)) {
+        reportResolvedSource(onSourceResolved, {
+          dataset: 'census-tract-statistics',
+          kind: 'live',
+          provider: 'Configured Census API',
+          url: endpoints.population,
+          cacheHit: false,
+        });
+        return live;
+      }
       liveErrors.push(new Error('ACS live endpoints returned no valid tract rows.'));
     } catch (error) {
       if (isCancellation(error, signal)) throw cancellationReason(error, signal);
@@ -51,12 +67,22 @@ export async function fetchTractStatsPreferred({
 
   if (reporterUrl) {
     try {
-      const reporterRows = await fetchTractStatsFromCensusReporter({
+      const reporterResult = await fetchCensusReporterResult({
         url: reporterUrl,
         fetchJsonImpl,
         signal,
       });
-      if (isValidNormalizedRows(reporterRows)) return reporterRows;
+      const reporterRows = reporterResult.rows;
+      if (isValidNormalizedRows(reporterRows)) {
+        reportResolvedSource(onSourceResolved, {
+          dataset: 'census-tract-statistics',
+          kind: 'live',
+          provider: 'Census Reporter',
+          url: reporterUrl,
+          ...reporterResult.metadata,
+        });
+        return reporterRows;
+      }
       liveErrors.push(new Error('Census Reporter returned no valid tract rows.'));
     } catch (error) {
       if (isCancellation(error, signal)) throw cancellationReason(error, signal);
@@ -73,6 +99,15 @@ export async function fetchTractStatsPreferred({
     if (!isValidNormalizedRows(snapshot)) {
       throw new Error('Bundled ACS snapshot is invalid.');
     }
+    reportResolvedSource(onSourceResolved, {
+      dataset: 'census-tract-statistics',
+      kind: 'fallback',
+      provider: 'Bundled ACS snapshot',
+      url: localUrl,
+      vintage: ACS_SNAPSHOT_YEAR,
+      asOf: `${ACS_SNAPSHOT_YEAR}-12-31`,
+      cacheHit: false,
+    });
     return snapshot;
   } catch (snapshotError) {
     if (isCancellation(snapshotError, signal)) throw cancellationReason(snapshotError, signal);
@@ -89,12 +124,31 @@ export async function fetchTractStatsFromCensusReporter({
   fetchJsonImpl = fetchJson,
   signal,
 } = {}) {
+  const result = await fetchCensusReporterResult({ url, fetchJsonImpl, signal });
+  return result.rows;
+}
+
+async function fetchCensusReporterResult({
+  url = CENSUS_REPORTER_ACS_URL,
+  fetchJsonImpl = fetchJson,
+  signal,
+} = {}) {
   throwIfAborted(signal);
   if (!url) throw new Error('Census Reporter URL is not configured.');
+  const cache = reporterCacheFor(fetchJsonImpl);
+  const cached = cache.get(url);
+  if (cached && Date.now() < cached.expiresAt) {
+    return {
+      rows: cached.rows,
+      metadata: { ...cached.metadata, cacheHit: true },
+    };
+  }
+  if (cached) cache.delete(url);
+
   const payload = await fetchJsonImpl(url, {
     timeoutMs: 20_000,
     retries: 1,
-    cacheTTL: 24 * 60 * 60_000,
+    cacheTTL: CENSUS_REPORTER_CACHE_TTL,
     signal,
   });
   const data = payload?.data;
@@ -102,7 +156,7 @@ export async function fetchTractStatsFromCensusReporter({
     throw new Error('Census Reporter response is missing tract data.');
   }
 
-  return Object.entries(data).flatMap(([reporterGeoid, tables]) => {
+  const rows = Object.entries(data).flatMap(([reporterGeoid, tables]) => {
     const geoid = String(reporterGeoid).replace(/^14000US/, '');
     if (!/^\d{11}$/.test(geoid)) return [];
 
@@ -125,6 +179,18 @@ export async function fetchTractStatsFromCensusReporter({
       poverty_pct: povertyPct,
     }];
   });
+  const metadata = censusReporterReleaseMetadata(payload.release);
+  if (isValidNormalizedRows(rows)) {
+    cache.set(url, {
+      rows,
+      metadata,
+      expiresAt: Date.now() + CENSUS_REPORTER_CACHE_TTL,
+    });
+  }
+  return {
+    rows,
+    metadata: { ...metadata, cacheHit: false },
+  };
 }
 
 // Compatibility alias for existing callers. Its behavior is now explicit.
@@ -224,6 +290,32 @@ function estimate(tables, tableId, columnId) {
   return toNumber(tables?.[tableId]?.estimate?.[columnId]);
 }
 
+function reporterCacheFor(fetchJsonImpl) {
+  let cache = censusReporterCaches.get(fetchJsonImpl);
+  if (!cache) {
+    cache = new Map();
+    censusReporterCaches.set(fetchJsonImpl, cache);
+  }
+  return cache;
+}
+
+function censusReporterReleaseMetadata(release) {
+  const releaseText = [release?.id, release?.name, release?.years]
+    .filter(Boolean)
+    .join(' ');
+  const years = releaseText.match(/(?:19|20)\d{2}/g) || [];
+  const vintage = years.length
+    ? String(Math.max(...years.map(Number)))
+    : null;
+  const explicitAsOf = String(release?.asOf || release?.as_of || release?.date || '')
+    .match(/^\d{4}-\d{2}-\d{2}/)?.[0] || null;
+  const asOf = explicitAsOf || (vintage ? `${vintage}-12-31` : null);
+  return {
+    ...(vintage ? { vintage } : {}),
+    ...(asOf ? { asOf } : {}),
+  };
+}
+
 function throwIfAborted(signal) {
   if (!signal?.aborted) return;
   throw cancellationReason(undefined, signal);
@@ -235,4 +327,11 @@ function isCancellation(error, signal) {
 
 function cancellationReason(error, signal) {
   return signal?.reason ?? error ?? new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function reportResolvedSource(callback, metadata) {
+  if (typeof callback !== 'function') return;
+  try {
+    callback({ ...metadata });
+  } catch {}
 }

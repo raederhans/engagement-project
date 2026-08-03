@@ -278,9 +278,9 @@ test('address resolution delegates the single Crime refresh to the debounced pan
   assert.notEqual(callbackStart, -1, 'main must define the address resolution callback');
   assert.notEqual(callbackEnd, -1, 'main must keep the address callback inside the panel options');
   const callback = source.slice(callbackStart, callbackEnd);
-  assert.match(callback, /map\.flyTo/);
+  assert.match(callback, /coordinator\.fitCurrentCrimeSelection/);
   assert.doesNotMatch(callback, /refreshCrime/);
-  assert.match(callback, /async[\s\S]*return coordinator\.runCrimeMapMove/);
+  assert.match(callback, /async[\s\S]*coordinator\.fitCurrentCrimeSelection/);
   assert.doesNotMatch(source, /pendingAddressMove/);
   assert.doesNotMatch(source, /const refreshCrime[\s\S]*runCrimeMapMove[\s\S]*requestCrimeRefresh/);
   assert.match(panelSource, /onChange\.cancel\(\);[\s\S]*const moveCompleted = await handlers\.onAddressResolved\?\.\(target, result\)/);
@@ -858,16 +858,82 @@ test('Diary alternative-route and simulation algorithms are isolated from the co
 });
 
 test('Community UI is explicitly sample-only and has no fake post action', async () => {
-  const [communitySource, liveSource] = await Promise.all([
+  const [communitySource, liveSource, styleSource] = await Promise.all([
     readFile(new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(communitySource, /Sample Community/);
-  assert.match(communitySource, /read-only/i);
+  assert.match(communitySource, /diary\.sampleCommunity/);
+  assert.match(communitySource, /diary\.communityNotice/);
   assert.doesNotMatch(communitySource, /onPostComment/);
   assert.doesNotMatch(communitySource, /type\s*=\s*['"]range['"]|onRadiusChange|onSelectSegment/);
-  assert.match(liveSource, /Open My routes/);
+  assert.match(communitySource, /className\s*=\s*['"]diary-community-item['"]/);
+  assert.doesNotMatch(communitySource, /className\s*=\s*['"]diary-history-item['"]/);
+  assert.match(styleSource, /\.diary-community-item\s*\{[^}]*cursor:\s*default/s);
+  assert.match(liveSource, /diary\.openRoutes/);
   assert.doesNotMatch(liveSource, /coming soon/i);
+});
+
+test('Diary route summary presents route facts without repeating the selector title', async () => {
+  const { createRouteSummaryModel } = await import('../../src/routes_diary/index.js');
+  const model = createRouteSummaryModel({
+    properties: {
+      route_id: 'route-1',
+      name: 'University Loop',
+      from: 'Campus',
+      to: 'River Trail',
+      mode: 'walk',
+      length_m: 1420,
+      duration_min: 18,
+    },
+  });
+  assert.deepEqual(model, {
+    from: 'Campus',
+    to: 'River Trail',
+    mode: 'Walk',
+    distance: '1.4 km',
+    duration: '18 min',
+  });
+  assert.doesNotMatch(JSON.stringify(model), /University Loop/);
+});
+
+test('alternative route description states benefit before cost without live-condition claims', async () => {
+  const { describeAlternativeTradeoff } = await import('../../src/routes_diary/alternative_route.js');
+  assert.deepEqual(describeAlternativeTradeoff({
+    pLow: 2,
+    aLow: 1,
+    overheadPct: 58.1,
+    deltaMin: 15,
+  }), {
+    benefit: 'Avoids 1 low-rated segment',
+    cost: '15 min longer · 58% farther',
+    caveat: 'Based on sample route ratings, not live conditions.',
+    hasBenefit: true,
+  });
+  const noBenefit = describeAlternativeTradeoff({
+    pLow: 1,
+    aLow: 1,
+    overheadPct: 20,
+    deltaMin: 8,
+  });
+  assert.equal(noBenefit.benefit, 'No lower-rated segments avoided');
+  assert.equal(noBenefit.hasBenefit, false);
+  assert.doesNotMatch(JSON.stringify(noBenefit), /safest|best|tonight|current conditions/i);
+});
+
+test('Sample Community observations carry explicit sample identity and no simulated recency', async () => {
+  const { createSampleCommunityModel } = await import('../../src/routes_diary/ui_community_panel.js');
+  assert.equal(typeof createSampleCommunityModel, 'function');
+
+  const model = createSampleCommunityModel();
+  assert.ok(model.observations.length > 0);
+  for (const observation of model.observations) {
+    assert.equal(observation.sample, true);
+    assert.match(observation.label, /^Example \d+$/);
+    assert.equal('ago' in observation, false);
+    assert.equal('user' in observation, false);
+  }
+  assert.doesNotMatch(JSON.stringify(model), /\b(?:ago|today|tonight|this week)\b/i);
 });
 
 test('buffer Top-N chart receives the same offense filter as monthly and heat charts', async () => {
@@ -894,6 +960,91 @@ test('buffer Top-N chart receives the same offense filter as monthly and heat ch
   });
 
   assert.deepEqual(topParams.types, ['Robbery Firearm']);
+});
+
+test('Crime charts can redraw localized copy from cached data without refetching', async () => {
+  const { createChartLocaleCache } = await import('../../src/charts/index.js');
+  assert.equal(typeof createChartLocaleCache, 'function');
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  const cache = createChartLocaleCache();
+  let fetchCalls = 0;
+  const emptyRows = async () => {
+    fetchCalls += 1;
+    return { rows: [] };
+  };
+  const copies = [];
+  const statuses = [];
+  const errors = [];
+  const sinks = {
+    status(message) { statuses.push(message); },
+    monthly(_city, _area, copy) { copies.push(copy); },
+    top(_rows, copy) { copies.push(copy); },
+    heat(_matrix, copy) { copies.push(copy); },
+    error(error, options) { errors.push([error, options]); },
+  };
+
+  setLanguage('en');
+  await updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: [1, 2],
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, {
+    fetchers: {
+      fetchMonthlySeriesCity: emptyRows,
+      fetchMonthlySeriesBuffer: emptyRows,
+      fetchTopTypesBuffer: emptyRows,
+      fetch7x24Buffer: emptyRows,
+    },
+    sinks,
+    chartCache: cache,
+  });
+  const fetchCallsAfterInitialRender = fetchCalls;
+  assert.equal(copies[0].citywide, 'Citywide');
+
+  setLanguage('zh-CN');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(fetchCalls, fetchCallsAfterInitialRender);
+  assert.equal(copies.at(-1).citywide, '全市');
+  assert.equal(copies.at(-1).weekdays[0], '周日');
+
+  const copiesBeforeStatusOnly = copies.length;
+  await updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: null,
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, { sinks, chartCache: cache });
+  setLanguage('en');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(statuses.at(-1), 'Tip: click the map to set a center and show buffer-based charts.');
+  assert.equal(copies.length, copiesBeforeStatusOnly);
+
+  await assert.rejects(updateAllCharts({
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    center3857: [1, 2],
+    radiusM: 400,
+    queryMode: 'buffer',
+  }, {
+    fetchers: {
+      fetchMonthlySeriesCity: async () => { throw new Error('offline'); },
+    },
+    sinks,
+    chartCache: cache,
+  }), /offline/);
+  const copiesBeforeErrorRefresh = copies.length;
+  setLanguage('zh-CN');
+  assert.equal(cache.refresh(sinks), true);
+  assert.equal(copies.length, copiesBeforeErrorRefresh);
+  assert.equal(errors.at(-1)[1].report, false);
+  assert.match(errors.at(-1)[1].message, /图表不可用/);
+  setLanguage('en');
 });
 
 test('Top-N SQL applies the resolved offense filter', () => {
@@ -990,10 +1141,11 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
   });
 });
 
-test('bundle policy keeps the established entry budget separate from Analysis History', async () => {
+test('bundle policy keeps feature translation catalogs outside the established entry budget', async () => {
   const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
   assert.match(source, /\['Entry', entry, 902_665, 247_583\]/);
   assert.match(source, /\['Analysis History', analysisHistory, 23_000, 7_800\]/);
+  assert.match(source, /\['P1 translations', p1Messages, 9_000, 3_300\]/);
 });
 
 test('tract snapshot requires the exact current tract identity set', () => {

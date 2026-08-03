@@ -1,6 +1,7 @@
 import { updateLegend, hideLegend } from './legend.js';
 import { computeBreaks, makePalette, toMapLibreStep } from '../utils/classify.js';
 import { store } from '../state/store.js';
+import { setTranslatedText, t } from '../i18n/index.js';
 
 /**
  * Add or update a districts choropleth from merged GeoJSON.
@@ -18,7 +19,7 @@ export function renderDistrictChoropleth(map, merged) {
   if (allZero || breaks.length === 0) {
     hideLegend();
   } else {
-    updateLegend({ title: 'Districts', unit: '', breaks, colors });
+    updateLegend({ title: t('crime.districts'), unit: '', breaks, colors });
   }
 
   // Build step expression from classifier
@@ -70,7 +71,7 @@ export function renderDistrictChoropleth(map, merged) {
       pane.appendChild(d);
       return d;
     })();
-    status.textContent = 'No incidents in selected window. Adjust the time range.';
+    setTranslatedText(status, 'crime.noIncidents');
   }
 
   if (!map.getLayer(labelId)) {

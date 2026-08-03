@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 /**
  * Reusable map legend control for choropleth layers (districts, tracts)
  */
@@ -48,7 +50,7 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
   const rows = [];
 
   // Title row
-  rows.push(`<div style="font-weight:600; margin-bottom:4px;">${title || 'Legend'}</div>`);
+  rows.push(`<div style="font-weight:600; margin-bottom:4px;">${title || t('map.legend')}</div>`);
   if (subtitle) {
     rows.push(`<div style="font-size:11px; color:#6b7280; margin-bottom:6px;">${subtitle}</div>`);
   }
