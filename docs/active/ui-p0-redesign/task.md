@@ -2,7 +2,7 @@
 
 ## Current status
 
-Local P0 implementation, browser acceptance, independent review, and commit-isolated validation are complete. GitHub/Pages integration and record archival remain.
+Local P0 implementation, browser acceptance, independent review, and commit-isolated validation are complete. Draft PR #39 is open; its first CI run exposed outdated browser-smoke interactions, whose focused fix now passes locally under the exact CI environment. Remote rerun, Pages integration, and record archival remain.
 
 ## Checklist
 
@@ -39,6 +39,7 @@ Local P0 implementation, browser acceptance, independent review, and commit-isol
 | Final responsive review | At 360x640 and 844x390, the Diary tabs and route selector remain fully visible; the in-flow rating action no longer covers the current task. |
 | Independent review | Final code review and final visual review both returned `APPROVE`; no P0 code or visual blockers remain. |
 | Browser health | Final local Crime/Diary session reported 0 console errors and 0 warnings. |
+| CI browser-smoke repair | Updated the existing smoke to use the rating radio name, staged Continue/Save flow, progressive data details, explicit More filters/Compare actions, and the compact summary contract. With `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`, the full smoke passed with 0 console errors and 0 page errors. |
 
 ## Open risks and remaining work
 
