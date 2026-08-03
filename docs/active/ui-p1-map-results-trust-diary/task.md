@@ -2,7 +2,7 @@
 
 ## Current status
 
-P1-1 through P1-4 and Stage 5 verification are complete. The isolated branch is ready for a stable review commit and Draft PR; localization reconciliation remains a separate Stage 6 integration gate.
+P1-1 through P1-4 and Stage 5 verification are complete. Runtime commit `966ffaa` is pushed and Draft PR `#41` is open; localization reconciliation remains the separate Stage 6 integration gate.
 
 ## Checklist
 
@@ -39,6 +39,7 @@ P1-1 through P1-4 and Stage 5 verification are complete. The isolated branch is 
 | Browser matrix | 1440x900, 390x844, and 844x390 Crime/Diary checks passed: no horizontal overflow, truthful Live/Fallback/Demo/Local/Sample states, route fit visible above the sheet, Summary before History, scoped Insights, closed Simulator, 0 console errors/warnings. |
 | Independent review | Final architecture, code/security, and design reviews all returned `APPROVE`; no open P0/P1 finding remains. |
 | Smoke precondition hardening | Browser smoke now fails immediately with a clear message when `dist` was not built with `VITE_TRACT_CRIME_SNAPSHOT=1`, instead of timing out on an impossible provenance transition. |
+| Review delivery | Runtime commit `966ffaa341e50711fc4cb1e375d90f02302cd0be` is pushed on `codex/p1-ui`; Draft PR `#41` targets `main` and explicitly blocks merge/deploy until localization reconciliation. |
 
 ## Open risks and remaining work
 
