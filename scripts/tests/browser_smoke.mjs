@@ -32,7 +32,7 @@ const transparentPng = Buffer.from(
 function cartoResponse(request) {
   const body = decodeURIComponent(request.postData() || '');
   if (/MIN\(dispatch_date_time\)/i.test(body)) {
-    return { rows: [{ min_dt: '2006-01-01', max_dt: '2026-07-30' }] };
+    return { rows: [{ min_dt: '2006-01-01', max_dt: '2026-08-02' }] };
   }
   if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
   if (/text_general_code/i.test(body) && /GROUP BY/i.test(body)) {
@@ -264,7 +264,7 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   const localizedComparisonText = await page.locator('#compare-card').textContent();
   assert.match(localizedComparisonText, /数据截至/);
-  assert.match(localizedComparisonText, /2026年7月30日/);
+  assert.match(localizedComparisonText, /2026年8月2日/);
   assert.match(await page.locator('.analysis-history').textContent(), /最近的分析/);
   assert.equal(
     requests.filter((url) => url.startsWith('https://phl.carto.com/')).length,

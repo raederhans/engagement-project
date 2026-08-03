@@ -1,9 +1,7 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
+import { fetchTractCrimeSnapshotCoverage } from '../api/meta.js';
 import { normalizeCoverageWindow, setAnalysisMode, setViewMode, onViewModeChange } from '../state/store.js';
-import { publicUrl } from '../utils/public_url.js';
-import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
-import { fetchJson } from '../utils/http.js';
 import { createLatestGeocodeOwner } from '../api/geocoder.js';
 import { CRIME_VIEW_QUERY_KEYS, encodeCrimeViewState } from '../state/crime_view_state.js';
 import { getLastComparison } from '../compare/card.js';
@@ -522,12 +520,12 @@ export function initPanel(store, handlers) {
     onChange();
   });
   preset6?.addEventListener('click', () => {
-    applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel });
+    if (!applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel })) return;
     onChange();
     void updateHUD();
   });
   preset12?.addEventListener('click', () => {
-    applyRecentPreset(store, 12, { startMonthInput: startMonth, durationSelect: durationSel });
+    if (!applyRecentPreset(store, 12, { startMonthInput: startMonth, durationSelect: durationSel })) return;
     onChange();
     void updateHUD();
   });
@@ -575,23 +573,9 @@ export function initPanel(store, handlers) {
   let __snapshotMeta = null; // cached in-session
   async function ensureSnapshotMeta() {
     if (__snapshotMeta !== null) return __snapshotMeta;
-    if (!TRACT_CRIME_SNAPSHOT_ENABLED) {
-      __snapshotMeta = undefined;
-      return __snapshotMeta;
-    }
     // Try to fetch local static JSON; ignore failures
     try {
-      const snap = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), { cacheTTL: 5 * 60_000, retries: 0, timeoutMs: 1500 });
-      if (snap?.meta?.start && snap?.meta?.end) {
-        __snapshotMeta = {
-          start: snap.meta.start,
-          end: snap.meta.end,
-          generatedAt: snap.meta.generated_at || null,
-          coverageDate: snap.meta.coverage_date || null,
-        };
-      } else {
-        __snapshotMeta = undefined;
-      }
+      __snapshotMeta = await fetchTractCrimeSnapshotCoverage() || undefined;
     } catch {
       __snapshotMeta = undefined;
     }
@@ -634,7 +618,10 @@ export function initPanel(store, handlers) {
     if (startMonth) startMonth.value = store.startMonth || '';
     if (startMonth) {
       startMonth.min = store.coverageMin?.slice(0, 7) || '';
-      startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
+      startMonth.max = recentStartMonth(
+        store.durationMonths || 12,
+        store.windowAnchorMax || store.coverageMax,
+      ) || '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
     if (dataStatus) {
@@ -647,6 +634,8 @@ export function initPanel(store, handlers) {
       dataStatus.style.color = status.tone === 'error' ? '#991b1b' : status.tone === 'ready' ? '#065f46' : '#475569';
     }
     const exportReady = store.coverageStatus === 'ready';
+    if (preset6) preset6.disabled = !exportReady;
+    if (preset12) preset12.disabled = !exportReady;
     if (exportJsonBtn) exportJsonBtn.disabled = !exportReady;
     if (exportCsvBtn) exportCsvBtn.disabled = !exportReady;
     applyModeUI();
@@ -708,20 +697,29 @@ export function describeCoverageStatus(state) {
 }
 
 function recentStartMonth(durationMonths, coverageMax) {
-  const date = coverageMax ? new Date(coverageMax) : new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() - (durationMonths - 1));
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(coverageMax || ''));
+  const duration = Number(durationMonths);
+  const endMonth = Number(match?.[2]);
+  if (!match || !Number.isInteger(duration) || duration < 1 || endMonth < 1 || endMonth > 12) return null;
+  const endMonthIndex = Number(match[1]) * 12 + Number(match[2]) - 1;
+  const startMonthIndex = endMonthIndex - (duration - 1);
+  const year = Math.floor(startMonthIndex / 12);
+  const month = (startMonthIndex % 12 + 12) % 12 + 1;
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 export function applyRecentPreset(state, durationMonths, {
   startMonthInput,
   durationSelect,
 } = {}) {
-  state.startMonth = recentStartMonth(durationMonths, state.coverageMax);
+  if (state.coverageStatus !== 'ready') return false;
+  const startMonth = recentStartMonth(durationMonths, state.windowAnchorMax || state.coverageMax);
+  if (!startMonth) return false;
+  state.startMonth = startMonth;
   state.durationMonths = durationMonths;
   if (startMonthInput) startMonthInput.value = state.startMonth;
   if (durationSelect) durationSelect.value = String(durationMonths);
+  return true;
 }
 
 export function readModeFromURL() {

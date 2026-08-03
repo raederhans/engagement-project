@@ -28,6 +28,7 @@ function preserveStore(t) {
     selectedTractGEOID: store.selectedTractGEOID,
     coverageMin: store.coverageMin,
     coverageMax: store.coverageMax,
+    windowAnchorMax: store.windowAnchorMax,
     coverageStatus: store.coverageStatus,
     coverageError: store.coverageError,
     coverageNotice: store.coverageNotice,
@@ -138,6 +139,51 @@ test('coverage initializes one explicit calendar range and a visible ready state
   assert.deepEqual(store.getStartEnd(), {
     start: '2025-08-01',
     end: '2026-08-01',
+  });
+});
+
+test('coverage initialization anchors defaults to the latest month shared by live and tract data', async (t) => {
+  preserveStore(t);
+  store.startMonth = null;
+  store.durationMonths = 6;
+  store.coverageStatus = 'idle';
+
+  await stateModule.initCoverageAndDefaults({
+    fetchCoverageImpl: async () => ({ min: '2006-01-01', max: '2026-08-02' }),
+    fetchSnapshotCoverageImpl: async () => ({
+      start: '2025-08-01',
+      end: '2026-08-01',
+      coverageDate: '2026-07-30',
+    }),
+  });
+
+  assert.equal(store.coverageMax, '2026-08-02');
+  assert.equal(store.windowAnchorMax, '2026-07-30');
+  assert.equal(store.startMonth, '2025-08');
+  assert.equal(store.durationMonths, 12);
+  assert.deepEqual(store.getStartEnd(), {
+    start: '2025-08-01',
+    end: '2026-08-01',
+  });
+});
+
+test('unavailable snapshot metadata falls back to the live dataset boundary', async (t) => {
+  preserveStore(t);
+  store.startMonth = null;
+  store.durationMonths = 6;
+  store.coverageStatus = 'idle';
+
+  await stateModule.initCoverageAndDefaults({
+    fetchCoverageImpl: async () => ({ min: '2006-01-01', max: '2026-08-02' }),
+    fetchSnapshotCoverageImpl: async () => { throw new Error('snapshot unavailable'); },
+  });
+
+  assert.equal(store.coverageMax, '2026-08-02');
+  assert.equal(store.windowAnchorMax, '2026-08-02');
+  assert.equal(store.startMonth, '2025-09');
+  assert.deepEqual(store.getStartEnd(), {
+    start: '2025-09-01',
+    end: '2026-09-01',
   });
 });
 

@@ -3,7 +3,7 @@
  */
 import dayjs from 'dayjs';
 import { expandGroupsToCodes } from '../utils/types.js';
-import { fetchCoverage } from '../api/meta.js';
+import { fetchCoverage, fetchTractCrimeSnapshotCoverage } from '../api/meta.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
@@ -97,6 +97,7 @@ export const store = /** @type {Store} */ ({
   center3857: null,
   coverageMin: null,
   coverageMax: null,
+  windowAnchorMax: null,
   coverageStatus: 'idle',
   coverageError: null,
   coverageNotice: null,
@@ -189,13 +190,21 @@ export function setAnalysisMode(mode) {
   return normalized;
 }
 
-export function applyCoverageToState(state, { min, max }) {
+export function applyCoverageToState(state, { min, max, windowAnchorMax = max }) {
   if (!max) throw new Error('Crime coverage is unavailable: maximum date is missing.');
   const maxDate = dayjs(max);
   if (!maxDate.isValid()) throw new Error(`Crime coverage is unavailable: invalid maximum date ${max}.`);
+  const minDate = typeof min === 'string' && min.trim() ? dayjs(min) : null;
+  const anchorDate = dayjs(windowAnchorMax);
+  const normalizedAnchorMax = anchorDate.isValid()
+    && !anchorDate.isAfter(maxDate)
+    && (!minDate?.isValid() || !anchorDate.isBefore(minDate))
+    ? windowAnchorMax
+    : max;
   const endMonth = maxDate.add(1, 'month').startOf('month');
   state.coverageMin = min || null;
   state.coverageMax = max;
+  state.windowAnchorMax = normalizedAnchorMax;
   state.coverageStatus = 'ready';
   state.coverageError = null;
   state.coverageNotice = null;
@@ -213,6 +222,7 @@ export function normalizeCoverageWindow(state) {
   if (state.coverageStatus !== 'ready' || !state.coverageMax) return false;
   const duration = Number(state.durationMonths) || 12;
   const coverageEnd = dayjs(state.coverageMax).add(1, 'month').startOf('month');
+  const anchorEnd = dayjs(state.windowAnchorMax || state.coverageMax).add(1, 'month').startOf('month');
   const coverageStart = state.coverageMin ? dayjs(state.coverageMin).startOf('month') : null;
   const selectedStart = state.startMonth ? dayjs(`${state.startMonth}-01`).startOf('month') : null;
   const selectedEnd = selectedStart?.isValid()
@@ -226,7 +236,7 @@ export function normalizeCoverageWindow(state) {
     state.coverageNotice = null;
     return false;
   }
-  const latestStart = coverageEnd.subtract(duration, 'month');
+  const latestStart = anchorEnd.subtract(duration, 'month');
   if (coverageStart?.isValid() && latestStart.isBefore(coverageStart)) {
     throw new Error(`Crime coverage is shorter than the selected ${duration}-month duration.`);
   }
@@ -240,6 +250,34 @@ export function applyCoverageFailure(state, error) {
   state.coverageNotice = null;
   state.coverageError = `Crime coverage is unavailable: ${error?.message || error || 'unknown error'}`;
   return state.coverageError;
+}
+
+function resolveWindowAnchorMax(coverage, snapshotCoverage) {
+  const parseDate = (value) => {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed : null;
+  };
+  const liveMin = parseDate(coverage?.min);
+  const liveMax = parseDate(coverage?.max);
+  const snapshotStart = parseDate(snapshotCoverage?.start);
+  const snapshotEnd = parseDate(snapshotCoverage?.end);
+  const snapshotMax = parseDate(snapshotCoverage?.coverageDate);
+  if (
+    !liveMax
+    || !snapshotStart
+    || !snapshotEnd
+    || !snapshotMax
+    || !snapshotStart.isBefore(snapshotEnd)
+    || snapshotMax.isBefore(snapshotStart)
+    || !snapshotMax.isBefore(snapshotEnd)
+    || !snapshotMax.add(1, 'month').startOf('month').isSame(snapshotEnd.startOf('month'))
+    || (liveMin && snapshotStart.isBefore(liveMin.startOf('month')))
+    || snapshotEnd.isAfter(liveMax.add(1, 'month').startOf('month'))
+  ) return coverage?.max;
+  return snapshotMax.isBefore(liveMax)
+    ? snapshotCoverage.coverageDate
+    : coverage.max;
 }
 
 export function setViewMode(mode, { silent = false } = {}) {
@@ -415,13 +453,24 @@ export function setSimPanelState(partial = {}) {
 }
 
 /**
- * Probe coverage and set default window to last 12 months ending at coverage max.
+ * Probe available datasets and set the default window to the latest shared month.
  */
-export async function initCoverageAndDefaults({ fetchCoverageImpl = fetchCoverage } = {}) {
+export async function initCoverageAndDefaults({
+  fetchCoverageImpl = fetchCoverage,
+  fetchSnapshotCoverageImpl = fetchTractCrimeSnapshotCoverage,
+} = {}) {
+  const snapshotCoveragePromise = Promise.resolve()
+    .then(() => fetchSnapshotCoverageImpl())
+    .catch(() => null);
   try {
     const coverage = await fetchCoverageImpl();
-    applyCoverageToState(store, coverage);
-    return coverage;
+    const snapshotCoverage = await snapshotCoveragePromise;
+    const resolvedCoverage = {
+      ...coverage,
+      windowAnchorMax: resolveWindowAnchorMax(coverage, snapshotCoverage),
+    };
+    applyCoverageToState(store, resolvedCoverage);
+    return resolvedCoverage;
   } catch (e) {
     applyCoverageFailure(store, e);
     throw e;

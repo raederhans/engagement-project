@@ -32,19 +32,48 @@ const polygon = {
 };
 
 test('recent-window presets synchronize state and visible controls', () => {
-  const state = { coverageMax: '2026-07-30', startMonth: null, durationMonths: 6 };
+  const state = {
+    coverageStatus: 'ready',
+    coverageMax: '2026-08-02',
+    windowAnchorMax: '2026-07-30',
+    startMonth: null,
+    durationMonths: 6,
+  };
   const startMonthInput = { value: '' };
   const durationSelect = { value: '6' };
 
-  applyRecentPreset(state, 12, { startMonthInput, durationSelect });
+  const applied = applyRecentPreset(state, 12, { startMonthInput, durationSelect });
 
   assert.deepEqual(state, {
-    coverageMax: '2026-07-30',
+    coverageStatus: 'ready',
+    coverageMax: '2026-08-02',
+    windowAnchorMax: '2026-07-30',
     startMonth: '2025-08',
     durationMonths: 12,
   });
+  assert.equal(applied, true);
   assert.equal(startMonthInput.value, '2025-08');
   assert.equal(durationSelect.value, '12');
+});
+
+test('recent-window presets never fall back to the wall clock without coverage', () => {
+  const state = {
+    coverageStatus: 'loading',
+    coverageMax: null,
+    windowAnchorMax: null,
+    startMonth: null,
+    durationMonths: 6,
+  };
+  const startMonthInput = { value: '' };
+  const durationSelect = { value: '6' };
+
+  const applied = applyRecentPreset(state, 12, { startMonthInput, durationSelect });
+
+  assert.equal(applied, false);
+  assert.equal(state.startMonth, null);
+  assert.equal(state.durationMonths, 6);
+  assert.equal(startMonthInput.value, '');
+  assert.equal(durationSelect.value, '6');
 });
 
 test('quick preview resolves and validates a diary data directory', () => {
