@@ -76,6 +76,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     getMapCenter: () => map.getCenter(),
     onAddressResolved: async () => coordinator.fitCurrentCrimeSelection({ force: true }),
     onTractsOverlayToggle: (visible) => coordinator?.setTractsOverlayVisible(visible),
+    onTractsOutlineStyleChange: (style) => coordinator?.setTractsOutlineStyle(style),
   });
   const { diaryMount, analysisHistoryMount } = panel;
 

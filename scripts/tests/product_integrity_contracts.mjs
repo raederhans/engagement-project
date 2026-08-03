@@ -424,6 +424,8 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     selectedDistrictCode: null,
     selectedTractGEOID: '42101000100',
     overlayTractsLines: true,
+    tractWidth: 1.5,
+    tractOpacity: 0.4,
     centerLonLat: [-75.166154, 39.95218],
     centerBLonLat: [-75.2, 39.96],
     addressA: '1500 MARKET ST',
@@ -445,6 +447,8 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     selectedDistrictCode: null,
     selectedTractGEOID: '42101000100',
     overlayTractsLines: true,
+    tractWidth: 1.5,
+    tractOpacity: 0.4,
     centerLonLat: [-75.166154, 39.95218],
     centerBLonLat: [-75.2, 39.96],
     addressA: '1500 MARKET ST',
@@ -458,16 +462,23 @@ test('share state round-trips every user-visible Crime analysis choice', async (
   });
 });
 
-test('shared Crime state ignores unrelated parameters and rejects invalid ranges', async () => {
-  const { decodeCrimeViewState, hasCrimeViewState } = await import('../../src/state/crime_view_state.js');
+test('shared Crime state ignores unrelated parameters and safely bounds invalid ranges', async () => {
+  const { decodeCrimeViewState, encodeCrimeViewState, hasCrimeViewState } = await import('../../src/state/crime_view_state.js');
   assert.equal(hasCrimeViewState(new URLSearchParams('utm_source=portfolio')), false);
   assert.equal(hasCrimeViewState(new URLSearchParams('utm_source=portfolio&analysis=buffer')), true);
-  const decoded = decodeCrimeViewState('months=&radius=999999&start=2026-99&bins=2.5&opacity=-2&district=x');
+  assert.equal(hasCrimeViewState(new URLSearchParams('tractWidth=1.5')), true);
+  const decoded = decodeCrimeViewState('months=&radius=999999&start=2026-99&bins=2.5&opacity=-2&district=x&tractWidth=99&tractOpacity=-2');
   assert.equal(decoded.durationMonths, 12);
   assert.equal(decoded.radius, 400);
   assert.equal(decoded.startMonth, null);
   assert.equal(decoded.classBins, 5);
   assert.equal(decoded.classOpacity, 0.75);
+  assert.equal(decoded.tractWidth, 3);
+  assert.equal(decoded.tractOpacity, 0.1);
+
+  const defaults = new URLSearchParams(encodeCrimeViewState({}));
+  assert.equal(defaults.has('tractWidth'), false);
+  assert.equal(defaults.has('tractOpacity'), false);
 });
 
 test('analysis artifacts normalize a versioned contract and keep refresh state transient', async () => {

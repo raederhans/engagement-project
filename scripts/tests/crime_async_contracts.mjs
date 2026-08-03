@@ -399,6 +399,7 @@ test('Crime synchronous UI actions require both controller and mode ownership', 
   const map = {
     getLayer: (id) => (id === 'tracts-outline-line' ? { id } : null),
     setLayoutProperty: (...args) => mutations.push(['tracts', ...args]),
+    setPaintProperty: (...args) => mutations.push(['paint', ...args]),
   };
   const actions = createCrimeSynchronousActions({
     map,
@@ -410,20 +411,27 @@ test('Crime synchronous UI actions require both controller and mode ownership', 
 
   assert.equal(actions.updateBuffer(), false);
   assert.equal(actions.setTractsOverlayVisible(true), false);
+  assert.equal(actions.setTractsOutlineStyle({ lineWidth: 1, lineOpacity: 0.5 }), false);
   controllerActive = true;
   modeActive = false;
   assert.equal(actions.updateBuffer(), false);
   assert.equal(actions.setTractsOverlayVisible(true), false);
+  assert.equal(actions.setTractsOutlineStyle({ lineWidth: 1, lineOpacity: 0.5 }), false);
   assert.deepEqual(mutations, []);
 
   modeActive = true;
   assert.equal(actions.updateBuffer(), true);
   assert.equal(actions.setTractsOverlayVisible(false), true);
+  assert.equal(actions.setTractsOutlineStyle({ lineWidth: 1.5, lineOpacity: 0.4 }), true);
   assert.equal(mutations[0][0], 'buffer');
   assert.deepEqual(mutations[1], [
     'tracts',
     'tracts-outline-line',
     'visibility',
     'none',
+  ]);
+  assert.deepEqual(mutations.slice(2), [
+    ['paint', 'tracts-outline-line', 'line-width', 1.5],
+    ['paint', 'tracts-outline-line', 'line-opacity', 0.4],
   ]);
 });

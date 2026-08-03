@@ -293,5 +293,8 @@ export function createModeCoordinator({
     setTractsOverlayVisible(visible) {
       return withCurrentCrime((controller) => controller.setTractsOverlayVisible(visible));
     },
+    setTractsOutlineStyle(style) {
+      return withCurrentCrime((controller) => controller.setTractsOutlineStyle(style));
+    },
   });
 }
