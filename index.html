@@ -211,15 +211,21 @@
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
           <div style="margin-bottom:10px">
             <h3 data-i18n="crime.chartMonthly">Crime over time</h3>
-            <canvas id="chart-monthly" height="140"></canvas>
+            <div class="chart-frame">
+              <canvas id="chart-monthly" height="140"></canvas>
+            </div>
           </div>
           <div style="margin-bottom:10px">
             <h3 data-i18n="crime.topOffenses">Top offenses</h3>
-            <canvas id="chart-topn" height="160"></canvas>
+            <div class="chart-frame chart-frame--topn">
+              <canvas id="chart-topn" height="160"></canvas>
+            </div>
           </div>
           <div>
             <h3 data-i18n="crime.dayHour">Day and hour</h3>
-            <canvas id="chart-7x24" height="180"></canvas>
+            <div class="chart-frame">
+              <canvas id="chart-7x24" height="180"></canvas>
+            </div>
           </div>
         </div>
       </aside>

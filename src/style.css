@@ -1437,6 +1437,21 @@ summary {
   font-size: 15px;
 }
 
+.chart-frame {
+  position: relative;
+  height: 220px;
+  min-width: 0;
+}
+
+.chart-frame--topn {
+  height: 300px;
+}
+
+.chart-frame canvas {
+  display: block;
+  max-width: 100%;
+}
+
 .mode-skeleton {
   display: grid;
   gap: 5px;

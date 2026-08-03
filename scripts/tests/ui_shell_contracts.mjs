@@ -32,6 +32,15 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
 
+test('responsive Crime charts use dedicated bounded canvas frames', () => {
+  const framedCharts = [...html.matchAll(
+    /<div\b[^>]*class="[^"]*\bchart-frame\b[^"]*"[^>]*>\s*<canvas\b[^>]*id="chart-(monthly|topn|7x24)"[^>]*><\/canvas>\s*<\/div>/gi,
+  )].map((match) => match[1]);
+  assert.deepEqual(framedCharts, ['monthly', 'topn', '7x24']);
+  assert.match(css, /\.chart-frame\s*\{[^}]*position:\s*relative\s*;[^}]*height:\s*220px\s*;/s);
+  assert.match(css, /\.chart-frame--topn\s*\{[^}]*height:\s*300px\s*;/s);
+});
+
 test('current analysis summary is mounted before recent analyses', async () => {
   const { placeAnalysisHistoryAfterSummary } = await import('../../src/ui/panel.js');
   assert.equal(typeof placeAnalysisHistoryAfterSummary, 'function');

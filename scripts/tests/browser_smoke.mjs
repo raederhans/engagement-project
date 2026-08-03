@@ -421,6 +421,32 @@ try {
   await page.locator('.analysis-history__empty').waitFor();
   assert.equal(await artifactCard(page, 'Renamed A-only').count(), 0);
 
+  const chartDetails = page.locator('#results-drawer .progressive-surface');
+  if (!(await chartDetails.evaluate((element) => element.open))) {
+    await chartDetails.locator(':scope > summary').click();
+  }
+  await page.waitForFunction(() => {
+    const canvases = [...document.querySelectorAll('#charts canvas')];
+    return canvases.length === 3 && canvases.every((canvas) => canvas.clientHeight > 0);
+  });
+  const readChartLayout = () => page.evaluate(() => [...document.querySelectorAll('#charts canvas')]
+    .map((canvas) => ({
+      id: canvas.id,
+      height: canvas.clientHeight,
+      width: canvas.clientWidth,
+      frameHeight: canvas.parentElement?.clientHeight || 0,
+      frameWidth: canvas.parentElement?.clientWidth || 0,
+    })));
+  const chartLayoutBefore = await readChartLayout();
+  await page.waitForTimeout(750);
+  const chartLayoutAfter = await readChartLayout();
+  assert.deepEqual(chartLayoutAfter, chartLayoutBefore, 'Expanded chart dimensions must remain stable');
+  for (const chart of chartLayoutAfter) {
+    assert.ok(chart.height <= 300, `${chart.id} exceeded its bounded chart frame`);
+    assert.ok(chart.width <= chart.frameWidth + 1, `${chart.id} overflowed its chart frame horizontally`);
+    assert.equal(chart.height, chart.frameHeight, `${chart.id} did not fill its dedicated chart frame`);
+  }
+
   const layout = await page.evaluate(() => {
     const side = document.getElementById('sidepanel');
     const compare = document.getElementById('compare-card');
