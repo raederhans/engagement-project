@@ -46,4 +46,6 @@
 
 ## Next step
 
-Create the Lore implementation commit, then run the exact-head PR, main CI, Pages, and production verification gates.
+P1-5 through P1-8 are complete. PR `#52` merged exact head `8ebd69a` as `bf4e9fd`; main CI run `30811935382` and Pages run `30811935368` passed. The public Crime and Diary modes load the deployed assets with zero console errors or warnings, and the P1 accessibility/mobile interaction contracts were spot-checked in production.
+
+Proceed to P2 only from a fresh `origin/main` worktree, preserving the separately owned comparison-detail-menu, chart-studio, incident-details, and primary-worktree changes.

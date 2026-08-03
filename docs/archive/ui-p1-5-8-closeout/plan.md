@@ -20,7 +20,7 @@ Complete the original UI report's remaining P1 scope: accessibility governance, 
 - [x] Stage 4: Implement P1-6 design tokens, shared component styles, and high-value inline-style migration.
 - [x] Stage 5: Implement P1-7 mobile copy, density feedback, search, toast, and touch-target improvements.
 - [x] Stage 6: Implement P1-8 deterministic visual and experience CI.
-- [ ] Stage 7: Run independent review, reconcile parallel work, validate, publish through PR, verify CI/Pages, and archive.
+- [x] Stage 7: Run independent review, reconcile parallel work, validate, publish through PR, verify CI/Pages, and archive.
 
 ## Acceptance criteria
 
