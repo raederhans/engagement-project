@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. Comparison, Chart Studio, and Incident Details are admitted on current main; incident inspection stays viewport-bounded and selection cleanup remains owned by the existing Crime lifecycle.
+P2 execution is active. Comparison, Chart Studio, Incident Details, and selected-window Summary Insights are admitted on current main; obsolete 30-day side queries are removed.
 
 ## Checklist
 
@@ -11,7 +11,7 @@ P2 execution is active. Comparison, Chart Studio, and Incident Details are admit
 - [x] Integrate and verify PR #49 comparison details.
 - [x] Integrate and verify PR #50 chart studio.
 - [x] Integrate and verify PR #51 incident details.
-- [ ] Integrate and verify PR #53 summary insights.
+- [x] Integrate and verify PR #53 summary insights.
 - [ ] Integrate and verify PR #55 custom radius.
 - [ ] Split CSS and Diary ownership with behavior locks.
 - [ ] Implement task flow and map/list dual-channel analysis.
@@ -33,6 +33,7 @@ P2 execution is active. Comparison, Chart Studio, and Incident Details are admit
 | Chart Studio integration | Indexed/count trends, count/share/Pareto categories, temporal views, insights, and cached display preferences pass 9 chart contracts plus the P0, P1, and bilingual gates. |
 | Artifact budget recovery | Build-only six-decimal boundary compaction preserves source data and published feature counts; `verify:bundle` passes at 3,284,167 bytes without increasing any budget. |
 | Incident Details integration | Unclustered points expose escaped bilingual details, clear-selection reconciles markers/buffers/comparison state, and stale point lifecycles remain fenced; points, Crime async, P0, P1, i18n, build, and bundle gates pass. |
+| Summary Insights integration | Summary and A/B detail use the selected analysis window, show average per 30 days and category composition, avoid sparse 30-day comparisons, and pass product, UI, async, P1, i18n, build, and bundle gates. |
 
 ## Open risks and remaining work
 

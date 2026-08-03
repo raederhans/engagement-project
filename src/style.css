@@ -2449,6 +2449,18 @@ summary {
   font-weight: 650;
 }
 
+.crime-summary-categories {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.crime-summary-categories h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
 .crime-comparison {
   margin-top: 14px;
   padding-top: 12px;
@@ -2568,6 +2580,7 @@ summary {
   overflow-wrap: anywhere;
 }
 
+.crime-summary-categories ol,
 .crime-comparison-categories ol {
   display: grid;
   gap: 8px;

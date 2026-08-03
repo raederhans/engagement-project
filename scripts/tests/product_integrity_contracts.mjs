@@ -212,6 +212,33 @@ test('compare uses the captured date range and offense filter for every query', 
   assert.deepEqual(topCall.types, ['Robbery Firearm']);
 });
 
+test('comparison summary counts each point once and does not synthesize a sparse 30-day trend', async () => {
+  const countCalls = [];
+  const result = await updateCompare({
+    start: '2025-08-01',
+    end: '2026-08-01',
+    types: ['Robbery Firearm'],
+    center3857: [1, 2],
+    centerB3857: [3, 4],
+    radiusM: 400,
+    adminLevel: 'districts',
+  }, {
+    fetchers: {
+      fetchCountBuffer: async (params) => {
+        countCalls.push(params);
+        return params.center3857[0] === 1 ? 10 : 20;
+      },
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+    },
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+
+  assert.equal(countCalls.length, 2, 'each point should issue only its selected-window count query');
+  assert.equal(countCalls.every(({ start, end }) => start === '2025-08-01' && end === '2026-08-01'), true);
+  assert.equal(result.a.delta30, null);
+  assert.equal(result.b.delta30, null);
+});
+
 test('address search uses the public Philadelphia geocoder and rejects weak matches', async () => {
   const { geocodePhiladelphiaAddress } = await import('../../src/api/geocoder.js');
   let requestedUrl;
@@ -630,8 +657,8 @@ test('comparison snapshots carry one generation time and the matching filter key
     filterKey: buildComparisonFilterKey(filters),
     generatedAt: '2026-07-31T04:00:00.000Z',
     comparison: {
-      a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: 0 },
-      b: { label: 'Point B', total: 10, per10k: null, top3: [], delta30: 0 },
+      a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: null },
+      b: { label: 'Point B', total: 10, per10k: null, top3: [], delta30: null },
     },
   });
   assert.equal(getLastComparisonSnapshot({ ...filters, radiusM: 800 }), null);
