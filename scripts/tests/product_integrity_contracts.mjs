@@ -862,11 +862,11 @@ test('Community UI is explicitly sample-only and has no fake post action', async
     readFile(new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8'),
   ]);
-  assert.match(communitySource, /Sample Community/);
-  assert.match(communitySource, /read-only/i);
+  assert.match(communitySource, /diary\.sampleCommunity/);
+  assert.match(communitySource, /diary\.communityNotice/);
   assert.doesNotMatch(communitySource, /onPostComment/);
   assert.doesNotMatch(communitySource, /type\s*=\s*['"]range['"]|onRadiusChange|onSelectSegment/);
-  assert.match(liveSource, /Open My routes/);
+  assert.match(liveSource, /diary\.openRoutes/);
   assert.doesNotMatch(liveSource, /coming soon/i);
 });
 

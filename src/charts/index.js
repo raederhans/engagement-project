@@ -14,6 +14,7 @@ import {
   fetchTopTypesTract,
   fetch7x24Tract,
 } from '../api/crime.js';
+import { t } from '../i18n/index.js';
 
 function byMonthRows(rows) {
   return (rows || []).map((r) => ({ m: dayjs(r.m).format('YYYY-MM'), n: Number(r.n) || 0 }));
@@ -79,7 +80,7 @@ function createDefaultChartSinks() {
     },
     error(error) {
       console.error(error);
-      getStatusElement().innerText = `Charts unavailable: ${error?.message || error}`;
+      getStatusElement().innerText = t('chart.unavailable', { message: error?.message || error });
     },
   };
 }
@@ -117,7 +118,7 @@ export async function updateAllCharts(
     } else if (queryMode === 'buffer') {
       if (!center3857) {
         if (!isFresh()) return { applied: false };
-        chartSinks.status('Tip: click the map to set a center and show buffer-based charts.');
+        chartSinks.status(t('chart.pickCenterTip'));
         return { applied: true };
       }
       [city, bufOrArea, topn, heat] = await Promise.all([
@@ -165,9 +166,9 @@ export async function updateAllCharts(
     const noneTop = !Array.isArray(topRows) || topRows.length === 0;
     const noneHeat = !Array.isArray(heatRows) || heatRows.length === 0;
     if (queryMode === 'tract' && (Array.isArray(bufRows) ? bufRows.length === 0 : true) && noneTop && noneHeat) {
-      chartSinks.status('Tract has no incidents in this window.');
+      chartSinks.status(t('chart.noTractIncidents'));
     } else if (allZeroCity && noneTop && noneHeat) {
-      chartSinks.status('No incidents in selected window. Adjust the time range.');
+      chartSinks.status(t('crime.noIncidents'));
     }
     return { applied: true };
   } catch (e) {

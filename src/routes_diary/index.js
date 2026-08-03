@@ -58,6 +58,7 @@ import {
 import { downloadTextFile } from '../utils/export_analysis.js';
 import { resolveAlternativeForRoute, summarizeAlternativeBenefit } from './alternative_route.js';
 import { buildSimulationCoordinates } from './route_simulator.js';
+import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
 
 const SIM_INTERVAL_MS = 400;
 const SEGMENT_URL_CANDIDATES = [
@@ -71,16 +72,27 @@ const ROUTE_URL_CANDIDATES = [
   publicUrl('data/routes_phl.demo.geojson'),
 ].filter(Boolean);
 
+function localizedDiaryError(error, fallbackKey) {
+  const message = error?.message || String(error || '');
+  const knownKeys = {
+    'Diary backup is not valid JSON.': 'diary.backupInvalidJson',
+    'Unsupported Diary backup schema.': 'diary.backupUnsupported',
+    'Invalid Diary entry in backup.': 'diary.backupInvalidEntry',
+    'Local Diary storage is unavailable in this browser.': 'diary.localStorageUnavailable',
+  };
+  return knownKeys[message] ? t(knownKeys[message]) : (message || t(fallbackKey));
+}
+
 const DEMO_COMMUNITY_SEGMENTS = [
-  { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tags: 'poor lighting, aggressive drivers' },
-  { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tags: 'construction, potholes' },
-  { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tags: 'heavy traffic' },
+  { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tagsKey: 'demo.segment1Tags' },
+  { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tagsKey: 'demo.segment2Tags' },
+  { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tagsKey: 'demo.segment3Tags' },
 ];
 
 const DEMO_COMMENTS = [
-  { id: 'c1', user: 'SarahK', ago: '2h ago', text: 'South St Bridge feels unsafe at night.' },
-  { id: 'c2', user: 'BikePhilly', ago: '5h ago', text: 'Watch for cars edging into bike lane near 34th.' },
-  { id: 'c3', user: 'TrailRunner', ago: '1d ago', text: 'Pine St detour is calmer this week.' },
+  { id: 'c1', user: 'SarahK', agoKey: 'demo.twoHoursAgo', textKey: 'demo.comment1' },
+  { id: 'c2', user: 'BikePhilly', agoKey: 'demo.fiveHoursAgo', textKey: 'demo.comment2' },
+  { id: 'c3', user: 'TrailRunner', agoKey: 'demo.oneDayAgo', textKey: 'demo.comment3' },
 ];
 
 const segmentLookup = new Map();
@@ -351,7 +363,7 @@ function buildRouteOverlayCollection(routeFeature, idsKey = ROUTE_SEG_IDS_PROP) 
     });
   });
   if (missing.length) {
-    const label = props[ROUTE_NAME_PROP] || `${props[ROUTE_FROM_PROP] || 'Start'} → ${props[ROUTE_TO_PROP] || 'Destination'}`;
+    const label = props[ROUTE_NAME_PROP] || `${props[ROUTE_FROM_PROP] || t('diary.start')} → ${props[ROUTE_TO_PROP] || t('diary.destination')}`;
     console.warn(`[Diary] Route '${label}' skipped ${missing.length} missing segments: ${missing.join(', ')}`);
   }
   return features.length ? { type: 'FeatureCollection', features } : routeFeature;
@@ -471,9 +483,9 @@ function ensureDiaryPanel(routes, options = {}) {
   title.style.flexDirection = 'column';
   title.style.gap = '2px';
   const titleText = document.createElement('h3');
-  titleText.textContent = 'Route Safety Diary (demo)';
+  setTranslatedText(titleText, 'diary.demoTitle');
   const subtitle = document.createElement('div');
-  subtitle.textContent = 'Philadelphia • demo data';
+  setTranslatedText(subtitle, 'diary.demoSubtitle');
   subtitle.style.color = '#6b7280';
   subtitle.style.fontSize = '12px';
   title.appendChild(titleText);
@@ -490,10 +502,10 @@ function ensureDiaryPanel(routes, options = {}) {
     panelSession,
     panelOwnerIsCurrent,
   );
-  const makePill = (label, mode) => {
+  const makePill = (key, mode) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = label;
+    setTranslatedText(btn, key);
     btn.className = 'diary-view-pill';
     btn.addEventListener('click', ownPanelHandler(() => {
       setDiaryViewMode(mode);
@@ -503,9 +515,9 @@ function ensureDiaryPanel(routes, options = {}) {
     return { btn, mode };
   };
   const pills = [
-    makePill('Live route', 'live'),
-    makePill('My routes', 'history'),
-    makePill('Sample community', 'community'),
+    makePill('diary.tab.live', 'live'),
+    makePill('diary.tab.history', 'history'),
+    makePill('diary.tab.community', 'community'),
   ];
   pills.forEach((p) => viewSwitcher.appendChild(p.btn));
   diaryPanelEl.appendChild(viewSwitcher);
@@ -564,9 +576,9 @@ function ensureDiaryPanel(routes, options = {}) {
               currentInsightsPort?.setEntries(localDiaryEntries);
               currentInsightsPort?.refresh();
               renderActivePanel();
-              showToast(`Imported ${localDiaryEntries.length} local Diary entr${localDiaryEntries.length === 1 ? 'y' : 'ies'}.`);
+              showToast(t('diary.importedEntries', { count: localDiaryEntries.length }));
             } catch (error) {
-              showToast(error?.message || 'Diary backup could not be imported.');
+              showToast(localizedDiaryError(error, 'diary.importFailed'));
             }
           }),
         }
@@ -672,7 +684,7 @@ function populateRouteOptions(routes) {
   routeSelectEl.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Select a route';
+  setTranslatedText(placeholder, 'diary.selectRoute');
   routeSelectEl.appendChild(placeholder);
   routes.features.forEach((feature) => {
     const props = feature.properties || {};
@@ -722,22 +734,22 @@ function focusHistoryRouteOnMap(route) {
 function renderRouteSummary(route) {
   if (!summaryStripEl) return;
   if (!route) {
-    summaryStripEl.textContent = 'Select a route to see its details.';
+    setTranslatedText(summaryStripEl, 'diary.selectRouteDetails');
     return;
   }
   const props = route.properties || {};
   const pieces = [
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.from || 'Start')}</div>`,
-    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">to</div>`,
-    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.to || 'Destination')}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.from || t('diary.start'))}</div>`,
+    `<div style="color:#94a3b8;font-weight:600;font-size:12px;">${escapeHtml(t('diary.to'))}</div>`,
+    `<div style="font-weight:700;color:#0f172a;">${escapeHtml(props.to || t('diary.destination'))}</div>`,
   ];
   summaryStripEl.innerHTML = `
     <div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(props.name || props.route_id)}</div>
     <div style="display:flex;align-items:center;gap:6px;">${pieces.join('')}</div>
     <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(String(props.mode || 'walk').toUpperCase())}</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(t(props.mode === 'bike' ? 'diary.bike' : 'diary.walk'))}</span>
       <span class="diary-chip" style="border-color:#e2e8f0;">${Number(props.length_m || 0).toLocaleString()} m</span>
-      <span class="diary-chip" style="border-color:#e2e8f0;">${Number(props.duration_min) || 0} min</span>
+      <span class="diary-chip" style="border-color:#e2e8f0;">${escapeHtml(t('diary.minutes', { count: Number(props.duration_min) || 0 }))}</span>
     </div>`;
 }
 
@@ -839,12 +851,10 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
   }
   refreshAlternativeRoute();
   const persisted = response?.persisted !== false && response?.mode !== 'demo';
-  notify(persisted
-    ? 'Thanks — your feedback has been saved.'
-    : 'Thanks — your feedback was applied to this browser demo only.');
+  notify(persisted ? t('diary.feedbackSaved') : t('diary.feedbackDemoOnly'));
   const affectedSegmentIds = deriveAffectedSegmentIds(payload);
   const affectedCount = affectedSegmentIds.size || 1;
-  notifyPanel(`Thanks — your rating improved confidence on ${affectedCount} segment${affectedCount === 1 ? '' : 's'}.`);
+  notifyPanel(t('diary.confidenceImproved', { count: affectedCount }));
   highlightSegments(Array.from(affectedSegmentIds));
   const entry = createDiaryEntry({ payload, routeFeature });
   const owningSession = currentDiarySession;
@@ -859,12 +869,12 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
     currentInsightsPort?.setEntries(localDiaryEntries);
     currentInsightsPort?.refresh();
     if (store.diaryViewMode === 'history') refreshDiaryPanel?.();
-    notify('Saved locally on this device.');
+    notify(t('diary.savedLocally'));
   }).catch((error) => {
     console.warn('[Diary] Local save failed:', error);
     if (owningSession && currentDiarySession !== owningSession) return;
-    notify(`Rating applied for this session, but it was not saved locally: ${error?.message || error}`);
-    notifyPanel('Local storage failed. Export is unavailable until a rating can be saved.');
+    notify(t('diary.localSaveFailed', { message: localizedDiaryError(error, 'diary.localStorageUnavailable') }));
+    notifyPanel(t('diary.storageExportUnavailable'));
   });
 }
 
@@ -908,25 +918,25 @@ function refreshAfterCta(message) {
 async function onAgreeClick(segmentId) {
   if (!segmentId) return;
   if (isThrottled(segmentId, 'agree')) {
-    showToast('Recorded for this session');
+    showToast(t('diary.recordedSession'));
     return;
   }
   const updated = aggregation.bumpConfidence(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'agree');
-  refreshAfterCta('Thanks — confidence increased');
+  refreshAfterCta(t('diary.confidenceIncreased'));
 }
 
 async function onFeelsSaferClick(segmentId) {
   if (!segmentId) return;
   if (isThrottled(segmentId, 'safer')) {
-    showToast('Recorded for this session');
+    showToast(t('diary.recordedSession'));
     return;
   }
   const updated = aggregation.nudgeSafer(segmentId);
   if (!updated) return;
   setVoteFlag(segmentId, 'safer');
-  refreshAfterCta('Noted — feels safer now');
+  refreshAfterCta(t('diary.feelsSaferNoted'));
 }
 
 function handleSegmentAction(payload) {
@@ -971,29 +981,29 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
 function renderAltSummary(route, altInfo) {
   if (!altSummaryEl) return;
   if (!route) {
-    altSummaryEl.textContent = 'Select a route to compare alternatives.';
+    setTranslatedText(altSummaryEl, 'diary.selectAlternative');
     return;
   }
   if (!altInfo) {
-    altSummaryEl.textContent = 'Alternative data unavailable.';
+    setTranslatedText(altSummaryEl, 'diary.alternativeUnavailable');
     return;
   }
   const summary = summarizeAlternativeBenefit(route, altInfo.meta, { countLowRated });
   if (!summary) {
-    altSummaryEl.textContent = 'Alternative data unavailable.';
+    setTranslatedText(altSummaryEl, 'diary.alternativeUnavailable');
     return;
   }
   const avoided = Math.max(0, summary.pLow - summary.aLow);
-  const deltaLabel = summary.deltaMin > 0 ? `+${summary.deltaMin.toFixed(1)} min` : `${summary.deltaMin.toFixed(1)} min`;
-  const pctLabel = `≈${summary.overheadPct.toFixed(1)}% distance`;
-  let reason = 'Current route is best for now.';
+  const deltaLabel = t('diary.minuteDelta', { count: `${summary.deltaMin > 0 ? '+' : ''}${summary.deltaMin.toFixed(1)}` });
+  const pctLabel = t('diary.distanceDelta', { count: summary.overheadPct.toFixed(1) });
+  let reason = t('diary.currentBest');
   if (avoided > 0) {
-    reason = `avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'} tonight`;
+    reason = t('diary.avoidsLowRated', { count: avoided });
   } else if (summary.overheadPct <= 0) {
-    reason = 'No distance penalty tonight';
+    reason = t('diary.noDistancePenalty');
   }
   altSummaryEl.innerHTML = `
-    <div style="font-weight:600;color:#0f172a;font-size:12px;">Alternative comparison</div>
+    <div style="font-weight:600;color:#0f172a;font-size:12px;">${escapeHtml(t('diary.alternativeComparison'))}</div>
     <div style="font-size:12px;color:#334155;margin-top:2px;">${deltaLabel} • ${pctLabel}</div>
     <div style="font-size:12px;color:#475569;margin-top:4px;">${reason}</div>
   `;
@@ -1440,6 +1450,11 @@ export async function initDiaryMode(map, options = {}) {
     currentDiaryOwnerIsCurrent = ownerIsCurrent;
     currentInsightsPort = insightsPort;
     mapRef = map;
+    session.addCleanup(onLanguageChange(() => {
+      if (!isCurrent()) return;
+      if (refreshDiaryPanel) refreshDiaryPanel();
+      else currentInsightsPort?.refresh();
+    }));
     session.addCleanup(() => cleanupDiaryMode(
       map,
       insightsPort,
@@ -1467,7 +1482,7 @@ export async function initDiaryMode(map, options = {}) {
     } catch (error) {
       console.warn('[Diary] Local history unavailable:', error);
       localDiaryEntries = [];
-      localStorageWarning = error?.message || 'Local Diary storage is unavailable.';
+      localStorageWarning = localizedDiaryError(error, 'diary.localStorageUnavailable');
     }
     if (!isCurrent()) {
       disposeDiarySession(session);

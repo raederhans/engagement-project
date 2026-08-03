@@ -1,5 +1,6 @@
 import { renderInsightsSections, setDiaryInsightEntries } from '../charts/diary_insights.js';
 import { createDiaryCard, createSectionTitle, createSecondaryButton } from './ui_common.js';
+import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
 
 export function createDiaryInsightsHost(root) {
   if (!root || typeof document === 'undefined') return null;
@@ -23,14 +24,15 @@ export function createDiaryInsightsHost(root) {
     const header = document.createElement('div');
     header.className = 'diary-insights-header';
     const titleWrap = document.createElement('div');
-    const title = createSectionTitle('Insights');
+    const title = createSectionTitle(t('diary.insights'));
+    setTranslatedText(title, 'diary.insights');
     const hint = document.createElement('div');
     hint.className = 'diary-muted-text';
-    hint.textContent = 'Local data · sample community';
+    setTranslatedText(hint, 'diary.insightsHint');
     titleWrap.appendChild(title);
     titleWrap.appendChild(hint);
 
-    toggleBtn = createSecondaryButton('Insights ▸');
+    toggleBtn = createSecondaryButton(t('diary.insightsCollapsed'));
     toggleBtn.classList.add('diary-insights-toggle');
     toggleBtn.addEventListener('click', () => setCollapsed(!collapsed));
 
@@ -43,7 +45,7 @@ export function createDiaryInsightsHost(root) {
     const intro = document.createElement('div');
     intro.className = 'diary-muted-text';
     intro.style.marginBottom = '4px';
-    intro.textContent = 'How this route compares over time and across nearby segments.';
+    setTranslatedText(intro, 'diary.insightsIntro');
     contentEl.appendChild(intro);
 
     trendEl = document.createElement('div');
@@ -74,7 +76,7 @@ export function createDiaryInsightsHost(root) {
       contentEl.style.display = collapsed ? 'none' : 'flex';
     }
     if (toggleBtn) {
-      toggleBtn.textContent = collapsed ? 'Insights ▸' : 'Insights ▾';
+      setTranslatedText(toggleBtn, collapsed ? 'diary.insightsCollapsed' : 'diary.insightsExpanded');
     }
     if (!collapsed) {
       updateContent();
@@ -83,6 +85,7 @@ export function createDiaryInsightsHost(root) {
 
   build();
   setCollapsed(true);
+  onLanguageChange(() => updateContent());
 
   return {
     show() {

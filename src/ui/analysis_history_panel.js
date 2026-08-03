@@ -1,8 +1,10 @@
-function button(label, action, id, reportActionError) {
+import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
+
+function button(key, action, id, reportActionError) {
   const element = document.createElement('button');
   element.type = 'button';
   element.className = 'analysis-history__action';
-  element.textContent = label;
+  setTranslatedText(element, key);
   element.addEventListener('click', () => {
     void Promise.resolve(action(id)).catch(reportActionError);
   });
@@ -12,8 +14,8 @@ function button(label, action, id, reportActionError) {
 function snapshotLabel(artifact) {
   const generatedAt = artifact.resultSummary?.generatedAt;
   return generatedAt
-    ? `Showing saved snapshot from ${new Date(generatedAt).toLocaleString()}.`
-    : 'Saved settings have no cached comparison.';
+    ? t('history.savedSnapshot', { date: new Date(generatedAt).toLocaleString() })
+    : t('history.noSnapshot');
 }
 
 export function createAnalysisHistoryView(mount, actions) {
@@ -22,18 +24,18 @@ export function createAnalysisHistoryView(mount, actions) {
 
   const heading = document.createElement('div');
   heading.className = 'analysis-history__heading';
-  heading.textContent = 'Recent analyses';
+  setTranslatedText(heading, 'history.title');
 
   const saveRow = document.createElement('div');
   saveRow.className = 'analysis-history__save';
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
   titleInput.maxLength = 120;
-  titleInput.placeholder = 'Analysis title (optional)';
-  titleInput.setAttribute('aria-label', 'Analysis title');
+  setTranslatedAttribute(titleInput, 'history.titlePlaceholder', 'placeholder');
+  setTranslatedAttribute(titleInput, 'history.titleAria', 'aria-label');
   const saveButton = document.createElement('button');
   saveButton.type = 'button';
-  saveButton.textContent = 'Save analysis';
+  setTranslatedText(saveButton, 'history.save');
   saveRow.append(titleInput, saveButton);
 
   const snapshot = document.createElement('div');
@@ -47,10 +49,17 @@ export function createAnalysisHistoryView(mount, actions) {
   const list = document.createElement('div');
   list.className = 'analysis-history__list';
   mount.append(heading, saveRow, snapshot, status, warning, list);
+  let lastRenderModel = null;
+  let refreshSnapshotTranslation = null;
 
   const reportActionError = (error) => {
     status.dataset.tone = 'warning';
-    status.textContent = error?.message || 'Analysis history action failed.';
+    if (error?.message) {
+      status.removeAttribute?.('data-i18n');
+      status.textContent = error.message;
+    } else {
+      setTranslatedText(status, 'history.failed');
+    }
   };
   saveButton.addEventListener('click', () => {
     void Promise.resolve(actions.onSave(titleInput.value)).catch(reportActionError);
@@ -64,45 +73,60 @@ export function createAnalysisHistoryView(mount, actions) {
     title.textContent = artifact.title;
     const meta = document.createElement('div');
     meta.className = 'analysis-history__meta';
-    meta.textContent = `${artifact.viewState.queryMode} · ${artifact.viewState.startMonth || 'current'} · ${new Date(artifact.updatedAt).toLocaleString()}`;
+    setTranslatedText(meta, 'history.meta', {
+      mode: artifact.viewState.queryMode,
+      month: artifact.viewState.startMonth || t('history.current'),
+      date: new Date(artifact.updatedAt).toLocaleString(),
+    });
     const dataStatus = document.createElement('div');
     dataStatus.className = 'analysis-history__data-status';
-    if (artifact.dataStatus === 'provenance-mismatch') dataStatus.textContent = 'Needs refresh';
-    else if (artifact.dataStatus === 'unknown') dataStatus.textContent = 'Source status unknown';
-    else dataStatus.textContent = 'Sources current';
+    if (artifact.dataStatus === 'provenance-mismatch') setTranslatedText(dataStatus, 'history.needsRefresh');
+    else if (artifact.dataStatus === 'unknown') setTranslatedText(dataStatus, 'history.sourceUnknown');
+    else setTranslatedText(dataStatus, 'history.sourcesCurrent');
     const controls = document.createElement('div');
     controls.className = 'analysis-history__actions';
     controls.append(
-      button('Open', actions.onRestore, artifact.id, reportActionError),
-      button('Share', actions.onShare, artifact.id, reportActionError),
-      button('Export', actions.onExport, artifact.id, reportActionError),
-      button('Rename', () => {
-        const next = window.prompt('Rename analysis', artifact.title);
+      button('history.open', actions.onRestore, artifact.id, reportActionError),
+      button('history.share', actions.onShare, artifact.id, reportActionError),
+      button('history.export', actions.onExport, artifact.id, reportActionError),
+      button('history.rename', () => {
+        const next = window.prompt(t('history.renamePrompt'), artifact.title);
         return next == null ? null : actions.onRename(artifact.id, next);
       }, artifact.id, reportActionError),
-      button('Delete', actions.onDelete, artifact.id, reportActionError),
+      button('history.delete', actions.onDelete, artifact.id, reportActionError),
     );
     card.append(title, meta, dataStatus, controls);
     return card;
   }
 
+  function renderModel({ items, warnings, canSave, pending }) {
+    saveButton.disabled = pending || !canSave;
+    titleInput.disabled = pending;
+    if (warnings?.length) {
+      setTranslatedText(warning, warnings.length === 1 ? 'history.warningOne' : 'history.warningMany', {
+        count: warnings.length,
+      });
+    } else {
+      warning.textContent = '';
+    }
+    list.replaceChildren(...items.map(renderItem));
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'analysis-history__empty';
+      setTranslatedText(empty, 'history.empty');
+      list.appendChild(empty);
+    }
+  }
+
+  onLanguageChange(() => {
+    if (lastRenderModel) renderModel(lastRenderModel);
+    refreshSnapshotTranslation?.();
+  });
+
   return Object.freeze({
-    render({ items, warnings, canSave, pending }) {
-      saveButton.disabled = pending || !canSave;
-      titleInput.disabled = pending;
-      if (warnings?.length) {
-        const itemLabel = warnings.length === 1 ? 'item' : 'items';
-        warning.textContent = `${warnings.length} saved ${itemLabel} could not be read. Valid items remain available.`;
-      } else {
-        warning.textContent = '';
-      }
-      list.replaceChildren(...items.map(renderItem));
-      if (!items.length) {
-        const empty = document.createElement('div');
-        empty.className = 'analysis-history__empty';
-        empty.textContent = 'No saved analyses in this browser yet.';
-        list.appendChild(empty);
-      }
+    render(model) {
+      lastRenderModel = model;
+      renderModel(model);
     },
     renderEligibility({ canSave, pending }) {
       saveButton.disabled = pending || !canSave;
@@ -121,19 +145,30 @@ export function createAnalysisHistoryView(mount, actions) {
     },
     showSnapshot(artifact) {
       snapshot.hidden = false;
-      snapshot.textContent = `${snapshotLabel(artifact)} Refreshing live data…`;
+      refreshSnapshotTranslation = () => {
+        setTranslatedText(snapshot, 'history.refreshing', { snapshot: snapshotLabel(artifact) });
+      };
+      refreshSnapshotTranslation();
     },
     showSnapshotState(artifact, refreshStatus) {
       snapshot.hidden = false;
-      let outcome = 'failed';
-      if (refreshStatus === 'cancelled') outcome = 'was cancelled';
-      else if (refreshStatus === 'superseded') outcome = 'was superseded';
-      const remainder = artifact.resultSummary ? 'the saved snapshot is still shown.' : 'there is still no cached comparison.';
-      snapshot.textContent = `${snapshotLabel(artifact)} Live refresh ${outcome}; ${remainder}`;
+      refreshSnapshotTranslation = () => {
+        let localizedOutcome = t('history.failedOutcome');
+        if (refreshStatus === 'cancelled') localizedOutcome = t('history.cancelled');
+        else if (refreshStatus === 'superseded') localizedOutcome = t('history.superseded');
+        const localizedRemainder = artifact.resultSummary ? t('history.snapshotShown') : t('history.noCachedComparison');
+        setTranslatedText(snapshot, 'history.refreshState', {
+          snapshot: snapshotLabel(artifact),
+          outcome: localizedOutcome,
+          remainder: localizedRemainder,
+        });
+      };
+      refreshSnapshotTranslation();
     },
     clearSnapshot() {
       snapshot.hidden = true;
       snapshot.textContent = '';
+      refreshSnapshotTranslation = null;
     },
   });
 }

@@ -21,7 +21,7 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
   assert.doesNotMatch(controller, /enhanceProgressiveSurface\(['"]compare-card['"]/);
-  assert.match(controller, /enhanceProgressiveSurface\(['"]charts['"],\s*['"]View charts and details['"]\)/);
+  assert.match(controller, /enhanceProgressiveSurface\(['"]charts['"],\s*['"]sheet\.viewDetails['"]\)/);
   assert.match(controller, /document\.createElement\(['"]details['"]\)/);
   assert.doesNotMatch(controller, /details\.open\s*=\s*true/);
   assert.match(html, /id="results-drawer"[^>]*aria-label="Analysis details"/i);

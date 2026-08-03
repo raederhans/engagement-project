@@ -1,5 +1,6 @@
 import { fetchPoints } from '../api/crime.js';
 import { categoryColorPairs } from '../utils/types.js';
+import { setTranslatedText } from '../i18n/index.js';
 
 function project3857(lon, lat) {
   const R = 6378137;
@@ -136,10 +137,10 @@ export async function refreshPoints(map, {
   const existsUnclustered = !!map.getLayer(unclusteredId);
   if (tooMany) {
     if (existsUnclustered) map.removeLayer(unclusteredId);
-    ensureBanner('Too many points — zoom in to see details.');
+    ensureBanner('map.tooManyPoints');
   } else {
     if (count === 0) {
-      ensureBanner('No incidents for selected filters — try expanding time window or offense groups');
+      ensureBanner('map.noPointIncidents');
       if (existsUnclustered) map.removeLayer(unclusteredId);
       return;
     }
@@ -175,7 +176,7 @@ export function clearCrimePoints(map) {
   hideBanner();
 }
 
-function ensureBanner(text) {
+function ensureBanner(key) {
   let el = document.getElementById('banner');
   if (!el) {
     el = document.createElement('div');
@@ -186,7 +187,7 @@ function ensureBanner(text) {
     });
     document.body.appendChild(el);
   }
-  el.textContent = text;
+  setTranslatedText(el, key);
   el.style.display = 'block';
 }
 

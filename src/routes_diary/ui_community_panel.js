@@ -1,4 +1,5 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
+import { setTranslatedText, t } from '../i18n/index.js';
 
 export function renderCommunityPanel(container, state = {}) {
   container.innerHTML = '';
@@ -6,16 +7,20 @@ export function renderCommunityPanel(container, state = {}) {
   const comments = state.comments || [];
 
   const notice = createDiaryCard();
-  notice.appendChild(createSectionTitle('Sample Community'));
+  const communityTitle = createSectionTitle(t('diary.sampleCommunity'));
+  setTranslatedText(communityTitle, 'diary.sampleCommunity');
+  notice.appendChild(communityTitle);
   const noticeText = document.createElement('div');
   noticeText.className = 'diary-muted-text';
-  noticeText.textContent = 'Illustrative, read-only sample data. No comments or ratings are shared with other people.';
+  setTranslatedText(noticeText, 'diary.communityNotice');
   notice.appendChild(noticeText);
   container.appendChild(notice);
 
   // High concern segments
   const segmentsCard = createDiaryCard();
-  segmentsCard.appendChild(createSectionTitle('High concern segments'));
+  const concernTitle = createSectionTitle(t('diary.highConcern'));
+  setTranslatedText(concernTitle, 'diary.highConcern');
+  segmentsCard.appendChild(concernTitle);
   const segList = document.createElement('div');
   segList.style.display = 'flex';
   segList.style.flexDirection = 'column';
@@ -34,7 +39,7 @@ export function renderCommunityPanel(container, state = {}) {
     const tags = document.createElement('div');
     tags.style.fontSize = '12px';
     tags.style.color = '#475569';
-    tags.textContent = `Tags: ${seg.tags}`;
+    setTranslatedText(tags, 'diary.tags', { tags: seg.tagsKey ? t(seg.tagsKey) : seg.tags });
     const badge = document.createElement('div');
     badge.className = 'diary-score-pill';
     badge.classList.add(seg.score < 2.5 ? 'is-bad' : seg.score < 4 ? 'is-mid' : 'is-good');
@@ -50,7 +55,9 @@ export function renderCommunityPanel(container, state = {}) {
 
   // Comments
   const commentsCard = createDiaryCard();
-  commentsCard.appendChild(createSectionTitle('Community comments'));
+  const commentsTitle = createSectionTitle(t('diary.communityComments'));
+  setTranslatedText(commentsTitle, 'diary.communityComments');
+  commentsCard.appendChild(commentsTitle);
   const list = document.createElement('div');
   list.style.display = 'flex';
   list.style.flexDirection = 'column';
@@ -65,11 +72,11 @@ export function renderCommunityPanel(container, state = {}) {
     author.textContent = c.user;
     const age = document.createElement('span');
     age.style.color = '#94a3b8';
-    age.textContent = ` ${c.ago}`;
+    age.textContent = ` ${c.agoKey ? t(c.agoKey) : c.ago}`;
     const text = document.createElement('div');
     text.style.marginTop = '2px';
     text.style.color = '#111827';
-    text.textContent = c.text;
+    text.textContent = c.textKey ? t(c.textKey) : c.text;
     row.append(author, age, text);
     list.appendChild(row);
   });

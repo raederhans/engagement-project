@@ -1,21 +1,23 @@
 import { CRIME_VIEW_QUERY_KEYS } from '../state/crime_view_state.js';
+import { applyTranslations, setTranslatedText, t } from '../i18n/index.js';
 
 const MODE_HELP = Object.freeze({
   crime: [
-    'Pick a location or geography, then choose a verified time window.',
-    'Offense groups and drilldown codes control which crime incidents are included.',
-    'Open data details for source dates, limitations, and fallback status.',
+    'help.crimeItem1',
+    'help.crimeItem2',
+    'help.crimeItem3',
   ],
   diary: [
-    'Choose a route, simulate or finish a trip, then add a short safety rating.',
-    'Diary entries are saved only in this browser unless you export a backup.',
-    'Sample community results are demo data and are not shared submissions.',
+    'help.diaryItem1',
+    'help.diaryItem2',
+    'help.diaryItem3',
   ],
 });
 
 export function getModeHelpItems(mode) {
-  return [...MODE_HELP[mode === 'diary' ? 'diary' : 'crime']];
+  return MODE_HELP[mode === 'diary' ? 'diary' : 'crime'].map((key) => t(key));
 }
+
 export function createModeUrlWriter({ getHref, replaceHref, getCrimeQuery }) {
   let crimeQuery = new URLSearchParams(getCrimeQuery?.() || '');
 
@@ -38,11 +40,13 @@ export function createModeUrlWriter({ getHref, replaceHref, getCrimeQuery }) {
 
 function replaceHelp(helpCard, mode) {
   if (!helpCard) return;
-  const normalized = mode === 'diary' ? 'diary' : 'crime';
-  const title = normalized === 'diary' ? 'Diary Help' : 'Crime Help';
-  const items = MODE_HELP[normalized].map((item) => `<li>${item}</li>`).join('');
-  helpCard.innerHTML = `<summary>${title}</summary><ul>${items}</ul>`;
+  const prefix = mode === 'diary' ? 'diary' : 'crime';
+  const titleKey = `help.${prefix}TitleShort`;
+  const items = MODE_HELP[prefix].map((key) => `<li data-i18n="${key}">${t(key)}</li>`).join('');
+  helpCard.innerHTML = `<summary data-i18n="${titleKey}">${t(titleKey)}</summary><ul>${items}</ul>`;
+  applyTranslations(helpCard);
 }
+
 function removeSkeletons(documentRef) {
   for (const skeleton of documentRef.querySelectorAll?.('[data-mode-skeleton]') || []) {
     skeleton.remove();
@@ -67,10 +71,10 @@ export function createModeSurfacePresenter({
       skeleton.setAttribute('role', 'status');
       skeleton.setAttribute('aria-live', 'polite');
       skeleton.className = 'mode-skeleton';
-      const title = currentMode === 'diary' ? 'Preparing Route Safety Diary' : 'Preparing Crime Explorer';
+      const titleKey = currentMode === 'diary' ? 'mode.preparingDiary' : 'mode.preparingCrime';
       skeleton.innerHTML = `
-        <strong>${title}</strong>
-        <span>Loading controls and data…</span>
+        <strong data-i18n="${titleKey}">${t(titleKey)}</strong>
+        <span data-i18n="mode.loadingControls">${t('mode.loadingControls')}</span>
       `;
       surface.insertBefore(skeleton, surface.firstChild || null);
     }
@@ -93,7 +97,9 @@ export function createModeSurfacePresenter({
     const status = documentRef?.querySelector?.('[data-app-data-status]');
     if (!status || snapshot.mode !== currentMode) return;
     status.dataset.phase = snapshot.phase;
-    status.textContent = snapshot.label;
+    const prefix = snapshot.mode === 'diary' ? 'diary' : 'crime';
+    const suffix = snapshot.phase === 'loading' ? 'Loading' : snapshot.phase === 'ready' ? 'Ready' : 'Unavailable';
+    setTranslatedText(status, `mode.status.${prefix}${suffix}`);
   };
 
   return Object.freeze({ showIntent, settle, showStatus });

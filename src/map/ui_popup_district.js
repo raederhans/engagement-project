@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { store } from '../state/store.js';
 import { fetchByDistrict, fetchTopTypesByDistrict } from '../api/crime.js';
 import { escapeHtml } from '../utils/html.js';
+import { t } from '../i18n/index.js';
 
 export function attachDistrictPopup(map, layer = 'districts-fill', {
   fetchByDistrictImpl = fetchByDistrict,
@@ -17,7 +18,7 @@ export function attachDistrictPopup(map, layer = 'districts-fill', {
       const f = e.features && e.features[0];
       if (!f) return;
       const code = String(f.properties?.DIST_NUMC || '').padStart(2, '0');
-      const name = f.properties?.name || `District ${code}`;
+      const name = f.properties?.name || t('crime.districtName', { code });
       const { start, end, types } = store.getFilters();
       const [byDist, topn] = await Promise.all([
         fetchByDistrictImpl({ start, end, types }),
@@ -28,14 +29,14 @@ export function attachDistrictPopup(map, layer = 'districts-fill', {
       const topRows = Array.isArray(topn?.rows) ? topn.rows : topn;
       const safeName = escapeHtml(name);
       const safeCode = escapeHtml(code);
-      const safeTopRows = (topRows || [])
-        .map((row) => `${escapeHtml(row.text_general_code)} (${Number(row.n) || 0})`)
+      const topRowsLabel = (topRows || [])
+        .map((row) => `${row.text_general_code} (${Number(row.n) || 0})`)
         .join(', ');
       const html = `
         <div style="min-width:220px">
           <div style="font-weight:600">${safeName} (${safeCode})</div>
-          <div>Total: ${Number(n) || 0}</div>
-          <div>Top 3: ${safeTopRows || '—'}</div>
+          <div>${escapeHtml(t('crime.popupTotal', { count: Number(n) || 0 }))}</div>
+          <div>${escapeHtml(t('crime.popupTop3', { items: topRowsLabel || '—' }))}</div>
         </div>`;
 
       if (popup) popup.remove();

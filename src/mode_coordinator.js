@@ -2,6 +2,7 @@ import {
   createLatestSerialQueue,
   waitForOwnedPromise,
 } from './utils/latest_serial_queue.js';
+import { setTranslatedText, t } from './i18n/index.js';
 
 async function waitForTransition(promise, signal) {
   try {
@@ -53,15 +54,14 @@ export function createModeCoordinator({
   let shortStatus = Object.freeze({
     mode: getCurrentMode() === 'diary' ? 'diary' : 'crime',
     phase: 'idle',
-    label: 'Data idle',
+    label: t('mode.status.idle'),
   });
   const statusListeners = new Set();
 
   const statusLabel = (mode, phase) => {
-    const name = mode === 'diary' ? 'Diary' : 'Crime';
-    if (phase === 'loading') return `${name} loading`;
-    if (phase === 'ready') return `${name} data ready`;
-    return `${name} data unavailable`;
+    const prefix = mode === 'diary' ? 'diary' : 'crime';
+    const suffix = phase === 'loading' ? 'Loading' : phase === 'ready' ? 'Ready' : 'Unavailable';
+    return t(`mode.status.${prefix}${suffix}`);
   };
 
   const publishStatus = (mode, phase) => {
@@ -169,7 +169,7 @@ export function createModeCoordinator({
         }
         if (initResult.value?.status !== 'ready') {
           diaryMount?.replaceChildren?.();
-          if (diaryMount) diaryMount.textContent = 'Diary data is unavailable. Reload to try again.';
+          if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
           activeMode = null;
           settleMode(mode, 'failed', ownsMode);
           return;

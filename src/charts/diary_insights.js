@@ -1,3 +1,5 @@
+import { setTranslatedText, t } from '../i18n/index.js';
+
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
 
 const DEMO_TAGS = {
@@ -70,8 +72,8 @@ const DEMO_TAGS = {
 };
 
 const insightsState = { scope: 'route', window: '30d' };
-const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const heatmapWindows = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Late night'];
+const heatmapDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const heatmapWindowKeys = ['morning', 'midday', 'afternoon', 'evening', 'lateNight'];
 const heatmapValues = [
   [0.15, 0.12, 0.2, 0.32, 0.22],
   [0.14, 0.2, 0.35, 0.62, 0.38],
@@ -127,6 +129,13 @@ function safetyColor(value) {
   return '#f87171';
 }
 
+function translatedTagLabel(label) {
+  const normalized = String(label || '').trim().toLowerCase().replaceAll(' ', '_');
+  const key = `tag.${normalized}`;
+  const translated = t(key);
+  return translated === key ? normalized.replaceAll('_', ' ') : translated;
+}
+
 function entriesForWindow(windowName) {
   if (windowName === 'all') return localInsightEntries;
   const days = windowName === '7d' ? 7 : windowName === '90d' ? 90 : 30;
@@ -137,17 +146,17 @@ function entriesForWindow(windowName) {
 function renderTrend(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Trend';
+  setTranslatedText(header, 'diary.trend');
   header.style.font = '600 14px/1.3 "Inter", system-ui';
   header.style.color = '#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'history'
-    ? 'Avg safety score along saved routes'
+  setTranslatedText(subtitle, insightsContext === 'history'
+    ? 'diary.trendHistory'
     : insightsContext === 'community'
-      ? 'Area demo visuals'
-      : 'Avg safety score along the route';
+      ? 'diary.trendCommunity'
+      : 'diary.trendLive');
   subtitle.style.font = '12px/1.3 "Inter", system-ui';
   subtitle.style.color = '#64748b';
   subtitle.style.marginBottom = '8px';
@@ -159,7 +168,7 @@ function renderTrend(container) {
   if (!trend.length) {
     const empty = document.createElement('div');
     empty.className = 'diary-muted-text';
-    empty.textContent = 'No saved ratings in this period.';
+    setTranslatedText(empty, 'diary.noRatingsPeriod');
     container.appendChild(empty);
     return;
   }
@@ -171,7 +180,7 @@ function renderTrend(container) {
   chart.style.height = '68px';
   const max = Math.max(...trend, 1);
   const trendLabels = insightsContext === 'community'
-    ? ['Start', '0.5 km', '1.0 km', '1.5 km', 'End']
+    ? [t('diary.start'), '0.5 km', '1.0 km', '1.5 km', t('diary.end')]
     : trend.map((_, index) => `#${index + 1}`);
   trend.forEach((v, idx) => {
     const bar = document.createElement('div');
@@ -202,13 +211,13 @@ function renderTrend(container) {
 function renderTags(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Top Tags';
+  setTranslatedText(header, 'diary.topTags');
   header.style.font = '600 13px/1.3 "Inter", system-ui';
   header.style.color = '#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'community' ? 'Sample feedback counts' : 'Ratings saved on this device';
+  setTranslatedText(subtitle, insightsContext === 'community' ? 'diary.sampleFeedback' : 'diary.savedOnDevice');
   subtitle.style.font = '12px/1.3 "Inter", system-ui';
   subtitle.style.color = '#64748b';
   subtitle.style.marginBottom = '8px';
@@ -222,15 +231,15 @@ function renderTags(container) {
   controls.style.alignItems = 'center';
 
   const scopes = [
-    { value: 'route', label: 'This route' },
-    { value: 'area', label: 'Nearby area' },
-    { value: 'city', label: 'Citywide' },
+    { value: 'route', key: 'diary.scopeRoute' },
+    { value: 'area', key: 'diary.scopeArea' },
+    { value: 'city', key: 'diary.scopeCity' },
   ];
   scopes.forEach((scope) => {
     if (insightsContext !== 'community') return;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = scope.label;
+    setTranslatedText(btn, scope.key);
     btn.className = 'diary-pill-btn';
     const sync = () => {
       const active = insightsState.scope === scope.value;
@@ -251,14 +260,14 @@ function renderTags(container) {
   ['7d', '30d', '90d', 'all'].forEach((value) => {
     const opt = document.createElement('option');
     opt.value = value;
-    opt.textContent =
+    setTranslatedText(opt,
       value === '7d'
-        ? 'Last week'
+        ? 'diary.lastWeek'
         : value === '30d'
-          ? 'Last 30d'
+          ? 'diary.last30d'
           : value === '90d'
-            ? 'Last 90d'
-            : 'All time';
+            ? 'diary.last90d'
+            : 'diary.allTime');
     windowSelect.appendChild(opt);
   });
   windowSelect.value = insightsState.window;
@@ -294,7 +303,7 @@ function renderTags(container) {
     if (!dataset.length) {
       const empty = document.createElement('div');
       empty.className = 'diary-muted-text';
-      empty.textContent = 'No saved tags in this period.';
+      setTranslatedText(empty, 'diary.noTagsPeriod');
       barsWrap.appendChild(empty);
       return;
     }
@@ -305,7 +314,7 @@ function renderTags(container) {
       row.style.alignItems = 'center';
       row.style.gap = '8px';
       const label = document.createElement('div');
-      label.textContent = tag.label;
+      label.textContent = translatedTagLabel(tag.label);
       label.style.flex = '1';
       label.style.font = '13px/1.3 "Inter", system-ui';
       label.style.color = '#0f172a';
@@ -338,15 +347,15 @@ function renderTags(container) {
 function renderHeatmap(container) {
   container.innerHTML = '';
   const header = document.createElement('div');
-  header.textContent = 'Weekday × time window';
+  setTranslatedText(header, 'diary.weekdayTime');
   header.style.font = '600 13px/1.3 "Inter", system-ui';
   header.style.color = '#0f172a';
   container.appendChild(header);
 
   const subtitle = document.createElement('div');
-  subtitle.textContent = insightsContext === 'community'
-    ? 'Sample intensity (higher Tue–Fri evenings)'
-    : 'When ratings were saved on this device';
+  setTranslatedText(subtitle, insightsContext === 'community'
+    ? 'diary.sampleIntensity'
+    : 'diary.savedWhen');
   subtitle.style.font = '12px/1.3 "Inter", system-ui';
   subtitle.style.color = '#64748b';
   subtitle.style.marginBottom = '8px';
@@ -354,7 +363,7 @@ function renderHeatmap(container) {
 
   const grid = document.createElement('div');
   grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = `84px repeat(${heatmapWindows.length}, 1fr)`;
+  grid.style.gridTemplateColumns = `84px repeat(${heatmapWindowKeys.length}, 1fr)`;
   grid.style.gap = '8px';
   grid.style.alignItems = 'center';
   grid.style.border = '1px solid #e2e8f0';
@@ -366,9 +375,9 @@ function renderHeatmap(container) {
 
   const empty = document.createElement('div');
   grid.appendChild(empty);
-  heatmapWindows.forEach((w) => {
+  heatmapWindowKeys.forEach((windowKey) => {
     const cell = document.createElement('div');
-    cell.textContent = w;
+    setTranslatedText(cell, `diary.time.${windowKey}`);
     cell.style.font = '11px/1.3 "Inter", system-ui';
     cell.style.color = '#475569';
     cell.style.textAlign = 'center';
@@ -380,9 +389,9 @@ function renderHeatmap(container) {
     ? heatmapValues
     : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).heatmap;
   const maxValue = Math.max(...values.flat(), 1);
-  heatmapDays.forEach((day, rowIdx) => {
+  heatmapDayKeys.forEach((dayKey, rowIdx) => {
     const label = document.createElement('div');
-    label.textContent = day;
+    setTranslatedText(label, `diary.day.${dayKey}`);
     label.style.font = '12px/1.3 "Inter", system-ui';
     label.style.color = '#0f172a';
     label.style.padding = '2px 0';
@@ -392,7 +401,7 @@ function renderHeatmap(container) {
       cell.style.height = '22px';
       cell.style.borderRadius = '6px';
       cell.style.background = barColor(val / maxValue);
-      cell.title = `${day} · ${val}`;
+      cell.title = `${t(`diary.day.${dayKey}`)} · ${val}`;
       grid.appendChild(cell);
     });
   });

@@ -118,6 +118,7 @@ try {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     permissions: ['clipboard-read', 'clipboard-write'],
+    locale: 'en-US',
   });
   const page = await context.newPage();
   const networkControl = {

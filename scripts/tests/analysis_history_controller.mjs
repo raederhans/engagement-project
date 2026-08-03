@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import '../../src/i18n/history.js';
 import {
   buildAnalysisShareUrl,
   createAnalysisHistoryController,
@@ -675,7 +676,7 @@ test('panel stays storage-agnostic and main loads history only after Crime becom
   assert.match(mainSource, /refreshFreshness\(/);
   assert.doesNotMatch(viewSource, /innerHTML\s*=/);
   assert.match(viewSource, /title\.textContent = artifact\.title/);
-  assert.match(viewSource, /Needs refresh/);
-  assert.match(viewSource, /Source status unknown/);
+  assert.match(viewSource, /history\.needsRefresh/);
+  assert.match(viewSource, /history\.sourceUnknown/);
   assert.match(viewSource, /Promise\.resolve\(action\(id\)\)\.catch\(reportActionError\)/);
 });

@@ -1,4 +1,5 @@
 import { createDiaryCard, createSectionTitle, createPill, createPrimaryButton, createSecondaryButton, createMutedCard } from './ui_common.js';
+import { setTranslatedText, t } from '../i18n/index.js';
 
 export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   container.innerHTML = '';
@@ -6,7 +7,9 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   // Route selector
   const routeCard = createDiaryCard();
-  routeCard.appendChild(createSectionTitle('Choose a demo route'));
+  const routeTitle = createSectionTitle(t('diary.chooseRoute'));
+  setTranslatedText(routeTitle, 'diary.chooseRoute');
+  routeCard.appendChild(routeTitle);
 
   const routeSelect = document.createElement('select');
   routeSelect.className = 'diary-select';
@@ -25,7 +28,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   summary.style.display = 'flex';
   summary.style.flexDirection = 'column';
   summary.style.gap = '4px';
-  summary.textContent = 'Select a route to see safety details.';
+  setTranslatedText(summary, 'diary.selectRouteDetails');
   summary.style.marginTop = '10px';
   refs.summaryEl = summary;
   routeCard.appendChild(summary);
@@ -35,7 +38,9 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   const actionsCard = createDiaryCard();
   const actionsHeader = document.createElement('div');
   actionsHeader.className = 'diary-section-header';
-  actionsHeader.appendChild(createSectionTitle('Comparison'));
+  const comparisonTitle = createSectionTitle(t('diary.comparison'));
+  setTranslatedText(comparisonTitle, 'diary.comparison');
+  actionsHeader.appendChild(comparisonTitle);
   actionsCard.appendChild(actionsHeader);
 
   const altToggleRow = document.createElement('label');
@@ -51,7 +56,9 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
     handlers.onToggleAlt?.(altToggle.checked);
   });
   altToggleRow.appendChild(altToggle);
-  altToggleRow.appendChild(document.createTextNode('Show alternative route'));
+  const altToggleLabel = document.createElement('span');
+  setTranslatedText(altToggleLabel, 'diary.showAlternative');
+  altToggleRow.appendChild(altToggleLabel);
   refs.altToggleEl = altToggle;
   actionsCard.appendChild(altToggleRow);
 
@@ -59,7 +66,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   altSummary.style.marginTop = '8px';
   altSummary.style.fontSize = '12px';
   altSummary.style.color = '#334155';
-  altSummary.textContent = 'Toggle to compare a safety-focused alternative.';
+  setTranslatedText(altSummary, 'diary.alternativeHint');
   refs.altSummaryEl = altSummary;
   actionsCard.appendChild(altSummary);
 
@@ -77,7 +84,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   const rateWrap = document.createElement('div');
   rateWrap.className = 'diary-rate-action';
   rateWrap.style.marginTop = '10px';
-  const rateBtn = createPrimaryButton('Rate this route');
+  const rateBtn = createPrimaryButton(t('diary.rateRoute'));
+  setTranslatedText(rateBtn, 'diary.rateRoute');
   rateBtn.style.width = '100%';
   rateBtn.style.padding = '12px 14px';
   rateBtn.style.fontSize = '14px';
@@ -93,7 +101,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   actionsCard.appendChild(rateWrap);
 
   const hint = document.createElement('div');
-  hint.textContent = 'Zoom to levels 10–14 to see the gray road grid beneath the safety colors.';
+  setTranslatedText(hint, 'diary.roadGridHint');
   hint.className = 'diary-muted-text';
   hint.style.marginTop = '8px';
   hint.style.lineHeight = '1.4';
@@ -103,10 +111,12 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   // Simulator
   const simCard = createDiaryCard();
-  simCard.appendChild(createSectionTitle('Simulator'));
+  const simulatorTitle = createSectionTitle(t('diary.simulator'));
+  setTranslatedText(simulatorTitle, 'diary.simulator');
+  simCard.appendChild(simulatorTitle);
   const simHint = document.createElement('div');
   simHint.className = 'diary-muted-text';
-  simHint.textContent = 'Play through this route step by step.';
+  setTranslatedText(simHint, 'diary.simulatorHint');
   simCard.appendChild(simHint);
 
   const simControls = document.createElement('div');
@@ -114,19 +124,22 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   simControls.style.gap = '8px';
   simControls.style.marginTop = '10px';
 
-  const playBtn = createSecondaryButton('Play');
+  const playBtn = createSecondaryButton(t('diary.play'));
+  setTranslatedText(playBtn, 'diary.play');
   playBtn.style.flex = '1';
   playBtn.addEventListener('click', () => handlers.onPlay?.());
   refs.playButtonEl = playBtn;
   simControls.appendChild(playBtn);
 
-  const pauseBtn = createSecondaryButton('Pause');
+  const pauseBtn = createSecondaryButton(t('diary.pause'));
+  setTranslatedText(pauseBtn, 'diary.pause');
   pauseBtn.style.flex = '1';
   pauseBtn.addEventListener('click', () => handlers.onPause?.());
   refs.pauseButtonEl = pauseBtn;
   simControls.appendChild(pauseBtn);
 
-  const finishBtn = createSecondaryButton('Finish → Rate');
+  const finishBtn = createSecondaryButton(t('diary.finishRate'));
+  setTranslatedText(finishBtn, 'diary.finishRate');
   finishBtn.style.flex = '1';
   finishBtn.addEventListener('click', () => handlers.onFinish?.());
   refs.finishButtonEl = finishBtn;
@@ -137,7 +150,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   const playbackLabel = document.createElement('div');
   playbackLabel.className = 'diary-label';
   playbackLabel.style.marginTop = '12px';
-  playbackLabel.textContent = 'Playback speed';
+  setTranslatedText(playbackLabel, 'diary.playbackSpeed');
   simCard.appendChild(playbackLabel);
 
   const playbackRow = document.createElement('div');
@@ -158,24 +171,26 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   // Filters
   const filterCard = createDiaryCard();
-  filterCard.appendChild(createSectionTitle('Filters'));
+  const filtersTitle = createSectionTitle(t('diary.filters'));
+  setTranslatedText(filtersTitle, 'diary.filters');
+  filterCard.appendChild(filtersTitle);
 
   const periodLabel = document.createElement('div');
   periodLabel.className = 'diary-label';
-  periodLabel.textContent = 'Demo period';
+  setTranslatedText(periodLabel, 'diary.demoPeriod');
   periodLabel.style.marginTop = '8px';
   filterCard.appendChild(periodLabel);
 
   const periodSelect = document.createElement('select');
   periodSelect.className = 'diary-select';
   [
-    { value: 'day', label: 'Single day' },
-    { value: 'week', label: 'Last 7 days' },
-    { value: 'month', label: 'Last 30 days' },
+    { value: 'day', key: 'diary.singleDay' },
+    { value: 'week', key: 'diary.last7Days' },
+    { value: 'month', key: 'diary.last30Days' },
   ].forEach((opt) => {
     const option = document.createElement('option');
     option.value = opt.value;
-    option.textContent = opt.label;
+    setTranslatedText(option, opt.key);
     periodSelect.appendChild(option);
   });
   periodSelect.value = state.demoPeriod || 'day';
@@ -184,28 +199,29 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   const timeLabel = document.createElement('div');
   timeLabel.className = 'diary-label';
-  timeLabel.textContent = 'Time of day';
+  setTranslatedText(timeLabel, 'diary.timeOfDay');
   timeLabel.style.marginTop = '10px';
   filterCard.appendChild(timeLabel);
 
   const timeSelect = document.createElement('select');
   timeSelect.className = 'diary-select';
   [
-    { value: 'all', label: 'All hours' },
-    { value: 'day', label: 'Daytime' },
-    { value: 'evening', label: 'Evening' },
-    { value: 'night', label: 'Night' },
+    { value: 'all', key: 'diary.allHours' },
+    { value: 'day', key: 'diary.daytime' },
+    { value: 'evening', key: 'diary.evening' },
+    { value: 'night', key: 'diary.night' },
   ].forEach((opt) => {
     const option = document.createElement('option');
     option.value = opt.value;
-    option.textContent = opt.label;
+    setTranslatedText(option, opt.key);
     timeSelect.appendChild(option);
   });
   timeSelect.value = state.timeFilter || 'all';
   timeSelect.addEventListener('change', () => handlers.onTimeFilterChange?.(timeSelect.value));
   filterCard.appendChild(timeSelect);
 
-  const historyBtn = createPill('Open My routes', { active: false });
+  const historyBtn = createPill(t('diary.openRoutes'), { active: false });
+  setTranslatedText(historyBtn, 'diary.openRoutes');
   historyBtn.style.marginTop = '10px';
   historyBtn.style.width = '100%';
   historyBtn.addEventListener('click', () => handlers.onOpenHistory?.());
@@ -218,7 +234,7 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
     routeSelect.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = 'Select a route';
+    setTranslatedText(placeholder, 'diary.selectRoute');
     routeSelect.appendChild(placeholder);
     state.routes.features.forEach((feature) => {
       const props = feature.properties || {};

@@ -1,4 +1,5 @@
 const SHEET_STATES = ['collapsed', 'half', 'full'];
+import { setTranslatedAttribute, setTranslatedText } from '../i18n/index.js';
 
 export function nextSheetState(currentState, direction) {
   const currentIndex = Math.max(0, SHEET_STATES.indexOf(currentState));
@@ -35,10 +36,12 @@ function setSheetState(sheet, state) {
   if (!handle || !content) return;
   const collapsed = sheet.dataset.sheetState === 'collapsed';
   const nextState = cycleSheetState(sheet.dataset.sheetState);
-  const label = nextState === 'collapsed'
-    ? 'Collapse panel'
-    : `Expand panel to ${nextState}`;
-  handle.setAttribute('aria-label', label);
+  const labelKey = nextState === 'collapsed'
+    ? 'sheet.collapse'
+    : nextState === 'half'
+      ? 'sheet.expandHalf'
+      : 'sheet.expandFull';
+  setTranslatedAttribute(handle, labelKey, 'aria-label');
   handle.setAttribute('aria-expanded', String(!collapsed));
   handle.setAttribute('aria-controls', content.id);
   content.inert = collapsed;
@@ -67,7 +70,7 @@ function enhanceProgressiveSurface(id, label) {
   const details = document.createElement('details');
   details.className = 'progressive-surface';
   const summary = document.createElement('summary');
-  summary.textContent = label;
+  setTranslatedText(summary, label);
   surface.before(details);
   details.append(summary, surface);
 }
@@ -75,7 +78,7 @@ function enhanceProgressiveSurface(id, label) {
 export function initShell() {
   const sheet = document.getElementById('sidepanel');
   if (sheet) addSheetHandle(sheet);
-  enhanceProgressiveSurface('charts', 'View charts and details');
+  enhanceProgressiveSurface('charts', 'sheet.viewDetails');
 }
 
 if (typeof document !== 'undefined') {

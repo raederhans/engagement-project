@@ -81,7 +81,7 @@ test('rating modal source keeps the accessibility and responsive layout contract
   assert.match(source, /role', 'dialog'/);
   assert.match(source, /aria-modal', 'true'/);
   assert.match(source, /aria-labelledby'/);
-  assert.match(source, /Step \$\{stepIndex \+ 1\} of 3/);
+  assert.match(source, /rating\.step/);
   assert.match(source, /position:\s*sticky/);
   assert.match(source, /min-(?:width|height):\s*48px/);
   assert.match(source, /@media \(max-width: 640px\)/);
