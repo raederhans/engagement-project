@@ -42,6 +42,15 @@ export function setComparisonFieldsVisible({ button, fields }, visible) {
   return expanded;
 }
 
+export function fitMultiSelectRows(select, maxRows = 6) {
+  if (!select) return 0;
+  const optionCount = Number(select.options?.length) || 0;
+  const ceiling = Math.max(1, Number(maxRows) || 1);
+  const rows = Math.max(1, Math.min(Math.floor(optionCount), Math.floor(ceiling)));
+  select.size = rows;
+  return rows;
+}
+
 /**
  * Wire the side panel controls to the store and notify on changes.
  * @param {import('../state/store.js').Store} store
@@ -334,9 +343,11 @@ export function initPanel(store, handlers) {
         // No parent groups selected
         fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
         fineSel.disabled = true;
+        fitMultiSelectRows(fineSel);
       } else {
         fineSel.disabled = false;
         fineSel.innerHTML = `<option data-i18n="crime.loadingCodes" disabled>${t('crime.loadingCodes')}</option>`;
+        fitMultiSelectRows(fineSel);
 
         try {
           const { start, end } = store.getStartEnd();
@@ -344,7 +355,7 @@ export function initPanel(store, handlers) {
 
           fineSel.innerHTML = '';
           if (availableCodes.length === 0) {
-          fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
+            fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
           } else {
             for (const c of availableCodes) {
               const opt = document.createElement('option');
@@ -357,9 +368,11 @@ export function initPanel(store, handlers) {
               store.selectedDrilldownCodes = requestedCodes.filter((code) => availableCodes.includes(code));
             }
           }
+          fitMultiSelectRows(fineSel);
         } catch (err) {
           console.warn('Failed to fetch available codes:', err);
-        fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
+          fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
+          fitMultiSelectRows(fineSel);
         }
       }
     }
@@ -491,6 +504,7 @@ export function initPanel(store, handlers) {
   if (fineSel) {
     fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
     fineSel.disabled = true;
+    fitMultiSelectRows(fineSel);
   }
 
   if (groupSel && store.selectedGroups?.length) {

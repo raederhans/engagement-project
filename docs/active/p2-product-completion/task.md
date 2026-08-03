@@ -2,13 +2,13 @@
 
 ## Current status
 
-P2 execution started. The clean integration worktree and durable task record exist; stacked-delivery semantic integration is next.
+P2 execution is active. Comparison details and adaptive drilldown rows have been semantically replayed on current main without regressing the P1 class-based and accessibility contracts.
 
 ## Checklist
 
 - [x] Verify `origin/main`, all worktrees, branch heads, dirt, and user-owned WIP.
 - [x] Create the isolated P2 integration worktree and branch.
-- [ ] Integrate and verify PR #49 comparison details.
+- [x] Integrate and verify PR #49 comparison details.
 - [ ] Integrate and verify PR #50 chart studio.
 - [ ] Integrate and verify PR #51 incident details.
 - [ ] Integrate and verify PR #53 summary insights.
@@ -29,6 +29,7 @@ P2 execution started. The clean integration worktree and durable task record exi
 | Worktree audit | Primary WIP preserved; five stacked P2 worktrees are clean and track their remote branches. |
 | Existing PR CI | PRs #49, #50, #51, #53, and #55 each report a successful `validate` check on their current head. |
 | P2 worktree | Clean `codex/p2-product-completion` created from current `origin/main`. |
+| Comparison integration | Detailed A/B metrics, truthful unavailable states, preserved disclosure state, and adaptive native drilldown rows pass `test:ui-p0`, `test:i18n`, and `test:p1-ui`; dynamic bars use class-owned native progress elements. |
 
 ## Open risks and remaining work
 

@@ -12,6 +12,10 @@ function localized(key, params = {}) {
   return `<span data-i18n="${key}"${serialized}>${escapeHtml(t(key, params))}</span>`;
 }
 
+function detailText(key, params = {}) {
+  return escapeHtml(t(key, params));
+}
+
 function fmtPct(v) {
   return v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 }
@@ -90,6 +94,102 @@ function renderComparisonPoint(label, point) {
     </div>`;
 }
 
+function finiteMetric(value, formatter) {
+  if (value == null || value === '') return detailText('summary.metricUnavailable');
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? formatter(number)
+    : detailText('summary.metricUnavailable');
+}
+
+function comparisonInsight(a, b) {
+  const aTotal = Number(a?.total) || 0;
+  const bTotal = Number(b?.total) || 0;
+  const difference = aTotal - bTotal;
+  if (difference === 0) return detailText('summary.sameIncidents');
+  const relative = bTotal > 0 ? (Math.abs(difference) / bTotal) * 100 : null;
+  const direction = difference > 0 ? 'moreIncidents' : 'fewerIncidents';
+  return detailText(`summary.${direction}${relative == null ? '' : 'Relative'}`, {
+    label: a?.label || t('summary.selectedArea'),
+    count: Math.abs(difference),
+    other: b?.label || t('summary.comparisonArea'),
+    percent: relative?.toFixed(1),
+  });
+}
+
+function renderCategoryList(point, fallbackLabel) {
+  const label = point?.label || fallbackLabel;
+  const total = Number(point?.total) || 0;
+  const rows = Array.isArray(point?.top3) ? point.top3.slice(0, 3) : [];
+  const content = rows.length
+    ? `<ol>${rows.map((row) => {
+        const count = Math.max(0, Number(row?.n) || 0);
+        const share = total > 0 ? Math.min(100, (count / total) * 100) : 0;
+        return `<li>
+          <div class="crime-comparison-category__label">
+            <span>${escapeHtml(row?.text_general_code || t('summary.noCategory'))}</span>
+            <span>${detailText('summary.categoryValue', { count, share: share.toFixed(1) })}</span>
+          </div>
+          <progress class="crime-comparison-category__track" max="100" value="${share.toFixed(1)}" aria-hidden="true"></progress>
+        </li>`;
+      }).join('')}</ol>`
+    : `<p class="crime-comparison-categories__empty">${detailText('summary.noCategoryData')}</p>`;
+  return `<section class="crime-comparison-categories__area">
+    <h5>${escapeHtml(label)}</h5>
+    ${content}
+  </section>`;
+}
+
+function renderComparisonDetails(a, b) {
+  const aLabel = a?.label || t('summary.selectedArea');
+  const bLabel = b?.label || t('summary.comparisonArea');
+  const metricUnavailable = () => detailText('summary.metricUnavailable');
+  const totalA = Number(a?.total) || 0;
+  const totalB = Number(b?.total) || 0;
+  const rateA = finiteMetric(a?.per10k, (value) => value.toFixed(1));
+  const rateB = finiteMetric(b?.per10k, (value) => value.toFixed(1));
+  const trendA = a?.delta30 == null ? metricUnavailable() : fmtPct(Number(a.delta30));
+  const trendB = b?.delta30 == null ? metricUnavailable() : fmtPct(Number(b.delta30));
+
+  return `<details class="crime-comparison-details">
+    <summary>${detailText('summary.detailedComparison')}</summary>
+    <div class="crime-comparison-details__body">
+      <p class="crime-comparison-details__insight">${comparisonInsight(a, b)}</p>
+      <div class="crime-comparison-table-wrap">
+        <table class="crime-comparison-table" aria-label="${escapeHtml(t('summary.detailedComparisonTable'))}" data-i18n-aria-label="summary.detailedComparisonTable">
+          <thead><tr>
+            <th scope="col">${detailText('summary.metric')}</th>
+            <th scope="col">${escapeHtml(aLabel)}</th>
+            <th scope="col">${escapeHtml(bLabel)}</th>
+          </tr></thead>
+          <tbody>
+            <tr><th scope="row">${detailText('summary.reportedMetric')}</th><td>${totalA}</td><td>${totalB}</td></tr>
+            <tr><th scope="row">${detailText('summary.per10kMetric')}</th><td>${rateA}</td><td>${rateB}</td></tr>
+            <tr><th scope="row">${detailText('summary.recentChangeMetric')}</th><td>${trendA}</td><td>${trendB}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <section class="crime-comparison-categories" aria-label="${escapeHtml(t('summary.topCategories'))}">
+        <h4>${detailText('summary.topCategories')}</h4>
+        <div class="crime-comparison-categories__grid">
+          ${renderCategoryList(a, t('summary.selectedArea'))}
+          ${renderCategoryList(b, t('summary.comparisonArea'))}
+        </div>
+      </section>
+      <p class="crime-comparison-details__notice">${detailText('summary.detailsNotice')}</p>
+    </div>
+  </details>`;
+}
+
+export function bindComparisonDisclosure(details, state) {
+  if (!details || !state) return false;
+  details.open = Boolean(state.open);
+  details.addEventListener?.('toggle', () => {
+    state.open = Boolean(details.open);
+  });
+  return true;
+}
+
 export function buildCrimeSummaryHtml({ a, b } = {}, {
   start,
   end,
@@ -107,6 +207,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
       <h3 data-i18n="summary.areaComparison">${t('summary.areaComparison')}</h3>
       ${renderComparisonPoint(t('summary.selectedArea'), a)}
       ${renderComparisonPoint(t('summary.comparisonArea'), b)}
+      ${renderComparisonDetails(a, b)}
     </div>` : '';
 
   return `
@@ -126,6 +227,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
 function createDefaultCompareView(context = {}) {
   const element = document.getElementById('compare-card');
   if (!element) return null;
+  const comparisonDisclosureState = { open: false };
   const render = (commit) => {
     refreshDefaultCompareView = commit;
     commit();
@@ -140,8 +242,10 @@ function createDefaultCompareView(context = {}) {
     },
     success(result) {
       render(() => {
+        if (!result?.b) comparisonDisclosureState.open = false;
         element.innerHTML = buildCrimeSummaryHtml(result, context);
         applyTranslations(element);
+        bindComparisonDisclosure(element.querySelector?.('.crime-comparison-details'), comparisonDisclosureState);
       });
     },
     error(error) {
