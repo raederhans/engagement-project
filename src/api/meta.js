@@ -1,5 +1,6 @@
-import { CARTO_SQL_BASE } from '../config.js';
+import { CARTO_SQL_BASE, TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson, logQuery } from "../utils/http.js";
+import { publicUrl } from '../utils/public_url.js';
 
 const SQL = "SELECT MIN(dispatch_date_time)::date AS min_dt, MAX(dispatch_date_time)::date AS max_dt FROM incidents_part1_part2";
 
@@ -16,6 +17,27 @@ export async function fetchCoverage({ ttlMs = 24 * 60 * 60 * 1000 } = {}) {
   await logQuery?.("coverage_sql", `${Date.now() - t0}ms ${url} :: ${SQL}`);
   const row = json?.rows?.[0] || {};
   return { min: row.min_dt, max: row.max_dt };
+}
+
+export async function fetchTractCrimeSnapshotCoverage({
+  ttlMs = 5 * 60 * 1000,
+  retries = 0,
+  timeoutMs = 1500,
+} = {}) {
+  if (!TRACT_CRIME_SNAPSHOT_ENABLED) return null;
+  const snapshot = await fetchJson(publicUrl('data/tract_crime_counts_last12m.json'), {
+    cacheTTL: ttlMs,
+    retries,
+    timeoutMs,
+  });
+  const meta = snapshot?.meta;
+  if (!meta) return null;
+  return {
+    start: meta.start || null,
+    end: meta.end || null,
+    coverageDate: meta.coverage_date || null,
+    generatedAt: meta.generated_at || null,
+  };
 }
 
 export function clampToCoverage({ start, end }, { min, max }) {
