@@ -50,7 +50,7 @@ A calm civic map workbench: a muted full-canvas map, one clear task surface, res
 - [x] Stage 3: Reorder the Crime task flow and default to one primary analytical layer.
 - [x] Stage 4: Separate Crime and Diary loading, Help, URL, and status semantics.
 - [x] Stage 5: Replace the Diary rating modal with a staged mobile-first flow.
-- [ ] Stage 6: Run full validation, browser acceptance, independent review, GitHub integration, and public Pages verification.
+- [x] Stage 6: Run full validation, browser acceptance, independent review, GitHub integration, and public Pages verification.
 
 ## Acceptance criteria
 
