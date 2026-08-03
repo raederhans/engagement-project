@@ -49,4 +49,4 @@
 
 ## Next step
 
-Wait for Draft PR #42 GitHub validation and review; keep PR #41 Draft and do not deploy Pages until the layered delivery is accepted.
+Review Draft PR #42; its GitHub `validate` run `30793889757` passed. Keep PR #41 Draft and do not deploy Pages until the layered delivery is accepted.

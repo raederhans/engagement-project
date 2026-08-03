@@ -2,7 +2,7 @@
 
 ## Current status
 
-The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88c` through merge commit `541cb1d`, pushed without history rewriting, and opened as layered Draft PR #42. Local implementation and verification are complete; GitHub validation and review remain external gates.
+The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88c` through merge commit `541cb1d`, pushed without history rewriting, and opened as layered Draft PR #42. Local verification and GitHub `validate` are complete; review remains the external gate.
 
 ## Checklist
 
@@ -46,10 +46,11 @@ The original bilingual delivery at `d383e30` has been reconciled with P1 `614e88
 | Final diff review | No conflict markers; `git diff --check` and staged diff checks passed; `.gitignore` remained unstaged. |
 | Merge commit and remote | `541cb1d` has parents `d383e30` and `614e88c`; `origin/codex/bilingual-localization` advanced by ordinary fast-forward push. |
 | Localization PR | Draft PR #42 targets `codex/p1-ui`; PR #41 remains Draft; no merge or Pages deployment was performed. |
+| GitHub validation | PR #42 CI run `30793889757` passed dependency audit, full validation, Playwright installation, and browser smoke. |
 
 ## Open risks and remaining work
 
 - Vite still emits its pre-existing large-entry advisory, but the enforced raw/gzip bundle budgets pass.
 - Raw third-party/API diagnostic details remain untranslated when shown after a localized summary; stable application-owned errors are localized.
 - Unrelated `.gitignore` WIP remains intentionally unstaged.
-- Draft PR #42 GitHub validation and review are still pending; PR #41 remains Draft and Pages must not be deployed.
+- Draft PR #42 still needs review; PR #41 remains Draft and Pages must not be deployed.
