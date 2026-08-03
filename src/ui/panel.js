@@ -209,6 +209,7 @@ export function initPanel(store, handlers) {
   const bufferSelectRow = document.getElementById('bufferSelectRow');
   const bufferRadiusRow = document.getElementById('bufferRadiusRow');
   const radiusSel = document.getElementById('radiusSel');
+  const customRadiusInput = document.getElementById('customRadiusInput');
   const groupSel = document.getElementById('groupSel');
   const fineSel = document.getElementById('fineSel');
   const rateSel = document.getElementById('rateSel');
@@ -339,13 +340,28 @@ export function initPanel(store, handlers) {
   addrA?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('A'); });
   addrB?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('B'); });
 
-  const radiusImmediate = () => {
-    store.radius = Number(radiusSel.value) || 400;
-    handlers.onRadiusInput?.(store.radius);
+  function syncRadiusControls() {
+    const radius = store.radius || 400;
+    const preset = [200, 400, 800, 1200, 1600, 2400].includes(radius);
+    if (radiusSel) radiusSel.value = preset ? radius : 'custom';
+    if (customRadiusInput) customRadiusInput.value = radius;
+  }
+  function applyRadius(value) {
+    const radius = Number(value);
+    if (!Number.isInteger(radius) || radius < 100 || radius > 10_000 || store.radius === radius) return;
+    store.radius = radius;
+    handlers.onRadiusInput?.(radius);
     onChange();
-  };
-  radiusSel?.addEventListener('change', radiusImmediate);
-  radiusSel?.addEventListener('input', radiusImmediate);
+  }
+  radiusSel?.addEventListener('change', () => {
+    if (radiusSel.value !== 'custom') applyRadius(radiusSel.value);
+  });
+  customRadiusInput?.addEventListener('change', () => {
+    if (customRadiusInput.reportValidity()) applyRadius(customRadiusInput.value);
+  });
+  customRadiusInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && customRadiusInput.reportValidity()) applyRadius(customRadiusInput.value);
+  });
 
   async function populateDrilldown(values, { preserveSelection = false } = {}) {
     const requestedCodes = preserveSelection ? [...(store.selectedDrilldownCodes || [])] : [];
@@ -500,7 +516,6 @@ export function initPanel(store, handlers) {
   });
 
   // initialize defaults
-  if (radiusSel) radiusSel.value = String(store.radius || 400);
   if (addrA) addrA.value = store.addressA || '';
   if (addrB) addrB.value = store.addressB || '';
   if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
@@ -670,6 +685,7 @@ export function initPanel(store, handlers) {
       startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    syncRadiusControls();
     if (dataStatus) {
       const status = describeCoverageStatus(store);
       dataStatus.dataset.tone = status.tone;

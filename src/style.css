@@ -46,6 +46,12 @@ body {
   color: var(--text-main);
 }
 
+#customRadiusRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+}
+
 .diary-panel-shell {
   display: flex;
   flex-direction: column;

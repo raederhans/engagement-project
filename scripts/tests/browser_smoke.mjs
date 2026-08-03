@@ -259,6 +259,47 @@ try {
     1,
     'One settled geocode must own exactly one Crime refresh API generation',
   );
+  const pointRefreshRequestsBeforePresetRadius = networkControl.pointRefreshRequests;
+  await page.locator('#radiusSel').selectOption('1200');
+  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('radius') === '1200');
+  await page.waitForTimeout(1200);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforePresetRadius,
+    1,
+    'One preset radius selection must own exactly one Crime refresh API generation',
+  );
+  await page.locator('#radiusSel').selectOption('custom');
+  const pointRefreshRequestsBeforeCustomRadius = networkControl.pointRefreshRequests;
+  await page.locator('#customRadiusInput').fill('99');
+  await page.locator('#customRadiusInput').press('Enter');
+  await page.waitForTimeout(300);
+  assert.equal(new URL(page.url()).searchParams.get('radius'), '1200');
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeCustomRadius,
+    'An out-of-range custom radius must not change the URL or refresh Crime results',
+  );
+  await page.locator('#customRadiusInput').fill('1375');
+  await page.waitForTimeout(500);
+  assert.equal(new URL(page.url()).searchParams.get('radius'), '1200');
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeCustomRadius,
+    'Typing a custom radius must not refresh Crime results before commit',
+  );
+  await page.locator('#customRadiusInput').press('Enter');
+  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('radius') === '1375');
+  await page.waitForTimeout(1200);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCustomRadius,
+    1,
+    'Committing a custom radius must own exactly one Crime refresh API generation',
+  );
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.locator('#radiusSel').inputValue(), 'custom');
+  assert.equal(await page.locator('#customRadiusInput').inputValue(), '1375');
+  assert.equal(await page.locator('#customRadiusRow').isVisible(), true);
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');

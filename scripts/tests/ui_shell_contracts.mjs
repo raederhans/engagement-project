@@ -69,6 +69,15 @@ test('Crime task panel leads with location and defers comparison and advanced co
   assert.doesNotMatch(html, />Controls<\/div>/i);
 });
 
+test('Crime buffer radius offers useful presets and an accessible custom value', () => {
+  const radiusSelect = html.match(/<select\b[^>]*id="radiusSel"[^>]*>([\s\S]*?)<\/select>/i)?.[1] || '';
+  const values = [...radiusSelect.matchAll(/<option\b[^>]*value="([^"]+)"/gi)].map((match) => match[1]);
+  assert.deepEqual(values, ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  assert.match(html, /id="customRadiusRow"/);
+  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*type="number"[^>]*min="100"[^>]*max="10000"/i);
+  assert.match(css, /#customRadiusRow\s*\{[^}]*display:\s*grid/s);
+});
+
 test('desktop and mobile controls use the product target-size tokens', () => {
   assert.match(css, /--control-target:\s*44px\s*;/);
   assert.match(css, /@media\s*\([^)]*max-width:\s*720px[^)]*\)[\s\S]*--control-target:\s*48px\s*;/);
