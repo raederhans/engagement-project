@@ -76,6 +76,7 @@ export function createAnalysisHistoryController({
   setViewMode: applyViewMode = setViewMode,
   syncControls = () => {},
   syncCanonicalUrl = () => {},
+  focusAnalysis = async () => false,
   scheduleCrime,
   cancelCrimeTransition = () => false,
   getCurrentCrimeProvenance = () => ({}),
@@ -194,12 +195,22 @@ export function createAnalysisHistoryController({
       applyViewMode('crime', { silent: true });
       syncControls();
       syncCanonicalUrl();
+      view.setCurrentArtifact?.(artifact.id);
+      try {
+        await focusAnalysis(artifact.viewState, {
+          isCurrent: () => isCurrentRestore(token),
+        });
+      } catch (error) {
+        if (isCurrentRestore(token)) console.warn('Map focus failed:', error);
+      }
+      if (!isCurrentRestore(token)) return { status: 'superseded' };
 
       const refresh = await scheduleCrime('crime');
       if (!isCurrentRestore(token)) return { status: 'superseded' };
       if (refresh?.status === 'live') {
         view.clearSnapshot();
         renderCachedList();
+        view.focusRestoreAction?.(artifact.id);
       } else {
         const status = refresh?.status === 'superseded' ? 'superseded' : 'failed';
         renderComparison(artifact.resultSummary);
@@ -228,6 +239,9 @@ export function createAnalysisHistoryController({
     },
     sync() {
       view.renderEligibility?.({ canSave: canSaveAnalysis(store), pending: pendingAction });
+    },
+    setCurrentArtifact(id) {
+      view.setCurrentArtifact?.(id || null);
     },
     cancelPendingRestore() {
       restoreGeneration += 1;
@@ -270,6 +284,7 @@ export async function initAnalysisHistory({
   store,
   syncControls,
   syncCanonicalUrl,
+  focusAnalysis,
   scheduleCrime,
   cancelCrimeTransition,
   getCurrentCrimeProvenance,
@@ -297,6 +312,7 @@ export async function initAnalysisHistory({
     view,
     syncControls,
     syncCanonicalUrl,
+    focusAnalysis,
     scheduleCrime,
     cancelCrimeTransition,
     getCurrentCrimeProvenance,

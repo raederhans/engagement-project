@@ -1,9 +1,24 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
 
+export function createSampleCommunityModel() {
+  return Object.freeze({
+    segments: Object.freeze([
+      { id: 'seg_c1', name: 'South St Bridge (westbound)', score: 1.8, tags: 'poor lighting, aggressive drivers' },
+      { id: 'seg_c2', name: '34th & Walnut (eastbound)', score: 2.2, tags: 'construction, potholes' },
+      { id: 'seg_c3', name: 'Chestnut St (river to 34th)', score: 2.9, tags: 'heavy traffic' },
+    ]),
+    observations: Object.freeze([
+      { id: 'c1', label: 'Example 1', sample: true, text: 'South St Bridge can feel uncomfortable after dark.' },
+      { id: 'c2', label: 'Example 2', sample: true, text: 'Watch for vehicles edging into the bike lane near 34th.' },
+      { id: 'c3', label: 'Example 3', sample: true, text: 'Pine Street illustrates a calmer route option in this sample.' },
+    ]),
+  });
+}
+
 export function renderCommunityPanel(container, state = {}) {
   container.innerHTML = '';
   const segments = state.segments || [];
-  const comments = state.comments || [];
+  const observations = state.observations || [];
 
   const notice = createDiaryCard();
   notice.appendChild(createSectionTitle('Sample Community'));
@@ -22,7 +37,7 @@ export function renderCommunityPanel(container, state = {}) {
   segList.style.gap = '8px';
   segments.forEach((seg) => {
     const btn = document.createElement('div');
-    btn.className = 'diary-history-item';
+    btn.className = 'diary-community-item';
     const title = document.createElement('div');
     title.style.fontWeight = '700';
     title.style.fontSize = '13px';
@@ -50,27 +65,27 @@ export function renderCommunityPanel(container, state = {}) {
 
   // Comments
   const commentsCard = createDiaryCard();
-  commentsCard.appendChild(createSectionTitle('Community comments'));
+  commentsCard.appendChild(createSectionTitle('Example observations'));
   const list = document.createElement('div');
   list.style.display = 'flex';
   list.style.flexDirection = 'column';
   list.style.gap = '6px';
-  comments.forEach((c) => {
+  observations.forEach((observation) => {
     const row = document.createElement('div');
     row.style.borderBottom = '1px solid #e5e7eb';
     row.style.paddingBottom = '6px';
     row.style.fontSize = '12px';
     const author = document.createElement('strong');
     author.style.color = '#0f172a';
-    author.textContent = c.user;
-    const age = document.createElement('span');
-    age.style.color = '#94a3b8';
-    age.textContent = ` ${c.ago}`;
+    author.textContent = observation.label;
+    const badge = document.createElement('span');
+    badge.className = 'diary-sample-badge';
+    badge.textContent = 'Sample';
     const text = document.createElement('div');
     text.style.marginTop = '2px';
     text.style.color = '#111827';
-    text.textContent = c.text;
-    row.append(author, age, text);
+    text.textContent = observation.text;
+    row.append(author, badge, text);
     list.appendChild(row);
   });
   commentsCard.appendChild(list);

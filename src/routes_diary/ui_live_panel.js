@@ -102,12 +102,18 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   container.appendChild(actionsCard);
 
   // Simulator
-  const simCard = createDiaryCard();
-  simCard.appendChild(createSectionTitle('Simulator'));
+  const simCard = document.createElement('details');
+  simCard.className = 'diary-card diary-progressive-surface';
+  simCard.open = false;
+  const simSummary = document.createElement('summary');
+  simSummary.textContent = 'Preview route';
+  simCard.appendChild(simSummary);
+  const simContent = document.createElement('div');
+  simContent.className = 'diary-progressive-surface__content';
   const simHint = document.createElement('div');
   simHint.className = 'diary-muted-text';
   simHint.textContent = 'Play through this route step by step.';
-  simCard.appendChild(simHint);
+  simContent.appendChild(simHint);
 
   const simControls = document.createElement('div');
   simControls.style.display = 'flex';
@@ -132,13 +138,13 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   refs.finishButtonEl = finishBtn;
   simControls.appendChild(finishBtn);
 
-  simCard.appendChild(simControls);
+  simContent.appendChild(simControls);
 
   const playbackLabel = document.createElement('div');
   playbackLabel.className = 'diary-label';
   playbackLabel.style.marginTop = '12px';
   playbackLabel.textContent = 'Playback speed';
-  simCard.appendChild(playbackLabel);
+  simContent.appendChild(playbackLabel);
 
   const playbackRow = document.createElement('div');
   playbackRow.style.display = 'flex';
@@ -153,7 +159,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
     refs.speedButtons.push(btn);
     playbackRow.appendChild(btn);
   });
-  simCard.appendChild(playbackRow);
+  simContent.appendChild(playbackRow);
+  simCard.appendChild(simContent);
   container.appendChild(simCard);
 
   // Filters

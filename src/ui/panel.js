@@ -76,9 +76,9 @@ export function initPanel(store, handlers) {
     analysisHistoryMount = document.createElement('section');
     analysisHistoryMount.dataset.analysisHistoryMount = '';
     analysisHistoryMount.setAttribute('aria-label', 'Recent analyses');
-    if (compareCard) crimeShell.insertBefore(analysisHistoryMount, compareCard);
-    else crimeShell.appendChild(analysisHistoryMount);
+    crimeShell.appendChild(analysisHistoryMount);
   }
+  placeAnalysisHistoryAfterSummary({ crimeShell, compareCard, analysisHistoryMount });
   let analysisHistorySync = null;
 
   let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
@@ -190,6 +190,11 @@ export function initPanel(store, handlers) {
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
   const dataDetails = document.querySelector('.data-details');
+  const sourceScopeEl = document.createElement('div');
+  sourceScopeEl.dataset.appSourceDetails = '';
+  sourceScopeEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
+  sourceScopeEl.textContent = 'Resolving public data sources…';
+  dataDetails?.appendChild(sourceScopeEl);
   const hudEl = document.createElement('div');
   hudEl.id = 'statusHUD';
   hudEl.style.cssText = 'margin-top:4px; font-size:11px; color:#475569';
@@ -598,7 +603,7 @@ export function initPanel(store, handlers) {
     const meta = await ensureSnapshotMeta();
     const snapshotDate = meta?.coverageDate || meta?.generatedAt?.slice(0, 10) || 'unavailable';
     const match = meta && windowMatch(meta) ? 'matches selected window' : 'does not match selected window';
-    hudEl.textContent = `Mode: ${mode} · Geography: ${admin} · Charts: ${charts}. Crime: live CARTO API. Boundaries and ACS: API-first with published fallback. Tract snapshot: ${snapshotDate} (${match}).`;
+    hudEl.textContent = `Mode: ${mode} · Geography: ${admin} · Charts: ${charts}. Tract snapshot: ${snapshotDate} (${match}).`;
   }
 
   function syncFromStore() {
@@ -640,6 +645,20 @@ export function initPanel(store, handlers) {
       analysisHistorySync?.();
     },
   };
+}
+
+export function placeAnalysisHistoryAfterSummary({
+  crimeShell,
+  compareCard,
+  analysisHistoryMount,
+} = {}) {
+  if (!crimeShell || !analysisHistoryMount) return false;
+  if (!compareCard || compareCard.parentElement !== crimeShell) {
+    crimeShell.appendChild(analysisHistoryMount);
+    return true;
+  }
+  crimeShell.insertBefore(analysisHistoryMount, compareCard.nextSibling || null);
+  return true;
 }
 
 export function describeCoverageStatus(state) {

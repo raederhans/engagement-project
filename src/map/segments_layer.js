@@ -63,6 +63,10 @@ export function mountSegmentsLayer(map, sourceId, data, ownership = {}) {
   registerClickHandlers(map, hitLayerId, ownership);
 }
 
+export function closeSegmentPopup() {
+  closePinnedPopup();
+}
+
 /**
  * Update segment data after new ratings submitted
  */
@@ -278,14 +282,16 @@ function focusSegment(map, feature) {
 function registerClickHandlers(map, layerId, {
   signal,
   isCurrent = () => true,
+  canInteract = () => true,
   onAction,
 } = {}) {
   cleanupClickHandlers(map, layerId);
   if (!map || !layerId) return;
   const ownerIsCurrent = () => !signal?.aborted && isCurrent();
+  const interactionIsCurrent = () => ownerIsCurrent() && canInteract();
 
   const clickHandler = (event) => {
-    if (!ownerIsCurrent()) return;
+    if (!interactionIsCurrent()) return;
     const feature = event.features && event.features[0];
     if (!feature) return;
     const props = feature.properties || {};
@@ -308,13 +314,13 @@ function registerClickHandlers(map, layerId, {
 
     const state = { mode: 'view', rating: 0, selectedTags: new Set() };
     const render = () => {
-      if (!ownerIsCurrent()) return;
+      if (!interactionIsCurrent()) return;
       const html = buildSegmentCardHtml(props, state);
       popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
-      wirePopupInteractions(popup, { ownerIsCurrent, onAction });
+      wirePopupInteractions(popup, { ownerIsCurrent: interactionIsCurrent, onAction });
       wireSegmentCardBehavior(popup, props, state, render, {
         signal,
-        isCurrent: ownerIsCurrent,
+        isCurrent: interactionIsCurrent,
       });
     };
     render();

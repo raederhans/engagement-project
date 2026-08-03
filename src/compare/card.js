@@ -16,6 +16,20 @@ const DEFAULT_FETCHERS = {
 let lastComparison = null;
 let savedComparisonActive = false;
 
+export function setCurrentAnalysisSelection(element, selectionKey) {
+  if (!element) return false;
+  const selected = Boolean(selectionKey);
+  element.classList?.toggle?.('is-current-analysis', selected);
+  if (selected) {
+    element.dataset.selectionKey = selectionKey;
+    element.setAttribute?.('aria-current', 'true');
+  } else {
+    if (element.dataset) delete element.dataset.selectionKey;
+    element.removeAttribute?.('aria-current');
+  }
+  return selected;
+}
+
 export function buildComparisonFilterKey(filters = {}) {
   return JSON.stringify({
     start: filters.start || null,

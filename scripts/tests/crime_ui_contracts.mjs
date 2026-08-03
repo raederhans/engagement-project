@@ -51,6 +51,91 @@ test('Crime exposes one primary analytical layer for each analysis mode', async 
   assert.equal(crime.shouldShowCrimeLegend(tractState), true);
 });
 
+test('incident layers stay hidden until a buffer analysis has an intentional location', async () => {
+  const crime = await import('../../src/routes_crime/index.js');
+  assert.equal(typeof crime.hasActiveIncidentSelection, 'function');
+  const unselected = {
+    queryMode: 'buffer',
+    centerLonLat: null,
+    center3857: null,
+    overlayTractsLines: false,
+  };
+  assert.equal(crime.hasActiveIncidentSelection(unselected), false);
+  assert.equal(crime.resolveCrimeLayerVisibility('clusters', unselected), 'none');
+
+  const selected = {
+    ...unselected,
+    centerLonLat: [-75.16, 39.95],
+    center3857: [-8_365_000, 4_855_000],
+  };
+  assert.equal(crime.hasActiveIncidentSelection(selected), true);
+  assert.equal(crime.resolveCrimeLayerVisibility('clusters', selected), 'visible');
+});
+
+test('camera padding reserves the visible desktop panel and mobile sheet', async () => {
+  const {
+    bufferBounds,
+    geometryBounds,
+    readPanelAwarePadding,
+    resolvePanelAwarePadding,
+  } = await import('../../src/map/camera_fit.js');
+
+  const mapRect = { left: 0, top: 0, right: 1200, bottom: 800, width: 1200, height: 800 };
+  const desktop = resolvePanelAwarePadding({
+    mapRect,
+    obstructionRects: [
+      { left: 0, top: 64, right: 360, bottom: 800, width: 360, height: 736 },
+      { left: 0, top: 0, right: 1200, bottom: 64, width: 1200, height: 64 },
+    ],
+  });
+  assert.ok(desktop.left > desktop.right);
+  assert.ok(desktop.top > 24);
+
+  const mobile = resolvePanelAwarePadding({
+    mapRect: { left: 0, top: 0, right: 390, bottom: 844, width: 390, height: 844 },
+    obstructionRects: [
+      { left: 0, top: 354, right: 390, bottom: 844, width: 390, height: 490 },
+    ],
+  });
+  assert.ok(mobile.bottom > mobile.top);
+
+  const rects = new Map([
+    ['.app-bar', { left: 0, top: 0, right: 1200, bottom: 64, width: 1200, height: 64 }],
+    ['#sidepanel', { left: 0, top: 64, right: 360, bottom: 800, width: 360, height: 736 }],
+    ['#results-drawer', null],
+    ['.diary-insights-root', { left: 840, top: 80, right: 1200, bottom: 760, width: 360, height: 680 }],
+  ]);
+  const panelAware = readPanelAwarePadding({
+    getContainer: () => ({ getBoundingClientRect: () => mapRect }),
+  }, {
+    documentRef: {
+      querySelector: (selector) => {
+        const rect = rects.get(selector);
+        if (!rect) return null;
+        return {
+          hidden: false,
+          getAttribute: () => null,
+          getBoundingClientRect: () => rect,
+        };
+      },
+    },
+    windowRef: { getComputedStyle: () => ({ display: 'block', visibility: 'visible' }) },
+  });
+  assert.ok(panelAware.left > 24);
+  assert.ok(panelAware.right > 24);
+
+  const pointBounds = bufferBounds([-75.16, 39.95], 400);
+  assert.ok(pointBounds[0][0] < -75.16);
+  assert.ok(pointBounds[1][0] > -75.16);
+  assert.ok(pointBounds[0][1] < 39.95);
+  assert.ok(pointBounds[1][1] > 39.95);
+
+  assert.deepEqual(geometryBounds({
+    type: 'Polygon',
+    coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 40], [-75.2, 39.9]]],
+  }), [[-75.2, 39.9], [-75.1, 40]]);
+});
+
 test('buffer point picking never opens the district detail popup', async (t) => {
   const originalMode = store.queryMode;
   const originalStartMonth = store.startMonth;
@@ -192,6 +277,34 @@ test('completed Crime analysis renders a compact trustworthy summary before deta
   assert.match(html, /Data through Jul 31, 2026/i);
   assert.match(html, /Historical data, not a live safety alert/i);
   assert.doesNotMatch(html, /Compare A vs B/i);
+});
+
+test('current analysis exposes one canonical selected state immediately', async () => {
+  const { setCurrentAnalysisSelection } = await import('../../src/compare/card.js');
+  assert.equal(typeof setCurrentAnalysisSelection, 'function');
+  const attributes = new Map();
+  const element = {
+    dataset: {},
+    classList: {
+      values: new Set(),
+      toggle(name, enabled) {
+        if (enabled) this.values.add(name);
+        else this.values.delete(name);
+      },
+    },
+    setAttribute(name, value) { attributes.set(name, value); },
+    removeAttribute(name) { attributes.delete(name); },
+  };
+
+  setCurrentAnalysisSelection(element, 'district:01');
+  assert.equal(attributes.get('aria-current'), 'true');
+  assert.equal(element.dataset.selectionKey, 'district:01');
+  assert.equal(element.classList.values.has('is-current-analysis'), true);
+
+  setCurrentAnalysisSelection(element, null);
+  assert.equal(attributes.has('aria-current'), false);
+  assert.equal('selectionKey' in element.dataset, false);
+  assert.equal(element.classList.values.has('is-current-analysis'), false);
 });
 
 test('comparison controls stay hidden until the user asks for another area', async () => {

@@ -1,5 +1,6 @@
 import { fetchPoints } from '../api/crime.js';
 import { categoryColorPairs } from '../utils/types.js';
+import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fit.js';
 
 function project3857(lon, lat) {
   const R = 6378137;
@@ -43,6 +44,57 @@ export function clusterTextColorExpression() {
     100,
     '#fff',
   ];
+}
+
+export function attachClusterExpansion(map, {
+  sourceId = 'crime-points',
+  layerId = 'clusters',
+  isActive = () => true,
+  runMapMove = async (action) => { action(); return true; },
+  refresh = async () => {},
+  getGeneration = () => 0,
+  prefersReducedMotion: motionPreference = defaultPrefersReducedMotion,
+  onError = (error) => console.warn('Cluster expansion failed:', error),
+} = {}) {
+  const onClick = async (event) => {
+    const feature = event?.features?.[0];
+    const clusterId = Number(feature?.properties?.cluster_id);
+    const center = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
+    const source = map.getSource?.(sourceId);
+    const generation = getGeneration();
+    const isCurrent = () => isActive() && getGeneration() === generation;
+    if (!isActive() || !Number.isFinite(clusterId) || !Array.isArray(center)
+      || typeof source?.getClusterExpansionZoom !== 'function') return;
+    try {
+      const zoom = await source.getClusterExpansionZoom(clusterId);
+      if (!isCurrent() || !Number.isFinite(zoom)) return;
+      const completed = await runMapMove(() => {
+        if (isCurrent()) {
+          map.easeTo({ center, zoom, duration: motionPreference() ? 0 : 350 });
+        }
+      });
+      if (completed && isCurrent()) await refresh();
+    } catch (error) {
+      if (isCurrent() && error?.name !== 'AbortError') onError(error);
+    }
+  };
+  const onEnter = () => {
+    const canvas = map.getCanvas?.();
+    if (canvas) canvas.style.cursor = 'pointer';
+  };
+  const onLeave = () => {
+    const canvas = map.getCanvas?.();
+    if (canvas) canvas.style.cursor = '';
+  };
+  map.on('click', layerId, onClick);
+  map.on('mouseenter', layerId, onEnter);
+  map.on('mouseleave', layerId, onLeave);
+  return () => {
+    map.off('click', layerId, onClick);
+    map.off('mouseenter', layerId, onEnter);
+    map.off('mouseleave', layerId, onLeave);
+    onLeave();
+  };
 }
 
 /**

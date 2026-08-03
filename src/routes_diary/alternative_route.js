@@ -61,3 +61,28 @@ export function summarizeAlternativeBenefit(primaryRoute, altMeta, { countLowRat
     deltaMin: Number((altDuration - primaryDuration).toFixed(1)),
   };
 }
+
+export function describeAlternativeTradeoff(summary) {
+  if (!summary) return null;
+  const avoided = Math.max(0, Number(summary.pLow || 0) - Number(summary.aLow || 0));
+  const deltaMinutes = Number(summary.deltaMin) || 0;
+  const distanceDelta = Number(summary.overheadPct) || 0;
+  const duration = deltaMinutes > 0
+    ? `${Number.isInteger(deltaMinutes) ? deltaMinutes : deltaMinutes.toFixed(1)} min longer`
+    : deltaMinutes < 0
+      ? `${Number.isInteger(Math.abs(deltaMinutes)) ? Math.abs(deltaMinutes) : Math.abs(deltaMinutes).toFixed(1)} min shorter`
+      : 'Same estimated duration';
+  const distance = distanceDelta > 0
+    ? `${Math.round(distanceDelta)}% farther`
+    : distanceDelta < 0
+      ? `${Math.round(Math.abs(distanceDelta))}% shorter`
+      : 'same distance';
+  return Object.freeze({
+    benefit: avoided > 0
+      ? `Avoids ${avoided} low-rated segment${avoided === 1 ? '' : 's'}`
+      : 'No lower-rated segments avoided',
+    cost: `${duration} · ${distance}`,
+    caveat: 'Based on sample route ratings, not live conditions.',
+    hasBenefit: avoided > 0,
+  });
+}

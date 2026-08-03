@@ -33,6 +33,7 @@
 .analysis-history__status[data-tone="warning"],.analysis-history__warning{color:#9a3412}
 .analysis-history__list{display:grid;gap:7px;margin-top:8px}
 .analysis-history__item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+.analysis-history__item[aria-current="true"]{border-color:#0a6c74;box-shadow:0 0 0 2px rgba(10,108,116,.12)}
 .analysis-history__title{font-weight:700;overflow-wrap:anywhere}
 .analysis-history__meta,.analysis-history__empty{margin-top:2px;color:#64748b}
 .analysis-history__data-status{margin-top:3px;color:#475569;font-weight:600}
@@ -157,7 +158,8 @@ body {
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
-.diary-history-item {
+.diary-history-item,
+.diary-community-item {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px;
@@ -166,8 +168,15 @@ body {
   justify-content: space-between;
   align-items: center;
   text-align: left;
+}
+
+.diary-history-item {
   cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.diary-community-item {
+  cursor: default;
 }
 
 .diary-history-item:hover {
@@ -563,10 +572,14 @@ body {
 }
 
 .diary-insights-content {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 12px;
+}
+
+.diary-insights-content[hidden] {
+  display: none;
 }
 
 .diary-insights-section {
@@ -1055,6 +1068,41 @@ summary {
   background: var(--error);
 }
 
+.app-bar__status[data-scope-kind="fallback"]::before,
+.app-bar__status[data-scope-kind="sample"]::before {
+  background: var(--warning);
+}
+
+.app-bar__status[data-scope-kind="local"]::before {
+  background: var(--brand);
+}
+
+.diary-sample-badge {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diary-progressive-surface > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.diary-progressive-surface__content {
+  padding-top: 8px;
+}
+
 #sidepanel {
   width: 360px !important;
   padding: 18px !important;
@@ -1237,6 +1285,11 @@ summary {
   border: 1px solid var(--border);
   border-radius: 12px !important;
   background: var(--surface-muted) !important;
+}
+
+#compare-card.is-current-analysis {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(10, 108, 116, 0.12);
 }
 
 .crime-summary__empty,

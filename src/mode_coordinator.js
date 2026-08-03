@@ -41,6 +41,7 @@ export function createModeCoordinator({
   onModeIntent = () => {},
   onModeSettled = () => {},
   onShortStatusChange = () => {},
+  onDataScopeChange = () => {},
   reportError = (label, error) => console.error(`[${label}]`, error),
 }) {
   let crimeControllerPromise = null;
@@ -162,6 +163,9 @@ export function createModeCoordinator({
           insights: diaryInsights,
           signal,
           isCurrent: ownsMode,
+          onScopeChange: (scope) => {
+            if (ownsMode()) onDataScopeChange(scope);
+          },
         }), signal);
         if (!initResult.completed || !ownsMode()) {
           module.teardownDiaryMode(map);
@@ -271,6 +275,17 @@ export function createModeCoordinator({
       })) return completion;
       action();
       return Promise.resolve(true);
+    },
+    fitCurrentCrimeSelection(options) {
+      let completion = Promise.resolve(false);
+      if (withCurrentCrime((controller) => {
+        completion = controller.fitCurrentSelection(options);
+      })) return completion;
+      return completion;
+    },
+    fitCurrentDiarySelection() {
+      if (activeMode !== 'diary' || getCurrentMode() !== 'diary' || !diaryModule) return false;
+      return diaryModule.fitCurrentDiarySelection?.() || false;
     },
     updateCrimeBuffer() {
       return withCurrentCrime((controller) => controller.updateBuffer());

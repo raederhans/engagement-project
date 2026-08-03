@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { refreshPoints } from '../../src/map/points.js';
+import { attachClusterExpansion, refreshPoints } from '../../src/map/points.js';
 import { wirePoints } from '../../src/map/wire_points.js';
 import { createCrimeRefreshOwner } from '../../src/routes_crime/crime_refresh_owner.js';
 
@@ -109,6 +109,174 @@ test('a newer refresh aborts the superseded request', async () => {
   requests[1].gate.resolve({ applied: true });
   await next;
   controller.destroy();
+});
+
+test('an unselected Crime entry stays idle until an analysis authorizes incident loading', async () => {
+  const map = createMap();
+  const scheduler = createScheduler();
+  let filters = { queryMode: 'buffer', center3857: null };
+  const requests = [];
+  const controller = wirePoints(map, {
+    getFilters: () => filters,
+    shouldRefresh: (snapshot) => snapshot.queryMode === 'buffer' && Boolean(snapshot.center3857),
+    refreshPointsImpl: async (_map, snapshot) => {
+      requests.push(snapshot);
+      return { applied: true };
+    },
+    clearCrimePointsImpl: () => {},
+    showToast: () => {},
+    hideToast: () => {},
+    scheduler,
+  });
+
+  await Promise.resolve();
+  assert.equal(requests.length, 0);
+  map.handlers.get('moveend')();
+  assert.equal(scheduler.timers.size, 0);
+
+  filters = { queryMode: 'buffer', center3857: [-8_365_000, 4_855_000] };
+  assert.deepEqual(await controller.refresh(filters), { applied: true });
+  assert.equal(requests.length, 1);
+
+  filters = { queryMode: 'buffer', center3857: null };
+  map.handlers.get('moveend')();
+  assert.equal(scheduler.timers.size, 0);
+  assert.equal(requests.length, 1);
+  controller.destroy();
+});
+
+test('cluster activation expands through the GeoJSON source and owns the camera move', async () => {
+  const handlers = new Map();
+  const cameraMoves = [];
+  const source = {
+    getClusterExpansionZoom(clusterId) {
+      assert.equal(clusterId, 73);
+      return Promise.resolve(14);
+    },
+  };
+  const map = {
+    on(event, layer, handler) { handlers.set(`${event}:${layer}`, handler); },
+    off(event, layer, handler) {
+      if (handlers.get(`${event}:${layer}`) === handler) handlers.delete(`${event}:${layer}`);
+    },
+    getSource(id) { return id === 'crime-points' ? source : null; },
+    easeTo(options) { cameraMoves.push(options); },
+  };
+  let refreshes = 0;
+  const cleanup = attachClusterExpansion(map, {
+    isActive: () => true,
+    runMapMove: async (action) => {
+      action();
+      return true;
+    },
+    refresh: async () => { refreshes += 1; },
+  });
+
+  await handlers.get('click:clusters')({
+    features: [{
+      properties: { cluster_id: 73 },
+      geometry: { type: 'Point', coordinates: [-75.16, 39.95] },
+    }],
+  });
+
+  assert.deepEqual(cameraMoves, [{
+    center: [-75.16, 39.95],
+    zoom: 14,
+    duration: 350,
+  }]);
+  assert.equal(refreshes, 1);
+  cleanup();
+  assert.equal(handlers.has('click:clusters'), false);
+});
+
+test('cluster expansion disables animation when reduced motion is requested', async () => {
+  const handlers = new Map();
+  const cameraMoves = [];
+  const map = {
+    on(event, layer, handler) { handlers.set(`${event}:${layer}`, handler); },
+    off() {},
+    getSource: () => ({ getClusterExpansionZoom: async () => 15 }),
+    easeTo(options) { cameraMoves.push(options); },
+  };
+  const cleanup = attachClusterExpansion(map, {
+    isActive: () => true,
+    prefersReducedMotion: () => true,
+    runMapMove: async (action) => { action(); return true; },
+  });
+
+  await handlers.get('click:clusters')({
+    features: [{
+      properties: { cluster_id: 4 },
+      geometry: { type: 'Point', coordinates: [-75.16, 39.95] },
+    }],
+  });
+
+  assert.equal(cameraMoves[0].duration, 0);
+  cleanup();
+});
+
+test('a newer points generation invalidates a held cluster expansion', async () => {
+  const handlers = new Map();
+  const expansion = deferred();
+  let generation = 7;
+  let cameraMoves = 0;
+  let refreshes = 0;
+  const map = {
+    on(event, layer, handler) { handlers.set(`${event}:${layer}`, handler); },
+    off() {},
+    getSource: () => ({ getClusterExpansionZoom: () => expansion.promise }),
+    easeTo() { cameraMoves += 1; },
+  };
+  const cleanup = attachClusterExpansion(map, {
+    isActive: () => true,
+    getGeneration: () => generation,
+    runMapMove: async (action) => { action(); return true; },
+    refresh: async () => { refreshes += 1; },
+  });
+  const activation = handlers.get('click:clusters')({
+    features: [{
+      properties: { cluster_id: 9 },
+      geometry: { type: 'Point', coordinates: [-75.16, 39.95] },
+    }],
+  });
+
+  generation += 1;
+  expansion.resolve(15);
+  await activation;
+
+  assert.equal(cameraMoves, 0);
+  assert.equal(refreshes, 0);
+  cleanup();
+});
+
+test('an inactive cluster expansion cannot move the map after its zoom resolves', async () => {
+  const handlers = new Map();
+  const expansion = deferred();
+  let active = true;
+  let cameraMoves = 0;
+  const map = {
+    on(event, layer, handler) { handlers.set(`${event}:${layer}`, handler); },
+    off() {},
+    getSource: () => ({ getClusterExpansionZoom: () => expansion.promise }),
+    easeTo() { cameraMoves += 1; },
+  };
+  const cleanup = attachClusterExpansion(map, {
+    isActive: () => active,
+    runMapMove: async (action) => { action(); return true; },
+    refresh: async () => {},
+  });
+  const activation = handlers.get('click:clusters')({
+    features: [{
+      properties: { cluster_id: 9 },
+      geometry: { type: 'Point', coordinates: [-75.16, 39.95] },
+    }],
+  });
+  active = false;
+  expansion.resolve(15);
+  await activation;
+
+  assert.equal(cameraMoves, 0);
+  cleanup();
 });
 
 test('refresh accepts a captured filter snapshot without reading live filters again', async () => {

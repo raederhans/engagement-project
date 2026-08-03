@@ -54,6 +54,36 @@ export function createModeSurfacePresenter({
   aboutController = null,
 } = {}) {
   let currentMode = null;
+  let currentStatus = null;
+  const scopes = new Map();
+
+  const renderStatus = () => {
+    const status = documentRef?.querySelector?.('[data-app-data-status]');
+    if (!status || !currentStatus || currentStatus.mode !== currentMode) return;
+    const scope = scopes.get(currentMode);
+    const showScope = currentStatus.phase === 'ready' && scope;
+    status.dataset.phase = currentStatus.phase;
+    status.textContent = showScope ? scope.shortLabel : currentStatus.label;
+    if (showScope) {
+      status.dataset.scopeKind = scope.kind;
+      status.setAttribute('aria-label', scope.accessibleLabel);
+      status.setAttribute('title', scope.accessibleLabel);
+    } else {
+      delete status.dataset.scopeKind;
+      status.removeAttribute?.('aria-label');
+      status.removeAttribute?.('title');
+    }
+
+    const details = documentRef?.querySelector?.('[data-app-source-details]');
+    if (!details) return;
+    if (showScope && scope.details?.length) {
+      details.dataset.scopeKind = scope.kind;
+      details.textContent = scope.details.join(' · ');
+    } else {
+      delete details.dataset.scopeKind;
+      details.textContent = currentStatus.phase === 'failed' ? currentStatus.label : '';
+    }
+  };
 
   const showIntent = (mode) => {
     currentMode = mode === 'diary' ? 'diary' : 'crime';
@@ -90,11 +120,15 @@ export function createModeSurfacePresenter({
   };
 
   const showStatus = (snapshot) => {
-    const status = documentRef?.querySelector?.('[data-app-data-status]');
-    if (!status || snapshot.mode !== currentMode) return;
-    status.dataset.phase = snapshot.phase;
-    status.textContent = snapshot.label;
+    currentStatus = snapshot;
+    renderStatus();
   };
 
-  return Object.freeze({ showIntent, settle, showStatus });
+  const showDataScope = (scope) => {
+    if (!scope?.mode) return;
+    scopes.set(scope.mode, scope);
+    renderStatus();
+  };
+
+  return Object.freeze({ showIntent, settle, showStatus, showDataScope });
 }

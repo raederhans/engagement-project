@@ -14,11 +14,19 @@ import {
   waitForOwnedPromise,
 } from '../../src/utils/latest_serial_queue.js';
 import { store } from '../../src/state/store.js';
-import { initDiaryMode, teardownDiaryMode } from '../../src/routes_diary/index.js';
+import {
+  fitCurrentDiarySelection,
+  initDiaryMode,
+  teardownDiaryMode,
+} from '../../src/routes_diary/index.js';
 import {
   highlightSegments,
   removeSegmentsLayer,
 } from '../../src/map/segments_layer.js';
+import {
+  DIARY_ROUTE_PRIMARY_SOURCE_ID,
+  DIARY_SEGMENTS_HIT_LAYER_ID,
+} from '../../src/routes_diary/map_ids.js';
 
 function deferred() {
   let resolve;
@@ -179,8 +187,10 @@ function findElements(root, predicate, matches = []) {
 function createDiaryMapFake() {
   const sources = new Map();
   const layers = new Map();
+  const handlers = [];
   const mutations = [];
   return {
+    handlers,
     mutations,
     getContainer: () => ({ classList: new FakeClassList() }),
     getSource: (id) => sources.get(id) || null,
@@ -209,9 +219,15 @@ function createDiaryMapFake() {
       mutations.push(['remove-layer', id]);
     },
     setPaintProperty() {},
-    on() {},
-    off() {},
-    fitBounds() {},
+    on(...args) { handlers.push(args); },
+    off(...args) {
+      const index = handlers.findIndex((entry) => entry.length === args.length
+        && entry.every((value, entryIndex) => value === args[entryIndex]));
+      if (index >= 0) handlers.splice(index, 1);
+    },
+    fitBounds(bounds, options) {
+      mutations.push(['fit-bounds', structuredClone(bounds), structuredClone(options)]);
+    },
     getCanvas: () => ({ style: {} }),
     queryRenderedFeatures: () => [],
     getZoom: () => 12,
@@ -1065,6 +1081,91 @@ test('detached Diary controls cannot act on a newer session while new controls s
   assert.equal(timerEvents.filter(([kind]) => kind === 'clear').length, 1);
 });
 
+test('Live route keeps rating primary and places Simulator in a closed disclosure', async (t) => {
+  const originalDocument = globalThis.document;
+  const fakeDocument = createFakeDocument();
+  globalThis.document = fakeDocument;
+  t.after(() => { globalThis.document = originalDocument; });
+  const { renderLiveRoutePanel } = await import('../../src/routes_diary/ui_live_panel.js');
+  const mount = new FakeElement('div');
+
+  renderLiveRoutePanel(mount, {
+    routes: { type: 'FeatureCollection', features: [] },
+    canRate: true,
+  });
+
+  const disclosures = findElements(mount, (element) => element.tagName === 'DETAILS');
+  assert.equal(disclosures.length, 1);
+  assert.equal(Boolean(disclosures[0].open), false);
+  assert.ok(findElement(disclosures[0], (element) => (
+    element.tagName === 'SUMMARY' && element.textContent === 'Preview route'
+  )));
+  const primaryActions = findElements(mount, (element) => (
+    element.tagName === 'BUTTON' && element.className === 'diary-btn-primary'
+  ));
+  assert.deepEqual(primaryActions.map((button) => button.textContent), ['Rate this route']);
+});
+
+test('initial Diary route receives one panel-aware camera fit', async (t) => {
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  const originalDiaryFeatureOn = store.diaryFeatureOn;
+  const originalSelectedRouteId = store.selectedRouteId;
+  const fakeDocument = createFakeDocument();
+  const fakeWindow = new EventTarget();
+  fakeWindow.sessionStorage = { getItem: () => null, setItem() {} };
+  fakeWindow.matchMedia = () => ({ matches: false });
+  globalThis.document = fakeDocument;
+  globalThis.window = fakeWindow;
+  store.diaryFeatureOn = true;
+  store.selectedRouteId = null;
+  const map = createDiaryMapFake();
+  const segments = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { segment_id: 'seg-1', street_name: 'Test Street', decayed_mean: 3, n_eff: 1 },
+      geometry: { type: 'LineString', coordinates: [[-75.17, 39.95], [-75.16, 39.96]] },
+    }],
+  };
+  const routes = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {
+        route_id: 'route-1',
+        name: 'Test route',
+        from: 'A',
+        to: 'B',
+        segment_ids: ['seg-1'],
+        mode: 'walk',
+      },
+      geometry: { type: 'LineString', coordinates: [[-75.17, 39.95], [-75.16, 39.96]] },
+    }],
+  };
+  t.after(() => {
+    teardownDiaryMode(map);
+    globalThis.document = originalDocument;
+    globalThis.window = originalWindow;
+    store.diaryFeatureOn = originalDiaryFeatureOn;
+    store.selectedRouteId = originalSelectedRouteId;
+  });
+
+  await initDiaryMode(map, {
+    mountInto: new FakeElement('div'),
+    isCurrent: () => true,
+    addNetworkLayerImpl: async () => ({ applied: false, reason: 'disabled' }),
+    loadDemoSegmentsImpl: async () => structuredClone(segments),
+    loadDemoRoutesImpl: async () => structuredClone(routes),
+    localRepository: { async list() { return []; }, async save() {} },
+  });
+
+  const fits = map.mutations.filter(([kind]) => kind === 'fit-bounds');
+  assert.equal(fits.length, 1);
+  assert.deepEqual(fits[0][1], [[-75.17, 39.95], [-75.16, 39.96]]);
+  assert.deepEqual(fits[0][2].padding, { top: 24, right: 24, bottom: 24, left: 24 });
+});
+
 test('detached non-Live Diary controls cannot mutate a newer session', async (t) => {
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;
@@ -1175,6 +1276,12 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   const mapMutationsBefore = map.mutations.length;
   const insightsBefore = structuredClone(secondInsights);
   const secondMountChildrenBefore = [...secondMount.children];
+  const livePill = button(secondMount, 'Live route');
+  const historyPill = button(secondMount, 'My routes');
+  const communityPill = button(secondMount, 'Sample community');
+  assert.equal(livePill.getAttribute('aria-pressed'), 'true');
+  assert.equal(historyPill.getAttribute('aria-pressed'), 'false');
+  assert.equal(communityPill.getAttribute('aria-pressed'), 'false');
 
   oldHistoryPill.dispatchEvent(new Event('click'));
   oldHistorySelects[0].value = '7d';
@@ -1192,18 +1299,49 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   assert.deepEqual(secondInsights, insightsBefore);
   assert.deepEqual(secondMount.children, secondMountChildrenBefore);
 
-  button(secondMount, 'My routes').dispatchEvent(new Event('click'));
+  historyPill.dispatchEvent(new Event('click'));
+  assert.equal(livePill.getAttribute('aria-pressed'), 'false');
+  assert.equal(historyPill.getAttribute('aria-pressed'), 'true');
   const newHistoryRow = findElement(secondMount, (element) => element.getAttribute?.('data-id'));
   newHistoryRow.dispatchEvent(new Event('click'));
   assert.equal(store.diaryViewMode, 'history');
   assert.ok(store.diarySelectedHistoryRouteId);
-  button(secondMount, 'Sample community').dispatchEvent(new Event('click'));
+  communityPill.dispatchEvent(new Event('click'));
   assert.equal(store.diaryViewMode, 'community');
+  assert.equal(historyPill.getAttribute('aria-pressed'), 'false');
+  assert.equal(communityPill.getAttribute('aria-pressed'), 'true');
   assert.equal(store.diaryCommunityRadiusMeters, 1500);
+  assert.equal(
+    map.mutations.some(([kind, id]) => kind === 'remove-layer' && id === `${DIARY_ROUTE_PRIMARY_SOURCE_ID}-line`),
+    true,
+  );
+  const segmentHandler = map.handlers.find(([event, layer]) => (
+    event === 'click' && layer === DIARY_SEGMENTS_HIT_LAYER_ID
+  ))?.[2];
+  assert.equal(typeof segmentHandler, 'function');
+  const cameraFitsBeforeSampleClick = map.mutations.filter(([kind]) => kind === 'fit-bounds').length;
+  assert.equal(fitCurrentDiarySelection(), false);
+  assert.equal(
+    map.mutations.filter(([kind]) => kind === 'fit-bounds').length,
+    cameraFitsBeforeSampleClick,
+    'Sample Community insights must not refit an invisible Live route',
+  );
+  segmentHandler({
+    features: [{
+      properties: { segment_id: 'seg-1' },
+      geometry: { type: 'LineString', coordinates: [[-75.17, 39.95], [-75.16, 39.96]] },
+    }],
+    lngLat: { lng: -75.16, lat: 39.95 },
+  });
+  assert.equal(
+    map.mutations.filter(([kind]) => kind === 'fit-bounds').length,
+    cameraFitsBeforeSampleClick,
+    'Sample Community must not open an interactive segment popup or move the map',
+  );
   assert.deepEqual(secondInsights.filter(([kind]) => kind === 'view'), [
-    ['view', 'live'],
-    ['view', 'history'],
-    ['view', 'community'],
+    ['view', { mode: 'live', routeId: 'route-1' }],
+    ['view', { mode: 'history', routeId: null }],
+    ['view', { mode: 'community', routeId: null }],
   ]);
 });
 

@@ -47,6 +47,8 @@ export function createAnalysisHistoryView(mount, actions) {
   const list = document.createElement('div');
   list.className = 'analysis-history__list';
   mount.append(heading, saveRow, snapshot, status, warning, list);
+  let currentArtifactId = null;
+  let renderedCards = new Map();
 
   const reportActionError = (error) => {
     status.dataset.tone = 'warning';
@@ -59,6 +61,7 @@ export function createAnalysisHistoryView(mount, actions) {
   function renderItem(artifact) {
     const card = document.createElement('article');
     card.className = 'analysis-history__item';
+    card.dataset.artifactId = artifact.id;
     const title = document.createElement('div');
     title.className = 'analysis-history__title';
     title.textContent = artifact.title;
@@ -72,8 +75,9 @@ export function createAnalysisHistoryView(mount, actions) {
     else dataStatus.textContent = 'Sources current';
     const controls = document.createElement('div');
     controls.className = 'analysis-history__actions';
+    const openButton = button('Open', actions.onRestore, artifact.id, reportActionError);
     controls.append(
-      button('Open', actions.onRestore, artifact.id, reportActionError),
+      openButton,
       button('Share', actions.onShare, artifact.id, reportActionError),
       button('Export', actions.onExport, artifact.id, reportActionError),
       button('Rename', () => {
@@ -83,7 +87,16 @@ export function createAnalysisHistoryView(mount, actions) {
       button('Delete', actions.onDelete, artifact.id, reportActionError),
     );
     card.append(title, meta, dataStatus, controls);
+    card._open = openButton;
+    renderedCards.set(artifact.id, card);
     return card;
+  }
+
+  function syncCurrentArtifact() {
+    for (const [id, card] of renderedCards) {
+      if (id === currentArtifactId) card.setAttribute('aria-current', 'true');
+      else card.removeAttribute('aria-current');
+    }
   }
 
   return Object.freeze({
@@ -96,7 +109,9 @@ export function createAnalysisHistoryView(mount, actions) {
       } else {
         warning.textContent = '';
       }
+      renderedCards = new Map();
       list.replaceChildren(...items.map(renderItem));
+      syncCurrentArtifact();
       if (!items.length) {
         const empty = document.createElement('div');
         empty.className = 'analysis-history__empty';
@@ -114,6 +129,13 @@ export function createAnalysisHistoryView(mount, actions) {
     },
     clearDraft() {
       titleInput.value = '';
+    },
+    setCurrentArtifact(id) {
+      currentArtifactId = id || null;
+      syncCurrentArtifact();
+    },
+    focusRestoreAction(id) {
+      renderedCards.get(id)?._open.focus();
     },
     showStatus(message, tone = 'info') {
       status.dataset.tone = tone;

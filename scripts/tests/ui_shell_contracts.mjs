@@ -32,6 +32,34 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
 
+test('current analysis summary is mounted before recent analyses', async () => {
+  const { placeAnalysisHistoryAfterSummary } = await import('../../src/ui/panel.js');
+  assert.equal(typeof placeAnalysisHistoryAfterSummary, 'function');
+  const shell = {
+    children: [],
+    appendChild(child) {
+      child.parentElement = this;
+      this.children.push(child);
+    },
+    insertBefore(child, reference) {
+      child.parentElement = this;
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(child);
+      else this.children.splice(index, 0, child);
+    },
+  };
+  const summary = { parentElement: null, nextSibling: null };
+  const details = { parentElement: null };
+  const history = { parentElement: null };
+  shell.appendChild(summary);
+  shell.appendChild(details);
+  summary.nextSibling = details;
+
+  placeAnalysisHistoryAfterSummary({ crimeShell: shell, compareCard: summary, analysisHistoryMount: history });
+
+  assert.deepEqual(shell.children, [summary, history, details]);
+});
+
 test('Crime task panel leads with location and defers comparison and advanced controls', () => {
   assert.match(html, />Explore a location<\/[^>]+>/i);
   assert.match(html, /id="compareAreaBtn"[^>]*>Compare another area<\/button>/i);

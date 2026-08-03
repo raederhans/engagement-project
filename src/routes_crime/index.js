@@ -3,7 +3,7 @@ import { renderDistrictChoropleth } from '../map/render_choropleth.js';
 import { attachHover } from '../map/ui_tooltip.js';
 import { wirePoints } from '../map/wire_points.js';
 import { store, initCoverageAndDefaults } from '../state/store.js';
-import { updateCompare } from '../compare/card.js';
+import { setCurrentAnalysisSelection, updateCompare } from '../compare/card.js';
 import { attachDistrictPopup } from '../map/ui_popup_district.js';
 import { getTractsMerged } from '../map/tracts_view.js';
 import { hideTractsOutlineBanner, renderTractsChoropleth } from '../map/render_choropleth_tracts.js';
@@ -20,6 +20,12 @@ import { fetchTractsCachedFirst } from '../api/boundaries.js';
 import { createMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
 import { createCrimeRefreshOwner, readCrimeSnapshot } from './crime_refresh_owner.js';
+import {
+  bufferBounds,
+  fitBoundsWithPanel,
+  geometryBounds,
+} from '../map/camera_fit.js';
+import { describeCrimeDataScope } from '../ui/data_scope.js';
 
 const CRIME_LAYER_IDS = [
   'districts-fill',
@@ -79,6 +85,36 @@ export function classifyCrimeRefreshJobs(results) {
   return superseded ? { applied: false } : { applied: true };
 }
 
+export function hasActiveIncidentSelection(state) {
+  return state?.queryMode === 'buffer'
+    && Array.isArray(state.centerLonLat)
+    && state.centerLonLat.length >= 2;
+}
+
+export function crimeSelectionKey(state) {
+  if (state?.queryMode === 'district' && state.selectedDistrictCode) {
+    return `district:${String(state.selectedDistrictCode).padStart(2, '0')}`;
+  }
+  if (state?.queryMode === 'tract' && state.selectedTractGEOID) {
+    return `tract:${state.selectedTractGEOID}`;
+  }
+  if (hasActiveIncidentSelection(state)) {
+    const centerA = state.centerLonLat.join(',');
+    const centerB = Array.isArray(state.centerBLonLat) ? `|${state.centerBLonLat.join(',')}` : '';
+    return `buffer:${centerA}${centerB}|${Number(state.radiusM ?? state.radius) || 400}`;
+  }
+  return null;
+}
+
+function unionBounds(...values) {
+  const valid = values.filter(Boolean);
+  if (valid.length === 0) return null;
+  return [
+    [Math.min(...valid.map((bounds) => bounds[0][0])), Math.min(...valid.map((bounds) => bounds[0][1]))],
+    [Math.max(...valid.map((bounds) => bounds[1][0])), Math.max(...valid.map((bounds) => bounds[1][1]))],
+  ];
+}
+
 export function createCrimeSynchronousActions({
   map,
   isControllerActive,
@@ -111,6 +147,8 @@ export async function initCrimeMode(map, {
   isActive = () => true,
   onCoverageChange = () => {},
   onPointChange = () => {},
+  onSelectionChange = () => {},
+  onDataScopeChange = () => {},
 } = {}) {
   const mapReady = waitForMapReady(map);
   let markerA = null;
@@ -122,6 +160,10 @@ export async function initCrimeMode(map, {
   let popupCleanup = null;
   let tractOutlineData = null;
   let currentTractSnapshotProvenance = null;
+  let districtData = null;
+  let tractData = null;
+  let lastCameraSelectionKey = null;
+  const resolvedSources = new Map();
 
   try {
     await initCoverageAndDefaults();
@@ -131,9 +173,11 @@ export async function initCrimeMode(map, {
     throw error;
   }
 
-  const center = map.getCenter();
-  if (!store.centerLonLat) store.setCenterFromLngLat(center.lng, center.lat);
-  const pointsController = wirePoints(map, { getFilters: captureCrimeSnapshot });
+  const pointsController = wirePoints(map, {
+    getFilters: captureCrimeSnapshot,
+    shouldRefresh: hasActiveIncidentSelection,
+    autoRefresh: false,
+  });
   const refreshOwner = createCrimeRefreshOwner({
     readSnapshot: captureCrimeSnapshot,
     runRefresh: refreshAll,
@@ -144,6 +188,13 @@ export async function initCrimeMode(map, {
     isModeActive: isActive,
     readBuffer: () => ({ centerLonLat: store.centerLonLat, radiusM: store.radius }),
   });
+
+  function publishCurrentSelection(snapshot = captureCrimeSnapshot(), { origin = 'sync' } = {}) {
+    const key = crimeSelectionKey(snapshot);
+    setCurrentAnalysisSelection(document.getElementById('compare-card'), key);
+    onSelectionChange(key, { origin });
+    return key;
+  }
 
   await mapReady;
   if (!isActive()) {
@@ -174,8 +225,34 @@ export async function initCrimeMode(map, {
       addressB,
       radiusM,
     } = snapshot;
+    const collectResolvedSource = (metadata) => {
+      if (!isCurrent() || !metadata?.dataset) return;
+      const dataset = metadata.dataset === 'police-districts'
+        ? 'districts'
+        : metadata.dataset === 'census-tract-boundaries'
+          ? 'tracts'
+          : metadata.dataset === 'census-tract-statistics'
+            ? 'demographics'
+            : metadata.dataset;
+      resolvedSources.set(dataset, {
+        dataset,
+        kind: metadata.kind,
+        source: metadata.provider,
+        asOf: metadata.asOf || null,
+      });
+    };
+    resolvedSources.set('incidents', {
+      dataset: 'incidents',
+      kind: 'live',
+      source: 'CARTO',
+      asOf: store.coverageMax || null,
+    });
 
     syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode });
+    publishCurrentSelection(snapshot);
+    const bufferCamera = queryMode === 'buffer'
+      ? fitCurrentSelection({ snapshot })
+      : Promise.resolve(false);
 
     try {
       let nextTractSnapshotProvenance = null;
@@ -186,8 +263,10 @@ export async function initCrimeMode(map, {
           windowEnd: end,
           types,
           signal,
+          onSourceResolved: collectResolvedSource,
         });
         if (!isCurrent()) return { applied: false };
+        tractData = merged.geojson || merged;
         renderTractsChoropleth(map, merged);
         nextTractSnapshotProvenance = merged.provenance || null;
         clearCrimeResultsUnavailable();
@@ -195,16 +274,24 @@ export async function initCrimeMode(map, {
         reconcileCrimeLegend(snapshot);
         if (queryMode === 'tract' && selectedTractGEOID) {
           upsertSelectedTract(map, selectedTractGEOID);
+          await fitCurrentSelection({ snapshot });
         } else {
           clearSelectedTract(map);
         }
         wireTractSelection();
       } else {
         const [merged] = await Promise.all([
-          getDistrictsMerged({ start, end, types, signal }),
-          ensureTractOutline({ signal, isCurrent }),
+          getDistrictsMerged({
+            start,
+            end,
+            types,
+            signal,
+            onSourceResolved: collectResolvedSource,
+          }),
+          ensureTractOutline({ signal, isCurrent, onSourceResolved: collectResolvedSource }),
         ]);
         if (!isCurrent()) return { applied: false };
+        districtData = merged;
         renderDistrictChoropleth(map, merged);
         clearCrimeResultsUnavailable();
         reconcileCrimeLayerVisibility(map, snapshot);
@@ -212,6 +299,7 @@ export async function initCrimeMode(map, {
         ensureDistrictInteractions();
         if (queryMode === 'district' && selectedDistrictCode) {
           upsertSelectedDistrict(map, selectedDistrictCode);
+          await fitCurrentSelection({ snapshot });
         } else {
           clearSelectedDistrict(map);
         }
@@ -227,10 +315,10 @@ export async function initCrimeMode(map, {
     }
 
     if (!isCurrent()) return { applied: false };
+    await bufferCamera;
+    if (!isCurrent()) return { applied: false };
     const jobs = [];
-    if (queryMode === 'buffer' && center3857) {
-      jobs.push(pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }));
-    } else if (queryMode === 'district') {
+    if (hasActiveIncidentSelection(snapshot)) {
       jobs.push(pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }));
     } else {
       pointsController.clear();
@@ -256,7 +344,32 @@ export async function initCrimeMode(map, {
     for (const result of results) {
       if (result.status === 'rejected') console.warn('Crime dashboard refresh failed:', result.reason);
     }
-    return classifyCrimeRefreshJobs(results);
+    const outcome = classifyCrimeRefreshJobs(results);
+    if (outcome.applied && isCurrent()) {
+      const relevantDatasets = new Set(['incidents']);
+      if (adminLevel === 'tracts') {
+        relevantDatasets.add('tracts');
+        relevantDatasets.add('demographics');
+      } else {
+        relevantDatasets.add('districts');
+        if (store.overlayTractsLines) relevantDatasets.add('tracts');
+      }
+      const sources = [...resolvedSources.values()]
+        .filter((source) => relevantDatasets.has(source.dataset));
+      if (currentTractSnapshotProvenance) {
+        sources.push({
+          dataset: 'tract-crime',
+          kind: 'fallback',
+          source: 'Validated tract snapshot',
+          asOf: currentTractSnapshotProvenance.coverageDate,
+        });
+      }
+      onDataScopeChange(describeCrimeDataScope({
+        coverageMax: store.coverageMax,
+        sources,
+      }));
+    }
+    return outcome;
   }
 
   async function requestRefresh({ signal } = {}) {
@@ -272,12 +385,14 @@ export async function initCrimeMode(map, {
     if (tractClickWired || !map.getLayer('tracts-fill')) return;
     tractClickWired = true;
     map.on('click', 'tracts-fill', (event) => {
-      const geoid = tractFeatureGEOID(event.features?.[0]);
+      const feature = event.features?.[0];
+      const geoid = tractFeatureGEOID(feature);
       if (!active || store.queryMode !== 'tract' || !geoid) return;
       store.selectedTractGEOID = geoid;
+      publishCurrentSelection(undefined, { origin: 'map' });
       upsertSelectedTract(map, geoid);
       removeBufferOverlay(map);
-      void requestRefresh();
+      void fitCurrentSelection({ feature, force: true }).then(() => requestRefresh());
     });
   }
 
@@ -307,10 +422,10 @@ export async function initCrimeMode(map, {
     }
   }
 
-  async function ensureTractOutline({ signal, isCurrent }) {
+  async function ensureTractOutline({ signal, isCurrent, onSourceResolved }) {
     if (!tractOutlineData) {
       try {
-        const tracts = await fetchTractsCachedFirst({ signal });
+        const tracts = await fetchTractsCachedFirst({ signal, onSourceResolved });
         if (!isCurrent()) return;
         tractOutlineData = tracts;
       } catch (error) {
@@ -328,12 +443,14 @@ export async function initCrimeMode(map, {
     if (districtClickWired || !map.getLayer('districts-fill')) return;
     districtClickWired = true;
     map.on('click', 'districts-fill', (event) => {
-      const code = String(event.features?.[0]?.properties?.DIST_NUMC || '').padStart(2, '0');
+      const feature = event.features?.[0];
+      const code = String(feature?.properties?.DIST_NUMC || '').padStart(2, '0');
       if (!active || store.queryMode !== 'district' || !code) return;
       store.selectedDistrictCode = code;
+      publishCurrentSelection(undefined, { origin: 'map' });
       upsertSelectedDistrict(map, code);
       removeBufferOverlay(map);
-      void requestRefresh();
+      void fitCurrentSelection({ feature, force: true }).then(() => requestRefresh());
     });
   }
 
@@ -341,6 +458,7 @@ export async function initCrimeMode(map, {
     if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
     const target = store.selectTarget === 'B' ? 'B' : 'A';
     store.setComparisonPoint(target, event.lngLat.lng, event.lngLat.lat, `Map point ${target}`);
+    publishCurrentSelection(undefined, { origin: 'map' });
     onPointChange(target);
     syncComparisonOverlays({
       centerLonLat: store.centerLonLat,
@@ -356,12 +474,49 @@ export async function initCrimeMode(map, {
     const hint = document.getElementById('useMapHint');
     if (hint) hint.style.display = 'none';
     document.body.style.cursor = '';
-    void requestRefresh();
+    void fitCurrentSelection({ force: true }).then(() => requestRefresh());
   });
+
+  async function fitCurrentSelection({
+    snapshot = captureCrimeSnapshot(),
+    feature = null,
+    force = false,
+  } = {}) {
+    if (!active || !isActive()) return false;
+    const key = crimeSelectionKey(snapshot);
+    publishCurrentSelection(snapshot);
+    if (!key || (!force && key === lastCameraSelectionKey)) return false;
+    let bounds = null;
+    if (snapshot.queryMode === 'buffer') {
+      bounds = unionBounds(
+        bufferBounds(snapshot.centerLonLat, snapshot.radiusM),
+        bufferBounds(snapshot.centerBLonLat, snapshot.radiusM),
+      );
+    } else if (snapshot.queryMode === 'district') {
+      const selected = feature || districtData?.features?.find((candidate) => (
+        String(candidate?.properties?.DIST_NUMC || '').padStart(2, '0')
+          === String(snapshot.selectedDistrictCode || '').padStart(2, '0')
+      ));
+      bounds = geometryBounds(selected);
+    } else if (snapshot.queryMode === 'tract') {
+      const selected = feature || tractData?.features?.find((candidate) => (
+        tractFeatureGEOID(candidate) === snapshot.selectedTractGEOID
+      ));
+      bounds = geometryBounds(selected);
+    }
+    if (!bounds) return false;
+    lastCameraSelectionKey = key;
+    const completed = await pointsController.runProgrammaticMapMove(() => {
+      fitBoundsWithPanel(map, bounds);
+    });
+    if (!completed && lastCameraSelectionKey === key) lastCameraSelectionKey = null;
+    return completed;
+  }
 
   return {
     requestRefresh,
     runProgrammaticMapMove: pointsController.runProgrammaticMapMove,
+    fitCurrentSelection,
     updateBuffer: synchronousActions.updateBuffer,
     setTractsOverlayVisible: synchronousActions.setTractsOverlayVisible,
     getCurrentProvenance() {
@@ -374,6 +529,7 @@ export async function initCrimeMode(map, {
       refreshOwner.setActive(active);
       pointsController.setActive(active);
       if (active) {
+        publishCurrentSelection();
         reconcileCrimeLayerVisibility(map, store);
         reconcileCrimeLegend(store);
       }
@@ -383,6 +539,7 @@ export async function initCrimeMode(map, {
       if (active && store.centerLonLat) {
         upsertBufferA(map, { centerLonLat: store.centerLonLat, radiusM: store.radius });
       } else if (!active) {
+        lastCameraSelectionKey = null;
         pointsController.clear();
         markerA?.remove();
         markerB?.remove();
@@ -435,7 +592,7 @@ export function resolveCrimeLayerVisibility(layerId, state) {
     return primaryLayer === 'districts' ? 'visible' : 'none';
   }
   if (layerId === 'clusters' || layerId === 'cluster-count' || layerId === 'unclustered') {
-    return primaryLayer === 'incidents' ? 'visible' : 'none';
+    return primaryLayer === 'incidents' && hasActiveIncidentSelection(state) ? 'visible' : 'none';
   }
   if (layerId.startsWith('buffer-a-')) {
     return state?.queryMode === 'buffer' && state?.centerLonLat ? 'visible' : 'none';
