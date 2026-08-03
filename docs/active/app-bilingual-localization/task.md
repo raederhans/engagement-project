@@ -2,7 +2,7 @@
 
 ## Current status
 
-The bilingual delivery is layered over P1 in Draft PR #42. Independent architecture and code reviews found and then verified fixes for state-preserving language changes, locale-owned dates and charts, single-flight rating submission, current chart-outcome caching, and pre-initialization listener lifetime. The reviewed fix set is locally green and ready for its final commit, push, exact-head CI, and merge into `codex/p1-ui`.
+The bilingual delivery passed independent architecture and code review, exact-head CI, and merged through PR #42 into `codex/p1-ui` as `b4168d6`. The combined P1 head also passed local full validation, browser smoke, bundle policy, and audit; production integration and archival remain.
 
 ## Checklist
 
@@ -59,4 +59,4 @@ The bilingual delivery is layered over P1 in Draft PR #42. Independent architect
 - Vite still emits its pre-existing large-entry advisory, but the enforced raw/gzip bundle budgets pass.
 - Raw third-party/API diagnostic details remain untranslated when shown after a localized summary; stable application-owned errors are localized.
 - Unrelated `.gitignore` WIP remains intentionally unstaged.
-- Draft PR #42 has passed independent review; its reviewed fix commit still needs exact-head CI and merge into P1. PR #41 remains Draft until the combined P1 head is revalidated.
+- PR #42 is merged. PR #41 remains Draft until its exact-head CI and final record commit pass, after which main/Pages/public verification and archival remain.

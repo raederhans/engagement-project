@@ -2,7 +2,7 @@
 
 ## Current status
 
-P1-1 through P1-4 and Stage 5 verification are complete. Runtime commit `966ffaa` is pushed and Draft PR `#41` is open; localization reconciliation remains the separate Stage 6 integration gate.
+P1-1 through P1-4, Stage 5 verification, and the localization reconciliation portion of Stage 6 are complete. PR #42 merged as `b4168d6`; the combined P1 head is locally green and Draft PR #41 now awaits exact-head CI, main merge, Pages verification, and archival.
 
 ## Checklist
 
@@ -19,7 +19,7 @@ P1-1 through P1-4 and Stage 5 verification are complete. Runtime commit `966ffaa
 - [x] Add and observe failing P1-4 tests.
 - [x] Implement and verify P1-4.
 - [x] Run full validation, dependency audit, bundle policy, browser matrix, accessibility audit, and independent reviews.
-- [ ] Rebase onto the completed localization work, integrate, push, verify CI/Pages, and archive the task record.
+- [ ] Merge the completed localization work without rewriting history, push, verify CI/Pages, and archive the task record.
 
 ## Validation evidence
 
@@ -40,9 +40,13 @@ P1-1 through P1-4 and Stage 5 verification are complete. Runtime commit `966ffaa
 | Independent review | Final architecture, code/security, and design reviews all returned `APPROVE`; no open P0/P1 finding remains. |
 | Smoke precondition hardening | Browser smoke now fails immediately with a clear message when `dist` was not built with `VITE_TRACT_CRIME_SNAPSHOT=1`, instead of timing out on an impossible provenance transition. |
 | Review delivery | Runtime commit `966ffaa341e50711fc4cb1e375d90f02302cd0be` is pushed on `codex/p1-ui`; Draft PR `#41` targets `main` and explicitly blocks merge/deploy until localization reconciliation. |
+| Localization integration | PR #42 passed architecture `PASS`, code `APPROVE`, and exact-head CI run `30796767554`, then merged into `codex/p1-ui` as ordinary merge commit `b4168d67d0635087fbb3fe8a0fa8a65b60122a17`. |
+| Combined P1 validation | On `b4168d6`, `VITE_FEATURE_DIARY=1 VITE_TRACT_CRIME_SNAPSHOT=1 npm run validate` passed all data checks and 18 test groups, production build, and bundle policy. |
+| Combined P1 browser and audit | `npm run test:browser-smoke` passed with `consoleErrors=0` and `pageErrors=0`; `npm audit --audit-level=high` found 0 vulnerabilities; ports 4173 and 5173 were free afterward. |
+| Combined P1 bundle | Entry `872,332 / 234,081 gzip`; Crime `33,663 / 11,795`; Diary `199,940 / 60,300`; Charts `209,897 / 71,569`; P1 translations `8,856 / 3,134`; total `dist` `3,967,480` bytes. All established limits passed. |
 
 ## Open risks and remaining work
 
-- The localization branch is stable and pushed, but it predates the new P1 user-visible strings. Its owner must reconcile the P1 commit deliberately before merge.
-- This P1 branch will remain a Draft PR until localization reconciliation, final CI, and production integration are complete.
+- PR #41 still requires exact-head CI after the localization merge, followed by main CI, Pages, and public bilingual verification.
+- This P1 branch remains Draft until its final task-record commit and exact-head CI are complete.
 - MapLibre still triggers Vite's generic 500 kB warning; the stricter project bundle budgets pass, and a map-runtime migration remains outside this P1 scope.

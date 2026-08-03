@@ -2,11 +2,11 @@
 
 ## Current truth
 
-- Primary checkout: `C:/Users/raede/Desktop/dev/engagement_project`, branch `codex/bilingual-localization@d383e30`, pushed to the matching remote branch; only an unrelated user-owned `.gitignore` remains dirty.
-- Isolated P1 checkout: `C:/Users/raede/Desktop/dev/engagement_project-p1-ui`, branch `codex/p1-ui`; runtime commit `966ffaa` is pushed and Draft PR `#41` targets `main`.
+- Primary checkout: `C:/Users/raede/Desktop/dev/engagement_project`, branch `codex/bilingual-localization@65ac92f`, pushed to the matching remote branch; only an unrelated user-owned `.gitignore` remains dirty.
+- Isolated P1 checkout: `C:/Users/raede/Desktop/dev/engagement_project-p1-ui`, branch `codex/p1-ui@b4168d6`, matching its remote after PR #42 merged the complete bilingual layer; Draft PR #41 targets `main`.
 - P0 UI is merged and publicly verified. Its shell, responsive sheet, mode ownership, progressive details, and staged Diary rating are protected behavior.
 - Product-integrity P1 features already present include A/B comparison, share/restore, export, data-source infrastructure, IndexedDB My Routes, and Sample Community read-only semantics.
-- Current rendered gaps: citywide Crime cluster saturation, summary/history ordering, generic top-level ready states, simulated-live sample comments, repeated Diary route content, route under-focus, and a default-expanded Simulator.
+- P1-1 through P1-4 and the bilingual UI are integrated on one review head. The remaining work is exact-head CI, main merge, Pages deployment, public verification, and task-record archival.
 
 ## Decisions and deviations
 
@@ -19,6 +19,8 @@
 | 2026-08-03 | Full validation, browser matrix, final browser smoke, dependency audit, bundle policy, and three independent reviews passed. | The isolated P1 delivery is ready for a stable review commit and Draft PR. |
 | 2026-08-03 | The localization branch is committed and pushed but predates P1 strings. | P1 must be handed to the localization owner for catalog reconciliation before merge or Pages deployment. |
 | 2026-08-03 | Runtime commit `966ffaa` was pushed and Draft PR `#41` opened. | The delivery is reviewable but intentionally not mergeable as a completed product until Stage 6. |
+| 2026-08-03 | PR #42 passed two independent reviews and exact-head CI, then merged by ordinary merge commit `b4168d6`. | P1 behavior and complete English/Chinese copy now share one history without rebase or force-push. |
+| 2026-08-03 | The combined P1 head passed feature-enabled full validation, browser smoke, bundle policy, and dependency audit. | PR #41 can advance after its exact-head GitHub `validate` succeeds. |
 
 ## Live process ownership
 
@@ -40,4 +42,4 @@ Shared validation resources are limited to this worktree's `node_modules/`, `dis
 
 ## Next step
 
-Send runtime commit `966ffaa` and Draft PR `#41` to the localization task for deliberate string/catalog reconciliation. Do not merge or deploy until that handoff returns green.
+Wait for PR #41 exact-head CI on `b4168d6`, update the final integration record, then merge to `main` and verify main CI, Pages, and the public bilingual Crime/Diary experience.

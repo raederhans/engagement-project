@@ -52,4 +52,4 @@
 
 ## Next step
 
-Commit and push the reviewed fixes, wait for PR #42 exact-head CI, then merge it into `codex/p1-ui`. Keep PR #41 Draft until the combined P1 head is revalidated.
+PR #42 passed exact-head CI run `30796767554` and merged into `codex/p1-ui` as `b4168d6`. Complete PR #41 exact-head CI and production integration before archiving this record.
