@@ -43,27 +43,68 @@ export function getLastComparisonSnapshot(filters) {
   return structuredClone(lastComparison);
 }
 
-function createDefaultCompareView() {
+function formatDateRange(start, end) {
+  const first = dayjs(start);
+  const last = dayjs(end).subtract(1, 'day');
+  if (!first.isValid() || !last.isValid()) return 'Selected time window';
+  if (first.year() === last.year()) {
+    return `${first.format('MMM D')} – ${last.format('MMM D, YYYY')}`;
+  }
+  return `${first.format('MMM D, YYYY')} – ${last.format('MMM D, YYYY')}`;
+}
+
+function renderComparisonPoint(label, point) {
+  if (!point) return '';
+  return `
+    <div class="crime-comparison-point">
+      <strong>${escapeHtml(point.label || label)}</strong>
+      <span>${Number(point.total) || 0} incidents</span>
+    </div>`;
+}
+
+export function buildCrimeSummaryHtml({ a, b } = {}, {
+  start,
+  end,
+  coverageDate,
+} = {}) {
+  if (!a) {
+    return '<p class="crime-summary__empty">Choose a location to create an analysis summary.</p>';
+  }
+  const topCategory = a.top3?.[0]?.text_general_code || 'No category available';
+  const coverageLabel = dayjs(coverageDate).isValid()
+    ? dayjs(coverageDate).format('MMM D, YYYY')
+    : 'latest available date';
+  const comparison = b ? `
+    <div class="crime-comparison" aria-label="Area comparison">
+      <h3>Area comparison</h3>
+      ${renderComparisonPoint('Selected area', a)}
+      ${renderComparisonPoint('Comparison area', b)}
+    </div>` : '';
+
+  return `
+    <section class="crime-summary" aria-labelledby="crime-summary-title">
+      <p class="crime-summary__eyebrow">Analysis summary</p>
+      <h2 id="crime-summary-title">${Number(a.total) || 0} reported incidents</h2>
+      <dl class="crime-summary__metrics">
+        <div><dt>Most common</dt><dd>${escapeHtml(topCategory)}</dd></div>
+        <div><dt>Last 30 days</dt><dd>${fmtPct(a.delta30)}</dd></div>
+      </dl>
+      <p class="crime-summary__context">${formatDateRange(start, end)} · Data through ${coverageLabel}</p>
+      <p class="crime-summary__notice">Historical data, not a live safety alert.</p>
+      ${comparison}
+    </section>`;
+}
+
+function createDefaultCompareView(context = {}) {
   const element = document.getElementById('compare-card');
   if (!element) return null;
   return {
     pending() {
       if (savedComparisonActive) return;
-      element.innerHTML = '<div style="font:12px system-ui">Computing…</div>';
+      element.innerHTML = '<div class="crime-summary__loading" role="status">Updating analysis…</div>';
     },
-    success({ a, b }) {
-      const renderPoint = (label, point) => point ? `
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0">
-          <div style="font-weight:700">${escapeHtml(point.label || label)}</div>
-          <div><strong>Total</strong>: ${point.total}${point.per10k != null ? ` &nbsp; <em>per10k</em>: ${point.per10k.toFixed(1)}` : ''}</div>
-          <div><strong>Top 3</strong>: ${(point.top3 || []).map((item) => `${escapeHtml(item.text_general_code)} (${item.n})`).join(', ') || '—'}</div>
-          <div><strong>30d Δ</strong>: ${fmtPct(point.delta30)}</div>
-        </div>` : `<div style="margin-top:8px;color:#64748b">Set point ${label} to compare.</div>`;
-      element.innerHTML = `
-        <div style="font:600 13px/1.2 system-ui">Compare A vs B</div>
-        ${renderPoint('A', a)}
-        ${renderPoint('B', b)}
-      `;
+    success(result) {
+      element.innerHTML = buildCrimeSummaryHtml(result, context);
     },
     error(error) {
       if (savedComparisonActive) return;
@@ -108,6 +149,7 @@ export async function updateCompare(
     radiusM,
     adminLevel = 'districts',
     per10k = false,
+    coverageDate = null,
   },
   {
     signal,
@@ -118,7 +160,7 @@ export async function updateCompare(
   } = {},
 ) {
   const compareFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
-  const compareView = view ?? createDefaultCompareView();
+  const compareView = view ?? createDefaultCompareView({ start, end, coverageDate });
   if (!compareView) return null;
   const isFresh = () => !signal?.aborted && shouldApply();
   if (!isFresh()) return { applied: false };

@@ -38,6 +38,9 @@ export function createModeCoordinator({
   loadCrimeController,
   loadDiaryModule,
   getDiaryInsights,
+  onModeIntent = () => {},
+  onModeSettled = () => {},
+  onShortStatusChange = () => {},
   reportError = (label, error) => console.error(`[${label}]`, error),
 }) {
   let crimeControllerPromise = null;
@@ -47,6 +50,31 @@ export function createModeCoordinator({
   let diaryInsights = null;
   let diaryActive = false;
   let activeMode = null;
+  let shortStatus = Object.freeze({
+    mode: getCurrentMode() === 'diary' ? 'diary' : 'crime',
+    phase: 'idle',
+    label: 'Data idle',
+  });
+  const statusListeners = new Set();
+
+  const statusLabel = (mode, phase) => {
+    const name = mode === 'diary' ? 'Diary' : 'Crime';
+    if (phase === 'loading') return `${name} loading`;
+    if (phase === 'ready') return `${name} data ready`;
+    return `${name} data unavailable`;
+  };
+
+  const publishStatus = (mode, phase) => {
+    shortStatus = Object.freeze({ mode, phase, label: statusLabel(mode, phase) });
+    onShortStatusChange(shortStatus);
+    for (const listener of statusListeners) listener(shortStatus);
+  };
+
+  const settleMode = (mode, phase, ownsMode) => {
+    if (!ownsMode()) return;
+    publishStatus(mode, phase);
+    onModeSettled(mode, phase);
+  };
 
   const getCrimeController = () => {
     if (!crimeControllerPromise) {
@@ -107,7 +135,6 @@ export function createModeCoordinator({
   const applyMode = async (mode, { isLatest, signal }) => {
     const ownsMode = () => !signal.aborted && isLatest() && getCurrentMode() === mode;
     if (!ownsMode()) return { status: 'superseded' };
-    writeMode(mode);
 
     if (mode === 'diary' && diaryFeatureEnabled) {
       if (chartsPane) chartsPane.style.display = 'none';
@@ -144,12 +171,17 @@ export function createModeCoordinator({
           diaryMount?.replaceChildren?.();
           if (diaryMount) diaryMount.textContent = 'Diary data is unavailable. Reload to try again.';
           activeMode = null;
+          settleMode(mode, 'failed', ownsMode);
           return;
         }
         diaryActive = true;
         activeMode = 'diary';
+        settleMode(mode, 'ready', ownsMode);
       } catch (error) {
-        if (!signal.aborted) reportError('Diary init failed', error);
+        if (!signal.aborted) {
+          reportError('Diary init failed', error);
+          settleMode(mode, 'failed', ownsMode);
+        }
       }
       return { status: activeMode === 'diary' ? 'ready' : 'superseded' };
     }
@@ -170,18 +202,30 @@ export function createModeCoordinator({
       if (!ownsMode()) return { status: 'superseded' };
       try {
         const refresh = await controller.requestRefresh({ signal });
+        if (refresh?.status === 'live') settleMode(mode, 'ready', ownsMode);
+        else if (refresh?.status === 'failed') settleMode(mode, 'failed', ownsMode);
         return ownsMode() ? refresh : { status: 'superseded' };
       } catch (error) {
         if (!signal.aborted) reportError('Crime refresh failed', error);
+        settleMode(mode, 'failed', ownsMode);
         return { status: signal.aborted ? 'superseded' : 'failed', error: String(error?.message || error) };
       }
     } catch (error) {
       if (!signal.aborted) reportError('Crime init failed', error);
+      settleMode(mode, 'failed', ownsMode);
       return { status: signal.aborted ? 'superseded' : 'failed', error: String(error?.message || error) };
     }
   };
 
-  const schedule = createLatestSerialQueue(applyMode);
+  const enqueue = createLatestSerialQueue(applyMode);
+  const schedule = (mode) => {
+    const normalized = mode === 'diary' && diaryFeatureEnabled ? 'diary' : 'crime';
+    writeMode(normalized);
+    onModeIntent(normalized);
+    publishStatus(normalized, 'loading');
+    return enqueue(normalized);
+  };
+  schedule.cancel = (reason) => enqueue.cancel(reason);
 
   const withCurrentCrime = (action) => {
     if (activeMode !== 'crime' || getCurrentMode() !== 'crime' || !crimeController) return false;
@@ -193,6 +237,12 @@ export function createModeCoordinator({
     schedule,
     cancelCurrentTransition: (reason) => schedule.cancel(reason),
     getActiveMode: () => activeMode,
+    getShortStatus: () => shortStatus,
+    subscribeShortStatus(listener) {
+      if (typeof listener !== 'function') return () => {};
+      statusListeners.add(listener);
+      return () => statusListeners.delete(listener);
+    },
     getCurrentCrimeProvenance() {
       if (activeMode !== 'crime' || getCurrentMode() !== 'crime' || !crimeController) return {};
       return crimeController.getCurrentProvenance?.() || {};
@@ -201,10 +251,16 @@ export function createModeCoordinator({
       if (activeMode !== 'crime' || getCurrentMode() !== 'crime' || !crimeController) {
         return { status: 'superseded' };
       }
+      publishStatus('crime', 'loading');
       try {
-        return await crimeController.requestRefresh({ signal });
+        const refresh = await crimeController.requestRefresh({ signal });
+        const ownsCrime = () => activeMode === 'crime' && getCurrentMode() === 'crime';
+        if (refresh?.status === 'live') settleMode('crime', 'ready', ownsCrime);
+        else if (refresh?.status === 'failed') settleMode('crime', 'failed', ownsCrime);
+        return refresh;
       } catch (error) {
         reportError('Crime refresh failed', error);
+        settleMode('crime', 'failed', () => activeMode === 'crime' && getCurrentMode() === 'crime');
         return { status: 'failed', error: String(error?.message || error) };
       }
     },

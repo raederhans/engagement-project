@@ -89,6 +89,13 @@ async function listDatabaseNames(page) {
   return page.evaluate(async () => (await indexedDB.databases()).map((database) => database.name));
 }
 
+async function ensureAdvancedFiltersOpen(page) {
+  const details = page.locator('#advancedFilters');
+  if (!(await details.evaluate((element) => element.open))) {
+    await details.locator(':scope > summary').click();
+  }
+}
+
 async function readSavedArtifact(page, title) {
   return page.evaluate((artifactTitle) => new Promise((resolve, reject) => {
     const openRequest = indexedDB.open('engagement-analysis');
@@ -171,9 +178,10 @@ try {
   );
 
   await page.getByRole('button', { name: 'Rate this route' }).click();
-  await page.getByRole('button', { name: '★' }).nth(4).click();
+  await page.getByRole('radio', { name: '5 stars' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'poor lighting' }).click();
-  await page.getByRole('button', { name: 'Submit rating' }).click();
+  await page.getByRole('button', { name: 'Save rating' }).click();
   await page.getByText('Saved locally on this device.').waitFor();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -191,11 +199,12 @@ try {
 
   requests.length = 0;
   await page.goto(new URL('?mode=crime&utm_source=portfolio', baseUrl).href, { waitUntil: 'domcontentloaded' });
-  await page.locator('#dataStatus').filter({ hasText: 'Live crime coverage' }).waitFor();
+  await page.locator('#dataStatus').filter({ hasText: 'Live crime coverage' }).waitFor({ state: 'attached' });
   await page.waitForFunction(() => {
     const compareText = document.getElementById('compare-card')?.textContent || '';
-    return /Point A/.test(compareText) && /Total:\s*12/.test(compareText);
+    return /12 reported incidents/.test(compareText) && /Most common/.test(compareText);
   });
+  await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('24');
   assert.equal(await page.locator('#startMonth').inputValue(), '2024-08');
   assert.equal(await page.locator('#startMonth').getAttribute('max'), '2024-08');
@@ -208,7 +217,7 @@ try {
     return params.has('a') && params.get('labelA') === '1500 MARKET ST, 19102';
   });
   assert.equal(await page.locator('#addrB').inputValue(), '');
-  await page.locator('#compare-card').filter({ hasText: '1500 MARKET ST' }).waitFor();
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   await page.waitForTimeout(1200);
   assert.equal(
     networkControl.pointRefreshRequests - pointRefreshRequestsBeforeGeocode,
@@ -227,6 +236,7 @@ try {
   assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.equal(await page.locator('#addrB').inputValue(), '');
   await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor();
+  await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('12');
   await page.locator('#startMonth').fill('2025-08');
   await page.locator('#startMonth').dispatchEvent('change');
@@ -236,6 +246,7 @@ try {
   await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor();
 
   await page.locator('#durationSel').selectOption('6');
+  await page.getByRole('button', { name: 'Compare another area' }).click();
   await page.locator('#addrB').fill('Broad and Girard');
   await page.locator('#searchBBtn').click();
   await page.locator('#addressStatus').filter({ hasText: 'Point B' }).waitFor();
@@ -275,8 +286,8 @@ try {
   const freshCartoRequest = page.waitForRequest((request) => request.url().startsWith('https://phl.carto.com/'));
   await artifactCard(page, 'A-only artifact').getByRole('button', { name: 'Open' }).click();
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'visible' });
-  await page.locator('#compare-card').filter({ hasText: '1500 MARKET ST' }).waitFor();
-  assert.match(await page.locator('#compare-card').textContent(), /Total:\s*12/);
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.equal(await page.locator('#addrB').inputValue(), '');
   assert.equal(new URL(page.url()).searchParams.has('b'), false);
   assert.equal(new URL(page.url()).searchParams.has('labelB'), false);
@@ -317,12 +328,13 @@ try {
   await page.goto(uncachedRestoreUrl.href, { waitUntil: 'domcontentloaded' });
   await artifactCard(page, 'A-only artifact').waitFor();
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
+  await ensureAdvancedFiltersOpen(page);
   networkControl.stage = 'failCarto';
   networkControl.failCarto = true;
   await artifactCard(page, 'A-only artifact').getByRole('button', { name: 'Open' }).click();
   await page.waitForFunction(() => /refresh failed/i.test(document.querySelector('.analysis-history__snapshot')?.textContent || ''));
-  assert.match(await page.locator('#compare-card').textContent(), /1500 MARKET ST/);
-  assert.match(await page.locator('#compare-card').textContent(), /Total:\s*12/);
+  assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
+  assert.match(await page.locator('#compare-card').textContent(), /12 reported incidents/);
   networkControl.failCarto = false;
   networkControl.stage = 'normal';
   await page.locator('#durationSel').selectOption('6');

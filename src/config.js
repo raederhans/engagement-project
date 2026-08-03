@@ -80,7 +80,17 @@ const DEFAULT_OSM_RASTER_STYLE = {
     },
   },
   layers: [
-    { id: 'osm-tiles', type: 'raster', source: 'osm' },
+    {
+      id: 'osm-tiles',
+      type: 'raster',
+      source: 'osm',
+      paint: {
+        'raster-saturation': -0.55,
+        'raster-contrast': -0.08,
+        'raster-brightness-min': 0.08,
+        'raster-brightness-max': 0.94,
+      },
+    },
   ],
 };
 
