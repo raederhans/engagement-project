@@ -1,0 +1,721 @@
+.crime-comparison {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.crime-comparison h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.crime-comparison-point {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.crime-comparison-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.crime-comparison-details > summary {
+  min-height: var(--control-target);
+  padding: 10px 2px;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  list-style-position: inside;
+}
+
+.crime-comparison-details > summary:hover {
+  color: var(--brand-strong);
+}
+
+.crime-comparison-details > summary:focus-visible {
+  border-radius: 6px;
+  outline: 3px solid rgba(10, 108, 116, 0.2);
+  outline-offset: 2px;
+}
+
+.crime-comparison-details__body {
+  padding: 2px 0 4px;
+}
+
+.crime-comparison-details__insight {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.crime-comparison-table-wrap {
+  overflow-x: auto;
+}
+
+.crime-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.crime-comparison-table th,
+.crime-comparison-table td {
+  padding: 7px 5px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.crime-comparison-table th:first-child {
+  width: 42%;
+  padding-left: 0;
+  color: var(--ink-muted);
+  text-align: left;
+}
+
+.crime-comparison-table thead th {
+  color: var(--ink);
+  font-weight: 750;
+  vertical-align: bottom;
+}
+
+.crime-comparison-table td {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.crime-comparison-categories {
+  margin-top: 16px;
+}
+
+.crime-comparison-categories h4,
+.crime-comparison-categories h5 {
+  margin: 0;
+  color: var(--ink);
+}
+
+.crime-comparison-categories h4 {
+  font-size: 13px;
+}
+
+.crime-comparison-categories__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.crime-comparison-categories h5 {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.crime-summary-categories ol,
+.crime-comparison-categories ol {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crime-comparison-category__label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.crime-comparison-category__label span:first-child {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.crime-comparison-category__label span:last-child {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.crime-comparison-category__track {
+  width: 100%;
+  height: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  transition: opacity 180ms ease;
+}
+
+.crime-comparison-category__track::-webkit-progress-bar {
+  border-radius: inherit;
+  background: var(--surface-strong);
+}
+
+.crime-comparison-category__track::-webkit-progress-value,
+.crime-comparison-category__track::-moz-progress-bar {
+  border-radius: inherit;
+  background: var(--brand);
+}
+
+.crime-comparison-categories__empty,
+.crime-comparison-details__notice {
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.crime-comparison-categories__empty {
+  margin: 8px 0 0;
+}
+
+.crime-comparison-details__notice {
+  margin: 14px 0 0;
+}
+
+#results-drawer {
+  position: fixed;
+  top: calc(var(--app-bar-height) + 12px);
+  right: 12px;
+  z-index: 19;
+  width: min(400px, calc(100vw - 420px));
+  max-height: calc(100dvh - var(--app-bar-height) - 24px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-surface);
+}
+
+#results-drawer .progressive-surface {
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+}
+
+#results-drawer .progressive-surface > summary {
+  font-size: 14px;
+}
+
+#results-drawer .progressive-surface:not([open]) > :not(summary) {
+  display: none;
+}
+
+#results-drawer .progressive-surface[open] {
+  max-height: calc(100dvh - var(--app-bar-height) - 24px);
+  overflow: auto;
+}
+
+#charts {
+  width: 100%;
+  padding: 0 0 16px;
+}
+
+#charts h2 {
+  margin: 8px 0 14px;
+  font-size: 20px;
+}
+
+#charts h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.chart-settings {
+  margin: 0 0 12px;
+  border: 1px solid #d7e2ee;
+  border-radius: 10px;
+  background: #f8fbfe;
+}
+
+.chart-settings > summary {
+  min-height: 42px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-settings__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.chart-settings__grid label,
+.chart-card__compact-select {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.chart-settings__grid select,
+.chart-card__compact-select select {
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #b9cadc;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.chart-settings__grid .chart-settings__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  align-self: end;
+  color: var(--ink);
+}
+
+.chart-settings__check input {
+  width: 18px;
+  height: 18px;
+}
+
+.chart-card {
+  margin: 0 0 14px;
+  padding: 13px;
+  border: 1px solid #d9e3ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.045);
+}
+
+.chart-card__heading {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.chart-card__heading--split {
+  justify-content: space-between;
+}
+
+.chart-card__heading p {
+  margin: 3px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.chart-card__compact-select {
+  flex: 0 0 92px;
+}
+
+.chart-options {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #edf3f8;
+}
+
+.chart-options button {
+  min-height: 34px;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #526477;
+  font: 650 11px/1.2 var(--font-product);
+  cursor: pointer;
+}
+
+.chart-options button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--brand-strong);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.13);
+}
+
+.chart-options button:focus-visible,
+.chart-settings summary:focus-visible,
+.chart-settings select:focus-visible,
+.chart-card select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.chart-canvas {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-canvas--monthly { height: 210px; }
+.chart-canvas--top { height: 260px; }
+.chart-canvas--temporal { height: 240px; }
+
+.chart-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+
+.chart-insight {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-left: 3px solid #0f766e;
+  border-radius: 0 7px 7px 0;
+  background: #f0fdfa;
+  color: #164e63;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+#charts[data-temporal-view]:not([data-temporal-view="heat"]) #chartClassificationSel {
+  opacity: 0.6;
+}
+
+@media (max-width: 460px) {
+  .chart-settings__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    padding: 11px;
+  }
+
+  .chart-card__heading--split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px;
+  }
+
+  .chart-options button {
+    min-height: 40px;
+    padding-inline: 5px;
+  }
+
+  .chart-canvas--monthly { height: 200px; }
+  .chart-canvas--top { height: 250px; }
+  .chart-canvas--temporal { height: 225px; }
+}
+
+.mode-skeleton {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid #c5d9ee;
+  border-radius: 10px;
+  background: linear-gradient(100deg, #edf4fb 20%, #f8fbfe 40%, #edf4fb 60%);
+  background-size: 200% 100%;
+  color: var(--brand-strong);
+  animation: mode-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.mode-skeleton span {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+@keyframes mode-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.maplibregl-ctrl-top-right {
+  top: calc(var(--app-bar-height) + 12px);
+  right: 12px;
+}
+
+#banner {
+  position: fixed;
+  right: auto;
+  bottom: 52px;
+  left: 384px;
+  max-width: min(300px, calc(100vw - 408px));
+  box-sizing: border-box;
+  transform: none;
+}
+
+.maplibregl-ctrl-group button,
+.map-reset-control__button {
+  width: var(--control-target);
+  height: var(--control-target);
+}
+
+.map-reset-control__button {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.maplibregl-ctrl button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.analysis-marker {
+  filter: drop-shadow(0 0 0 rgba(200, 107, 0, 0.45)) drop-shadow(0 4px 8px rgba(16, 32, 51, 0.35));
+  animation: analysis-marker-arrive 420ms ease-out 1;
+}
+
+@keyframes analysis-marker-arrive {
+  0% { opacity: 0.2; transform: scale(0.65); }
+  70% { opacity: 1; transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 900px) {
+  .app-bar {
+    gap: 10px;
+  }
+
+  .app-title__full,
+  .app-bar__identity > p {
+    display: none;
+  }
+
+  .app-title__compact {
+    display: inline;
+  }
+
+  .mode-switch__button {
+    min-width: 66px;
+    padding-inline: 9px;
+  }
+
+  .language-switch {
+    min-width: 58px;
+    padding-inline: 8px;
+  }
+
+  .app-bar__status {
+    max-width: 96px;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  #results-drawer {
+    position: static;
+    width: auto;
+    max-height: none;
+    margin-top: 12px;
+    overflow: visible;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-bar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .app-bar__identity {
+    flex: 0 1 82px;
+  }
+
+  .app-bar h1 {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .app-bar__tools {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .mode-switch__button {
+    min-width: 54px;
+    min-height: var(--control-target);
+    padding-inline: 6px;
+    font-size: 13px;
+  }
+
+  .language-switch {
+    min-width: 52px;
+    min-height: var(--control-target);
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+
+  .app-bar__status {
+    max-width: 84px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #sidepanel {
+    right: 0;
+    left: 0;
+    width: 100%;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+  }
+
+  .task-panel__heading {
+    margin-top: 8px;
+  }
+
+  #bufferSelectRow > div {
+    flex-wrap: wrap;
+  }
+
+  #bufferSelectRow input {
+    flex-basis: 100%;
+  }
+
+  .crime-summary h2 {
+    font-size: 20px;
+  }
+
+  .maplibregl-ctrl-top-right {
+    top: calc(var(--app-bar-height) + 8px);
+    right: 8px;
+  }
+
+  #banner {
+    top: calc(var(--app-bar-height) + 12px);
+    right: 72px;
+    bottom: auto;
+    left: 12px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-bar__identity {
+    display: none;
+  }
+
+  .app-bar__tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-content {
+    max-width: 100%;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .about-toggle {
+    min-width: 52px;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  #sidepanel {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    top: auto;
+    width: 100%;
+    height: var(--sheet-half-height);
+    max-height: none;
+    margin: 0;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: clip;
+    border-radius: 16px 16px 0 0;
+    overscroll-behavior: contain;
+  }
+
+  #sidepanel[data-sheet-state="collapsed"] {
+    height: var(--sheet-collapsed-height);
+  }
+
+  #sidepanel[data-sheet-state="half"] {
+    height: var(--sheet-half-height);
+  }
+
+  #sidepanel[data-sheet-state="full"] {
+    height: var(--sheet-full-height);
+  }
+
+  .sheet-handle {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    width: 100%;
+    min-height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .sheet-content {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .sheet-handle > span {
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: #94a3b8;
+  }
+
+  .diary-insights-root {
+    top: auto;
+    right: auto;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .diary-insights-card {
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .diary-rate-action {
+    position: static;
+    margin-top: var(--space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-skeleton,
+  .analysis-marker {
+    animation: none;
+  }
+
+  .about-panel,
+  .about-toggle,
+  .button {
+    transition: none;
+  }
+
+.crime-comparison-category__track {
+  transition: none;
+}
+}

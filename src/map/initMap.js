@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import { MAP_STYLES, resolveMapStyle } from '../config.js';
-import { setTranslatedAttribute } from '../i18n/index.js';
+import { setTranslatedAttribute, setTranslatedText } from '../i18n/index.js';
 import { prefersReducedMotion } from './camera_fit.js';
 
 const DEFAULT_CENTER = [-75.1652, 39.9526];
@@ -36,8 +36,69 @@ export function initMap(options = {}) {
   installDefaultMapControls(map, {
     initialView: { center, zoom },
   });
+  const contextRecovery = installMapContextRecovery(map);
+  map.once?.('remove', contextRecovery.remove);
 
   return map;
+}
+
+export function installMapContextRecovery(map, {
+  documentRef = globalThis.document,
+  windowRef = globalThis.window,
+  scheduler = globalThis,
+} = {}) {
+  const root = documentRef?.querySelector?.('[data-map-recovery]');
+  const message = documentRef?.querySelector?.('[data-map-recovery-message]');
+  const reload = documentRef?.querySelector?.('[data-map-recovery-reload]');
+  if (!root || !message || !reload || !map?.on || !map?.off) return { remove() {} };
+
+  let hideTimer = null;
+  let removed = false;
+  const clearHideTimer = () => {
+    if (hideTimer == null) return;
+    scheduler.clearTimeout?.(hideTimer);
+    hideTimer = null;
+  };
+  const hide = () => {
+    hideTimer = null;
+    root.hidden = true;
+    root.dataset.phase = 'idle';
+  };
+  const onLost = () => {
+    if (removed) return;
+    clearHideTimer();
+    root.hidden = false;
+    root.dataset.phase = 'lost';
+    setTranslatedText(message, 'map.contextLost');
+    setTranslatedText(reload, 'map.reload');
+    reload.hidden = false;
+  };
+  const onRestored = () => {
+    if (removed) return;
+    clearHideTimer();
+    root.hidden = false;
+    root.dataset.phase = 'restored';
+    setTranslatedText(message, 'map.contextRestored');
+    reload.hidden = true;
+    hideTimer = scheduler.setTimeout?.(hide, 4_000) ?? null;
+  };
+  const reloadPage = () => windowRef?.location?.reload?.();
+
+  map.on('webglcontextlost', onLost);
+  map.on('webglcontextrestored', onRestored);
+  reload.addEventListener?.('click', reloadPage);
+
+  return {
+    remove() {
+      if (removed) return;
+      removed = true;
+      clearHideTimer();
+      map.off('webglcontextlost', onLost);
+      map.off('webglcontextrestored', onRestored);
+      reload.removeEventListener?.('click', reloadPage);
+      hide();
+    },
+  };
 }
 
 export function installDefaultMapControls(map, {

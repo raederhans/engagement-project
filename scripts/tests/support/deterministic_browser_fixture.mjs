@@ -199,6 +199,52 @@ export async function auditSeriousAccessibility(page) {
   ];
 }
 
+export const RUNTIME_SCRIPT_BUDGETS = Object.freeze({
+  crimeInitial: 1_100_000,
+  crimeAnalyzed: 1_350_000,
+  diaryInitial: 1_250_000,
+});
+
+export function createRuntimeScriptCollector(page) {
+  const resources = new Map();
+  const pending = new Set();
+  const failures = [];
+
+  const handleResponse = (response) => {
+    if (response.request().resourceType() !== 'script') return;
+    const task = (async () => {
+      const body = await response.body();
+      resources.set(response.url(), {
+        name: new URL(response.url()).pathname,
+        bytes: body.byteLength,
+        status: response.status(),
+      });
+    })().catch((error) => failures.push(error));
+    pending.add(task);
+    void task.finally(() => pending.delete(task));
+  };
+
+  page.on('response', handleResponse);
+  return {
+    async reset() {
+      await Promise.allSettled([...pending]);
+      resources.clear();
+      failures.length = 0;
+    },
+    async snapshot() {
+      await Promise.allSettled([...pending]);
+      if (failures.length) throw new AggregateError(failures, 'Unable to read runtime script responses');
+      const pageOrigin = new URL(page.url()).origin;
+      return [...resources.entries()]
+        .filter(([url]) => new URL(url).origin === pageOrigin)
+        .map(([, resource]) => resource);
+    },
+    dispose() {
+      page.off('response', handleResponse);
+    },
+  };
+}
+
 export async function captureExperienceScreenshot(
   page,
   testInfo,

@@ -3,7 +3,11 @@ import { renderDistrictChoropleth } from '../map/render_choropleth.js';
 import { attachHover } from '../map/ui_tooltip.js';
 import { wirePoints } from '../map/wire_points.js';
 import { store, initCoverageAndDefaults } from '../state/store.js';
-import { setCurrentAnalysisSelection, updateCompare } from '../compare/card.js';
+import {
+  clearCurrentComparison,
+  setCurrentAnalysisSelection,
+  updateCompare,
+} from '../compare/card.js';
 import { attachDistrictPopup } from '../map/ui_popup_district.js';
 import { getTractsMerged } from '../map/tracts_view.js';
 import { hideTractsOutlineBanner, renderTractsChoropleth } from '../map/render_choropleth_tracts.js';
@@ -19,7 +23,11 @@ import { upsertTractsOutline } from '../map/tracts_layers.js';
 import { fetchTractsCachedFirst } from '../api/boundaries.js';
 import { createMapMarker, localizeMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
-import { createCrimeRefreshOwner, readCrimeSnapshot } from './crime_refresh_owner.js';
+import {
+  createCrimeRefreshOwner,
+  observeCrimeRefreshJob,
+  readCrimeSnapshot,
+} from './crime_refresh_owner.js';
 import { setTranslatedText, t } from '../i18n/index.js';
 import {
   bufferBounds,
@@ -27,7 +35,11 @@ import {
   geometryBounds,
 } from '../map/camera_fit.js';
 import { describeCrimeDataScope } from '../ui/data_scope.js';
-
+import {
+  classifyCrimeRefreshJobs,
+  createCrimeRefreshProvenance,
+  normalizeCrimeRefreshResult,
+} from '../ui/crime_result_meta.js';
 const CRIME_LAYER_IDS = [
   'districts-fill',
   'districts-line',
@@ -47,6 +59,39 @@ const CRIME_LAYER_IDS = [
   'buffer-b-line',
 ];
 
+const CRIME_REFRESH_SCOPES = Object.freeze(['boundary', 'incidents', 'charts', 'summary']);
+const CRIME_REFRESH_SCOPE_SET = new Set(['all', ...CRIME_REFRESH_SCOPES]);
+
+function canonicalCrimeSource(metadata) {
+  if (!metadata?.dataset) return null;
+  const dataset = metadata.dataset === 'police-districts'
+    ? 'districts'
+    : metadata.dataset === 'census-tract-boundaries'
+      ? 'tracts'
+      : metadata.dataset === 'census-tract-statistics'
+        ? 'demographics'
+        : metadata.dataset;
+  const source = metadata.provider || metadata.source;
+  if (!source || !['live', 'fallback'].includes(metadata.kind)) return null;
+  return {
+    dataset,
+    kind: metadata.kind,
+    source,
+    asOf: metadata.asOf || null,
+  };
+}
+
+function mergeCrimeSources(...collections) {
+  const merged = new Map();
+  for (const metadata of collections.flat()) {
+    const source = canonicalCrimeSource(metadata);
+    if (!source) continue;
+    const key = [source.dataset, source.kind, source.source, source.asOf || ''].join('\u0000');
+    if (!merged.has(key)) merged.set(key, source);
+  }
+  return [...merged.values()];
+}
+
 let chartsModulePromise;
 
 function loadChartsModule() {
@@ -59,6 +104,12 @@ async function updateCharts(filters, options) {
   return updateAllCharts(filters, options);
 }
 
+async function clearLoadedCharts() {
+  if (!chartsModulePromise) return false;
+  const { clearCrimeCharts } = await chartsModulePromise;
+  return clearCrimeCharts();
+}
+
 function waitForMapReady(map) {
   if (map.loaded?.() || map.isStyleLoaded?.()) return Promise.resolve();
   return new Promise((resolve) => map.once('load', resolve));
@@ -68,28 +119,33 @@ function captureCrimeSnapshot() {
   return readCrimeSnapshot(store);
 }
 
-export function normalizeCrimeRefreshResult(result) {
-  if (result?.status === 'failed') return { status: 'failed' };
-  if (result?.status === 'live' || result?.applied === true) return { status: 'live' };
-  return { status: 'superseded' };
-}
-
-export function classifyCrimeRefreshJobs(results) {
-  let superseded = false;
-  for (const result of results) {
-    if (result?.status === 'rejected') return { status: 'failed' };
-    const value = result?.value;
-    if (!value || value.status === 'failed') return { status: 'failed' };
-    if (value.status === 'superseded' || value.applied === false) superseded = true;
-    else if (value.status !== 'live' && value.applied !== true) return { status: 'failed' };
-  }
-  return superseded ? { applied: false } : { applied: true };
-}
-
 export function hasActiveIncidentSelection(state) {
   return state?.queryMode === 'buffer'
     && Array.isArray(state.centerLonLat)
     && state.centerLonLat.length >= 2;
+}
+
+export function reconcileBufferOverlays({
+  map,
+  queryMode,
+  centerLonLat,
+  centerBLonLat,
+  markerA = null,
+  markerB = null,
+  clearA = clearBufferA,
+  clearB = clearBufferB,
+} = {}) {
+  if (queryMode !== 'buffer' || !centerLonLat) {
+    markerA?.remove();
+    markerA = null;
+    clearA(map);
+  }
+  if (queryMode !== 'buffer' || !centerBLonLat) {
+    markerB?.remove();
+    markerB = null;
+    clearB(map);
+  }
+  return { markerA, markerB };
 }
 
 export function crimeSelectionKey(state) {
@@ -105,6 +161,74 @@ export function crimeSelectionKey(state) {
     return `buffer:${centerA}${centerB}|${Number(state.radiusM ?? state.radius) || 400}`;
   }
   return null;
+}
+
+export function normalizeCrimeRefreshScope(scope = 'all') {
+  return CRIME_REFRESH_SCOPE_SET.has(scope) ? scope : null;
+}
+
+export function planCrimeRefresh(snapshot, scope = 'all') {
+  const normalizedScope = normalizeCrimeRefreshScope(scope);
+  if (!normalizedScope) return { valid: false, requested: [], inactive: [] };
+  const candidates = normalizedScope === 'all' ? CRIME_REFRESH_SCOPES : [normalizedScope];
+  const hasAnalysisSelection = Boolean(crimeSelectionKey(snapshot));
+  const requested = candidates.filter((name) => (
+    name === 'boundary'
+    || (name === 'incidents' ? hasActiveIncidentSelection(snapshot) : hasAnalysisSelection)
+  ));
+  return {
+    valid: true,
+    requested,
+    inactive: candidates.filter((name) => !requested.includes(name)),
+  };
+}
+
+export function classifyDistrictBoundaryRefresh({
+  featureCount = 0,
+  overlayRequested = false,
+  outlineResult = { applied: true, status: 'success' },
+} = {}) {
+  if (outlineResult?.applied === false || outlineResult?.status === 'superseded') {
+    return { applied: false, status: 'superseded' };
+  }
+  if (overlayRequested && outlineResult?.status === 'failed') {
+    return {
+      applied: true,
+      status: 'partial',
+      featureCount,
+      succeeded: ['districts'],
+      failed: ['tracts-outline'],
+    };
+  }
+  return { applied: true, status: 'success', featureCount };
+}
+
+export async function loadTractOutlineResult({
+  signal,
+  isCurrent = () => true,
+  onSourceResolved,
+  fetchTracts = fetchTractsCachedFirst,
+} = {}) {
+  try {
+    const data = await fetchTracts({ signal, onSourceResolved });
+    if (!isCurrent()) return { applied: false, status: 'superseded' };
+    return {
+      applied: true,
+      status: 'success',
+      featureCount: data?.features?.length || 0,
+      data,
+    };
+  } catch (error) {
+    if (!isCurrent() || signal?.aborted || error?.name === 'AbortError') {
+      return { applied: false, status: 'superseded' };
+    }
+    console.warn('Failed to load tract outlines:', error);
+    return {
+      applied: true,
+      status: 'failed',
+      error: String(error?.message || error),
+    };
+  }
 }
 
 function unionBounds(...values) {
@@ -150,6 +274,8 @@ export async function initCrimeMode(map, {
   onPointChange = () => {},
   onSelectionChange = () => {},
   onDataScopeChange = () => {},
+  resultMeta = {},
+  now = () => new Date().toISOString(),
 } = {}) {
   const mapReady = waitForMapReady(map);
   let markerA = null;
@@ -159,12 +285,10 @@ export async function initCrimeMode(map, {
   let active = true;
   let hoverCleanup = null;
   let popupCleanup = null;
-  let tractOutlineData = null;
   let currentTractSnapshotProvenance = null;
   let districtData = null;
   let tractData = null;
   let lastCameraSelectionKey = null;
-  const resolvedSources = new Map();
 
   try {
     await initCoverageAndDefaults();
@@ -206,9 +330,27 @@ export async function initCrimeMode(map, {
     initLegend();
   }
 
-  async function refreshAll(snapshot, { signal, isCurrent }) {
+  async function refreshAll(snapshot, { signal, isCurrent, scope = 'all' }) {
     if (!active || !isActive() || !isCurrent()) return { applied: false };
-    currentTractSnapshotProvenance = null;
+    const plan = planCrimeRefresh(snapshot, scope);
+    if (!plan.valid) return { status: 'failed', error: `Unknown Crime result scope: ${scope}` };
+    const requested = new Set(plan.requested);
+    if (plan.inactive.includes('incidents')) {
+      pointsController.clear();
+      resultMeta.incidents?.clear();
+    }
+    if (plan.inactive.includes('charts')) {
+      resultMeta.charts?.clear();
+      await clearLoadedCharts();
+    }
+    if (plan.inactive.includes('summary')) {
+      resultMeta.summary?.clear();
+      clearCurrentComparison();
+    }
+    if (scope !== 'all' && requested.size === 0) {
+      return { status: 'failed', error: 'Select an analysis target before retrying this result.' };
+    }
+    if (requested.has('boundary')) currentTractSnapshotProvenance = null;
     const {
       start,
       end,
@@ -226,21 +368,11 @@ export async function initCrimeMode(map, {
       addressB,
       radiusM,
     } = snapshot;
+    const resolvedSources = new Map();
     const collectResolvedSource = (metadata) => {
-      if (!isCurrent() || !metadata?.dataset) return;
-      const dataset = metadata.dataset === 'police-districts'
-        ? 'districts'
-        : metadata.dataset === 'census-tract-boundaries'
-          ? 'tracts'
-          : metadata.dataset === 'census-tract-statistics'
-            ? 'demographics'
-            : metadata.dataset;
-      resolvedSources.set(dataset, {
-        dataset,
-        kind: metadata.kind,
-        source: metadata.provider,
-        asOf: metadata.asOf || null,
-      });
+      if (!isCurrent()) return;
+      const source = canonicalCrimeSource(metadata);
+      if (source) resolvedSources.set(source.dataset, source);
     };
     resolvedSources.set('incidents', {
       dataset: 'incidents',
@@ -249,104 +381,185 @@ export async function initCrimeMode(map, {
       asOf: store.coverageMax || null,
     });
 
+    const provenanceFor = (name, value) => createCrimeRefreshProvenance({
+      name,
+      value,
+      snapshot,
+      sources: mergeCrimeSources(
+        [...resolvedSources.values()],
+        value?.sourceLineage || [],
+      ),
+      coverageMax: store.coverageMax,
+      generatedAt: now(),
+    });
+    const publishResult = ({ name, result, token }) => {
+      const presenter = resultMeta[name];
+      if (!presenter) return;
+      if (result.status === 'rejected') {
+        presenter.failed(result.reason, { token });
+        console.warn(`${name} refresh failed:`, result.reason);
+        return;
+      }
+      const value = result.value;
+      if (value?.applied === false || value?.status === 'superseded') {
+        presenter.cancel(token);
+        return;
+      }
+      if (!value || value.status === 'failed') {
+        presenter.failed(new Error(value?.error || `${name} query failed`), { token });
+        return;
+      }
+      try {
+        presenter.ready(provenanceFor(name, value), {
+          token,
+          availability: value.status === 'partial' ? 'partial' : 'current',
+        });
+      } catch (error) {
+        presenter.failed(error, { token });
+      }
+    };
+    const entries = [];
+    const jobs = [];
+    const startResultJob = (name, promise) => {
+      const presenter = resultMeta[name];
+      const token = presenter?.loading();
+      const cancelPresenter = () => presenter?.cancel(token);
+      signal.addEventListener('abort', cancelPresenter, { once: true });
+      const trackedPromise = observeCrimeRefreshJob({ name, promise, token }, {
+        isCurrent,
+        onSettled(entry) {
+          signal.removeEventListener('abort', cancelPresenter);
+          entries.push(entry);
+          publishResult(entry);
+        },
+        onSuperseded() {
+          signal.removeEventListener('abort', cancelPresenter);
+          cancelPresenter();
+        },
+      });
+      jobs.push({ name, promise: trackedPromise });
+      return trackedPromise;
+    };
+
     syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode });
     publishCurrentSelection(snapshot);
-    const bufferCamera = queryMode === 'buffer'
+    const bufferCamera = requested.has('boundary') && queryMode === 'buffer'
       ? fitCurrentSelection({ snapshot })
       : Promise.resolve(false);
 
-    try {
-      let nextTractSnapshotProvenance = null;
-      if (adminLevel === 'tracts') {
-        const merged = await getTractsMerged({
-          per10k,
-          windowStart: start,
-          windowEnd: end,
-          types,
-          signal,
-          onSourceResolved: collectResolvedSource,
-        });
-        if (!isCurrent()) return { applied: false };
-        tractData = merged.geojson || merged;
-        renderTractsChoropleth(map, merged);
-        nextTractSnapshotProvenance = merged.provenance || null;
-        clearCrimeResultsUnavailable();
-        reconcileCrimeLayerVisibility(map, snapshot);
-        reconcileCrimeLegend(snapshot);
-        if (queryMode === 'tract' && selectedTractGEOID) {
-          upsertSelectedTract(map, selectedTractGEOID);
-          await fitCurrentSelection({ snapshot });
-        } else {
-          clearSelectedTract(map);
-        }
-        wireTractSelection();
-      } else {
-        const [merged] = await Promise.all([
-          getDistrictsMerged({
-            start,
-            end,
+    if (requested.has('boundary')) {
+      startResultJob('boundary', (async () => {
+        let nextTractSnapshotProvenance = null;
+        let featureCount = 0;
+        let boundaryOutcome = null;
+        if (adminLevel === 'tracts') {
+          const merged = await getTractsMerged({
+            per10k,
+            windowStart: start,
+            windowEnd: end,
             types,
             signal,
             onSourceResolved: collectResolvedSource,
-          }),
-          ensureTractOutline({ signal, isCurrent, onSourceResolved: collectResolvedSource }),
-        ]);
-        if (!isCurrent()) return { applied: false };
-        districtData = merged;
-        renderDistrictChoropleth(map, merged);
-        clearCrimeResultsUnavailable();
-        reconcileCrimeLayerVisibility(map, snapshot);
-        reconcileCrimeLegend(snapshot);
-        ensureDistrictInteractions();
-        if (queryMode === 'district' && selectedDistrictCode) {
-          upsertSelectedDistrict(map, selectedDistrictCode);
-          await fitCurrentSelection({ snapshot });
+          });
+          if (!isCurrent()) return { applied: false };
+          tractData = merged.geojson || merged;
+          featureCount = tractData?.features?.length || 0;
+          renderTractsChoropleth(map, merged);
+          nextTractSnapshotProvenance = merged.provenance || null;
+          reconcileCrimeLayerVisibility(map, snapshot);
+          reconcileCrimeLegend(snapshot);
+          if (queryMode === 'tract' && selectedTractGEOID) {
+            upsertSelectedTract(map, selectedTractGEOID);
+            await fitCurrentSelection({ snapshot });
+          } else {
+            clearSelectedTract(map);
+          }
+          wireTractSelection();
+          boundaryOutcome = { applied: true, status: 'success', featureCount };
         } else {
-          clearSelectedDistrict(map);
+          const [merged, outlineResult] = await Promise.all([
+            getDistrictsMerged({
+              start,
+              end,
+              types,
+              signal,
+              onSourceResolved: collectResolvedSource,
+            }),
+            ensureTractOutline({ signal, isCurrent, onSourceResolved: collectResolvedSource }),
+          ]);
+          if (!isCurrent()) return { applied: false };
+          districtData = merged;
+          featureCount = merged?.features?.length || 0;
+          renderDistrictChoropleth(map, merged);
+          reconcileCrimeLayerVisibility(map, snapshot);
+          reconcileCrimeLegend(snapshot);
+          ensureDistrictInteractions();
+          if (queryMode === 'district' && selectedDistrictCode) {
+            upsertSelectedDistrict(map, selectedDistrictCode);
+            await fitCurrentSelection({ snapshot });
+          } else {
+            clearSelectedDistrict(map);
+          }
+          wireDistrictSelection();
+          boundaryOutcome = classifyDistrictBoundaryRefresh({
+            featureCount,
+            overlayRequested: Boolean(snapshot.overlayTractsLines),
+            outlineResult,
+          });
         }
-        wireDistrictSelection();
-      }
-      if (isCurrent()) currentTractSnapshotProvenance = nextTractSnapshotProvenance;
-    } catch (error) {
-      if (!isCurrent()) return { applied: false };
-      currentTractSnapshotProvenance = null;
-      console.warn('Boundary refresh failed:', error);
-      markCrimeResultsUnavailable(map, 'Map and charts are unavailable for the current filters. Try again.');
-      return { status: 'failed' };
+        if (nextTractSnapshotProvenance) {
+          resolvedSources.set('tract-crime', {
+            dataset: 'tract-crime',
+            kind: 'fallback',
+            source: 'Validated tract snapshot',
+            asOf: nextTractSnapshotProvenance.coverageDate,
+          });
+        }
+        if (isCurrent()) currentTractSnapshotProvenance = nextTractSnapshotProvenance;
+        return boundaryOutcome;
+      })());
     }
 
     if (!isCurrent()) return { applied: false };
     await bufferCamera;
     if (!isCurrent()) return { applied: false };
-    const jobs = [];
-    if (hasActiveIncidentSelection(snapshot)) {
-      jobs.push(pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }));
-    } else {
+    if (requested.has('incidents') && hasActiveIncidentSelection(snapshot)) {
+      startResultJob(
+        'incidents',
+        pointsController.refresh(snapshot, { signal, shouldApply: isCurrent }),
+      );
+    } else if (requested.has('incidents')) {
       pointsController.clear();
     }
-    jobs.push(updateCharts(snapshot, { signal, shouldApply: isCurrent }));
-    if (center3857) {
-      jobs.push(updateCompare({
-        start,
-        end,
-        types,
-        center3857,
-        centerB3857,
-        addressA,
-        addressB,
-        radiusM,
-        adminLevel,
-        per10k,
-        coverageDate: store.coverageMax,
-      }, { signal, shouldApply: isCurrent }));
+    if (requested.has('charts')) {
+      startResultJob('charts', updateCharts(snapshot, { signal, shouldApply: isCurrent }));
     }
-    const results = await Promise.allSettled(jobs);
+    if (requested.has('summary')) {
+      startResultJob(
+        'summary',
+        updateCompare({
+          start,
+          end,
+          types,
+          center3857,
+          centerB3857,
+          addressA,
+          addressB,
+          radiusM,
+          adminLevel,
+          per10k,
+          coverageDate: store.coverageMax,
+        }, {
+          signal,
+          shouldApply: isCurrent,
+          onSourceResolved: collectResolvedSource,
+        }),
+      );
+    }
+    await Promise.allSettled(jobs.map(({ promise }) => promise));
     if (!isCurrent()) return { applied: false };
-    for (const result of results) {
-      if (result.status === 'rejected') console.warn('Crime dashboard refresh failed:', result.reason);
-    }
-    const outcome = classifyCrimeRefreshJobs(results);
-    if (outcome.applied && isCurrent()) {
+    const outcome = classifyCrimeRefreshJobs(entries);
+    if ((outcome.status === 'live' || outcome.status === 'partial') && scope === 'all') {
       const relevantDatasets = new Set(['incidents']);
       if (adminLevel === 'tracts') {
         relevantDatasets.add('tracts');
@@ -355,27 +568,23 @@ export async function initCrimeMode(map, {
         relevantDatasets.add('districts');
         if (store.overlayTractsLines) relevantDatasets.add('tracts');
       }
-      const sources = [...resolvedSources.values()]
-        .filter((source) => relevantDatasets.has(source.dataset));
-      if (currentTractSnapshotProvenance) {
-        sources.push({
-          dataset: 'tract-crime',
-          kind: 'fallback',
-          sourceKey: 'scope.source.validatedTractSnapshot',
-          asOf: currentTractSnapshotProvenance.coverageDate,
-        });
-      }
       onDataScopeChange(describeCrimeDataScope({
         coverageMax: store.coverageMax,
-        sources,
+        sources: [...resolvedSources.values()]
+          .filter((source) => relevantDatasets.has(source.dataset)),
       }));
     }
     return outcome;
   }
 
-  async function requestRefresh({ signal } = {}) {
+  async function requestRefresh({ signal, scope = 'all' } = {}) {
+    if (!normalizeCrimeRefreshScope(scope)) {
+      return { status: 'failed', error: `Unknown Crime result scope: ${scope}` };
+    }
     try {
-      return normalizeCrimeRefreshResult(await refreshOwner.refresh({ signal }));
+      const result = await refreshOwner.refresh({ signal, scope });
+      if (result?.status === 'busy') return result;
+      return normalizeCrimeRefreshResult(result);
     } catch (error) {
       console.warn('Crime refresh failed:', error);
       return { status: 'failed', error: String(error?.message || error) };
@@ -403,14 +612,15 @@ export async function initCrimeMode(map, {
   }
 
   function syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode }) {
-    if (queryMode !== 'buffer') {
-      removeBufferOverlay(map);
-      markerA?.remove();
-      markerB?.remove();
-      markerA = null;
-      markerB = null;
-      return;
-    }
+    ({ markerA, markerB } = reconcileBufferOverlays({
+      map,
+      queryMode,
+      centerLonLat,
+      centerBLonLat,
+      markerA,
+      markerB,
+    }));
+    if (queryMode !== 'buffer') return;
     if (centerLonLat) {
       markerA ||= createMapMarker({ color: '#c86b00', className: 'analysis-marker analysis-marker--a' });
       markerA.setLngLat(centerLonLat).addTo(map);
@@ -426,20 +636,12 @@ export async function initCrimeMode(map, {
   }
 
   async function ensureTractOutline({ signal, isCurrent, onSourceResolved }) {
-    if (!tractOutlineData) {
-      try {
-        const tracts = await fetchTractsCachedFirst({ signal, onSourceResolved });
-        if (!isCurrent()) return;
-        tractOutlineData = tracts;
-      } catch (error) {
-        if (!isCurrent() || signal.aborted || error?.name === 'AbortError') return;
-        console.warn('Failed to load tract outlines:', error);
-        return;
-      }
+    const result = await loadTractOutlineResult({ signal, isCurrent, onSourceResolved });
+    if (result.status === 'success' && active && isActive() && result.data?.features?.length) {
+      upsertTractsOutline(map, result.data);
     }
-    if (active && isActive() && tractOutlineData?.features?.length) {
-      upsertTractsOutline(map, tractOutlineData);
-    }
+    const { data: _data, ...outcome } = result;
+    return outcome;
   }
 
   function wireDistrictSelection() {
@@ -604,44 +806,6 @@ export function resolveCrimeLayerVisibility(layerId, state) {
     return state?.queryMode === 'buffer' && state?.centerBLonLat ? 'visible' : 'none';
   }
   return 'visible';
-}
-
-export function markCrimeResultsUnavailable(map, message, documentRef = globalThis.document) {
-  for (const layerId of CRIME_LAYER_IDS) {
-    if (layerId.startsWith('buffer-')) continue;
-    if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
-  }
-  hideLegend();
-  for (const id of ['charts', 'compare-card']) {
-    const element = documentRef?.getElementById?.(id);
-    if (element) {
-      element.style.opacity = '0.35';
-      element.style.pointerEvents = 'none';
-    }
-  }
-  let status = documentRef?.getElementById?.('crime-results-status');
-  if (!status && documentRef?.createElement) {
-    status = documentRef.createElement('div');
-    status.id = 'crime-results-status';
-    status.setAttribute('role', 'status');
-    documentRef.getElementById?.('sidepanel')?.prepend(status);
-  }
-  if (status) {
-    status.textContent = message;
-    status.style.display = 'block';
-  }
-}
-
-function clearCrimeResultsUnavailable(documentRef = globalThis.document) {
-  for (const id of ['charts', 'compare-card']) {
-    const element = documentRef?.getElementById?.(id);
-    if (element) {
-      element.style.opacity = '';
-      element.style.pointerEvents = '';
-    }
-  }
-  const status = documentRef?.getElementById?.('crime-results-status');
-  if (status) status.style.display = 'none';
 }
 
 function removeBufferOverlay(map) {

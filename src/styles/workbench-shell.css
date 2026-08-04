@@ -1,0 +1,292 @@
+/* Global map-workbench shell. */
+
+html,
+body {
+  overflow-x: clip;
+  overflow-y: clip;
+}
+
+.app-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
+  min-height: var(--app-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.app-bar__identity {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.app-bar h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.app-bar p {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+#sidepanel :is(button, select, input:not([type="checkbox"]):not([type="range"])),
+.progressive-surface > summary {
+  min-height: var(--control-target);
+}
+
+#sidepanel :is(button, select, input):focus-visible,
+.progressive-surface > summary:focus-visible {
+  outline: 2px solid #0369a1;
+  outline-offset: 2px;
+}
+
+.sheet-handle {
+  display: none;
+}
+
+.sheet-content {
+  min-width: 0;
+}
+
+#sidepanel[data-sheet-state="collapsed"] .sheet-content {
+  visibility: hidden;
+}
+
+.progressive-surface {
+  margin-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.progressive-surface > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: #0f172a;
+  font: 700 13px/1.2 var(--font-product);
+  list-style: none;
+}
+
+.progressive-surface > summary::-webkit-details-marker {
+  display: none;
+}
+
+.progressive-surface > summary::after {
+  content: "+";
+  color: #0369a1;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.progressive-surface[open] > summary::after {
+  content: "−";
+}
+
+#compare-card,
+#charts {
+  position: static;
+  inset: auto;
+  width: auto;
+  max-height: none;
+  margin: 0;
+  padding: 8px 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --control-target: 48px;
+    --app-bar-height: 56px;
+  }
+
+  .app-bar {
+    padding-inline: 12px;
+  }
+
+  .app-bar h1 {
+    font-size: 16px;
+  }
+
+  .app-bar p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #sidepanel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    z-index: 25;
+    width: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 0 16px 16px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: clip;
+    border-radius: 18px 18px 0 0;
+    overscroll-behavior: contain;
+    transition: height 180ms ease;
+  }
+
+  #sidepanel[data-sheet-state="collapsed"] {
+    height: var(--sheet-collapsed-height);
+  }
+
+  #sidepanel[data-sheet-state="half"] {
+    height: var(--sheet-half-height);
+  }
+
+  #sidepanel[data-sheet-state="full"] {
+    height: var(--sheet-full-height);
+  }
+
+  .sheet-handle {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    width: 100%;
+    min-height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .sheet-content {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .sheet-handle > span {
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: #94a3b8;
+  }
+}
+
+@media (max-width: 720px) and (orientation: portrait) {
+  #sidepanel[data-sheet-state="half"] {
+    height: var(--sheet-half-height);
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  :root {
+    --sheet-half-height: 54dvh;
+    --sheet-full-height: 88dvh;
+  }
+
+  .app-bar__identity > p {
+    display: none;
+  }
+}
+
+@media (max-height: 640px) {
+  :root {
+    --sheet-collapsed-height: 96px;
+    --sheet-half-height: 75dvh;
+    --sheet-full-height: 88dvh;
+  }
+}
+
+.map-recovery {
+  position: fixed;
+  top: calc(var(--app-bar-height) + 12px);
+  left: 50%;
+  z-index: 29;
+  display: flex;
+  max-width: min(520px, calc(100vw - 32px));
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  background: rgba(255, 251, 235, 0.98);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  color: #78350f;
+  font: 600 13px/1.4 var(--font-product);
+  transform: translateX(-50%);
+}
+
+.map-recovery[data-phase="restored"] {
+  border-color: #86efac;
+  background: rgba(240, 253, 244, 0.98);
+  color: #166534;
+}
+
+.map-recovery[hidden] {
+  display: none;
+}
+
+.map-recovery .button {
+  flex: 0 0 auto;
+  min-height: 44px;
+}
+
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 640px) {
+  :root {
+    /* Keep a stable map context above the sheet and avoid fractional-dvh jitter. */
+    --sheet-half-height: calc(100dvh - 98px);
+  }
+}
+
+@media (max-width: 720px), (max-width: 900px) and (orientation: landscape) {
+  #useCenterBtn {
+    position: static;
+    box-shadow: none;
+  }
+
+  .diary-rate-action {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin: calc(var(--control-target) + var(--space-5)) 0 0;
+    padding: 20px 0 calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--surface) 14px);
+  }
+
+  [data-panel-view="diary"] {
+    padding-bottom: 0;
+  }
+
+  .diary-insights-root {
+    position: relative;
+    z-index: 29;
+    background: var(--surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sidepanel,
+  .diary-view-pill,
+  .diary-history-item,
+  .diary-btn-primary,
+  .diary-primary-btn,
+  .diary-btn-secondary {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+  }
+}

@@ -1,13 +1,14 @@
 const STEP_NAMES = new Set(['overall', 'details', 'segments']);
-const draftsByRoute = new Map();
 
 function normalizeRating(value) {
   const rating = Number(value);
   return Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : null;
 }
 
-function normalizeDraft(draft = {}) {
-  const tags = Array.from(draft.tags || []).filter((tag) => typeof tag === 'string').slice(0, 3);
+export function normalizeRatingDraft(draft = {}) {
+  const tags = [...new Set(
+    Array.from(draft.tags || []).filter((tag) => typeof tag === 'string'),
+  )].slice(0, 3);
   const overrides = Array.from(draft.overrides || [])
     .filter(([segmentId, rating]) => String(segmentId || '').trim() && normalizeRating(rating))
     .slice(0, 2)
@@ -21,24 +22,9 @@ function normalizeDraft(draft = {}) {
   };
 }
 
-export function createRatingDraft(routeId) {
-  return getRatingDraft(routeId) || normalizeDraft();
-}
-
-export function getRatingDraft(routeId) {
-  const saved = draftsByRoute.get(String(routeId || ''));
-  return saved ? normalizeDraft(saved) : null;
-}
-
-export function saveRatingDraft(routeId, draft) {
-  const key = String(routeId || '').trim();
-  if (!key) return false;
-  draftsByRoute.set(key, normalizeDraft(draft));
-  return true;
-}
-
-export function clearRatingDraft(routeId) {
-  return draftsByRoute.delete(String(routeId || ''));
+export function createRatingDraft(routeId, persistedDraft = null) {
+  void routeId;
+  return normalizeRatingDraft(persistedDraft || {});
 }
 
 export function selectLowestRatedSegments(routeFeature, segmentLookup, limit = 3) {

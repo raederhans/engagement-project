@@ -4,14 +4,71 @@ import {
   assertNoHorizontalOverflow,
   auditSeriousAccessibility,
   captureExperienceScreenshot,
+  createRuntimeScriptCollector,
   crimeRequests,
   expect,
   gotoMode,
+  RUNTIME_SCRIPT_BUDGETS,
   test,
 } from './support/deterministic_browser_fixture.mjs';
 
 function desktopOnly(testInfo) {
   test.skip(testInfo.project.name !== 'desktop', 'Detailed state coverage runs once; responsive routes run in every viewport.');
+}
+
+const INCIDENT_FIXTURE = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.166154, 39.95218] },
+      properties: {
+        cartodb_id: 101,
+        dispatch_date_time: '2026-07-30T18:30:00Z',
+        text_general_code: '<img src=x onerror=alert(1)>',
+        location_block: '1500 MARKET ST & <script>alert(2)</script>',
+        dc_dist: '09',
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.1649, 39.953] },
+      properties: {
+        cartodb_id: 102,
+        dispatch_date_time: '2026-07-29T09:15:00Z',
+        text_general_code: 'Thefts',
+        location_block: '1400 MARKET ST',
+        dc_dist: '09',
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-75.168, 39.9515] },
+      properties: {
+        cartodb_id: 103,
+        dispatch_date_time: '2026-07-28T14:05:00Z',
+        text_general_code: 'Vandalism/Criminal Mischief',
+        location_block: '1600 MARKET ST',
+        dc_dist: '09',
+      },
+    },
+  ],
+};
+
+async function installIncidentPointFixture(page) {
+  await page.route('https://phl.carto.com/**', async (route) => {
+    const request = route.request();
+    const parameters = new URLSearchParams(request.postData() || '');
+    const sql = parameters.get('q') || '';
+    if (parameters.get('format') === 'GeoJSON' && /SELECT\s+cartodb_id/i.test(sql)) {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(INCIDENT_FIXTURE),
+      });
+      return;
+    }
+    await route.fallback();
+  });
 }
 
 async function expectMinimumTouchTarget(locator, minimum = 44) {
@@ -97,6 +154,39 @@ test('Crime direct route restores URL state and keeps its primary action usable'
   await captureExperienceScreenshot(page, testInfo, 'crime-analysis');
 });
 
+test('Crime incident results stay synchronized, escaped, and keyboard reachable', async ({ page }, testInfo) => {
+  await installIncidentPointFixture(page);
+  await gotoMode(page, 'crime');
+  await page.locator('#addrA').fill('1500 Market St');
+  await page.locator('#addrA').press('Enter');
+
+  const rows = page.locator('.incident-results__item > button');
+  await expect(rows).toHaveCount(3);
+  await page.getByRole('button', { name: 'Incidents', exact: true }).click();
+  const firstRow = rows.first();
+  await tabTo(page, firstRow);
+  await page.keyboard.press('Enter');
+
+  await expect(firstRow).toBeFocused();
+  await expect(firstRow).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('.incident-results__item > button[aria-current="true"]')).toHaveCount(1);
+  const selected = page.locator('[data-selected-incident]');
+  await expect(selected).toBeVisible();
+  await expect(selected).toContainText('<img src=x onerror=alert(1)>');
+  await expect(selected).toContainText('1500 MARKET ST & <script>alert(2)</script>');
+  await expect(selected.locator('img, script')).toHaveCount(0);
+  await expect(page.locator('.maplibregl-popup')).toBeVisible();
+  await expect(firstRow).toBeInViewport();
+  await expectMinimumTouchTarget(firstRow);
+  await assertFocusNotObscured(firstRow);
+  await assertNoHorizontalOverflow(page);
+  expect(
+    await auditSeriousAccessibility(page),
+    'crime incident-result accessibility issues',
+  ).toEqual([]);
+  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results');
+});
+
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
   await gotoMode(page, 'diary');
   await expect(page.getByRole('heading', { name: 'Route Safety Diary (demo)' })).toBeVisible();
@@ -143,6 +233,57 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   await captureExperienceScreenshot(page, testInfo, 'diary-insights-expanded');
 });
 
+test('runtime mode boundaries keep initial and analyzed script work deterministic', async ({ page }, testInfo) => {
+  desktopOnly(testInfo);
+  const collector = createRuntimeScriptCollector(page);
+  const scriptMetrics = () => collector.snapshot();
+  const assertScriptBudget = async (budget, label) => {
+    const resources = await scriptMetrics();
+    expect(
+      resources.every(({ status }) => status >= 200 && status < 300),
+      `${label} script responses: ${resources.map(({ name, status }) => `${status} ${name}`).join(', ')}`,
+    ).toBe(true);
+    const bytes = resources.reduce((total, entry) => total + entry.bytes, 0);
+    expect(bytes, `${label} script bytes: ${resources.map(({ name }) => name).join(', ')}`).toBeLessThanOrEqual(budget);
+    return resources.map(({ name }) => name);
+  };
+
+  try {
+    await collector.reset();
+    await gotoMode(page, 'diary');
+    const diaryAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.diaryInitial, 'Diary initial');
+    expect(
+      diaryAssets.some((name) => /routes_diary-[^/]+\.js$/.test(name)),
+      `Diary route chunk must load: ${diaryAssets.join(', ')}`,
+    ).toBe(true);
+    expect(
+      diaryAssets.some((name) => /diary_storage-[^/]+\.js$/.test(name)),
+      `Diary storage chunk must load: ${diaryAssets.join(', ')}`,
+    ).toBe(true);
+    expect(diaryAssets.some((name) => /routes_crime-|charts-|incident_results_controller-/.test(name))).toBe(false);
+
+    await collector.reset();
+    await gotoMode(page, 'crime');
+    const crimeAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeInitial, 'Crime initial');
+    expect(
+      crimeAssets.some((name) => /routes_crime-[^/]+\.js$/.test(name)),
+      `Crime route chunk must load: ${crimeAssets.join(', ')}`,
+    ).toBe(true);
+    expect(crimeAssets.some((name) => /routes_diary-|diary_storage-|charts-|incident_results_controller-/.test(name))).toBe(false);
+
+    await page.locator('#addrA').fill('1500 Market St');
+    await page.locator('#addrA').press('Enter');
+    await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
+    await expect.poll(async () => (await scriptMetrics())
+      .filter(({ name }) => /charts-|incident_results_controller-/.test(name)).length).toBe(2);
+    const analyzedAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeAnalyzed, 'Crime analyzed');
+    expect(analyzedAssets.some((name) => /charts-[^/]+\.js$/.test(name))).toBe(true);
+    expect(analyzedAssets.some((name) => /incident_results_controller-[^/]+\.js$/.test(name))).toBe(true);
+  } finally {
+    collector.dispose();
+  }
+});
+
 test('Crime Help and Data details disclose guidance and fallback provenance', async ({ page }, testInfo) => {
   await gotoMode(page, 'crime');
   const moreFilters = page.locator('#advancedFilters');
@@ -183,7 +324,7 @@ test('My routes shows a truthful empty state before any local rating', async ({ 
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'My routes', exact: true }).click();
   await expect(page.getByText('No local route ratings yet. Rate a demo route to add it here.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export local data' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Export private backup' })).toBeDisabled();
   await captureExperienceScreenshot(page, testInfo, 'diary-my-routes-empty');
 });
 
@@ -281,7 +422,6 @@ test('Crime search and Diary rating complete their primary keyboard flows', asyn
 });
 
 test('automated accessibility scan reports no critical or serious issues', async ({ page }, testInfo) => {
-  desktopOnly(testInfo);
   await gotoMode(page, 'crime');
   expect(
     await auditSeriousAccessibility(page),

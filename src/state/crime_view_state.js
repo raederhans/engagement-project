@@ -2,7 +2,8 @@ const MODES = new Set(['buffer', 'district', 'tract']);
 const CLASS_METHODS = new Set(['quantile', 'equal', 'custom']);
 const CLASS_PALETTES = new Set(['Blues', 'YlGnBu', 'OrRd', 'PuBuGn', 'Greens', 'Purples', 'BuGn', 'BuPu', 'GnBu', 'YlOrRd', 'RdBu']);
 const DURATION_OPTIONS = new Set([3, 6, 12, 24]);
-const RADIUS_OPTIONS = new Set([400, 800]);
+const RADIUS_MIN = 100;
+const RADIUS_MAX = 10_000;
 export const CRIME_VIEW_QUERY_KEYS = new Set([
   'analysis', 'start', 'months', 'radius', 'groups', 'codes', 'district', 'tract',
   'tractLines', 'a', 'b', 'labelA', 'labelB', 'rate', 'class', 'bins', 'palette',
@@ -64,7 +65,7 @@ export function encodeCrimeViewState(state) {
   params.set('analysis', MODES.has(state.queryMode) ? state.queryMode : 'buffer');
   if (state.startMonth) params.set('start', state.startMonth);
   params.set('months', String(optionNumber(state.durationMonths, DURATION_OPTIONS, 12)));
-  params.set('radius', String(optionNumber(state.radius, RADIUS_OPTIONS, 400)));
+  params.set('radius', String(boundedInteger(state.radius, 400, RADIUS_MIN, RADIUS_MAX)));
   if (state.selectedGroups?.length) params.set('groups', state.selectedGroups.join('|'));
   if (state.selectedDrilldownCodes?.length) params.set('codes', state.selectedDrilldownCodes.join('|'));
   if (state.selectedDistrictCode) params.set('district', state.selectedDistrictCode);
@@ -91,7 +92,7 @@ export function decodeCrimeViewState(value) {
     queryMode,
     startMonth,
     durationMonths: optionNumber(params.get('months'), DURATION_OPTIONS, 12),
-    radius: optionNumber(params.get('radius'), RADIUS_OPTIONS, 400),
+    radius: boundedInteger(params.get('radius'), 400, RADIUS_MIN, RADIUS_MAX),
     selectedGroups: list(params.get('groups')),
     selectedDrilldownCodes: list(params.get('codes')),
     selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(params.get('district') || '') ? params.get('district') : null,

@@ -12,7 +12,9 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
 const entry = manifest['index.html'];
 const crime = manifest['src/routes_crime/index.js'];
+const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const diary = manifest['src/routes_diary/index.js'];
+const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
 const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
@@ -33,10 +35,22 @@ assert.deepEqual(
 );
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
-  new Set(['src/charts/index.js']),
-  'Crime must keep Charts behind its lazy boundary',
+  new Set([
+    'src/routes_crime/incident_results_controller.js',
+    'src/charts/index.js',
+  ]),
+  'Crime must keep incident results and Charts behind focused lazy boundaries',
 );
-assert.ok(diary, 'Vite manifest must contain the Diary lazy chunk');
+assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
+assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
+assert.deepEqual(
+  new Set(diary.dynamicImports || []),
+  new Set(['src/routes_diary/diary_storage.js']),
+  'Diary must keep private local storage and backup code behind its own lazy boundary',
+);
+assert.ok(diaryStorage?.isDynamicEntry, 'Vite manifest must contain Diary local storage as a lazy chunk');
+assert.equal(entry.css?.length, 1, 'Split product styles must compile into one initial stylesheet');
+assert.equal(diary.css, undefined, 'Diary must not introduce delayed mode-only CSS or a flash of unstyled content');
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
@@ -49,8 +63,16 @@ assert.ok(
 
 const budgets = [
   ['Entry', entry, 902_665, 247_583],
-  ['Crime', crime, 35_255, 12_748],
+  // Owns result-scoped cancellation, partial recovery, and immutable provenance
+  // for all Crime surfaces; this is required on every active Crime refresh.
+  ['Crime', crime, 38_000, 13_500],
+  // Loaded only after an authorized point query; owns synchronized map/list selection.
+  ['Incident Results', incidentResults, 7_000, 2_900],
   ['Diary', diary, 210_100, 65_573],
+  // Owns the versioned private schema, v1 migration, exact snapshot token, and
+  // serialized two-store transactions. It stays lazy and within a narrow
+  // regression budget while preserving the concurrency guarantees.
+  ['Diary local storage', diaryStorage, 21_000, 6_400],
   ['Charts', charts, 233_791, 79_747],
   // Includes local-history trend/tag/heatmap rendering and the device-only data bridge.
   ['Diary Insights', insights, 11_200, 3_600],

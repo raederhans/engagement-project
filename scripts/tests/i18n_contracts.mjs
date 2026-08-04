@@ -136,6 +136,7 @@ test('Crime chart renderers receive localized copy and contain no reader-visible
 test('all declared translation keys exist in both catalogs', async () => {
   requireFile(runtimeUrl, 'localization runtime');
   await import(new URL('src/i18n/diary_live.js', projectRoot));
+  await import(new URL('src/i18n/diary_local.js', projectRoot));
   await import(new URL('src/i18n/crime_charts.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));

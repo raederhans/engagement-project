@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
-const css = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+const css = await readProductCss();
 
 test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /<header\b[^>]*class="[^"]*app-bar[^"]*"[^>]*>/i);
@@ -33,9 +34,9 @@ test('analysis summary stays visible while charts are progressively disclosed', 
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
 
-test('current analysis summary is mounted before recent analyses', async () => {
-  const { placeAnalysisHistoryAfterSummary } = await import('../../src/ui/panel.js');
-  assert.equal(typeof placeAnalysisHistoryAfterSummary, 'function');
+test('current analysis task flow keeps incidents and charts before recent analyses', async () => {
+  const { placeAnalysisHistoryAfterResults } = await import('../../src/ui/panel.js');
+  assert.equal(typeof placeAnalysisHistoryAfterResults, 'function');
   const shell = {
     children: [],
     appendChild(child) {
@@ -56,9 +57,43 @@ test('current analysis summary is mounted before recent analyses', async () => {
   shell.appendChild(details);
   summary.nextSibling = details;
 
-  placeAnalysisHistoryAfterSummary({ crimeShell: shell, compareCard: summary, analysisHistoryMount: history });
+  placeAnalysisHistoryAfterResults({ crimeShell: shell, resultsDrawer: details, analysisHistoryMount: history });
 
-  assert.deepEqual(shell.children, [summary, history, details]);
+  assert.deepEqual(shell.children, [summary, details, history]);
+});
+
+test('Crime exposes one task path and one synchronized incident-results surface', () => {
+  assert.match(html, /<nav\b[^>]*class="[^"]*crime-task-nav[^"]*"[^>]*aria-label="Analysis steps"/i);
+  assert.match(html, /data-task-target="queryModeSel"/i);
+  assert.match(html, /data-task-target="compare-card"/i);
+  assert.match(html, /data-task-target="incident-results"/i);
+  assert.match(html, /<section\b[^>]*id="incident-results"[^>]*aria-labelledby="incident-results-title"[^>]*>/i);
+  assert.match(html, /data-incident-results-status[^>]*role="status"[^>]*aria-live="polite"/i);
+  assert.match(html, /<ol\b[^>]*data-incident-results-list/i);
+  assert.match(html, /data-incident-results-more[^>]*type="button"/i);
+  assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+});
+
+test('task navigation focuses the existing workflow target without creating URL state', async () => {
+  const { activateCrimeTaskTarget } = await import('../../src/ui/crime_task_nav.js');
+  const calls = [];
+  const target = {
+    scrollIntoView(options) { calls.push(['scroll', options]); },
+    focus(options) { calls.push(['focus', options]); },
+  };
+  const activated = activateCrimeTaskTarget(
+    { dataset: { taskTarget: 'incident-results' } },
+    {
+      documentRef: { getElementById: (id) => (id === 'incident-results' ? target : null) },
+      reducedMotion: () => true,
+    },
+  );
+
+  assert.equal(activated, true);
+  assert.deepEqual(calls, [
+    ['scroll', { block: 'start', inline: 'nearest', behavior: 'auto' }],
+    ['focus', { preventScroll: true }],
+  ]);
 });
 
 test('Crime task panel leads with location and defers comparison and advanced controls', () => {
@@ -68,6 +103,28 @@ test('Crime task panel leads with location and defers comparison and advanced co
   assert.match(html, /<details\b[^>]*id="advancedFilters"[^>]*>/i);
   assert.match(html, /<summary[^>]*>More filters<\/summary>/i);
   assert.doesNotMatch(html, />Controls<\/div>/i);
+});
+
+test('Crime buffer radius offers useful presets and an accessible custom value', async () => {
+  const radiusSelect = html.match(/<select\b[^>]*id="radiusSel"[^>]*>([\s\S]*?)<\/select>/i)?.[1] || '';
+  const values = [...radiusSelect.matchAll(/<option\b[^>]*value="([^"]+)"/gi)].map((match) => match[1]);
+  assert.deepEqual(values, ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  assert.match(html, /id="customRadiusRow"[^>]*class="[^"]*custom-radius-row[^"]*"[^>]*hidden/i);
+  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*min="100"[^>]*max="10000"[^>]*step="1"/i);
+  assert.doesNotMatch(html.match(/<div\b[^>]*id="bufferRadiusRow"[\s\S]*?<\/div>\s*<div\b[^>]*class="field-group"/i)?.[0] || '', /\sstyle=/i);
+  assert.match(css, /\.custom-radius-row\s*\{[^}]*display:\s*grid/s);
+
+  const { describeRadiusControlState } = await import('../../src/ui/panel.js');
+  assert.deepEqual(describeRadiusControlState(400), {
+    selectValue: '400',
+    customValue: '400',
+    customVisible: false,
+  });
+  assert.deepEqual(describeRadiusControlState(1375), {
+    selectValue: 'custom',
+    customValue: '1375',
+    customVisible: true,
+  });
 });
 
 test('desktop and mobile controls use the product target-size tokens', () => {
@@ -111,6 +168,35 @@ test('mobile sheet exposes collapsed, half, and full layout states', () => {
     css,
     /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*right:\s*0[^}]*left:\s*0[^}]*width:\s*100%/s,
   );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*overflow:\s*clip/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?#sidepanel\s*\{[^}]*overflow:\s*clip/s,
+  );
+  assert.match(css, /\.sheet-content\s*\{[^}]*overflow-y:\s*auto/s);
+});
+
+test('map recovery stays above sheets and map notices but below the global app bar', () => {
+  const appBarZ = Number(css.match(/\.app-bar\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  const mobileSheetZ = Number(css.match(
+    /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*z-index:\s*(\d+)/s,
+  )?.[1]);
+  const mapNoticeZ = Number(css.match(/\.map-notice\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  const recoveryZ = Number(css.match(/\.map-recovery\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+
+  assert.ok([
+    appBarZ,
+    mobileSheetZ,
+    mapNoticeZ,
+    recoveryZ,
+  ].every(Number.isFinite));
+  assert.ok(mapNoticeZ > mobileSheetZ, 'ordinary map notices must remain visible above a full mobile sheet');
+  assert.ok(recoveryZ > mapNoticeZ, 'WebGL recovery must not be covered by an ordinary map notice');
+  assert.ok(recoveryZ > mobileSheetZ, 'map recovery must remain visible above a full mobile sheet');
+  assert.ok(recoveryZ < appBarZ, 'map recovery must not cover the global app bar');
 });
 
 test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
@@ -148,8 +234,9 @@ test('small-screen Crime keeps the map-pick action in the sheet flow', () => {
   assert.doesNotMatch(css, /#useCenterBtn\s*\{[^}]*position:\s*fixed/s);
 });
 
-test('the shell prevents horizontal scrolling and respects reduced motion', () => {
+test('the fixed map shell prevents document scrolling and respects reduced motion', () => {
   assert.match(css, /(?:html|body|html,\s*body)[^{]*\{[^}]*overflow-x:\s*(?:clip|hidden)\s*;/s);
+  assert.match(css, /(?:html|body|html,\s*body)[^{]*\{[^}]*overflow-y:\s*clip\s*;/s);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 });
 

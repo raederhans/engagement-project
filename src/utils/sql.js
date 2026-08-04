@@ -83,7 +83,7 @@ export function buildCrimePointsSQL({ start, end, types, bbox, dc_dist, drilldow
   }
 
   return [
-    "SELECT the_geom, dispatch_date_time, text_general_code, ucr_general, dc_dist, location_block",
+    "SELECT cartodb_id, the_geom, dispatch_date_time, text_general_code, ucr_general, dc_dist, location_block",
     "FROM incidents_part1_part2",
     ...clauses,
   ].join("\n");

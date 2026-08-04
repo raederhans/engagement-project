@@ -11,8 +11,27 @@ import * as tractView from '../../src/map/tracts_view.js';
 import * as panelModule from '../../src/ui/panel.js';
 import { buildTopTypesSQL } from '../../src/utils/sql.js';
 import { getSegmentDisplayLabel } from '../../src/routes_diary/labels.js';
+import { readProductCss } from './helpers/css_source.mjs';
+import {
+  createRouteSummaryModel as createRouteSummaryModelOwner,
+  filterLocalDiaryEntries as filterLocalDiaryEntriesOwner,
+} from '../../src/routes_diary/diary_view_models.js';
+import {
+  loadDemoRoutes as loadDemoRoutesOwner,
+  loadDemoSegments as loadDemoSegmentsOwner,
+} from '../../src/routes_diary/diary_seed_data.js';
 
 const { store } = stateModule;
+
+test('Diary view models have one focused owner and remain available from the lazy facade', () => {
+  assert.equal(diaryModule.createRouteSummaryModel, createRouteSummaryModelOwner);
+  assert.equal(diaryModule.filterLocalDiaryEntries, filterLocalDiaryEntriesOwner);
+});
+
+test('Diary seed loading has one cache owner and remains available from the lazy facade', () => {
+  assert.equal(diaryModule.loadDemoSegments, loadDemoSegmentsOwner);
+  assert.equal(diaryModule.loadDemoRoutes, loadDemoRoutesOwner);
+});
 
 function preserveStore(t) {
   const snapshot = {
@@ -111,7 +130,7 @@ test('Crime controls expose one time model and one geography model', async () =>
 test('mobile layout keeps results in the same scroll column as controls', async () => {
   const [mainSource, styleSource] = await Promise.all([
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
   assert.match(mainSource, /appendChild\(root\)|append\(root\)/);
   assert.match(mainSource, /if\s*\(diaryShell\)\s*diaryShell\.after\(root\)/);
@@ -210,6 +229,33 @@ test('compare uses the captured date range and offense filter for every query', 
   assert.equal(calls[0][1].end, '2026-08-01');
   const topCall = calls.find(([kind]) => kind === 'top')[1];
   assert.deepEqual(topCall.types, ['Robbery Firearm']);
+});
+
+test('comparison summary counts each point once and does not synthesize a sparse 30-day trend', async () => {
+  const countCalls = [];
+  const result = await updateCompare({
+    start: '2025-08-01',
+    end: '2026-08-01',
+    types: ['Robbery Firearm'],
+    center3857: [1, 2],
+    centerB3857: [3, 4],
+    radiusM: 400,
+    adminLevel: 'districts',
+  }, {
+    fetchers: {
+      fetchCountBuffer: async (params) => {
+        countCalls.push(params);
+        return params.center3857[0] === 1 ? 10 : 20;
+      },
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+    },
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+
+  assert.equal(countCalls.length, 2, 'each point should issue only its selected-window count query');
+  assert.equal(countCalls.every(({ start, end }) => start === '2025-08-01' && end === '2026-08-01'), true);
+  assert.equal(result.a.delta30, null);
+  assert.equal(result.b.delta30, null);
 });
 
 test('address search uses the public Philadelphia geocoder and rejects weak matches', async () => {
@@ -391,27 +437,14 @@ test('Crime layer visibility follows the current geography on every refresh', as
   assert.equal(visibility.get('districts-fill'), 'visible');
 });
 
-test('boundary failure hides stale map results and visibly marks charts unavailable', async () => {
-  const { markCrimeResultsUnavailable } = await import('../../src/routes_crime/index.js');
-  const visibility = new Map();
-  const elements = new Map([
-    ['charts', { style: {} }],
-    ['compare-card', { style: {} }],
-    ['sidepanel', { prepend(element) { elements.set(element.id, element); } }],
+test('boundary failure cannot disable independent Crime result surfaces', async () => {
+  const [crimeRoute, source] = await Promise.all([
+    import('../../src/routes_crime/index.js'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
-  const documentRef = {
-    getElementById: (id) => elements.get(id) || null,
-    createElement: () => ({ style: {}, setAttribute() {} }),
-  };
-  const map = {
-    getLayer: () => ({}),
-    setLayoutProperty(id, property, value) { if (property === 'visibility') visibility.set(id, value); },
-  };
-  markCrimeResultsUnavailable(map, 'Current results unavailable.', documentRef);
-  assert.equal(visibility.get('districts-fill'), 'none');
-  assert.equal(visibility.get('tracts-fill'), 'none');
-  assert.equal(elements.get('charts').style.opacity, '0.35');
-  assert.match(elements.get('crime-results-status').textContent, /unavailable/i);
+  assert.equal(crimeRoute.markCrimeResultsUnavailable, undefined);
+  assert.doesNotMatch(source, /style\.opacity\s*=\s*['"]0\.35['"]/);
+  assert.doesNotMatch(source, /style\.pointerEvents\s*=\s*['"]none['"]/);
 });
 
 test('share state round-trips every user-visible Crime analysis choice', async () => {
@@ -420,7 +453,7 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     queryMode: 'tract',
     startMonth: '2025-08',
     durationMonths: 12,
-    radius: 400,
+    radius: 1375,
     selectedGroups: ['vehicle'],
     selectedDrilldownCodes: ['Motor Vehicle Theft'],
     selectedDistrictCode: null,
@@ -441,7 +474,7 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     queryMode: 'tract',
     startMonth: '2025-08',
     durationMonths: 12,
-    radius: 400,
+    radius: 1375,
     selectedGroups: ['vehicle'],
     selectedDrilldownCodes: ['Motor Vehicle Theft'],
     selectedDistrictCode: null,
@@ -470,6 +503,17 @@ test('shared Crime state ignores unrelated parameters and rejects invalid ranges
   assert.equal(decoded.startMonth, null);
   assert.equal(decoded.classBins, 5);
   assert.equal(decoded.classOpacity, 0.75);
+});
+
+test('shared Crime state accepts bounded integer custom buffer radii', async () => {
+  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  for (const radius of [100, 200, 1375, 2400, 10_000]) {
+    assert.equal(decodeCrimeViewState(`radius=${radius}`).radius, radius);
+    assert.equal(new URLSearchParams(encodeCrimeViewState({ radius })).get('radius'), String(radius));
+  }
+  for (const radius of [99, 10_001, 1375.5, 'not-a-radius']) {
+    assert.equal(decodeCrimeViewState(`radius=${radius}`).radius, 400);
+  }
 });
 
 test('analysis artifacts normalize a versioned contract and keep refresh state transient', async () => {
@@ -630,8 +674,8 @@ test('comparison snapshots carry one generation time and the matching filter key
     filterKey: buildComparisonFilterKey(filters),
     generatedAt: '2026-07-31T04:00:00.000Z',
     comparison: {
-      a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: 0 },
-      b: { label: 'Point B', total: 10, per10k: null, top3: [], delta30: 0 },
+      a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: null },
+      b: { label: 'Point B', total: 10, per10k: null, top3: [], delta30: null },
     },
   });
   assert.equal(getLastComparisonSnapshot({ ...filters, radiusM: 800 }), null);
@@ -699,27 +743,36 @@ test('mode coordinator passes queue ownership into the Crime refresh and aborts 
 });
 
 test('Crime refresh outcomes never label stale work as live', async () => {
-  const { classifyCrimeRefreshJobs, normalizeCrimeRefreshResult } = await import('../../src/routes_crime/index.js');
+  const { classifyCrimeRefreshJobs, normalizeCrimeRefreshResult } = await import('../../src/ui/crime_result_meta.js');
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: true }), { status: 'live' });
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: false }), { status: 'superseded' });
   assert.deepEqual(normalizeCrimeRefreshResult({ status: 'failed' }), { status: 'failed' });
+  assert.deepEqual(normalizeCrimeRefreshResult({
+    status: 'partial',
+    succeeded: ['boundary', 'charts'],
+    failed: ['incidents'],
+  }), {
+    status: 'partial',
+    succeeded: ['boundary', 'charts'],
+    failed: ['incidents'],
+  });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { applied: true } },
-    { status: 'fulfilled', value: { applied: true } },
-  ]), { applied: true });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: true } } },
+  ]), { status: 'live', succeeded: ['boundary', 'charts'], failed: [] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { applied: true } },
-    { status: 'fulfilled', value: { applied: false } },
-  ]), { applied: false });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'incidents', result: { status: 'rejected', reason: new Error('points failed') } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: true } } },
+  ]), { status: 'partial', succeeded: ['boundary', 'charts'], failed: ['incidents'] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: null },
-  ]), { status: 'failed' });
+    { name: 'boundary', result: { status: 'fulfilled', value: null } },
+    { name: 'charts', result: { status: 'rejected', reason: new Error('chart failed') } },
+  ]), { status: 'failed', succeeded: [], failed: ['boundary', 'charts'] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { status: 'failed' } },
-  ]), { status: 'failed' });
-  assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'rejected', reason: new Error('chart failed') },
-  ]), { status: 'failed' });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: false } } },
+  ]), { status: 'superseded', succeeded: [], failed: [] });
 });
 
 test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', async () => {
@@ -863,7 +916,7 @@ test('Community UI is explicitly sample-only and has no fake post action', async
   const [communitySource, liveSource, styleSource] = await Promise.all([
     readFile(new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/style.css', import.meta.url), 'utf8'),
+    readProductCss(),
   ]);
   assert.match(communitySource, /diary\.sampleCommunity/);
   assert.match(communitySource, /diary\.communityNotice/);
@@ -1026,7 +1079,7 @@ test('Crime charts can redraw localized copy from cached data without refetching
   assert.equal(statuses.at(-1), 'Tip: click the map to set a center and show buffer-based charts.');
   assert.equal(copies.length, copiesBeforeStatusOnly);
 
-  await assert.rejects(updateAllCharts({
+  const failedResult = await updateAllCharts({
     start: '2026-01-01',
     end: '2026-07-01',
     types: [],
@@ -1036,10 +1089,14 @@ test('Crime charts can redraw localized copy from cached data without refetching
   }, {
     fetchers: {
       fetchMonthlySeriesCity: async () => { throw new Error('offline'); },
+      fetchMonthlySeriesBuffer: async () => { throw new Error('offline'); },
+      fetchTopTypesBuffer: async () => { throw new Error('offline'); },
+      fetch7x24Buffer: async () => { throw new Error('offline'); },
     },
     sinks,
     chartCache: cache,
-  }), /offline/);
+  });
+  assert.equal(failedResult.status, 'failed');
   const copiesBeforeErrorRefresh = copies.length;
   setLanguage('zh-CN');
   assert.equal(cache.refresh(sinks), true);
@@ -1062,13 +1119,27 @@ test('Top-N SQL applies the resolved offense filter', () => {
   assert.match(sql, /text_general_code IN \('Robbery Firearm'\)/);
 });
 
-test('Diary submission completion consumes payload and transport result as one contract', () => {
+test('Diary submission completion waits for the atomic local commit before applying results', async () => {
   assert.equal(typeof diaryModule.handleDiarySubmissionSuccess, 'function');
   const calls = [];
   const payload = { segment_ids: ['seg-1'], overall_rating: 4 };
   const response = { persisted: false, mode: 'demo' };
+  let releaseCommit;
+  const commitGate = new Promise((resolve) => { releaseCommit = resolve; });
 
-  diaryModule.handleDiarySubmissionSuccess({ payload, response }, {
+  const completion = diaryModule.handleDiarySubmissionSuccess({ payload, response }, {
+    createLocalEntry: ({ payload: value, routeFeature }) => ({
+      id: 'entry-1',
+      routeId: routeFeature.properties.route_id,
+      rating: value.overall_rating,
+    }),
+    localLifecycle: {
+      async commitEntry(entry, routeId) {
+        calls.push(['commit', entry.id, routeId]);
+        await commitGate;
+        return { applied: true, entry };
+      },
+    },
     aggregationModel: {
       applySubmission(value) { calls.push(['apply', value]); },
       buildFeatureCollection() { return { type: 'FeatureCollection', features: [] }; },
@@ -1078,11 +1149,39 @@ test('Diary submission completion consumes payload and transport result as one c
     notify(message) { calls.push(['toast', message]); },
     notifyPanel(message) { calls.push(['panel', message]); },
     highlightSegments(ids) { calls.push(['highlight', ids]); },
+    routeFeature: { properties: { route_id: 'route-1', name: 'Route 1' } },
   });
 
-  assert.deepEqual(calls[0], ['apply', payload]);
+  await Promise.resolve();
+  assert.equal(calls[0][0], 'commit');
+  assert.equal(calls.some(([kind]) => kind === 'apply'), false);
+  releaseCommit();
+  assert.equal((await completion).applied, true);
+  assert.deepEqual(calls.find(([kind]) => kind === 'apply'), ['apply', payload]);
   assert.match(calls.find(([kind]) => kind === 'toast')[1], /browser demo only/i);
   assert.deepEqual(calls.find(([kind]) => kind === 'highlight')[1], ['seg-1']);
+});
+
+test('a failed local Diary commit does not mutate aggregation or show success', async () => {
+  const calls = [];
+  await assert.rejects(
+    diaryModule.handleDiarySubmissionSuccess({
+      payload: { route_id: 'route-1', segment_ids: ['seg-1'], overall_rating: 4 },
+      response: { persisted: false, mode: 'demo' },
+    }, {
+      localLifecycle: { commitEntry: async () => { throw new Error('storage failed'); } },
+      aggregationModel: {
+        applySubmission() { calls.push('apply'); },
+        buildFeatureCollection() { return null; },
+      },
+      notify() { calls.push('toast'); },
+      notifyPanel() { calls.push('panel'); },
+      highlightSegments() { calls.push('highlight'); },
+      routeFeature: { properties: { route_id: 'route-1', name: 'Route 1' } },
+    }),
+    /storage failed/,
+  );
+  assert.deepEqual(calls, []);
 });
 
 test('tract snapshot values honor the same resolved offense filter as the rest of Crime', () => {

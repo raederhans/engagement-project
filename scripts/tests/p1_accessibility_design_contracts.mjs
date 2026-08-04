@@ -7,10 +7,12 @@ import test from 'node:test';
 import * as mapInit from '../../src/map/initMap.js';
 import * as points from '../../src/map/points.js';
 import { messages } from '../../src/i18n/messages.js';
+import { readProductCss } from './helpers/css_source.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/, (match) => match.slice(1)));
 const html = await readFile(path.join(root, 'index.html'), 'utf8');
-const css = await readFile(path.join(root, 'src', 'style.css'), 'utf8');
+const styleEntry = await readFile(path.join(root, 'src', 'style.css'), 'utf8');
+const css = await readProductCss();
 const diaryInsightsSource = await readFile(path.join(root, 'src', 'charts', 'diary_insights.js'), 'utf8');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 
@@ -107,6 +109,19 @@ test('P1 design system has one canonical product layer instead of cascade patche
   assert.doesNotMatch(css, /\bsystem-ui\b/);
 });
 
+test('stylesheet ownership is explicit and preserves the canonical cascade order', () => {
+  const imports = [...styleEntry.matchAll(/@import\s+['"]([^'"]+)['"]\s*;/g)]
+    .map((match) => match[1]);
+  assert.deepEqual(imports, [
+    './styles/tokens-base.css',
+    './styles/diary-map-ui.css',
+    './styles/workbench-shell.css',
+    './styles/civic-product.css',
+    './styles/crime-charts-responsive.css',
+  ]);
+  assert.equal((css.match(/^:root\s*\{/gm) || []).length, 1);
+});
+
 test('Diary static panel styling is class-owned while insight dimensions remain data-driven', async () => {
   const [myRoutes, community, insights, insightsPanel] = await Promise.all([
     readFile(new URL('../../src/routes_diary/ui_my_routes_panel.js', import.meta.url), 'utf8'),
@@ -155,6 +170,19 @@ test('Crime and Diary share reusable field, button, status, panel, and drawer pr
   assert.match(html, /id="sidepanel"[^>]*class="[^"]*\btask-panel\b[^"]*\bsheet\b/i);
   assert.match(html, /id="compare-card"[^>]*class="[^"]*\bresult-card\b/i);
   assert.match(html, /id="results-drawer"[^>]*class="[^"]*\bdrawer\b/i);
+});
+
+test('Crime keeps its primary map action before provenance and makes success quieter than failure', () => {
+  assert.ok(
+    html.indexOf('id="useCenterBtn"') < html.indexOf('data-result-meta="boundary"'),
+    'the primary map action must precede map-result provenance in the task flow',
+  );
+  assert.match(
+    css,
+    /\.result-meta\[data-availability="current"\]\s*\{[^}]*border:\s*0[^}]*background:\s*transparent/s,
+  );
+  assert.match(css, /\.result-meta\[data-availability="partial"\]\s*\{[^}]*border-left-color:\s*var\(--warning\)/s);
+  assert.match(css, /\.result-meta\[data-availability="stale"\],\s*\n\.result-meta\[data-availability="unavailable"\]/);
 });
 
 test('semantic buttons keep their variants and Help uses one disclosure contract', async () => {

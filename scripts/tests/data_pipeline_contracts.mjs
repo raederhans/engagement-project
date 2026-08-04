@@ -16,6 +16,10 @@ import {
   writeJsonAtomic,
 } from '../lib/tract_crime_snapshot.mjs';
 import { fetchFirstValidTractSource } from '../lib/tract_source.mjs';
+import {
+  compactFeatureCollectionCoordinates,
+  compactPublishedGeoJson,
+} from '../lib/public_geojson_artifacts.mjs';
 import { runPrecompute } from '../precompute_tract_crime.mjs';
 import * as tractFetcher from '../fetch_tracts.mjs';
 
@@ -259,6 +263,55 @@ test('atomic JSON writing replaces the destination and leaves no temp file', asy
   assert.deepEqual(await readdir(directory), ['snapshot.json']);
 });
 
+test('published boundary compaction preserves feature truth while limiting coordinate precision', () => {
+  const source = {
+    type: 'FeatureCollection',
+    name: 'test-boundaries',
+    features: [{
+      type: 'Feature',
+      id: 'district-1',
+      properties: { code: '01', label: 'Central' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-75.123456789, 39.987654321],
+          [-75.12, 39.98],
+          [-75.123456789, 39.987654321],
+        ]],
+      },
+    }],
+  };
+
+  const compacted = compactFeatureCollectionCoordinates(source, { precision: 6 });
+
+  assert.notEqual(compacted, source);
+  assert.deepEqual(compacted.features[0].properties, source.features[0].properties);
+  assert.equal(compacted.features[0].id, 'district-1');
+  assert.deepEqual(compacted.features[0].geometry.coordinates[0][0], [-75.123457, 39.987654]);
+  assert.deepEqual(compacted.features[0].geometry.coordinates[0][2], [-75.123457, 39.987654]);
+});
+
+test('published GeoJSON compaction writes only declared dist artifacts', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'engagement-public-geojson-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const dataDir = path.join(directory, 'data');
+  await import('node:fs/promises').then(({ mkdir }) => mkdir(dataDir, { recursive: true }));
+  const destination = path.join(dataDir, 'tracts.geojson');
+  await writeFile(destination, JSON.stringify(tractCollection));
+
+  const results = await compactPublishedGeoJson({
+    distDir: directory,
+    artifacts: ['data/tracts.geojson'],
+    precision: 6,
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].relativePath, 'data/tracts.geojson');
+  assert.equal(results[0].featureCount, 2);
+  assert.deepEqual((await readdir(dataDir)).sort(), ['tracts.geojson']);
+  assert.equal(JSON.parse(await readFile(destination, 'utf8')).features.length, 2);
+});
+
 test('atomic JSON writing can keep large published GeoJSON compact', async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'engagement-geojson-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -331,6 +384,30 @@ test('CI and Pages explicitly build with the validated tract snapshot enabled', 
   for (const workflow of [ciWorkflow, pagesWorkflow]) {
     assert.match(workflow, /VITE_TRACT_CRIME_SNAPSHOT:\s*['"]?1['"]?/);
   }
+});
+
+test('data contracts have one aggregate entry and CI validates them on Linux and Windows', async () => {
+  const [packageJson, ciWorkflow] = await Promise.all([
+    readFile(new URL('../../package.json', import.meta.url), 'utf8').then(JSON.parse),
+    readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+  ]);
+  const aggregate = packageJson.scripts['test:data-contract'];
+  assert.equal(typeof aggregate, 'string');
+  for (const command of [
+    'data:check',
+    'test:data-sources',
+    'test:runtime-data-policy',
+    'test:data-pipeline',
+    'test:data-automation',
+  ]) {
+    assert.match(aggregate, new RegExp(`(?:^|&&\\s*)npm run ${command}(?:\\s*&&|$)`));
+    assert.doesNotMatch(packageJson.scripts.test, new RegExp(`npm run ${command}(?:\\s|$)`));
+  }
+  assert.match(packageJson.scripts.test, /(?:^|&&\s*)npm run test:data-contract(?:\s*&&|$)/);
+  assert.doesNotMatch(packageJson.scripts.validate, /npm run data:check/);
+  assert.match(ciWorkflow, /matrix:\s*[\s\S]*os:\s*\[ubuntu-latest, windows-latest\]/);
+  assert.match(ciWorkflow, /runs-on:\s*\$\{\{\s*matrix\.os\s*\}\}/);
+  assert.match(ciWorkflow, /Install Playwright Chromium[\s\S]*if:\s*runner\.os == 'Linux'/);
 });
 
 test('the historical precompute entry delegates instead of keeping a second implementation', async () => {

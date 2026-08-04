@@ -7,8 +7,8 @@
 
 import { closeSegmentPopup, mountSegmentsLayer, updateSegmentsData, removeSegmentsLayer, highlightSegments } from '../map/segments_layer.js';
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
-import { drawRouteOverlay, clearRouteOverlay, drawSimPoint, clearSimPoint } from '../map/routing_overlay.js';
-import { DIARY_ROUTES_URL, DIARY_SEGMENTS_URL, HAS_DIARY_LIGHT_STYLE } from '../config.js';
+import { drawRouteOverlay, clearRouteOverlay, clearSimPoint } from '../map/routing_overlay.js';
+import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
 import { openRatingModal, closeRatingModal } from './form_submit.js';
 import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId } from '../state/store.js';
@@ -21,9 +21,6 @@ import {
   DIARY_NETWORK_LAYER_ID,
 } from './map_ids.js';
 import {
-  normalizeFeatureCollection,
-  normalizeSegmentFeature,
-  normalizeRouteFeature,
   SEGMENT_ID_PROP,
   SCORE_PROP,
   ROUTE_SEG_IDS_PROP,
@@ -31,53 +28,50 @@ import {
   ROUTE_NAME_PROP,
   ROUTE_FROM_PROP,
   ROUTE_TO_PROP,
-  ROUTE_ID_PROP,
-  TAGS_PROP,
   extractLineCoordinates,
 } from './data_normalization.js';
 import { renderLiveRoutePanel } from './ui_live_panel.js';
 import { refreshMyRoutesDates, renderMyRoutesPanel } from './ui_my_routes_panel.js';
 import { createSampleCommunityModel, renderCommunityPanel } from './ui_community_panel.js';
 import { describeDiaryDataScope } from '../ui/data_scope.js';
-import { publicUrl } from '../utils/public_url.js';
 import {
   createDiarySession,
   releaseOwnedReference,
   runCleanupSteps,
 } from './diary_session.js';
-import { loadJsonFromCandidates, loadOwnedDiaryData } from './demo_data_loader.js';
+import { loadOwnedDiaryData } from './demo_data_loader.js';
+import '../i18n/diary_local.js';
 import {
   createDiaryInsightsPort,
 } from './diary_insights_port.js';
 import { createDiaryAggregation } from './local_aggregation.js';
-import {
-  createDiaryEntry,
-  diaryLocalRepository,
-  parseDiaryBackup,
-  serializeDiaryBackup,
-} from './local_repository.js';
 import { downloadTextFile } from '../utils/export_analysis.js';
 import {
   describeAlternativeTradeoff,
   resolveAlternativeForRoute,
   summarizeAlternativeBenefit,
 } from './alternative_route.js';
-import { buildSimulationCoordinates } from './route_simulator.js';
+import { createDiarySimulator } from './diary_simulator.js';
 import { applyTranslations, onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
-import { formatCalendarDate } from '../i18n/date.js';
 import { fitBoundsWithPanel, geometryBounds } from '../map/camera_fit.js';
+import {
+  createRouteSummaryModel,
+  filterLocalDiaryEntries,
+} from './diary_view_models.js';
+import {
+  loadDemoRoutes,
+  loadDemoSegments,
+  logMissingSegments,
+} from './diary_seed_data.js';
 
-const SIM_INTERVAL_MS = 400;
-const SEGMENT_URL_CANDIDATES = [
-  DIARY_SEGMENTS_URL,
-  new URL('../../data/segments_phl.demo.geojson', import.meta.url).href,
-  publicUrl('data/segments_phl.demo.geojson'),
-].filter(Boolean);
-const ROUTE_URL_CANDIDATES = [
-  DIARY_ROUTES_URL,
-  new URL('../../data/routes_phl.demo.geojson', import.meta.url).href,
-  publicUrl('data/routes_phl.demo.geojson'),
-].filter(Boolean);
+export {
+  createRouteSummaryModel,
+  filterLocalDiaryEntries,
+} from './diary_view_models.js';
+export {
+  loadDemoRoutes,
+  loadDemoSegments,
+} from './diary_seed_data.js';
 
 function localizedDiaryError(error, fallbackKey) {
   const message = error?.message || String(error || '');
@@ -93,8 +87,6 @@ const SAMPLE_COMMUNITY = createSampleCommunityModel();
 
 const segmentLookup = new Map();
 
-let cachedSegments = null;
-let cachedRoutes = null;
 let mapRef = null;
 let layerMounted = false;
 let lastLoadedSegments = null;
@@ -122,28 +114,27 @@ const LOW_RATING_THRESHOLD = 2.6;
 const CTA_KINDS = ['agree', 'safer'];
 const CTA_VOTE_PREFIX = 'diary:voted';
 const ctaSessionFlags = new Map();
-const sim = {
-  routeId: null,
-  coords: [],
-  idx: 0,
-  timer: null,
-  active: false,
-  paused: true,
-  hasStarted: false,
-  playedOnce: false,
-};
-const simLifecycleFlags = { visibility: false, pagehide: false };
-const simCleanupFns = new Set();
 let networkStyleCleanup = null;
 let currentDiarySession = null;
 let currentDiaryOwnerIsCurrent = () => false;
+let currentSimulator = null;
 let currentInsightsPort = null;
-let localRepository = diaryLocalRepository;
+let currentDiaryLocalLifecycle = null;
+let localRepository = null;
+let diaryStorageModule = null;
+let diaryStorageModulePromise = null;
 let localDiaryEntries = [];
+let localDiarySnapshot = { entries: [], drafts: [], warnings: [] };
 let localStorageWarning = null;
+let diaryImportPlans = null;
+let diaryImportPreview = null;
+let diaryReplaceConfirm = false;
+let diaryDeleteConfirmId = null;
+let diaryDataStatus = null;
+let diaryDataBusy = false;
+let diaryDataFocusTarget = null;
 let refreshDiaryPanel = null;
 let refreshDiaryCopy = null;
-let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
 const ROUTE_SAFETY_EXPRESSION = [
@@ -175,17 +166,32 @@ function clearDiaryTimeout(id) {
   }
 }
 
-function clearDiaryInterval(id) {
-  if (id == null) return;
-  if (currentDiarySession) {
-    currentDiarySession.clearInterval(id);
-  } else {
-    clearInterval(id);
-  }
-}
-
 function diarySessionIsCurrent(session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
   return Boolean(session?.isActive() && ownerIsCurrent?.());
+}
+
+function createOwnedSimulator(session, ownerIsCurrent, map) {
+  let ownedSimulator = null;
+  ownedSimulator = createDiarySimulator({
+    getRoute: () => currentRoute,
+    getMap: () => map,
+    getSession: () => session,
+    isCurrent: () => diarySessionIsCurrent(session, ownerIsCurrent),
+    getDocument: () => globalThis.document,
+    getWindow: () => globalThis.window,
+    persistState: setSimPanelState,
+    onStateChange: () => {
+      if (currentSimulator === ownedSimulator) updateSimButtons();
+    },
+    onFinish: () => {
+      if (currentSimulator === ownedSimulator) openRouteRating();
+    },
+    onPageHide: () => teardownDiaryTransient(map, {
+      silent: true,
+      simulator: ownedSimulator,
+    }),
+  });
+  return ownedSimulator;
 }
 
 function guardDiaryCommit(commit, session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
@@ -227,13 +233,6 @@ function diaryFeatureEnabled() {
 
 const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
-function ensureFeatureCollection(payload, label) {
-  if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
-    throw new Error(`[Diary] Invalid ${label} file — expected FeatureCollection`);
-  }
-  return payload;
-}
-
 function ensureNetworkOverlayLifecycle(
   map,
   session = currentDiarySession,
@@ -272,56 +271,6 @@ function setDiaryMapSkin(map, enabled) {
   if (!container) return;
   const shouldMute = !!enabled && !HAS_DIARY_LIGHT_STYLE;
   container.classList.toggle('diary-map-muted', shouldMute);
-  if (shouldMute && !muteNoticeLogged) {
-    console.info('[Diary] MapTiler key missing, falling back to muted OSM basemap.');
-    muteNoticeLogged = true;
-  }
-}
-
-function normalizeTopTags(tags) {
-  if (!Array.isArray(tags)) return [];
-  return tags
-    .map((tag) => {
-      if (typeof tag === 'string') return { tag, p: 1 };
-      if (tag && typeof tag.tag === 'string') {
-        return { tag: tag.tag, p: Number.isFinite(tag.p) ? Number(tag.p) : 0 };
-      }
-      return null;
-    })
-    .filter(Boolean);
-}
-
-function normalizeSegmentsCollection(collection) {
-  const fc = normalizeFeatureCollection(collection, normalizeSegmentFeature);
-  fc.features = fc.features.map((feature) => {
-    const props = { ...(feature.properties || {}) };
-    return {
-      ...feature,
-      properties: {
-        ...props,
-        top_tags: normalizeTopTags(props[TAGS_PROP] || props.top_tags),
-      },
-    };
-  });
-  return fc;
-}
-
-function normalizeRoutesCollection(collection) {
-  return normalizeFeatureCollection(collection, normalizeRouteFeature);
-}
-
-function logMissingSegments(routes, segments) {
-  const segmentIds = new Set((segments.features || []).map((f) => f?.properties?.[SEGMENT_ID_PROP]));
-  const issues = [];
-  for (const route of routes.features || []) {
-    const missing = (route.properties?.[ROUTE_SEG_IDS_PROP] || []).filter((id) => !segmentIds.has(id));
-    if (missing.length) {
-      issues.push(`${route.properties?.[ROUTE_ID_PROP] || 'route'}: ${missing.join(', ')}`);
-    }
-  }
-  if (issues.length) {
-    console.warn('[Diary] Route seed references missing segments:', issues.join(' | '));
-  }
 }
 
 function buildSegmentLookup(collection) {
@@ -441,6 +390,226 @@ function ensureMap(message) {
   return mapRef;
 }
 
+function applyLocalDiarySnapshot(snapshot = {}) {
+  localDiarySnapshot = {
+    entries: Array.isArray(snapshot.entries) ? snapshot.entries : [],
+    drafts: Array.isArray(snapshot.drafts) ? snapshot.drafts : [],
+    warnings: Array.isArray(snapshot.warnings) ? snapshot.warnings : [],
+  };
+  localDiaryEntries = localDiarySnapshot.entries;
+  localStorageWarning = localDiarySnapshot.warnings.length
+    ? t('diary.storageRowsSkipped', { count: localDiarySnapshot.warnings.length })
+    : null;
+  store.myRoutes = localDiaryEntries;
+  currentInsightsPort?.setEntries(localDiaryEntries);
+  currentInsightsPort?.refresh();
+}
+
+function clearDiaryImportPreview() {
+  diaryImportPlans = null;
+  diaryImportPreview = null;
+  diaryReplaceConfirm = false;
+}
+
+function loadDiaryStorageModule() {
+  if (diaryStorageModule) return Promise.resolve(diaryStorageModule);
+  if (!diaryStorageModulePromise) {
+    const request = import('./diary_storage.js');
+    diaryStorageModulePromise = request
+      .then((module) => {
+        diaryStorageModule = module;
+        return module;
+      })
+      .catch((error) => {
+        if (diaryStorageModulePromise) {
+          diaryStorageModulePromise = null;
+          diaryStorageModule = null;
+        }
+        throw error;
+      });
+  }
+  return diaryStorageModulePromise;
+}
+
+async function prepareDiaryBackupImport(file, render) {
+  if (!file || diaryDataBusy) return;
+  const session = currentDiarySession;
+  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
+  const lifecycle = currentDiaryLocalLifecycle;
+  if (!lifecycle) return;
+  diaryDataBusy = true;
+  diaryDataStatus = { key: 'diary.backupPreparing' };
+  diaryDataFocusTarget = 'data-status';
+  render();
+  try {
+    if (Number(file.size) > 10 * 1024 * 1024) throw new Error('Diary backup is too large.');
+    const text = await file.text();
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    const snapshot = await lifecycle.snapshot();
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    const { createDiaryBackupPlan } = await loadDiaryStorageModule();
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    const merge = createDiaryBackupPlan(snapshot, text, { mode: 'merge' });
+    const replace = createDiaryBackupPlan(snapshot, text, { mode: 'replace' });
+    diaryImportPlans = { merge, replace };
+    diaryImportPreview = {
+      fileName: file.name || '',
+      migratedFrom: merge.source.migratedFrom,
+      mergeSummary: merge.summary,
+      replaceSummary: replace.summary,
+    };
+    diaryReplaceConfirm = false;
+    diaryDataStatus = { key: 'diary.backupReady' };
+    diaryDataFocusTarget = 'import-preview';
+  } catch (error) {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    clearDiaryImportPreview();
+    diaryDataStatus = {
+      key: 'diary.backupOperationFailed',
+      params: { message: localizedDiaryError(error, 'diary.importFailed') },
+      tone: 'error',
+    };
+    diaryDataFocusTarget = 'data-status';
+  } finally {
+    if (diarySessionIsCurrent(session, ownerIsCurrent)) {
+      diaryDataBusy = false;
+      render();
+    }
+  }
+}
+
+async function applyDiaryBackupImport(strategy, render) {
+  if (diaryDataBusy || !diaryImportPlans?.[strategy]) return;
+  const session = currentDiarySession;
+  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
+  const lifecycle = currentDiaryLocalLifecycle;
+  const prepared = diaryImportPlans[strategy];
+  if (!lifecycle) return;
+  diaryDataBusy = true;
+  diaryDataStatus = { key: 'diary.backupImporting' };
+  diaryDataFocusTarget = 'data-status';
+  render();
+  try {
+    const result = await lifecycle.applyImport(prepared, {
+      strategy,
+      confirmReplace: strategy === 'replace',
+    });
+    if (!result.applied || !diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    applyLocalDiarySnapshot(result.snapshot);
+    clearDiaryImportPreview();
+    diaryDataStatus = {
+      key: strategy === 'replace' ? 'diary.backupReplaced' : 'diary.backupMerged',
+      params: {
+        entries: localDiarySnapshot.entries.length,
+        drafts: localDiarySnapshot.drafts.length,
+      },
+    };
+    diaryDataFocusTarget = 'data-status';
+  } catch (error) {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    if (error?.code === 'DIARY_BACKUP_PREVIEW_STALE') {
+      clearDiaryImportPreview();
+      diaryDataStatus = { key: 'diary.backupPreviewStale', tone: 'error' };
+    } else {
+      diaryDataStatus = {
+        key: 'diary.backupOperationFailed',
+        params: { message: localizedDiaryError(error, 'diary.importFailed') },
+        tone: 'error',
+      };
+    }
+    diaryDataFocusTarget = 'data-status';
+  } finally {
+    if (diarySessionIsCurrent(session, ownerIsCurrent)) {
+      diaryDataBusy = false;
+      render();
+    }
+  }
+}
+
+async function exportDiaryPrivateBackup(render) {
+  if (diaryDataBusy) return;
+  const session = currentDiarySession;
+  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
+  const lifecycle = currentDiaryLocalLifecycle;
+  if (!lifecycle) return;
+  diaryDataBusy = true;
+  diaryDataStatus = { key: 'diary.backupExporting' };
+  diaryDataFocusTarget = 'data-status';
+  render();
+  try {
+    const snapshot = await lifecycle.snapshot();
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    applyLocalDiarySnapshot(snapshot);
+    const { serializeDiaryPrivateBackup } = await loadDiaryStorageModule();
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    const backup = serializeDiaryPrivateBackup(snapshot);
+    downloadTextFile(
+      `engagement-diary-private-${new Date().toISOString().slice(0, 10)}.json`,
+      `${JSON.stringify(backup, null, 2)}\n`,
+      'application/json',
+    );
+    diaryDataStatus = { key: 'diary.backupExported' };
+    diaryDataFocusTarget = 'data-status';
+  } catch (error) {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    diaryDataStatus = {
+      key: 'diary.backupOperationFailed',
+      params: { message: localizedDiaryError(error, 'diary.localStorageUnavailable') },
+      tone: 'error',
+    };
+    diaryDataFocusTarget = 'data-status';
+  } finally {
+    if (diarySessionIsCurrent(session, ownerIsCurrent)) {
+      diaryDataBusy = false;
+      render();
+    }
+  }
+}
+
+async function deleteLocalDiaryEntry(item, render) {
+  if (!item?.id || diaryDataBusy) return;
+  const session = currentDiarySession;
+  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
+  const lifecycle = currentDiaryLocalLifecycle;
+  if (!lifecycle) return;
+  diaryDataBusy = true;
+  diaryDataStatus = {
+    key: 'diary.routeDeleting',
+    params: { label: item.label || t('diary.untitledRoute') },
+  };
+  diaryDataFocusTarget = 'data-status';
+  render();
+  try {
+    const result = await lifecycle.deleteEntry(item.id);
+    if (!result.applied || !diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    applyLocalDiarySnapshot({
+      ...localDiarySnapshot,
+      entries: localDiarySnapshot.entries.filter((entry) => entry.id !== item.id),
+    });
+    clearDiaryImportPreview();
+    if (store.diarySelectedHistoryRouteId === item.id) setDiarySelectedHistoryRouteId(null);
+    diaryDeleteConfirmId = null;
+    diaryDataStatus = {
+      key: 'diary.routeDeleted',
+      params: { label: item.label || t('diary.untitledRoute') },
+    };
+    diaryDataFocusTarget = 'history-title';
+  } catch (error) {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    diaryDataStatus = {
+      key: 'diary.routeDeleteFailed',
+      params: { message: localizedDiaryError(error, 'diary.localStorageUnavailable') },
+      tone: 'error',
+    };
+    diaryDataFocusTarget = 'data-status';
+  } finally {
+    if (diarySessionIsCurrent(session, ownerIsCurrent)) {
+      diaryDataBusy = false;
+      render();
+    }
+  }
+}
+
 function ensureDiaryPanel(routes, options = {}) {
   if (typeof document === 'undefined') return;
   if (!routes) return;
@@ -531,6 +700,8 @@ function ensureDiaryPanel(routes, options = {}) {
     clearLiveRefs();
     if (store.diaryViewMode === 'history') {
       syncDiaryInsightsContext('history');
+      const focusTarget = diaryDataFocusTarget;
+      diaryDataFocusTarget = null;
       renderMyRoutesPanel(
         body,
         {
@@ -540,41 +711,67 @@ function ensureDiaryPanel(routes, options = {}) {
             period: historyPeriodFilter,
             mode: historyModeFilter,
           }),
+          hasPrivateData: localDiarySnapshot.entries.length > 0 || localDiarySnapshot.drafts.length > 0,
+          storageWarnings: localDiarySnapshot.warnings,
+          importPreview: diaryImportPreview,
+          replaceConfirm: diaryReplaceConfirm,
+          deleteConfirmId: diaryDeleteConfirmId,
+          dataStatus: diaryDataStatus,
+          busy: diaryDataBusy,
+          focusTarget,
         },
         {
           onPeriodChange: ownPanelHandler((val) => {
             historyPeriodFilter = val;
+            diaryDataFocusTarget = 'period-filter';
             renderActivePanel();
           }),
           onModeChange: ownPanelHandler((val) => {
             historyModeFilter = val;
+            diaryDataFocusTarget = 'mode-filter';
             renderActivePanel();
           }),
-          onSelect: ownPanelHandler((item) => {
+          onOpen: ownPanelHandler((item) => {
             setDiarySelectedHistoryRouteId(item.id);
-            console.info('[Diary] History route selected:', item.id, item.label);
             focusHistoryRouteOnMap(item);
           }),
-          onExport: ownPanelHandler(() => {
-            const backup = serializeDiaryBackup(localDiaryEntries);
-            downloadTextFile(
-              `engagement-diary-${new Date().toISOString().slice(0, 10)}.json`,
-              `${JSON.stringify(backup, null, 2)}\n`,
-              'application/json',
-            );
+          onDeleteIntent: ownPanelHandler((item) => {
+            diaryDeleteConfirmId = item.id;
+            diaryDataStatus = null;
+            diaryDataFocusTarget = `delete-confirm:${item.id}`;
+            renderActivePanel();
           }),
-          onImport: ownPanelHandler(async (file) => {
-            try {
-              const entries = parseDiaryBackup(await file.text());
-              localDiaryEntries = await localRepository.replace(entries);
-              store.myRoutes = localDiaryEntries;
-              currentInsightsPort?.setEntries(localDiaryEntries);
-              currentInsightsPort?.refresh();
-              renderActivePanel();
-              showToast(t('diary.importedEntries', { count: localDiaryEntries.length }));
-            } catch (error) {
-              showToast(localizedDiaryError(error, 'diary.importFailed'));
-            }
+          onDeleteConfirm: ownPanelHandler((item) => {
+            void deleteLocalDiaryEntry(item, renderActivePanel);
+          }),
+          onDeleteCancel: ownPanelHandler((item) => {
+            diaryDeleteConfirmId = null;
+            diaryDataFocusTarget = `delete-action:${item.id}`;
+            renderActivePanel();
+          }),
+          onExport: ownPanelHandler(() => {
+            void exportDiaryPrivateBackup(renderActivePanel);
+          }),
+          onImport: ownPanelHandler((file) => {
+            void prepareDiaryBackupImport(file, renderActivePanel);
+          }),
+          onImportMerge: ownPanelHandler(() => {
+            void applyDiaryBackupImport('merge', renderActivePanel);
+          }),
+          onImportReplaceIntent: ownPanelHandler(() => {
+            diaryReplaceConfirm = true;
+            diaryDataStatus = null;
+            diaryDataFocusTarget = 'replace-confirm';
+            renderActivePanel();
+          }),
+          onImportReplaceConfirm: ownPanelHandler(() => {
+            void applyDiaryBackupImport('replace', renderActivePanel);
+          }),
+          onImportCancel: ownPanelHandler(() => {
+            clearDiaryImportPreview();
+            diaryDataStatus = { key: 'diary.backupCancelled' };
+            diaryDataFocusTarget = 'choose-backup';
+            renderActivePanel();
           }),
         }
       );
@@ -602,9 +799,9 @@ function ensureDiaryPanel(routes, options = {}) {
           }),
           onToggleAlt: ownPanelHandler((checked) => applyAltToggleState(checked)),
           onRate: ownPanelHandler(() => openRouteRating()),
-          onPlay: ownPanelHandler(() => startSim()),
-          onPause: ownPanelHandler(() => pauseSim()),
-          onFinish: ownPanelHandler(() => finishSim({ openModal: true })),
+          onPlay: ownPanelHandler(() => currentSimulator?.start()),
+          onPause: ownPanelHandler(() => currentSimulator?.pause()),
+          onFinish: ownPanelHandler(() => currentSimulator?.finish({ openModal: true })),
           onSpeedChange: ownPanelHandler((val) => {
             setSimPlaybackSpeed(val);
             if (refs.speedButtons) {
@@ -656,7 +853,7 @@ function ensureDiaryPanel(routes, options = {}) {
         syncDiaryInsightsContext('live');
       }
       applyAltToggleState(store.diaryAltEnabled, { update: false });
-      hydrateSimulatorFromPrefs();
+      currentSimulator?.hydrate(store.simState || {});
     }
   };
 
@@ -674,18 +871,6 @@ function ensureDiaryPanel(routes, options = {}) {
   };
   refreshDiaryPanel = renderActivePanel;
   renderActivePanel();
-}
-
-export function filterLocalDiaryEntries(entries = [], { period = '30d', mode = 'all', now = Date.now() } = {}) {
-  const days = period === '7d' ? 7 : period === '30d' ? 30 : null;
-  const cutoff = days == null ? null : now - days * 24 * 60 * 60 * 1000;
-  return entries
-    .filter((entry) => mode === 'all' || entry.mode === mode)
-    .filter((entry) => cutoff == null || new Date(entry.createdAt).getTime() >= cutoff)
-    .map((entry) => ({
-      ...entry,
-      date: formatCalendarDate(entry.createdAt, { includeYear: false }),
-    }));
 }
 
 function populateRouteOptions(routes) {
@@ -739,21 +924,6 @@ function focusHistoryRouteOnMap(route) {
     opacity: 0.95,
   });
   fitMapToRoute(feature);
-}
-
-export function createRouteSummaryModel(route) {
-  const props = route?.properties || {};
-  const length = Number(props.length_m) || 0;
-  const mode = String(props.mode || 'walk').toLowerCase();
-  return Object.freeze({
-    from: String(props.from || t('diary.start')),
-    to: String(props.to || t('diary.destination')),
-    mode: t(mode === 'bike' ? 'diary.bike' : 'diary.walk'),
-    distance: length >= 1000
-      ? `${(length / 1000).toFixed(1).replace(/\.0$/, '')} km`
-      : `${Math.round(length)} m`,
-    duration: t('diary.minutes', { count: Number(props.duration_min) || 0 }),
-  });
 }
 
 function renderRouteSummary(route) {
@@ -831,22 +1001,56 @@ export function fitCurrentDiarySelection() {
   return fitMapToRoutes(currentRoute, alt?.feature);
 }
 
-function openRouteRating() {
+async function openRouteRating() {
   if (!currentRoute) return;
+  const routeFeature = currentRoute;
+  const routeId = String(routeFeature.properties?.route_id || '');
   const session = currentDiarySession;
   const ownerIsCurrent = currentDiaryOwnerIsCurrent;
-  openRatingModal({
-    routeFeature: currentRoute,
+  const lifecycle = currentDiaryLocalLifecycle;
+  if (!routeId || !lifecycle) return;
+
+  let storedDraft = null;
+  try {
+    const result = await lifecycle.loadDraft(routeId);
+    if (!result.applied || !diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    if (currentRoute?.properties?.route_id !== routeId) return;
+    storedDraft = result.draft;
+  } catch (error) {
+    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return;
+    showToast(localizedDiaryError(error, 'diary.localStorageUnavailable'));
+    return;
+  }
+
+  const opened = openRatingModal({
+    routeFeature,
     segmentLookup,
     userHash: getUserHash(),
+    initialDraft: storedDraft ? {
+      step: storedDraft.step,
+      overallRating: storedDraft.rating,
+      tags: storedDraft.tags,
+      notes: storedDraft.notes,
+      overrides: Object.entries(storedDraft.overrides || {}),
+    } : null,
+    onDraftChange: (draft) => {
+      clearDiaryImportPreview();
+      return lifecycle.persistDraft(routeId, draft, {
+        routeSourceVersion: routeFeature.properties?.source_version,
+      });
+    },
+    onCommit: guardDiaryCommit(({ payload, response }) => (
+      handleDiarySubmissionSuccess({ payload, response }, {
+        localLifecycle: lifecycle,
+        routeFeature,
+      })
+    ), session, ownerIsCurrent),
     signal: session?.signal,
-    onSuccess: guardDiaryCommit(({ payload, response }) => {
-      handleDiarySubmissionSuccess({ payload, response });
-    }, session, ownerIsCurrent),
   });
+  if (opened && storedDraft) showToast(t('diary.draftRestored'));
 }
 
-export function handleDiarySubmissionSuccess({ payload, response }, {
+export async function handleDiarySubmissionSuccess({ payload, response }, {
   aggregationModel = aggregation,
   map = mapRef,
   updateSegments = updateSegmentsData,
@@ -856,10 +1060,28 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
   highlightSegments = onRouteRatingSuccess,
   onSegmentsRefreshed,
   repository = localRepository,
+  localLifecycle = currentDiaryLocalLifecycle,
   routeFeature = currentRoute,
+  createLocalEntry,
   onLocalSaved,
 } = {}) {
-  if (!payload) return;
+  if (!payload) return { applied: false, reason: 'invalid' };
+  const entryFactory = createLocalEntry
+    || (await loadDiaryStorageModule()).createDiaryEntry;
+  const entry = entryFactory({ payload, routeFeature });
+  let commitResult;
+  if (localLifecycle) {
+    commitResult = await localLifecycle.commitEntry(entry, entry.routeId || payload.route_id);
+  } else if (repository?.commitEntry) {
+    const saved = await repository.commitEntry(entry, { draftRouteId: entry.routeId || payload.route_id });
+    commitResult = { applied: true, entry: saved };
+  } else {
+    const saved = await repository.save(entry);
+    commitResult = { applied: true, entry: saved };
+  }
+  if (commitResult?.applied === false) return commitResult;
+  clearDiaryImportPreview();
+
   aggregationModel.applySubmission(payload);
   const refreshed = aggregationModel.buildFeatureCollection();
   if (refreshed && map) {
@@ -874,26 +1096,22 @@ export function handleDiarySubmissionSuccess({ payload, response }, {
   const affectedCount = affectedSegmentIds.size || 1;
   notifyPanel(t('diary.confidenceImproved', { count: affectedCount }));
   highlightSegments(Array.from(affectedSegmentIds));
-  const entry = createDiaryEntry({ payload, routeFeature });
-  const owningSession = currentDiarySession;
-  void repository.save(entry).then(() => {
-    if (onLocalSaved) {
-      onLocalSaved(entry);
-      return;
-    }
-    if (owningSession && currentDiarySession !== owningSession) return;
+  if (onLocalSaved) {
+    await onLocalSaved(entry);
+  } else {
     localDiaryEntries = [entry, ...localDiaryEntries.filter((item) => item.id !== entry.id)];
+    localDiarySnapshot = {
+      ...localDiarySnapshot,
+      entries: localDiaryEntries,
+      drafts: localDiarySnapshot.drafts.filter((draft) => draft.routeId !== entry.routeId),
+    };
     store.myRoutes = localDiaryEntries;
     currentInsightsPort?.setEntries(localDiaryEntries);
     currentInsightsPort?.refresh();
     if (store.diaryViewMode === 'history') refreshDiaryPanel?.();
     notify(t('diary.savedLocally'));
-  }).catch((error) => {
-    console.warn('[Diary] Local save failed:', error);
-    if (owningSession && currentDiarySession !== owningSession) return;
-    notify(t('diary.localSaveFailed', { message: localizedDiaryError(error, 'diary.localStorageUnavailable') }));
-    notifyPanel(t('diary.storageExportUnavailable'));
-  });
+  }
+  return { applied: true, entry, commitResult };
 }
 
 function deriveAffectedSegmentIds(payload) {
@@ -918,7 +1136,6 @@ function onRouteRatingSuccess(affectedSegmentIds) {
       addCleanup: currentDiarySession?.addCleanup,
     });
   }
-  console.info('[Diary] Route rating applied to %d segments', list.length || 0);
 }
 
 function refreshAfterCta(message) {
@@ -1000,7 +1217,7 @@ function updateAlternativeRoute({ refreshOnly = false } = {}) {
 function clearLiveDiaryMapState() {
   closeRatingModal();
   closeSegmentPopup();
-  teardownSim({ silent: true });
+  currentSimulator?.teardown({ silent: true });
   if (!mapRef) return;
   clearRouteOverlay(mapRef, DIARY_ROUTE_PRIMARY_SOURCE_ID);
   clearRouteOverlay(mapRef, DIARY_ROUTE_ALT_SOURCE_ID);
@@ -1057,190 +1274,12 @@ function countLowRated(segmentIds) {
   );
 }
 
-function getSimProgressRatio() {
-  if (!sim.coords || sim.coords.length <= 1) return 0;
-  return Math.min(1, sim.idx / (sim.coords.length - 1));
-}
-
-function persistSimProgress(playing) {
-  setSimPanelState({
-    playing: !!playing,
-    progress: getSimProgressRatio(),
-    routeId: currentRoute?.properties?.route_id || null,
-  });
-}
-
-function registerSimCleanup(fn) {
-  if (typeof fn === 'function') {
-    simCleanupFns.add(fn);
-  }
-}
-
-function cleanupSimLifecycleHooks() {
-  simCleanupFns.forEach((cleanup) => {
-    try {
-      cleanup();
-    } catch (err) {
-      console.warn('[Diary] Unable to remove simulator lifecycle hook', err);
-    }
-  });
-  simCleanupFns.clear();
-  simLifecycleFlags.visibility = false;
-  simLifecycleFlags.pagehide = false;
-}
-
-function ensureSimLifecycleHooks() {
-  if (typeof document !== 'undefined' && !simLifecycleFlags.visibility) {
-    const handleVisibility = guardDiaryCommit(() => {
-      if (document.hidden) {
-        pauseSim();
-      }
-    });
-    const cleanup = currentDiarySession
-      ? currentDiarySession.listen(document, 'visibilitychange', handleVisibility)
-      : (() => {
-          document.addEventListener('visibilitychange', handleVisibility);
-          return () => document.removeEventListener('visibilitychange', handleVisibility);
-        })();
-    registerSimCleanup(() => {
-      cleanup();
-      simLifecycleFlags.visibility = false;
-    });
-    simLifecycleFlags.visibility = true;
-  }
-  if (typeof window !== 'undefined' && !simLifecycleFlags.pagehide) {
-    const handlePageHide = guardDiaryCommit(() => {
-      teardownDiaryTransient(mapRef, { silent: true });
-    });
-    const cleanupPageHide = currentDiarySession
-      ? currentDiarySession.listen(window, 'pagehide', handlePageHide)
-      : (() => {
-          window.addEventListener('pagehide', handlePageHide);
-          return () => window.removeEventListener('pagehide', handlePageHide);
-        })();
-    const cleanupBeforeUnload = currentDiarySession
-      ? currentDiarySession.listen(window, 'beforeunload', handlePageHide)
-      : (() => {
-          window.addEventListener('beforeunload', handlePageHide);
-          return () => window.removeEventListener('beforeunload', handlePageHide);
-        })();
-    registerSimCleanup(() => {
-      cleanupPageHide();
-      cleanupBeforeUnload();
-      simLifecycleFlags.pagehide = false;
-    });
-    simLifecycleFlags.pagehide = true;
-  }
-}
-
-function ensureSimCoords(route) {
-  if (!route || !route.geometry) {
-    sim.coords = [];
-    return;
-  }
-  sim.coords = buildSimulationCoordinates(route.geometry);
-  sim.idx = 0;
-  sim.routeId = route.properties?.route_id || null;
-  sim.active = false;
-  sim.paused = true;
-  sim.hasStarted = false;
-  sim.playedOnce = false;
-}
-
-function startSim() {
-  if (!currentRoute || !mapRef) return;
-  if (!sim.coords.length || sim.routeId !== currentRoute.properties?.route_id) {
-    ensureSimCoords(currentRoute);
-  }
-  if (!sim.coords.length) return;
-  if (sim.timer) {
-    clearDiaryInterval(sim.timer);
-  }
-  ensureSimLifecycleHooks();
-  sim.active = true;
-  sim.paused = false;
-  sim.hasStarted = true;
-  sim.playedOnce = true;
-  drawSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
-  const session = currentDiarySession;
-  sim.timer = session
-    ? session.setInterval(guardDiaryCommit(stepSim), SIM_INTERVAL_MS)
-    : setInterval(stepSim, SIM_INTERVAL_MS);
-  updateSimButtons();
-  persistSimProgress(true);
-}
-
-function stepSim() {
-  if (!sim.active || sim.paused) return;
-  sim.idx += 1;
-  if (sim.idx >= sim.coords.length) {
-    finishSim({ openModal: true });
-    return;
-  }
-  drawSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID, sim.coords[sim.idx], { color: '#22d3ee', radius: 5 });
-  persistSimProgress(true);
-}
-
-function pauseSim() {
-  if (!sim.hasStarted) return;
-  if (sim.timer) {
-    clearDiaryInterval(sim.timer);
-    sim.timer = null;
-  }
-  sim.paused = true;
-  sim.active = false;
-  updateSimButtons();
-  persistSimProgress(false);
-}
-
-function finishSim({ openModal = true } = {}) {
-  if (!sim.hasStarted) return;
-  pauseSim();
-  sim.idx = 0;
-  sim.hasStarted = false;
-  clearSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID);
-  updateSimButtons();
-  persistSimProgress(false);
-  if (openModal) {
-    openRouteRating();
-  }
-}
-
-function teardownSim({ silent = false } = {}) {
-  if (sim.timer) {
-    clearDiaryInterval(sim.timer);
-    sim.timer = null;
-  }
-  sim.active = false;
-  sim.paused = true;
-  sim.hasStarted = false;
-  sim.playedOnce = false;
-  sim.coords = [];
-  sim.routeId = null;
-  sim.idx = 0;
-  if (mapRef) {
-    clearSimPoint(mapRef, DIARY_SIM_POINT_SOURCE_ID);
-  }
-  cleanupSimLifecycleHooks();
-  setSimPanelState({ playing: false, progress: 0, routeId: null });
-  if (!silent) {
-    updateSimButtons();
-  }
-}
-
-function stopAllTimersAndListeners({ silent = false } = {}) {
-  teardownSim({ silent: true });
-  if (!silent) {
-    updateSimButtons();
-  }
-}
-
 export function teardownDiaryTransient(
   map = mapRef,
-  { silent = false, removeNetworkOverlay = true } = {},
+  { silent = false, removeNetworkOverlay = true, simulator = currentSimulator } = {},
 ) {
   const targetMap = map || mapRef;
-  stopAllTimersAndListeners({ silent: true });
+  simulator?.teardown({ silent: true });
   cleanupNetworkOverlayLifecycle();
   if (targetMap) {
     setDiaryMapSkin(targetMap, false);
@@ -1258,14 +1297,19 @@ export function teardownDiaryTransient(
 
 function updateSimButtons() {
   const hasRoute = Boolean(currentRoute);
+  const simState = currentSimulator?.getState() || {
+    active: false,
+    paused: true,
+    hasStarted: false,
+  };
   if (playButtonEl) {
-    setDisabledState(playButtonEl, !hasRoute || (sim.active && !sim.paused));
+    setDisabledState(playButtonEl, !hasRoute || (simState.active && !simState.paused));
   }
   if (pauseButtonEl) {
-    setDisabledState(pauseButtonEl, !hasRoute || !sim.hasStarted || sim.paused);
+    setDisabledState(pauseButtonEl, !hasRoute || !simState.hasStarted || simState.paused);
   }
   if (finishButtonEl) {
-    setDisabledState(finishButtonEl, !hasRoute || !sim.hasStarted);
+    setDisabledState(finishButtonEl, !hasRoute || !simState.hasStarted);
   }
   if (rateButtonEl) {
     setDisabledState(rateButtonEl, !hasRoute);
@@ -1276,25 +1320,6 @@ function setDisabledState(element, disabled) {
   if (!element) return;
   element.disabled = Boolean(disabled);
   element.classList?.toggle?.('is-disabled', element.disabled);
-}
-
-function hydrateSimulatorFromPrefs() {
-  const prefs = store.simState || {};
-  const matchesRoute = currentRoute && prefs.routeId === currentRoute.properties?.route_id;
-  if (!matchesRoute || !prefs.progress) {
-    sim.hasStarted = false;
-    sim.playedOnce = false;
-    sim.active = false;
-    sim.paused = true;
-    sim.idx = 0;
-    updateSimButtons();
-    return;
-  }
-  sim.hasStarted = true;
-  sim.playedOnce = true;
-  sim.active = false;
-  sim.paused = true;
-  updateSimButtons();
 }
 
 function getUserHash() {
@@ -1368,35 +1393,6 @@ function hidePanelNotice() {
   }
 }
 
-export async function loadDemoSegments({ force = false, signal } = {}) {
-  signal?.throwIfAborted();
-  if (cachedSegments && !force) {
-    return clone(cachedSegments);
-  }
-  const payload = await loadJsonFromCandidates('segments', SEGMENT_URL_CANDIDATES, { signal });
-  signal?.throwIfAborted();
-  cachedSegments = normalizeSegmentsCollection(ensureFeatureCollection(payload, 'segments'));
-  return clone(cachedSegments);
-}
-
-export async function loadDemoRoutes({ force = false, signal } = {}) {
-  signal?.throwIfAborted();
-  if (cachedRoutes && !force) {
-    return clone(cachedRoutes);
-  }
-  const payload = await loadJsonFromCandidates('routes', ROUTE_URL_CANDIDATES, { signal });
-  signal?.throwIfAborted();
-  cachedRoutes = normalizeRoutesCollection(ensureFeatureCollection(payload, 'routes'));
-  const missingIds = (cachedRoutes.features || []).filter((f) => {
-    const ids = f?.properties?.[ROUTE_SEG_IDS_PROP];
-    return !Array.isArray(ids) || ids.length === 0;
-  });
-  if (missingIds.length) {
-    console.warn('[Diary] Some routes are missing segment references:', missingIds.map((f) => f?.properties?.[ROUTE_ID_PROP] || 'route').join(', '));
-  }
-  return clone(cachedRoutes);
-}
-
 /**
  * Initialize Route Safety Diary mode
  * @param {MapLibreMap} map - MapLibre GL map instance
@@ -1406,9 +1402,6 @@ export async function initDiaryMode(map, options = {}) {
   const stats = { status: 'cancelled', segmentsCount: 0, routesCount: 0 };
   if (options?.signal?.aborted) return stats;
   currentDiarySession?.dispose();
-  if (typeof console !== 'undefined' && typeof console.info === 'function') {
-    console.info('[Diary] initDiaryMode called', { hasMount: !!mountTarget, mountId: mountTarget?.id || 'none' });
-  }
   if (!diaryFeatureEnabled()) {
     diaryFlagOff();
     return { ...stats, status: 'failed' };
@@ -1424,7 +1417,19 @@ export async function initDiaryMode(map, options = {}) {
   const ownerIsCurrent = typeof options?.isCurrent === 'function' ? options.isCurrent : () => true;
   const isCurrent = () => diarySessionIsCurrent(session, ownerIsCurrent);
   const insightsPort = createDiaryInsightsPort(options?.insights);
-  localRepository = options?.localRepository || diaryLocalRepository;
+  let storageModule;
+  try {
+    storageModule = await loadDiaryStorageModule();
+    if (!isCurrent()) {
+      disposeDiarySession(session);
+      return stats;
+    }
+  } catch (error) {
+    console.error('[Diary] Local storage module unavailable:', error);
+    disposeDiarySession(session);
+    return { ...stats, status: 'failed' };
+  }
+  localRepository = options?.localRepository || storageModule.diaryLocalRepository;
   try {
     const addNetworkLayerImpl = options?.addNetworkLayerImpl || addNetworkLayer;
     const networkBefore = {
@@ -1467,25 +1472,39 @@ export async function initDiaryMode(map, options = {}) {
     currentDiaryOwnerIsCurrent = ownerIsCurrent;
     currentInsightsPort = insightsPort;
     mapRef = map;
+    const ownedLocalLifecycle = storageModule.createDiaryLocalLifecycle({
+      repository: localRepository,
+      isCurrent,
+    });
+    currentDiaryLocalLifecycle = ownedLocalLifecycle;
+    const ownedSimulator = createOwnedSimulator(session, ownerIsCurrent, map);
+    currentSimulator = ownedSimulator;
     session.addCleanup(onLanguageChange(() => {
       if (!isCurrent()) return;
       if (refreshDiaryCopy) refreshDiaryCopy();
       else currentInsightsPort?.refresh();
     }));
+    session.addCleanup(() => {
+      ownedLocalLifecycle.dispose();
+      currentDiaryLocalLifecycle = releaseOwnedReference(
+        currentDiaryLocalLifecycle,
+        ownedLocalLifecycle,
+      );
+    });
     session.addCleanup(() => cleanupDiaryMode(
       map,
       insightsPort,
       ownerIsCurrent,
+      ownedSimulator,
       mountTarget,
       false,
+      ownedLocalLifecycle,
     ));
     cleanupNetworkOverlayLifecycle();
     if (mountTarget) mountTarget.setAttribute('data-diary-mounted', 'true');
     setDiaryMapSkin(mapRef, true);
     ensureNetworkOverlayLifecycle(mapRef, session, ownerIsCurrent);
 
-    console.info('[Diary] segments loaded:', stats.segmentsCount);
-    console.info('[Diary] routes loaded:', stats.routesCount);
     logMissingSegments(routes, segments);
     buildSegmentLookup(segments);
     ensureRouteIndex(routes);
@@ -1494,11 +1513,21 @@ export async function initDiaryMode(map, options = {}) {
     lastLoadedSegments = hydratedSegments;
     lastLoadedRoutes = routes;
     try {
-      localDiaryEntries = await localRepository.list();
-      localStorageWarning = null;
+      localDiarySnapshot = localRepository.snapshot
+        ? await localRepository.snapshot()
+        : {
+          entries: await localRepository.list(),
+          drafts: [],
+          warnings: [],
+        };
+      localDiaryEntries = localDiarySnapshot.entries;
+      localStorageWarning = localDiarySnapshot.warnings.length
+        ? t('diary.storageRowsSkipped', { count: localDiarySnapshot.warnings.length })
+        : null;
     } catch (error) {
       console.warn('[Diary] Local history unavailable:', error);
       localDiaryEntries = [];
+      localDiarySnapshot = { entries: [], drafts: [], warnings: [] };
       localStorageWarning = localizedDiaryError(error, 'diary.localStorageUnavailable');
     }
     if (!isCurrent()) {
@@ -1549,17 +1578,23 @@ function cleanupDiaryMode(
   map,
   ownedInsightsPort = currentInsightsPort,
   ownedOwnerIsCurrent = currentDiaryOwnerIsCurrent,
+  ownedSimulator = currentSimulator,
   ownedMountTarget = null,
   removeNetworkOverlay = true,
+  ownedLocalLifecycle = currentDiaryLocalLifecycle,
 ) {
   const targetMap = map || mapRef;
   runCleanupSteps([
     () => {
       if (targetMap) removeSegmentsLayer(targetMap, DIARY_SEGMENTS_SOURCE_ID);
     },
-    () => teardownDiaryTransient(targetMap, { silent: true, removeNetworkOverlay }),
+    () => teardownDiaryTransient(targetMap, {
+      silent: true,
+      removeNetworkOverlay,
+      simulator: ownedSimulator,
+    }),
     () => { layerMounted = false; },
-    () => closeRatingModal(),
+    () => closeRatingModal({ force: true }),
     () => {
       if (!ownedMountTarget) return;
       ownedMountTarget.removeAttribute?.('data-diary-mounted');
@@ -1578,6 +1613,13 @@ function cleanupDiaryMode(
       currentRoute = null;
       refreshDiaryPanel = null;
       refreshDiaryCopy = null;
+      diaryImportPlans = null;
+      diaryImportPreview = null;
+      diaryReplaceConfirm = false;
+      diaryDeleteConfirmId = null;
+      diaryDataStatus = null;
+      diaryDataBusy = false;
+      diaryDataFocusTarget = null;
     },
     () => { if (toastEl) toastEl.remove(); },
     () => { if (toastTimer) clearDiaryTimeout(toastTimer); },
@@ -1595,8 +1637,17 @@ function cleanupDiaryMode(
         ownedOwnerIsCurrent,
       ) || (() => false);
     },
+    () => {
+      currentSimulator = releaseOwnedReference(currentSimulator, ownedSimulator);
+    },
+    () => {
+      ownedLocalLifecycle?.dispose();
+      currentDiaryLocalLifecycle = releaseOwnedReference(
+        currentDiaryLocalLifecycle,
+        ownedLocalLifecycle,
+      );
+    },
     () => { mapRef = releaseOwnedReference(mapRef, targetMap); },
-    () => console.info('[Diary] Teardown complete.'),
   ]);
 }
 

@@ -7,6 +7,7 @@ import {
   releaseOwnedReference,
   runCleanupSteps,
 } from '../../src/routes_diary/diary_session.js';
+import { createDiarySimulator } from '../../src/routes_diary/diary_simulator.js';
 
 test('dispose invokes each owned cleanup exactly once', () => {
   const session = createDiarySession();
@@ -188,4 +189,58 @@ test('runCleanupSteps reports a failed step and still cleans DOM state and refer
   assert.deepEqual(reported, ['map layer failed']);
   assert.deepEqual(completed, ['dom', 'state', 'reference']);
   assert.equal(mapReference, null);
+});
+
+test('the extracted simulator owns timers and lifecycle listeners exactly once', () => {
+  let intervalCallback;
+  const cleared = [];
+  const scheduler = {
+    setTimeout,
+    clearTimeout,
+    setInterval(callback) {
+      intervalCallback = callback;
+      return 'sim-interval';
+    },
+    clearInterval(id) { cleared.push(id); },
+  };
+  const session = createDiarySession({ scheduler });
+  const documentTarget = new EventTarget();
+  documentTarget.hidden = false;
+  const windowTarget = new EventTarget();
+  const route = {
+    properties: { route_id: 'route-1' },
+    geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0.001]] },
+  };
+  const points = [];
+  const persisted = [];
+  let pageHideCalls = 0;
+  const simulator = createDiarySimulator({
+    getRoute: () => route,
+    getMap: () => ({ id: 'map' }),
+    getSession: () => session,
+    isCurrent: () => session.isActive(),
+    getDocument: () => documentTarget,
+    getWindow: () => windowTarget,
+    drawPoint: (_map, _sourceId, coordinate) => points.push([...coordinate]),
+    clearPoint: () => points.push(['clear']),
+    persistState: (state) => persisted.push(state),
+    onPageHide: () => { pageHideCalls += 1; },
+  });
+
+  assert.equal(simulator.start(), true);
+  assert.equal(points.length, 1);
+  assert.equal(simulator.getState().active, true);
+  windowTarget.dispatchEvent(new Event('pagehide'));
+  assert.equal(pageHideCalls, 1);
+
+  simulator.teardown();
+  simulator.teardown();
+  const pointsAfterTeardown = points.length;
+  intervalCallback();
+  windowTarget.dispatchEvent(new Event('pagehide'));
+
+  assert.deepEqual(cleared, ['sim-interval']);
+  assert.equal(points.length, pointsAfterTeardown);
+  assert.equal(pageHideCalls, 1);
+  assert.deepEqual(persisted.at(-1), { playing: false, progress: 0, routeId: null });
 });

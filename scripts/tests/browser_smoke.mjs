@@ -66,11 +66,14 @@ async function installDeterministicApiRoutes(page, networkControl) {
     });
   });
   await page.route('https://phl.carto.com/**', async (route) => {
-    if (/format=GeoJSON/i.test(decodeURIComponent(route.request().postData() || ''))) {
+    const body = decodeURIComponent(route.request().postData() || '');
+    if (/format=GeoJSON/i.test(body)) {
       networkControl.pointRefreshRequests += 1;
     }
     if (networkControl.holdCarto) await networkControl.cartoGate;
-    if (networkControl.failCarto) {
+    const districtBoundaryCounts = /SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body);
+    if (networkControl.failCarto && !districtBoundaryCounts) {
+      networkControl.failedCartoResponses += 1;
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'held browser failure' }) });
       return;
     }
@@ -122,6 +125,92 @@ async function readSavedArtifact(page, title) {
   }), title);
 }
 
+async function readDiarySnapshot(page) {
+  return page.evaluate(() => new Promise((resolve, reject) => {
+    const openRequest = indexedDB.open('engagement-diary', 2);
+    openRequest.onerror = () => reject(openRequest.error);
+    openRequest.onsuccess = () => {
+      const database = openRequest.result;
+      const transaction = database.transaction(['route_entries', 'rating_drafts'], 'readonly');
+      const entriesRequest = transaction.objectStore('route_entries').getAll();
+      const draftsRequest = transaction.objectStore('rating_drafts').getAll();
+      let entries = [];
+      let drafts = [];
+      entriesRequest.onsuccess = () => { entries = entriesRequest.result || []; };
+      draftsRequest.onsuccess = () => { drafts = draftsRequest.result || []; };
+      transaction.oncomplete = () => {
+        database.close();
+        resolve({ entries, drafts });
+      };
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    };
+  }));
+}
+
+async function putDiaryRows(page, { entries = [], drafts = [] } = {}) {
+  await page.evaluate(({ entries: nextEntries, drafts: nextDrafts }) => new Promise((resolve, reject) => {
+    const openRequest = indexedDB.open('engagement-diary', 2);
+    openRequest.onerror = () => reject(openRequest.error);
+    openRequest.onsuccess = () => {
+      const database = openRequest.result;
+      const transaction = database.transaction(['route_entries', 'rating_drafts'], 'readwrite');
+      for (const entry of nextEntries) transaction.objectStore('route_entries').put(entry);
+      for (const draft of nextDrafts) transaction.objectStore('rating_drafts').put(draft);
+      transaction.oncomplete = () => {
+        database.close();
+        resolve();
+      };
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    };
+  }), { entries, drafts });
+}
+
+async function seedLegacyDiaryDatabase(page, entry) {
+  await page.evaluate((legacyEntry) => new Promise((resolve, reject) => {
+    const deletion = indexedDB.deleteDatabase('engagement-diary');
+    deletion.onerror = () => reject(deletion.error);
+    deletion.onblocked = () => reject(new Error('Legacy Diary database deletion was blocked.'));
+    deletion.onsuccess = () => {
+      const openRequest = indexedDB.open('engagement-diary', 1);
+      openRequest.onupgradeneeded = () => {
+        const database = openRequest.result;
+        const entries = database.createObjectStore('route_entries', { keyPath: 'id' });
+        entries.createIndex('createdAt', 'createdAt');
+        entries.put(legacyEntry);
+      };
+      openRequest.onerror = () => reject(openRequest.error);
+      openRequest.onsuccess = () => {
+        openRequest.result.close();
+        resolve();
+      };
+    };
+  }), entry);
+}
+
+async function waitForDiarySnapshot(page, predicate, message, timeoutMs = 4_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const snapshot = await readDiarySnapshot(page);
+    if (predicate(snapshot)) return snapshot;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(message);
+}
+
+async function assertFocused(locator, message) {
+  await locator.waitFor();
+  const handle = await locator.elementHandle();
+  assert.ok(handle, message);
+  await locator.page().waitForFunction(
+    (element) => document.activeElement === element,
+    handle,
+    { timeout: 4_000 },
+  );
+  assert.equal(await locator.evaluate((element) => document.activeElement === element), true, message);
+}
+
 try {
   browser = await chromium.launch({ headless: true });
   const baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]).href;
@@ -137,6 +226,7 @@ try {
     failCarto: false,
     cartoGate: Promise.resolve(),
     pointRefreshRequests: 0,
+    failedCartoResponses: 0,
   };
   await installDeterministicApiRoutes(page, networkControl);
   const consoleErrors = [];
@@ -206,16 +296,163 @@ try {
   await page.getByRole('button', { name: '切换到英文' }).click();
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
 
+  const routeOptions = await diaryRouteSelect.locator('option').evaluateAll((options) => (
+    options.map((option) => option.value).filter(Boolean)
+  ));
+  assert.ok(routeOptions.length >= 2, 'Diary draft isolation requires at least two demo routes');
+  const [routeA, routeB] = routeOptions;
+
   await page.getByRole('button', { name: 'Rate this route' }).click();
-  await page.getByRole('radio', { name: '5 stars' }).click();
+  await page.getByRole('radio', { name: '4 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'poor lighting' }).click();
+  await page.locator('#diary-rating-notes').fill('Keep this unfinished note');
+  await waitForDiarySnapshot(
+    page,
+    (snapshot) => snapshot.drafts.some((draft) => (
+      draft.routeId === routeA && draft.rating === 4 && draft.notes === 'Keep this unfinished note'
+    )),
+    'Route A draft was not persisted before reload',
+  );
+  await page.getByRole('button', { name: 'Close rating dialog' }).click();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+  const restoredRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
+  await restoredRouteSelect.selectOption(routeA);
+  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByText('Unfinished rating restored from this device.').waitFor();
+  assert.match(await page.locator('.diary-step-label').textContent(), /Step 2/);
+  assert.equal(await page.getByRole('button', { name: 'poor lighting' }).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#diary-rating-notes').inputValue(), 'Keep this unfinished note');
+  await page.getByRole('button', { name: 'Close rating dialog' }).click();
+
+  await restoredRouteSelect.selectOption(routeB);
+  await page.getByRole('button', { name: 'Rate this route' }).click();
+  assert.match(await page.locator('.diary-step-label').textContent(), /Step 1/);
+  await page.getByRole('radio', { name: '3 stars' }).click();
+  await waitForDiarySnapshot(
+    page,
+    (snapshot) => snapshot.drafts.some((draft) => draft.routeId === routeB && draft.rating === 3),
+    'Route B draft was not persisted independently',
+  );
+  await page.getByRole('button', { name: 'Close rating dialog' }).click();
+
+  await restoredRouteSelect.selectOption(routeA);
+  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByText('Unfinished rating restored from this device.').waitFor();
   await page.getByRole('button', { name: 'Save rating' }).click();
   await page.getByText('Saved locally on this device.').waitFor();
 
+  const committedDiary = await waitForDiarySnapshot(
+    page,
+    (snapshot) => (
+      snapshot.entries.some((entry) => entry.routeId === routeA)
+      && !snapshot.drafts.some((draft) => draft.routeId === routeA)
+      && snapshot.drafts.some((draft) => draft.routeId === routeB)
+    ),
+    'Successful rating did not commit Route A while preserving Route B draft',
+  );
+  const routeAEntry = committedDiary.entries.find((entry) => entry.routeId === routeA);
+
+  const otherEntry = {
+    kind: 'engagement-diary-entry',
+    schemaVersion: 2,
+    id: 'browser-smoke-other-entry',
+    createdAt: '2026-08-04T04:00:00.000Z',
+    updatedAt: '2026-08-04T04:00:00.000Z',
+    routeId: routeB,
+    label: 'Other local route',
+    mode: 'walk',
+    score: 2,
+    tags: [],
+    segmentIds: [],
+    routeGeometry: null,
+    routeSourceVersion: 'browser-smoke',
+    notes: '',
+    segmentOverrides: {},
+  };
+  await putDiaryRows(page, { entries: [otherEntry] });
+
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'My routes', exact: true }).click();
-  await page.locator('.diary-score-pill').filter({ hasText: '5.0' }).waitFor();
+  await page.locator('.diary-score-pill').filter({ hasText: '4.0' }).waitFor();
+  const historyPeriod = page.getByRole('combobox', { name: 'Time period' });
+  await historyPeriod.selectOption('all');
+  await assertFocused(historyPeriod, 'history filter focus must survive its rerender');
+  await page.getByRole('button', { name: `Delete ${routeAEntry.label}` }).click();
+  const deleteConfirm = page.getByRole('button', { name: 'Yes, delete' });
+  await assertFocused(deleteConfirm, 'delete confirmation must receive focus');
+  assert.match(await deleteConfirm.getAttribute('aria-describedby'), /diary-delete-confirm-prompt/);
+  await deleteConfirm.click();
+  await page.getByText(`“${routeAEntry.label}” was deleted from this device.`).waitFor();
+  await assertFocused(page.locator('#diary-route-history-title'), 'successful delete must return focus to route history');
+  const afterDelete = await readDiarySnapshot(page);
+  assert.equal(afterDelete.entries.some((entry) => entry.id === routeAEntry.id), false);
+  assert.equal(afterDelete.entries.some((entry) => entry.id === otherEntry.id), true);
+  assert.equal(afterDelete.drafts.some((draft) => draft.routeId === routeB), true);
+
+  const diaryBackupDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export private backup' }).click();
+  const diaryBackup = await diaryBackupDownload;
+  const diaryBackupPath = await diaryBackup.path();
+  const diaryBackupPayload = JSON.parse(await readFile(diaryBackupPath, 'utf8'));
+  assert.equal(diaryBackupPayload.kind, 'engagement-diary-private-backup');
+  assert.equal(diaryBackupPayload.schemaVersion, 2);
+  assert.equal(JSON.stringify(diaryBackupPayload).includes('user_hash'), false);
+  assert.equal(JSON.stringify(diaryBackupPayload).includes('payload'), false);
+  assert.equal(diaryBackupPayload.entries.some((entry) => entry.id === otherEntry.id), true);
+  assert.equal(diaryBackupPayload.drafts.some((draft) => draft.routeId === routeB), true);
+  await page.getByText('Private backup exported.').waitFor();
+  await assertFocused(page.locator('[data-diary-focus-target="data-status"]'), 'export completion must focus its status');
+
+  const backupInput = page.locator('.diary-private-data-card input[type="file"]');
+  await backupInput.setInputFiles(diaryBackupPath);
+  const importPreviewHeading = page.getByRole('heading', { name: 'Review backup before importing' });
+  await importPreviewHeading.waitFor();
+  await assertFocused(importPreviewHeading, 'validated backup must focus its import preview');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByText('Backup import cancelled. Local data was not changed.').waitFor();
+  await assertFocused(page.getByRole('button', { name: 'Choose backup file' }), 'cancelled import must return focus to file selection');
+  await backupInput.setInputFiles(diaryBackupPath);
+  await importPreviewHeading.waitFor();
+  await assertFocused(importPreviewHeading, 'reselected backup must focus its refreshed import preview');
+  await putDiaryRows(page, {
+    drafts: [{
+      ...diaryBackupPayload.drafts.find((draft) => draft.routeId === routeB),
+      rating: 5,
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    }],
+  });
+  await page.getByRole('button', { name: 'Merge backup' }).click();
+  await page.getByText(/Backup merged:/).waitFor();
+  await assertFocused(page.locator('[data-diary-focus-target="data-status"]'), 'merge completion must focus its status');
+  assert.equal((await readDiarySnapshot(page)).drafts.find((draft) => draft.routeId === routeB)?.rating, 5);
+
+  await backupInput.setInputFiles(diaryBackupPath);
+  await page.getByRole('heading', { name: 'Review backup before importing' }).waitFor();
+  const concurrentDraft = {
+    ...diaryBackupPayload.drafts.find((draft) => draft.routeId === routeB),
+    updatedAt: '2026-08-05T01:00:00.000Z',
+    rating: 2,
+    notes: 'Edited after the replace preview without changing record counts',
+  };
+  await putDiaryRows(page, { drafts: [concurrentDraft] });
+  await page.getByRole('button', { name: 'Replace local data…' }).click();
+  const replaceConfirm = page.getByRole('button', { name: 'Yes, replace local data' });
+  await assertFocused(replaceConfirm, 'replace confirmation must receive focus');
+  assert.match(await replaceConfirm.getAttribute('aria-describedby'), /diary-replace-confirm-warning/);
+  await replaceConfirm.click();
+  await page.getByText(/Local Diary data changed after this preview/).waitFor();
+  const staleImportStatus = page.locator('[data-diary-focus-target="data-status"]');
+  await assertFocused(staleImportStatus, 'stale replacement error must focus its alert');
+  assert.equal(await staleImportStatus.getAttribute('role'), 'alert');
+  assert.equal(
+    (await readDiarySnapshot(page)).drafts.find((draft) => draft.routeId === concurrentDraft.routeId)?.notes,
+    concurrentDraft.notes,
+    'A stale destructive preview must not overwrite same-count concurrent local edits',
+  );
+
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
   await page.getByText('Illustrative, read-only sample data. No comments or ratings are shared with other people.').waitFor();
   assert.equal(await page.locator('[data-panel-view="diary"] input[type="range"]').count(), 0);
@@ -253,12 +490,60 @@ try {
   });
   assert.equal(await page.locator('#addrB').inputValue(), '');
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  for (const resultName of ['boundary', 'incidents', 'charts', 'summary']) {
+    await page.locator(`[data-result-meta="${resultName}"][data-availability="current"]`).waitFor({ state: 'attached' });
+  }
+  const summaryMeta = page.locator('[data-result-meta="summary"]');
+  await summaryMeta.locator('details > summary').click();
+  assert.match(await summaryMeta.textContent(), /CARTO/);
+  assert.match(await summaryMeta.textContent(), /2024|2025|2026/);
   await page.waitForTimeout(1200);
   assert.equal(
     networkControl.pointRefreshRequests - pointRefreshRequestsBeforeGeocode,
     1,
     'One settled geocode must own exactly one Crime refresh API generation',
   );
+  const pointRefreshRequestsBeforePresetRadius = networkControl.pointRefreshRequests;
+  await page.locator('#radiusSel').selectOption('1200');
+  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('radius') === '1200');
+  await page.waitForTimeout(1200);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforePresetRadius,
+    1,
+    'One preset radius selection must own exactly one Crime refresh API generation',
+  );
+  await page.locator('#radiusSel').selectOption('custom');
+  const pointRefreshRequestsBeforeCustomRadius = networkControl.pointRefreshRequests;
+  await page.locator('#customRadiusInput').fill('99');
+  await page.locator('#customRadiusInput').press('Enter');
+  await page.waitForTimeout(300);
+  assert.equal(new URL(page.url()).searchParams.get('radius'), '1200');
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeCustomRadius,
+    'An out-of-range custom radius must not change the URL or refresh Crime results',
+  );
+  await page.locator('#customRadiusInput').fill('1375');
+  await page.waitForTimeout(500);
+  assert.equal(new URL(page.url()).searchParams.get('radius'), '1200');
+  assert.equal(
+    networkControl.pointRefreshRequests,
+    pointRefreshRequestsBeforeCustomRadius,
+    'Typing a custom radius must not refresh Crime results before commit',
+  );
+  await page.locator('#customRadiusInput').press('Enter');
+  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('radius') === '1375');
+  await page.waitForTimeout(1200);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCustomRadius,
+    1,
+    'Committing a custom radius must own exactly one Crime refresh API generation',
+  );
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.locator('#radiusSel').inputValue(), 'custom');
+  assert.equal(await page.locator('#customRadiusInput').inputValue(), '1375');
+  assert.equal(await page.locator('#customRadiusRow').isVisible(), true);
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
@@ -383,8 +668,19 @@ try {
   await page.waitForFunction(() => /refresh failed/i.test(document.querySelector('.analysis-history__snapshot')?.textContent || ''));
   assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.match(await page.locator('#compare-card').textContent(), /12 reported incidents/);
+  await page.locator('[data-result-meta="boundary"][data-availability="current"]').waitFor({ state: 'attached' });
+  for (const resultName of ['incidents', 'charts', 'summary']) {
+    await page.locator(`[data-result-meta="${resultName}"][data-availability="stale"]`).waitFor({ state: 'attached' });
+  }
+  assert.equal(await page.locator('[data-app-data-status]').getAttribute('data-phase'), 'ready');
   networkControl.failCarto = false;
   networkControl.stage = 'normal';
+  const chartDisclosure = page.locator('details.progressive-surface').filter({ has: page.locator('#charts') });
+  if (!(await chartDisclosure.getAttribute('open'))) {
+    await chartDisclosure.locator(':scope > summary').click();
+  }
+  await page.locator('[data-result-meta="charts"] [data-result-meta-retry]').click();
+  await page.locator('[data-result-meta="charts"][data-availability="current"]').waitFor();
   await page.locator('#durationSel').selectOption('6');
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
 
@@ -420,6 +716,20 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.analysis-history__empty').waitFor();
   assert.equal(await artifactCard(page, 'Renamed A-only').count(), 0);
+
+  const pointRequestsBeforeClear = networkControl.pointRefreshRequests;
+  await page.locator('#clearSelBtn').filter({ hasText: 'Remove map point' }).click();
+  await page.waitForFunction(() => !new URLSearchParams(window.location.search).has('a'));
+  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  assert.equal(await page.locator('#addrA').inputValue(), '');
+  assert.equal(await page.locator('#addrB').inputValue(), '');
+  assert.equal(await page.locator('#clearSelBtn').isHidden(), true);
+  assert.equal(new URL(page.url()).searchParams.has('b'), false);
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRequestsBeforeClear,
+    0,
+    'Removing the buffer point must not trigger a citywide incident request',
+  );
 
   const layout = await page.evaluate(() => {
     const side = document.getElementById('sidepanel');
@@ -500,6 +810,53 @@ try {
     version: 2,
     record: { id: 'migration-fixture', value: 'preserved' },
   });
+  const migrationContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: 'en-US',
+  });
+  let diaryMigrationEvidence;
+  try {
+    const migrationPage = await migrationContext.newPage();
+    await installDeterministicApiRoutes(migrationPage, {
+      holdCarto: false,
+      failCarto: false,
+      cartoGate: Promise.resolve(),
+      pointRefreshRequests: 0,
+      failedCartoResponses: 0,
+    });
+    await migrationPage.goto(new URL('?mode=crime', baseUrl).href, { waitUntil: 'domcontentloaded' });
+    await seedLegacyDiaryDatabase(migrationPage, {
+      id: 'legacy-diary-entry',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      label: 'Legacy route',
+      mode: 'walk',
+      user_hash: 'top-level-secret',
+      payload: {
+        route_id: 'legacy-route',
+        overall_rating: 4,
+        tags: ['poor_lighting'],
+        segment_ids: ['seg-1'],
+        notes: 'Migrated in the browser',
+        segment_overrides: { 'seg-1': 2 },
+        user_hash: 'nested-secret',
+      },
+    });
+    await migrationPage.goto(new URL('?mode=diary', baseUrl).href, { waitUntil: 'domcontentloaded' });
+    await migrationPage.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+    const migrated = await readDiarySnapshot(migrationPage);
+    diaryMigrationEvidence = {
+      entry: migrated.entries.find((entry) => entry.id === 'legacy-diary-entry'),
+      draftStoreAvailable: Array.isArray(migrated.drafts),
+    };
+  } finally {
+    await migrationContext.close();
+  }
+  assert.equal(diaryMigrationEvidence.entry.kind, 'engagement-diary-entry');
+  assert.equal(diaryMigrationEvidence.entry.schemaVersion, 2);
+  assert.equal(diaryMigrationEvidence.entry.notes, 'Migrated in the browser');
+  assert.equal('payload' in diaryMigrationEvidence.entry, false);
+  assert.equal(JSON.stringify(diaryMigrationEvidence.entry).includes('secret'), false);
+  assert.equal(diaryMigrationEvidence.draftStoreAvailable, true);
   const mockedRemoteHosts = new Set([
     'tile.openstreetmap.org',
     'demotiles.maplibre.org',
@@ -519,9 +876,14 @@ try {
   );
   assert.deepEqual(pageErrors, [], `Browser page errors: ${pageErrors.join(' | ')}`);
   assert.deepEqual(consoleErrors, [], `Browser console errors: ${consoleErrors.join(' | ')}`);
-  assert.equal(expectedCartoConsoleErrors, 3, 'Only the three intentional Carto 503 attempts may be exempted');
+  assert.ok(networkControl.failedCartoResponses > 0, 'The partial-failure scenario must exercise Carto 503 responses');
+  assert.equal(
+    expectedCartoConsoleErrors,
+    networkControl.failedCartoResponses,
+    'Only resource errors caused by the deliberate Carto 503 responses may be exempted',
+  );
 
-  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/historyVisible=${upgradeEvidence.historyVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
+  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; Diary v1->v2 canonical=${diaryMigrationEvidence.entry.schemaVersion}; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/historyVisible=${upgradeEvidence.historyVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => {

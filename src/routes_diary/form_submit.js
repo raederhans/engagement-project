@@ -2,9 +2,7 @@ import Ajv from 'ajv';
 import { submitDiary } from '../api/diary.js';
 import { getSegmentDisplayLabel } from './labels.js';
 import {
-  clearRatingDraft,
   createRatingDraft,
-  saveRatingDraft,
   selectLowestRatedSegments,
   setSegmentOverride,
   validateRatingStep,
@@ -89,6 +87,7 @@ let activeBackdrop = null;
 let activeModal = null;
 let activeBody = null;
 let activeStepLabel = null;
+let activeCloseButton = null;
 let errorEl = null;
 let submitBtn = null;
 let escapeHandler = null;
@@ -111,23 +110,49 @@ export function submitSegmentFeedback(payload, { submit = submitDiary, signal } 
 
 function persistDraft(state = currentState) {
   if (!state?.routeId) return;
-  saveRatingDraft(state.routeId, {
+  const write = state.onDraftChange?.({
     step: state.step,
     overallRating: state.overallRating,
-    tags: state.tags,
+    tags: Array.from(state.tags),
     notes: state.notes,
-    overrides: state.overrides,
+    overrides: Array.from(state.overrides.entries()),
   });
+  Promise.resolve(write)
+    .then((result) => {
+      if (
+        result?.applied === false
+        && result.reason === 'superseded'
+        && currentState === state
+        && !state.signal?.aborted
+      ) {
+        setError(t('rating.draftSaveFailed'));
+      }
+    })
+    .catch((error) => {
+      if (currentState === state && !state.signal?.aborted) {
+        setError(error?.message || t('rating.draftSaveFailed'));
+      }
+    });
 }
 
-export function openRatingModal({ routeFeature, segmentLookup, userHash, onSuccess, signal }) {
+export function openRatingModal({
+  routeFeature,
+  segmentLookup,
+  userHash,
+  initialDraft,
+  onDraftChange,
+  onCommit,
+  onSuccess,
+  signal,
+}) {
   if (!routeFeature) return;
+  if (currentState?.pending) return false;
   closeRatingModal();
   if (typeof document === 'undefined') return;
   activeOpener = document.activeElement;
 
   const routeId = String(routeFeature.properties?.route_id || '');
-  const draft = createRatingDraft(routeId);
+  const draft = createRatingDraft(routeId, initialDraft);
   currentState = {
     route: routeFeature,
     routeId,
@@ -138,15 +163,16 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
     overrides: new Map(draft.overrides),
     overallRating: draft.overallRating,
     notes: draft.notes,
+    onDraftChange,
+    onCommit,
     onSuccess,
     signal,
     pending: false,
-    clearDraft: () => clearRatingDraft(routeId),
   };
 
   const backdrop = document.createElement('div');
   backdrop.className = 'diary-modal-backdrop';
-  backdrop.addEventListener('click', closeRatingModal);
+  backdrop.addEventListener('click', () => closeRatingModal());
 
   const modal = document.createElement('form');
   modal.className = 'diary-modal-card';
@@ -166,11 +192,12 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   title.className = 'diary-modal-title';
   setTranslatedText(title, 'rating.title');
   const closeBtn = document.createElement('button');
+  activeCloseButton = closeBtn;
   closeBtn.type = 'button';
   closeBtn.className = 'diary-modal-close';
   setTranslatedAttribute(closeBtn, 'rating.close', 'aria-label');
   closeBtn.textContent = '×';
-  closeBtn.addEventListener('click', closeRatingModal);
+  closeBtn.addEventListener('click', () => closeRatingModal());
   titleRow.appendChild(title);
   titleRow.appendChild(closeBtn);
   header.appendChild(titleRow);
@@ -190,6 +217,7 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   errorEl = document.createElement('div');
   errorEl.className = 'diary-error';
   errorEl.setAttribute('role', 'alert');
+  errorEl.tabIndex = -1;
   modal.appendChild(errorEl);
 
   activeBackdrop = backdrop;
@@ -206,9 +234,11 @@ export function openRatingModal({ routeFeature, segmentLookup, userHash, onSucce
   };
   document.addEventListener('keydown', escapeHandler);
   closeBtn.focus?.();
+  return true;
 }
 
-export function closeRatingModal() {
+export function closeRatingModal({ force = false } = {}) {
+  if (currentState?.pending && !force) return false;
   const opener = activeOpener;
   activeBackdrop?.remove();
   activeModal?.remove();
@@ -220,12 +250,14 @@ export function closeRatingModal() {
   activeModal = null;
   activeBody = null;
   activeStepLabel = null;
+  activeCloseButton = null;
   errorEl = null;
   submitBtn = null;
   escapeHandler = null;
   currentState = null;
   activeOpener = null;
   if (opener?.isConnected !== false) opener?.focus?.();
+  return true;
 }
 
 function setBackgroundInert(backdrop) {
@@ -274,8 +306,7 @@ export function finalizeDiarySubmission({
 }) {
   if (state?.signal?.aborted || !isCurrent()) return false;
   const onSuccess = state?.onSuccess;
-  state?.clearDraft?.();
-  close();
+  close({ force: true });
   onSuccess?.({ payload, response });
   return true;
 }
@@ -284,6 +315,8 @@ function renderCurrentStep(focusTarget = null) {
   const state = currentState;
   if (!state || !activeBody || !activeModal) return;
   setError('');
+  activeModal.setAttribute('aria-busy', String(Boolean(state.pending)));
+  if (activeCloseButton) activeCloseButton.disabled = Boolean(state.pending);
   activeBody.replaceChildren();
   activeModal.querySelector?.('.diary-modal-footer')?.remove();
   const stepIndex = STEP_ORDER.indexOf(state.step);
@@ -299,7 +332,15 @@ function renderCurrentStep(focusTarget = null) {
   }
   if (state.step === 'segments') activeBody.appendChild(createSegmentOverrideSection(state));
   activeModal.appendChild(createFooter(state));
+  disablePendingBodyControls(state);
   restoreRerenderFocus(focusTarget);
+}
+
+function disablePendingBodyControls(state) {
+  if (!state.pending || !activeBody) return;
+  for (const control of activeBody.querySelectorAll('button, input, select, textarea')) {
+    control.disabled = true;
+  }
 }
 
 function restoreRerenderFocus(focusTarget) {
@@ -610,23 +651,25 @@ async function handleSubmit(event) {
 
   setError('');
   try {
-    console.info('[Diary] submit payload', payload);
     const result = await runRatingSubmission({
       state,
       payload,
       submit: submitDiary,
+      commit: state.onCommit,
       isCurrent: () => currentState === state,
-      onPendingChange: () => {
-        if (currentState === state) renderCurrentStep();
+      onPendingChange: (pending) => {
+        if (currentState === state) {
+          renderCurrentStep();
+          if (pending) activeModal?.focus?.();
+        }
       },
     });
     if (!result.applied) return;
     const { response } = result;
-    console.info('[Diary] submit response', response);
     finalizeDiarySubmission({ state, payload, response, isCurrent: () => currentState === state });
   } catch (error) {
     if (currentState === state && !state.signal?.aborted && error?.name !== 'AbortError') {
-      setError(error?.message || t('rating.submissionFailed'));
+      setError(error?.message || t('rating.submissionFailed'), { focus: true });
     }
   }
 }
@@ -635,6 +678,7 @@ export async function runRatingSubmission({
   state,
   payload,
   submit = submitDiary,
+  commit,
   isCurrent = () => true,
   onPendingChange = () => {},
 } = {}) {
@@ -643,15 +687,42 @@ export async function runRatingSubmission({
   state.pending = true;
   onPendingChange(true);
   try {
-    const response = await submit(payload, { signal: state.signal });
+    const fingerprint = submissionFingerprint(payload);
+    const receipt = state.submissionReceipt?.fingerprint === fingerprint
+      ? state.submissionReceipt
+      : null;
+    const response = receipt
+      ? receipt.response
+      : await submit(payload, { signal: state.signal });
     if (state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
-    return { applied: true, response };
+    if (commit && !receipt) {
+      state.submissionReceipt = { fingerprint, payload, response };
+    }
+    const commitPayload = state.submissionReceipt?.fingerprint === fingerprint
+      ? state.submissionReceipt.payload
+      : payload;
+    const commitResult = commit ? await commit({ payload: commitPayload, response }) : null;
+    if (state.signal?.aborted || !isCurrent() || commitResult?.applied === false) {
+      return { applied: false, reason: commitResult?.reason || 'stale' };
+    }
+    if (commit) state.submissionReceipt = null;
+    return commit
+      ? { applied: true, response, commitResult }
+      : { applied: true, response };
   } finally {
     state.pending = false;
     onPendingChange(false);
   }
 }
 
-function setError(message) {
-  if (errorEl) errorEl.textContent = message || '';
+function submissionFingerprint(payload) {
+  const { timestamp, ...stablePayload } = payload || {};
+  void timestamp;
+  return JSON.stringify(stablePayload);
+}
+
+function setError(message, { focus = false } = {}) {
+  if (!errorEl) return;
+  errorEl.textContent = message || '';
+  if (focus && message) errorEl.focus?.();
 }

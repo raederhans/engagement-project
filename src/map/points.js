@@ -100,6 +100,27 @@ export function attachClusterExpansion(map, {
   };
 }
 
+export function incidentResultKey(feature, { generation = 0, index = 0 } = {}) {
+  if (feature?.id != null) return String(feature.id);
+  const sourceRow = feature?.properties?.cartodb_id;
+  if (sourceRow != null) return `carto:${sourceRow}`;
+  return `result:${generation}:${index}`;
+}
+
+export function prepareIncidentGeoJson(geo, generation = 0) {
+  const source = geo?.type === 'FeatureCollection' ? geo : { type: 'FeatureCollection', features: [] };
+  const features = Array.isArray(source.features)
+    ? source.features.map((feature, index) => {
+      const key = incidentResultKey(feature, { generation, index });
+      return {
+        ...feature,
+        id: key,
+      };
+    })
+    : [];
+  return { ...source, features };
+}
+
 /**
  * Fetch GeoJSON points limited by time window and bbox, and render clusters/unclustered.
  * @param {import('maplibre-gl').Map} map
@@ -114,6 +135,7 @@ export async function refreshPoints(map, {
   queryMode,
   selectedDistrictCode,
   signal,
+  resultGeneration = 0,
   fetchPointsImpl = fetchPoints,
   shouldApply = () => true,
 } = {}) {
@@ -122,8 +144,9 @@ export async function refreshPoints(map, {
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
   if (signal?.aborted) return { applied: false };
-  const geo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
+  const sourceGeo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
   if (signal?.aborted || !shouldApply()) return { applied: false };
+  const geo = prepareIncidentGeoJson(sourceGeo, resultGeneration);
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
 
   // Add or update source
@@ -196,7 +219,14 @@ export async function refreshPoints(map, {
     if (count === 0) {
       ensurePointsNotice({ map, key: 'map.noPointIncidents' });
       if (existsUnclustered) map.removeLayer(unclusteredId);
-      return;
+      return {
+        applied: true,
+        generation: resultGeneration,
+        status: 'empty',
+        geo,
+        count,
+        tooMany: false,
+      };
     }
     hideBanner();
     if (!existsUnclustered) {
@@ -215,6 +245,14 @@ export async function refreshPoints(map, {
       });
     }
   }
+  return {
+    applied: true,
+    generation: resultGeneration,
+    status: tooMany ? 'dense' : 'ready',
+    geo,
+    count,
+    tooMany,
+  };
 }
 
 export function clearCrimePoints(map) {
@@ -278,6 +316,6 @@ export function ensurePointsNotice({
 }
 
 function hideBanner() {
-  const el = document.getElementById('banner');
+  const el = globalThis.document?.getElementById?.('banner');
   if (el) el.style.display = 'none';
 }

@@ -2,9 +2,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { attachClusterExpansion, refreshPoints } from '../../src/map/points.js';
+import {
+  attachClusterExpansion,
+  refreshPoints,
+} from '../../src/map/points.js';
 import { wirePoints } from '../../src/map/wire_points.js';
 import { createCrimeRefreshOwner } from '../../src/routes_crime/crime_refresh_owner.js';
+import {
+  createIncidentResultsController,
+  visibleIncidentFeatures,
+} from '../../src/routes_crime/incident_results_controller.js';
 
 function deferred() {
   let resolve;
@@ -60,6 +67,362 @@ function createScheduler() {
     },
   };
 }
+
+function incidentFeature({
+  id = 1,
+  offense = 'Thefts',
+  occurred = '2026-07-15T14:35:00Z',
+  location = '1500 MARKET ST',
+  district = '09',
+  coordinates = [-75.17, 39.96],
+} = {}) {
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates },
+    properties: {
+      cartodb_id: id,
+      text_general_code: offense,
+      dispatch_date_time: occurred,
+      location_block: location,
+      dc_dist: district,
+    },
+  };
+}
+
+function createIncidentView() {
+  let activate = () => {};
+  return {
+    renders: [],
+    selections: [],
+    loading: 0,
+    cleared: 0,
+    destroyed: 0,
+    setActivateHandler(handler) {
+      activate = handler;
+      return () => { activate = () => {}; };
+    },
+    activate(key) { activate(key); },
+    setLoading() { this.loading += 1; },
+    replaceResults(payload) { this.renders.push(payload); },
+    setSelected(payload) { this.selections.push(payload); return true; },
+    clearSelection() { this.selections.push(null); },
+    clear() { this.cleared += 1; },
+    destroy() { this.destroyed += 1; },
+  };
+}
+
+function createPagedIncidentView() {
+  const view = createIncidentView();
+  view.renderedKeys = new Set();
+  view.currentKey = null;
+  view.replaceResults = function replaceResults(payload) {
+    this.renders.push(payload);
+    this.renderedKeys = new Set(visibleIncidentFeatures(payload.geo.features, {
+      selectedKey: payload.selectedKey,
+    }).visible.map((feature) => `carto:${feature.properties.cartodb_id}`));
+  };
+  view.setSelected = function setSelected(payload) {
+    this.selections.push(payload);
+    if (!this.renderedKeys.has(payload.key)) return false;
+    this.currentKey = payload.key;
+    return true;
+  };
+  return view;
+}
+
+function createLayerMap() {
+  const handlers = new Map();
+  const sources = new Map();
+  const layers = new Map();
+  const mutations = [];
+  return {
+    handlers,
+    sources,
+    layers,
+    mutations,
+    loaded: () => true,
+    isStyleLoaded: () => true,
+    getBounds: () => ({
+      getWest: () => -75.2,
+      getSouth: () => 39.9,
+      getEast: () => -75.1,
+      getNorth: () => 40,
+    }),
+    getSource: (id) => sources.get(id) || null,
+    getLayer: (id) => layers.get(id) || null,
+    addSource(id, definition) {
+      const source = {
+        definition,
+        data: definition.data,
+        setData(data) { this.data = data; },
+      };
+      sources.set(id, source);
+      mutations.push(['source', id, definition.data]);
+    },
+    addLayer(definition) {
+      layers.set(definition.id, definition);
+      mutations.push(['layer', definition.id]);
+    },
+    removeLayer(id) { layers.delete(id); },
+    removeSource(id) { sources.delete(id); },
+    on(event, layer, handler) {
+      if (typeof layer === 'function') handlers.set(event, layer);
+      else handlers.set(`${event}:${layer}`, handler);
+    },
+    once(event, handler) { handlers.set(event, handler); },
+    off(event, layer, handler) {
+      const key = typeof layer === 'function' ? event : `${event}:${layer}`;
+      const candidate = typeof layer === 'function' ? layer : handler;
+      if (handlers.get(key) === candidate) handlers.delete(key);
+    },
+    getCanvas: () => ({ style: { cursor: '' } }),
+  };
+}
+
+test('one accepted points response updates map and incident list with the same GeoJSON object', async () => {
+  const map = createLayerMap();
+  const sourceGeo = {
+    type: 'FeatureCollection',
+    features: [incidentFeature({ id: 11 }), incidentFeature({ id: 12 })],
+  };
+  let fetchCalls = 0;
+  const incidentResults = {
+    replacements: [],
+    setLoading() {},
+    replaceResults(payload) { this.replacements.push(payload); },
+    clear() {},
+    destroy() {},
+  };
+  const controller = wirePoints(map, {
+    getFilters: () => ({ start: '2026-01-01', end: '2026-02-01' }),
+    autoRefresh: false,
+    incidentResultsController: incidentResults,
+    refreshPointsImpl: (currentMap, params) => refreshPoints(currentMap, {
+      ...params,
+      fetchPointsImpl: async () => {
+        fetchCalls += 1;
+        return sourceGeo;
+      },
+    }),
+    showToast: () => {},
+    hideToast: () => {},
+  });
+
+  const result = await controller.refresh();
+
+  assert.equal(fetchCalls, 1);
+  assert.equal(result.applied, true);
+  assert.equal(map.sources.get('crime-points').data, result.geo);
+  assert.equal(incidentResults.replacements.length, 1);
+  assert.equal(incidentResults.replacements[0].geo, result.geo);
+  assert.equal(incidentResults.replacements[0].generation, result.generation);
+  controller.destroy();
+});
+
+test('map and list activation share one escaped incident detail owner', () => {
+  const map = createLayerMap();
+  const view = createIncidentView();
+  const popupHtml = [];
+  const popup = {
+    setLngLat() { return this; },
+    setHTML(html) { popupHtml.push(html); return this; },
+    addTo() { return this; },
+    remove() {},
+  };
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => popup,
+  });
+  const feature = incidentFeature({
+    id: 42,
+    offense: '<img src=x onerror=alert(1)>',
+    location: '1500 MARKET ST & <script>',
+  });
+  const geo = { type: 'FeatureCollection', features: [feature] };
+
+  controller.replaceResults({ geo, generation: 3, status: 'ready', count: 1, tooMany: false });
+  map.handlers.get('click:unclustered')({
+    features: [feature],
+    lngLat: { lng: -75.17, lat: 39.96 },
+  });
+  const mapHtml = popupHtml.at(-1);
+  assert.equal(view.selections.at(-1).ensureVisible, false);
+  view.activate('carto:42');
+  const listHtml = popupHtml.at(-1);
+
+  assert.equal(controller.getSelectedKey(), 'carto:42');
+  assert.equal(mapHtml, listHtml);
+  assert.match(listHtml, /&lt;img/);
+  assert.match(listHtml, /&lt;script&gt;/);
+  assert.doesNotMatch(listHtml, /<img|<script>/i);
+  assert.equal(view.selections.at(-1).key, 'carto:42');
+  assert.equal(view.selections.at(-1).ensureVisible, true);
+  controller.destroy();
+});
+
+test('a map-selected incident outside the first page is inserted into the synchronized list', () => {
+  const map = createLayerMap();
+  const view = createPagedIncidentView();
+  const features = Array.from({ length: 75 }, (_, index) => incidentFeature({ id: index + 1 }));
+  const selected = features[60];
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { return this; },
+      remove() {},
+    }),
+  });
+
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features },
+    generation: 8,
+    status: 'ready',
+    count: features.length,
+  });
+  assert.equal(view.renderedKeys.has('carto:61'), false);
+
+  map.handlers.get('click:unclustered')({
+    features: [selected],
+    lngLat: { lng: -75.17, lat: 39.96 },
+  });
+
+  assert.equal(view.renderedKeys.has('carto:61'), true);
+  assert.equal(view.currentKey, 'carto:61');
+  assert.equal(view.renders.at(-1).selectedKey, 'carto:61');
+  assert.equal(view.selections.at(-1).ensureVisible, false);
+  controller.destroy();
+});
+
+test('a new result generation clears a selected incident that is no longer present', () => {
+  const map = createLayerMap();
+  const view = createIncidentView();
+  let popupRemovals = 0;
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { return this; },
+      remove() { popupRemovals += 1; },
+    }),
+  });
+  const first = incidentFeature({ id: 1 });
+  const removed = incidentFeature({ id: 2 });
+
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features: [first, removed] },
+    generation: 4,
+    status: 'ready',
+    count: 2,
+  });
+  view.activate('carto:2');
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features: [first] },
+    generation: 5,
+    status: 'ready',
+    count: 1,
+  });
+
+  assert.equal(controller.getSelectedKey(), null);
+  assert.equal(view.selections.at(-1), null);
+  assert.equal(popupRemovals, 1);
+  controller.destroy();
+});
+
+test('a stale points response cannot update either map or incident results', async () => {
+  const map = createLayerMap();
+  const first = deferred();
+  const second = deferred();
+  const requests = [first, second];
+  const replacements = [];
+  const controller = wirePoints(map, {
+    getFilters: () => ({}),
+    autoRefresh: false,
+    incidentResultsController: {
+      setLoading() {},
+      replaceResults(payload) { replacements.push(payload); },
+      clear() {},
+      destroy() {},
+    },
+    refreshPointsImpl: (currentMap, params) => refreshPoints(currentMap, {
+      ...params,
+      fetchPointsImpl: () => requests.shift().promise,
+    }),
+    showToast: () => {},
+    hideToast: () => {},
+  });
+
+  const oldRequest = controller.refresh({ sequence: 1 });
+  const currentRequest = controller.refresh({ sequence: 2 });
+  first.resolve({ type: 'FeatureCollection', features: [incidentFeature({ id: 1 })] });
+  assert.deepEqual(await oldRequest, { applied: false });
+  assert.equal(map.mutations.length, 0);
+  assert.equal(replacements.length, 0);
+
+  second.resolve({ type: 'FeatureCollection', features: [incidentFeature({ id: 2 })] });
+  assert.equal((await currentRequest).applied, true);
+  assert.equal(replacements.length, 1);
+  controller.destroy();
+});
+
+test('high-density incident results never render more than 200 rows and keep the selection reachable', () => {
+  const features = Array.from({ length: 20_000 }, (_, index) => incidentFeature({
+    id: index + 1,
+    occurred: `2026-07-${String((index % 28) + 1).padStart(2, '0')}T14:35:00Z`,
+  }));
+  const selectedKey = 'carto:19999';
+  const result = visibleIncidentFeatures(features, { visibleCount: 20_000, selectedKey });
+
+  assert.equal(result.all.length, 20_000);
+  assert.equal(result.visible.length, 200);
+  assert.equal(result.visible.some((feature) => feature.properties.cartodb_id === 19_999), true);
+});
+
+test('language redraw reuses cached incidents without fetching and destroy releases all owners', () => {
+  const map = createLayerMap();
+  const view = createIncidentView();
+  let languageListener = null;
+  let releases = 0;
+  let popupRemovals = 0;
+  const controller = createIncidentResultsController(map, {
+    view,
+    languageChange(listener) {
+      languageListener = listener;
+      return () => { releases += 1; };
+    },
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { return this; },
+      remove() { popupRemovals += 1; },
+    }),
+  });
+  const feature = incidentFeature({ id: 7 });
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features: [feature] },
+    generation: 9,
+    status: 'ready',
+    count: 1,
+  });
+  view.activate('carto:7');
+  const rendersBeforeLanguage = view.renders.length;
+
+  languageListener();
+  assert.equal(view.renders.length, rendersBeforeLanguage + 1);
+  assert.equal(controller.getSelectedKey(), 'carto:7');
+
+  controller.destroy();
+  controller.destroy();
+  assert.equal(releases, 1);
+  assert.equal(view.destroyed, 1);
+  assert.equal(map.handlers.has('click:unclustered'), false);
+  assert.equal(popupRemovals >= 1, true);
+  const selectionCount = view.selections.length;
+  view.activate('carto:7');
+  assert.equal(view.selections.length, selectionCount);
+});
 
 test('refreshPoints forwards AbortSignal and stale success cannot mutate the map', async () => {
   const map = createMap();
@@ -142,6 +505,76 @@ test('an unselected Crime entry stays idle until an analysis authorizes incident
   map.handlers.get('moveend')();
   assert.equal(scheduler.timers.size, 0);
   assert.equal(requests.length, 1);
+  controller.destroy();
+});
+
+test('a failed incident results chunk is surfaced and retried on the next refresh', async (t) => {
+  const originalDocument = globalThis.document;
+  const originalWarn = console.warn;
+  const incidentStatus = { textContent: '' };
+  const incidentRoot = {
+    setAttribute() {},
+    querySelector(selector) {
+      return selector === '[data-incident-results-status]' ? incidentStatus : null;
+    },
+  };
+  globalThis.document = {
+    getElementById(id) { return id === 'incident-results' ? incidentRoot : null; },
+    querySelector(selector) {
+      return selector === '#incident-results [data-incident-results-status]' ? incidentStatus : null;
+    },
+  };
+  console.warn = () => {};
+  t.after(() => {
+    globalThis.document = originalDocument;
+    console.warn = originalWarn;
+  });
+
+  const map = createMap();
+  const scheduler = createScheduler();
+  const replacements = [];
+  const toasts = [];
+  let loadAttempts = 0;
+  const controller = wirePoints(map, {
+    autoRefresh: false,
+    getFilters: () => ({ queryMode: 'buffer', center3857: [-8_365_000, 4_855_000] }),
+    shouldRefresh: () => true,
+    refreshPointsImpl: async (_map, params) => ({
+      applied: true,
+      geo: { type: 'FeatureCollection', features: [incidentFeature()] },
+      generation: params.resultGeneration,
+      status: 'ready',
+      count: 1,
+      tooMany: false,
+    }),
+    _loadIncidentModule: async () => {
+      loadAttempts += 1;
+      if (loadAttempts === 1) throw new Error('chunk unavailable');
+      return {
+        createIncidentResultsController: () => ({
+          setLoading() {},
+          setFailed() {},
+          replaceResults(payload) { replacements.push(payload); },
+          clear() {},
+          destroy() {},
+        }),
+      };
+    },
+    clearCrimePointsImpl: () => {},
+    showToast: (message) => toasts.push(message),
+    hideToast: () => {},
+    scheduler,
+  });
+
+  assert.deepEqual(await controller.refresh(), { status: 'failed' });
+  assert.equal(loadAttempts, 1);
+  assert.equal(toasts.length, 1);
+  assert.notEqual(toasts[0], '');
+
+  const recovered = await controller.refresh();
+  assert.equal(recovered.applied, true);
+  assert.equal(loadAttempts, 2);
+  assert.equal(replacements.length, 1);
   controller.destroy();
 });
 

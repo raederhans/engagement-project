@@ -1,6 +1,12 @@
 import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
-import { normalizeCoverageWindow, setAnalysisMode, setViewMode, onViewModeChange } from '../state/store.js';
+import {
+  clearCrimeAnalysisSelection,
+  normalizeCoverageWindow,
+  setAnalysisMode,
+  setViewMode,
+  onViewModeChange,
+} from '../state/store.js';
 import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
@@ -15,6 +21,7 @@ import {
   setTranslatedText,
   t,
 } from '../i18n/index.js';
+import { initCrimeTaskNavigation } from './crime_task_nav.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -40,6 +47,35 @@ export function setComparisonFieldsVisible({ button, fields }, visible) {
     button.setAttribute('aria-expanded', String(expanded));
   }
   return expanded;
+}
+
+export function fitMultiSelectRows(select, maxRows = 6) {
+  if (!select) return 0;
+  const optionCount = Number(select.options?.length) || 0;
+  const ceiling = Math.max(1, Number(maxRows) || 1);
+  const rows = Math.max(1, Math.min(Math.floor(optionCount), Math.floor(ceiling)));
+  select.size = rows;
+  return rows;
+}
+
+export function shouldShowCrimeClearSelection(state) {
+  if (state?.queryMode === 'buffer') return Array.isArray(state.centerLonLat);
+  if (state?.queryMode === 'district') return Boolean(state.selectedDistrictCode);
+  if (state?.queryMode === 'tract') return Boolean(state.selectedTractGEOID);
+  return false;
+}
+
+const BUFFER_RADIUS_PRESETS = new Set([200, 400, 800, 1200, 1600, 2400]);
+
+export function describeRadiusControlState(value) {
+  const parsed = Number(value);
+  const radius = Number.isInteger(parsed) && parsed >= 100 && parsed <= 10_000 ? parsed : 400;
+  const customVisible = !BUFFER_RADIUS_PRESETS.has(radius);
+  return {
+    selectValue: customVisible ? 'custom' : String(radius),
+    customValue: String(radius),
+    customVisible,
+  };
 }
 
 /**
@@ -70,6 +106,7 @@ export function initPanel(store, handlers) {
     panelContentRoot.appendChild(crimeShell);
   }
   if (sheetHandle) panelRoot.prepend(sheetHandle);
+  initCrimeTaskNavigation({ root: crimeShell });
 
   const compareCard = document.getElementById('compare-card');
   const chartsPanel = document.getElementById('charts');
@@ -85,7 +122,7 @@ export function initPanel(store, handlers) {
     setTranslatedAttribute(analysisHistoryMount, 'history.label', 'aria-label');
     crimeShell.appendChild(analysisHistoryMount);
   }
-  placeAnalysisHistoryAfterSummary({ crimeShell, compareCard, analysisHistoryMount });
+  placeAnalysisHistoryAfterResults({ crimeShell, resultsDrawer, analysisHistoryMount });
   let analysisHistorySync = null;
 
   let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
@@ -185,6 +222,8 @@ export function initPanel(store, handlers) {
   const bufferSelectRow = document.getElementById('bufferSelectRow');
   const bufferRadiusRow = document.getElementById('bufferRadiusRow');
   const radiusSel = document.getElementById('radiusSel');
+  const customRadiusRow = document.getElementById('customRadiusRow');
+  const customRadiusInput = document.getElementById('customRadiusInput');
   const groupSel = document.getElementById('groupSel');
   const fineSel = document.getElementById('fineSel');
   const rateSel = document.getElementById('rateSel');
@@ -315,13 +354,41 @@ export function initPanel(store, handlers) {
   addrA?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('A'); });
   addrB?.addEventListener('keydown', (event) => { if (event.key === 'Enter') void resolveAddress('B'); });
 
-  const radiusImmediate = () => {
-    store.radius = Number(radiusSel.value) || 400;
-    handlers.onRadiusInput?.(store.radius);
+  function syncRadiusControls() {
+    const state = describeRadiusControlState(store.radius);
+    if (radiusSel) radiusSel.value = state.selectValue;
+    if (customRadiusInput) customRadiusInput.value = state.customValue;
+    if (customRadiusRow) customRadiusRow.hidden = !state.customVisible;
+  }
+  function applyRadius(value) {
+    const radius = Number(value);
+    if (!Number.isInteger(radius) || radius < 100 || radius > 10_000 || store.radius === radius) return;
+    store.radius = radius;
+    handlers.onRadiusInput?.(radius);
     onChange();
-  };
-  radiusSel?.addEventListener('change', radiusImmediate);
-  radiusSel?.addEventListener('input', radiusImmediate);
+  }
+  radiusSel?.addEventListener('change', () => {
+    if (radiusSel.value === 'custom') {
+      if (customRadiusRow) customRadiusRow.hidden = false;
+      customRadiusInput?.focus();
+      return;
+    }
+    applyRadius(radiusSel.value);
+    syncRadiusControls();
+  });
+  customRadiusInput?.addEventListener('change', () => {
+    if (customRadiusInput.reportValidity()) {
+      applyRadius(customRadiusInput.value);
+      syncRadiusControls();
+    }
+  });
+  customRadiusInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && customRadiusInput.reportValidity()) {
+      event.preventDefault();
+      applyRadius(customRadiusInput.value);
+      syncRadiusControls();
+    }
+  });
 
   async function populateDrilldown(values, { preserveSelection = false } = {}) {
     const requestedCodes = preserveSelection ? [...(store.selectedDrilldownCodes || [])] : [];
@@ -334,9 +401,11 @@ export function initPanel(store, handlers) {
         // No parent groups selected
         fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
         fineSel.disabled = true;
+        fitMultiSelectRows(fineSel);
       } else {
         fineSel.disabled = false;
         fineSel.innerHTML = `<option data-i18n="crime.loadingCodes" disabled>${t('crime.loadingCodes')}</option>`;
+        fitMultiSelectRows(fineSel);
 
         try {
           const { start, end } = store.getStartEnd();
@@ -344,7 +413,7 @@ export function initPanel(store, handlers) {
 
           fineSel.innerHTML = '';
           if (availableCodes.length === 0) {
-          fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
+            fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
           } else {
             for (const c of availableCodes) {
               const opt = document.createElement('option');
@@ -357,9 +426,11 @@ export function initPanel(store, handlers) {
               store.selectedDrilldownCodes = requestedCodes.filter((code) => availableCodes.includes(code));
             }
           }
+          fitMultiSelectRows(fineSel);
         } catch (err) {
           console.warn('Failed to fetch available codes:', err);
-        fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
+          fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
+          fitMultiSelectRows(fineSel);
         }
       }
     }
@@ -425,7 +496,10 @@ export function initPanel(store, handlers) {
     if (bufferSelectRow) bufferSelectRow.style.display = isBuffer ? '' : 'none';
     if (bufferRadiusRow) bufferRadiusRow.style.display = isBuffer ? '' : 'none';
     useMapHint?.classList.toggle('is-hidden', !(isBuffer && store.selectMode === 'point'));
-    clearSelBtn?.classList.toggle('is-hidden', isBuffer);
+    if (clearSelBtn) {
+      clearSelBtn.classList.toggle('is-hidden', !shouldShowCrimeClearSelection(store));
+      setTranslatedText(clearSelBtn, isBuffer ? 'crime.clearLocation' : 'crime.clearSelection');
+    }
     if (rateRow) rateRow.style.display = mode === 'tract' ? 'flex' : 'none';
     if (rateSel) rateSel.disabled = mode !== 'tract';
     if (compareAreaBtn) compareAreaBtn.style.display = isBuffer ? '' : 'none';
@@ -448,9 +522,12 @@ export function initPanel(store, handlers) {
 
   // Clear selection
   clearSelBtn?.addEventListener('click', () => {
-    store.selectedDistrictCode = null;
-    store.selectedTractGEOID = null;
-    applyModeUI();
+    clearCrimeAnalysisSelection(store);
+    if (addressStatus) addressStatus.textContent = '';
+    if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
+    if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
+    document.body.style.cursor = '';
+    syncFromStore();
     onChange();
   });
 
@@ -466,7 +543,6 @@ export function initPanel(store, handlers) {
   });
 
   // initialize defaults
-  if (radiusSel) radiusSel.value = String(store.radius || 400);
   if (addrA) addrA.value = store.addressA || '';
   if (addrB) addrB.value = store.addressB || '';
   if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
@@ -491,6 +567,7 @@ export function initPanel(store, handlers) {
   if (fineSel) {
     fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
     fineSel.disabled = true;
+    fitMultiSelectRows(fineSel);
   }
 
   if (groupSel && store.selectedGroups?.length) {
@@ -635,6 +712,7 @@ export function initPanel(store, handlers) {
       startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    syncRadiusControls();
     if (dataStatus) {
       const status = describeCoverageStatus(store);
       dataStatus.dataset.tone = status.tone;
@@ -669,17 +747,17 @@ export function initPanel(store, handlers) {
   };
 }
 
-export function placeAnalysisHistoryAfterSummary({
+export function placeAnalysisHistoryAfterResults({
   crimeShell,
-  compareCard,
+  resultsDrawer,
   analysisHistoryMount,
 } = {}) {
   if (!crimeShell || !analysisHistoryMount) return false;
-  if (!compareCard || compareCard.parentElement !== crimeShell) {
+  if (!resultsDrawer || resultsDrawer.parentElement !== crimeShell) {
     crimeShell.appendChild(analysisHistoryMount);
     return true;
   }
-  crimeShell.insertBefore(analysisHistoryMount, compareCard.nextSibling || null);
+  crimeShell.insertBefore(analysisHistoryMount, resultsDrawer.nextSibling || null);
   return true;
 }
 
