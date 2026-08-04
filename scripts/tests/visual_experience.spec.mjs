@@ -4,9 +4,11 @@ import {
   assertNoHorizontalOverflow,
   auditSeriousAccessibility,
   captureExperienceScreenshot,
+  createRuntimeScriptCollector,
   crimeRequests,
   expect,
   gotoMode,
+  RUNTIME_SCRIPT_BUDGETS,
   test,
 } from './support/deterministic_browser_fixture.mjs';
 
@@ -231,6 +233,57 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   await captureExperienceScreenshot(page, testInfo, 'diary-insights-expanded');
 });
 
+test('runtime mode boundaries keep initial and analyzed script work deterministic', async ({ page }, testInfo) => {
+  desktopOnly(testInfo);
+  const collector = createRuntimeScriptCollector(page);
+  const scriptMetrics = () => collector.snapshot();
+  const assertScriptBudget = async (budget, label) => {
+    const resources = await scriptMetrics();
+    expect(
+      resources.every(({ status }) => status >= 200 && status < 300),
+      `${label} script responses: ${resources.map(({ name, status }) => `${status} ${name}`).join(', ')}`,
+    ).toBe(true);
+    const bytes = resources.reduce((total, entry) => total + entry.bytes, 0);
+    expect(bytes, `${label} script bytes: ${resources.map(({ name }) => name).join(', ')}`).toBeLessThanOrEqual(budget);
+    return resources.map(({ name }) => name);
+  };
+
+  try {
+    await collector.reset();
+    await gotoMode(page, 'diary');
+    const diaryAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.diaryInitial, 'Diary initial');
+    expect(
+      diaryAssets.some((name) => /routes_diary-[^/]+\.js$/.test(name)),
+      `Diary route chunk must load: ${diaryAssets.join(', ')}`,
+    ).toBe(true);
+    expect(
+      diaryAssets.some((name) => /diary_storage-[^/]+\.js$/.test(name)),
+      `Diary storage chunk must load: ${diaryAssets.join(', ')}`,
+    ).toBe(true);
+    expect(diaryAssets.some((name) => /routes_crime-|charts-|incident_results_controller-/.test(name))).toBe(false);
+
+    await collector.reset();
+    await gotoMode(page, 'crime');
+    const crimeAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeInitial, 'Crime initial');
+    expect(
+      crimeAssets.some((name) => /routes_crime-[^/]+\.js$/.test(name)),
+      `Crime route chunk must load: ${crimeAssets.join(', ')}`,
+    ).toBe(true);
+    expect(crimeAssets.some((name) => /routes_diary-|diary_storage-|charts-|incident_results_controller-/.test(name))).toBe(false);
+
+    await page.locator('#addrA').fill('1500 Market St');
+    await page.locator('#addrA').press('Enter');
+    await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
+    await expect.poll(async () => (await scriptMetrics())
+      .filter(({ name }) => /charts-|incident_results_controller-/.test(name)).length).toBe(2);
+    const analyzedAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeAnalyzed, 'Crime analyzed');
+    expect(analyzedAssets.some((name) => /charts-[^/]+\.js$/.test(name))).toBe(true);
+    expect(analyzedAssets.some((name) => /incident_results_controller-[^/]+\.js$/.test(name))).toBe(true);
+  } finally {
+    collector.dispose();
+  }
+});
+
 test('Crime Help and Data details disclose guidance and fallback provenance', async ({ page }, testInfo) => {
   await gotoMode(page, 'crime');
   const moreFilters = page.locator('#advancedFilters');
@@ -369,7 +422,6 @@ test('Crime search and Diary rating complete their primary keyboard flows', asyn
 });
 
 test('automated accessibility scan reports no critical or serious issues', async ({ page }, testInfo) => {
-  desktopOnly(testInfo);
   await gotoMode(page, 'crime');
   expect(
     await auditSeriousAccessibility(page),

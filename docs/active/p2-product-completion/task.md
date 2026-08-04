@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. Stages 1 through 5 are verified. Stage 6 will add explicit WebGL recovery plus cross-platform, responsive accessibility, data-contract, and deterministic performance gates.
+P2 execution is active. Stages 1 through 6 are locally verified. Stage 7 will complete final independent review, GitHub integration, exact-commit Pages verification, and archival.
 
 ## Checklist
 
@@ -17,7 +17,7 @@ P2 execution is active. Stages 1 through 5 are verified. Stage 6 will add explic
 - [x] Implement task flow and map/list dual-channel analysis.
 - [x] Implement recoverable data states and result-level provenance.
 - [x] Complete Diary local lifecycle and unified artifacts.
-- [ ] Extend WebGL, Axe, cross-platform, data, and performance gates.
+- [x] Extend WebGL, Axe, cross-platform, data, and performance gates.
 - [ ] Run independent review, full verification, integration, deployment, and production smoke.
 - [ ] Archive records after GitHub and Pages state match evidence.
 
@@ -59,6 +59,11 @@ P2 execution is active. Stages 1 through 5 are verified. Stage 6 will add explic
 | Stage 5 browser and visual gate | Browser smoke verified v1-to-v2 migration, blocked/versionchange IndexedDB handling, local history visibility, private backup flows, and zero console/page errors. Windows deterministic visual experience passed 27 cases with 6 intentional skips across desktop, portrait, and landscape. |
 | Stage 5 final verification | Feature-enabled `npm run validate`, Pages-equivalent build, bundle policy, `npm audit --audit-level=high`, and browser smoke pass. Entry is `900,407 / 242,419` gzip, Diary local storage is `20,449 / 6,328`, total `dist` is `3,372,254` bytes, and the dependency audit reports 0 vulnerabilities. |
 | Stage 5 independent review | Final correctness review returned `APPROVE` and architecture review returned `APPROVE/CLEAR`; the last cross-tab retry race is locked by an A-waits, B-registers, A-superseded regression and no correctness, security, ownership, or deadlock blocker remains. |
+| Stage 6 WebGL recovery | MapLibre keeps ownership of WebGL context reconstruction; the app adds a bilingual non-blocking lost/restored status and explicit page-reload path without recreating or resizing the map. Listener, timer, and UI cleanup pass 2 focused behavior tests. The recovery surface is locked above the mobile sheet and below the app bar. |
+| Stage 6 data and platform gates | `test:data-contract` is the single aggregate entry for data validation, source/runtime/pipeline/automation contracts, and the top-level suite no longer duplicates those commands. CI runs the same `validate` contract on `ubuntu-latest` and `windows-latest`; one Linux lane owns Playwright and diagnostics. |
+| Stage 6 runtime and accessibility gates | Runtime response-body measurement proves Diary and Crime cold starts exclude the other mode and optional Charts/Incidents, then admits those chunks only after analysis. Axe reports zero critical/serious findings on desktop, portrait, and landscape. |
+| Stage 6 full local verification | Feature-enabled `npm run validate`, Pages-equivalent build, bundle policy, `npm audit --audit-level=high`, and `git diff --check` pass. Pages-equivalent output is entry `901,588 / 242,846` gzip and total `dist` `3,374,730` bytes. Deterministic browser experience reports 30 pass and 6 intentional desktop-only skips across three viewports. |
+| Stage 6 independent review | Final code review returned `APPROVE`; architecture review moved from `BLOCK` to `CLEAR` after locking `sheet 25 < map notice 28 < WebGL recovery 29 < app bar 30`. No MapLibre duplicate-recovery, CI duplication, data-contract, lazy-boundary, or event-lifecycle blocker remains. |
 
 ## Open risks and remaining work
 
@@ -67,4 +72,5 @@ P2 execution is active. Stages 1 through 5 are verified. Stage 6 will add explic
 - Stage 3 uses one root-owned Playwright worker on port `4178`; all preview processes stopped and generated reports were removed after verification.
 - The remaining fenced WSL snapshot workspace is under the system temp directory because recursive cleanup was denied by the execution policy; it contains no credentials or source changes not already present in this worktree.
 - Stage 5 test logs and Playwright reports were task-owned temporary artifacts and were removed after verification; ports `4173` and `4178` are released.
-- Stage 6 still needs explicit WebGL context-loss recovery, a Windows CI lane, responsive Axe coverage, one aggregate data-contract command, and deterministic runtime performance budgets.
+- Stage 6 generated Playwright diagnostics are task-owned and are removed before commit; port `4178` is released after each serial browser run.
+- Stage 7 still needs final independent approval on the corrected recovery layer, exact remote-drift/worktree checks, PR CI on both operating systems, merge, Pages deployment, production smoke, and record archival.

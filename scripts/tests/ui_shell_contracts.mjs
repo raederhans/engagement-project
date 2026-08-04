@@ -179,6 +179,26 @@ test('mobile sheet exposes collapsed, half, and full layout states', () => {
   assert.match(css, /\.sheet-content\s*\{[^}]*overflow-y:\s*auto/s);
 });
 
+test('map recovery stays above sheets and map notices but below the global app bar', () => {
+  const appBarZ = Number(css.match(/\.app-bar\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  const mobileSheetZ = Number(css.match(
+    /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*z-index:\s*(\d+)/s,
+  )?.[1]);
+  const mapNoticeZ = Number(css.match(/\.map-notice\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  const recoveryZ = Number(css.match(/\.map-recovery\s*\{[^}]*z-index:\s*(\d+)/s)?.[1]);
+
+  assert.ok([
+    appBarZ,
+    mobileSheetZ,
+    mapNoticeZ,
+    recoveryZ,
+  ].every(Number.isFinite));
+  assert.ok(mapNoticeZ > mobileSheetZ, 'ordinary map notices must remain visible above a full mobile sheet');
+  assert.ok(recoveryZ > mapNoticeZ, 'WebGL recovery must not be covered by an ordinary map notice');
+  assert.ok(recoveryZ > mobileSheetZ, 'map recovery must remain visible above a full mobile sheet');
+  assert.ok(recoveryZ < appBarZ, 'map recovery must not cover the global app bar');
+});
+
 test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
   assert.match(panel, /const sheetHandle\s*=\s*panelRoot\.querySelector\(['"]:scope > \.sheet-handle['"]\)/);

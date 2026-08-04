@@ -386,6 +386,30 @@ test('CI and Pages explicitly build with the validated tract snapshot enabled', 
   }
 });
 
+test('data contracts have one aggregate entry and CI validates them on Linux and Windows', async () => {
+  const [packageJson, ciWorkflow] = await Promise.all([
+    readFile(new URL('../../package.json', import.meta.url), 'utf8').then(JSON.parse),
+    readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+  ]);
+  const aggregate = packageJson.scripts['test:data-contract'];
+  assert.equal(typeof aggregate, 'string');
+  for (const command of [
+    'data:check',
+    'test:data-sources',
+    'test:runtime-data-policy',
+    'test:data-pipeline',
+    'test:data-automation',
+  ]) {
+    assert.match(aggregate, new RegExp(`(?:^|&&\\s*)npm run ${command}(?:\\s*&&|$)`));
+    assert.doesNotMatch(packageJson.scripts.test, new RegExp(`npm run ${command}(?:\\s|$)`));
+  }
+  assert.match(packageJson.scripts.test, /(?:^|&&\s*)npm run test:data-contract(?:\s*&&|$)/);
+  assert.doesNotMatch(packageJson.scripts.validate, /npm run data:check/);
+  assert.match(ciWorkflow, /matrix:\s*[\s\S]*os:\s*\[ubuntu-latest, windows-latest\]/);
+  assert.match(ciWorkflow, /runs-on:\s*\$\{\{\s*matrix\.os\s*\}\}/);
+  assert.match(ciWorkflow, /Install Playwright Chromium[\s\S]*if:\s*runner\.os == 'Linux'/);
+});
+
 test('the historical precompute entry delegates instead of keeping a second implementation', async () => {
   const legacyEntry = await readFile(
     new URL('../precompute_tract_counts.mjs', import.meta.url),

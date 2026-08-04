@@ -32,6 +32,9 @@
 | 2026-08-04 | Remove the route-local tract outline cache and rely on the metadata-aware boundary cache. | Every refresh can resolve truthful live/fallback metadata without duplicating geometry ownership. |
 | 2026-08-04 | Make the Diary repository the single serialized owner of drafts, entries, imports, and snapshots. | Drafts survive teardown, exports include the latest accepted intent, replace cannot race queued writes, and cross-tab retry cannot create a newer revision than later user input. |
 | 2026-08-04 | Separate canonical private Diary backup schema v2 from public Crime share/export artifacts. | Local notes, route geometry, ratings, and drafts are recoverable without implying server persistence or leaking transport payload/user hashes into a public artifact. |
+| 2026-08-04 | Leave WebGL reconstruction to MapLibre and add only app-owned status, reload, and lifecycle cleanup. | Avoids duplicate map/painter recovery while keeping a visible escape path when automatic restoration does not recover the page. |
+| 2026-08-04 | Run the full repository validation contract on Linux and Windows while keeping one Linux owner for Playwright. | Adds cross-platform confidence without duplicating shared browser ports, reports, or visual baselines. |
+| 2026-08-04 | Measure runtime JavaScript from actual same-origin response bodies and reset the collector between mode navigations. | Proves semantic lazy boundaries and deterministic raw-byte ceilings without wall-clock, Resource Timing, cache, or compression-header variance. |
 
 ## Live process ownership
 
@@ -42,6 +45,7 @@
 | Stage 3 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, one serial worker: 27 pass and 6 intentional skips. Six incident baselines plus the intentionally changed Crime analysis baselines were generated for Windows/Linux; repeated incident runs were stable and all preview processes stopped. |
 | Stage 4 browser smoke | root agent | Console-only failure diagnostics | Complete. Pages-equivalent build used `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; browser smoke passed with zero console/page errors and port `4173` was released. |
 | Stage 5 Diary lifecycle gate | root agent | Console output; generated logs/reports removed after evidence capture | Complete. `npm run validate`, audit, Pages-equivalent build, bundle policy, browser smoke, and the Windows serial visual run passed. IndexedDB migration, atomic import/commit, latest-only draft intent, private backup, and responsive UI evidence are green; ports `4173` and `4178` are released. |
+| Stage 6 release-gate extension | root agent | Console output plus failure-only Playwright diagnostics | Complete locally. Data contracts, Linux/Windows CI shape, WebGL recovery, three-viewport Axe, runtime lazy-boundary budgets, full validate/audit/build, and 30-pass browser experience are green; generated diagnostics are removed and port `4178` is released. |
 
 ## Handoff
 
@@ -51,4 +55,4 @@
 
 ## Next step
 
-Add explicit WebGL context-loss recovery and extend the release gates across Windows CI, responsive Axe, aggregate data contracts, and deterministic runtime performance budgets.
+Obtain final independent approval after the recovery-layer correction, then integrate through GitHub, wait for Linux and Windows validation plus Pages, verify the exact production commit, and archive this record.

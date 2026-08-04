@@ -28,7 +28,7 @@ Advance the backend-free public project from a polished map demo into a recovera
 - [x] Stage 3: Complete task-oriented navigation and map/list dual-channel analysis; custom radius is already admitted from Stage 1.
 - [x] Stage 4: Add recoverable partial-failure states and result-level provenance.
 - [x] Stage 5: Complete the local Diary lifecycle and unified artifact model.
-- [ ] Stage 6: Extend WebGL, Axe, cross-platform CI, data-contract, and performance gates.
+- [x] Stage 6: Extend WebGL, Axe, cross-platform CI, data-contract, and performance gates.
 - [ ] Stage 7: Run independent review, full verification, GitHub integration, Pages verification, and archive the record.
 
 ## Acceptance criteria
