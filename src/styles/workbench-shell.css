@@ -3,6 +3,7 @@
 html,
 body {
   overflow-x: clip;
+  overflow-y: clip;
 }
 
 .app-bar {
@@ -140,7 +141,7 @@ body {
     padding: 0 16px 16px;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    overflow: hidden;
+    overflow: clip;
     border-radius: 18px 18px 0 0;
     overscroll-behavior: contain;
     transition: height 180ms ease;
@@ -208,6 +209,13 @@ body {
     --sheet-collapsed-height: 96px;
     --sheet-half-height: 75dvh;
     --sheet-full-height: 88dvh;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 640px) {
+  :root {
+    /* Keep a stable map context above the sheet and avoid fractional-dvh jitter. */
+    --sheet-half-height: calc(100dvh - 98px);
   }
 }
 

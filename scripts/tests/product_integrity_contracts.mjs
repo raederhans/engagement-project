@@ -1119,13 +1119,27 @@ test('Top-N SQL applies the resolved offense filter', () => {
   assert.match(sql, /text_general_code IN \('Robbery Firearm'\)/);
 });
 
-test('Diary submission completion consumes payload and transport result as one contract', () => {
+test('Diary submission completion waits for the atomic local commit before applying results', async () => {
   assert.equal(typeof diaryModule.handleDiarySubmissionSuccess, 'function');
   const calls = [];
   const payload = { segment_ids: ['seg-1'], overall_rating: 4 };
   const response = { persisted: false, mode: 'demo' };
+  let releaseCommit;
+  const commitGate = new Promise((resolve) => { releaseCommit = resolve; });
 
-  diaryModule.handleDiarySubmissionSuccess({ payload, response }, {
+  const completion = diaryModule.handleDiarySubmissionSuccess({ payload, response }, {
+    createLocalEntry: ({ payload: value, routeFeature }) => ({
+      id: 'entry-1',
+      routeId: routeFeature.properties.route_id,
+      rating: value.overall_rating,
+    }),
+    localLifecycle: {
+      async commitEntry(entry, routeId) {
+        calls.push(['commit', entry.id, routeId]);
+        await commitGate;
+        return { applied: true, entry };
+      },
+    },
     aggregationModel: {
       applySubmission(value) { calls.push(['apply', value]); },
       buildFeatureCollection() { return { type: 'FeatureCollection', features: [] }; },
@@ -1135,11 +1149,39 @@ test('Diary submission completion consumes payload and transport result as one c
     notify(message) { calls.push(['toast', message]); },
     notifyPanel(message) { calls.push(['panel', message]); },
     highlightSegments(ids) { calls.push(['highlight', ids]); },
+    routeFeature: { properties: { route_id: 'route-1', name: 'Route 1' } },
   });
 
-  assert.deepEqual(calls[0], ['apply', payload]);
+  await Promise.resolve();
+  assert.equal(calls[0][0], 'commit');
+  assert.equal(calls.some(([kind]) => kind === 'apply'), false);
+  releaseCommit();
+  assert.equal((await completion).applied, true);
+  assert.deepEqual(calls.find(([kind]) => kind === 'apply'), ['apply', payload]);
   assert.match(calls.find(([kind]) => kind === 'toast')[1], /browser demo only/i);
   assert.deepEqual(calls.find(([kind]) => kind === 'highlight')[1], ['seg-1']);
+});
+
+test('a failed local Diary commit does not mutate aggregation or show success', async () => {
+  const calls = [];
+  await assert.rejects(
+    diaryModule.handleDiarySubmissionSuccess({
+      payload: { route_id: 'route-1', segment_ids: ['seg-1'], overall_rating: 4 },
+      response: { persisted: false, mode: 'demo' },
+    }, {
+      localLifecycle: { commitEntry: async () => { throw new Error('storage failed'); } },
+      aggregationModel: {
+        applySubmission() { calls.push('apply'); },
+        buildFeatureCollection() { return null; },
+      },
+      notify() { calls.push('toast'); },
+      notifyPanel() { calls.push('panel'); },
+      highlightSegments() { calls.push('highlight'); },
+      routeFeature: { properties: { route_id: 'route-1', name: 'Route 1' } },
+    }),
+    /storage failed/,
+  );
+  assert.deepEqual(calls, []);
 });
 
 test('tract snapshot values honor the same resolved offense filter as the rest of Crime', () => {

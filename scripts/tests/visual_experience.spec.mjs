@@ -271,7 +271,7 @@ test('My routes shows a truthful empty state before any local rating', async ({ 
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'My routes', exact: true }).click();
   await expect(page.getByText('No local route ratings yet. Rate a demo route to add it here.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export local data' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Export private backup' })).toBeDisabled();
   await captureExperienceScreenshot(page, testInfo, 'diary-my-routes-empty');
 });
 

@@ -29,21 +29,6 @@
         <h2 data-i18n="crime.taskTitle">Explore a location</h2>
         <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
       </div>
-      <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
-        <div class="result-meta__bar">
-          <span data-result-meta-status role="status" aria-live="polite">Map result unavailable</span>
-          <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry map result</button>
-        </div>
-        <details class="result-meta__details">
-          <summary data-result-meta-details>Result details</summary>
-          <p class="result-meta__result" data-result-meta-result></p>
-          <p data-result-meta-generated></p>
-          <p data-result-meta-sources></p>
-          <p data-result-meta-coverage></p>
-          <p data-result-meta-scope></p>
-          <p data-result-meta-limitations></p>
-        </details>
-      </div>
       <nav class="crime-task-nav" data-crime-task-nav data-i18n-aria-label="crime.taskSteps" aria-label="Analysis steps">
         <button type="button" data-task-target="queryModeSel"><span aria-hidden="true">1</span><span data-i18n="crime.taskStepExplore">Explore</span></button>
         <button type="button" data-task-target="compare-card"><span aria-hidden="true">2</span><span data-i18n="crime.taskStepSummary">Summary</span></button>
@@ -76,6 +61,22 @@
         </div>
         <div id="addressStatus" class="status-badge is-hidden" role="status" aria-live="polite"></div>
         <div id="useMapHint" class="field-help is-hidden" data-i18n="crime.mapHint">Click the map to set the selected point. Press Esc to cancel.</div>
+      </div>
+
+      <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
+        <div class="result-meta__bar">
+          <span data-result-meta-status role="status" aria-live="polite">Map result unavailable</span>
+          <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry map result</button>
+        </div>
+        <details class="result-meta__details">
+          <summary data-result-meta-details>Result details</summary>
+          <p class="result-meta__result" data-result-meta-result></p>
+          <p data-result-meta-generated></p>
+          <p data-result-meta-sources></p>
+          <p data-result-meta-coverage></p>
+          <p data-result-meta-scope></p>
+          <p data-result-meta-limitations></p>
+        </details>
       </div>
 
       <div class="field-row">

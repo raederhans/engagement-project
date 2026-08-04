@@ -154,7 +154,27 @@ summary {
 }
 
 .result-meta[data-availability="current"] {
+  margin: 4px 0 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   border-left-color: var(--success);
+}
+
+.result-meta[data-availability="current"] .result-meta__bar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.result-meta[data-availability="current"] .result-meta__details {
+  margin: 0;
 }
 
 .result-meta[data-availability="partial"] {
@@ -190,6 +210,8 @@ summary {
 }
 
 .result-meta__details > summary {
+  display: flex;
+  align-items: center;
   width: max-content;
   min-height: 32px;
   color: var(--brand-strong);

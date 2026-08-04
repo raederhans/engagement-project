@@ -13,41 +13,77 @@ function deferred() {
   return { promise, resolve };
 }
 
-test('a new route draft requires an explicit overall rating and restores only its route', () => {
+test('a new route draft requires an explicit overall rating and normalizes persisted values', () => {
   assert.equal(typeof ratingFlow.createRatingDraft, 'function');
-  assert.equal(typeof ratingFlow.saveRatingDraft, 'function');
-  assert.equal(typeof ratingFlow.getRatingDraft, 'function');
 
   const draft = ratingFlow.createRatingDraft('route-a');
   assert.equal(draft.step, 'overall');
   assert.equal(draft.overallRating, null);
 
-  draft.overallRating = 4;
-  draft.step = 'details';
-  ratingFlow.saveRatingDraft('route-a', draft);
-
-  assert.deepEqual(ratingFlow.getRatingDraft('route-a'), {
+  assert.deepEqual(ratingFlow.createRatingDraft('route-a', {
     step: 'details',
     overallRating: 4,
-    tags: [],
-    notes: '',
-    overrides: [],
+    tags: ['poor_lighting', 'poor_lighting'],
+    notes: 'x'.repeat(240),
+    overrides: [['segment-1', 2], ['segment-2', 3], ['segment-3', 1]],
+  }), {
+    step: 'details',
+    overallRating: 4,
+    tags: ['poor_lighting'],
+    notes: 'x'.repeat(200),
+    overrides: [['segment-1', 2], ['segment-2', 3]],
   });
-  assert.equal(ratingFlow.getRatingDraft('route-b'), null);
 });
 
-test('successful completion clears the saved route draft', () => {
-  ratingFlow.saveRatingDraft('route-clear', {
-    step: 'segments',
-    overallRating: 2,
-    tags: ['poor_lighting'],
-    notes: 'Dark corner',
-    overrides: [['segment-1', 1]],
+test('rating submission waits for the durable local commit before it can finalize', async () => {
+  const commitGate = deferred();
+  const state = { pending: false, signal: new AbortController().signal };
+  const submission = formSubmit.runRatingSubmission({
+    state,
+    payload: { route_id: 'route-a' },
+    submit: async () => ({ persisted: false, mode: 'demo' }),
+    commit: async () => commitGate.promise,
+    isCurrent: () => true,
   });
+  await Promise.resolve();
+  assert.equal(state.pending, true);
+  commitGate.resolve({ applied: true, entry: { id: 'entry-a' } });
+  assert.deepEqual(await submission, {
+    applied: true,
+    response: { persisted: false, mode: 'demo' },
+    commitResult: { applied: true, entry: { id: 'entry-a' } },
+  });
+});
 
-  ratingFlow.clearRatingDraft('route-clear');
+test('a failed local commit releases pending state and the same rating can be retried', async () => {
+  const state = { pending: false, signal: new AbortController().signal };
+  let submitAttempts = 0;
+  let commitAttempts = 0;
+  const options = {
+    state,
+    payload: { route_id: 'route-a' },
+    submit: async () => {
+      submitAttempts += 1;
+      return { persisted: true, receipt: 'remote-once' };
+    },
+    commit: async () => {
+      commitAttempts += 1;
+      if (commitAttempts === 1) throw new Error('IndexedDB quota exceeded');
+      return { applied: true, entry: { id: 'entry-a' } };
+    },
+    isCurrent: () => true,
+  };
 
-  assert.equal(ratingFlow.getRatingDraft('route-clear'), null);
+  await assert.rejects(formSubmit.runRatingSubmission(options), /quota exceeded/i);
+  assert.equal(state.pending, false);
+  assert.equal(submitAttempts, 1);
+  assert.equal(commitAttempts, 1);
+  const retried = await formSubmit.runRatingSubmission(options);
+  assert.equal(retried.applied, true);
+  assert.deepEqual(retried.response, { persisted: true, receipt: 'remote-once' });
+  assert.equal(state.pending, false);
+  assert.equal(submitAttempts, 1);
+  assert.equal(commitAttempts, 2);
 });
 
 test('only the three lowest-rated route segments are offered', () => {
@@ -127,7 +163,12 @@ test('rating modal manages focus, background inertness, and radio semantics', as
   assert.match(source, /restoreRerenderFocus\(focusTarget\)/);
   assert.match(source, /state\.pending/);
   assert.match(source, /submitBtn\.disabled = state\.pending/);
+  assert.match(source, /disablePendingBodyControls\(state\)/);
+  assert.match(source, /aria-busy/);
+  assert.match(source, /errorEl\.tabIndex\s*=\s*-1/);
+  assert.match(source, /setError\([^;]+focus:\s*true/s);
   assert.match(source, /if \(!state \|\| state\.pending \|\| state\.signal\?\.aborted\) return/);
+  assert.doesNotMatch(source, /console\.info\('\[Diary\] submit (?:payload|response)'/);
 });
 
 test('rating submission remains single-flight while locale rerenders', async () => {

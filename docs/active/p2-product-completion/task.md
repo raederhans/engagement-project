@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. Stages 1 through 4 are verified. Stage 5 will add recoverable local Diary drafts, deletion, and private backup restore without introducing server persistence.
+P2 execution is active. Stages 1 through 5 are verified. Stage 6 will add explicit WebGL recovery plus cross-platform, responsive accessibility, data-contract, and deterministic performance gates.
 
 ## Checklist
 
@@ -16,7 +16,7 @@ P2 execution is active. Stages 1 through 4 are verified. Stage 5 will add recove
 - [x] Split CSS and Diary ownership with behavior locks.
 - [x] Implement task flow and map/list dual-channel analysis.
 - [x] Implement recoverable data states and result-level provenance.
-- [ ] Complete Diary local lifecycle and unified artifacts.
+- [x] Complete Diary local lifecycle and unified artifacts.
 - [ ] Extend WebGL, Axe, cross-platform, data, and performance gates.
 - [ ] Run independent review, full verification, integration, deployment, and production smoke.
 - [ ] Archive records after GitHub and Pages state match evidence.
@@ -54,6 +54,11 @@ P2 execution is active. Stages 1 through 4 are verified. Stage 5 will add recove
 | Stage 4 focused verification | Recovery, provenance, and Crime async contracts pass `43/43`; full `npm test` and `git diff --check` pass. |
 | Stage 4 build and browser gate | Pages-equivalent build passes bundle policy at entry `900,663 / 242,542` gzip, Crime `37,698 / 13,117`, Charts `224,236 / 76,299`, and total `3,334,759` bytes. Browser smoke passes with `consoleErrors=0`, `pageErrors=0`; port 4173 is released. |
 | Stage 4 independent review | Final correctness review returned `APPROVE` and architecture review returned `CLEAR`; current/stale lineage, export isolation, same-filter retention, scoped retry, cancellation, and lazy ownership have no blocker. |
+| Stage 5 local lifecycle | IndexedDB schema v2 stores canonical private entries and resumable route drafts; commits atomically save an entry and remove its draft, every mutation/import/snapshot shares one serialized repository queue, and latest local draft intent wins across teardown and cross-tab timestamp conflicts. |
+| Stage 5 private portability | Versioned private backups include entries and drafts, validate size/schema/duplicates/geometry, preview merge or destructive replace, require an exact same-transaction snapshot token for replace, and remain structurally distinct from public Crime shares and exports. |
+| Stage 5 browser and visual gate | Browser smoke verified v1-to-v2 migration, blocked/versionchange IndexedDB handling, local history visibility, private backup flows, and zero console/page errors. Windows deterministic visual experience passed 27 cases with 6 intentional skips across desktop, portrait, and landscape. |
+| Stage 5 final verification | Feature-enabled `npm run validate`, Pages-equivalent build, bundle policy, `npm audit --audit-level=high`, and browser smoke pass. Entry is `900,407 / 242,419` gzip, Diary local storage is `20,449 / 6,328`, total `dist` is `3,372,254` bytes, and the dependency audit reports 0 vulnerabilities. |
+| Stage 5 independent review | Final correctness review returned `APPROVE` and architecture review returned `APPROVE/CLEAR`; the last cross-tab retry race is locked by an A-waits, B-registers, A-superseded regression and no correctness, security, ownership, or deadlock blocker remains. |
 
 ## Open risks and remaining work
 
@@ -61,4 +66,5 @@ P2 execution is active. Stages 1 through 4 are verified. Stage 5 will add recove
 - Stage 2 used one root-owned Playwright worker on port `4178`; it was stopped after the verified run and generated reports were removed.
 - Stage 3 uses one root-owned Playwright worker on port `4178`; all preview processes stopped and generated reports were removed after verification.
 - The remaining fenced WSL snapshot workspace is under the system temp directory because recursive cleanup was denied by the execution policy; it contains no credentials or source changes not already present in this worktree.
-- The next product risk is the Diary local lifecycle: drafts are still memory-only, imports can replace data without preview, and old rows contain transport-shaped payloads instead of a private-storage schema.
+- Stage 5 test logs and Playwright reports were task-owned temporary artifacts and were removed after verification; ports `4173` and `4178` are released.
+- Stage 6 still needs explicit WebGL context-loss recovery, a Windows CI lane, responsive Axe coverage, one aggregate data-contract command, and deterministic runtime performance budgets.

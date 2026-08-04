@@ -28,6 +28,7 @@ import {
   DIARY_SEGMENTS_HIT_LAYER_ID,
 } from '../../src/routes_diary/map_ids.js';
 import { getLanguage, setLanguage } from '../../src/i18n/index.js';
+import { readFile } from 'node:fs/promises';
 
 function deferred() {
   let resolve;
@@ -235,6 +236,16 @@ function createDiaryMapFake() {
     easeTo() {},
   };
 }
+
+test('Diary storage loading can retry and stale owner failures cannot rewrite current data UI', async () => {
+  const source = await readFile(new URL('../../src/routes_diary/index.js', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /diaryStorageModulePromise\s*=\s*request[\s\S]*?catch\(\(error\)\s*=>\s*\{[\s\S]*?diaryStorageModulePromise\s*=\s*null/,
+  );
+  const guardedCatches = source.match(/catch \(error\) \{\s*if \(!diarySessionIsCurrent\(session, ownerIsCurrent\)\) return;/g) || [];
+  assert.ok(guardedCatches.length >= 4, `expected four owner-fenced local-data catches, received ${guardedCatches.length}`);
+});
 
 test('demo data loader falls back in order after an ordinary request failure', async () => {
   const calls = [];
@@ -1351,10 +1362,13 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   const oldHistoryPill = button(firstMount, 'My routes');
   const oldCommunityPill = button(firstMount, 'Sample community');
   oldHistoryPill.dispatchEvent(new Event('click'));
+  await new Promise((resolve) => setImmediate(resolve));
   const oldHistorySelects = findElements(firstMount, (element) => element.tagName === 'SELECT');
   const oldHistoryRow = findElement(firstMount, (element) => element.getAttribute?.('data-id'));
+  const oldHistoryOpen = button(oldHistoryRow, 'Open');
   assert.equal(oldHistorySelects.length, 2);
   assert.ok(oldHistoryRow);
+  assert.ok(oldHistoryOpen);
 
   oldCommunityPill.dispatchEvent(new Event('click'));
   teardownDiaryMode(map);
@@ -1388,7 +1402,7 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   oldHistorySelects[0].dispatchEvent(new Event('change'));
   oldHistorySelects[1].value = 'bike';
   oldHistorySelects[1].dispatchEvent(new Event('change'));
-  oldHistoryRow.dispatchEvent(new Event('click'));
+  oldHistoryOpen.dispatchEvent(new Event('click'));
 
   assert.deepEqual({
     viewMode: store.diaryViewMode,
@@ -1400,10 +1414,11 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   assert.deepEqual(secondMount.children, secondMountChildrenBefore);
 
   historyPill.dispatchEvent(new Event('click'));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(livePill.getAttribute('aria-pressed'), 'false');
   assert.equal(historyPill.getAttribute('aria-pressed'), 'true');
   const newHistoryRow = findElement(secondMount, (element) => element.getAttribute?.('data-id'));
-  newHistoryRow.dispatchEvent(new Event('click'));
+  button(newHistoryRow, 'Open').dispatchEvent(new Event('click'));
   assert.equal(store.diaryViewMode, 'history');
   assert.ok(store.diarySelectedHistoryRouteId);
   communityPill.dispatchEvent(new Event('click'));

@@ -30,6 +30,8 @@
 | 2026-08-04 | Give each Crime result surface its own presenter token, immutable provenance, and scoped retry. | Successful surfaces remain usable during partial failure; stale work and busy scoped retries cannot replace or cancel the active full refresh. |
 | 2026-08-04 | Keep current source callbacks separate from same-filter retained lineage. | A current live provider cannot be overwritten by an older fallback, while a stale metric still reports the exact lineage that produced it. |
 | 2026-08-04 | Remove the route-local tract outline cache and rely on the metadata-aware boundary cache. | Every refresh can resolve truthful live/fallback metadata without duplicating geometry ownership. |
+| 2026-08-04 | Make the Diary repository the single serialized owner of drafts, entries, imports, and snapshots. | Drafts survive teardown, exports include the latest accepted intent, replace cannot race queued writes, and cross-tab retry cannot create a newer revision than later user input. |
+| 2026-08-04 | Separate canonical private Diary backup schema v2 from public Crime share/export artifacts. | Local notes, route geometry, ratings, and drafts are recoverable without implying server persistence or leaking transport payload/user hashes into a public artifact. |
 
 ## Live process ownership
 
@@ -39,6 +41,7 @@
 | Stage 2 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, single worker, no snapshot-wide update: 24 pass and 6 intentional skips; process stopped and generated diagnostics removed. |
 | Stage 3 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, one serial worker: 27 pass and 6 intentional skips. Six incident baselines plus the intentionally changed Crime analysis baselines were generated for Windows/Linux; repeated incident runs were stable and all preview processes stopped. |
 | Stage 4 browser smoke | root agent | Console-only failure diagnostics | Complete. Pages-equivalent build used `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; browser smoke passed with zero console/page errors and port `4173` was released. |
+| Stage 5 Diary lifecycle gate | root agent | Console output; generated logs/reports removed after evidence capture | Complete. `npm run validate`, audit, Pages-equivalent build, bundle policy, browser smoke, and the Windows serial visual run passed. IndexedDB migration, atomic import/commit, latest-only draft intent, private backup, and responsive UI evidence are green; ports `4173` and `4178` are released. |
 
 ## Handoff
 
@@ -48,4 +51,4 @@
 
 ## Next step
 
-Upgrade the Diary local repository and rating lifecycle so drafts, entries, deletion, and private backup restore are recoverable, versioned, and clearly separate from shareable Crime artifacts.
+Add explicit WebGL context-loss recovery and extend the release gates across Windows CI, responsive Axe, aggregate data contracts, and deterministic runtime performance budgets.

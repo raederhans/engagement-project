@@ -168,6 +168,15 @@ test('mobile sheet exposes collapsed, half, and full layout states', () => {
     css,
     /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*right:\s*0[^}]*left:\s*0[^}]*width:\s*100%/s,
   );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*720px\)[\s\S]*?#sidepanel\s*\{[^}]*overflow:\s*clip/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?#sidepanel\s*\{[^}]*overflow:\s*clip/s,
+  );
+  assert.match(css, /\.sheet-content\s*\{[^}]*overflow-y:\s*auto/s);
 });
 
 test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
@@ -205,8 +214,9 @@ test('small-screen Crime keeps the map-pick action in the sheet flow', () => {
   assert.doesNotMatch(css, /#useCenterBtn\s*\{[^}]*position:\s*fixed/s);
 });
 
-test('the shell prevents horizontal scrolling and respects reduced motion', () => {
+test('the fixed map shell prevents document scrolling and respects reduced motion', () => {
   assert.match(css, /(?:html|body|html,\s*body)[^{]*\{[^}]*overflow-x:\s*(?:clip|hidden)\s*;/s);
+  assert.match(css, /(?:html|body|html,\s*body)[^{]*\{[^}]*overflow-y:\s*clip\s*;/s);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 });
 

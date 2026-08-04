@@ -172,6 +172,19 @@ test('Crime and Diary share reusable field, button, status, panel, and drawer pr
   assert.match(html, /id="results-drawer"[^>]*class="[^"]*\bdrawer\b/i);
 });
 
+test('Crime keeps its primary map action before provenance and makes success quieter than failure', () => {
+  assert.ok(
+    html.indexOf('id="useCenterBtn"') < html.indexOf('data-result-meta="boundary"'),
+    'the primary map action must precede map-result provenance in the task flow',
+  );
+  assert.match(
+    css,
+    /\.result-meta\[data-availability="current"\]\s*\{[^}]*border:\s*0[^}]*background:\s*transparent/s,
+  );
+  assert.match(css, /\.result-meta\[data-availability="partial"\]\s*\{[^}]*border-left-color:\s*var\(--warning\)/s);
+  assert.match(css, /\.result-meta\[data-availability="stale"\],\s*\n\.result-meta\[data-availability="unavailable"\]/);
+});
+
 test('semantic buttons keep their variants and Help uses one disclosure contract', async () => {
   const about = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
   assert.match(css, /:where\(#sidepanel button\)\s*\{/);
