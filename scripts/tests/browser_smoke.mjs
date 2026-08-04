@@ -32,7 +32,7 @@ const transparentPng = Buffer.from(
 function cartoResponse(request) {
   const body = decodeURIComponent(request.postData() || '');
   if (/MIN\(dispatch_date_time\)/i.test(body)) {
-    return { rows: [{ min_dt: '2006-01-01', max_dt: '2026-07-30' }] };
+    return { rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-07-30T00:00:00Z' }] };
   }
   if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
   if (/text_general_code/i.test(body) && /GROUP BY/i.test(body)) {
