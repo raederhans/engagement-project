@@ -29,7 +29,7 @@ Advance the backend-free public project from a polished map demo into a recovera
 - [x] Stage 4: Add recoverable partial-failure states and result-level provenance.
 - [x] Stage 5: Complete the local Diary lifecycle and unified artifact model.
 - [x] Stage 6: Extend WebGL, Axe, cross-platform CI, data-contract, and performance gates.
-- [ ] Stage 7: Run independent review, full verification, GitHub integration, Pages verification, and archive the record.
+- [x] Stage 7: Run independent review, full verification, GitHub integration, Pages verification, and archive the record.
 
 ## Acceptance criteria
 
@@ -55,3 +55,10 @@ Advance the backend-free public project from a polished map demo into a recovera
 - The custom-radius branch reports very little total-dist budget headroom, so semantic integration must recover or re-budget bytes through evidence rather than silently raising limits.
 - Visual and browser verification share ports, `dist/`, Playwright output, and platform-specific baselines and must have one owner.
 - Large local refactors can obscure behavior regressions; each extraction requires failing or behavior-locking tests before production edits.
+
+## Completion evidence
+
+- PR #56 integrated the complete P2 runtime head `c1e02b5863d96dfc9d144ee9aa1ba0379007357d` as merge `1aa9bde1088e8fe1d71fb4a3679242012eb55274`.
+- PR #57 corrected live CARTO coverage-date normalization as commit `505d28e5cca88f523c68ea8d5059f4edcbc4c133` and merge `b649424d34ec4dd9fd9fce226fc6ad4391002c61`.
+- Exact-main CI `30891464471` and Pages `30891464435` passed after the hotfix.
+- Production Crime selection, four result-provenance surfaces, incident details, Crime/Diary switching, and direct Diary loading passed with zero browser errors or warnings.

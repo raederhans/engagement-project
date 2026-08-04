@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. Stages 1 through 6 are locally verified. Stage 7 will complete final independent review, GitHub integration, exact-commit Pages verification, and archival.
+Complete. P2, its production metadata hotfix, exact-main CI and Pages deployment, public Crime/Diary verification, and archival are complete.
 
 ## Checklist
 
@@ -18,14 +18,14 @@ P2 execution is active. Stages 1 through 6 are locally verified. Stage 7 will co
 - [x] Implement recoverable data states and result-level provenance.
 - [x] Complete Diary local lifecycle and unified artifacts.
 - [x] Extend WebGL, Axe, cross-platform, data, and performance gates.
-- [ ] Run independent review, full verification, integration, deployment, and production smoke.
-- [ ] Archive records after GitHub and Pages state match evidence.
+- [x] Run independent review, full verification, integration, deployment, and production smoke.
+- [x] Archive records after GitHub and Pages state match evidence.
 
 ## Validation evidence
 
 | Command or check | Result |
 | --- | --- |
-| Remote truth | `origin/main` and GitHub `main` both resolve to `e32e3426c3db75d5429d07e678ca65c48b2d734c`. |
+| Starting remote truth | At P2 kickoff, `origin/main` and GitHub `main` both resolved to `e32e3426c3db75d5429d07e678ca65c48b2d734c`. |
 | Worktree audit | Primary WIP preserved; five stacked P2 worktrees are clean and track their remote branches. |
 | Existing PR CI | PRs #49, #50, #51, #53, and #55 each report a successful `validate` check on their current head. |
 | P2 worktree | Clean `codex/p2-product-completion` created from current `origin/main`. |
@@ -64,13 +64,22 @@ P2 execution is active. Stages 1 through 6 are locally verified. Stage 7 will co
 | Stage 6 runtime and accessibility gates | Runtime response-body measurement proves Diary and Crime cold starts exclude the other mode and optional Charts/Incidents, then admits those chunks only after analysis. Axe reports zero critical/serious findings on desktop, portrait, and landscape. |
 | Stage 6 full local verification | Feature-enabled `npm run validate`, Pages-equivalent build, bundle policy, `npm audit --audit-level=high`, and `git diff --check` pass. Pages-equivalent output is entry `901,588 / 242,846` gzip and total `dist` `3,374,730` bytes. Deterministic browser experience reports 30 pass and 6 intentional desktop-only skips across three viewports. |
 | Stage 6 independent review | Final code review returned `APPROVE`; architecture review moved from `BLOCK` to `CLEAR` after locking `sheet 25 < map notice 28 < WebGL recovery 29 < app bar 30`. No MapLibre duplicate-recovery, CI duplication, data-contract, lazy-boundary, or event-lifecycle blocker remains. |
+| PR #56 exact-head gate | CI `30888257103` passed on exact head `c1e02b5863d96dfc9d144ee9aa1ba0379007357d`; PR #56 merged as `1aa9bde1088e8fe1d71fb4a3679242012eb55274`. |
+| Initial P2 main gate | Main CI `30889219931` and Pages `30889219926` passed on `1aa9bde1088e8fe1d71fb4a3679242012eb55274`. The first post-deploy lazy-chunk request briefly returned 503 during Pages propagation; the same asset and steady-state route subsequently returned 200. |
+| Production metadata repair | Public Crime rendered valid data beside false unavailable metadata because CARTO SQL dates arrived as midnight ISO timestamps. PR #57 normalized calendar dates once at ingestion without weakening strict downstream provenance. |
+| PR #57 exact-head gate | CI `30891097925` passed on exact head `505d28e5cca88f523c68ea8d5059f4edcbc4c133`; independent hotfix review returned `APPROVE`; PR #57 merged as `b649424d34ec4dd9fd9fce226fc6ad4391002c61`. |
+| Final main gate | Main CI `30891464471` passed on Windows and Ubuntu, including browser smoke and visual experience; Pages `30891464435` built and deployed from the same `b649424d` head. |
+| Final production assets | Root HTML, `assets/index-DzGN0mB_.js`, and `assets/index-DMyV6Xav.css` returned HTTP 200. |
+| Final Crime browser gate | Map selection made boundary, summary, incidents, and charts metadata all `current`; each exposed generated time, source, coverage, and scope. Incident detail opened successfully; Crime -> Diary -> Crime recovered with all four surfaces current and zero console errors or warnings. |
+| Final Diary browser gate | Direct Diary loaded the published demo route, stated ratings stay on this device and are not shared online, requested only same-origin demo/snapshot assets plus OSM tiles, and produced zero console errors or warnings. |
+| Superseded stacked PRs | PRs #49, #50, #51, #53, and #55 were each annotated as semantically integrated by #56 and closed without deleting their branches or worktrees. |
 
 ## Open risks and remaining work
 
 - The historical five-PR dependency stack has been semantically replayed on current main; the old branches remain untouched as audit evidence.
 - Stage 2 used one root-owned Playwright worker on port `4178`; it was stopped after the verified run and generated reports were removed.
-- Stage 3 uses one root-owned Playwright worker on port `4178`; all preview processes stopped and generated reports were removed after verification.
+- Stage 3 used one root-owned Playwright worker on port `4178`; all preview processes stopped and generated reports were removed after verification.
 - The remaining fenced WSL snapshot workspace is under the system temp directory because recursive cleanup was denied by the execution policy; it contains no credentials or source changes not already present in this worktree.
 - Stage 5 test logs and Playwright reports were task-owned temporary artifacts and were removed after verification; ports `4173` and `4178` are released.
-- Stage 6 generated Playwright diagnostics are task-owned and are removed before commit; port `4178` is released after each serial browser run.
-- Stage 7 still needs final independent approval on the corrected recovery layer, exact remote-drift/worktree checks, PR CI on both operating systems, merge, Pages deployment, production smoke, and record archival.
+- Stage 6 generated Playwright diagnostics were task-owned and were removed before commit; port `4178` was released after each serial browser run.
+- All task-owned browser sessions and ports are released. Historical stacked worktrees and the primary bilingual worktree remain preserved; primary `.gitignore` and `.playwright-mcp/` WIP were not modified.
