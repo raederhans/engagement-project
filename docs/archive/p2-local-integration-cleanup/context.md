@@ -1,13 +1,15 @@
 # Context
 
-## Current truth
+## Final local truth
 
 - Reconciliation commit `66b3154ef3ecca832e1978c8023e1861bcc604f0` merged through PR #59 as `50402aa8e558353a0e23f3dd5f1af1d68df4e2c2`.
-- PR CI `30894920337`, main CI `30895223572`, and Pages `30895223269` passed.
-- Local `main` was fast-forwarded from `784b812` to `50402aa8` before this closeout.
-- Seven auxiliary worktrees were removed; only the protected primary and this transient closeout worktree remain.
-- The primary worktree remains `codex/bilingual-localization@65ac92f` with user-owned `M .gitignore` and `?? .playwright-mcp/`.
-- PRs #44-#48 remain open; their local and remote branches remain available. No remote branch was deleted.
+- Closeout commit `ff3c9d1214d3ffee2250ac2abbe30e0dd430cedc` merged through PR #60 as `4eb3ba4a3c9f89894f370d45c966816e7f1d9041`.
+- PR #60 CI `30896447349`, main CI `30896743749`, and Pages `30896743598` passed.
+- Eight auxiliary worktrees were removed; only `C:/Users/raede/Desktop/dev/engagement_project` remains.
+- The primary worktree remains `codex/bilingual-localization@65ac92f` with user-owned `M .gitignore` and `?? .playwright-mcp/` unchanged.
+- Local branches now consist of `main`, the protected bilingual branch, and the five branches backing open PRs #44-#48.
+- Local `main` and `origin/main` both resolved to `4eb3ba4a3c9f89894f370d45c966816e7f1d9041` before the remote-only archive transport.
+- No remote branch was deleted.
 
 ## Decisions and deviations
 
@@ -17,12 +19,12 @@
 | 2026-08-04 | Archived P2 evidence proved five closed stack PRs were semantically replayed and verified by PR #56; each remote branch matched its exact local SHA. | Their clean local worktrees and branches were removed while preserving remote recovery. |
 | 2026-08-04 | Five QoL PRs #44-#48 remained open with unique commits. | Their local and remote branches were retained. |
 | 2026-08-04 | The primary bilingual worktree was dirty. | It was kept untouched and excluded from all staging and integration operations. |
-| 2026-08-04 | `git worktree remove` left two broken `node_modules` junction shells after unregistering their worktrees. | Each parent was verified to contain only a junction; the links and then-empty parents were removed without recursive target deletion. |
-| 2026-08-04 | A worktree cannot prove its own post-merge removal inside the commit it hosts. | Final archive uses a temporary index and commit-tree after removal, with no new local branch or worktree. |
+| 2026-08-04 | `git worktree remove` left two broken `node_modules` junction shells after unregistering earlier worktrees. | Each parent was verified to contain only a junction; the links and then-empty parents were removed without recursive target deletion. |
+| 2026-08-04 | A worktree cannot prove its own post-merge removal inside the commit it hosts. | PR #60 kept removal pending; after merge and verification the worktree was removed, and this archive uses a temporary index without a new local worktree or branch. |
 
 ## Local branch recovery ledger
 
-Remote refs remain untouched. These exact tips are the recovery boundary for local branches deleted so far:
+Recovery refs remain available and none was deleted. These exact tips are the recovery boundary for deleted local branches:
 
 | Local branch | Tip | Recovery basis |
 | --- | --- | --- |
@@ -40,22 +42,19 @@ Remote refs remain untouched. These exact tips are the recovery boundary for loc
 | `codex/p1-ui` | `f21e48264e2693137f2f93abaeff6667031e0d26` | Matching remote ref and direct ancestor of `origin/main`; merged PR #41. |
 | `codex/ui-p0-redesign` | `d35ce35d296f07e3852f11d06d5e4034b77106a5` | Matching remote ref and direct ancestor of `origin/main`; merged PR #39. |
 | `codex/local-worktree-cleanup` | `66b3154ef3ecca832e1978c8023e1861bcc604f0` | Matching remote ref and direct ancestor of `origin/main`; merged PR #59. |
+| `codex/local-worktree-cleanup-closeout` | `ff3c9d1214d3ffee2250ac2abbe30e0dd430cedc` | Matching remote ref and direct ancestor of `origin/main`; merged PR #60. |
 
-The current closeout transport is still local-only. Its recovery boundary will be the pushed PR head, merge commit, and retained remote branch recorded by the final archive.
+## Verification ownership
 
-## Live process ownership
-
-| Process | Owner | Evidence | State |
+| Check | Owner | Evidence | State |
 | --- | --- | --- | --- |
 | PR #59 CI | root agent | Run `30894920337` | complete |
 | Reconciled main CI | root agent | Run `30895223572` | complete |
-| Reconciled Pages deployment | root agent | Run `30895223269` | complete |
-| Closeout PR/main CI/Pages | root agent | GitHub Actions for this closeout | pending |
+| Reconciled Pages | root agent | Run `30895223269` | complete |
+| PR #60 CI | root agent | Run `30896447349` | complete |
+| Closeout main CI | root agent | Run `30896743749` | complete |
+| Closeout Pages | root agent | Run `30896743598` | complete |
 
-## Handoff
+## Archive transport
 
-The root agent remains the sole integration owner. After the closeout merge and CI/Pages pass, it removes this transient worktree and local branch, fast-forwards local `main`, and creates the final archive commit through an isolated temporary index.
-
-## Next step
-
-Commit and publish this honest pending-state closeout, wait for exact-head and exact-main verification, then execute the post-merge cleanup and remote-only archival contract.
+This record is constructed with an isolated temporary Git index and pushed directly to `refs/heads/codex/local-worktree-cleanup-archive`. It creates no local branch or worktree and does not alter the protected primary index. After its PR is merged, the integration owner fetches and fast-forwards local `main`, verifies final parity, and reports that external evidence.
