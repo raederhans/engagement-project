@@ -3,11 +3,12 @@
 ## Current truth
 
 - Integration owner: root agent.
-- Target worktree: `C:/Users/raede/Desktop/dev/engagement_project-p2`.
-- Target branch: `codex/p2-product-completion`, created clean from `origin/main@e32e3426c3db75d5429d07e678ca65c48b2d734c`.
+- Runtime worktree: `C:/Users/raede/Desktop/dev/engagement_project-p2`, preserved for audit at `codex/p2-product-completion@c1e02b5863d96dfc9d144ee9aa1ba0379007357d`.
+- PR #56 merged the P2 runtime as `main@1aa9bde1088e8fe1d71fb4a3679242012eb55274`.
+- PR #57 merged the live result-metadata correction as final runtime `main@b649424d34ec4dd9fd9fce226fc6ad4391002c61`.
 - Primary worktree is intentionally untouched on `codex/bilingual-localization@65ac92f` with user-owned `.gitignore` and `.playwright-mcp/` changes.
 - Relevant clean stacked branches: comparison `20eda9b`, charts `a1eea91`, incident details `8f78a61`, summary insights `aecec62`, custom radius `ffdf351`.
-- PRs #49, #50, #51, #53, and #55 have successful exact-head CI but are based on the pre-P1 line and require semantic current-main integration.
+- PRs #49, #50, #51, #53, and #55 were semantically integrated by #56, annotated, and closed while their branches and worktrees were retained.
 
 ## Decisions and deviations
 
@@ -35,17 +36,21 @@
 | 2026-08-04 | Leave WebGL reconstruction to MapLibre and add only app-owned status, reload, and lifecycle cleanup. | Avoids duplicate map/painter recovery while keeping a visible escape path when automatic restoration does not recover the page. |
 | 2026-08-04 | Run the full repository validation contract on Linux and Windows while keeping one Linux owner for Playwright. | Adds cross-platform confidence without duplicating shared browser ports, reports, or visual baselines. |
 | 2026-08-04 | Measure runtime JavaScript from actual same-origin response bodies and reset the collector between mode navigations. | Proves semantic lazy boundaries and deterministic raw-byte ceilings without wall-clock, Resource Timing, cache, or compression-header variance. |
+| 2026-08-04 | Normalize CARTO coverage timestamps to calendar dates at the store ingestion boundary. | Keeps strict `YYYY-MM-DD` result provenance, preserves SQL date semantics across client time zones, and prevents valid Crime results from being labeled unavailable. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract will be reused after later P2 layers. |
+| Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract was reused by later P2 layers. |
 | Stage 2 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, single worker, no snapshot-wide update: 24 pass and 6 intentional skips; process stopped and generated diagnostics removed. |
 | Stage 3 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, one serial worker: 27 pass and 6 intentional skips. Six incident baselines plus the intentionally changed Crime analysis baselines were generated for Windows/Linux; repeated incident runs were stable and all preview processes stopped. |
 | Stage 4 browser smoke | root agent | Console-only failure diagnostics | Complete. Pages-equivalent build used `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; browser smoke passed with zero console/page errors and port `4173` was released. |
 | Stage 5 Diary lifecycle gate | root agent | Console output; generated logs/reports removed after evidence capture | Complete. `npm run validate`, audit, Pages-equivalent build, bundle policy, browser smoke, and the Windows serial visual run passed. IndexedDB migration, atomic import/commit, latest-only draft intent, private backup, and responsive UI evidence are green; ports `4173` and `4178` are released. |
 | Stage 6 release-gate extension | root agent | Console output plus failure-only Playwright diagnostics | Complete locally. Data contracts, Linux/Windows CI shape, WebGL recovery, three-viewport Axe, runtime lazy-boundary budgets, full validate/audit/build, and 30-pass browser experience are green; generated diagnostics are removed and port `4178` is released. |
+| PR #56 and initial deployment | root agent | GitHub Actions runs `30888257103`, `30889219931`, and `30889219926` | Complete. Exact-head CI, merge-main CI, and Pages passed. A first lazy asset request briefly returned 503 during propagation and then stabilized at HTTP 200. |
+| Production metadata hotfix | root agent | PR #57 CI `30891097925`, main CI `30891464471`, Pages `30891464435` | Complete. Windows and Ubuntu validation, browser smoke, visual experience, build, and deploy passed on final `main@b649424d`. |
+| Final production smoke | root agent | Root-owned Playwright sessions and HTTP probes | Complete. Four Crime provenance surfaces are current after selection, incident detail and mode switching work, direct Diary stays local/private, all actual app assets return 200, and both browser paths have zero errors or warnings. All sessions and ports are released. |
 
 ## Handoff
 
@@ -55,4 +60,4 @@
 
 ## Next step
 
-Obtain final independent approval after the recovery-layer correction, then integrate through GitHub, wait for Linux and Windows validation plus Pages, verify the exact production commit, and archive this record.
+Complete. Preserve the audit worktrees and the primary bilingual WIP; future product work starts from the verified `main@b649424d` line rather than reopening the superseded stacked branches.
