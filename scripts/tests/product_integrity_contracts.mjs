@@ -162,6 +162,32 @@ test('coverage initializes one explicit calendar range and a visible ready state
   });
 });
 
+test('coverage canonicalizes live CARTO timestamps before publishing result metadata', (t) => {
+  preserveStore(t);
+  store.startMonth = null;
+  store.durationMonths = 12;
+
+  stateModule.applyCoverageToState(store, {
+    min: '2006-01-01T00:00:00Z',
+    max: '2026-08-03T00:00:00Z',
+  });
+
+  assert.equal(store.coverageMin, '2006-01-01');
+  assert.equal(store.coverageMax, '2026-08-03');
+  assert.throws(() => stateModule.applyCoverageToState(store, {
+    min: '2006-01-01T00:00:00Z',
+    max: '2026-08-03Tnot-a-time',
+  }), /invalid maximum date/i);
+  assert.throws(() => stateModule.applyCoverageToState(store, {
+    min: '2006-01-01T00:00:00Z',
+    max: '2026-02-31T00:00:00Z',
+  }), /invalid maximum date/i);
+  assert.throws(() => stateModule.applyCoverageToState(store, {
+    min: '2006-01-01T00:00:00Z',
+    max: '2026-08-03T25:99:99Z',
+  }), /invalid maximum date/i);
+});
+
 test('coverage failure cannot silently fall back to a moving current-date window', (t) => {
   preserveStore(t);
   assert.equal(typeof stateModule.applyCoverageFailure, 'function');

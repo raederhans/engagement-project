@@ -205,13 +205,32 @@ export function clearCrimeAnalysisSelection(state = store) {
   return state;
 }
 
+function normalizeCoverageDate(value, label) {
+  const text = String(value ?? '').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/.exec(text);
+  const year = Number(match?.[1]);
+  const month = Number(match?.[2]);
+  const day = Number(match?.[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const invalidTimestamp = text.includes('T') && Number.isNaN(Date.parse(text));
+  if (!match
+    || invalidTimestamp
+    || parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day) {
+    throw new Error(`Crime coverage is unavailable: invalid ${label} date ${value}.`);
+  }
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
 export function applyCoverageToState(state, { min, max }) {
   if (!max) throw new Error('Crime coverage is unavailable: maximum date is missing.');
-  const maxDate = dayjs(max);
-  if (!maxDate.isValid()) throw new Error(`Crime coverage is unavailable: invalid maximum date ${max}.`);
+  const normalizedMax = normalizeCoverageDate(max, 'maximum');
+  const normalizedMin = min ? normalizeCoverageDate(min, 'minimum') : null;
+  const maxDate = dayjs(normalizedMax);
   const endMonth = maxDate.add(1, 'month').startOf('month');
-  state.coverageMin = min || null;
-  state.coverageMax = max;
+  state.coverageMin = normalizedMin;
+  state.coverageMax = normalizedMax;
   state.coverageStatus = 'ready';
   state.coverageError = null;
   state.coverageNotice = null;
