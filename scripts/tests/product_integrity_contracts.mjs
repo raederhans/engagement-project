@@ -437,27 +437,14 @@ test('Crime layer visibility follows the current geography on every refresh', as
   assert.equal(visibility.get('districts-fill'), 'visible');
 });
 
-test('boundary failure hides stale map results and visibly marks charts unavailable', async () => {
-  const { markCrimeResultsUnavailable } = await import('../../src/routes_crime/index.js');
-  const visibility = new Map();
-  const elements = new Map([
-    ['charts', { style: {} }],
-    ['compare-card', { style: {} }],
-    ['sidepanel', { prepend(element) { elements.set(element.id, element); } }],
+test('boundary failure cannot disable independent Crime result surfaces', async () => {
+  const [crimeRoute, source] = await Promise.all([
+    import('../../src/routes_crime/index.js'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
-  const documentRef = {
-    getElementById: (id) => elements.get(id) || null,
-    createElement: () => ({ style: {}, setAttribute() {} }),
-  };
-  const map = {
-    getLayer: () => ({}),
-    setLayoutProperty(id, property, value) { if (property === 'visibility') visibility.set(id, value); },
-  };
-  markCrimeResultsUnavailable(map, 'Current results unavailable.', documentRef);
-  assert.equal(visibility.get('districts-fill'), 'none');
-  assert.equal(visibility.get('tracts-fill'), 'none');
-  assert.equal(elements.get('charts').style.opacity, '0.35');
-  assert.match(elements.get('crime-results-status').textContent, /unavailable/i);
+  assert.equal(crimeRoute.markCrimeResultsUnavailable, undefined);
+  assert.doesNotMatch(source, /style\.opacity\s*=\s*['"]0\.35['"]/);
+  assert.doesNotMatch(source, /style\.pointerEvents\s*=\s*['"]none['"]/);
 });
 
 test('share state round-trips every user-visible Crime analysis choice', async () => {
@@ -756,27 +743,36 @@ test('mode coordinator passes queue ownership into the Crime refresh and aborts 
 });
 
 test('Crime refresh outcomes never label stale work as live', async () => {
-  const { classifyCrimeRefreshJobs, normalizeCrimeRefreshResult } = await import('../../src/routes_crime/index.js');
+  const { classifyCrimeRefreshJobs, normalizeCrimeRefreshResult } = await import('../../src/ui/crime_result_meta.js');
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: true }), { status: 'live' });
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: false }), { status: 'superseded' });
   assert.deepEqual(normalizeCrimeRefreshResult({ status: 'failed' }), { status: 'failed' });
+  assert.deepEqual(normalizeCrimeRefreshResult({
+    status: 'partial',
+    succeeded: ['boundary', 'charts'],
+    failed: ['incidents'],
+  }), {
+    status: 'partial',
+    succeeded: ['boundary', 'charts'],
+    failed: ['incidents'],
+  });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { applied: true } },
-    { status: 'fulfilled', value: { applied: true } },
-  ]), { applied: true });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: true } } },
+  ]), { status: 'live', succeeded: ['boundary', 'charts'], failed: [] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { applied: true } },
-    { status: 'fulfilled', value: { applied: false } },
-  ]), { applied: false });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'incidents', result: { status: 'rejected', reason: new Error('points failed') } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: true } } },
+  ]), { status: 'partial', succeeded: ['boundary', 'charts'], failed: ['incidents'] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: null },
-  ]), { status: 'failed' });
+    { name: 'boundary', result: { status: 'fulfilled', value: null } },
+    { name: 'charts', result: { status: 'rejected', reason: new Error('chart failed') } },
+  ]), { status: 'failed', succeeded: [], failed: ['boundary', 'charts'] });
   assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'fulfilled', value: { status: 'failed' } },
-  ]), { status: 'failed' });
-  assert.deepEqual(classifyCrimeRefreshJobs([
-    { status: 'rejected', reason: new Error('chart failed') },
-  ]), { status: 'failed' });
+    { name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } },
+    { name: 'charts', result: { status: 'fulfilled', value: { applied: false } } },
+  ]), { status: 'superseded', succeeded: [], failed: [] });
 });
 
 test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', async () => {
@@ -1083,7 +1079,7 @@ test('Crime charts can redraw localized copy from cached data without refetching
   assert.equal(statuses.at(-1), 'Tip: click the map to set a center and show buffer-based charts.');
   assert.equal(copies.length, copiesBeforeStatusOnly);
 
-  await assert.rejects(updateAllCharts({
+  const failedResult = await updateAllCharts({
     start: '2026-01-01',
     end: '2026-07-01',
     types: [],
@@ -1093,10 +1089,14 @@ test('Crime charts can redraw localized copy from cached data without refetching
   }, {
     fetchers: {
       fetchMonthlySeriesCity: async () => { throw new Error('offline'); },
+      fetchMonthlySeriesBuffer: async () => { throw new Error('offline'); },
+      fetchTopTypesBuffer: async () => { throw new Error('offline'); },
+      fetch7x24Buffer: async () => { throw new Error('offline'); },
     },
     sinks,
     chartCache: cache,
-  }), /offline/);
+  });
+  assert.equal(failedResult.status, 'failed');
   const copiesBeforeErrorRefresh = copies.length;
   setLanguage('zh-CN');
   assert.equal(cache.refresh(sinks), true);

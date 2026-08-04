@@ -22,7 +22,38 @@ const DEFAULT_FETCHERS = {
   estimatePopInBuffer,
 };
 
+function cloneResolvedSource(metadata) {
+  if (!metadata || typeof metadata !== 'object' || !String(metadata.dataset || '').trim()) {
+    return null;
+  }
+  return structuredClone(metadata);
+}
+
+function reportResolvedSource(callback, metadata) {
+  if (typeof callback !== 'function') return;
+  try {
+    callback(structuredClone(metadata));
+  } catch {}
+}
+
+function mergeResolvedSources(...collections) {
+  const merged = new Map();
+  for (const source of collections.flat()) {
+    const normalized = cloneResolvedSource(source);
+    if (!normalized) continue;
+    const key = [
+      normalized.dataset,
+      normalized.kind,
+      normalized.provider,
+      normalized.asOf || '',
+    ].join('\u0000');
+    merged.set(key, normalized);
+  }
+  return [...merged.values()];
+}
+
 let lastComparison = null;
+let lastExportableComparison = null;
 let savedComparisonActive = false;
 let refreshDefaultCompareView = null;
 
@@ -58,15 +89,30 @@ export function buildComparisonFilterKey(filters = {}) {
 }
 
 export function getLastComparison(filters) {
-  if (!lastComparison) return null;
-  if (filters && lastComparison.filterKey !== buildComparisonFilterKey(filters)) return null;
-  return structuredClone(lastComparison.comparison);
+  if (!lastExportableComparison) return null;
+  if (filters && lastExportableComparison.filterKey !== buildComparisonFilterKey(filters)) return null;
+  return publicComparison(lastExportableComparison.comparison);
 }
 
 export function getLastComparisonSnapshot(filters) {
-  if (!lastComparison) return null;
-  if (filters && lastComparison.filterKey !== buildComparisonFilterKey(filters)) return null;
-  return structuredClone(lastComparison);
+  if (!lastExportableComparison) return null;
+  if (filters && lastExportableComparison.filterKey !== buildComparisonFilterKey(filters)) return null;
+  return {
+    filterKey: lastExportableComparison.filterKey,
+    generatedAt: lastExportableComparison.generatedAt,
+    comparison: publicComparison(lastExportableComparison.comparison),
+  };
+}
+
+function publicComparison(comparison) {
+  const normalize = (point) => point ? structuredClone({
+    label: point.label,
+    total: point.total,
+    per10k: point.per10k,
+    top3: point.top3 || [],
+    delta30: point.delta30,
+  }) : null;
+  return { a: normalize(comparison?.a), b: normalize(comparison?.b) };
 }
 
 function formatDateRange(start, end) {
@@ -82,12 +128,27 @@ function formatDateRange(start, end) {
   return `${formatCalendarDate(firstDate)} – ${formatCalendarDate(lastDate)}`;
 }
 
+function markPreviousResult(value, status) {
+  if (status !== 'stale') return value;
+  return `${value} <span class="crime-summary__previous-result">${localized('summary.previousResult')}</span>`;
+}
+
+function rateMetricStatus(point) {
+  if (point?.per10k == null) return 'unavailable';
+  const statuses = [point?.metricStatus?.count, point?.metricStatus?.population];
+  return statuses.includes('stale') ? 'stale' : 'available';
+}
+
 function renderComparisonPoint(label, point) {
   if (!point) return '';
+  const countValue = point.total == null
+    ? detailText('summary.metricUnavailable')
+    : localized('summary.incidents', { count: point.total });
+  const count = markPreviousResult(countValue, point.metricStatus?.count);
   return `
     <div class="crime-comparison-point">
       <strong>${escapeHtml(point.label || label)}</strong>
-      <span>${localized('summary.incidents', { count: Number(point.total) || 0 })}</span>
+      <span>${count}</span>
     </div>`;
 }
 
@@ -100,18 +161,22 @@ function finiteMetric(value, formatter) {
 }
 
 function averagePer30Days(total, start, end) {
-  if (!start || !end) return null;
+  if (total == null || total === '' || !start || !end) return null;
+  const count = Number(total);
+  if (!Number.isFinite(count)) return null;
   const first = dayjs(start);
   const last = dayjs(end);
   if (!first.isValid() || !last.isValid()) return null;
   const days = last.diff(first, 'day', true);
   if (!Number.isFinite(days) || days <= 0) return null;
-  return ((Number(total) || 0) * 30) / days;
+  return (count * 30) / days;
 }
 
 function comparisonInsight(a, b) {
-  const aTotal = Number(a?.total) || 0;
-  const bTotal = Number(b?.total) || 0;
+  if (a?.total == null || b?.total == null) return detailText('summary.metricUnavailable');
+  const aTotal = Number(a.total);
+  const bTotal = Number(b.total);
+  if (!Number.isFinite(aTotal) || !Number.isFinite(bTotal)) return detailText('summary.metricUnavailable');
   const difference = aTotal - bTotal;
   if (difference === 0) return detailText('summary.sameIncidents');
   const relative = bTotal > 0 ? (Math.abs(difference) / bTotal) * 100 : null;
@@ -125,21 +190,30 @@ function comparisonInsight(a, b) {
 }
 
 function renderCategoryItems(point) {
-  const total = Number(point?.total) || 0;
+  const total = point?.total == null ? null : Number(point.total);
   const rows = Array.isArray(point?.top3) ? point.top3.slice(0, 3) : [];
-  return rows.length
+  const result = rows.length
     ? `<ol>${rows.map((row) => {
-        const count = Math.max(0, Number(row?.n) || 0);
-        const share = total > 0 ? Math.min(100, (count / total) * 100) : 0;
+        const rawCount = row?.n == null ? null : Number(row.n);
+        const count = Number.isFinite(rawCount) ? Math.max(0, rawCount) : null;
+        const share = count != null && Number.isFinite(total) && total > 0
+          ? Math.min(100, (count / total) * 100)
+          : null;
+        const value = count == null || share == null
+          ? detailText('summary.metricUnavailable')
+          : detailText('summary.categoryValue', { count, share: share.toFixed(1) });
         return `<li>
           <div class="crime-comparison-category__label">
             <span>${escapeHtml(row?.text_general_code || t('summary.noCategory'))}</span>
-            <span>${detailText('summary.categoryValue', { count, share: share.toFixed(1) })}</span>
+            <span>${value}</span>
           </div>
-          <progress class="crime-comparison-category__track" max="100" value="${share.toFixed(1)}" aria-hidden="true"></progress>
+          ${share == null ? '' : `<progress class="crime-comparison-category__track" max="100" value="${share.toFixed(1)}" aria-hidden="true"></progress>`}
         </li>`;
       }).join('')}</ol>`
     : `<p class="crime-comparison-categories__empty">${detailText('summary.noCategoryData')}</p>`;
+  return point?.metricStatus?.top === 'stale'
+    ? `${result}<p class="crime-summary__previous-result">${localized('summary.previousResult')}</p>`
+    : result;
 }
 
 function renderCategoryList(point, fallbackLabel) {
@@ -153,18 +227,39 @@ function renderCategoryList(point, fallbackLabel) {
 function renderComparisonDetails(a, b, { start, end } = {}) {
   const aLabel = a?.label || t('summary.selectedArea');
   const bLabel = b?.label || t('summary.comparisonArea');
-  const metricUnavailable = () => detailText('summary.metricUnavailable');
-  const totalA = Number(a?.total) || 0;
-  const totalB = Number(b?.total) || 0;
-  const rateA = finiteMetric(a?.per10k, (value) => value.toFixed(1));
-  const rateB = finiteMetric(b?.per10k, (value) => value.toFixed(1));
-  const averageA = finiteMetric(averagePer30Days(totalA, start, end), (value) => value.toFixed(1));
-  const averageB = finiteMetric(averagePer30Days(totalB, start, end), (value) => value.toFixed(1));
+  const totalA = markPreviousResult(
+    finiteMetric(a?.total, (value) => String(value)),
+    a?.metricStatus?.count,
+  );
+  const totalB = markPreviousResult(
+    finiteMetric(b?.total, (value) => String(value)),
+    b?.metricStatus?.count,
+  );
+  const rateA = markPreviousResult(
+    finiteMetric(a?.per10k, (value) => value.toFixed(1)),
+    rateMetricStatus(a),
+  );
+  const rateB = markPreviousResult(
+    finiteMetric(b?.per10k, (value) => value.toFixed(1)),
+    rateMetricStatus(b),
+  );
+  const averageA = markPreviousResult(
+    finiteMetric(averagePer30Days(a?.total, start, end), (value) => value.toFixed(1)),
+    a?.metricStatus?.count,
+  );
+  const averageB = markPreviousResult(
+    finiteMetric(averagePer30Days(b?.total, start, end), (value) => value.toFixed(1)),
+    b?.metricStatus?.count,
+  );
+  const insight = markPreviousResult(
+    comparisonInsight(a, b),
+    [a?.metricStatus?.count, b?.metricStatus?.count].includes('stale') ? 'stale' : 'available',
+  );
 
   return `<details class="crime-comparison-details">
     <summary>${detailText('summary.detailedComparison')}</summary>
     <div class="crime-comparison-details__body">
-      <p class="crime-comparison-details__insight">${comparisonInsight(a, b)}</p>
+      <p class="crime-comparison-details__insight">${insight}</p>
       <div class="crime-comparison-table-wrap">
         <table class="crime-comparison-table" aria-label="${escapeHtml(t('summary.detailedComparisonTable'))}" data-i18n-aria-label="summary.detailedComparisonTable">
           <thead><tr>
@@ -208,11 +303,15 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
   if (!a) {
     return `<p class="crime-summary__empty" data-i18n="crime.summaryEmpty">${t('crime.summaryEmpty')}</p>`;
   }
-  const topCategory = a.top3?.[0]?.text_general_code || t('summary.noCategory');
+  const topCategory = markPreviousResult(
+    escapeHtml(a.top3?.[0]?.text_general_code || t('summary.noCategory')),
+    a.metricStatus?.top,
+  );
   const average30 = averagePer30Days(a.total, start, end);
-  const average30Label = average30 == null
+  const average30Value = average30 == null
     ? detailText('summary.metricUnavailable')
     : localized('summary.average30Value', { count: average30.toFixed(1) });
+  const average30Label = markPreviousResult(average30Value, a.metricStatus?.count);
   const coverageLabel = coverageDate && dayjs(coverageDate).isValid()
     ? formatCalendarDate(coverageDate)
     : t('summary.latestDate');
@@ -223,13 +322,25 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
       ${renderComparisonPoint(t('summary.comparisonArea'), b)}
       ${renderComparisonDetails(a, b, { start, end })}
     </div>` : '';
+  const partialNotice = [a, b].filter(Boolean).some((point) => (
+    point.stale || (point.status && point.status !== 'success')
+  ))
+    ? `<p class="crime-summary__status crime-summary__status--partial">${localized('summary.partialNotice')}</p>`
+    : '';
+  const primaryTitle = markPreviousResult(
+    a.total == null
+      ? detailText('summary.metricUnavailable')
+      : localized('summary.reportedIncidents', { count: a.total }),
+    a.metricStatus?.count,
+  );
 
   return `
     <section class="crime-summary" aria-labelledby="crime-summary-title">
       <p class="crime-summary__eyebrow" data-i18n="summary.eyebrow">${t('summary.eyebrow')}</p>
-      <h2 id="crime-summary-title">${localized('summary.reportedIncidents', { count: Number(a.total) || 0 })}</h2>
+      ${partialNotice}
+      <h2 id="crime-summary-title">${primaryTitle}</h2>
       <dl class="crime-summary__metrics">
-        <div><dt data-i18n="summary.mostCommon">${t('summary.mostCommon')}</dt><dd>${escapeHtml(topCategory)}</dd></div>
+        <div><dt data-i18n="summary.mostCommon">${t('summary.mostCommon')}</dt><dd>${topCategory}</dd></div>
         <div><dt data-i18n="summary.average30Metric">${t('summary.average30Metric')}</dt><dd>${average30Label}</dd></div>
       </dl>
       <section class="crime-summary-categories" aria-label="${escapeHtml(t('summary.selectionCategories'))}" data-i18n-aria-label="summary.selectionCategories">
@@ -294,8 +405,69 @@ export function renderSavedComparison(resultSummary, { view } = {}) {
   return true;
 }
 
+export function clearCurrentComparison({ view } = {}) {
+  const compareView = view ?? createDefaultCompareView();
+  if (!compareView) return false;
+  lastComparison = null;
+  lastExportableComparison = null;
+  savedComparisonActive = false;
+  compareView.success({ a: null, b: null });
+  return true;
+}
+
 function isAbortError(error) {
   return error?.name === 'AbortError';
+}
+
+function errorMessage(error) {
+  return error?.message || String(error);
+}
+
+function retainedMetric(point, metric) {
+  if (!point) return undefined;
+  if (metric === 'count') return point.total;
+  if (metric === 'top') return point.top3;
+  if (metric === 'population') return point.population;
+  return undefined;
+}
+
+function resolveMetric(settlement, point, metric, normalize = (value) => value) {
+  if (settlement.status === 'fulfilled') {
+    const value = normalize(settlement.value);
+    if (value != null) return { value, status: 'available', error: null };
+  }
+  const retained = retainedMetric(point, metric);
+  const error = settlement.status === 'rejected'
+    ? errorMessage(settlement.reason)
+    : `${metric} unavailable`;
+  if (retained != null) {
+    return { value: structuredClone(retained), status: 'stale', error };
+  }
+  return { value: null, status: 'unavailable', error };
+}
+
+function failedPoint(label, retained, error) {
+  const message = errorMessage(error);
+  const count = retainedMetric(retained, 'count');
+  const top = retainedMetric(retained, 'top');
+  const population = retainedMetric(retained, 'population');
+  const metricStatus = {
+    count: count == null ? 'unavailable' : 'stale',
+    top: top == null ? 'unavailable' : 'stale',
+    population: population == null ? 'unavailable' : 'stale',
+  };
+  return {
+    label,
+    status: 'failed',
+    stale: Object.values(metricStatus).includes('stale'),
+    total: count ?? null,
+    per10k: null,
+    top3: top == null ? null : structuredClone(top),
+    population: population ?? null,
+    delta30: null,
+    metricStatus,
+    errors: { point: message },
+  };
 }
 
 /**
@@ -322,6 +494,7 @@ export async function updateCompare(
     fetchers,
     view,
     now = () => new Date().toISOString(),
+    onSourceResolved,
   } = {},
 ) {
   const compareFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
@@ -336,48 +509,151 @@ export async function updateCompare(
   const retainedComparison = lastComparison?.filterKey === filterKey
     ? lastComparison
     : null;
+  const resolvedPopulationSources = new Map();
+  const capturePopulationSource = (metadata) => {
+    const source = cloneResolvedSource(metadata);
+    if (!source) return;
+    resolvedPopulationSources.set(source.dataset, source);
+  };
 
   try {
     if (!retainedComparison) compareView.pending();
 
-    const readPoint = async (pointCenter, label) => {
+    const readPoint = async (pointCenter, label, retainedPoint) => {
       if (!pointCenter) return null;
-      const [total, topResponse, population] = await Promise.all([
+      const populationRequested = adminLevel === 'tracts';
+      const [countResult, topResult, populationResult] = await Promise.allSettled([
         compareFetchers.fetchCountBuffer({ start, end, types, center3857: pointCenter, radiusM, signal }),
         compareFetchers.fetchTopTypesBuffer({ start, end, types, center3857: pointCenter, radiusM, limit: 3, signal }),
-        adminLevel === 'tracts'
-          ? compareFetchers.estimatePopInBuffer({ center3857: pointCenter, radiusM, signal })
-          : Promise.resolve({ pop: 0 }),
+        populationRequested
+          ? compareFetchers.estimatePopInBuffer({
+              center3857: pointCenter,
+              radiusM,
+              signal,
+              onSourceResolved: capturePopulationSource,
+            })
+          : Promise.resolve(null),
       ]);
-      const topRows = Array.isArray(topResponse?.rows) ? topResponse.rows : topResponse;
-      const top3 = (topRows || []).map((row) => ({
-        text_general_code: row.text_general_code,
-        n: Number(row.n) || 0,
-      }));
+      const count = resolveMetric(countResult, retainedPoint, 'count', (value) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      });
+      const top = resolveMetric(topResult, retainedPoint, 'top', (response) => {
+        const rows = Array.isArray(response?.rows) ? response.rows : response;
+        if (!Array.isArray(rows)) return null;
+        return rows.map((row) => {
+          const countValue = row?.n == null ? null : Number(row.n);
+          return {
+            text_general_code: row?.text_general_code,
+            n: Number.isFinite(countValue) ? countValue : null,
+          };
+        });
+      });
+      const population = populationRequested
+        ? resolveMetric(populationResult, retainedPoint, 'population', (response) => {
+            const value = Number(response?.pop);
+            return Number.isFinite(value) ? value : null;
+          })
+        : { value: null, status: 'unavailable', error: null };
+      const applicable = populationRequested
+        ? [count, top, population]
+        : [count, top];
+      const failures = applicable.filter((item) => item.status !== 'available').length;
+      const status = failures === applicable.length
+        ? 'failed'
+        : failures > 0 ? 'partial' : 'success';
+      const per10kValue = count.value != null && population.value > 0
+        ? (count.value / population.value) * 10000
+        : null;
       return {
         label,
-        total,
-        per10k: adminLevel === 'tracts' && population.pop > 0 ? (total / population.pop) * 10000 : null,
-        top3,
+        status,
+        stale: [count, top, population].some((metric) => metric.status === 'stale'),
+        total: count.value,
+        per10k: per10kValue,
+        top3: top.value,
+        population: population.value,
         delta30: null,
+        metricStatus: {
+          count: count.status,
+          top: top.status,
+          population: population.status,
+        },
+        errors: Object.fromEntries([
+          ['count', count.error],
+          ['top', top.error],
+          ['population', population.error],
+        ].filter(([, message]) => message)),
       };
     };
-    const [a, b] = await Promise.all([
-      readPoint(center3857, addressA || 'Point A'),
-      readPoint(centerB3857, addressB || 'Point B'),
+    const [aResult, bResult] = await Promise.allSettled([
+      readPoint(center3857, addressA || 'Point A', retainedComparison?.comparison?.a),
+      readPoint(centerB3857, addressB || 'Point B', retainedComparison?.comparison?.b),
     ]);
     if (!isFresh()) return { applied: false };
-    const result = { a, b, ...(a || {}) };
-    lastComparison = {
-      filterKey,
-      generatedAt: now(),
-      comparison: { a, b },
+    const a = aResult.status === 'fulfilled'
+      ? aResult.value
+      : failedPoint(addressA || 'Point A', retainedComparison?.comparison?.a, aResult.reason);
+    const b = bResult.status === 'fulfilled'
+      ? bResult.value
+      : failedPoint(addressB || 'Point B', retainedComparison?.comparison?.b, bResult.reason);
+    const requestedPoints = [a, b].filter(Boolean);
+    const status = requestedPoints.every((point) => point.status === 'failed')
+      ? 'failed'
+      : requestedPoints.some((point) => point.status !== 'success') ? 'partial' : 'success';
+    const stale = requestedPoints.some((point) => point.stale);
+    const stalePopulation = requestedPoints.some((point) => (
+      point.metricStatus?.population === 'stale'
+    ));
+    const currentPopulation = requestedPoints.some((point) => (
+      point.metricStatus?.population === 'available'
+    ));
+    const currentPopulationSources = currentPopulation
+      ? [...resolvedPopulationSources.values()]
+      : [];
+    for (const source of currentPopulationSources) {
+      reportResolvedSource(onSourceResolved, source);
+    }
+    const sourceLineage = mergeResolvedSources(
+      currentPopulationSources,
+      stalePopulation ? retainedComparison?.sources || [] : [],
+    );
+    const result = {
+      ...(a || {}),
+      applied: true,
+      status,
+      stale,
+      retainedGeneratedAt: stale ? retainedComparison?.generatedAt ?? null : null,
+      sourceLineage,
+      metricStatus: Object.fromEntries(requestedPoints.map((point, index) => [index === 0 ? 'a' : 'b', point.metricStatus])),
+      errors: Object.fromEntries(requestedPoints.map((point, index) => [index === 0 ? 'a' : 'b', point.errors])),
+      a,
+      b,
     };
+    if (status === 'success') {
+      const currentComparison = {
+        filterKey,
+        generatedAt: now(),
+        comparison: { a, b },
+        sources: sourceLineage.map((source) => structuredClone(source)),
+      };
+      lastComparison = currentComparison;
+      lastExportableComparison = currentComparison;
+    } else {
+      lastExportableComparison = null;
+    }
     savedComparisonActive = false;
-    compareView.success(result);
-    return { applied: true, ...result };
+    if (status === 'failed' && !requestedPoints.some((point) => point.stale)) {
+      compareView.error(new Error(requestedPoints
+        .flatMap((point) => Object.values(point.errors || {}))
+        .join('; ') || 'Comparison unavailable'));
+    } else {
+      compareView.success(result);
+    }
+    return result;
   } catch (e) {
     if (!isFresh() || isAbortError(e)) return { applied: false };
+    lastExportableComparison = null;
     if (!retainedComparison) compareView.error(e);
     return null;
   }

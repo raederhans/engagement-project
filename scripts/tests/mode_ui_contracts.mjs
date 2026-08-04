@@ -249,6 +249,101 @@ test('a superseded Crime refresh cannot publish a false ready state', async () =
   assert.deepEqual(settled, []);
 });
 
+test('a partial Crime refresh keeps the usable mode ready', async () => {
+  const settled = [];
+  const harness = coordinatorOptions({ crimeRefreshStatus: 'partial' });
+  const coordinator = createModeCoordinator({
+    ...harness.options,
+    onModeSettled: (...event) => settled.push(event),
+  });
+
+  const result = await coordinator.schedule('crime');
+
+  assert.deepEqual(result, { status: 'partial' });
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'ready',
+    label: 'Crime data ready',
+  });
+  assert.deepEqual(settled, [['crime', 'ready']]);
+});
+
+test('result-only retry forwards the named scope without resetting global mode status', async () => {
+  const calls = [];
+  let currentMode = 'crime';
+  const coordinator = createModeCoordinator({
+    map: { isStyleLoaded: () => true },
+    diaryFeatureEnabled: false,
+    getCurrentMode: () => currentMode,
+    writeMode() {},
+    loadCrimeController: async () => ({
+      setActive() {},
+      async requestRefresh(options = {}) {
+        calls.push(options);
+        return { status: options.scope ? 'partial' : 'live' };
+      },
+    }),
+    loadDiaryModule: async () => null,
+    getDiaryInsights: async () => null,
+  });
+
+  await coordinator.schedule('crime');
+  const before = coordinator.getShortStatus();
+  assert.deepEqual(await coordinator.retryCrimeResult('charts'), { status: 'partial' });
+  assert.equal(calls.at(-1).scope, 'charts');
+  assert.deepEqual(coordinator.getShortStatus(), before);
+  currentMode = 'diary';
+  assert.deepEqual(await coordinator.retryCrimeResult('charts'), { status: 'superseded' });
+});
+
+test('a busy scoped retry leaves the in-flight full Crime status untouched', async () => {
+  const fullRefresh = deferred();
+  const fullStarted = deferred();
+  let calls = 0;
+  const coordinator = createModeCoordinator({
+    map: { isStyleLoaded: () => true },
+    diaryFeatureEnabled: false,
+    getCurrentMode: () => 'crime',
+    writeMode() {},
+    loadCrimeController: async () => ({
+      setActive() {},
+      async requestRefresh(options = {}) {
+        calls += 1;
+        if (options.scope) {
+          return { applied: false, status: 'busy', reason: 'full-refresh-active' };
+        }
+        fullStarted.resolve();
+        return fullRefresh.promise;
+      },
+    }),
+    loadDiaryModule: async () => null,
+    getDiaryInsights: async () => null,
+  });
+
+  const entering = coordinator.schedule('crime');
+  await fullStarted.promise;
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'loading',
+    label: 'Crime loading',
+  });
+  assert.deepEqual(await coordinator.retryCrimeResult('charts'), {
+    applied: false,
+    status: 'busy',
+    reason: 'full-refresh-active',
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'loading',
+    label: 'Crime loading',
+  });
+
+  fullRefresh.resolve({ status: 'live' });
+  await entering;
+  assert.equal(coordinator.getShortStatus().phase, 'ready');
+});
+
 test('Diary URLs remove Crime-only keys and Crime restores its canonical state', async () => {
   const surfaces = await import('../../src/ui/mode_surfaces.js').catch(() => ({}));
   assert.equal(typeof surfaces.createModeUrlWriter, 'function');

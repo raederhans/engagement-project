@@ -14,6 +14,7 @@ import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfa
 import { setSheetState } from './ui/sheet_controller.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
+import { createCrimeResultMetaPresenter } from './ui/crime_result_meta.js';
 import {
   applyCrimeViewState,
   decodeCrimeViewState,
@@ -71,6 +72,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   const chartsPane = document.getElementById('charts');
   const aboutController = initAboutPanel({ initialMode });
   const modeSurfaces = createModeSurfacePresenter({ documentRef: document, aboutController });
+  const crimeResultMeta = Object.fromEntries(
+    [...document.querySelectorAll('[data-result-meta]')].map((root) => {
+      const scope = root.dataset.resultMeta;
+      return [scope, createCrimeResultMetaPresenter({
+        root,
+        onRetry: () => coordinator?.retryCrimeResult(scope),
+      })];
+    }),
+  );
   const writeMode = createModeUrlWriter({
     getHref: () => window.location.href,
     replaceHref: (href) => window.history.replaceState({}, '', href),
@@ -119,6 +129,7 @@ window.addEventListener('DOMContentLoaded', async () => {
           if (origin === 'map') analysisHistoryController?.setCurrentArtifact(null);
         },
         onDataScopeChange: modeSurfaces.showDataScope,
+        resultMeta: crimeResultMeta,
       })),
     loadDiaryModule: () => import('./routes_diary/index.js'),
     getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),

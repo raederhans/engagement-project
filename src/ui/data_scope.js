@@ -1,6 +1,7 @@
 import '../i18n/p1.js';
 import { t } from '../i18n/index.js';
 import { formatCalendarDate } from '../i18n/date.js';
+export { normalizeCrimeDataSources } from './crime_data_sources.js';
 
 const DATASET_LABEL_KEYS = Object.freeze({
   incidents: 'scope.dataset.incidents',
@@ -10,14 +11,22 @@ const DATASET_LABEL_KEYS = Object.freeze({
   'tract-crime': 'scope.dataset.tractCrime',
 });
 
+function cleanText(value) {
+  const text = typeof value === 'string' || typeof value === 'number'
+    ? String(value).trim()
+    : '';
+  return text || null;
+}
+
 function normalizeSource(source) {
   if (!source?.dataset || !source?.kind) return null;
+  const provider = cleanText(source.provider ?? source.source);
   return Object.freeze({
     dataset: String(source.dataset),
     kind: source.kind === 'fallback' ? 'fallback' : 'live',
     source: source.sourceKey
       ? t(source.sourceKey)
-      : String(source.source || t(source.kind === 'fallback' ? 'scope.source.publishedFallback' : 'scope.source.publicApi')),
+      : String(provider || t(source.kind === 'fallback' ? 'scope.source.publishedFallback' : 'scope.source.publicApi')),
     asOf: source.asOf ? String(source.asOf) : null,
   });
 }

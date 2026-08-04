@@ -142,3 +142,8 @@ export function renderTopN(ctx, rows, copy = {}, preferences = {}) {
   return model;
 }
 
+export function clearTopNChart() {
+  chart?.destroy();
+  chart = null;
+}
+

@@ -184,6 +184,8 @@ const messagePairs = Object.freeze({
   'summary.fewerIncidentsRelative': ['{label} recorded {count} fewer incidents than {other} ({percent}% lower).', '{label} 比 {other} 少记录 {count} 起事件（低 {percent}%）。'],
   'summary.sameIncidents': ['Both areas recorded the same number of incidents.', '两个区域记录的事件数量相同。'],
   'summary.metricUnavailable': ['Not available', '暂无数据'],
+  'summary.previousResult': ['(previous result)', '（先前结果）'],
+  'summary.partialNotice': ['Some metrics could not be updated; previous values are labeled.', '部分指标无法更新；先前结果已明确标注。'],
   'summary.topCategories': ['Top categories', '主要类别'],
   'summary.selectionCategories': ['Top categories in this selection', '本次筛选的主要类别'],
   'summary.categoryValue': ['{count} · {share}%', '{count} 起 · {share}%'],

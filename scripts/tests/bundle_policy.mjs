@@ -56,7 +56,9 @@ assert.ok(
 
 const budgets = [
   ['Entry', entry, 902_665, 247_583],
-  ['Crime', crime, 35_255, 12_748],
+  // Owns result-scoped cancellation, partial recovery, and immutable provenance
+  // for all Crime surfaces; this is required on every active Crime refresh.
+  ['Crime', crime, 38_000, 13_500],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   ['Diary', diary, 210_100, 65_573],

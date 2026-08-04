@@ -20,6 +20,7 @@ export async function estimatePopInBuffer({
   center3857,
   radiusM,
   signal,
+  onSourceResolved,
   fetchTracts = fetchTractsCachedFirst,
   fetchStats = fetchTractStatsCachedFirst,
 }) {
@@ -27,8 +28,8 @@ export async function estimatePopInBuffer({
   const center4326 = toLonLat(center3857);
   const circle = turf.circle(center4326, radiusM, { units: "meters", steps: 64 });
   const [tracts, stats] = await Promise.all([
-    fetchTracts({ signal }),
-    fetchStats({ signal }),
+    fetchTracts({ signal, onSourceResolved }),
+    fetchStats({ signal, onSourceResolved }),
   ]);
   signal?.throwIfAborted();
   const populationByGeoid = new Map(

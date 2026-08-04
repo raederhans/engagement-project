@@ -2,7 +2,7 @@
 
 ## Current status
 
-P2 execution is active. The stacked deliveries, ownership split, and synchronized Crime task flow are verified. Recoverable partial failures and result-level provenance are next.
+P2 execution is active. Stages 1 through 4 are verified. Stage 5 will add recoverable local Diary drafts, deletion, and private backup restore without introducing server persistence.
 
 ## Checklist
 
@@ -15,7 +15,7 @@ P2 execution is active. The stacked deliveries, ownership split, and synchronize
 - [x] Integrate and verify PR #55 custom radius.
 - [x] Split CSS and Diary ownership with behavior locks.
 - [x] Implement task flow and map/list dual-channel analysis.
-- [ ] Implement recoverable data states and result-level provenance.
+- [x] Implement recoverable data states and result-level provenance.
 - [ ] Complete Diary local lifecycle and unified artifacts.
 - [ ] Extend WebGL, Axe, cross-platform, data, and performance gates.
 - [ ] Run independent review, full verification, integration, deployment, and production smoke.
@@ -48,6 +48,12 @@ P2 execution is active. The stacked deliveries, ownership split, and synchronize
 | Stage 3 visual/a11y gate | Windows deterministic experience: 27 pass / 6 intentional skips across desktop, portrait, and landscape. Linux/Windows incident baselines are stable across all three viewports; Axe reports no critical or serious issue in the incident flow. |
 | Stage 3 full verification | Feature-enabled `npm run validate`, `npm audit --audit-level=high`, and `git diff --check` pass; 66 cross-platform UI baselines are present and dependency audit reports 0 vulnerabilities. |
 | Stage 3 independent review | Final code review returned `APPROVE` and architecture review returned `CLEAR`; pagination synchronization, retryable chunk loading, current-generation ownership, focus behavior, XSS sinks, and unchanged bundle ceilings have no remaining blocker. |
+| Stage 4 partial-result ownership | Charts, comparison, summary, incidents, and optional tract overlays settle independently; a failed surface retains only same-filter usable data, exposes an accessible scoped retry, and cannot cancel an in-flight full refresh. |
+| Stage 4 provenance | Every acted-on result receives immutable scope, coverage, generated/retained time, metric state, and actual live/fallback lineage. Current source callbacks and retained stale lineage are separate, so old fallbacks cannot overwrite current live providers in mixed A/B results. |
+| Stage 4 source contracts | Population results include both tract-boundary and demographic lineage even when counts, rather than per-10k values, are displayed. Metadata-aware source caches are consulted on every refresh and cancellation cannot publish a source. |
+| Stage 4 focused verification | Recovery, provenance, and Crime async contracts pass `43/43`; full `npm test` and `git diff --check` pass. |
+| Stage 4 build and browser gate | Pages-equivalent build passes bundle policy at entry `900,663 / 242,542` gzip, Crime `37,698 / 13,117`, Charts `224,236 / 76,299`, and total `3,334,759` bytes. Browser smoke passes with `consoleErrors=0`, `pageErrors=0`; port 4173 is released. |
+| Stage 4 independent review | Final correctness review returned `APPROVE` and architecture review returned `CLEAR`; current/stale lineage, export isolation, same-filter retention, scoped retry, cancellation, and lazy ownership have no blocker. |
 
 ## Open risks and remaining work
 
@@ -55,4 +61,4 @@ P2 execution is active. The stacked deliveries, ownership split, and synchronize
 - Stage 2 used one root-owned Playwright worker on port `4178`; it was stopped after the verified run and generated reports were removed.
 - Stage 3 uses one root-owned Playwright worker on port `4178`; all preview processes stopped and generated reports were removed after verification.
 - The remaining fenced WSL snapshot workspace is under the system temp directory because recursive cleanup was denied by the execution policy; it contains no credentials or source changes not already present in this worktree.
-- The next product risk is partial-source failure: successful summary, incident, chart, and boundary results must remain usable while the failed source exposes an actionable retry and truthful provenance.
+- The next product risk is the Diary local lifecycle: drafts are still memory-only, imports can replace data without preview, and old rows contain transport-shaped payloads instead of a private-storage schema.

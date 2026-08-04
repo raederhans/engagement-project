@@ -9,6 +9,12 @@ import { fetchPoints } from '../../src/api/crime.js';
 import { updateAllCharts } from '../../src/charts/index.js';
 import { getLastComparisonSnapshot, updateCompare } from '../../src/compare/card.js';
 import * as refreshContract from '../../src/routes_crime/crime_refresh_owner.js';
+import {
+  classifyDistrictBoundaryRefresh,
+  loadTractOutlineResult,
+  planCrimeRefresh,
+  normalizeCrimeRefreshScope,
+} from '../../src/routes_crime/index.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 
 const { createCrimeRefreshOwner } = refreshContract;
@@ -101,6 +107,155 @@ test('an external coordinator signal aborts and releases the owned Crime refresh
 
   assert.equal(downstreamSignal.aborted, true);
   assert.deepEqual(await refresh, { applied: false });
+});
+
+test('a result-only retry keeps one generation and passes its scope to the owned refresh', async () => {
+  const contexts = [];
+  const owner = createCrimeRefreshOwner({
+    readSnapshot: () => ({ mode: 'crime' }),
+    runRefresh: async (_snapshot, context) => {
+      contexts.push(context);
+      return { applied: true };
+    },
+  });
+
+  assert.deepEqual(await owner.refresh({ scope: 'charts' }), { applied: true });
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].scope, 'charts');
+  assert.equal(contexts[0].isCurrent(), true);
+});
+
+test('a scoped retry cannot cancel an in-flight full Crime refresh', async () => {
+  const runs = [];
+  const owner = createCrimeRefreshOwner({
+    readSnapshot: () => ({ mode: 'crime' }),
+    runRefresh: async (_snapshot, context) => {
+      const gate = deferred();
+      runs.push({ context, gate });
+      return gate.promise;
+    },
+  });
+
+  const fullRefresh = owner.refresh({ scope: 'all' });
+  assert.equal(runs.length, 1);
+  const scopedRetry = await owner.refresh({ scope: 'charts' });
+
+  assert.deepEqual(scopedRetry, {
+    applied: false,
+    status: 'busy',
+    reason: 'full-refresh-active',
+  });
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].context.signal.aborted, false);
+  assert.equal(runs[0].context.isCurrent(), true);
+
+  runs[0].gate.resolve({ applied: true, status: 'live' });
+  assert.deepEqual(await fullRefresh, { applied: true, status: 'live' });
+});
+
+test('observed Crime result jobs publish as each surface settles, not in input order', async () => {
+  assert.equal(typeof refreshContract.observeCrimeRefreshJob, 'function');
+  const boundary = deferred();
+  const charts = deferred();
+  const settled = [];
+  const observe = (name, promise) => refreshContract.observeCrimeRefreshJob({ name, promise }, {
+    isCurrent: () => true,
+    onSettled: (entry) => settled.push(entry.name),
+  });
+
+  const trackedBoundary = observe('boundary', boundary.promise);
+  const trackedCharts = observe('charts', charts.promise);
+  charts.resolve({ applied: true, status: 'success' });
+  await trackedCharts;
+  assert.deepEqual(settled, ['charts']);
+
+  boundary.resolve({ applied: true, status: 'success' });
+  await trackedBoundary;
+  assert.deepEqual(settled, ['charts', 'boundary']);
+});
+
+test('optional tract outline failure only makes a requested overlay partial', () => {
+  assert.deepEqual(classifyDistrictBoundaryRefresh({
+    featureCount: 22,
+    overlayRequested: false,
+    outlineResult: { applied: true, status: 'failed', error: 'offline' },
+  }), {
+    applied: true,
+    status: 'success',
+    featureCount: 22,
+  });
+  assert.deepEqual(classifyDistrictBoundaryRefresh({
+    featureCount: 22,
+    overlayRequested: true,
+    outlineResult: { applied: true, status: 'failed', error: 'offline' },
+  }), {
+    applied: true,
+    status: 'partial',
+    featureCount: 22,
+    succeeded: ['districts'],
+    failed: ['tracts-outline'],
+  });
+  assert.deepEqual(classifyDistrictBoundaryRefresh({
+    featureCount: 22,
+    overlayRequested: true,
+    outlineResult: { applied: false, status: 'superseded' },
+  }), { applied: false, status: 'superseded' });
+});
+
+test('tract outline resolution consults the metadata-aware source on every refresh', async () => {
+  const resolvedSources = [];
+  let calls = 0;
+  const fetchTracts = async ({ onSourceResolved }) => {
+    calls += 1;
+    onSourceResolved({
+      dataset: 'census-tract-boundaries',
+      kind: 'live',
+      provider: 'Official tract boundary API',
+      cacheHit: calls > 1,
+    });
+    return {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: {}, geometry: null }],
+    };
+  };
+  const options = {
+    fetchTracts,
+    isCurrent: () => true,
+    onSourceResolved: (metadata) => resolvedSources.push(metadata),
+  };
+
+  const first = await loadTractOutlineResult(options);
+  const second = await loadTractOutlineResult(options);
+
+  assert.equal(calls, 2);
+  assert.equal(first.status, 'success');
+  assert.equal(second.status, 'success');
+  assert.deepEqual(resolvedSources.map(({ cacheHit }) => cacheHit), [false, true]);
+});
+
+test('Crime refresh planning skips selection-bound work until a real analysis target exists', () => {
+  assert.equal(normalizeCrimeRefreshScope('charts'), 'charts');
+  assert.equal(normalizeCrimeRefreshScope('invented-result'), null);
+
+  const idle = planCrimeRefresh({ queryMode: 'buffer', centerLonLat: null }, 'all');
+  assert.deepEqual(idle, {
+    valid: true,
+    requested: ['boundary'],
+    inactive: ['incidents', 'charts', 'summary'],
+  });
+
+  const district = planCrimeRefresh({ queryMode: 'district', selectedDistrictCode: '07' }, 'all');
+  assert.deepEqual(district, {
+    valid: true,
+    requested: ['boundary', 'charts', 'summary'],
+    inactive: ['incidents'],
+  });
+
+  assert.deepEqual(planCrimeRefresh({ queryMode: 'buffer' }, 'invented-result'), {
+    valid: false,
+    requested: [],
+    inactive: [],
+  });
 });
 
 test('crime snapshots clone mutable filter and center values', () => {
@@ -302,7 +457,7 @@ test('stale compare error cannot write a failure result', async () => {
   assert.deepEqual(view.calls, [['pending']]);
 });
 
-test('pending, aborted, and failed refreshes retain the last successful matching comparison snapshot', async () => {
+test('pending and aborted refreshes retain exports, while applied partial results disable them until recovery', async () => {
   const filters = {
     start: '2026-03-01', end: '2026-04-01', types: [],
     center3857: [9, 10], centerB3857: null, radiusM: 400,
@@ -331,31 +486,46 @@ test('pending, aborted, and failed refreshes retain the last successful matching
   assert.deepEqual(await pending, { applied: false });
   assert.deepEqual(getLastComparisonSnapshot(filters), successful);
 
-  await updateCompare(filters, {
+  const partial = await updateCompare(filters, {
     fetchers: { ...successfulFetchers, fetchCountBuffer: async () => { throw new Error('upstream failed'); } },
     view,
   });
-  assert.deepEqual(getLastComparisonSnapshot(filters), successful);
+  assert.equal(partial.status, 'partial');
+  assert.equal(getLastComparisonSnapshot(filters), null);
+
+  await updateCompare(filters, { fetchers: successfulFetchers, view });
+  assert.ok(getLastComparisonSnapshot(filters));
 });
 
-test('population estimation forwards the owning refresh signal to both data sources', async () => {
+test('population estimation forwards the owning signal and resolved-source callback to both data sources', async () => {
   const controller = new AbortController();
   const sourceSignals = [];
+  const resolvedSources = [];
+  const onSourceResolved = (metadata) => resolvedSources.push(metadata);
   await estimatePopInBuffer({
     center3857: [0, 0],
     radiusM: 100,
     signal: controller.signal,
+    onSourceResolved,
     fetchTracts: async (options) => {
       sourceSignals.push(options?.signal);
+      assert.equal(options?.onSourceResolved, onSourceResolved);
+      options.onSourceResolved({ dataset: 'census-tract-boundaries', kind: 'live' });
       return { type: 'FeatureCollection', features: [] };
     },
     fetchStats: async (options) => {
       sourceSignals.push(options?.signal);
+      assert.equal(options?.onSourceResolved, onSourceResolved);
+      options.onSourceResolved({ dataset: 'census-tract-statistics', kind: 'fallback' });
       return [];
     },
   });
 
   assert.deepEqual(sourceSignals, [controller.signal, controller.signal]);
+  assert.deepEqual(resolvedSources, [
+    { dataset: 'census-tract-boundaries', kind: 'live' },
+    { dataset: 'census-tract-statistics', kind: 'fallback' },
+  ]);
 });
 
 test('the default fetchPoints chain propagates cancellation to the transport', async (t) => {

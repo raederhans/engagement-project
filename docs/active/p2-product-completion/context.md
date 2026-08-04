@@ -27,6 +27,9 @@
 | 2026-08-03 | Keep incident results inside the existing results drawer and lazy-load their controller only after an authorized point query. | Preserves one mobile sheet, keeps initial Crime within its existing budget, and places current incidents before charts and history. |
 | 2026-08-03 | Preserve list focus and explicitly scroll only a list-activated incident into view. | Keyboard selection remains stable after the inserted detail panel; map selection does not force the sheet or list to move. |
 | 2026-08-03 | Treat a failed incident-results chunk as a recoverable refresh failure, not a permanent map-only fallback. | The rejected lazy-load promise is cleared, the user receives an explicit failure toast, and the next refresh retries without loading the chunk merely to clear idle state. |
+| 2026-08-04 | Give each Crime result surface its own presenter token, immutable provenance, and scoped retry. | Successful surfaces remain usable during partial failure; stale work and busy scoped retries cannot replace or cancel the active full refresh. |
+| 2026-08-04 | Keep current source callbacks separate from same-filter retained lineage. | A current live provider cannot be overwritten by an older fallback, while a stale metric still reports the exact lineage that produced it. |
+| 2026-08-04 | Remove the route-local tract outline cache and rely on the metadata-aware boundary cache. | Every refresh can resolve truthful live/fallback metadata without duplicating geometry ownership. |
 
 ## Live process ownership
 
@@ -35,6 +38,7 @@
 | Current-main bundle admission | root agent | `C:/Users/raede/Desktop/dev/engagement_project-p2/p2-bundle.tmp` | Complete through all five stacked deliveries. `npm run build:manifest` and `npm run verify:bundle` passed; this worktree's `dist/` is 3,288,581 bytes. The same single-owner contract will be reused after later P2 layers. |
 | Stage 2 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, single worker, no snapshot-wide update: 24 pass and 6 intentional skips; process stopped and generated diagnostics removed. |
 | Stage 3 visual experience | root agent | Playwright console plus failure-only `test-results/` | Complete. Port `4178`, one serial worker: 27 pass and 6 intentional skips. Six incident baselines plus the intentionally changed Crime analysis baselines were generated for Windows/Linux; repeated incident runs were stable and all preview processes stopped. |
+| Stage 4 browser smoke | root agent | Console-only failure diagnostics | Complete. Pages-equivalent build used `VITE_FEATURE_DIARY=1` and `VITE_TRACT_CRIME_SNAPSHOT=1`; browser smoke passed with zero console/page errors and port `4173` was released. |
 
 ## Handoff
 
@@ -44,4 +48,4 @@
 
 ## Next step
 
-Implement recoverable partial-failure states and result-level provenance without clearing successful data from other sources.
+Upgrade the Diary local repository and rating lifecycle so drafts, entries, deletion, and private backup restore are recoverable, versioned, and clearly separate from shareable Crime artifacts.

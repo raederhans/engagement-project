@@ -66,11 +66,14 @@ async function installDeterministicApiRoutes(page, networkControl) {
     });
   });
   await page.route('https://phl.carto.com/**', async (route) => {
-    if (/format=GeoJSON/i.test(decodeURIComponent(route.request().postData() || ''))) {
+    const body = decodeURIComponent(route.request().postData() || '');
+    if (/format=GeoJSON/i.test(body)) {
       networkControl.pointRefreshRequests += 1;
     }
     if (networkControl.holdCarto) await networkControl.cartoGate;
-    if (networkControl.failCarto) {
+    const districtBoundaryCounts = /SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body);
+    if (networkControl.failCarto && !districtBoundaryCounts) {
+      networkControl.failedCartoResponses += 1;
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'held browser failure' }) });
       return;
     }
@@ -137,6 +140,7 @@ try {
     failCarto: false,
     cartoGate: Promise.resolve(),
     pointRefreshRequests: 0,
+    failedCartoResponses: 0,
   };
   await installDeterministicApiRoutes(page, networkControl);
   const consoleErrors = [];
@@ -253,6 +257,13 @@ try {
   });
   assert.equal(await page.locator('#addrB').inputValue(), '');
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  for (const resultName of ['boundary', 'incidents', 'charts', 'summary']) {
+    await page.locator(`[data-result-meta="${resultName}"][data-availability="current"]`).waitFor({ state: 'attached' });
+  }
+  const summaryMeta = page.locator('[data-result-meta="summary"]');
+  await summaryMeta.locator('details > summary').click();
+  assert.match(await summaryMeta.textContent(), /CARTO/);
+  assert.match(await summaryMeta.textContent(), /2024|2025|2026/);
   await page.waitForTimeout(1200);
   assert.equal(
     networkControl.pointRefreshRequests - pointRefreshRequestsBeforeGeocode,
@@ -424,8 +435,19 @@ try {
   await page.waitForFunction(() => /refresh failed/i.test(document.querySelector('.analysis-history__snapshot')?.textContent || ''));
   assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.match(await page.locator('#compare-card').textContent(), /12 reported incidents/);
+  await page.locator('[data-result-meta="boundary"][data-availability="current"]').waitFor({ state: 'attached' });
+  for (const resultName of ['incidents', 'charts', 'summary']) {
+    await page.locator(`[data-result-meta="${resultName}"][data-availability="stale"]`).waitFor({ state: 'attached' });
+  }
+  assert.equal(await page.locator('[data-app-data-status]').getAttribute('data-phase'), 'ready');
   networkControl.failCarto = false;
   networkControl.stage = 'normal';
+  const chartDisclosure = page.locator('details.progressive-surface').filter({ has: page.locator('#charts') });
+  if (!(await chartDisclosure.getAttribute('open'))) {
+    await chartDisclosure.locator(':scope > summary').click();
+  }
+  await page.locator('[data-result-meta="charts"] [data-result-meta-retry]').click();
+  await page.locator('[data-result-meta="charts"][data-availability="current"]').waitFor();
   await page.locator('#durationSel').selectOption('6');
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
 
@@ -574,7 +596,12 @@ try {
   );
   assert.deepEqual(pageErrors, [], `Browser page errors: ${pageErrors.join(' | ')}`);
   assert.deepEqual(consoleErrors, [], `Browser console errors: ${consoleErrors.join(' | ')}`);
-  assert.equal(expectedCartoConsoleErrors, 3, 'Only the three intentional Carto 503 attempts may be exempted');
+  assert.ok(networkControl.failedCartoResponses > 0, 'The partial-failure scenario must exercise Carto 503 responses');
+  assert.equal(
+    expectedCartoConsoleErrors,
+    networkControl.failedCartoResponses,
+    'Only resource errors caused by the deliberate Carto 503 responses may be exempted',
+  );
 
   console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/historyVisible=${upgradeEvidence.historyVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
 } finally {

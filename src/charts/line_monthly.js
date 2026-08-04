@@ -131,3 +131,8 @@ export function renderMonthly(ctx, citySeries, bufferSeries, copy = {}, preferen
   return model;
 }
 
+export function clearMonthlyChart() {
+  chart?.destroy();
+  chart = null;
+}
+

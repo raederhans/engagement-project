@@ -166,3 +166,8 @@ export function render7x24(ctx, matrix, copy = {}, preferences = {}) {
   chart = new Chart(ctx, model);
   return model;
 }
+
+export function clearTemporalChart() {
+  chart?.destroy();
+  chart = null;
+}
