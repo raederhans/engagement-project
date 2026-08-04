@@ -135,7 +135,6 @@ let diaryDataBusy = false;
 let diaryDataFocusTarget = null;
 let refreshDiaryPanel = null;
 let refreshDiaryCopy = null;
-let muteNoticeLogged = false;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
 const ROUTE_SAFETY_EXPRESSION = [
@@ -272,10 +271,6 @@ function setDiaryMapSkin(map, enabled) {
   if (!container) return;
   const shouldMute = !!enabled && !HAS_DIARY_LIGHT_STYLE;
   container.classList.toggle('diary-map-muted', shouldMute);
-  if (shouldMute && !muteNoticeLogged) {
-    console.info('[Diary] MapTiler key missing, falling back to muted OSM basemap.');
-    muteNoticeLogged = true;
-  }
 }
 
 function buildSegmentLookup(collection) {
@@ -738,7 +733,6 @@ function ensureDiaryPanel(routes, options = {}) {
           }),
           onOpen: ownPanelHandler((item) => {
             setDiarySelectedHistoryRouteId(item.id);
-            console.info('[Diary] History route selected:', item.id, item.label);
             focusHistoryRouteOnMap(item);
           }),
           onDeleteIntent: ownPanelHandler((item) => {
@@ -1142,7 +1136,6 @@ function onRouteRatingSuccess(affectedSegmentIds) {
       addCleanup: currentDiarySession?.addCleanup,
     });
   }
-  console.info('[Diary] Route rating applied to %d segments', list.length || 0);
 }
 
 function refreshAfterCta(message) {
@@ -1409,9 +1402,6 @@ export async function initDiaryMode(map, options = {}) {
   const stats = { status: 'cancelled', segmentsCount: 0, routesCount: 0 };
   if (options?.signal?.aborted) return stats;
   currentDiarySession?.dispose();
-  if (typeof console !== 'undefined' && typeof console.info === 'function') {
-    console.info('[Diary] initDiaryMode called', { hasMount: !!mountTarget, mountId: mountTarget?.id || 'none' });
-  }
   if (!diaryFeatureEnabled()) {
     diaryFlagOff();
     return { ...stats, status: 'failed' };
@@ -1515,8 +1505,6 @@ export async function initDiaryMode(map, options = {}) {
     setDiaryMapSkin(mapRef, true);
     ensureNetworkOverlayLifecycle(mapRef, session, ownerIsCurrent);
 
-    console.info('[Diary] segments loaded:', stats.segmentsCount);
-    console.info('[Diary] routes loaded:', stats.routesCount);
     logMissingSegments(routes, segments);
     buildSegmentLookup(segments);
     ensureRouteIndex(routes);
@@ -1660,7 +1648,6 @@ function cleanupDiaryMode(
       );
     },
     () => { mapRef = releaseOwnedReference(mapRef, targetMap); },
-    () => console.info('[Diary] Teardown complete.'),
   ]);
 }
 
