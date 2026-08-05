@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 import { store } from '../../src/state/store.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
+import '../../src/i18n/crime_offense_catalog.js';
 import { readProductCss } from './helpers/css_source.mjs';
 
 test('dense Crime clusters switch to a high-contrast white count label', async () => {
@@ -47,12 +48,9 @@ test('Crime exposes one primary analytical layer for each analysis mode', async 
   assert.equal(crime.resolveCrimeLayerVisibility('clusters', tractState), 'none');
   assert.equal(crime.resolveCrimeLayerVisibility('districts-fill', tractState), 'none');
   assert.equal(crime.resolveCrimeLayerVisibility('tracts-fill', tractState), 'visible');
-  assert.equal(crime.shouldShowCrimeLegend(bufferState), false);
-  assert.equal(crime.shouldShowCrimeLegend(districtState), true);
-  assert.equal(crime.shouldShowCrimeLegend(tractState), true);
 });
 
-test('incident layers stay hidden until a buffer analysis has an intentional location', async () => {
+test('incident refresh requires either a buffer location or a selected census tract', async () => {
   const crime = await import('../../src/routes_crime/index.js');
   assert.equal(typeof crime.hasActiveIncidentSelection, 'function');
   const unselected = {
@@ -71,6 +69,80 @@ test('incident layers stay hidden until a buffer analysis has an intentional loc
   };
   assert.equal(crime.hasActiveIncidentSelection(selected), true);
   assert.equal(crime.resolveCrimeLayerVisibility('clusters', selected), 'visible');
+
+  const unselectedTract = {
+    queryMode: 'tract',
+    selectedTractGEOID: null,
+    overlayTractsLines: false,
+  };
+  assert.equal(crime.hasActiveIncidentSelection(unselectedTract), false);
+  assert.equal(crime.hasActiveIncidentSelection({
+    ...unselectedTract,
+    selectedTractGEOID: '42101000100',
+  }), true);
+  assert.equal(crime.resolveCrimeLayerVisibility('clusters', {
+    ...unselectedTract,
+    selectedTractGEOID: '42101000100',
+  }), 'none');
+});
+
+test('tract polygons remain visible and interactive when choropleth values are unavailable', async (t) => {
+  const originalDocument = globalThis.document;
+  const elements = new Map();
+  globalThis.document = {
+    getElementById(id) { return elements.get(id) || null; },
+    createElement: () => ({
+      id: '',
+      className: '',
+      hidden: true,
+      textContent: '',
+      setAttribute() {},
+      removeAttribute() {},
+    }),
+    body: {
+      appendChild(element) { elements.set(element.id, element); },
+    },
+  };
+  t.after(() => { globalThis.document = originalDocument; });
+
+  const sources = new Map();
+  const layers = new Map();
+  const map = {
+    getSource: (id) => sources.get(id) || null,
+    addSource(id, definition) {
+      sources.set(id, {
+        ...definition,
+        setData(data) { this.data = data; },
+      });
+    },
+    getLayer: (id) => layers.get(id) || null,
+    addLayer(definition) { layers.set(definition.id, definition); },
+    setPaintProperty(id, property, value) { layers.get(id).paint[property] = value; },
+  };
+  const geojson = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { GEOID: '42101000100', value: null },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 39.9]]],
+      },
+    }],
+  };
+  const { renderTractsChoropleth } = await import('../../src/map/render_choropleth_tracts.js');
+
+  renderTractsChoropleth(map, {
+    geojson,
+    values: [],
+    dataStatus: 'unavailable',
+    statusMessage: 'Snapshot unavailable',
+  });
+
+  assert.equal(sources.get('tracts-fill').data, geojson);
+  assert.equal(layers.get('tracts-fill').paint['fill-opacity'], 0.12);
+  assert.equal(layers.get('tracts-fill').paint['fill-outline-color'], '#64748b');
+  assert.equal(elements.get('tracts-outline-banner').hidden, false);
 });
 
 test('clearing a buffer location removes dependent comparison state', async () => {
@@ -289,6 +361,51 @@ test('buffer point picking never opens the district detail popup', async (t) => 
   assert.equal(popupCalls, 0);
 });
 
+test('district popup localizes top offense labels without changing provider rows', async (t) => {
+  const originalMode = store.queryMode;
+  const originalStartMonth = store.startMonth;
+  const originalDurationMonths = store.durationMonths;
+  store.queryMode = 'district';
+  store.startMonth = '2026-01';
+  store.durationMonths = 1;
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  setLanguage('zh-CN');
+  t.after(() => {
+    store.queryMode = originalMode;
+    store.startMonth = originalStartMonth;
+    store.durationMonths = originalDurationMonths;
+    setLanguage('en');
+  });
+
+  let handler;
+  let popupHtml = '';
+  const providerRows = [{ text_general_code: 'Rape', n: 3 }];
+  const map = {
+    on(_event, _layer, callback) { handler = callback; },
+    off() {},
+  };
+  const cleanup = attachDistrictPopup(map, 'districts-fill', {
+    fetchByDistrictImpl: async () => ({ rows: [{ dc_dist: '01', n: 9 }] }),
+    fetchTopTypesByDistrictImpl: async () => ({ rows: providerRows }),
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML(html) { popupHtml = html; return this; },
+      addTo() { return this; },
+      remove() {},
+    }),
+  });
+
+  await handler({
+    features: [{ properties: { DIST_NUMC: '01', name: 'Central' } }],
+    lngLat: { lng: -75.16, lat: 39.95 },
+  });
+  cleanup();
+
+  assert.match(popupHtml, /强奸 \(3\)/);
+  assert.doesNotMatch(popupHtml, /Rape/);
+  assert.deepEqual(providerRows, [{ text_general_code: 'Rape', n: 3 }]);
+});
+
 test('map initialization installs navigation and reset-extent controls', async () => {
   const mapModule = await import('../../src/map/initMap.js');
   assert.equal(typeof mapModule.installDefaultMapControls, 'function');
@@ -385,6 +502,35 @@ test('completed Crime analysis renders a compact trustworthy summary before deta
   assert.doesNotMatch(html, /Last 30 days|Recent 30-day change|-100\.0%/i);
   assert.doesNotMatch(html, /Compare A vs B/i);
   assert.doesNotMatch(html, /crime-comparison-details/i);
+});
+
+test('Crime summary and offense selector localize labels while preserving official option values', async (t) => {
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  const { buildCrimeSummaryHtml } = await import('../../src/compare/card.js');
+  const { localizeOffenseOptions } = await import('../../src/ui/panel.js');
+  t.after(() => setLanguage('en'));
+  setLanguage('zh-CN');
+
+  const html = buildCrimeSummaryHtml({
+    a: {
+      label: '地图点 A',
+      total: 12,
+      top3: [{ text_general_code: 'Other Assaults', n: 7 }],
+      delta30: null,
+    },
+    b: null,
+  }, { start: '2026-01-01', end: '2026-02-01' });
+  assert.match(html, /其他袭击/);
+  assert.doesNotMatch(html, /Other Assaults/);
+
+  const options = [
+    { value: 'Rape', textContent: '', dataset: {} },
+    { value: '', textContent: '正在加载', dataset: { i18n: 'crime.loadingCodes' } },
+  ];
+  localizeOffenseOptions({ options });
+  assert.equal(options[0].value, 'Rape');
+  assert.equal(options[0].textContent, '强奸');
+  assert.equal(options[1].textContent, '正在加载');
 });
 
 test('analysis summary names the latest available date when coverage metadata is absent', async () => {
@@ -573,6 +719,170 @@ test('drilldown menu rows follow the available options up to a compact ceiling',
   assert.equal(select.size, 6);
 });
 
+test('specific offense selector keeps at most three choices and explains native modifier selection', async () => {
+  const { syncOffenseHighlightOptions } = await import('../../src/utils/types.js');
+  assert.equal(typeof syncOffenseHighlightOptions, 'function');
+  const options = ['A', 'B', 'C', 'D'].map((value) => ({
+    value,
+    selected: false,
+    disabled: false,
+  }));
+  const select = { options };
+
+  assert.deepEqual(syncOffenseHighlightOptions(select, ['A', 'B', 'C', 'D']), ['A', 'B', 'C']);
+  assert.deepEqual(options.map(({ selected }) => selected), [true, true, true, false]);
+  assert.deepEqual(options.map(({ disabled }) => disabled), [false, false, false, true]);
+
+  assert.deepEqual(syncOffenseHighlightOptions(select, ['B']), ['B']);
+  assert.deepEqual(options.map(({ selected }) => selected), [false, true, false, false]);
+  assert.deepEqual(options.map(({ disabled }) => disabled), [false, false, false, false]);
+
+  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+  assert.match(html, /<select[^>]+id="fineSel"[^>]+aria-describedby="fineSelHint"/);
+  assert.match(html, /id="fineSelHint"[^>]+role="status"[^>]+aria-live="polite"/);
+
+  const messagesSource = await readFile(new URL('../../src/i18n/messages.js', import.meta.url), 'utf8');
+  assert.match(messagesSource, /Shift selects a range/);
+  assert.match(messagesSource, /Ctrl\/Cmd-click toggles one/);
+  assert.match(messagesSource, /Shift 连选范围/);
+  assert.match(messagesSource, /Ctrl \/ Cmd 点击切换单项/);
+});
+
+test('only the latest offense-option request may update the selector', async () => {
+  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  assert.match(panelSource, /drilldownRequestGeneration/);
+  assert.match(panelSource, /requestGeneration !== drilldownRequestGeneration/);
+  const emptyBranchStart = panelSource.indexOf('if (availableCodes.length === 0)');
+  const emptyBranchEnd = panelSource.indexOf('} else {', emptyBranchStart);
+  assert.ok(emptyBranchStart >= 0 && emptyBranchEnd > emptyBranchStart);
+  assert.match(panelSource.slice(emptyBranchStart, emptyBranchEnd), /syncOffenseHighlights\(\[\]\)/);
+});
+
+test('time-window analysis refresh starts before the offense-option request settles', async () => {
+  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  const helperStart = panelSource.indexOf('const refreshTimeWindow = () =>');
+  const helperEnd = panelSource.indexOf("groupSel?.addEventListener('change'", helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart);
+  const helper = panelSource.slice(helperStart, helperEnd);
+  assert.ok(helper.indexOf('onChange()') < helper.indexOf('refreshDrilldownForWindow()'));
+});
+
+test('every time-window control reloads offense options without duplicating the immediate result refresh', async () => {
+  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  assert.match(
+    panelSource,
+    /refreshDrilldownForWindow\s*=\s*\(\)\s*=>[\s\S]*?preserveSelection:\s*true,[\s\S]*?notify:\s*false/,
+  );
+  const handlersStart = panelSource.indexOf("startMonth?.addEventListener('change'");
+  const handlersEnd = panelSource.indexOf("shareViewBtn?.addEventListener('click'", handlersStart);
+  assert.ok(handlersStart >= 0 && handlersEnd > handlersStart);
+  const handlers = panelSource.slice(handlersStart, handlersEnd);
+  assert.equal((handlers.match(/refreshTimeWindow\(\)/g) || []).length, 4);
+});
+
+test('failed time-window option refresh preserves the visible selectable offense state', async () => {
+  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  assert.match(
+    panelSource,
+    /const renderStatus = \(key\) => \{\s*if \(preserveSelection\) return;/,
+  );
+  assert.match(panelSource, /renderStatus\('crime\.loadingCodes'\)/);
+  assert.match(
+    panelSource,
+    /catch \(err\) \{[\s\S]*?renderStatus\('crime\.codeLoadError'\)/,
+  );
+});
+
+test('initial offense hydration does not duplicate a valid initial Crime refresh', async () => {
+  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
+  const initStart = panelSource.indexOf('// Init-time populate');
+  const initEnd = panelSource.indexOf("startMonth?.addEventListener('change'", initStart);
+  assert.ok(initStart >= 0 && initEnd > initStart);
+  assert.match(panelSource.slice(initStart, initEnd), /notify:\s*false/);
+  assert.match(
+    panelSource,
+    /if \(notify \|\| requestedCodes\.length !== store\.selectedDrilldownCodes\.length\) onChange\(\)/,
+  );
+});
+
+test('categorical Crime legend pairs every highlight color with a text label', async (t) => {
+  const originalDocument = globalThis.document;
+  const elements = new Map();
+  const makeElement = (tagName) => ({
+    tagName,
+    className: '',
+    hidden: false,
+    textContent: '',
+    style: {},
+    dataset: {},
+    attributes: new Map(),
+    children: [],
+    setAttribute(name, value) { this.attributes.set(name, value); },
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    querySelectorAll(selector) {
+      if (selector !== '[data-offense-code]') return [];
+      const matches = [];
+      const visit = (element) => {
+        if (element?.dataset?.offenseCode) matches.push(element);
+        for (const child of element?.children || []) visit(child);
+      };
+      for (const child of this.children) visit(child);
+      return matches;
+    },
+  });
+  globalThis.document = {
+    getElementById(id) { return elements.get(id) || null; },
+    createElement: makeElement,
+    body: {
+      appendChild(element) { elements.set(element.id, element); },
+    },
+  };
+  t.after(() => { globalThis.document = originalDocument; });
+
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  t.after(() => setLanguage('en'));
+  setLanguage('zh-CN');
+  const legend = await import('../../src/map/legend.js');
+  legend.initLegend('highlight-legend-test');
+  legend.updateLegend({
+    title: 'map.offenseLegendTitle',
+    subtitle: 'map.offenseLegendSubtitle',
+    items: [
+      { color: '#045a8d', code: 'Aggravated Assault Firearm' },
+      { color: '#74a9cf', code: 'Aggravated Assault No Firearm' },
+    ],
+  });
+
+  const root = elements.get('highlight-legend-test');
+  assert.equal(root.hidden, false);
+  assert.equal(root.children[0].attributes.get('data-i18n'), 'map.offenseLegendTitle');
+  assert.equal(root.children[1].attributes.get('data-i18n'), 'map.offenseLegendSubtitle');
+  assert.equal(root.children.filter(({ className }) => className === 'map-legend__row').length, 2);
+  assert.deepEqual(
+    root.children
+      .filter(({ className }) => className === 'map-legend__row')
+      .map((row) => row.children[1].textContent),
+    ['持枪严重袭击', '非持枪严重袭击'],
+  );
+
+  setLanguage('en');
+  assert.deepEqual(
+    root.children
+      .filter(({ className }) => className === 'map-legend__row')
+      .map((row) => row.children[1].textContent),
+    ['Aggravated assault with firearm', 'Aggravated assault without firearm'],
+  );
+});
+
+test('buffer highlight legend is restored after background choropleth jobs settle', async () => {
+  const source = await readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8');
+  const settled = source.indexOf('await Promise.allSettled');
+  const outcome = source.indexOf('const outcome = classifyCrimeRefreshJobs', settled);
+  assert.ok(settled >= 0 && outcome > settled);
+  assert.match(source.slice(settled, outcome), /if \(incidentView\) reconcileCrimeLegend\(snapshot\)/);
+});
+
 test('the default Crime basemap is visually muted behind analytical overlays', async () => {
   const { resolveMapStyle } = await import('../../src/config.js');
   const style = resolveMapStyle('crime');
@@ -592,4 +902,12 @@ test('Crime map notices sit below the global app bar', async () => {
   assert.doesNotMatch(pointsSource, /position:\s*'fixed',\s*top:\s*'12px'/);
   assert.match(css, /#banner\s*\{[^}]*bottom:\s*52px[^}]*left:\s*384px/s);
   assert.match(css, /@media\s*\(max-width:\s*720px\)[\s\S]*#banner\s*\{[^}]*top:\s*calc\(var\(--app-bar-height\)\s*\+\s*12px\)/s);
+});
+
+test('map-selected Crime areas synchronize controls and the canonical URL', async () => {
+  const source = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
+  const callback = source.match(/onSelectionChange:[\s\S]*?onDataScopeChange:/)?.[0] || '';
+  assert.match(callback, /origin !== ['"]map['"]/);
+  assert.match(callback, /panel\.syncFromStore\?\.\(\)/);
+  assert.match(callback, /writeCrimeStateToURL\(store\)/);
 });

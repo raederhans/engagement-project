@@ -1,4 +1,8 @@
-import { expandGroupsToCodes, getCodesForGroups } from '../utils/types.js';
+import {
+  expandGroupsToCodes,
+  normalizeHighlightedOffenses,
+  syncOffenseHighlightOptions,
+} from '../utils/types.js';
 import { fetchAvailableCodesForGroups } from '../api/crime.js';
 import {
   clearCrimeAnalysisSelection,
@@ -22,6 +26,10 @@ import {
   t,
 } from '../i18n/index.js';
 import { initCrimeTaskNavigation } from './crime_task_nav.js';
+import {
+  localizeOffenseCode,
+  onCrimeOffenseCatalogChange,
+} from '../i18n/crime_offenses.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -56,6 +64,14 @@ export function fitMultiSelectRows(select, maxRows = 6) {
   const rows = Math.max(1, Math.min(Math.floor(optionCount), Math.floor(ceiling)));
   select.size = rows;
   return rows;
+}
+
+export function localizeOffenseOptions(select) {
+  for (const option of select?.options || []) {
+    if (option.dataset?.i18n || !option.value) continue;
+    option.textContent = localizeOffenseCode(option.value);
+  }
+  return select;
 }
 
 export function shouldShowCrimeClearSelection(state) {
@@ -226,6 +242,7 @@ export function initPanel(store, handlers) {
   const customRadiusInput = document.getElementById('customRadiusInput');
   const groupSel = document.getElementById('groupSel');
   const fineSel = document.getElementById('fineSel');
+  const fineSelHint = document.getElementById('fineSelHint');
   const rateSel = document.getElementById('rateSel');
   const rateRow = document.getElementById('rateRow');
   const dataStatus = document.getElementById('dataStatus');
@@ -266,6 +283,13 @@ export function initPanel(store, handlers) {
     writeCrimeStateToURL(store);
     handlers.onChange?.();
   }, 300);
+  let drilldownRequestGeneration = 0;
+
+  const syncOffenseHighlights = (codes = store.selectedDrilldownCodes) => {
+    const normalized = syncOffenseHighlightOptions(fineSel, codes);
+    store.selectedDrilldownCodes = normalized;
+    setTranslatedText(fineSelHint, 'crime.drilldownHint', { count: normalized.length });
+  };
 
   const syncComparisonControls = () => {
     const visible = store.queryMode === 'buffer' && Boolean(store.centerB3857 || store.centerBLonLat);
@@ -390,66 +414,82 @@ export function initPanel(store, handlers) {
     }
   });
 
-  async function populateDrilldown(values, { preserveSelection = false } = {}) {
-    const requestedCodes = preserveSelection ? [...(store.selectedDrilldownCodes || [])] : [];
+  async function populateDrilldown(values, { preserveSelection = false, notify = true } = {}) {
+    const requestGeneration = ++drilldownRequestGeneration;
+    let requestedCodes = preserveSelection
+      ? normalizeHighlightedOffenses(store.selectedDrilldownCodes)
+      : [];
     store.selectedGroups = values;
     if (!preserveSelection) store.selectedDrilldownCodes = [];
 
     // populate drilldown options (filtered by time window availability)
     if (fineSel) {
+      const renderStatus = (key) => {
+        if (preserveSelection) return;
+        fineSel.innerHTML = `<option data-i18n="${key}" disabled>${t(key)}</option>`;
+        fitMultiSelectRows(fineSel);
+      };
       if (values.length === 0) {
         // No parent groups selected
         fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
         fineSel.disabled = true;
         fitMultiSelectRows(fineSel);
+        syncOffenseHighlights([]);
       } else {
         fineSel.disabled = false;
-        fineSel.innerHTML = `<option data-i18n="crime.loadingCodes" disabled>${t('crime.loadingCodes')}</option>`;
-        fitMultiSelectRows(fineSel);
+        renderStatus('crime.loadingCodes');
 
         try {
           const { start, end } = store.getStartEnd();
           const availableCodes = await fetchAvailableCodesForGroups({ start, end, groups: values });
+          if (requestGeneration !== drilldownRequestGeneration) return;
+          if (preserveSelection) requestedCodes = normalizeHighlightedOffenses(store.selectedDrilldownCodes);
 
           fineSel.innerHTML = '';
           if (availableCodes.length === 0) {
             fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
+            syncOffenseHighlights([]);
           } else {
             for (const c of availableCodes) {
               const opt = document.createElement('option');
               opt.value = c;
-              opt.textContent = c;
+              opt.textContent = localizeOffenseCode(c);
               opt.selected = requestedCodes.includes(c);
               fineSel.appendChild(opt);
             }
             if (preserveSelection) {
               store.selectedDrilldownCodes = requestedCodes.filter((code) => availableCodes.includes(code));
             }
+            syncOffenseHighlights(store.selectedDrilldownCodes);
           }
           fitMultiSelectRows(fineSel);
         } catch (err) {
+          if (requestGeneration !== drilldownRequestGeneration) return;
           console.warn('Failed to fetch available codes:', err);
-          fineSel.innerHTML = `<option data-i18n="crime.codeLoadError" disabled>${t('crime.codeLoadError')}</option>`;
-          fitMultiSelectRows(fineSel);
+          renderStatus('crime.codeLoadError');
         }
       }
     }
+    if (notify || requestedCodes.length !== store.selectedDrilldownCodes.length) onChange();
   }
 
-  groupSel?.addEventListener('change', async () => {
-    const values = Array.from(groupSel.selectedOptions).map((o) => o.value);
-    // Dev-only console assertion
-    const dev = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) || (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production');
-    if (dev) {
-      try { console.debug('drilldown groups→codes', values, expandGroupsToCodes(values)); } catch {}
-    }
-    await populateDrilldown(values);
+  const refreshDrilldownForWindow = () => populateDrilldown(
+    store.selectedGroups || [],
+    { preserveSelection: true, notify: false },
+  );
+  const refreshTimeWindow = () => {
     onChange();
+    void refreshDrilldownForWindow();
+  };
+
+  groupSel?.addEventListener('change', () => {
+    const values = Array.from(groupSel.selectedOptions).map((o) => o.value);
+    void populateDrilldown(values);
   });
 
   fineSel?.addEventListener('change', () => {
     const codes = Array.from(fineSel.selectedOptions).map((o) => o.value);
-    store.selectedDrilldownCodes = codes; // Drilldown overrides parent groups
+    syncOffenseHighlights(codes); // Drilldown overrides parent groups
     onChange();
   });
 
@@ -569,6 +609,7 @@ export function initPanel(store, handlers) {
     fineSel.disabled = true;
     fitMultiSelectRows(fineSel);
   }
+  syncOffenseHighlights();
 
   if (groupSel && store.selectedGroups?.length) {
     for (const option of groupSel.options) option.selected = store.selectedGroups.includes(option.value);
@@ -580,7 +621,7 @@ export function initPanel(store, handlers) {
   if (groupSel) {
     const initGroups = Array.from(groupSel.selectedOptions).map(o => o.value);
     if (initGroups.length > 0) {
-      populateDrilldown(initGroups, { preserveSelection: true }).then(() => onChange());
+      void populateDrilldown(initGroups, { preserveSelection: true, notify: false });
     }
   }
 
@@ -588,22 +629,22 @@ export function initPanel(store, handlers) {
     store.startMonth = startMonth.value || null;
     normalizeCoverageWindow(store);
     syncFromStore();
-    onChange();
+    void refreshTimeWindow();
   });
   durationSel?.addEventListener('change', () => {
     store.durationMonths = Number(durationSel.value) || 6;
     normalizeCoverageWindow(store);
     syncFromStore();
-    onChange();
+    void refreshTimeWindow();
   });
   preset6?.addEventListener('click', () => {
     applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel });
-    onChange();
+    void refreshTimeWindow();
     void updateHUD();
   });
   preset12?.addEventListener('click', () => {
     applyRecentPreset(store, 12, { startMonthInput: startMonth, durationSelect: durationSel });
-    onChange();
+    void refreshTimeWindow();
     void updateHUD();
   });
 
@@ -733,8 +774,10 @@ export function initPanel(store, handlers) {
   void updateHUD();
   onLanguageChange(() => {
     syncFromStore();
+    localizeOffenseOptions(fineSel);
     applyTranslations(panelRoot);
   });
+  onCrimeOffenseCatalogChange(() => localizeOffenseOptions(fineSel));
 
   return {
     diaryMount: diaryShell,

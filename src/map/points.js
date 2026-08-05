@@ -1,9 +1,14 @@
 import { fetchPoints } from '../api/crime.js';
-import { categoryColorPairs } from '../utils/types.js';
+import {
+  buildOffenseColorExpression,
+  buildOffenseHighlights,
+} from '../utils/types.js';
+import { makePalette } from '../utils/classify.js';
 import { setTranslatedText } from '../i18n/index.js';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fit.js';
 
 const noticeActionHandlers = new WeakMap();
+const pointSourceClusterModes = new WeakMap();
 
 function project3857(lon, lat) {
   const R = 6378137;
@@ -26,17 +31,6 @@ function ensureSourcesAndLayers(map) {
   const unclusteredId = 'unclustered';
 
   return { srcId, clusterId, clusterCountId, unclusteredId };
-}
-
-function unclusteredColorExpression() {
-  // Build a match expression on text_general_code with fallbacks
-  const pairs = categoryColorPairs();
-  const expr = ['match', ['get', 'text_general_code']];
-  for (const [key, color] of pairs) {
-    expr.push(key, color);
-  }
-  expr.push('#999999');
-  return expr;
 }
 
 export function clusterTextColorExpression() {
@@ -122,7 +116,7 @@ export function prepareIncidentGeoJson(geo, generation = 0) {
 }
 
 /**
- * Fetch GeoJSON points limited by time window and bbox, and render clusters/unclustered.
+ * Fetch GeoJSON points limited by time window, bbox, and buffer radius, then render them.
  * @param {import('maplibre-gl').Map} map
  * @param {{start:string,end:string,types?:string[]}} params
  */
@@ -132,34 +126,71 @@ export async function refreshPoints(map, {
   start,
   end,
   types,
-  queryMode,
+  center3857,
+  radiusM,
+  drilldownCodes,
+  classPalette = 'Blues',
+  queryMode = 'buffer',
   selectedDistrictCode,
+  selectedTractGEOID,
   signal,
   resultGeneration = 0,
   fetchPointsImpl = fetchPoints,
+  resolveTractGeometryImpl,
   shouldApply = () => true,
 } = {}) {
   const { srcId, clusterId, clusterCountId, unclusteredId } = ensureSourcesAndLayers(map);
 
   const bbox = mapBboxTo3857(map);
   const dc_dist = queryMode === 'district' && selectedDistrictCode ? selectedDistrictCode : undefined;
-  if (signal?.aborted) return { applied: false };
-  const sourceGeo = await fetchPointsImpl({ start, end, types, bbox, dc_dist, signal });
+  const bufferCenter = queryMode === 'buffer' ? center3857 : undefined;
+  const bufferRadius = queryMode === 'buffer' ? radiusM : undefined;
+  let tractGeometry;
+  if (queryMode === 'tract' && selectedTractGEOID) {
+    const resolver = resolveTractGeometryImpl
+      || (await import('../charts/index.js')).resolveSelectedTractGeometry;
+    tractGeometry = await resolver({ selectedTractGEOID, signal });
+  }
+  if (signal?.aborted || !shouldApply()) return { applied: false };
+  const sourceGeo = await fetchPointsImpl({
+    start,
+    end,
+    types,
+    bbox,
+    center3857: bufferCenter,
+    radiusM: bufferRadius,
+    dc_dist,
+    queryMode,
+    selectedTractGEOID,
+    tractGeometry,
+    signal,
+  });
   if (signal?.aborted || !shouldApply()) return { applied: false };
   const geo = prepareIncidentGeoJson(sourceGeo, resultGeneration);
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
+  const highlights = buildOffenseHighlights(drilldownCodes, makePalette(classPalette, 5));
+  const tooMany = count > MAX_UNCLUSTERED;
+  const shouldCluster = highlights.length === 0 || tooMany;
+  const pointColorExpression = buildOffenseColorExpression(highlights);
+  const pointStrokeColor = highlights.length ? '#172033' : '#fff';
 
   // Add or update source
-  if (map.getSource(srcId)) {
-    map.getSource(srcId).setData(geo);
+  const existingSource = map.getSource(srcId);
+  if (existingSource) {
+    if (pointSourceClusterModes.get(existingSource) !== shouldCluster) {
+      existingSource.setClusterOptions({ cluster: shouldCluster });
+      pointSourceClusterModes.set(existingSource, shouldCluster);
+    }
+    existingSource.setData(geo);
   } else {
     map.addSource(srcId, {
       type: 'geojson',
       data: geo,
-      cluster: true,
+      cluster: shouldCluster,
       clusterMaxZoom: 14,
       clusterRadius: 40,
     });
+    pointSourceClusterModes.set(map.getSource(srcId), shouldCluster);
   }
 
   // Cluster circles
@@ -210,8 +241,7 @@ export async function refreshPoints(map, {
   }
 
   // Unclustered single points
-  const tooMany = count > MAX_UNCLUSTERED;
-  const existsUnclustered = !!map.getLayer(unclusteredId);
+  const existsUnclustered = map.getLayer(unclusteredId);
   if (tooMany) {
     if (existsUnclustered) map.removeLayer(unclusteredId);
     ensurePointsNotice({ map, key: 'map.tooManyPoints' });
@@ -225,7 +255,7 @@ export async function refreshPoints(map, {
         status: 'empty',
         geo,
         count,
-        tooMany: false,
+        tooMany,
       };
     }
     hideBanner();
@@ -237,12 +267,15 @@ export async function refreshPoints(map, {
         filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 5,
-          'circle-color': unclusteredColorExpression(),
-          'circle-stroke-color': '#fff',
+          'circle-color': pointColorExpression,
+          'circle-stroke-color': pointStrokeColor,
           'circle-stroke-width': 0.8,
-          'circle-opacity': 0.85
-        }
+          'circle-opacity': 0.85,
+        },
       });
+    } else {
+      map.setPaintProperty(unclusteredId, 'circle-color', pointColorExpression);
+      map.setPaintProperty(unclusteredId, 'circle-stroke-color', pointStrokeColor);
     }
   }
   return {

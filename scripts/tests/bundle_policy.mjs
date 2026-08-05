@@ -19,6 +19,8 @@ const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
+const helpContent = manifest['src/ui/help_content.js'];
+const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
 const p1Messages = Object.values(manifest).find((record) => record.name === 'p1');
 
 assert.ok(entry?.isEntry, 'Vite manifest must contain index.html as the application entry');
@@ -30,14 +32,16 @@ assert.deepEqual(
     'src/routes_diary/ui_insights_panel.js',
     'src/i18n/history.js',
     'src/analysis/analysis_history_controller.js',
+    'src/ui/help_content.js',
   ]),
-  'Entry must keep Crime, Diary, Diary Insights, Analysis History, and its translations behind direct lazy boundaries',
+  'Entry must keep Crime, Diary, Help, Diary Insights, Analysis History, and their translations behind direct lazy boundaries',
 );
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
   new Set([
     'src/routes_crime/incident_results_controller.js',
     'src/charts/index.js',
+    'src/i18n/crime_offense_catalog.js',
   ]),
   'Crime must keep incident results and Charts behind focused lazy boundaries',
 );
@@ -55,6 +59,8 @@ assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
 assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain Analysis History translations as a lazy chunk');
+assert.ok(helpContent?.isDynamicEntry, 'Vite manifest must contain Help Center content as a lazy chunk');
+assert.ok(crimeOffenseCatalog?.isDynamicEntry, 'Vite manifest must keep the bilingual Crime offense catalog lazy');
 assert.ok(p1Messages, 'Vite manifest must keep P1 translations in a shared lazy chunk');
 assert.ok(
   !Object.keys(manifest).some((key) => key.includes('__vite-browser-external')),
@@ -80,6 +86,10 @@ const budgets = [
   ['Analysis History', analysisHistory, 23_000, 7_800],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
+  // Full bilingual source and methodology guidance loads only when Help is opened.
+  ['Help Center', helpContent, 22_500, 9_300],
+  // Loaded with Crime initialization so the versioned taxonomy never inflates the app entry.
+  ['Crime offense catalog', crimeOffenseCatalog, 9_000, 2_800],
   // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.
   ['P1 translations', p1Messages, 9_000, 3_300],
 ];

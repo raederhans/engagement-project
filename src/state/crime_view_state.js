@@ -1,14 +1,81 @@
+import { normalizeHighlightedOffenses } from '../utils/types.js';
+
 const MODES = new Set(['buffer', 'district', 'tract']);
 const CLASS_METHODS = new Set(['quantile', 'equal', 'custom']);
 const CLASS_PALETTES = new Set(['Blues', 'YlGnBu', 'OrRd', 'PuBuGn', 'Greens', 'Purples', 'BuGn', 'BuPu', 'GnBu', 'YlOrRd', 'RdBu']);
 const DURATION_OPTIONS = new Set([3, 6, 12, 24]);
 const RADIUS_MIN = 100;
 const RADIUS_MAX = 10_000;
+const CRIME_REFRESH_SCOPES = Object.freeze(['boundary', 'incidents', 'charts', 'summary']);
+const CRIME_REFRESH_SCOPE_SET = new Set(['all', ...CRIME_REFRESH_SCOPES]);
 export const CRIME_VIEW_QUERY_KEYS = new Set([
   'analysis', 'start', 'months', 'radius', 'groups', 'codes', 'district', 'tract',
   'tractLines', 'a', 'b', 'labelA', 'labelB', 'rate', 'class', 'bins', 'palette',
   'opacity', 'breaks',
 ]);
+
+export function hasActiveIncidentSelection(state) {
+  return state?.queryMode === 'buffer'
+    ? Array.isArray(state.centerLonLat) && state.centerLonLat.length >= 2
+    : state?.queryMode === 'tract' && /^\d{11}$/.test(state.selectedTractGEOID || '');
+}
+
+export function crimeSelectionKey(state) {
+  if (state?.queryMode === 'district' && state.selectedDistrictCode) {
+    return `district:${String(state.selectedDistrictCode).padStart(2, '0')}`;
+  }
+  if (state?.queryMode === 'tract' && state.selectedTractGEOID) {
+    return `tract:${state.selectedTractGEOID}`;
+  }
+  if (!hasActiveIncidentSelection(state)) return null;
+  const centerB = Array.isArray(state.centerBLonLat) ? `|${state.centerBLonLat.join(',')}` : '';
+  return `buffer:${state.centerLonLat.join(',')}${centerB}|${Number(state.radiusM ?? state.radius) || 400}`;
+}
+
+export function normalizeCrimeRefreshScope(scope = 'all') {
+  return CRIME_REFRESH_SCOPE_SET.has(scope) ? scope : null;
+}
+
+export function planCrimeRefresh(snapshot, scope = 'all') {
+  const normalizedScope = normalizeCrimeRefreshScope(scope);
+  if (!normalizedScope) return { valid: false, requested: [], inactive: [] };
+  const candidates = normalizedScope === 'all' ? CRIME_REFRESH_SCOPES : [normalizedScope];
+  const hasAnalysisSelection = Boolean(crimeSelectionKey(snapshot));
+  const requested = candidates.filter((name) => (
+    name === 'boundary'
+    || (name === 'incidents' ? hasActiveIncidentSelection(snapshot) : hasAnalysisSelection)
+  ));
+  return {
+    valid: true,
+    requested,
+    inactive: candidates.filter((name) => !requested.includes(name)),
+  };
+}
+
+export function resolveCrimePrimaryLayer(state) {
+  if (state?.queryMode === 'district') return 'districts';
+  if (state?.queryMode === 'tract') return 'tracts';
+  return 'incidents';
+}
+
+export function resolveCrimeLayerVisibility(layerId, state) {
+  const primaryLayer = resolveCrimePrimaryLayer(state);
+  if (layerId === 'tracts-outline-line') return state?.overlayTractsLines ? 'visible' : 'none';
+  if (layerId === 'tracts-fill' || layerId.startsWith('tracts-selected-')) {
+    return primaryLayer === 'tracts' ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('districts-')) return primaryLayer === 'districts' ? 'visible' : 'none';
+  if (layerId === 'clusters' || layerId === 'cluster-count' || layerId === 'unclustered') {
+    return primaryLayer === 'incidents' && hasActiveIncidentSelection(state) ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('buffer-a-')) {
+    return state?.queryMode === 'buffer' && state?.centerLonLat ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('buffer-b-')) {
+    return state?.queryMode === 'buffer' && state?.centerBLonLat ? 'visible' : 'none';
+  }
+  return 'visible';
+}
 
 function finiteNumber(value, fallback = null) {
   if (value == null || value === '') return fallback;
@@ -67,7 +134,8 @@ export function encodeCrimeViewState(state) {
   params.set('months', String(optionNumber(state.durationMonths, DURATION_OPTIONS, 12)));
   params.set('radius', String(boundedInteger(state.radius, 400, RADIUS_MIN, RADIUS_MAX)));
   if (state.selectedGroups?.length) params.set('groups', state.selectedGroups.join('|'));
-  if (state.selectedDrilldownCodes?.length) params.set('codes', state.selectedDrilldownCodes.join('|'));
+  const highlightedOffenses = normalizeHighlightedOffenses(state.selectedDrilldownCodes);
+  if (highlightedOffenses.length) params.set('codes', highlightedOffenses.join('|'));
   if (state.selectedDistrictCode) params.set('district', state.selectedDistrictCode);
   if (state.selectedTractGEOID) params.set('tract', state.selectedTractGEOID);
   if (state.overlayTractsLines) params.set('tractLines', '1');
@@ -94,7 +162,7 @@ export function decodeCrimeViewState(value) {
     durationMonths: optionNumber(params.get('months'), DURATION_OPTIONS, 12),
     radius: boundedInteger(params.get('radius'), 400, RADIUS_MIN, RADIUS_MAX),
     selectedGroups: list(params.get('groups')),
-    selectedDrilldownCodes: list(params.get('codes')),
+    selectedDrilldownCodes: normalizeHighlightedOffenses(list(params.get('codes'))),
     selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(params.get('district') || '') ? params.get('district') : null,
     selectedTractGEOID: queryMode === 'tract' && /^\d{11}$/.test(params.get('tract') || '') ? params.get('tract') : null,
     overlayTractsLines: params.get('tractLines') === '1',

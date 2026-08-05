@@ -19,6 +19,7 @@ export function readCrimeSnapshot(source) {
     addressB: source.addressB ?? null,
     adminLevel: source.adminLevel,
     per10k: source.per10k,
+    coverageDate: source.coverageMax || null,
     overlayTractsLines: source.overlayTractsLines,
   };
 }

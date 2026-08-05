@@ -1,110 +1,148 @@
 /**
- * Collapsible "About" panel with smooth slide-down animation
+ * Lightweight Help Center shell. The full guide is loaded only when opened.
  */
-import { applyTranslations, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
-
-/**
- * Initialize the about panel with toggle button and collapsible content.
- * Panel sits at top of page, slides down when opened, Esc to close.
- */
-export function getAboutContent(mode = 'crime') {
-  const isDiary = mode === 'diary';
-  const modeKey = isDiary ? 'diary' : 'crime';
-  return `
-    <div class="about-content">
-      <h3 id="about-title" class="about-content__title" data-i18n="help.productTitle">${t('help.productTitle')}</h3>
-
-      <div class="about-content__section">
-        <strong class="about-content__heading" data-i18n="help.${modeKey}Title">${t(`help.${modeKey}Title`)}</strong>
-        <p class="about-content__copy" data-i18n="help.${modeKey}Description">${t(`help.${modeKey}Description`)}</p>
-      </div>
-
-      <div class="about-content__section">
-        <strong class="about-content__heading" data-i18n="help.howTo">${t('help.howTo')}</strong>
-        <p class="about-content__copy" data-i18n="help.${modeKey}HowTo">${t(`help.${modeKey}HowTo`)}</p>
-      </div>
-
-      <div class="about-content__section about-content__section--last">
-        <strong class="about-content__heading" data-i18n="help.important">${t('help.important')}</strong>
-        <p class="about-content__copy" data-i18n="help.${modeKey}Notes">${t(`help.${modeKey}Notes`)}</p>
-      </div>
-
-      <p class="about-content__source">
-        <a data-i18n="help.sourceLink" href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer">${t('help.sourceLink')}</a>
-      </p>
-    </div>
-  `;
-}
+import { applyTranslations, setTranslatedAttribute, setTranslatedText } from '../i18n/index.js';
 
 export function resolveAboutMount(documentRef = globalThis.document) {
   return documentRef?.querySelector?.('[data-app-help]') || documentRef?.body || null;
 }
 
-export function initAboutPanel({ initialMode = 'crime' } = {}) {
-  // Check if already initialized
-  if (document.getElementById('about-panel')) {
-    return;
-  }
+function focusableElements(panel) {
+  return Array.from(panel.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )).filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+}
 
-  // Create container
+export function initAboutPanel({ initialMode = 'crime' } = {}) {
+  if (document.getElementById('about-panel')) return;
+
   const root = document.createElement('div');
   root.id = 'about-root';
 
-  // Create toggle button
   const btn = document.createElement('button');
   btn.id = 'about-toggle';
   btn.className = 'about-toggle';
+  btn.type = 'button';
   btn.setAttribute('aria-expanded', 'false');
   setTranslatedAttribute(btn, 'help.openLabel', 'aria-label');
   setTranslatedAttribute(btn, 'help.title', 'title');
   setTranslatedText(btn, 'help.button');
 
-  // Create panel
+  const backdrop = document.createElement('div');
+  backdrop.className = 'about-backdrop';
+  backdrop.hidden = true;
+
   const panel = document.createElement('div');
   panel.id = 'about-panel';
   panel.className = 'about-panel';
+  panel.tabIndex = -1;
   btn.setAttribute('aria-controls', panel.id);
   panel.setAttribute('aria-hidden', 'true');
   panel.inert = true;
-  panel.setAttribute('role', 'region');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
   panel.setAttribute('aria-labelledby', 'about-title');
+  panel.setAttribute('aria-describedby', 'about-intro');
 
-  // Panel content
-  let currentMode = initialMode === 'diary' ? 'diary' : 'crime';
-  panel.innerHTML = getAboutContent(currentMode);
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'about-close';
+  setTranslatedAttribute(closeBtn, 'help.closeLabel', 'aria-label');
+  const closeIcon = document.createElement('span');
+  closeIcon.className = 'about-close__icon';
+  closeIcon.setAttribute('aria-hidden', 'true');
+  closeIcon.textContent = '×';
+  const closeLabel = document.createElement('span');
+  setTranslatedText(closeLabel, 'help.close');
+  closeBtn.append(closeIcon, closeLabel);
+
+  const contentHost = document.createElement('div');
+  contentHost.className = 'about-content-host';
+  const loading = document.createElement('p');
+  loading.className = 'about-loading';
+  loading.setAttribute('role', 'status');
+  setTranslatedText(loading, 'help.loading');
+  contentHost.appendChild(loading);
+  panel.append(closeBtn, contentHost);
   applyTranslations(panel);
 
-  // Assemble
   root.appendChild(btn);
-  root.appendChild(panel);
   resolveAboutMount(document)?.appendChild(root);
+  document.body?.append(backdrop, panel);
+
+  let currentMode = initialMode === 'diary' ? 'diary' : 'crime';
+  let contentModule = null;
+  let contentPromise = null;
+  const renderContent = async () => {
+    try {
+      contentPromise ||= import('./help_content.js');
+      contentModule ||= await contentPromise;
+      contentHost.innerHTML = contentModule.getAboutContent(currentMode);
+      contentHost.scrollTop = 0;
+      applyTranslations(panel);
+    } catch {
+      contentPromise = null;
+      contentHost.replaceChildren();
+      const error = document.createElement('p');
+      error.className = 'about-loading about-loading--error';
+      error.setAttribute('role', 'alert');
+      setTranslatedText(error, 'help.loadingError');
+      contentHost.appendChild(error);
+    }
+  };
 
   const setOpen = (isOpen, { restoreFocus = false } = {}) => {
     panel.classList.toggle('about--open', isOpen);
     btn.setAttribute('aria-expanded', String(isOpen));
     panel.setAttribute('aria-hidden', String(!isOpen));
     panel.inert = !isOpen;
-    if (restoreFocus) btn.focus();
+    backdrop.hidden = !isOpen;
+    document.body?.classList?.toggle('about-is-open', isOpen);
+    if (isOpen) {
+      const focusClose = () => closeBtn.focus();
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(focusClose);
+      else focusClose();
+      void renderContent();
+    } else if (restoreFocus) {
+      btn.focus();
+    }
   };
 
-  // Toggle handler
   btn.addEventListener('click', () => {
-    setOpen(!panel.classList.contains('about--open'));
+    setOpen(!panel.classList.contains('about--open'), { restoreFocus: true });
   });
+  closeBtn.addEventListener('click', () => setOpen(false, { restoreFocus: true }));
+  backdrop.addEventListener('click', () => setOpen(false, { restoreFocus: true }));
 
-  // Esc to close
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panel.classList.contains('about--open')) {
-      e.preventDefault();
+  document.addEventListener('keydown', (event) => {
+    if (!panel.classList.contains('about--open')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
       setOpen(false, { restoreFocus: true });
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = focusableElements(panel);
+    if (!focusable.length) {
+      event.preventDefault();
+      panel.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
     }
   });
 
   return Object.freeze({
     setMode(mode) {
       currentMode = mode === 'diary' ? 'diary' : 'crime';
-      panel.innerHTML = getAboutContent(currentMode);
-      applyTranslations(panel);
+      if (contentModule) void renderContent();
     },
   });
 }

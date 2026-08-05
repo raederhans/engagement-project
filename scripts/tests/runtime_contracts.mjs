@@ -7,6 +7,7 @@ import { escapeHtml } from '../../src/utils/html.js';
 import { matchPathToSegments } from '../../src/utils/match.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 import { createLatestSerialQueue } from '../../src/utils/latest_serial_queue.js';
+import { circleFeature, distanceMeters, geometryVertexCentroid } from '../../src/utils/geo_circle.js';
 import { parsePreviewArgs, resolvePreviewData, toViteFsUrl } from '../quick_preview.mjs';
 import { refreshPoints } from '../../src/map/points.js';
 import { buildSegmentCardHtml } from '../../src/map/segments_layer.js';
@@ -78,8 +79,15 @@ test('incident point queries include the source row key used only for current-re
     start: '2026-01-01',
     end: '2026-02-01',
     bbox: [-8_370_000, 4_850_000, -8_360_000, 4_860_000],
+    center3857: [-8_365_000, 4_855_000],
+    radiusM: 800,
   });
   assert.match(sql, /^SELECT cartodb_id, the_geom,/);
+  assert.match(sql, /the_geom_webmercator && ST_MakeEnvelope\([^)]*, 3857\)/);
+  assert.match(
+    sql,
+    /ST_DWithin\(the_geom_webmercator, ST_SetSRID\(ST_Point\(-8365000, 4855000\), 3857\), 800\)/,
+  );
 });
 
 test('tract filters keep both the envelope and polygon in EPSG:4326', () => {
@@ -95,6 +103,19 @@ test('tract filters keep both the envelope and polygon in EPSG:4326', () => {
     assert.match(sql, /ST_Intersects\(the_geom, ST_SetSRID\(ST_GeomFromGeoJSON/);
     assert.doesNotMatch(sql, /ST_Transform\(ST_MakeEnvelope/);
   }
+});
+
+test('tract incident point queries combine the viewport with the selected tract polygon', () => {
+  const sql = buildCrimePointsSQL({
+    start: '2026-01-01',
+    end: '2026-02-01',
+    bbox: [-8_370_000, 4_850_000, -8_360_000, 4_860_000],
+    tractGeometry: polygon,
+  });
+  assert.match(sql, /the_geom_webmercator && ST_MakeEnvelope\([^)]*, 3857\)/);
+  assert.match(sql, /the_geom && ST_MakeEnvelope\(-75\.2, 39\.9, -75\.1, 40, 4326\)/);
+  assert.match(sql, /ST_Intersects\(the_geom, ST_SetSRID\(ST_GeomFromGeoJSON/);
+  assert.doesNotMatch(sql, /ST_DWithin\(the_geom_webmercator/);
 });
 
 test('month duration uses an exclusive boundary after exactly N calendar months', () => {
@@ -146,6 +167,21 @@ test('buffer population joins ACS rows to tract geometry by GEOID', async () => 
   });
 
   assert.deepEqual(result, { pop: 1234, tractsChecked: 1 });
+});
+
+test('local circle geometry preserves the 64-step overlay and spherical radius contract', () => {
+  const circle = circleFeature([-75.16, 39.95], 800);
+  const ring = circle.geometry.coordinates[0];
+  assert.equal(ring.length, 65);
+  assert.deepEqual(ring[0], ring.at(-1));
+  assert.ok(Math.abs(distanceMeters([-75.16, 39.95], ring[0]) - 800) < 0.01);
+  assert.deepEqual(
+    geometryVertexCentroid({
+      type: 'Polygon',
+      coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+    }),
+    [1, 1],
+  );
 });
 
 test('latest mode transitions run serially and stale work cannot commit', async () => {

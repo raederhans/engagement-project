@@ -11,11 +11,19 @@ import {
   fetchTopTypesByDistrict,
   fetch7x24District,
   fetchMonthlyTract,
+  fetchMonthlySeriesTract,
   fetchTopTypesTract,
   fetch7x24Tract,
 } from '../api/crime.js';
+import { fetchTractStatsCachedFirst } from '../api/acs.js';
+import { fetchTractsCachedFirst } from '../api/boundaries.js';
+import { getTractPolygonAndBboxByGEOID } from '../utils/tract_geom.js';
 import '../i18n/crime_charts.js';
 import { applyTranslations, getLanguage, onLanguageChange, t } from '../i18n/index.js';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
+import { buildResidentialStability } from '../analysis/residential_stability.js';
+import { renderResidentialStability } from '../ui/residential_stability.js';
+import '../i18n/crime_safety.js';
 
 const DEFAULT_CHART_PREFERENCES = Object.freeze({
   palette: 'blue',
@@ -41,6 +49,60 @@ export function createChartPreferenceStore(initial = {}) {
 
 const defaultChartPreferences = createChartPreferenceStore();
 
+export async function resolveSelectedTractGeometry({
+  selectedTractGEOID,
+  signal,
+  fetchTracts = fetchTractsCachedFirst,
+}) {
+  const tracts = await fetchTracts({ signal });
+  const polygon = getTractPolygonAndBboxByGEOID(tracts, selectedTractGEOID, { decimals: 6 });
+  if (!polygon) throw new Error(`Tract ${selectedTractGEOID} not found`);
+  return polygon.geojsonPolygon4326;
+}
+
+export function createTractSummaryFetchers({
+  tractGEOID,
+  fetchMonthly = fetchMonthlySeriesTract,
+  fetchTop = fetchTopTypesTract,
+  fetchStats = fetchTractStatsCachedFirst,
+}) {
+  return {
+    async fetchCountBuffer({ start, end, types, signal }) {
+      const response = await fetchMonthly({ start, end, types, tractGEOID, signal });
+      return (response?.rows || []).reduce((sum, row) => sum + (Number(row?.n) || 0), 0);
+    },
+    fetchTopTypesBuffer({ start, end, types, limit, signal }) {
+      return fetchTop({ start, end, types, tractGEOID, limit, signal });
+    },
+    async estimatePopInBuffer({ signal, onSourceResolved }) {
+      const stats = await fetchStats({ signal, onSourceResolved });
+      const row = stats.find((candidate) => candidate.geoid === tractGEOID);
+      if (!row) throw new Error(`Population for tract ${tractGEOID} not found`);
+      return { pop: Number(row.pop) || 0, tractsChecked: 1 };
+    },
+  };
+}
+
+export function runTractSummary({ selectedTractGEOID, ...filters }, options, updateCompareImpl) {
+  if (!/^\d{11}$/.test(selectedTractGEOID || '')) {
+    throw new Error('A valid 11-digit census tract GEOID is required.');
+  }
+  return updateCompareImpl({
+    ...filters,
+    center3857: [0, 0],
+    centerB3857: null,
+    addressA: `${t('crime.area.tract')} ${selectedTractGEOID}`,
+    addressB: null,
+    radiusM: 1,
+    queryMode: 'tract',
+    selectedTractGEOID,
+    adminLevel: 'tracts',
+  }, {
+    ...options,
+    fetchers: createTractSummaryFetchers({ tractGEOID: selectedTractGEOID }),
+  });
+}
+
 function numberFormatter(maximumFractionDigits = 0) {
   return new Intl.NumberFormat(getLanguage(), { maximumFractionDigits });
 }
@@ -55,6 +117,7 @@ export function getCrimeChartCopy() {
   return Object.freeze({
     citywide: t('chart.citywide'),
     selectedArea: t('chart.selectedArea'),
+    offenseLabel: localizeOffenseCode,
     topOffenseTypes: t('chart.topOffenseTypes'),
     heatmap: t('chart.heatmap'),
     indexedAxis: t('chart.axis.indexed'),
@@ -124,6 +187,17 @@ function renderCachedCharts(payload, sinks) {
   const preferences = defaultChartPreferences.read();
   sinks.status(payload.statusKey ? t(payload.statusKey) : '', payload.statusKey ? { key: payload.statusKey } : undefined);
   if (payload.cityRows) sinks.monthly(payload.cityRows, payload.areaRows || [], copy, preferences);
+  if (payload.cityRows) {
+    const selectedRows = payload.residentialUsesAreaRows
+      ? (payload.areaRows || [])
+      : payload.cityRows;
+    sinks.residential?.(buildResidentialStability({
+      rows: selectedRows,
+      start: payload.start,
+      end: payload.end,
+      coverageDate: payload.coverageDate,
+    }));
+  }
   if (payload.topRows) sinks.top(payload.topRows, copy, preferences);
   if (payload.heatMatrix) sinks.heat(payload.heatMatrix, copy, preferences);
   for (const failure of payload.failed || []) {
@@ -244,6 +318,7 @@ function createDefaultChartSinks() {
       for (const id of ['chart-monthly-insight', 'chart-topn-insight', 'chart-7x24-insight']) {
         writeInsight(id, '');
       }
+      renderResidentialStability(null);
     },
     monthly(cityRows, areaRows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-monthly');
@@ -251,6 +326,9 @@ function createDefaultChartSinks() {
       if (!context) throw new Error('chart canvas missing: #chart-monthly');
       const model = renderMonthly(context, cityRows, areaRows, copy, { valueMode: preferences.monthlyView, palette: preferences.palette, showLabels: preferences.showLabels });
       writeInsight('chart-monthly-insight', copy.monthlyInsight(model.insight));
+    },
+    residential(model) {
+      renderResidentialStability(model);
     },
     top(rows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-topn');
@@ -298,7 +376,7 @@ function isAbortError(error) {
  * @param {{start:string,end:string,types?:string[],center3857:[number,number],radiusM:number}} params
  */
 export async function updateAllCharts(
-  { start, end, types = [], drilldownCodes = [], center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID },
+  { start, end, types = [], drilldownCodes = [], center3857, radiusM, queryMode, selectedDistrictCode, selectedTractGEOID, coverageDate = null },
   {
     signal,
     shouldApply = () => true,
@@ -412,6 +490,17 @@ export async function updateAllCharts(
       failed.push({ chart, error });
     }
   }
+  const residentialUsesAreaRows = queryMode === 'buffer'
+    || (queryMode === 'tract' && Boolean(selectedTractGEOID));
+  if (values.monthly && isFresh()) {
+    const selectedRows = residentialUsesAreaRows ? monthly.areaRows : monthly.cityRows;
+    chartSinks.residential?.(buildResidentialStability({
+      rows: selectedRows,
+      start,
+      end,
+      coverageDate,
+    }));
+  }
   if (!isFresh()) return { applied: false };
 
   for (const failure of failed) {
@@ -427,6 +516,12 @@ export async function updateAllCharts(
   localeCache?.store({
     kind: 'charts',
     ...(values.monthly ? monthly : {}),
+    ...(values.monthly ? {
+      start,
+      end,
+      coverageDate,
+      residentialUsesAreaRows,
+    } : {}),
     ...(values.top ? { topRows } : {}),
     ...(values.heat ? { heatMatrix } : {}),
     failed,

@@ -1,0 +1,51 @@
+export const CRIME_DATASET_METADATA = Object.freeze({
+  schemaVersion: 1,
+  datasetId: 'phl-crime-incidents',
+  provider: 'Philadelphia Police Department',
+  sourceTable: 'incidents_part1_part2',
+  grain: 'reported_record',
+  timeField: 'dispatch_date_time',
+  timeMeaning: 'police_dispatch',
+  timezone: 'America/New_York',
+  locationPrecision: 'Generalized to the hundred block by the source',
+  updateCadence: 'daily',
+  revisionPolicy: 'preliminary_records_may_be_reclassified',
+  taxonomyVersion: '2026-08-04',
+  sourceUrl: 'https://opendataphilly.org/datasets/crime-incidents/',
+});
+
+export const CRIME_METRICS = Object.freeze({
+  reportedRecords: Object.freeze({
+    id: 'reported_records',
+    label: 'Reported records',
+    numerator: 'COUNT(*)',
+    defaultVisible: true,
+    purpose: 'primary',
+    note: 'A record is a source row and is not guaranteed to be one unique incident.',
+  }),
+  uniqueCaseKeys: Object.freeze({
+    id: 'unique_case_keys',
+    label: 'Unique case keys',
+    numerator: 'COUNT(DISTINCT dc_key)',
+    defaultVisible: false,
+    purpose: 'technical_detail',
+    note: 'Useful as an alternate deduplication view; official key semantics are not fully documented.',
+  }),
+  mappedRecords: Object.freeze({
+    id: 'mapped_records',
+    label: 'Mapped records',
+    numerator: 'COUNT(*) FILTER (WHERE the_geom IS NOT NULL)',
+    defaultVisible: false,
+    purpose: 'data_quality',
+    note: 'Only records with usable geometry can appear in spatial results.',
+  }),
+  per10kResidents: Object.freeze({
+    id: 'reported_records_per_10k_residents',
+    label: 'Reported records per 10,000 residents',
+    numerator: 'COUNT(*)',
+    denominator: 'ACS tract population / 10,000',
+    defaultVisible: false,
+    purpose: 'normalized_context',
+    note: 'Resident population is not an exposure measure for commercial or transit-heavy areas.',
+  }),
+});

@@ -1,6 +1,11 @@
 import maplibregl from 'maplibre-gl';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
+import {
+  pointOutsideCenterViewport,
+  prefersReducedMotion as defaultPrefersReducedMotion,
+} from '../map/camera_fit.js';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 12;
 const MAX_ROWS = 200;
 
 function defaultResultKey(feature, { generation = 0, index = 0 } = {}) {
@@ -27,7 +32,7 @@ function createDefaultDetailModel(feature, {
   const unavailable = translate('summary.metricUnavailable');
   return {
     key: getResultKey(feature),
-    offense: String(properties.text_general_code || unavailable),
+    offense: localizeOffenseCode(properties.text_general_code) || unavailable,
     occurred: formatDate(properties.dispatch_date_time) || unavailable,
     location: String(properties.location_block || unavailable),
     district: String(properties.dc_dist || unavailable),
@@ -142,9 +147,7 @@ export function createIncidentResultsView({
       offense.textContent = model.offense;
       const meta = documentRef.createElement('span');
       meta.textContent = `${model.occurred} · ${model.location}`;
-      const district = documentRef.createElement('small');
-      district.textContent = translate('incidents.district', { district: model.district });
-      button.append(offense, meta, district);
+      button.append(offense, meta);
       item.appendChild(button);
       list?.appendChild?.(item);
     }
@@ -246,6 +249,7 @@ export function createIncidentResultsController(map, {
   view = null,
   layerId = 'unclustered',
   createPopup = () => new maplibregl.Popup({ closeButton: true, focusAfterOpen: false }),
+  prefersReducedMotion = defaultPrefersReducedMotion,
   languageChange = () => () => {},
   translate = defaultTranslate,
   getResultKey = defaultResultKey,
@@ -313,6 +317,12 @@ export function createIncidentResultsController(map, {
           .setLngLat(coordinates)
           .setHTML(html)
           .addTo(map);
+      }
+      if (ensureVisible && pointOutsideCenterViewport(map, coordinates)) {
+        map.easeTo?.({
+          center: coordinates,
+          duration: prefersReducedMotion() ? 0 : 300,
+        });
       }
     }
     return true;

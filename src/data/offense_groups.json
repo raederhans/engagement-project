@@ -1,25 +1,46 @@
 {
-  "Assault_Gun": [
-    "Aggravated Assault Firearm",
-    "Aggravated Assault No Firearm"
-  ],
-  "Burglary": [
-    "Burglary Non-Residential",
-    "Burglary Residential"
-  ],
-  "Property": [
-    "Thefts"
-  ],
-  "Robbery_Gun": [
+  "person": [
+    "Homicide - Criminal",
+    "Homicide - Gross Negligence",
+    "Homicide - Justifiable",
+    "Rape",
     "Robbery Firearm",
-    "Robbery No Firearm"
+    "Robbery No Firearm",
+    "Aggravated Assault Firearm",
+    "Aggravated Assault No Firearm",
+    "Other Assaults",
+    "Weapon Violations",
+    "Other Sex Offenses (Not Commercialized)",
+    "Offenses Against Family and Children"
   ],
-  "Vandalism_Other": [
-    "Narcotic / Drug Law Violations",
+  "property": [
+    "Burglary Non-Residential",
+    "Burglary Residential",
+    "Theft from Vehicle",
+    "Thefts",
+    "Arson",
+    "Receiving Stolen Property",
     "Vandalism/Criminal Mischief"
   ],
-  "Vehicle": [
+  "vehicle": [
     "Motor Vehicle Theft",
-    "Theft from Vehicle"
+    "DRIVING UNDER THE INFLUENCE"
+  ],
+  "financial": [
+    "Forgery and Counterfeiting",
+    "Fraud",
+    "Embezzlement"
+  ],
+  "public_order": [
+    "Prostitution and Commercialized Vice",
+    "Narcotic / Drug Law Violations",
+    "Gambling Violations",
+    "Liquor Law Violations",
+    "Public Drunkenness",
+    "Disorderly Conduct",
+    "Vagrancy/Loitering"
+  ],
+  "other": [
+    "All Other Offenses"
   ]
 }

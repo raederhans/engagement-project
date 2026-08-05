@@ -4,6 +4,7 @@ import { store } from '../state/store.js';
 import { fetchByDistrict, fetchTopTypesByDistrict } from '../api/crime.js';
 import { escapeHtml } from '../utils/html.js';
 import { t } from '../i18n/index.js';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 
 export function attachDistrictPopup(map, layer = 'districts-fill', {
   fetchByDistrictImpl = fetchByDistrict,
@@ -30,7 +31,7 @@ export function attachDistrictPopup(map, layer = 'districts-fill', {
       const safeName = escapeHtml(name);
       const safeCode = escapeHtml(code);
       const topRowsLabel = (topRows || [])
-        .map((row) => `${row.text_general_code} (${Number(row.n) || 0})`)
+        .map((row) => `${localizeOffenseCode(row.text_general_code)} (${Number(row.n) || 0})`)
         .join(', ');
       const html = `
         <div class="district-popup">

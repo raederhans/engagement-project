@@ -140,12 +140,14 @@ test('all declared translation keys exist in both catalogs', async () => {
   await import(new URL('src/i18n/crime_charts.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));
+  await import(new URL('src/i18n/help.js', projectRoot));
   const { messages } = await import(runtimeUrl);
   const candidateFiles = [
     'index.html',
     'src/main.js',
     'src/mode_coordinator.js',
     'src/ui/about.js',
+    'src/ui/help_content.js',
     'src/ui/panel.js',
     'src/ui/mode_surfaces.js',
     'src/ui/data_scope.js',
@@ -196,6 +198,7 @@ test('every reader-visible UI surface participates in localization', () => {
   const localizedSurfaces = [
     'src/mode_coordinator.js',
     'src/ui/about.js',
+    'src/ui/help_content.js',
     'src/ui/panel.js',
     'src/ui/mode_surfaces.js',
     'src/ui/data_scope.js',
@@ -250,4 +253,20 @@ test('P1 scope, insights, route tradeoff, and sample copy switch to Chinese from
   assert.equal(sample.observations[0].labelKey, 'diary.sampleExample1');
   assert.equal(sample.observations[0].textKey, 'diary.sampleObservation1');
   setLanguage('en');
+});
+
+test('official Crime offense codes follow the active display language without changing unknown codes', async () => {
+  const { setLanguage } = await import(runtimeUrl);
+  await import(new URL('src/i18n/crime_offense_catalog.js', projectRoot));
+  const { localizeOffenseCode } = await import(new URL('src/i18n/crime_offenses.js', projectRoot));
+  const { getCrimeChartCopy } = await import(new URL('src/charts/index.js', projectRoot));
+
+  setLanguage('zh-CN');
+  assert.equal(localizeOffenseCode('Aggravated Assault Firearm'), '持枪严重袭击');
+  assert.equal(getCrimeChartCopy().offenseLabel('Rape'), '强奸');
+  assert.equal(localizeOffenseCode('Future Provider Code'), 'Future Provider Code');
+
+  setLanguage('en');
+  assert.equal(localizeOffenseCode('Aggravated Assault Firearm'), 'Aggravated assault with firearm');
+  assert.equal(getCrimeChartCopy().offenseLabel('Rape'), 'Rape');
 });

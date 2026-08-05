@@ -6,7 +6,11 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { fetchPoints } from '../../src/api/crime.js';
-import { updateAllCharts } from '../../src/charts/index.js';
+import {
+  createTractSummaryFetchers,
+  resolveSelectedTractGeometry,
+  updateAllCharts,
+} from '../../src/charts/index.js';
 import { getLastComparisonSnapshot, updateCompare } from '../../src/compare/card.js';
 import * as refreshContract from '../../src/routes_crime/crime_refresh_owner.js';
 import {
@@ -251,6 +255,16 @@ test('Crime refresh planning skips selection-bound work until a real analysis ta
     inactive: ['incidents'],
   });
 
+  const tract = planCrimeRefresh({
+    queryMode: 'tract',
+    selectedTractGEOID: '42101000100',
+  }, 'all');
+  assert.deepEqual(tract, {
+    valid: true,
+    requested: ['boundary', 'incidents', 'charts', 'summary'],
+    inactive: [],
+  });
+
   assert.deepEqual(planCrimeRefresh({ queryMode: 'buffer' }, 'invented-result'), {
     valid: false,
     requested: [],
@@ -328,6 +342,101 @@ test('A-only Crime snapshots preserve canonical null labels for comparison persi
   assert.ok(saved);
   assert.equal(saved.comparison.a.label, 'Point A');
   assert.equal(saved.comparison.b, null);
+});
+
+test('tract summaries adapt tract count, offense, and population data to the shared summary card', async () => {
+  const fetchers = createTractSummaryFetchers({
+    tractGEOID: '42101000100',
+    fetchMonthly: async ({ tractGEOID }) => {
+      assert.equal(tractGEOID, '42101000100');
+      return { rows: [{ n: 4 }, { n: 5 }] };
+    },
+    fetchTop: async ({ tractGEOID }) => {
+      assert.equal(tractGEOID, '42101000100');
+      return { rows: [{ text_general_code: 'Arson', n: 9 }] };
+    },
+    fetchStats: async ({ onSourceResolved }) => {
+      onSourceResolved({ dataset: 'census-tract-statistics', kind: 'fallback' });
+      return [{ geoid: '42101000100', pop: 1000 }];
+    },
+  });
+  const result = await updateCompare({
+    start: '2098-01-01',
+    end: '2098-02-01',
+    types: ['Arson'],
+    queryMode: 'tract',
+    selectedTractGEOID: '42101000100',
+    center3857: [0, 0],
+    centerB3857: null,
+    addressA: 'Census Tract 42101000100',
+    radiusM: 1,
+    adminLevel: 'tracts',
+    per10k: true,
+  }, {
+    fetchers,
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+
+  assert.match(result.a.label, /42101000100/);
+  assert.equal(result.a.total, 9);
+  assert.equal(result.a.per10k, 90);
+  assert.equal(result.b, null);
+  assert.ok(getLastComparisonSnapshot({
+    start: '2098-01-01',
+    end: '2098-02-01',
+    types: ['Arson'],
+    queryMode: 'tract',
+    selectedTractGEOID: '42101000100',
+    center3857: [-1, -1],
+    radiusM: 2400,
+    adminLevel: 'tracts',
+    per10k: true,
+  }));
+});
+
+test('the lazy tract summary adapter exposes callable production defaults', () => {
+  const fetchers = createTractSummaryFetchers({ tractGEOID: '42101000100' });
+  assert.equal(typeof fetchers.fetchCountBuffer, 'function');
+  assert.equal(typeof fetchers.fetchTopTypesBuffer, 'function');
+  assert.equal(typeof fetchers.estimatePopInBuffer, 'function');
+});
+
+test('tract incident requests resolve the selected boundary before building point SQL', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let sql = '';
+  globalThis.fetch = async (_url, options) => {
+    sql = new URLSearchParams(options.body).get('q') || '';
+    return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const tractGeometry = await resolveSelectedTractGeometry({
+    selectedTractGEOID: '42101000100',
+    fetchTracts: async () => ({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { GEOID: '42101000100' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 39.9]]],
+        },
+      }],
+    }),
+  });
+  await fetchPoints({
+    start: '2098-03-01',
+    end: '2098-04-01',
+    types: ['Arson'],
+    bbox: [-8_370_000, 4_850_000, -8_360_000, 4_860_000],
+    tractGeometry,
+  });
+
+  assert.match(sql, /ST_Intersects\(the_geom, ST_SetSRID\(ST_GeomFromGeoJSON/);
+  assert.doesNotMatch(sql, /ST_DWithin\(the_geom_webmercator/);
 });
 
 function createChartSinks() {
@@ -541,7 +650,7 @@ test('the default fetchPoints chain propagates cancellation to the transport', a
   });
 
   globalThis.fetch = (_url, options) => new Promise((_resolve, reject) => {
-    enteredTransport.resolve(options.signal);
+    enteredTransport.resolve(options);
     options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
   });
 
@@ -551,12 +660,18 @@ test('the default fetchPoints chain propagates cancellation to the transport', a
     end: '2099-02-01',
     types: [],
     bbox: [-8_400_000, 4_800_000, -8_300_000, 4_900_000],
+    center3857: [-8_365_000, 4_855_000],
+    radiusM: 800,
     signal: controller.signal,
   });
-  const transportSignal = await enteredTransport.promise;
+  const transportOptions = await enteredTransport.promise;
+  const transportSignal = transportOptions.signal;
+  const sql = new URLSearchParams(transportOptions.body).get('q');
   controller.abort(new DOMException('Cancelled by test', 'AbortError'));
 
   assert.equal(transportSignal.aborted, true);
+  assert.match(sql, /ST_MakeEnvelope/);
+  assert.match(sql, /ST_DWithin\(the_geom_webmercator,/);
   await assert.rejects(request, { name: 'AbortError' });
 });
 

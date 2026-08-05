@@ -14,6 +14,7 @@ function createSinks() {
     calls,
     status: (...args) => calls.push(['status', ...args]),
     monthly: (...args) => calls.push(['monthly', ...args]),
+    residential: (...args) => calls.push(['residential', ...args]),
     top: (...args) => calls.push(['top', ...args]),
     heat: (...args) => calls.push(['heat', ...args]),
     error: (...args) => calls.push(['error', ...args]),
@@ -30,6 +31,32 @@ function bufferParams() {
     queryMode: 'buffer',
   };
 }
+
+test('selected zero-event buffer keeps zero residential history instead of substituting citywide rows', async () => {
+  const sinks = createSinks();
+  const chartCache = createChartLocaleCache();
+  await updateAllCharts({
+    ...bufferParams(),
+    end: '2026-07-01',
+  }, {
+    fetchers: {
+      fetchMonthlySeriesCity: async () => ({ rows: [{ m: '2026-01-01', n: 30 }] }),
+      fetchMonthlySeriesBuffer: async () => ({ rows: [] }),
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+      fetch7x24Buffer: async () => ({ rows: [] }),
+    },
+    sinks,
+    chartCache,
+  });
+
+  const model = sinks.calls.find(([name]) => name === 'residential')?.[1];
+  assert.equal(model.monthsObserved, 6);
+  assert.equal(model.totalRecords, 0);
+
+  const refreshedSinks = createSinks();
+  assert.equal(chartCache.refresh(refreshedSinks), true);
+  assert.equal(refreshedSinks.calls.find(([name]) => name === 'residential')?.[1].totalRecords, 0);
+});
 
 test('one failed chart does not prevent successful charts from rendering', async () => {
   const sinks = createSinks();

@@ -2,7 +2,7 @@
  * Minimal shared state placeholder for forthcoming controls and maps.
  */
 import dayjs from 'dayjs';
-import { expandGroupsToCodes } from '../utils/types.js';
+import { expandGroupsToCodes, normalizeHighlightedOffenses } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
@@ -10,9 +10,6 @@ const path = typeof window !== 'undefined' ? window.location.pathname || '' : ''
 const diaryFeatureOn = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1')
   || (qs.get('mode') === 'diary')
   || path.includes('diary-demo');
-if (typeof console !== 'undefined' && typeof console.info === 'function') {
-  console.info('[Diary] store gating', { env: import.meta?.env?.VITE_FEATURE_DIARY, urlMode: qs.get('mode'), path, enabled: diaryFeatureOn });
-}
 const viewModeListeners = new Set();
 const diaryStateListeners = new Set();
 const PANEL_STATE_KEY = 'diary_panel_state';
@@ -137,8 +134,9 @@ export const store = /** @type {Store} */ ({
   },
   getFilters() {
     const { start, end } = this.getStartEnd();
-    const resolvedOffenseCodes = (this.selectedDrilldownCodes && this.selectedDrilldownCodes.length)
-      ? this.selectedDrilldownCodes.slice()
+    const drilldownCodes = normalizeHighlightedOffenses(this.selectedDrilldownCodes);
+    const resolvedOffenseCodes = drilldownCodes.length
+      ? drilldownCodes
       : ((this.selectedTypes && this.selectedTypes.length)
         ? this.selectedTypes.slice()
         : expandGroupsToCodes(this.selectedGroups || []));
@@ -147,7 +145,8 @@ export const store = /** @type {Store} */ ({
       end,
       types: resolvedOffenseCodes,
       resolvedOffenseCodes,
-      drilldownCodes: this.selectedDrilldownCodes || [],
+      drilldownCodes,
+      classPalette: this.classPalette,
       center3857: this.center3857,
       centerB3857: this.centerB3857,
       radiusM: this.radius,
@@ -347,9 +346,6 @@ export function setDiaryViewMode(mode) {
   store.diaryViewMode = next;
   panelPrefs.diaryViewMode = next;
   persistPanelPrefs();
-  if (typeof console !== 'undefined' && console.info) {
-    console.info('[Diary] view mode', next);
-  }
   for (const listener of diaryStateListeners) {
     try {
       listener('viewMode', next);
@@ -377,9 +373,6 @@ export function setDiaryCommunityRadiusMeters(radius) {
   store.diaryCommunityRadiusMeters = clamped;
   panelPrefs.diaryCommunityRadiusMeters = clamped;
   persistPanelPrefs();
-  if (typeof console !== 'undefined' && console.info) {
-    console.info('[Diary] community radius', clamped, 'm');
-  }
   for (const listener of diaryStateListeners) {
     try {
       listener('communityRadius', clamped);
@@ -395,9 +388,6 @@ export function setSimPlaybackSpeed(speed) {
   store.simPlaybackSpeed = next;
   panelPrefs.simPlaybackSpeed = next;
   persistPanelPrefs();
-  if (typeof console !== 'undefined' && console.info) {
-    console.info('[Diary] playback speed', next);
-  }
   for (const listener of diaryStateListeners) {
     try {
       listener('playback', next);
@@ -413,9 +403,6 @@ export function setDiaryDemoPeriod(period) {
   store.diaryDemoPeriod = next;
   panelPrefs.diaryDemoPeriod = next;
   persistPanelPrefs();
-  if (typeof console !== 'undefined' && console.info) {
-    console.info('[Diary] demo period', next);
-  }
   for (const listener of diaryStateListeners) {
     try {
       listener('demoPeriod', next);
@@ -431,9 +418,6 @@ export function setDiaryTimeFilter(filter) {
   store.diaryTimeFilter = next;
   panelPrefs.diaryTimeFilter = next;
   persistPanelPrefs();
-  if (typeof console !== 'undefined' && console.info) {
-    console.info('[Diary] time filter', next);
-  }
   for (const listener of diaryStateListeners) {
     try {
       listener('timeFilter', next);

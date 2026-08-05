@@ -19,7 +19,7 @@ export function renderDistrictChoropleth(map, merged) {
   if (allZero || breaks.length === 0) {
     hideLegend();
   } else {
-    updateLegend({ title: t('crime.districts'), unit: '', breaks, colors });
+    updateLegend({ title: t('crime.districts'), breaks, colors });
   }
 
   // Build step expression from classifier

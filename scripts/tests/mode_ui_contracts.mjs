@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import { createModeCoordinator } from '../../src/mode_coordinator.js';
 import * as about from '../../src/ui/about.js';
+import { getAboutContent } from '../../src/ui/help_content.js';
+import { helpMessagePairs } from '../../src/i18n/help_messages.js';
 import { writeCrimeStateToURL } from '../../src/ui/panel.js';
 import { readFile } from 'node:fs/promises';
 import { readProductCss } from './helpers/css_source.mjs';
@@ -402,14 +404,63 @@ test('late Crime synchronization cannot append Crime keys while Diary owns the U
 });
 
 test('Help copy is mode-specific and explains Diary local persistence', () => {
-  assert.equal(typeof about.getAboutContent, 'function');
-  const crime = about.getAboutContent('crime');
-  const diary = about.getAboutContent('diary');
+  assert.equal(typeof getAboutContent, 'function');
+  const crime = getAboutContent('crime');
+  const diary = getAboutContent('diary');
 
   assert.match(crime, /crime incidents/i);
   assert.doesNotMatch(crime, /saved only in this browser/i);
   assert.match(diary, /saved only in this browser/i);
   assert.doesNotMatch(diary, /offense groups/i);
+});
+
+test('Help Center structures guidance around workflow, sources, methods, and limitations', () => {
+  const crime = getAboutContent('crime');
+
+  for (const sectionId of ['help-overview', 'help-sources', 'help-methods', 'help-limitations']) {
+    assert.match(crime, new RegExp(`id=["']${sectionId}["']`));
+  }
+  assert.match(crime, /data-i18n=["']help\.crimeSourceIncidents["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeSourceBoundaries["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeSourcePopulation["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeMethodBuffer["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeMethodPer10k["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeMethodClassification["']/);
+  assert.match(crime, /data-i18n=["']help\.crimeLimitReporting["']/);
+  assert.match(crime, /opendataphilly\.org\/datasets\/crime-incidents/);
+});
+
+test('Crime Help describes the actual buffer point and offense-highlight display contracts', () => {
+  const [bufferEnglish, bufferChinese] = helpMessagePairs['help.crimeMethodBuffer'];
+  const [mapEnglish, mapChinese] = helpMessagePairs['help.crimeMethodMap'];
+
+  assert.match(bufferEnglish, /selected radius and the current map viewport/i);
+  assert.match(bufferChinese, /所选半径与当前地图视野/);
+  assert.match(mapEnglish, /one to three specific offense types/i);
+  assert.match(mapEnglish, /individual palette colors/i);
+  assert.match(mapChinese, /一至三种具体犯罪类型/);
+  assert.match(mapChinese, /单个点/);
+});
+
+test('Diary Help Center distinguishes local records from illustrative route data', () => {
+  const diary = getAboutContent('diary');
+
+  assert.match(diary, /data-i18n=["']help\.diarySourceLocal["']/);
+  assert.match(diary, /data-i18n=["']help\.diarySourceDemo["']/);
+  assert.match(diary, /data-i18n=["']help\.diaryMethodRatings["']/);
+  assert.match(diary, /data-i18n=["']help\.diaryLimitPersonal["']/);
+});
+
+test('Help opens as a centered modal panel with a dedicated close control and backdrop', () => {
+  assert.match(aboutSource, /panel\.setAttribute\(['"]role['"], ['"]dialog['"]\)/);
+  assert.match(aboutSource, /panel\.setAttribute\(['"]aria-modal['"], ['"]true['"]\)/);
+  assert.match(aboutSource, /className = ['"]about-close['"]/);
+  assert.match(aboutSource, /className = ['"]about-backdrop['"]/);
+  assert.match(aboutSource, /import\(['"]\.\/help_content\.js['"]\)/);
+  assert.match(aboutSource, /resolveAboutMount\(document\)\?\.appendChild\(root\)/);
+  assert.match(aboutSource, /document\.body\?\.append\(backdrop, panel\)/);
+  assert.match(productCss, /\.about-panel\s*\{[^}]*top:\s*50%[^}]*left:\s*50%[^}]*max-width:\s*760px[^}]*translate\(-50%,\s*-50%\)/s);
+  assert.match(productCss, /\.about-backdrop\s*\{/);
 });
 
 test('global Help control mounts inside the app bar when its slot exists', () => {

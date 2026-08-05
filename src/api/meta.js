@@ -1,11 +1,15 @@
 import { CARTO_SQL_BASE } from '../config.js';
 import { fetchJson, logQuery } from "../utils/http.js";
 
-const SQL = "SELECT MIN(dispatch_date_time)::date AS min_dt, MAX(dispatch_date_time)::date AS max_dt FROM incidents_part1_part2";
+export const COVERAGE_SQL = [
+  "SELECT MIN(dispatch_date_time AT TIME ZONE 'America/New_York')::date AS min_dt,",
+  "       MAX(dispatch_date_time AT TIME ZONE 'America/New_York')::date AS max_dt",
+  'FROM incidents_part1_part2',
+].join('\n');
 
 export async function fetchCoverage({ ttlMs = 24 * 60 * 60 * 1000 } = {}) {
   const url = CARTO_SQL_BASE;
-  const body = new URLSearchParams({ q: SQL }).toString();
+  const body = new URLSearchParams({ q: COVERAGE_SQL }).toString();
   const t0 = Date.now();
   const json = await fetchJson(url, {
     method: "POST",
@@ -13,7 +17,7 @@ export async function fetchCoverage({ ttlMs = 24 * 60 * 60 * 1000 } = {}) {
     body,
     cacheTTL: ttlMs,
   });
-  await logQuery?.("coverage_sql", `${Date.now() - t0}ms ${url} :: ${SQL}`);
+  await logQuery?.("coverage_sql", `${Date.now() - t0}ms ${url} :: ${COVERAGE_SQL}`);
   const row = json?.rows?.[0] || {};
   return { min: row.min_dt, max: row.max_dt };
 }

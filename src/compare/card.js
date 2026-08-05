@@ -4,6 +4,7 @@ import { estimatePopInBuffer } from "../utils/pop_buffer.js";
 import { escapeHtml } from "../utils/html.js";
 import { applyTranslations, onLanguageChange, t } from '../i18n/index.js';
 import { formatCalendarDate } from '../i18n/date.js';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 
 function localized(key, params = {}) {
   const serialized = Object.keys(params).length
@@ -74,17 +75,20 @@ export function setCurrentAnalysisSelection(element, selectionKey) {
 }
 
 export function buildComparisonFilterKey(filters = {}) {
+  const tractMode = filters.queryMode === 'tract' && /^\d{11}$/.test(filters.selectedTractGEOID || '');
   return JSON.stringify({
     start: filters.start || null,
     end: filters.end || null,
     types: [...(filters.types || [])].map(String).sort(),
-    center3857: filters.center3857 || null,
-    centerB3857: filters.centerB3857 || null,
-    radiusM: Number(filters.radiusM ?? filters.radius) || null,
+    center3857: tractMode ? null : filters.center3857 || null,
+    centerB3857: tractMode ? null : filters.centerB3857 || null,
+    radiusM: tractMode ? null : Number(filters.radiusM ?? filters.radius) || null,
     adminLevel: filters.adminLevel || null,
     per10k: Boolean(filters.per10k),
-    addressA: filters.addressA || null,
-    addressB: filters.addressB || null,
+    addressA: tractMode ? null : filters.addressA || null,
+    addressB: tractMode ? null : filters.addressB || null,
+    queryMode: filters.queryMode || 'buffer',
+    selectedTractGEOID: filters.selectedTractGEOID || null,
   });
 }
 
@@ -204,7 +208,7 @@ function renderCategoryItems(point) {
           : detailText('summary.categoryValue', { count, share: share.toFixed(1) });
         return `<li>
           <div class="crime-comparison-category__label">
-            <span>${escapeHtml(row?.text_general_code || t('summary.noCategory'))}</span>
+            <span>${escapeHtml(localizeOffenseCode(row?.text_general_code) || t('summary.noCategory'))}</span>
             <span>${value}</span>
           </div>
           ${share == null ? '' : `<progress class="crime-comparison-category__track" max="100" value="${share.toFixed(1)}" aria-hidden="true"></progress>`}
@@ -304,7 +308,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
     return `<p class="crime-summary__empty" data-i18n="crime.summaryEmpty">${t('crime.summaryEmpty')}</p>`;
   }
   const topCategory = markPreviousResult(
-    escapeHtml(a.top3?.[0]?.text_general_code || t('summary.noCategory')),
+    escapeHtml(localizeOffenseCode(a.top3?.[0]?.text_general_code) || t('summary.noCategory')),
     a.metricStatus?.top,
   );
   const average30 = averagePer30Days(a.total, start, end);
@@ -484,6 +488,8 @@ export async function updateCompare(
     addressA = 'Point A',
     addressB = 'Point B',
     radiusM,
+    queryMode = 'buffer',
+    selectedTractGEOID = null,
     adminLevel = 'districts',
     per10k = false,
     coverageDate = null,
@@ -503,8 +509,8 @@ export async function updateCompare(
   const isFresh = () => !signal?.aborted && shouldApply();
   if (!isFresh()) return { applied: false };
   const filterKey = buildComparisonFilterKey({
-    start, end, types, center3857, centerB3857, radiusM, adminLevel,
-    per10k, addressA, addressB,
+    start, end, types, center3857, centerB3857, radiusM, queryMode,
+    selectedTractGEOID, adminLevel, per10k, addressA, addressB,
   });
   const retainedComparison = lastComparison?.filterKey === filterKey
     ? lastComparison

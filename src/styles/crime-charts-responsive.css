@@ -458,6 +458,109 @@
   height: var(--control-target);
 }
 
+.residential-stability {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid #c9d8e6;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f8fbfe 0%, #eef6f7 100%);
+}
+
+.residential-stability__heading {
+  margin-bottom: 12px;
+}
+
+.residential-stability__heading h3 {
+  margin: 2px 0 0;
+}
+
+.residential-stability__heading > p:last-child {
+  margin: 5px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.residential-stability__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.residential-stability__metrics > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(129, 154, 176, 0.35);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.residential-stability__metrics dt {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.residential-stability__metrics dd {
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.residential-stability__metrics span {
+  display: block;
+  margin-top: 5px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.residential-stability__metrics [data-signal="trend"][data-value="rising"] dd {
+  color: #b45309;
+}
+
+.residential-stability__metrics [data-signal="trend"][data-value="falling"] dd {
+  color: #0f766e;
+}
+
+.residential-stability__partial,
+.residential-stability__empty {
+  margin: 10px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.residential-stability__method {
+  margin-top: 10px;
+  border-top: 1px solid rgba(129, 154, 176, 0.35);
+}
+
+.residential-stability__method > summary {
+  min-height: var(--control-target);
+  padding: 10px 0 0;
+  color: var(--brand-strong);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.residential-stability__method p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 460px) {
+  .residential-stability__metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
 .map-reset-control__button {
   color: var(--ink);
   font-size: 20px;
@@ -614,11 +717,6 @@
 }
 
 @media (max-width: 768px) {
-  .about-content {
-    max-width: 100%;
-    padding: var(--space-3) var(--space-4);
-  }
-
   .about-toggle {
     min-width: 52px;
     padding-inline: 10px;
@@ -713,6 +811,10 @@
   .about-toggle,
   .button {
     transition: none;
+  }
+
+  .about-panel.about--open {
+    animation: none;
   }
 
 .crime-comparison-category__track {

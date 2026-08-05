@@ -1,48 +1,63 @@
 import groups from '../data/offense_groups.json' with { type: 'json' };
 
-/**
- * Map offense text_general_code into coarse groups with colors.
- * @param {string} name
- * @returns {string} hex color
- */
-export function groupColor(name) {
-  const n = (name || '').toUpperCase();
-  if (n.includes('HOMICIDE')) return '#8b0000';
-  if (n.includes('ROBBERY')) return '#d97706';
-  if (n.includes('ASSAULT')) return '#ef4444';
-  if (n.includes('BURGLARY')) return '#a855f7';
-  if (n.includes('THEFT FROM VEHICLE')) return '#0ea5e9';
-  if (n.includes('MOTOR VEHICLE THEFT')) return '#0891b2';
-  if (n.includes('THEFT')) return '#22c55e';
-  if (n.includes('NARCOTIC')) return '#10b981';
-  if (n.includes('VANDALISM') || n.includes('CRIMINAL MISCHIEF')) return '#6366f1';
-  return '#999999';
-}
+export const MAX_HIGHLIGHTED_OFFENSES = 3;
 
-/**
- * Return an array of [matchKey, color] pairs for common categories.
- * Used to build a MapLibre match expression for unclustered points.
- */
-export function categoryColorPairs() {
-  return [
-    ['HOMICIDE', '#8b0000'],
-    ['ROBBERY FIREARM', '#d97706'],
-    ['ROBBERY', '#d97706'],
-    ['AGGRAVATED ASSAULT', '#ef4444'],
-    ['SIMPLE ASSAULT', '#ef4444'],
-    ['BURGLARY', '#a855f7'],
-    ['THEFT FROM VEHICLE', '#0ea5e9'],
-    ['MOTOR VEHICLE THEFT', '#0891b2'],
-    ['THEFT', '#22c55e'],
-    ['NARCOTICS', '#10b981'],
-    ['DRUG', '#10b981'],
-    ['VANDALISM', '#6366f1'],
-    ['CRIMINAL MISCHIEF', '#6366f1'],
-  ];
-}
+const THEME_INDEX = new Map(Object.entries(groups).map(([key, codes]) => [
+  key,
+  Object.freeze([...codes]),
+]));
 
-// Offense groups for controls (original JSON)
+const LEGACY_GROUPS = Object.freeze({
+  assault_gun: Object.freeze(THEME_INDEX.get('person').slice(6, 8)),
+  burglary: Object.freeze(THEME_INDEX.get('property').slice(0, 2)),
+  robbery_gun: Object.freeze(THEME_INDEX.get('person').slice(4, 6)),
+  vandalism_other: Object.freeze([
+    THEME_INDEX.get('public_order')[1],
+    THEME_INDEX.get('property')[6],
+  ]),
+});
+
 export const offenseGroups = groups;
+
+export function normalizeHighlightedOffenses(codes = []) {
+  const normalized = [];
+  const seen = new Set();
+  for (const value of Array.isArray(codes) ? codes : []) {
+    const code = String(value || '').trim().slice(0, 120);
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    normalized.push(code);
+    if (normalized.length === MAX_HIGHLIGHTED_OFFENSES) break;
+  }
+  return normalized;
+}
+
+export function buildOffenseHighlights(codes, palette) {
+  const colorIndexes = [4, 1, 3];
+  return normalizeHighlightedOffenses(codes).map((code, index) => ({
+    code,
+    color: palette[colorIndexes[index]],
+  }));
+}
+
+export function buildOffenseColorExpression(highlights) {
+  if (highlights.length === 0) return '#999999';
+  const expression = ['match', ['get', 'text_general_code']];
+  for (const { code, color } of highlights) expression.push(code, color);
+  expression.push('#6b7280');
+  return expression;
+}
+
+export function syncOffenseHighlightOptions(select, codes) {
+  const normalized = normalizeHighlightedOffenses(codes);
+  const selected = new Set(normalized);
+  for (const option of select?.options || []) {
+    if (option.dataset?.i18n) continue;
+    option.selected = selected.has(option.value);
+    option.disabled = normalized.length === MAX_HIGHLIGHTED_OFFENSES && !option.selected;
+  }
+  return normalized;
+}
 
 // Canonicalization helpers for robust key matching
 export function toSnake(s) {
@@ -60,20 +75,9 @@ export function toPascalFromSnake(s) {
     .join('_');
 }
 
-// Build a lookup index that recognizes several naming variants
-const OFFENSE_GROUPS_INDEX = (() => {
-  const idx = new Map();
-  for (const [Key, arr] of Object.entries(groups)) {
-    const variants = new Set([
-      Key,
-      Key.toLowerCase(),
-      toSnake(Key).toLowerCase(),
-      toPascalFromSnake(Key),
-    ]);
-    for (const v of variants) idx.set(v, arr);
-  }
-  return idx;
-})();
+function normalizedGroupKey(value) {
+  return toSnake(value).toLowerCase();
+}
 
 /**
  * Expand selected group keys into a flat list of text_general_code values.
@@ -83,19 +87,9 @@ const OFFENSE_GROUPS_INDEX = (() => {
 export function expandGroupsToCodes(selectedGroups = []) {
   const out = new Set();
   for (const g of selectedGroups) {
-    const candidates = [
-      g,
-      g?.toLowerCase?.(),
-      toSnake(g)?.toLowerCase?.(),
-      toPascalFromSnake(g),
-    ];
-    let codes = null;
-    for (const c of candidates) {
-      if (c && OFFENSE_GROUPS_INDEX.has(c)) { codes = OFFENSE_GROUPS_INDEX.get(c); break; }
-    }
+    const key = normalizedGroupKey(g);
+    const codes = THEME_INDEX.get(key) || LEGACY_GROUPS[key];
     if (Array.isArray(codes)) codes.forEach((c) => out.add(c));
   }
   return Array.from(out);
 }
-
-export function getCodesForGroups(groups) { return expandGroupsToCodes(groups); }
