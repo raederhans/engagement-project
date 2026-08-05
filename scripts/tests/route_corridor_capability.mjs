@@ -23,7 +23,17 @@ const coverage = {
   source: 'Philadelphia Crime Incidents',
   availableStart: '2025-01-01',
   availableEndExclusive: '2026-01-01',
+  availableMonths: ['2025-06'],
   unmappedIncidentCount: 2,
+  unmappedIncidentScope: 'selected-time-and-filter-citywide',
+  locationPrecision: 'Generalized to the hundred block by the source',
+  recordGrain: 'reported_record',
+  recordNote: 'A record is a source row and is not guaranteed to be one unique incident.',
+  spatialRegion: 'Philadelphia',
+  corridorCovered: true,
+  spatialCoverageSource: 'Philadelphia Police GIS',
+  conservativeBoundaryMarginM: 500,
+  spatialDisclosure: 'coarse-bbox-only',
 };
 
 const selectedRange = { start: '2025-06-01', end: '2025-07-01' };
@@ -153,6 +163,53 @@ test('only a complete route-corridor source scope and known unmapped evidence ma
     ...base,
     incidentScope: completeCorridorScope,
     coverage: { ...coverage, unmappedIncidentCount: null },
+  }).status, 'coverage-unavailable');
+  assert.equal(evaluateRouteCorridorQuery({
+    ...base,
+    incidentScope: completeCorridorScope,
+    coverage: { ...coverage, unmappedIncidentScope: undefined },
+  }).status, 'coverage-unavailable');
+  assert.equal(evaluateRouteCorridorQuery({
+    ...base,
+    incidentScope: completeCorridorScope,
+    coverage: { ...coverage, locationPrecision: undefined },
+  }).status, 'coverage-unavailable');
+  assert.equal(evaluateRouteCorridorQuery({
+    ...base,
+    incidentScope: completeCorridorScope,
+    coverage: { ...coverage, availableMonths: [] },
+  }).status, 'coverage-unavailable');
+  assert.equal(evaluateRouteCorridorQuery({
+    ...base,
+    incidentScope: completeCorridorScope,
+    coverage: { ...coverage, corridorCovered: false },
+  }).status, 'coverage-unavailable');
+});
+
+test('a missing observed month inside the selected period is unavailable rather than zero', () => {
+  const multiMonthRange = { start: '2025-06-15', end: '2025-08-02' };
+  const scope = {
+    kind: 'route-corridor',
+    complete: true,
+    queryFingerprint: createRouteCorridorQueryFingerprint({
+      routeInput: route,
+      bufferM: 100,
+      selectedRange: multiMonthRange,
+      filterKey,
+    }),
+    requestGeneration,
+  };
+  assert.equal(evaluateRouteCorridorQuery({
+    routeInput: route,
+    bufferM: 100,
+    selectedRange: multiMonthRange,
+    coverage: { ...coverage, availableMonths: ['2025-06', '2025-08'] },
+    incidentScope: scope,
+    filterKey,
+    requestGeneration,
+    requestStatus: 'current',
+    sourceStatus: 'ready',
+    incidents: [],
   }).status, 'coverage-unavailable');
 });
 

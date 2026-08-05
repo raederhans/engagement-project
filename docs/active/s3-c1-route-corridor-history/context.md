@@ -107,5 +107,6 @@ and canonical-Crime integration explicitly unimplemented.
   HIGH/CRITICAL.  The one final equal-distance duplicate issue was resolved by
   deterministic stable serialization and regression test.
 - No Vite/browser process, provider, location permission, URL/history/storage,
-  or shared Crime UI file was touched.  No Git commit was created because this
-  detached integration worktree is an evidence handoff, not the target branch.
+  or shared Crime UI file was touched. The reviewed foundation was later
+  stabilized without changing its runtime scope as Lore commit `751b5ef` on
+  `codex/s3-c2-route-corridor-data`.

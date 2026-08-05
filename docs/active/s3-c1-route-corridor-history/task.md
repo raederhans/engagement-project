@@ -22,7 +22,8 @@ the shared Crime UI/data coordinator. This record is independent from
   Entry 899147/241925, Crime 37604/13221, total dist 3420877.
 - [x] Independent re-review: architect `CLEAR`; code reviewer `APPROVE`, no
   HIGH/CRITICAL findings after the deterministic duplicate tie-breaker repair.
-- [x] Ready-for-integration: no commit made; exact integration boundary below.
+- [x] Stabilized on `codex/s3-c2-route-corridor-data` as Lore commit `751b5ef`;
+  exact integration boundary remains below.
 
 ## Required integration contract
 

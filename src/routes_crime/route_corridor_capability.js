@@ -1,5 +1,8 @@
+import { CRIME_DATASET_METADATA, CRIME_METRICS } from '../data/crime_metadata.js';
+
 export const ROUTE_CORRIDOR_BUFFER_LIMITS_M = Object.freeze({ min: 10, max: 10_000 });
 export const ROUTE_CORRIDOR_INPUT_LIMITS = Object.freeze({ maxRouteVertices: 512, maxIncidentFeatures: 2_000 });
+export const ROUTE_CORRIDOR_FILTER_KEY_MAX_LENGTH = 4_096;
 
 const EARTH_RADIUS_M = 6_371_008.8;
 const toRadians = (degrees) => degrees * Math.PI / 180;
@@ -169,6 +172,15 @@ export function evaluateRouteCorridorQuery({
   }
 
   if (!normalizedCoverage || !Number.isInteger(normalizedCoverage.unmappedIncidentCount)
+    || normalizedCoverage.unmappedIncidentScope !== 'selected-time-and-filter-citywide'
+    || normalizedCoverage.locationPrecision !== CRIME_DATASET_METADATA.locationPrecision
+    || normalizedCoverage.recordGrain !== CRIME_DATASET_METADATA.grain
+    || normalizedCoverage.recordNote !== CRIME_METRICS.reportedRecords.note
+    || normalizedCoverage.spatialRegion !== 'Philadelphia'
+    || normalizedCoverage.corridorCovered !== true
+    || typeof normalizedCoverage.spatialCoverageSource !== 'string'
+    || !Number.isFinite(normalizedCoverage.conservativeBoundaryMarginM)
+    || normalizedCoverage.spatialDisclosure !== 'coarse-bbox-only'
     || !isRangeCovered(selectedRange, normalizedCoverage)) {
     return result('coverage-unavailable', { coverage: normalizedCoverage });
   }
@@ -235,7 +247,9 @@ function isValidSelectedRange(range) {
 }
 
 function isFilterKey(value) {
-  return typeof value === 'string' && value.length > 0 && value.length <= 256;
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= ROUTE_CORRIDOR_FILTER_KEY_MAX_LENGTH;
 }
 
 function stableIncidentIdentity(incident) {
@@ -258,8 +272,10 @@ function unmappedIncident(incident, id, reason) {
 }
 
 function normalizeCoverage(coverage) {
+  const availableMonths = normalizeAvailableMonths(coverage?.availableMonths);
   if (coverage?.status !== 'ready'
     || typeof coverage.source !== 'string'
+    || !availableMonths
     || !isValidSelectedRange({ start: coverage.availableStart, end: coverage.availableEndExclusive })) {
     return null;
   }
@@ -268,14 +284,49 @@ function normalizeCoverage(coverage) {
     source: coverage.source,
     availableStart: coverage.availableStart,
     availableEndExclusive: coverage.availableEndExclusive,
+    availableMonths,
     unmappedIncidentCount: Number.isInteger(coverage.unmappedIncidentCount) && coverage.unmappedIncidentCount >= 0
       ? coverage.unmappedIncidentCount : null,
+    unmappedIncidentScope: coverage.unmappedIncidentScope === 'selected-time-and-filter-citywide'
+      ? coverage.unmappedIncidentScope : null,
+    locationPrecision: coverage.locationPrecision === CRIME_DATASET_METADATA.locationPrecision
+      ? coverage.locationPrecision : null,
+    recordGrain: coverage.recordGrain === CRIME_DATASET_METADATA.grain ? coverage.recordGrain : null,
+    recordNote: coverage.recordNote === CRIME_METRICS.reportedRecords.note ? coverage.recordNote : null,
+    spatialRegion: coverage.spatialRegion === 'Philadelphia' ? coverage.spatialRegion : null,
+    corridorCovered: coverage.corridorCovered === true,
+    spatialCoverageSource: typeof coverage.spatialCoverageSource === 'string'
+      && coverage.spatialCoverageSource.trim() ? coverage.spatialCoverageSource : null,
+    conservativeBoundaryMarginM: Number.isFinite(coverage.conservativeBoundaryMarginM)
+      && coverage.conservativeBoundaryMarginM >= 0 ? coverage.conservativeBoundaryMarginM : null,
+    spatialDisclosure: coverage.spatialDisclosure === 'coarse-bbox-only'
+      ? coverage.spatialDisclosure : null,
   };
 }
 
 function isRangeCovered(range, coverage) {
-  return parseCalendarDate(range.start) >= parseCalendarDate(coverage.availableStart)
-    && parseCalendarDate(range.end) <= parseCalendarDate(coverage.availableEndExclusive);
+  const start = parseCalendarDate(range.start);
+  const end = parseCalendarDate(range.end);
+  if (start < parseCalendarDate(coverage.availableStart)
+    || end > parseCalendarDate(coverage.availableEndExclusive)) return false;
+  const months = new Set(coverage.availableMonths);
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  while (cursor < end) {
+    const month = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+    if (!months.has(month)) return false;
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return true;
+}
+
+function normalizeAvailableMonths(value) {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  if (value.some((month) => typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month))) {
+    return null;
+  }
+  const normalized = [...new Set(value)].sort();
+  return normalized.length === value.length && normalized.every((month, index) => month === value[index])
+    ? normalized : null;
 }
 
 function parseCalendarDate(value) {

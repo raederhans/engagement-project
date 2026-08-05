@@ -12,6 +12,7 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
 const entry = manifest['index.html'];
 const crime = manifest['src/routes_crime/index.js'];
+const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const diary = manifest['src/routes_diary/index.js'];
 const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
@@ -40,12 +41,14 @@ assert.deepEqual(
   new Set(crime?.dynamicImports || []),
   new Set([
     'src/routes_crime/incident_results_controller.js',
+    'src/routes_crime/route_corridor_crime_coordinator.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
   ]),
-  'Crime must keep incident results and Charts behind focused lazy boundaries',
+  'Crime must keep incident results, route-corridor data, and Charts behind focused lazy boundaries',
 );
 assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
+assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corridor data as a lazy chunk');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -72,6 +75,9 @@ const budgets = [
   // Owns result-scoped cancellation, partial recovery, and immutable provenance
   // for all Crime surfaces; this is required on every active Crime refresh.
   ['Crime', crime, 38_000, 13_500],
+  // Loaded only after an explicit route-corridor request. Exact route geometry
+  // stays local while this chunk owns coarse admission and local association.
+  ['Route corridor data', routeCorridor, 23_500, 7_800],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   ['Diary', diary, 210_100, 65_573],
