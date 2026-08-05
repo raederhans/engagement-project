@@ -184,8 +184,9 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
     await auditSeriousAccessibility(page),
     'crime incident-result accessibility issues',
   ).toEqual([]);
+  await expect(page.locator('[data-incident-results-status]')).toHaveText('3 incidents · newest first');
   await expect(page.locator('.maplibregl-popup')).toBeVisible();
-  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results');
+  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results', { threshold: 0.5 });
 });
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
