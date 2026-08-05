@@ -2,7 +2,7 @@
 
 ## Current status
 
-In progress: diff 审核、修复、完整验证和浏览器 smoke 已完成，正在冻结提交边界并进入 PR/合并阶段。
+Complete: 审核修复、显式提交、PR 合并、本地/远端同步和交付记录收尾均已完成。
 
 ## Checklist
 
@@ -12,9 +12,9 @@ In progress: diff 审核、修复、完整验证和浏览器 smoke 已完成，�
 - [x] 审核所有候选产品、测试、数据和文档改动。
 - [x] 排除用户 WIP、运行日志、验证输出和未完成研究记录。
 - [x] 运行完整测试、构建、bundle 和浏览器 smoke。
-- [ ] 创建并核对 Lore 提交。
-- [ ] 合并/推送并同步本地、远端与注册表。
-- [ ] 归档完成记录并验证最终 Git/CI/Pages 状态。
+- [x] 创建并核对 Lore 提交。
+- [x] 合并/推送并同步本地、远端与注册表。
+- [x] 归档完成记录并验证最终 Git/CI/Pages 状态。
 
 ## Validation evidence
 
@@ -31,8 +31,12 @@ In progress: diff 审核、修复、完整验证和浏览器 smoke 已完成，�
 | `npm run validate` | PASS；完整测试、Vite production build、manifest 和 bundle policy 全部通过。 |
 | Bundle policy | PASS；Help Center 22,293/9,257 bytes，低于既有 22,500/9,300 raw/gzip 预算；其他入口同样通过。 |
 | 真实浏览器 smoke | PASS；Help 居中且 `aria-modal=true`，两种具体犯罪以独立颜色高亮，中文仅显示中文事件名，事件点击打开地图详情且 URL 不变，tract 汇总和事件列表有值。 |
+| 审核追加缺陷 | PASS；结果刷新后重建已选事件 popup，33/33 points lifecycle 合同通过；Help 来源链接在可滚动中置对话框中可达。 |
+| 产品 PR | PR #62 的五个 Lore 提交已合并为 `main@5184c901`。 |
+| 远端 CI | Run `30983733787`：Windows 与 Ubuntu 均通过；Ubuntu 包含 browser smoke 和 36/36 三视口视觉用例。 |
+| 本地/远端同步 | 合并后本地 `main` 与 `origin/main` 同为 `5184c901`；仅一个 worktree，保留分支未删除。 |
 
 ## Open risks and remaining work
 
-- 远端将在建分支前重新 fetch；最终分叉和 CI/Pages 状态待合并阶段核对。
-- 当前提交范围跨多个功能阶段，必须避免把 `.gitignore`、浏览器产物、日志、输出和未完成 UI/UX 审计带入。
+- 本任务无阻塞项；Pages 与公开站点在记录收尾合并后进行最终核对。
+- `.gitignore`、`src/style.css`、`.playwright-mcp/`、浏览器产物、日志、输出和未完成 UI/UX 审计仍是受保护的非本任务内容。

@@ -2,7 +2,8 @@
 
 | Worktree / path | Task | Base branch / commit | Current branch / HEAD | Goal | State | Hotspots | Tests | Overlap | Order | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| C:/Users/raede/Desktop/dev/engagement_project | Bilingual localization and user-owned local work | main lineage | codex/bilingual-localization@65ac92f | Preserve the user's active localization branch and unrelated local tooling state | in-progress | `.gitignore`, `.playwright-mcp/`, localization branch | Not part of P2 closeout validation | User-owned `M .gitignore` and `?? .playwright-mcp/`; never reset, delete, stage, or rewrite | independent owner | Leave untouched; coordinate with its owner before any future integration. |
+| C:/Users/raede/Desktop/dev/engagement_project | Primary worktree and user-owned local work | synchronized `main` / `origin/main` lineage | `main` after Crime closeout; protected WIP remains | Keep the primary worktree synchronized while preserving unrelated local work | in-progress | `.gitignore`, `src/style.css`, `.playwright-mcp/`, `docs/active/ui-role-experience-audit/`, logs and output | Crime product PR/main CI, browser smoke, and Pages are tracked in the completed milestone below | User-owned or unfinished items remain unstaged; never reset, delete, stage, or rewrite | independent owner | Keep protected WIP untouched; continue the separate UI/UX audit only under its own task. |
+| Historical delivery: Crime product expansion and integration audit | Help Center, versioned taxonomy/metadata, offense highlighting, tract recovery, incident-panel simplification, localization, and incident focus | `origin/main@f4be752b` | product merged by PR #62 as `main@5184c901`; record closeout followed on `codex/crime-product-integration-closeout` | Deliver the reviewed Crime experience and synchronize local, remote, CI, Pages, and records | integrated | Crime runtime, Help, taxonomy/metadata, charts, incident results, responsive baselines, task records | Local `npm run validate`; PR #62 CI `30983733787` passed on Windows and Ubuntu, including Chromium smoke and 36 visual tests | `.gitignore`, `src/style.css`, `.playwright-mcp/`, logs/output, and the incomplete UI/UX audit stayed outside every commit | complete | Historical record; completed task records are archived under `docs/archive/`. |
 | Historical delivery: P2 product completion and local cleanup | P2 product completion, reconciliation, and repository cleanup | origin/main@0236f24 | runtime merged through PRs #56-#58; cleanup merged through PRs #59-#60 | Complete P2, synchronize Git, and remove obsolete local branches and worktrees without disturbing user WIP | integrated | runtime, task records, Git refs, worktree registry | P2 PR/main CI and Pages passed; cleanup PR/main CI and Pages passed | Five open QoL PR branches and the primary bilingual WIP remain intentionally separate | complete | Historical record; see `docs/archive/p2-local-integration-cleanup/`. |
 | Historical delivery: UI P1-1 through P1-4 and bilingual localization | UI P1-1 through P1-4 and bilingual localization | origin/main@f956ab2 | runtime merged by PR #41 as main@5985b71; closeout on codex/p1-localization-closeout | Crime map clarity, result linkage, data trust, Diary hierarchy, and complete bilingual UI/docs | integrated | archived task records, Git refs, CI, Pages, public Crime/Diary | PR exact-head CI, main CI `30797232222`, Pages `30797232104`, public desktop/mobile bilingual smoke, bundle policy, and audit passed | PR #42 merged localization as `b4168d6`; PR #41 merged the combined head as `5985b71` | complete | Historical record; current live worktree state is listed separately above. |
 | Historical delivery: UI P0 redesign | UI P0 redesign | main@6272bd6 | merged by PR #39 as main@8ac7001 | Implement the validated task-first shell, responsive sheet, mode boundaries, and staged Diary rating flow | integrated | index.html, src/style.css, src/main.js, src/ui/, src/routes_diary/, browser smoke tests | exact staged snapshot, 36 P0 contracts, bundle policy, dependency audit, responsive browser matrix, keyboard flow, two independent reviews, PR/main CI, Pages, and public Crime/Diary smoke passed | Bilingual localization remained unstaged and outside both P0 commits; MapLibre 6 remains out of scope | complete | Historical record; see the current live worktree above. |
@@ -12,6 +13,7 @@ States: `in-progress`, `blocked`, `ready-for-review`, `ready-for-integration`, `
 
 ## Retained local branches without worktrees
 
+- `codex/bilingual-localization@65ac92f` — protected historical/localization branch; not integrated or deleted by this closeout.
 - `codex/chart-drawer-sizing@19901a5` — open PR #46.
 - `codex/dataset-anchored-time-window@aef83d7` — open PR #44.
 - `codex/draggable-crime-points@ba34204` — open PR #45.
@@ -23,12 +25,11 @@ Local branches now consist only of `main`, the protected bilingual branch, and t
 ## Latest completed milestone
 
 - Owner: root agent.
-- Task record: `docs/archive/p2-local-integration-cleanup/`.
-- Reconciliation: commit `66b3154`, merged by PR #59 as `50402aa8`.
-- Closeout: commit `ff3c9d1`, merged by PR #60 as `4eb3ba4a`.
-- Verification: PR #60 CI `30896447349`, main CI `30896743749`, and Pages `30896743598` passed.
-- Local result: eight auxiliary worktrees and fifteen obsolete local branches were removed; only the protected primary worktree remains.
-- Constraint honored: no runtime changes, remote-branch deletion, open-PR integration, history rewrite, or alteration of user-owned primary-worktree WIP.
+- Task record: `docs/archive/crime-product-integration-closeout/`.
+- Product delivery: PR #62 merged as `5184c901` after five reviewed Lore commits.
+- Verification: local `npm run validate`; PR #62 CI `30983733787` passed on Windows and Ubuntu, including Chromium browser smoke and all 36 visual-experience tests.
+- Local result: `main` was fast-forwarded to `origin/main`; the single-worktree topology and retained independent branches were preserved.
+- Constraint honored: no alteration of `.gitignore`, `src/style.css`, `.playwright-mcp/`, logs/output, the unfinished UI/UX audit, remote history, or unrelated open PRs.
 
 ## Previous delivery package
 

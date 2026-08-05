@@ -40,6 +40,7 @@ Complete: the original offense highlighting work and all four approved follow-up
 | Follow-up build and budget | `npm run build:manifest` passed; `npm run verify:bundle` passed with Entry 902645/902665, Crime 37992/38000 and dist 3415522 bytes. |
 | Follow-up browser smoke | `final-result.json` passed: one initial point request; Shift 1→2, Ctrl 2→1, fourth-item attempt capped at 3; 12-month analysis refreshed while the code request was deliberately held; 28 points, maximum projected distance 783.15 m within 800 m; same legend node translated; 0 console/page errors. |
 | Follow-up review | Initial review found two time-sync/error-state issues; both were repaired. Re-review: APPROVE, no remaining critical/high/medium findings. |
+| Final integration | PR #62 merged as `5184c901`; CI run `30983733787` passed on Windows and Ubuntu, including Chromium smoke and all 36 visual tests |
 
 ## Open risks and remaining work
 
