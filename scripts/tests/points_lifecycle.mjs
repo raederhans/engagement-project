@@ -509,6 +509,37 @@ test('list selection honors reduced-motion preference while focusing an off-cent
   controller.destroy();
 });
 
+test('a refreshed result generation restores the selected incident popup', () => {
+  const map = createLayerMap();
+  const view = createIncidentView();
+  let popupAdds = 0;
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { popupAdds += 1; return this; },
+      remove() {},
+    }),
+  });
+  const feature = incidentFeature({ id: 45 });
+  const payload = {
+    geo: { type: 'FeatureCollection', features: [feature] },
+    status: 'ready',
+    count: 1,
+  };
+
+  controller.replaceResults({ ...payload, generation: 1 });
+  view.activate('carto:45');
+  assert.equal(popupAdds, 1);
+
+  controller.replaceResults({ ...payload, generation: 2 });
+
+  assert.equal(controller.getSelectedKey(), 'carto:45');
+  assert.equal(popupAdds, 2);
+  controller.destroy();
+});
+
 test('a map-selected incident outside the first page is inserted into the synchronized list', () => {
   const map = createLayerMap();
   const view = createPagedIncidentView();

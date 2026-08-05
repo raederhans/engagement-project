@@ -373,12 +373,7 @@ export function createIncidentResultsController(map, {
       resultsView.replaceResults?.({ ...payload, selectedKey });
       if (selectedKey) {
         const selected = featuresByKey.get(selectedKey);
-        syncSelectedView({
-          key: selectedKey,
-          feature: selected,
-          model: createDetailModel(selected),
-          html: renderDetailHtml(selected),
-        });
+        present(selected);
       }
       return true;
     },

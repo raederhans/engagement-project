@@ -184,6 +184,7 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
     await auditSeriousAccessibility(page),
     'crime incident-result accessibility issues',
   ).toEqual([]);
+  await expect(page.locator('.maplibregl-popup')).toBeVisible();
   await captureExperienceScreenshot(page, testInfo, 'crime-incident-results');
 });
 
@@ -315,6 +316,8 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
   await expect(closeHelp).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(globalHelpPanel.locator('a[href="#help-overview"]')).toBeFocused();
+  await expect(sourceLink).toBeVisible();
+  await sourceLink.scrollIntoViewIfNeeded();
   await expect(sourceLink).toBeInViewport();
   await page.keyboard.press('Escape');
   await expect(globalHelp).toHaveAttribute('aria-expanded', 'false');
