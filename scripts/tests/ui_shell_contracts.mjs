@@ -74,6 +74,14 @@ test('Crime exposes one task path and one synchronized incident-results surface'
   assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
 });
 
+test('dynamic incident status copy has one controller owner', () => {
+  const statusTag = html.match(/<[^>]*data-incident-results-status[^>]*>/i)?.[0] || '';
+  const stateTag = html.match(/<[^>]*data-incident-results-state[^>]*>/i)?.[0] || '';
+
+  assert.doesNotMatch(statusTag, /data-i18n=/i);
+  assert.doesNotMatch(stateTag, /data-i18n=/i);
+});
+
 test('incident results prioritize the compact event list before provenance details', () => {
   const incidentSection = html.match(/<section\b[^>]*id="incident-results"[\s\S]*?<\/section>/i)?.[0] || '';
   const listIndex = incidentSection.indexOf('data-incident-results-list');
