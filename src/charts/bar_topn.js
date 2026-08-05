@@ -46,7 +46,13 @@ function wrapCategoryLabel(label) {
 export function buildTopNChartModel(rows, preferences = {}, copy = {}) {
   const categoryLimit = Math.max(1, Number(preferences.categoryLimit) || 8);
   const sorted = (rows || [])
-    .map((row) => ({ label: String(row.text_general_code || ''), value: Number(row.n) || 0 }))
+    .map((row) => {
+      const code = String(row.text_general_code || '');
+      return {
+        label: copy.offenseLabel?.(code) || code,
+        value: Number(row.n) || 0,
+      };
+    })
     .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
   const total = sorted.reduce((sum, row) => sum + row.value, 0);
   const visible = sorted.slice(0, categoryLimit);

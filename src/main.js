@@ -126,7 +126,10 @@ window.addEventListener('DOMContentLoaded', async () => {
           if (store.viewMode === 'crime') panel.syncFromStore?.();
         },
         onSelectionChange: (_key, { origin } = {}) => {
-          if (origin === 'map') analysisHistoryController?.setCurrentArtifact(null);
+          if (origin !== 'map') return;
+          panel.syncFromStore?.();
+          writeCrimeStateToURL(store);
+          analysisHistoryController?.setCurrentArtifact(null);
         },
         onDataScopeChange: modeSurfaces.showDataScope,
         resultMeta: crimeResultMeta,

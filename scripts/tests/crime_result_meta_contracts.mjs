@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import '../../src/i18n/crime_offense_catalog.js';
 
 import {
   classifyCrimeRefreshJobs,
@@ -41,7 +42,7 @@ function createElement(attributes = {}) {
 
 function createMetaFixture(surface = 'summary') {
   const nodes = Object.fromEntries([
-    'status', 'result', 'generated', 'sources', 'coverage', 'scope', 'limitations', 'retry',
+    'status', 'result', 'generated', 'sources', 'coverage', 'scope', 'limitations', 'retry', 'details',
   ].map((name) => [name, createElement()]));
   const selectorMap = new Map([
     ['[data-result-meta-status]', nodes.status],
@@ -52,6 +53,7 @@ function createMetaFixture(surface = 'summary') {
     ['[data-result-meta-scope]', nodes.scope],
     ['[data-result-meta-limitations]', nodes.limitations],
     ['[data-result-meta-retry]', nodes.retry],
+    ['[data-result-meta-details]', nodes.details],
   ]);
   const root = createElement({ 'data-result-meta': '' });
   root.dataset.resultMeta = surface;
@@ -75,6 +77,31 @@ const validInput = () => ({
     offenseCodes: ['Aggravated Assault', '', 'Aggravated Assault', 'Burglary'],
   },
   limitations: ['crime.limit.incompleteRecent', '', 'crime.limit.geocoding'],
+});
+
+test('incident provenance uses a plain-language data scope disclosure label', () => {
+  const { root, nodes } = createMetaFixture('incidents');
+  createCrimeResultMetaPresenter({ root, languageChange: () => () => {} });
+
+  assert.equal(nodes.details.textContent, 'Data scope and notes');
+});
+
+test('Chinese result scope localizes known offense codes but keeps provenance codes unchanged', async (t) => {
+  const { setLanguage } = await import('../../src/i18n/index.js');
+  t.after(() => setLanguage('en'));
+  setLanguage('zh-CN');
+  const { root, nodes } = createMetaFixture('incidents');
+  const presenter = createCrimeResultMetaPresenter({ root, languageChange: () => () => {} });
+  const input = validInput();
+  input.scope.offenseCodes = ['Rape', 'Future Provider Code'];
+  const provenance = createCrimeResultProvenance(input);
+
+  presenter.ready(provenance);
+
+  assert.match(nodes.scope.textContent, /强奸/);
+  assert.doesNotMatch(nodes.scope.textContent, /Rape/);
+  assert.match(nodes.scope.textContent, /Future Provider Code/);
+  assert.deepEqual(provenance.scope.offenseCodes, ['Rape', 'Future Provider Code']);
 });
 
 test('provenance is a deeply immutable structured snapshot without fabricated sources or empty fields', () => {

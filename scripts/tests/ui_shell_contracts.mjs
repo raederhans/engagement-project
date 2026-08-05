@@ -74,6 +74,17 @@ test('Crime exposes one task path and one synchronized incident-results surface'
   assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
 });
 
+test('incident results prioritize the compact event list before provenance details', () => {
+  const incidentSection = html.match(/<section\b[^>]*id="incident-results"[\s\S]*?<\/section>/i)?.[0] || '';
+  const listIndex = incidentSection.indexOf('data-incident-results-list');
+  const provenanceIndex = incidentSection.indexOf('data-result-meta="incidents"');
+
+  assert.notEqual(listIndex, -1);
+  assert.notEqual(provenanceIndex, -1);
+  assert.equal(listIndex < provenanceIndex, true);
+  assert.match(incidentSection, /data-i18n="incidents\.description"/i);
+});
+
 test('task navigation focuses the existing workflow target without creating URL state', async () => {
   const { activateCrimeTaskTarget } = await import('../../src/ui/crime_task_nav.js');
   const calls = [];

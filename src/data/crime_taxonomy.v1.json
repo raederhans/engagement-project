@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "taxonomy_version": "2026-08-04",
+  "source": {
+    "provider": "Philadelphia Police Department",
+    "dataset": "incidents_part1_part2",
+    "offense_field": "text_general_code",
+    "ucr_field": "ucr_general",
+    "verified_at": "2026-08-04"
+  },
+  "themes": [
+    {
+      "id": "person",
+      "label": { "en": "Personal safety", "zh-CN": "人身安全" },
+      "ucr_categories": [
+        {
+          "code": "100",
+          "label": { "en": "Homicide", "zh-CN": "凶杀" },
+          "offenses": [
+            { "code": "Homicide - Criminal", "label": { "en": "Criminal homicide", "zh-CN": "刑事凶杀" } },
+            { "code": "Homicide - Gross Negligence", "label": { "en": "Gross-negligence homicide", "zh-CN": "重大过失致死" } },
+            { "code": "Homicide - Justifiable", "label": { "en": "Justifiable homicide", "zh-CN": "正当凶杀" } }
+          ]
+        },
+        {
+          "code": "200",
+          "label": { "en": "Rape", "zh-CN": "强奸" },
+          "offenses": [
+            { "code": "Rape", "label": { "en": "Rape", "zh-CN": "强奸" } }
+          ]
+        },
+        {
+          "code": "300",
+          "label": { "en": "Robbery", "zh-CN": "抢劫" },
+          "offenses": [
+            { "code": "Robbery Firearm", "label": { "en": "Robbery with firearm", "zh-CN": "持枪抢劫" } },
+            { "code": "Robbery No Firearm", "label": { "en": "Robbery without firearm", "zh-CN": "非持枪抢劫" } }
+          ]
+        },
+        {
+          "code": "400",
+          "label": { "en": "Aggravated assault", "zh-CN": "严重袭击" },
+          "offenses": [
+            { "code": "Aggravated Assault Firearm", "label": { "en": "Aggravated assault with firearm", "zh-CN": "持枪严重袭击" } },
+            { "code": "Aggravated Assault No Firearm", "label": { "en": "Aggravated assault without firearm", "zh-CN": "非持枪严重袭击" } }
+          ]
+        },
+        {
+          "code": "800",
+          "label": { "en": "Other assaults", "zh-CN": "其他袭击" },
+          "offenses": [
+            { "code": "Other Assaults", "label": { "en": "Other assaults", "zh-CN": "其他袭击" } }
+          ]
+        },
+        {
+          "code": "1500",
+          "label": { "en": "Weapon violations", "zh-CN": "武器违法" },
+          "offenses": [
+            { "code": "Weapon Violations", "label": { "en": "Weapon violations", "zh-CN": "武器违法" } }
+          ]
+        },
+        {
+          "code": "1700",
+          "label": { "en": "Other sex offenses", "zh-CN": "其他性犯罪" },
+          "offenses": [
+            { "code": "Other Sex Offenses (Not Commercialized)", "label": { "en": "Other non-commercial sex offenses", "zh-CN": "其他非商业性性犯罪" } }
+          ]
+        },
+        {
+          "code": "2000",
+          "label": { "en": "Family and child offenses", "zh-CN": "家庭与儿童相关犯罪" },
+          "offenses": [
+            { "code": "Offenses Against Family and Children", "label": { "en": "Offenses against family and children", "zh-CN": "侵害家庭与儿童" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "property",
+      "label": { "en": "Property and home", "zh-CN": "财产与住宅" },
+      "ucr_categories": [
+        {
+          "code": "500",
+          "label": { "en": "Burglary", "zh-CN": "入室盗窃" },
+          "offenses": [
+            { "code": "Burglary Non-Residential", "label": { "en": "Non-residential burglary", "zh-CN": "非住宅入室盗窃" } },
+            { "code": "Burglary Residential", "label": { "en": "Residential burglary", "zh-CN": "住宅入室盗窃" } }
+          ]
+        },
+        {
+          "code": "600",
+          "label": { "en": "Theft", "zh-CN": "盗窃" },
+          "offenses": [
+            { "code": "Theft from Vehicle", "label": { "en": "Theft from vehicle", "zh-CN": "车内物品盗窃" } },
+            { "code": "Thefts", "label": { "en": "Theft", "zh-CN": "一般盗窃" } }
+          ]
+        },
+        {
+          "code": "900",
+          "label": { "en": "Arson", "zh-CN": "纵火" },
+          "offenses": [
+            { "code": "Arson", "label": { "en": "Arson", "zh-CN": "纵火" } }
+          ]
+        },
+        {
+          "code": "1300",
+          "label": { "en": "Receiving stolen property", "zh-CN": "收受赃物" },
+          "offenses": [
+            { "code": "Receiving Stolen Property", "label": { "en": "Receiving stolen property", "zh-CN": "收受赃物" } }
+          ]
+        },
+        {
+          "code": "1400",
+          "label": { "en": "Vandalism", "zh-CN": "破坏公物" },
+          "offenses": [
+            { "code": "Vandalism/Criminal Mischief", "label": { "en": "Vandalism / criminal mischief", "zh-CN": "破坏公物或恶作剧" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vehicle",
+      "label": { "en": "Vehicle and road", "zh-CN": "车辆与道路" },
+      "ucr_categories": [
+        {
+          "code": "700",
+          "label": { "en": "Motor vehicle theft", "zh-CN": "机动车盗窃" },
+          "offenses": [
+            { "code": "Motor Vehicle Theft", "label": { "en": "Motor vehicle theft", "zh-CN": "机动车盗窃" } }
+          ]
+        },
+        {
+          "code": "2100",
+          "label": { "en": "Driving under the influence", "zh-CN": "酒驾或药驾" },
+          "offenses": [
+            { "code": "DRIVING UNDER THE INFLUENCE", "label": { "en": "Driving under the influence", "zh-CN": "酒驾或药驾" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "financial",
+      "label": { "en": "Financial and fraud", "zh-CN": "金融与欺诈" },
+      "ucr_categories": [
+        {
+          "code": "1000",
+          "label": { "en": "Forgery and counterfeiting", "zh-CN": "伪造与假冒" },
+          "offenses": [
+            { "code": "Forgery and Counterfeiting", "label": { "en": "Forgery and counterfeiting", "zh-CN": "伪造与假冒" } }
+          ]
+        },
+        {
+          "code": "1100",
+          "label": { "en": "Fraud", "zh-CN": "欺诈" },
+          "offenses": [
+            { "code": "Fraud", "label": { "en": "Fraud", "zh-CN": "欺诈" } }
+          ]
+        },
+        {
+          "code": "1200",
+          "label": { "en": "Embezzlement", "zh-CN": "侵占挪用" },
+          "offenses": [
+            { "code": "Embezzlement", "label": { "en": "Embezzlement", "zh-CN": "侵占挪用" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "public_order",
+      "label": { "en": "Public order", "zh-CN": "公共秩序" },
+      "ucr_categories": [
+        {
+          "code": "1600",
+          "label": { "en": "Prostitution", "zh-CN": "卖淫相关" },
+          "offenses": [
+            { "code": "Prostitution and Commercialized Vice", "label": { "en": "Prostitution and commercialized vice", "zh-CN": "卖淫及商业化色情" } }
+          ]
+        },
+        {
+          "code": "1800",
+          "label": { "en": "Drug law violations", "zh-CN": "毒品违法" },
+          "offenses": [
+            { "code": "Narcotic / Drug Law Violations", "label": { "en": "Narcotic / drug law violations", "zh-CN": "麻醉品或毒品违法" } }
+          ]
+        },
+        {
+          "code": "1900",
+          "label": { "en": "Gambling violations", "zh-CN": "赌博违法" },
+          "offenses": [
+            { "code": "Gambling Violations", "label": { "en": "Gambling violations", "zh-CN": "赌博违法" } }
+          ]
+        },
+        {
+          "code": "2200",
+          "label": { "en": "Liquor law violations", "zh-CN": "酒类法规违法" },
+          "offenses": [
+            { "code": "Liquor Law Violations", "label": { "en": "Liquor law violations", "zh-CN": "酒类法规违法" } }
+          ]
+        },
+        {
+          "code": "2300",
+          "label": { "en": "Public drunkenness", "zh-CN": "公共场所醉酒" },
+          "offenses": [
+            { "code": "Public Drunkenness", "label": { "en": "Public drunkenness", "zh-CN": "公共场所醉酒" } }
+          ]
+        },
+        {
+          "code": "2400",
+          "label": { "en": "Disorderly conduct", "zh-CN": "扰乱秩序" },
+          "offenses": [
+            { "code": "Disorderly Conduct", "label": { "en": "Disorderly conduct", "zh-CN": "扰乱秩序" } }
+          ]
+        },
+        {
+          "code": "2500",
+          "label": { "en": "Vagrancy and loitering", "zh-CN": "游荡与逗留" },
+          "offenses": [
+            { "code": "Vagrancy/Loitering", "label": { "en": "Vagrancy / loitering", "zh-CN": "游荡或逗留" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "label": { "en": "Other official offenses", "zh-CN": "其他官方类别" },
+      "ucr_categories": [
+        {
+          "code": "2600",
+          "label": { "en": "All other offenses", "zh-CN": "所有其他犯罪" },
+          "offenses": [
+            { "code": "All Other Offenses", "label": { "en": "All other offenses", "zh-CN": "所有其他犯罪" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

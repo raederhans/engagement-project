@@ -146,6 +146,29 @@ export function bufferBounds(centerLonLat, radiusM) {
   ];
 }
 
+export function pointOutsideCenterViewport(map, coordinates, focusRatio = 0.4) {
+  const canvas = map?.getCanvas?.();
+  const width = finite(canvas?.clientWidth);
+  const height = finite(canvas?.clientHeight);
+  if (width == null || width <= 0 || height == null || height <= 0) return false;
+  let point;
+  try {
+    point = map.project?.(coordinates);
+  } catch {
+    return false;
+  }
+  const x = finite(point?.x);
+  const y = finite(point?.y);
+  if (x == null || y == null) return false;
+  const ratio = Math.min(1, Math.max(0, finite(focusRatio) ?? 0.4));
+  const horizontalInset = width * ((1 - ratio) / 2);
+  const verticalInset = height * ((1 - ratio) / 2);
+  return x < horizontalInset
+    || x > width - horizontalInset
+    || y < verticalInset
+    || y > height - verticalInset;
+}
+
 function isVisible(element, windowRef) {
   if (!element || element.hidden || element.getAttribute?.('aria-hidden') === 'true') return false;
   const style = windowRef?.getComputedStyle?.(element);

@@ -8,8 +8,10 @@ import {
 } from '../../src/map/points.js';
 import { wirePoints } from '../../src/map/wire_points.js';
 import { createCrimeRefreshOwner } from '../../src/routes_crime/crime_refresh_owner.js';
+import '../../src/i18n/crime_offense_catalog.js';
 import {
   createIncidentResultsController,
+  createIncidentResultsView,
   visibleIncidentFeatures,
 } from '../../src/routes_crime/incident_results_controller.js';
 
@@ -155,6 +157,10 @@ function createLayerMap() {
         definition,
         data: definition.data,
         setData(data) { this.data = data; },
+        setClusterOptions(options) {
+          this.definition = { ...this.definition, ...options };
+          mutations.push(['cluster-options', id, options]);
+        },
       };
       sources.set(id, source);
       mutations.push(['source', id, definition.data]);
@@ -165,6 +171,10 @@ function createLayerMap() {
     },
     removeLayer(id) { layers.delete(id); },
     removeSource(id) { sources.delete(id); },
+    setPaintProperty(id, property, value) {
+      layers.get(id).paint[property] = value;
+      mutations.push(['paint', id, property, value]);
+    },
     on(event, layer, handler) {
       if (typeof layer === 'function') handlers.set(event, layer);
       else handlers.set(`${event}:${layer}`, handler);
@@ -178,6 +188,176 @@ function createLayerMap() {
     getCanvas: () => ({ style: { cursor: '' } }),
   };
 }
+
+function createIncidentResultsDom() {
+  const createNode = (tagName = 'div') => ({
+    tagName,
+    children: [],
+    dataset: {},
+    attributes: {},
+    hidden: false,
+    textContent: '',
+    append(...children) { this.children.push(...children); },
+    appendChild(child) { this.children.push(child); return child; },
+    replaceChildren(...children) { this.children = [...children]; },
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    removeAttribute(name) { delete this.attributes[name]; },
+    querySelectorAll() { return []; },
+    contains(candidate) { return this.children.includes(candidate); },
+  });
+  const nodes = {
+    status: createNode('p'),
+    selected: createNode('article'),
+    state: createNode('p'),
+    list: createNode('ol'),
+    more: createNode('button'),
+    edit: createNode('button'),
+  };
+  const selectors = new Map([
+    ['[data-incident-results-status]', nodes.status],
+    ['[data-selected-incident]', nodes.selected],
+    ['[data-incident-results-state]', nodes.state],
+    ['[data-incident-results-list]', nodes.list],
+    ['[data-incident-results-more]', nodes.more],
+    ['[data-incident-results-edit]', nodes.edit],
+  ]);
+  const root = createNode('section');
+  root.querySelector = (selector) => selectors.get(selector) || null;
+  root.addEventListener = () => {};
+  root.removeEventListener = () => {};
+  return {
+    root,
+    nodes,
+    documentRef: { createElement: (tagName) => createNode(tagName) },
+  };
+}
+
+test('specific offense selections use stable palette colors and disable clustering while readable', async () => {
+  const {
+    buildOffenseColorExpression,
+    buildOffenseHighlights,
+  } = await import('../../src/utils/types.js');
+  const { makePalette } = await import('../../src/utils/classify.js');
+  const codes = [
+    'Aggravated Assault Firearm',
+    'Aggravated Assault No Firearm',
+    'Robbery Firearm',
+  ];
+
+  assert.equal(typeof buildOffenseHighlights, 'function');
+  assert.equal(typeof buildOffenseColorExpression, 'function');
+  const highlights = buildOffenseHighlights(codes, makePalette('OrRd', 5));
+  assert.deepEqual(highlights.map(({ code }) => code), codes);
+  assert.equal(new Set(highlights.map(({ color }) => color)).size, 3);
+  assert.equal(
+    highlights.every(({ color }) => makePalette('OrRd', 5).includes(color)),
+    true,
+  );
+  assert.deepEqual(buildOffenseHighlights(codes, makePalette('OrRd', 5)), highlights);
+
+  const map = createLayerMap();
+  const geo = {
+    type: 'FeatureCollection',
+    features: codes.map((offense, index) => incidentFeature({ id: index + 1, offense })),
+  };
+  const refresh = (classPalette, drilldownCodes = codes) => refreshPoints(map, {
+    start: '2026-01-01',
+    end: '2026-02-01',
+    types: drilldownCodes,
+    drilldownCodes,
+    classPalette,
+    fetchPointsImpl: async () => geo,
+  });
+
+  await refresh('OrRd');
+  assert.equal(map.sources.get('crime-points').definition.cluster, false);
+  assert.equal(map.layers.get('unclustered').paint['circle-stroke-color'], '#172033');
+  assert.deepEqual(
+    map.layers.get('unclustered').paint['circle-color'],
+    buildOffenseColorExpression(highlights),
+  );
+
+  await refresh('Blues');
+  assert.deepEqual(
+    map.layers.get('unclustered').paint['circle-color'],
+    buildOffenseColorExpression(buildOffenseHighlights(codes, makePalette('Blues', 5))),
+  );
+  assert.equal(
+    map.mutations.some(([kind, id, property]) => (
+      kind === 'paint' && id === 'unclustered' && property === 'circle-color'
+    )),
+    true,
+  );
+  assert.equal(
+    map.mutations.filter(([kind]) => kind === 'cluster-options').length,
+    0,
+    'palette-only refreshes must not rebuild clustering',
+  );
+
+  await refresh('Blues', []);
+  assert.equal(map.sources.get('crime-points').definition.cluster, true);
+  assert.equal(map.mutations.filter(([kind]) => kind === 'cluster-options').length, 1);
+  assert.deepEqual(
+    map.mutations.find(([kind]) => kind === 'cluster-options').at(-1),
+    { cluster: true },
+    'cluster toggles must preserve MapLibre\'s internally scaled radius and max zoom',
+  );
+  assert.deepEqual(
+    map.layers.get('unclustered').paint['circle-color'],
+    buildOffenseColorExpression([]),
+  );
+  assert.equal(map.layers.get('unclustered').paint['circle-stroke-color'], '#fff');
+});
+
+test('buffer point requests combine the current viewport with the selected radius', async () => {
+  const map = createLayerMap();
+  let request;
+  await refreshPoints(map, {
+    start: '2026-01-01',
+    end: '2026-02-01',
+    center3857: [-8_365_000, 4_855_000],
+    radiusM: 800,
+    fetchPointsImpl: async (params) => {
+      request = params;
+      return { type: 'FeatureCollection', features: [] };
+    },
+  });
+
+  assert.deepEqual(request.center3857, [-8_365_000, 4_855_000]);
+  assert.equal(request.radiusM, 800);
+  assert.deepEqual(Object.keys(request.bbox).sort(), ['xmax', 'xmin', 'ymax', 'ymin']);
+});
+
+test('tract point refresh resolves and forwards the selected polygon without a saved buffer filter', async () => {
+  const map = createLayerMap();
+  const polygon = {
+    type: 'Polygon',
+    coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 39.9]]],
+  };
+  let resolved;
+  let request;
+  await refreshPoints(map, {
+    start: '2026-01-01',
+    end: '2026-02-01',
+    queryMode: 'tract',
+    selectedTractGEOID: '42101000100',
+    center3857: [-8_365_000, 4_855_000],
+    radiusM: 800,
+    resolveTractGeometryImpl: async (params) => {
+      resolved = params;
+      return polygon;
+    },
+    fetchPointsImpl: async (params) => {
+      request = params;
+      return { type: 'FeatureCollection', features: [] };
+    },
+  });
+
+  assert.equal(resolved.selectedTractGEOID, '42101000100');
+  assert.equal(request.center3857, undefined);
+  assert.equal(request.radiusM, undefined);
+  assert.equal(request.tractGeometry, polygon);
+});
 
 test('one accepted points response updates map and incident list with the same GeoJSON object', async () => {
   const map = createLayerMap();
@@ -257,6 +437,106 @@ test('map and list activation share one escaped incident detail owner', () => {
   assert.doesNotMatch(listHtml, /<img|<script>/i);
   assert.equal(view.selections.at(-1).key, 'carto:42');
   assert.equal(view.selections.at(-1).ensureVisible, true);
+  controller.destroy();
+});
+
+test('list selection recenters an incident only when it falls outside the central focus area', () => {
+  const map = createLayerMap();
+  const cameraMoves = [];
+  let projected = { x: 900, y: 400 };
+  map.getCanvas = () => ({ style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 });
+  map.project = () => projected;
+  map.easeTo = (options) => cameraMoves.push(options);
+  const view = createIncidentView();
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { return this; },
+      remove() {},
+    }),
+  });
+  const feature = incidentFeature({ id: 43 });
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features: [feature] },
+    generation: 1,
+    status: 'ready',
+    count: 1,
+  });
+
+  view.activate('carto:43');
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, duration: 300 }]);
+
+  projected = { x: 650, y: 400 };
+  view.activate('carto:43');
+  assert.equal(cameraMoves.length, 1);
+
+  projected = { x: 900, y: 400 };
+  map.handlers.get('click:unclustered')({ features: [feature], lngLat: { lng: -75.16, lat: 39.95 } });
+  assert.equal(cameraMoves.length, 1);
+  controller.destroy();
+});
+
+test('list selection honors reduced-motion preference while focusing an off-center incident', () => {
+  const map = createLayerMap();
+  const cameraMoves = [];
+  map.getCanvas = () => ({ style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 });
+  map.project = () => ({ x: 900, y: 400 });
+  map.easeTo = (options) => cameraMoves.push(options);
+  const view = createIncidentView();
+  const controller = createIncidentResultsController(map, {
+    view,
+    prefersReducedMotion: () => true,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { return this; },
+      remove() {},
+    }),
+  });
+  const feature = incidentFeature({ id: 44 });
+  controller.replaceResults({
+    geo: { type: 'FeatureCollection', features: [feature] },
+    generation: 1,
+    status: 'ready',
+    count: 1,
+  });
+
+  view.activate('carto:44');
+
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, duration: 0 }]);
+  controller.destroy();
+});
+
+test('a refreshed result generation restores the selected incident popup', () => {
+  const map = createLayerMap();
+  const view = createIncidentView();
+  let popupAdds = 0;
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; },
+      setHTML() { return this; },
+      addTo() { popupAdds += 1; return this; },
+      remove() {},
+    }),
+  });
+  const feature = incidentFeature({ id: 45 });
+  const payload = {
+    geo: { type: 'FeatureCollection', features: [feature] },
+    status: 'ready',
+    count: 1,
+  };
+
+  controller.replaceResults({ ...payload, generation: 1 });
+  view.activate('carto:45');
+  assert.equal(popupAdds, 1);
+
+  controller.replaceResults({ ...payload, generation: 2 });
+
+  assert.equal(controller.getSelectedKey(), 'carto:45');
+  assert.equal(popupAdds, 2);
   controller.destroy();
 });
 
@@ -378,6 +658,63 @@ test('high-density incident results never render more than 200 rows and keep the
   assert.equal(result.all.length, 20_000);
   assert.equal(result.visible.length, 200);
   assert.equal(result.visible.some((feature) => feature.properties.cartodb_id === 19_999), true);
+});
+
+test('incident results begin with a compact twelve-record slice', () => {
+  const features = Array.from({ length: 30 }, (_, index) => incidentFeature({
+    id: index + 1,
+    occurred: `2026-07-${String(index + 1).padStart(2, '0')}T14:35:00Z`,
+  }));
+
+  const result = visibleIncidentFeatures(features);
+
+  assert.equal(result.all.length, 30);
+  assert.equal(result.visible.length, 12);
+  assert.equal(result.visible[0].properties.cartodb_id, 30);
+});
+
+test('incident list rows defer district metadata to the selected detail', () => {
+  const { root, nodes, documentRef } = createIncidentResultsDom();
+  const view = createIncidentResultsView({
+    root,
+    documentRef,
+    translate: (key) => key,
+    createDetailModel: () => ({
+      key: 'carto:7',
+      offense: 'Other Assaults',
+      occurred: '2026-07-15 14:35',
+      location: '1500 MARKET ST',
+      district: '09',
+    }),
+  });
+
+  view.replaceResults({
+    geo: { type: 'FeatureCollection', features: [incidentFeature({ id: 7 })] },
+    generation: 1,
+    status: 'ready',
+    count: 1,
+  });
+
+  const button = nodes.list.children[0].children[0];
+  assert.deepEqual(button.children.map(({ tagName }) => tagName), ['strong', 'span']);
+  assert.equal(button.children[1].textContent, '2026-07-15 14:35 · 1500 MARKET ST');
+});
+
+test('incident list and selected detail localize official offense codes after a language switch', async (t) => {
+  const { setLanguage, t: translate } = await import('../../src/i18n/index.js');
+  t.after(() => setLanguage('en'));
+  setLanguage('zh-CN');
+  const { root, nodes, documentRef } = createIncidentResultsDom();
+  const view = createIncidentResultsView({ root, documentRef, translate });
+
+  view.replaceResults({
+    geo: { type: 'FeatureCollection', features: [incidentFeature({ id: 8, offense: 'Other Assaults' })] },
+    generation: 1,
+    status: 'ready',
+    count: 1,
+  });
+
+  assert.equal(nodes.list.children[0].children[0].children[0].textContent, '其他袭击');
 });
 
 test('language redraw reuses cached incidents without fetching and destroy releases all owners', () => {

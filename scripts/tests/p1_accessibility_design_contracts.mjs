@@ -185,13 +185,15 @@ test('Crime keeps its primary map action before provenance and makes success qui
   assert.match(css, /\.result-meta\[data-availability="stale"\],\s*\n\.result-meta\[data-availability="unavailable"\]/);
 });
 
-test('semantic buttons keep their variants and Help uses one disclosure contract', async () => {
+test('semantic buttons keep their variants and centered Help uses one modal contract', async () => {
   const about = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
   assert.match(css, /:where\(#sidepanel button\)\s*\{/);
   assert.doesNotMatch(css, /(^|\n)#sidepanel button\s*\{/);
   assert.match(about, /btn\.setAttribute\(['"]aria-controls['"],\s*panel\.id\)/);
-  assert.doesNotMatch(about, /panel\.setAttribute\(['"]role['"],\s*['"]dialog['"]\)/);
-  assert.match(about, /panel\.setAttribute\(['"]role['"],\s*['"]region['"]\)/);
+  assert.match(about, /panel\.setAttribute\(['"]role['"],\s*['"]dialog['"]\)/);
+  assert.match(about, /panel\.setAttribute\(['"]aria-modal['"],\s*['"]true['"]\)/);
+  assert.match(about, /panel\.inert\s*=\s*!isOpen/);
+  assert.match(about, /backdrop\.addEventListener\(['"]click['"]/);
 });
 
 test('selected map markers expose target-specific non-interactive image semantics', () => {

@@ -51,6 +51,7 @@ function preserveStore(t) {
     coverageError: store.coverageError,
     coverageNotice: store.coverageNotice,
     per10k: store.per10k,
+    classPalette: store.classPalette,
     center3857: store.center3857 ? [...store.center3857] : null,
     centerB3857: store.centerB3857 ? [...store.centerB3857] : null,
     addressA: store.addressA,
@@ -66,11 +67,13 @@ test('drilldown codes become the canonical offense filter for every consumer', (
   store.selectedGroups = ['vehicle'];
   store.selectedTypes = ['Motor Vehicle Theft', 'Theft from Vehicle'];
   store.selectedDrilldownCodes = ['Motor Vehicle Theft'];
+  store.classPalette = 'OrRd';
 
   const filters = store.getFilters();
 
   assert.deepEqual(filters.types, ['Motor Vehicle Theft']);
   assert.deepEqual(filters.resolvedOffenseCodes, ['Motor Vehicle Theft']);
+  assert.equal(filters.classPalette, 'OrRd');
 });
 
 test('one analysis mode owns both query behavior and visible geography', (t) => {
@@ -529,6 +532,32 @@ test('shared Crime state ignores unrelated parameters and rejects invalid ranges
   assert.equal(decoded.startMonth, null);
   assert.equal(decoded.classBins, 5);
   assert.equal(decoded.classOpacity, 0.75);
+});
+
+test('shared Crime state caps concrete offense highlights at three', async () => {
+  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const codes = [
+    'Aggravated Assault Firearm',
+    'Aggravated Assault No Firearm',
+    'Robbery Firearm',
+    'Robbery No Firearm',
+  ];
+  const encoded = encodeCrimeViewState({
+    queryMode: 'buffer',
+    selectedGroups: ['person'],
+    selectedDrilldownCodes: codes,
+  });
+
+  assert.deepEqual(decodeCrimeViewState(encoded).selectedDrilldownCodes, codes.slice(0, 3));
+  assert.deepEqual(
+    decodeCrimeViewState(`analysis=buffer&groups=person&codes=${codes.join('|')}`).selectedDrilldownCodes,
+    codes.slice(0, 3),
+  );
+  const { normalizeHighlightedOffenses } = await import('../../src/utils/types.js');
+  assert.deepEqual(
+    normalizeHighlightedOffenses([' A ', 'B', 'A', '', 'C', 'D']),
+    ['A', 'B', 'C'],
+  );
 });
 
 test('shared Crime state accepts bounded integer custom buffer radii', async () => {

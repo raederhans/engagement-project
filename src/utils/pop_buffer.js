@@ -1,7 +1,7 @@
 import { fetchTractsCachedFirst } from "../api/boundaries.js";
 import { fetchTractStatsCachedFirst } from "../api/acs.js";
 import { tractFeatureGEOID } from "./geoids.js";
-import * as turf from "@turf/turf";
+import { distanceMeters, geometryVertexCentroid } from './geo_circle.js';
 
 function toLonLat([x, y]) {
   const R = 6378137;
@@ -26,7 +26,6 @@ export async function estimatePopInBuffer({
 }) {
   signal?.throwIfAborted();
   const center4326 = toLonLat(center3857);
-  const circle = turf.circle(center4326, radiusM, { units: "meters", steps: 64 });
   const [tracts, stats] = await Promise.all([
     fetchTracts({ signal, onSourceResolved }),
     fetchStats({ signal, onSourceResolved }),
@@ -38,12 +37,11 @@ export async function estimatePopInBuffer({
   let pop = 0;
   let checked = 0;
   for (const ft of tracts.features || []) {
-    const c = turf.centroid(ft).geometry.coordinates;
-    if (turf.booleanPointInPolygon(c, circle)) {
+    const tractCenter = geometryVertexCentroid(ft.geometry);
+    if (tractCenter && distanceMeters(center4326, tractCenter) <= radiusM) {
       pop += populationByGeoid.get(tractFeatureGEOID(ft)) || 0;
       checked++;
     }
   }
   return { pop, tractsChecked: checked };
 }
-

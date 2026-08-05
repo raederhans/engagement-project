@@ -3,6 +3,7 @@ import {
   onLanguageChange,
   t,
 } from '../i18n/index.js';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 import { formatCalendarDate } from '../i18n/date.js';
 import { normalizeCrimeDataSources } from './crime_data_sources.js';
 
@@ -57,6 +58,7 @@ const COPY = Object.freeze({
     'resultMeta.retry.charts': 'Retry chart result',
     'resultMeta.retry.summary': 'Retry summary',
     'resultMeta.details': 'Result details',
+    'incidents.dataDetails': 'Data scope and notes',
     'resultMeta.generated': 'Generated {value}',
     'resultMeta.source': '{dataset}: {provider} ({kind}){asOf}',
     'resultMeta.coverage': 'Coverage {start} to {end}{asOf}',
@@ -89,6 +91,8 @@ const COPY = Object.freeze({
     'resultMeta.limit.incidentsPartial': 'Some incident details are unavailable.',
     'resultMeta.limit.chartsPartial': 'Some chart views are unavailable.',
     'resultMeta.limit.summaryPartial': 'Some summary metrics are unavailable.',
+    'resultMeta.limit.reportedRecords': 'Counts use source records; one record is not guaranteed to equal one unique incident.',
+    'resultMeta.limit.generalizedLocations': 'Incident locations are generalized to the hundred block by the source.',
   }),
   'zh-CN': Object.freeze({
     'resultMeta.current': '当前结果',
@@ -102,6 +106,7 @@ const COPY = Object.freeze({
     'resultMeta.retry.charts': '重试图表结果',
     'resultMeta.retry.summary': '重试摘要',
     'resultMeta.details': '结果详情',
+    'incidents.dataDetails': '数据范围与说明',
     'resultMeta.generated': '生成于 {value}',
     'resultMeta.source': '{dataset}：{provider}（{kind}）{asOf}',
     'resultMeta.coverage': '覆盖范围 {start} 至 {end}{asOf}',
@@ -134,6 +139,8 @@ const COPY = Object.freeze({
     'resultMeta.limit.incidentsPartial': '部分事件详情暂不可用。',
     'resultMeta.limit.chartsPartial': '部分图表暂不可用。',
     'resultMeta.limit.summaryPartial': '部分摘要指标暂不可用。',
+    'resultMeta.limit.reportedRecords': '数量按来源记录计算；一条记录不一定等于一起唯一案件。',
+    'resultMeta.limit.generalizedLocations': '事件位置由数据源泛化到百号街区，并非精确门牌。',
   }),
 });
 
@@ -181,7 +188,7 @@ function prepareView(provenance, availability, { translate, formatDate }) {
   const scope = provenance.scope;
   const radius = scope.radius == null ? '' : copy('resultMeta.radius', { value: scope.radius });
   const offenses = scope.offenseCodes.length
-    ? copy('resultMeta.offenses', { value: scope.offenseCodes.join(', ') })
+    ? copy('resultMeta.offenses', { value: scope.offenseCodes.map((code) => localizeOffenseCode(code)).join(', ') })
     : '';
   const scopeText = scope.queryMode === 'citywide'
     ? copy('resultMeta.scope.citywide', {
@@ -241,6 +248,7 @@ export function createCrimeResultMetaPresenter({
   ].map((name) => [name, root.querySelector(`[data-result-meta-${name}]`)]));
   const surface = cleanText(root.dataset?.resultMeta);
   const retryKey = RETRY_KEYS[surface] || 'resultMeta.retry';
+  const detailsKey = surface === 'incidents' ? 'incidents.dataDetails' : 'resultMeta.details';
   let provenance = null;
   let availability = 'unavailable';
   let failure = null;
@@ -300,10 +308,10 @@ export function createCrimeResultMetaPresenter({
     setRetryLabel();
     nodes.retry.hidden = true;
   }
-  if (nodes.details) nodes.details.textContent = localCopy('resultMeta.details', {}, translate);
+  if (nodes.details) nodes.details.textContent = localCopy(detailsKey, {}, translate);
   const releaseLanguage = languageChange?.(() => {
     setRetryLabel();
-    if (nodes.details) nodes.details.textContent = localCopy('resultMeta.details', {}, translate);
+    if (nodes.details) nodes.details.textContent = localCopy(detailsKey, {}, translate);
     if (activeToken !== null) {
       root.setAttribute?.('aria-busy', 'true');
       if (nodes.status) nodes.status.textContent = localCopy('resultMeta.loading', {}, translate);
@@ -628,6 +636,11 @@ export function createCrimeRefreshProvenance({
       ...(summaryUsesPopulation ? ['tracts', 'demographics'] : []),
     ]),
   };
+  const limitations = [
+    'resultMeta.limit.reportedRecords',
+    'resultMeta.limit.generalizedLocations',
+    ...(value?.status === 'partial' ? [`resultMeta.limit.${name}Partial`] : []),
+  ];
   return createCrimeResultProvenance({
     result: summarize(name, value),
     generatedAt,
@@ -651,6 +664,6 @@ export function createCrimeRefreshProvenance({
         ...(queryMode === 'buffer' ? { radius: radiusM } : {}),
         offenseCodes: snapshot.resolvedOffenseCodes || snapshot.types,
       },
-    limitations: value?.status === 'partial' ? [`resultMeta.limit.${name}Partial`] : [],
+    limitations,
   });
 }

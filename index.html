@@ -134,16 +134,17 @@
 
       <label class="field-label" for="groupSel" data-i18n="crime.offenseGroups">Offense Groups</label>
       <select id="groupSel" class="field field--list" multiple size="6">
-        <option value="property" data-i18n="crime.group.property">Property</option>
-        <option value="vehicle" data-i18n="crime.group.vehicle">Vehicle</option>
-        <option value="burglary" data-i18n="crime.group.burglary">Burglary</option>
-        <option value="robbery_gun" data-i18n="crime.group.robberyGun">Robbery (gun)</option>
-        <option value="assault_gun" data-i18n="crime.group.assaultGun">Assault (gun)</option>
-        <option value="vandalism_other" data-i18n="crime.group.vandalismOther">Vandalism/Other</option>
+        <option value="person" data-i18n="crime.theme.person">Personal safety</option>
+        <option value="property" data-i18n="crime.theme.property">Home &amp; property</option>
+        <option value="vehicle" data-i18n="crime.theme.vehicle">Vehicle</option>
+        <option value="financial" data-i18n="crime.theme.financial">Financial</option>
+        <option value="public_order" data-i18n="crime.theme.publicOrder">Public order</option>
+        <option value="other" data-i18n="crime.theme.other">Other</option>
       </select>
 
-      <label class="field-label" for="fineSel" data-i18n="crime.drilldown">Drilldown</label>
-      <select id="fineSel" class="field field--list" multiple size="1"></select>
+      <label class="field-label" for="fineSel" data-i18n="crime.drilldown">Specific offense types (up to 3)</label>
+      <select id="fineSel" class="field field--list" multiple size="1" aria-describedby="fineSelHint"></select>
+      <div id="fineSelHint" class="field-help" role="status" aria-live="polite" data-i18n="crime.drilldownHint" data-i18n-params='{"count":0}'>0/3. Shift selects a range; Ctrl/Cmd-click toggles one. Map colors use the palette; at 3, deselect first.</div>
 
       <label class="field-label" for="startMonth" data-i18n="crime.startMonth">Start month</label>
       <input id="startMonth" class="field field--spaced" type="month" />
@@ -238,11 +239,16 @@
       <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
         <section id="incident-results" class="incident-results" aria-labelledby="incident-results-title" aria-busy="false" tabindex="-1">
           <header class="incident-results__header">
-            <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Current map</p>
-            <h2 id="incident-results-title" data-i18n="incidents.title">Review incidents</h2>
-            <p data-i18n="incidents.description">These are reported incidents returned for the current map view.</p>
+            <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Incident log</p>
+            <h2 id="incident-results-title" data-i18n="incidents.title">Recent incidents</h2>
+            <p data-i18n="incidents.description">Select a record to locate it on the map and view details.</p>
             <p data-incident-results-status role="status" aria-live="polite" data-i18n="incidents.idle">Choose an analysis area to review incidents in the current map.</p>
           </header>
+          <article class="incident-results__selected" data-selected-incident aria-live="polite" hidden></article>
+          <p class="incident-results__state" data-incident-results-state data-i18n="incidents.idle">Choose an analysis area to review incidents in the current map.</p>
+          <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
+          <ol class="incident-results__list" data-incident-results-list></ol>
+          <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show more incidents</button>
           <div class="result-meta" data-result-meta="incidents" data-availability="unavailable">
             <div class="result-meta__bar">
               <span data-result-meta-status role="status" aria-live="polite">Incident result unavailable</span>
@@ -258,11 +264,6 @@
               <p data-result-meta-limitations></p>
             </details>
           </div>
-          <article class="incident-results__selected" data-selected-incident aria-live="polite" hidden></article>
-          <p class="incident-results__state" data-incident-results-state data-i18n="incidents.idle">Choose an analysis area to review incidents in the current map.</p>
-          <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
-          <ol class="incident-results__list" data-incident-results-list></ol>
-          <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show 50 more</button>
         </section>
         <div id="charts" tabindex="-1">
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
@@ -281,6 +282,16 @@
               <p data-result-meta-limitations></p>
             </details>
           </div>
+          <section id="residential-stability" class="residential-stability" aria-labelledby="residential-stability-title">
+            <div class="residential-stability__heading">
+              <p class="crime-summary__eyebrow" data-i18n="residential.eyebrow">Homebuyer view</p>
+              <h3 id="residential-stability-title" data-i18n="residential.title">Long-term crime stability</h3>
+              <p data-i18n="residential.subtitle">A compact reading of direction, month-to-month variation, and evidence strength.</p>
+            </div>
+            <div data-residential-stability-content aria-live="polite">
+              <p data-i18n="residential.empty">Choose an area and at least six months to review stability.</p>
+            </div>
+          </section>
           <details id="chart-display-settings" class="chart-settings">
             <summary data-i18n="chart.settings">Display settings</summary>
             <div class="chart-settings__grid">
@@ -308,6 +319,7 @@
             <div id="chart-monthly-controls" class="chart-options" role="group" data-i18n-aria-label="chart.monthlyViewLabel" aria-label="Time trend view">
               <button type="button" data-chart-setting="monthlyView" data-chart-value="indexed" aria-pressed="true" data-i18n="chart.view.indexed">Indexed trend</button>
               <button type="button" data-chart-setting="monthlyView" data-chart-value="count" aria-pressed="false" data-i18n="chart.view.count">Counts</button>
+              <button type="button" data-chart-setting="monthlyView" data-chart-value="rolling" aria-pressed="false" data-i18n="chart.view.rolling">3-month average</button>
             </div>
             <div class="chart-canvas chart-canvas--monthly"><canvas id="chart-monthly"></canvas></div>
             <p id="chart-monthly-insight" class="chart-insight" aria-live="polite"></p>

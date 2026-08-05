@@ -1,5 +1,5 @@
 import { updateLegend, hideLegend } from './legend.js';
-import { upsertTractsFill, showTractsFill, hideTractsFill } from './tracts_layers.js';
+import { upsertTractsFill, showTractsFill } from './tracts_layers.js';
 import { store } from '../state/store.js';
 import { computeBreaks, makePalette, toMapLibreStep } from '../utils/classify.js';
 import { setTranslatedText, t } from '../i18n/index.js';
@@ -23,12 +23,16 @@ export function renderTractsChoropleth(map, merged) {
   // Update legend
   if (unavailable || allZero || breaks.length === 0) {
     hideLegend();
-    hideTractsFill(map);
+    upsertTractsFill(map, geojson, {
+      fillColor: '#cbd5e1',
+      fillOpacity: 0.12,
+      fillOutlineColor: '#64748b',
+    });
     showOutlinesOnlyBanner(unavailable
       ? merged.statusMessage
       : t('crime.noTractIncidents'));
   } else {
-    updateLegend({ title: t('crime.censusTracts'), unit: '', breaks, colors, subtitle });
+    updateLegend({ title: t('crime.censusTracts'), breaks, colors, subtitle });
 
     // Build step expression for fill color
     const { paintProps } = toMapLibreStep(breaks, colors, { opacity: store.classOpacity });

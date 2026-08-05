@@ -1,10 +1,17 @@
-import { t } from '../i18n/index.js';
+import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
+import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 
 /**
  * Reusable map legend control for choropleth layers (districts, tracts)
  */
 
 let legendContainer = null;
+
+onLanguageChange(() => {
+  for (const label of legendContainer?.querySelectorAll?.('[data-offense-code]') || []) {
+    label.textContent = localizeOffenseCode(label.dataset.offenseCode);
+  }
+});
 
 /**
  * Initialize legend container (bottom-right corner)
@@ -25,27 +32,25 @@ export function initLegend(containerId = 'legend') {
  * Update legend with new title, breaks, and colors
  * @param {{title:string,unit:string,breaks:number[],colors:string[]}} params
  */
-export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
+export function updateLegend({ title, unit = '', breaks, colors, subtitle, items }) {
   if (!legendContainer) {
     initLegend();
   }
 
-  if (!breaks || !colors || breaks.length === 0 || colors.length === 0) {
+  const categorical = items?.length;
+  if ((!categorical && !colors?.length) || (!categorical && !breaks?.length)) {
     hideLegend();
     return;
   }
 
-  const rows = [];
+  const rows = renderHeader(title, subtitle);
 
-  const titleElement = document.createElement('div');
-  titleElement.className = 'map-legend__title';
-  titleElement.textContent = title || t('map.legend');
-  rows.push(titleElement);
-  if (subtitle) {
-    const subtitleElement = document.createElement('div');
-    subtitleElement.className = 'map-legend__subtitle';
-    subtitleElement.textContent = subtitle;
-    rows.push(subtitleElement);
+  if (categorical) {
+    setTranslatedText(rows[0], title);
+    setTranslatedText(rows[1], subtitle);
+    rows.push(...items.map(({ color, code }) => renderRow(color, localizeOffenseCode(code), code)));
+    renderLegendRows(rows);
+    return;
   }
 
   // First range: 0 to breaks[0]
@@ -61,6 +66,24 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
   const lastColorIdx = Math.min(breaks.length, colors.length - 1);
   rows.push(renderRow(colors[lastColorIdx], `${breaks[breaks.length - 1]}+ ${unit}`));
 
+  renderLegendRows(rows);
+}
+
+function renderHeader(title, subtitle) {
+  const rows = [renderText('div', 'map-legend__title', title || t('map.legend'))];
+  if (!subtitle) return rows;
+  rows.push(renderText('div', 'map-legend__subtitle', subtitle));
+  return rows;
+}
+
+function renderText(tagName, className, text) {
+  const element = document.createElement(tagName);
+  element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+function renderLegendRows(rows) {
   legendContainer.replaceChildren(...rows);
   legendContainer.hidden = false;
 }
@@ -71,16 +94,15 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle }) {
  * @param {string} label - Text label
  * @returns {HTMLElement} Legend row element
  */
-function renderRow(color, label) {
+function renderRow(color, label, offenseCode = '') {
   const row = document.createElement('div');
   row.className = 'map-legend__row';
   const swatch = document.createElement('span');
   swatch.className = 'map-legend__swatch';
   swatch.style.backgroundColor = color;
   swatch.setAttribute('aria-hidden', 'true');
-  const labelElement = document.createElement('span');
-  labelElement.className = 'map-legend__label';
-  labelElement.textContent = label;
+  const labelElement = renderText('span', 'map-legend__label', label);
+  if (offenseCode) labelElement.dataset.offenseCode = offenseCode;
   row.append(swatch, labelElement);
   return row;
 }

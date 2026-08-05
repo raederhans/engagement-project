@@ -31,7 +31,7 @@ const transparentPng = Buffer.from(
 
 function cartoResponse(request) {
   const body = decodeURIComponent(request.postData() || '');
-  if (/MIN\(dispatch_date_time\)/i.test(body)) {
+  if (/MIN\s*\(\s*dispatch_date_time\b/i.test(body)) {
     return { rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-07-30T00:00:00Z' }] };
   }
   if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
@@ -417,13 +417,15 @@ try {
   await backupInput.setInputFiles(diaryBackupPath);
   await importPreviewHeading.waitFor();
   await assertFocused(importPreviewHeading, 'reselected backup must focus its refreshed import preview');
-  await putDiaryRows(page, {
-    drafts: [{
-      ...diaryBackupPayload.drafts.find((draft) => draft.routeId === routeB),
-      rating: 5,
-      updatedAt: '2026-08-05T00:00:00.000Z',
-    }],
-  });
+  const backedUpRouteBDraft = diaryBackupPayload.drafts.find((draft) => draft.routeId === routeB);
+  const backedUpRouteBTime = Date.parse(backedUpRouteBDraft.updatedAt);
+  assert.equal(Number.isFinite(backedUpRouteBTime), true, 'Exported Diary draft must have a valid update time');
+  const locallyUpdatedRouteBDraft = {
+    ...backedUpRouteBDraft,
+    rating: 5,
+    updatedAt: new Date(backedUpRouteBTime + 60_000).toISOString(),
+  };
+  await putDiaryRows(page, { drafts: [locallyUpdatedRouteBDraft] });
   await page.getByRole('button', { name: 'Merge backup' }).click();
   await page.getByText(/Backup merged:/).waitFor();
   await assertFocused(page.locator('[data-diary-focus-target="data-status"]'), 'merge completion must focus its status');
@@ -432,8 +434,8 @@ try {
   await backupInput.setInputFiles(diaryBackupPath);
   await page.getByRole('heading', { name: 'Review backup before importing' }).waitFor();
   const concurrentDraft = {
-    ...diaryBackupPayload.drafts.find((draft) => draft.routeId === routeB),
-    updatedAt: '2026-08-05T01:00:00.000Z',
+    ...locallyUpdatedRouteBDraft,
+    updatedAt: new Date(Date.parse(locallyUpdatedRouteBDraft.updatedAt) + 60_000).toISOString(),
     rating: 2,
     notes: 'Edited after the replace preview without changing record counts',
   };
@@ -469,7 +471,7 @@ try {
   requests.length = 0;
   const pointRefreshRequestsBeforeCrimeEntry = networkControl.pointRefreshRequests;
   await page.goto(new URL('?mode=crime&utm_source=portfolio', baseUrl).href, { waitUntil: 'domcontentloaded' });
-  await page.locator('#dataStatus').filter({ hasText: 'Live crime coverage' }).waitFor({ state: 'attached' });
+  await page.locator('#dataStatus[data-tone="ready"]').waitFor({ state: 'attached' });
   await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
   assert.equal(
     networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCrimeEntry,

@@ -1,4 +1,5 @@
 import { Chart } from 'chart.js/auto';
+import { buildRollingAverageSeries } from '../analysis/residential_stability.js';
 
 function unifyLabels(citySeries, bufferSeries) {
   const set = new Set();
@@ -41,16 +42,23 @@ export function buildMonthlyChartModel(citySeries, bufferSeries, preferences = {
   const labels = unifyLabels(citySeries, bufferSeries);
   const cityRaw = valuesFor(labels, citySeries);
   const areaRaw = valuesFor(labels, bufferSeries);
-  const indexed = preferences.valueMode !== 'count';
+  const indexed = preferences.valueMode === 'indexed';
+  const rolling = preferences.valueMode === 'rolling';
   const currentMonth = preferences.currentMonth || localCurrentMonth();
   const excludesPartialMonth = labels.length > 1 && labels.at(-1) === currentMonth;
   const insightEndIndex = excludesPartialMonth ? labels.length - 2 : labels.length - 1;
   const colors = PALETTES[preferences.palette] || PALETTES.blue;
+  const cityDisplay = rolling
+    ? buildRollingAverageSeries(labels.map((m, index) => ({ m, n: cityRaw[index] }))).map(({ n }) => n)
+    : cityRaw;
+  const areaDisplay = rolling
+    ? buildRollingAverageSeries(labels.map((m, index) => ({ m, n: areaRaw[index] }))).map(({ n }) => n)
+    : areaRaw;
   const datasets = [
     {
       label: copy.citywide || '',
-      data: indexed ? indexValues(cityRaw) : cityRaw,
-      rawValues: cityRaw,
+      data: indexed ? indexValues(cityRaw) : cityDisplay,
+      rawValues: rolling ? cityDisplay : cityRaw,
       borderColor: colors[0],
       backgroundColor: `${colors[0]}1f`,
       borderWidth: 2,
@@ -63,8 +71,8 @@ export function buildMonthlyChartModel(citySeries, bufferSeries, preferences = {
   if (areaRaw.length && areaRaw.some((value) => value > 0)) {
     datasets.push({
       label: copy.selectedArea || '',
-      data: indexed ? indexValues(areaRaw) : areaRaw,
-      rawValues: areaRaw,
+      data: indexed ? indexValues(areaRaw) : areaDisplay,
+      rawValues: rolling ? areaDisplay : areaRaw,
       borderColor: colors[1],
       backgroundColor: `${colors[1]}1f`,
       borderWidth: 2,

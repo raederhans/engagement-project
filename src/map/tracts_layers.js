@@ -65,7 +65,7 @@ export function upsertTractsOutline(map, fc) {
  * Add or update tract fill layer for choropleth (invisible by default)
  * @param {import('maplibre-gl').Map} map
  * @param {object} fc - GeoJSON FeatureCollection with properties.value
- * @param {{fillColor:any,fillOpacity:number}} [styleProps] - MapLibre paint properties
+ * @param {{fillColor:any,fillOpacity:number,fillOutlineColor?:string}} [styleProps] - MapLibre paint properties
  */
 export function upsertTractsFill(map, fc, styleProps = {}) {
   if (!fc || !fc.features || fc.features.length === 0) {
@@ -105,6 +105,7 @@ export function upsertTractsFill(map, fc, styleProps = {}) {
       paint: {
         'fill-color': styleProps.fillColor || '#ccc',
         'fill-opacity': styleProps.fillOpacity ?? 0, // Invisible by default
+        'fill-outline-color': styleProps.fillOutlineColor || '#64748b',
       },
     }, beforeId);
   } else {
@@ -114,6 +115,9 @@ export function upsertTractsFill(map, fc, styleProps = {}) {
     }
     if (styleProps.fillOpacity !== undefined) {
       map.setPaintProperty(layerId, 'fill-opacity', styleProps.fillOpacity);
+    }
+    if (styleProps.fillOutlineColor) {
+      map.setPaintProperty(layerId, 'fill-outline-color', styleProps.fillOutlineColor);
     }
   }
 }

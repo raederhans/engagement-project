@@ -1,4 +1,4 @@
-import * as turf from '@turf/turf';
+import { circleFeature } from '../utils/geo_circle.js';
 
 export function upsertBufferA(map, { centerLonLat, radiusM }) {
   return upsertBuffer(map, { id: 'buffer-a', centerLonLat, radiusM, color: '#0284c7' });
@@ -10,12 +10,12 @@ export function upsertBufferB(map, { centerLonLat, radiusM }) {
 
 function upsertBuffer(map, { id, centerLonLat, radiusM, color }) {
   if (!centerLonLat) return;
-  const circle = turf.circle(centerLonLat, radiusM, { units: 'meters', steps: 64 });
+  const bufferCircle = circleFeature(centerLonLat, radiusM);
   const srcId = id;
   if (map.getSource(srcId)) {
-    map.getSource(srcId).setData(circle);
+    map.getSource(srcId).setData(bufferCircle);
   } else {
-    map.addSource(srcId, { type: 'geojson', data: circle });
+    map.addSource(srcId, { type: 'geojson', data: bufferCircle });
     map.addLayer({ id: `${id}-fill`, type: 'fill', source: srcId, paint: { 'fill-color': color, 'fill-opacity': 0.12 } });
     map.addLayer({ id: `${id}-line`, type: 'line', source: srcId, paint: { 'line-color': color, 'line-width': 2 } });
   }

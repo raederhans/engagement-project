@@ -12,10 +12,25 @@ import { getTractPolygonAndBboxByGEOID } from "../utils/tract_geom.js";
  * @param {string} params.end - Exclusive ISO end datetime.
  * @param {string[]} [params.types] - Optional offense filters.
  * @param {number[] | {xmin:number, ymin:number, xmax:number, ymax:number}} [params.bbox] - Map bounding box in EPSG:3857.
+ * @param {number[] | {x:number,y:number}} [params.center3857] - Buffer center in EPSG:3857.
+ * @param {number} [params.radiusM] - Buffer radius in metres.
  * @returns {Promise<object>} GeoJSON FeatureCollection.
  */
-export async function fetchPoints({ start, end, types, bbox, dc_dist, signal }) {
-  const sql = Q.buildCrimePointsSQL({ start, end, types, bbox, dc_dist });
+export async function fetchPoints({
+  start,
+  end,
+  types,
+  bbox,
+  center3857,
+  radiusM,
+  dc_dist,
+  drilldownCodes,
+  tractGeometry,
+  signal,
+}) {
+  const sql = Q.buildCrimePointsSQL({
+    start, end, types, bbox, center3857, radiusM, dc_dist, drilldownCodes, tractGeometry,
+  });
   await logQuery('fetchPoints', sql);
   return fetchJson(CARTO_SQL_BASE, {
     method: 'POST',

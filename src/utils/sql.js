@@ -61,15 +61,27 @@ export function envelopeClause(bbox) {
 }
 
 /**
- * Build SQL for point requests with optional type and bbox filters (§2.1).
+ * Build SQL for point requests with optional type, bbox, and radius filters (§2.1).
  * @param {object} params
  * @param {string} params.start - Inclusive start ISO date.
  * @param {string} params.end - Exclusive end ISO date.
  * @param {string[]} [params.types] - Optional offense filters.
  * @param {number[] | {xmin:number, ymin:number, xmax:number, ymax:number}} [params.bbox] - Bounding box in EPSG:3857.
+ * @param {number[]|{x:number,y:number}} [params.center3857] - Buffer center in EPSG:3857.
+ * @param {number} [params.radiusM] - Buffer radius in metres.
  * @returns {string} SQL statement.
  */
-export function buildCrimePointsSQL({ start, end, types, bbox, dc_dist, drilldownCodes }) {
+export function buildCrimePointsSQL({
+  start,
+  end,
+  types,
+  bbox,
+  center3857,
+  radiusM,
+  dc_dist,
+  drilldownCodes,
+  tractGeometry,
+}) {
   const startIso = dateFloorGuard(start);
   const endIso = ensureIso(end, "end");
   const clauses = baseTemporalClauses(startIso, endIso, types, { drilldownCodes });
@@ -78,8 +90,17 @@ export function buildCrimePointsSQL({ start, end, types, bbox, dc_dist, drilldow
   if (bboxClause) {
     clauses.push(`  ${bboxClause}`);
   }
+  if (center3857) {
+    clauses.push(`  ${dWithinClause(center3857, radiusM)}`);
+  }
   if (dc_dist) {
     clauses.push(`  ${buildDistrictFilter(dc_dist)}`);
+  }
+  if (tractGeometry) {
+    const gj = geojsonString6(tractGeometry);
+    const [minx, miny, maxx, maxy] = bbox4326(tractGeometry);
+    clauses.push(`  AND the_geom && ST_MakeEnvelope(${minx}, ${miny}, ${maxx}, ${maxy}, 4326)`);
+    clauses.push(`  AND ST_Intersects(the_geom, ST_SetSRID(ST_GeomFromGeoJSON('${gj}'), 4326))`);
   }
 
   return [
