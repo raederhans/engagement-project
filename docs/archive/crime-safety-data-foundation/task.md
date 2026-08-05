@@ -2,7 +2,7 @@
 
 ## Current status
 
-Implementation and Crime-specific verification are complete. One unrelated Help accessibility contract still expects the old non-dialog disclosure even though the current Help WIP intentionally uses a centered dialog.
+Complete and integrated: the Crime data foundation, residential-stability view, Help contract reconciliation, localization follow-up, full validation, and PR merge are green.
 
 ## Checklist
 
@@ -29,9 +29,10 @@ Implementation and Crime-specific verification are complete. One unrelated Help 
 | `npm run build:manifest && npm run verify:bundle` | PASS. Entry 902428/243320; Crime 37543/13037; Incident Results 6980/2769; Charts 230704/78635; all lazy-boundary budgets passed. |
 | Browser smoke on the existing `127.0.0.1:5173` listener | Selected a real map point; live summary and incidents loaded. Six themes rendered in Chinese; `房产与财产` exposed 7 official leaf offenses; residential direction/variation/evidence rendered; the three-month-average chart mode became pressed. |
 | First-principles review | One product surface retained; no walking module, external housing data, prediction, or opaque score added. Current partial month is excluded from stability comparisons. |
+| Final integration validation | `npm run validate` passed; PR #62 CI run `30983733787` passed on Windows and Ubuntu, including Chromium smoke and 36 visual tests; merged as `5184c901` |
 
 ## Open risks and remaining work
 
-- Crime leaf labels remain the official English source values in the drill-down and incident list; the six user-facing themes and analytical explanations are bilingual.
-- The Help P1 contract must be reconciled inside the separate Help redesign task; reverting the centered dialog would contradict the user's latest Help direction.
+- Crime leaf labels retain their official values internally while the drill-down, summaries, legends, district popup, incident list, and selected detail render only the active language.
+- The Help P1 contract now matches the centered `role=dialog` design and passed the final P1 and visual suites.
 - The external housing/building composite index is deferred until its component data and weighting policy are approved by evidence.

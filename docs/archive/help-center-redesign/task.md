@@ -2,7 +2,7 @@
 
 ## Current status
 
-Complete: implementation, targeted tests, production build, bundle policy, and live-browser verification are green.
+Complete and integrated: implementation, targeted tests, production build, bundle policy, live-browser verification, PR CI, and merge are green.
 
 ## Checklist
 
@@ -29,8 +29,9 @@ Complete: implementation, targeted tests, production build, bundle policy, and l
 | Playwright CLI at 932×1039 and 390×844 | PASS: modal stayed inside the viewport and centered; close button received focus, Tab entered navigation, Escape closed and restored trigger focus |
 | Chinese/English live rendering | PASS: all four sections and detailed source/method copy rendered in both locales |
 | Browser console | PASS: 0 errors, 0 warnings during Help interaction checks |
+| Integration | PR #62 merged as `5184c901`; CI run `30983733787` passed on Windows and Ubuntu, including Chromium smoke and all 36 visual tests |
 
 ## Open risks and remaining work
 
-- No blocking risk remains within the requested Help redesign scope.
+- No blocking risk remains within the requested Help redesign or integration scope.
 - This task does not change data queries or calculations; Help accuracy remains coupled to future changes in those modules and should be updated when their contracts change.
