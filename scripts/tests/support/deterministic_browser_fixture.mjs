@@ -249,7 +249,7 @@ export async function captureExperienceScreenshot(
   page,
   testInfo,
   name,
-  { locator = null, maxDiffPixelRatio = 0.005 } = {},
+  { locator = null, maxDiffPixelRatio = 0.005, threshold = 0.2 } = {},
 ) {
   await page.addStyleTag({ content: `
     *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
@@ -263,6 +263,7 @@ export async function captureExperienceScreenshot(
     animations: 'disabled',
     caret: 'hide',
     maxDiffPixelRatio,
+    threshold,
   });
 }
 
