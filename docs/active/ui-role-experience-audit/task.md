@@ -2,7 +2,7 @@
 
 ## Current status
 
-Stage 3 integration in progress: `S3-I1` 与 `S3-I2` 已在当前工作树按 TDD 完成并通过完整验证；独立任务 `019fd1fa-eb9d-77c3-a3d3-4b484cca0dcf` 已将 `S3-C1` 及方案 B 数据切片交付到隔离分支。2026-08-06 用户授权 `/root` 完成受控提交、按序整合、combined 验证、main/origin 同步及已整合 worktree/分支清理。所有体验结论仍是 evidence-informed product hypotheses，不是用户研究结论。
+Stage 3 integration and synchronization complete: `S3-I1`/`S3-I2` 已作为 `ab8b72c` 提交；`S3-C1`/`S3-C2` 原始提交 `751b5ef`/`6f0c2c2` 通过 merge commit `b09d4a2` 保留并整合；受审阅的 Diary 视觉基线以 `c48108f` 收口。产品提交已同步到 `origin/main`，独立 Git worktree 已注销，本地分支已删除。所有体验结论仍是 evidence-informed product hypotheses，不是用户研究结论；`S3-I3` 继续作为未授权的未来选项。
 
 ## Checklist
 
@@ -34,9 +34,9 @@ Stage 3 integration in progress: `S3-I1` 与 `S3-I2` 已在当前工作树按 TD
 - [x] S3-I1：完成 page-lifetime、presentation-only Crime task focus；Generic 默认，不写 storage，不改变 canonical query。
 - [x] S3-I1 verification：query/map/URL/save/data 不变量、即时 DOM/Tab 顺序、手动 pane 不被抢、响应式/视觉和 bundle 均有通过证据。
 - [x] S3-I2：完成显式 preset preview/cancel/apply/undo、exact diff、no-op、stale-preview 和单次刷新事务。
-- [x] S3-C1（READY FOR INTEGRATION, SEPARATE WORKTREE）：独立分支完成真实已知路线 corridor 基础与方案 B 数据能力；没有用 Diary demo 或 UI 文案替代，也尚未合并到当前工作树。
-- [ ] S3 integration：提交 I1/I2 运行面，按序整合 C1/C2，解决共享文件，完成 combined 验证与最小 bundle admission。
-- [ ] S3 synchronization：同步 local main 与 origin/main，更新任务/注册表事实并清理已整合 worktree/branch。
+- [x] S3-C1/C2：独立分支完成真实已知路线 corridor 基础与方案 B 数据能力；没有用 Diary demo 或 UI 文案替代，原始提交已保留并合入 `main`。
+- [x] S3 integration：提交 I1/I2 运行面，整合 C1/C2，解决共享文件，完成 combined 验证与最小 Crime lazy-chunk bundle admission。
+- [x] S3 synchronization：产品提交已同步到 local main 与 origin/main；任务/注册表事实已收口，独立 Git worktree 已注销且本地分支已删除。
 - [ ] S3-I3：若未来有稳定价值，再单独评估偏好持久化、远程 telemetry、隐私和生产 rollout。
 
 ## Validation evidence
@@ -58,13 +58,13 @@ Stage 3 integration in progress: `S3-I1` 与 `S3-I2` 已在当前工作树按 TD
 | 阶段一/二关键视觉套件 | 19 passed、8 skipped；覆盖 desktop/portrait/landscape、360/390/768/1440 overflow、键盘流、200% scaling 和 axe serious/critical 扫描。 |
 | S3-I1/I2 focused contracts | `crime_ui_contracts` 48/48、`crime_async_contracts` 28/28；覆盖 presentation-only、即时结果导航顺序、manual pane ownership、direct offense code、preview/no-op/stale/apply/undo 与单次刷新。 |
 | Diary + tract-snapshot browser smoke | PASS；除既有 Crime/Diary、fallback、IndexedDB 流程外，新增验证 `codes=Thefts` 保留、Long-term 即时导航顺序、preset cancel 无副作用、apply 一次刷新、undo 完整恢复；`consoleErrors=0`、`pageErrors=0`。 |
-| S3-I1/I2 Crime visual rerun | 只更新允许范围内的 9 张 Crime baselines；随后无 `--update-snapshots` 重跑 desktop/portrait/landscape 9/9 PASS。移动 setup 主 CTA 保持首屏可见，Diary baselines 未改写。 |
+| S3-I1/I2 + final visual rerun | Crime desktop/portrait/landscape 9/9 PASS。独立视觉审阅确认 Diary 差异来自已受测的私密备份 IA 与统一 Help 控件；只重建 15 张实际变化的 Win32 Diary baselines，最终无更新参数全矩阵 35 passed、10 designed skips、0 failed。 |
 | 独立最终 code review | 上轮 4 项发现全部修复；4 个静态/Node 契约文件 98/98 通过；原生 `<details name>` 未引入新的 P0/P1，当前无阻断。 |
-| Git/进程收口 | 当前主工作树 `HEAD == origin/main == cf191aa`；另有隔离 worktree 位于 S3-C1/C2 commit `6f0c2c2`。5173 仍由用户 PID 74548 监听，4173/4178 已释放；未 merge/push/deploy。 |
+| Git/进程收口 | 产品提交 `HEAD == origin/main == c48108f` 后开始记录收口；`751b5ef`/`6f0c2c2` 均为 main 祖先，独立 Git worktree 已注销且分支已删除。5173 未被重启或停止，4173/4178 已释放；未执行生产部署。 |
 | 阶段三仓库映射 | `focusMode` / `queryPreset` 不存在；展示状态、查询 store、Crime URL、saved analysis 和 Diary session data 的所有权边界已逐项确认。 |
 | 通勤能力核验 | Diary 当前为 demo/local/sample 组合；`src/utils/match.js` 的 GPS map matching 仍为 TODO 并明确抛错，不得描述为真实路线风险能力。 |
 | 实验基础核验 | 未发现产品行为 telemetry、A/B 分流或远程 collector；阶段三不能把业务 analytics API 当作实验系统。 |
-| Final Stage 3 bundle gate | PASS；Entry 902660/243083，Crime 37980/13376，Task Focus 6070/2776，Query Preset 4934/1939，dist 3452557 bytes。既有 raw/gzip 上限未提高；Entry 仍只余 5 raw bytes。 |
+| Final Stage 3 bundle gate | PASS；Entry 892948/240979，Crime 38375/13527，Route corridor 22908/7531，Task Focus 6070/2776，Query Preset 4934/1939，dist 3480387 bytes。主 Entry 上限未提高；只将实测超限的 Crime lazy chunk 从 38000/13500 最小调整到 38500/13750。 |
 | 官方研究 | GOV.UK、W3C、Microsoft、FTC/ICO、FBI/ONS/BJS 等一手来源支持任务验证、可跳过/可回退个性化、位置最小化、reported-crime 限制和 guardrail 设计。 |
 | 历史 Stage 3 architecture/final review | 当时结论为 S3.0 protocol prep ready、S3.1 conditional、S3.2 blocked；其 Crime/Diary scope、focus/preset、canonical snapshot、route capability、bundle 与隐私边界继续有效，但 participant gate 已被用户约束取代。 |
 | 用户约束修订 | 明确不招募受试者；旧 protocol/人数门槛保留为历史记录，不再作为当前执行 gate，也不把 desk research/AI walk-through 写成用户研究。 |
@@ -72,23 +72,23 @@ Stage 3 integration in progress: `S3-I1` 与 `S3-I2` 已在当前工作树按 TD
 | UI Pro Max design-system/UX/chart/stack searches | 保留 Accessible & Ethical、中性蓝色交互、visible focus、可跳过 onboarding、地图+文字替代、reduced-motion；拒绝 funnel、红橙绿风险语义、手写字体和无意义动效。 |
 | Scenario model | H0/H5/H6=`High`，H1/H2/H3=`Medium`，H4=`Low/Blocked`；每个场景都有当前能力匹配、产品推论和 falsifier。 |
 | IA and architecture review | 一个 Generic app shell、Crime/Diary 两个能力工作区、Crime 内两个可选 focus；I1 一个二级 lazy module + 窄 presentation API，I2 一个独立 canonical preset module。 |
-| S3 implementation delivery | I1/I2 已在当前 WIP 完成验证；独立任务 `019fd1fa-eb9d-77c3-a3d3-4b484cca0dcf` 在 `C:/Users/raede/.codex/worktrees/9188/engagement_project` 的 `codex/s3-c2-route-corridor-data` 分支交付 commits `751b5ef` 与 `6f0c2c2`，尚未 merge/push/deploy。 |
+| S3 implementation delivery | I1/I2=`ab8b72c`；C1=`751b5ef`；C2=`6f0c2c2`；integration=`b09d4a2`；reviewed visual closeout=`c48108f`。产品提交已推送到 `origin/main`；独立 Git worktree/branch 已清理，未执行生产部署。 |
 
 ## Open risks and remaining work
 
 - 角色/任务优先级仍是 evidence-informed hypothesis，没有真实用户验证；最终方案必须保留通用入口、随时切换和删除 focus 的能力。
 - 本轮不是完整 WCAG 合规测试、性能测试或真实用户研究；目标尺寸、读屏顺序和角色理解度需要单独验证。
-- 当前工作树包含阶段一/二本地改动以及用户原有 WIP；本轮没有修改 Git index、分支、worktree 拓扑或远端。
-- 默认入口 bundle 只剩 5 bytes 余量；后续任何入口代码应优先删除、复用或进入 lazy boundary，不能把当前通过理解为有充足容量。
+- 主工作树仍保留 `.gitignore`、`src/style.css` 的既有行尾/index 噪声，以及用户拥有的日志、Playwright 报告和 `output/`；它们没有进入任何提交，也没有被删除。
+- 默认 Entry 仍受 902665/247583 硬上限约束；本轮实测为 892948/240979。后续入口代码仍应优先删除、复用或进入 lazy boundary，不能把当前余量理解为无限预算。
 - 原生 `<details name>` 已在项目当前 Chromium 自动化中验证；若产品要求较旧浏览器或额外浏览器引擎，需要单独补兼容性矩阵。
-- 全量视觉命令中的旧 Diary 基线存在与本任务无关的历史漂移；本次只更新并验证阶段一/二涉及的 9 张 Crime 基线，没有重写 Diary 基线。
+- Win32 Diary 的历史视觉漂移已在 expected/actual/diff 独立审阅后收口；未来 baseline 变化仍必须逐图审阅，禁止通过提高全局像素阈值掩盖回归。
 - Task focus 与 query preset 已本地实现；长期角色持久化、remote telemetry、账户同步和强制 onboarding 均未实现，也没有被默认开启。
 - 阶段三不会招募或执行参与者研究；旧人数与阈值只保留为历史方案，不能再描述为当前待办或统计结论。
 - 当前 Generic UI 的真实任务完成率、理解正确率、寻找时间和信心没有用户基线；未来 focus 即使通过技术合同，也只能描述为可逆的产品假设，不能称为已证明改进。
-- 当前主工作树仍只能展示 Diary 的路线记录/回顾；真实已知路线 corridor 能力位于独立待集成分支，尚无最终 UI，且仍不能表达实时危险、未来风险或“更安全路线”。原始 GPS map matching 仍未实现。
+- 真实已知路线 corridor 数据能力已进入 main，但仍没有最终用户 UI，且不能表达实时危险、未来风险或“更安全路线”。原始 GPS map matching 仍未实现。
 - 远程 telemetry、长期偏好、账户同步和精确位置收集都需要单独的 purpose、consent、retention、deletion 和 jurisdiction review。
 - 固定虚构场景仍用于认知走查和回归验收，但不能被报告为参与者行为或用户成功率。
 - S3-I1 首轮只覆盖 Crime 的长期变化/日常居住；Diary 路线记录/回顾和真实通勤能力保持独立，不能通过 Crime focus 隐式切换模式。
-- S3-I1 已通过等价简化将 Entry 保持在 902660/902665；该 5-byte 余量不是后续新增入口代码的可用空间，新的功能仍应优先 lazy、删除或迁移。
+- S3-I1/C2 合并后 Entry 为 892948/902665，主入口预算未提高；Crime lazy chunk 因两条调度边界实测超限而获得 500 raw/250 gzip 的最小预算调整。
 - S3-I2 已从完整 canonical snapshot 合并 allowlisted 时间字段，用完整 before snapshot undo，并在 confirm 前拒绝过期 preview；后续扩展字段必须继续经过同一 allowlist 与 stale gate。
-- 独立 S3-C1/C2 分支与当前 I1/I2 在 `src/routes_crime/index.js`、`scripts/tests/bundle_policy.mjs` 有人工合并点；combined Crime/bundle 只有在整合后的 fresh validate 与 policy 通过后才能称为完成，当前未授权自动集成。
+- C1/C2 与 I1/I2 的共享文件已人工组合；`npm run validate`、feature-enabled browser smoke、Crime 9/9 及全视觉矩阵均在 combined tree 上通过。

@@ -2,7 +2,7 @@
 
 ## Current truth
 
-- 当前主工作树为 `C:/Users/raede/Desktop/dev/engagement_project`，分支 `main`；另有用户要求创建的隔离 worktree `C:/Users/raede/.codex/worktrees/9188/engagement_project` 用于 S3-C1/C2。当前主工作树保留大量用户 WIP。
+- 当前主工作树为 `C:/Users/raede/Desktop/dev/engagement_project`，分支 `main`。S3-C1/C2 的隔离 Git worktree 已在合入并同步后注销，本地 `codex/s3-c2-route-corridor-data` 分支已删除；原目录只剩一个被外部进程临时占用的空文件夹，不再是 Git worktree。当前主工作树继续保留用户拥有的未跟踪日志/报告与行尾噪声。
 - `127.0.0.1:5173` 由 PID 74548 的 Vite 进程监听；`/?mode=crime` 与 `/?mode=diary` 均返回 HTTP 200。
 - Help Center、Crime 数据基础、犯罪类型地图高亮已有完成记录；本任务研究它们组合后的当前体验，不重复实现这些阶段。
 - Product Design saved user context 不存在；本次以用户当前目标、当前代码和当前运行页面为准。
@@ -39,6 +39,9 @@
 | 2026-08-05 | S3-I1/I2 的最终 TDD、浏览器、视觉、完整 validate 与 bundle gate 通过。 | `general/long_term/daily_living` 只调整展示顺序与新分析初始 pane；preset 只在显式确认后修改 allowlisted 时间字段。移动端采用紧凑渐进披露，主 CTA 仍在首屏。 |
 | 2026-08-05 | 独立任务继续完成 S3-C1 基础提交及 S3-C2 方案 B 数据切片。 | 分支 `codex/s3-c2-route-corridor-data`、commits `751b5ef`/`6f0c2c2` 为 `ready-for-integration`；当前任务不自动合并，combined bundle 和共享文件冲突仍是独立集成门槛。 |
 | 2026-08-06 | 用户授权整合、提交、双端同步和清理；允许按 fresh build 最小抬升 bundle 入口预算，并只在整合证据要求时补必要视觉现代化。 | `/root` 成为 integration 与 live-test 唯一 owner；先提交当前 I1/I2 运行面，再按 `751b5ef → 6f0c2c2` 整合，最终以 combined validate、bundle、browser/visual 和远端事实作为完成门槛。 |
+| 2026-08-06 | combined build 的 Crime lazy chunk 实测为 38375/13527，超过旧上限 38000/13500；主 Entry 同时下降到 892948/240979。 | 只将 Crime 上限最小调整为 38500/13750；Entry 和全局 dist 上限均不提高。 |
+| 2026-08-06 | 完整视觉矩阵暴露 11 个旧 Diary 场景失败；expected/actual/diff 与两次独立复核确认差异来自受测的私密备份 IA 和统一 Help 控件，没有布局或行为回归。 | 仅更新 15 张实际变化的 Win32 Diary baseline；无更新参数复跑为 35 passed、10 designed skips、0 failed，不提高像素阈值。 |
+| 2026-08-06 | `ab8b72c`、`751b5ef`、`6f0c2c2` 经 `b09d4a2` 整合，视觉收口为 `c48108f`，随后同步到 `origin/main`。 | 保留 C1/C2 原始 SHA；独立 Git worktree 注销，本地分支普通删除；不执行 force push 或生产部署。 |
 
 ## Live process ownership
 
@@ -49,14 +52,14 @@
 | In-app Browser audit session | `/root` | Screenshots under `output/ui-role-experience-audit/` | Finalized after desktop/mobile Crime, Help and Diary capture; console warning/error check returned empty. |
 | Phase 1/2 implementation tests and browser verification | `/root` | Playwright/test output under existing project artifact paths | Completed on isolated ports 5201/4173; both ports are released. Existing 5173 was not restarted or stopped. |
 | S3-I1/I2 build, browser and visual verification | `/root` | Existing project `dist/`, Playwright output and task evidence | Complete；4173/4178 isolated listeners released，final validate/bundle/Crime visual rerun passed。 |
-| S3-C1/C2 independent Codex task | Codex task `019fd1fa-eb9d-77c3-a3d3-4b484cca0dcf` | Its isolated worktree/task records | Idle/complete in `C:/Users/raede/.codex/worktrees/9188/engagement_project`; branch ready-for-integration，not merged/pushed/deployed。 |
-| S3 integration build/test/browser/visual commands | `/root` only | `%TEMP%/engagement-s3-integration-*.log`; shared `dist/`, Playwright output, Vite ports 4173/4178 if needed | Pending；commands must run serially, never touch user-owned 5173, and stop after exit code plus final log evidence are captured. |
+| S3-C1/C2 independent Codex task | Codex task `019fd1fa-eb9d-77c3-a3d3-4b484cca0dcf` | Archived task records; original commits `751b5ef`/`6f0c2c2` | Integrated into main; Git worktree unregistered and local branch deleted after remote containment proof. |
+| S3 integration build/test/browser/visual commands | `/root` only | `%TEMP%/engagement-s3-integration-*.log`; shared `dist/`, Playwright output, isolated Vite ports 4173/4178 | Complete；all commands ran serially, listeners were released, and user-owned 5173 was not touched. |
 
 ## Handoff
 
 - 子代理只做静态代码映射、外部研究或独立复核；不得操作 5173 服务、浏览器会话或产品文件。
 - 现有未提交 WIP、`.playwright-mcp/`、日志和已有任务记录全部保留。
-- S3-C1 通过独立用户可见任务执行；当前主任务不轮询或解释其 live process，只读取任务级状态，并在最终汇报中给出其 ready-for-integration 或 blocker。
+- S3-C1/C2 的独立任务已完成并整合；其原始提交与归档记录保留，后续不再存在需要轮询的 live process。
 
 ## Audit evidence
 
@@ -70,23 +73,23 @@
 
 ## Next step
 
-阶段一/二本地实现与验证已完成。阶段三的主动工作改为证据驱动设计：
+本轮 Stage 3 实现、整合、验证和双端同步已完成：
 
 1. `S3-D0/D1/D2/D3 COMPLETE`：已冻结证据阶梯、H0-H6 场景、证据等级、反例、能力边界、UI/视觉方向和代码结构；这些是 product hypotheses，不是已验证用户需求。
-2. `S3-I1 COMPLETE LOCALLY`：`general/long_term/daily_living` 为 page-lifetime、presentation-only、second-level-lazy；Generic 默认，不写 storage，不改变 query/map/URL/save/data。即时导航 DOM/Tab 顺序会调整，但不会抢走用户当前手动 pane；新分析才采用 preferred pane。
-3. `S3-I2 COMPLETE LOCALLY`：preset 使用独立 nested-lazy canonical transaction；preview/cancel/no-op/stale/apply/undo 与单次刷新均已验证，只允许首批时间字段。
-4. `S3-C1/C2 READY FOR INTEGRATION IN INDEPENDENT WORKTREE`：真实已知路线、route buffer、粗 bbox 隐私边界、CARTO 历史候选和本地精确关联已在独立分支实现；没有最终 UI、没有原始 GPS matching，也没有与 I1/I2 合并。
+2. `S3-I1 COMPLETE AND SYNCED`：`general/long_term/daily_living` 为 page-lifetime、presentation-only、second-level-lazy；Generic 默认，不写 storage，不改变 query/map/URL/save/data。即时导航 DOM/Tab 顺序会调整，但不会抢走用户当前手动 pane；新分析才采用 preferred pane。
+3. `S3-I2 COMPLETE AND SYNCED`：preset 使用独立 nested-lazy canonical transaction；preview/cancel/no-op/stale/apply/undo 与单次刷新均已验证，只允许首批时间字段。
+4. `S3-C1/C2 COMPLETE AND SYNCED`：真实已知路线、route buffer、粗 bbox 隐私边界、CARTO 历史候选和本地精确关联已合入 main；没有最终 UI、没有原始 GPS matching，也不产生安全路线建议。
 
-当前最有价值的下一步是由明确的 integration owner 人工合并 S3-C1/C2 与 I1/I2 的两个共享文件，并在 combined tree 上重新完成 focused tests、完整 validate 和冻结 bundle gate；在用户要求整合前，保持两个交付面隔离。长期偏好、telemetry、生产 rollout 和任何安全建议仍分别受价值、隐私与政策边界约束。
+当前最有价值的下一步不是继续扩大本轮 scope，而是单独设计 route corridor 的可访问 UI 与完整限制文案；在此之前，底层能力不应被描述成用户可用的通勤安全产品。长期偏好、telemetry、生产 rollout、GPS matching 和任何安全建议仍分别受价值、隐私、数据与政策边界约束。
 
 ## Stage 3 review evidence
 
 - `crime_workbench` 当前只持有编辑/结果 pane 等展示状态，适合作为 presentation-only 模型；Crime 查询真相仍由 store 和 canonical URL contract 所有。
-- `focusMode`、`queryPreset` 和用户可切换角色当前均不存在；固定 Homebuyer 文案只是结果模块，不是用户角色状态。
+- 实施前 `focusMode`、`queryPreset` 和用户可切换角色均不存在；本轮新增的是 page-lifetime task focus 与显式 query preset，不是持久身份或用户画像。
 - Diary 是 demo/local/sample 混合体验，真实 GPS map matching 明确为 TODO 并在调用时抛错。
 - 产品代码中没有可复用的行为 analytics 或 A/B experiment system；Diary API 的 analytics 是业务数据接口，不是 UI telemetry。
 - 官方来源支持：以真实任务验证用户需求、非必要设置可跳过、个性化可配置可回退、位置数据最小化、reported crime 不可作为完整安全结论、性能指标必须与用户研究和 guardrails 结合。
 - 本轮补充官方研究确认：购房决策需要比较并结合多种信息；Philadelphia Atlas 将房地产和 nearby activity 分层；Police.uk 明确近似地点、未显示记录和 unavailable/zero 限制；FHWA 把通行任务描述为路线、时间、延误和事件信息，而不是犯罪安全评分。
 - UI Pro Max 的可接受建议是中性高对比、清晰 focus ring、44px 目标、可跳过 onboarding 和 reduced-motion；三步 funnel、红橙绿安全语义和手写字体已明确拒绝。
 - 当前 IA 收敛为一个 App shell、Crime/Diary 两个能力工作区、Crime 内两个可选任务焦点，以及按 mode 切换内容的 trust strip：Crime 显示来源/覆盖/历史非实时，Diary 显示 Demo/Local/Sample/设备存储；桌面保留地图中心，移动使用单一 bottom-sheet scroll owner。
-- 未来最小代码边界为一个 lazy `src/routes_crime/task_focus_controller.js`，配合 `panel.js`/`main.js` 的窄 presentation API 和 Crime 二级 dynamic import；query preset 另用独立模块和完整 canonical transaction。
+- 已实现的最小代码边界为 lazy `src/routes_crime/task_focus_controller.js`，配合 `panel.js`/`main.js` 的窄 presentation API 和 Crime 二级 dynamic import；query preset 使用独立模块和完整 canonical transaction。

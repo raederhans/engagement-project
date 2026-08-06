@@ -2,10 +2,20 @@
 
 ## Current state
 
-Ready for integration: the final fail-closed foundation, independent review,
-and project validation are complete.  It remains deliberately unintegrated from
-the shared Crime UI/data coordinator. This record is independent from
-`ui-role-experience-audit` and does not change S3-I1/S3-I2 status.
+Integrated and archived: the final fail-closed foundation remains commit
+`751b5ef`, preserved as an ancestor of merge commit `b09d4a2` and synchronized
+through `main`. The integration retained the shared Crime canonical owner,
+second-level lazy boundaries, and the truthful zero-result admission contract.
+
+## Integration completion
+
+- [x] Combined with S3-I1/I2 and C2 without rewriting the reviewed C1 SHA.
+- [x] Re-ran the 12/12 capability suite, 19/19 data suite, full validation,
+  feature-enabled browser smoke, bundle policy, and visual matrix.
+- [x] Proved `origin/main` contains `751b5ef` before unregistering the isolated
+  Git worktree and deleting its local branch.
+- [x] Preserved the deliberate gaps: no raw GPS matching, safety score, route
+  recommendation, persistence, or final corridor UI.
 
 ## Checklist
 

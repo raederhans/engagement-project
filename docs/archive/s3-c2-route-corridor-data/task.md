@@ -2,10 +2,22 @@
 
 ## Current state
 
-Ready for integration. The scheme-B data/privacy admission proves temporal
-months and a conservative Philadelphia spatial interior before allowing a zero
-result. Independent architecture and code reviews found no blocking issue, and
-the final project validation passed on the exact handoff source snapshot.
+Integrated and archived. The scheme-B data/privacy admission remains commit
+`6f0c2c2`, preserved as an ancestor of merge commit `b09d4a2` and synchronized
+through `main`. Combined-tree validation and browser/visual checks passed after
+the shared lazy-import and bundle contracts were manually composed.
+
+## Integration completion
+
+- [x] Preserved the exact C2 SHA and its dependency on C1.
+- [x] Combined task-focus, query-preset, incident-result, chart, catalog, and
+  route-corridor lazy manifest assertions without alternate state ownership.
+- [x] Remeasured the combined build; main Entry decreased, while only the Crime
+  lazy ceiling received the measured 500 raw / 250 gzip adjustment.
+- [x] Proved `origin/main` contains `6f0c2c2`, then unregistered the isolated
+  Git worktree and deleted `codex/s3-c2-route-corridor-data` locally.
+- [x] Retained the explicit gaps: no GPS matching, final UI, real-time or future
+  risk claim, and no safest-route recommendation.
 
 ## Checklist
 
@@ -73,6 +85,6 @@ reported-record/non-unique, conservative single-district admission, and
 coarse-area-disclosure limitations. It must never turn this into a safety score
 or route recommendation.
 
-Integration is intentionally not performed in this worktree. The integration
-owner must manually reconcile the shared Crime entry and bundle-manifest test,
-then rebuild the combined I1/I2+C2 tree without raising existing budgets.
+Integration was performed by the main-worktree owner in `b09d4a2`. The shared
+Crime entry and bundle-manifest test were manually reconciled, the exact-route
+privacy boundary remained unchanged, and fresh combined validation passed.

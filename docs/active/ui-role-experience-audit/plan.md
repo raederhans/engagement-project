@@ -184,7 +184,7 @@ Immediate stop conditions:
 - Default flag OFF. Use an internal/facilitated research build before any remote rollout.
 - S3.1 first covers only Crime `long_term` and `daily_living`. Diary `route_journal` remains a separate capability/understanding lane and, if later admitted, must load from Diary's own lazy boundary rather than a shared Crime coordinator.
 - Do not add an always-loaded focus coordinator to `main.js` or other initial-entry modules. The current built Crime chunk is 37,604 / 38,000 raw bytes and 13,221 / 13,500 gzip bytes, leaving only 396 raw / 279 gzip bytes. Load the experiment as a second-level lazy chunk from the existing lazy Crime route, update the manifest contract intentionally, and keep both existing Entry and Crime budgets unchanged.
-- If the minimal flag/loader cannot fit the Crime budget, remove or reuse existing code or redesign the hook; do not raise the budget to admit the experiment.
+- If the minimal flag/loader cannot fit the Crime budget, first remove, reuse, or redesign. A later combined-tree admission may adjust only the measured lazy Crime ceiling with explicit evidence; the main Entry ceiling remains frozen.
 - Keep Generic as the default and provide skip, change and reset actions. Do not infer a focus from addresses, viewed modules, Diary usage or saved analyses.
 - Do not add a dependency, account, cloud sync, background location tracking or telemetry in the first S3.1 build. Manual observation and the protocol scorecard are the source of truth; any later event collection is a separate necessity/privacy review.
 - Keep all existing “reported incidents, not safety prediction” and sample/local/unavailable boundaries visible in every focus.
@@ -215,7 +215,7 @@ Immediate stop conditions:
 
 - 2026-08-05：用户明确说明个人项目不会、也不能招募受试者，并要求基于既有假设继续广泛检索，依次产出场景假设、功能、UI 布局和必要的代码结构。
 - 本阶段产出是 `evidence-informed hypotheses`，不是访谈、可用性测试或已验证用户需求。
-- 当前状态：`S3-D0/D1/D2/D3 COMPLETE`；`S3-I1/S3-I2 COMPLETE LOCALLY`；独立分支中的 `S3-C1/C2 READY FOR INTEGRATION`，尚未与当前主工作树合并。
+- 当前状态：`S3-D0/D1/D2/D3 COMPLETE`；`S3-I1/S3-I2 COMPLETE AND SYNCED`；`S3-C1/C2 COMPLETE AND SYNCED`；长期偏好、telemetry、final corridor UI 与生产 rollout 保持未来独立项目。
 - 研究阶段最初只更新研究、设计和实现合同；在用户后续明确授权后，当前主工作树已完成 S3-I1/I2 本地实现与验证，但仍未 commit、push 或 deploy。
 
 ### Replacement validation method
@@ -421,11 +421,11 @@ Do not create a global persona store, three route trees, a shared always-loaded 
 
 ### Bundle and state admission
 
-- Entry budget remains `902,665` raw bytes; the current build left 5 bytes and cannot accept an always-loaded coordinator.
+- Entry budget remains `902,665` raw bytes; the combined build is `892,948` and still rejects an always-loaded coordinator in favor of lazy boundaries.
 - Crime budget remains `38,000` raw / `13,500` gzip; the last verified build left 396 raw / 279 gzip bytes.
 - Load S3-I1 as a second-level lazy chunk from the existing lazy Crime route and update the exact manifest contract intentionally.
 - A feature flag is optional for local admission, but the architecture must not require a permanent study framework. Default Generic behavior must remain available with the module disabled.
-- Bundle budgets are not raised to make the feature pass.
+- Main Entry and total-dist budgets are not raised；the combined Crime lazy chunk may receive only a measured, narrowly documented admission adjustment.
 - Generated CSS and total-dist budgets remain unchanged and must pass together with the Entry/Crime JavaScript budgets.
 
 ### Validation without participant claims
@@ -451,7 +451,7 @@ Do not create a global persona store, three route trees, a shared always-loaded 
 - [x] S3-I1: second-level-lazy, page-lifetime, presentation-only Crime task focus implemented locally.
 - [x] S3-I1 verification: query/map/URL/save/data invariants, accessibility, responsive visual behavior and frozen bundle contracts passed.
 - [x] S3-I2: explicit preset preview/cancel/no-op/stale/apply/undo transaction implemented locally after I1 stabilized.
-- [x] S3-C1: known-route corridor foundation and方案 B historical-data slice delivered in the independent ready-for-integration branch; raw GPS map matching and final UI remain explicitly out of scope.
+- [x] S3-C1/C2: known-route corridor foundation and方案 B historical-data slice integrated and synchronized；raw GPS map matching and final UI remain explicitly out of scope.
 
 ### Acceptance and stop conditions
 
@@ -461,7 +461,7 @@ Do not create a global persona store, three route trees, a shared always-loaded 
 - Before I1 ships, every affected map state has the mode-appropriate text/list alternative defined above; warnings and source status remain visible.
 - No design says safe/unsafe, ranks neighborhoods, recommends buying, predicts events or recommends a safest route.
 - Stop a focus if it only changes marketing copy, duplicates UI, hides limitations or requires identity/location profiling.
-- Stop route work until real matching, corridor semantics, privacy and data-quality contracts exist.
+- Stop raw-GPS, route-recommendation, or user-facing corridor work until its matching/UI/privacy/data-quality contracts are separately admitted.
 
 ### Additional external evidence
 
