@@ -28,7 +28,7 @@ This Stage 3 cleanup deleted only `codex/s3-c2-route-corridor-data` after provin
 - Owner: `/root` integration and live-test owner.
 - Task records: `docs/active/ui-role-experience-audit/`, `docs/archive/s3-c1-route-corridor-history/`, and `docs/archive/s3-c2-route-corridor-data/`.
 - Product delivery: I1/I2 `ab8b72c`; preserved C1/C2 `751b5ef`/`6f0c2c2`; merge `b09d4a2`; visual closeout `c48108f`.
-- Verification: local `npm run validate`; feature-enabled Chromium browser smoke with zero console/page errors; route 12/12; route data 19/19; Crime async 28/28; Crime UI 48/48; full Win32 visual matrix 35 passed/10 designed skips; bundle Entry 892948/240979, Crime 38375/13527, route corridor 22908/7531.
+- Verification: CI/Pages-equivalent local `npm run validate` with both feature flags; feature-enabled Chromium browser smoke with zero console/page errors; route 12/12; route data 19/19; Crime async 28/28; Crime UI 48/48; full Win32 visual matrix 35 passed/10 designed skips; bundle Entry 893181/241114, Crime 38580/13629, route corridor 22908/7530.
 - Local result: product commits synchronized to `origin/main`; C1/C2 Git worktree unregistered; local integration branch deleted with `git branch -d`; no remote integration branch existed.
 - Constraint honored: no force push, production deployment, raw GPS matching, route recommendation, or alteration/deletion of protected `.gitignore`, `src/style.css`, logs/output, Playwright artifacts, or unrelated branches.
 - Residual filesystem note: Windows retained the now-empty former worktree directory while another process held a handle; Git topology and branch cleanup are complete, and no files remain in that directory.

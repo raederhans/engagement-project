@@ -3,11 +3,11 @@
 ## Current truth
 
 - 当前主工作树为 `C:/Users/raede/Desktop/dev/engagement_project`，分支 `main`。S3-C1/C2 的隔离 Git worktree 已在合入并同步后注销，本地 `codex/s3-c2-route-corridor-data` 分支已删除；原目录只剩一个被外部进程临时占用的空文件夹，不再是 Git worktree。当前主工作树继续保留用户拥有的未跟踪日志/报告与行尾噪声。
-- `127.0.0.1:5173` 由 PID 74548 的 Vite 进程监听；`/?mode=crime` 与 `/?mode=diary` 均返回 HTTP 200。
+- 审计时 `127.0.0.1:5173` 由 PID 74548 的 Vite 进程监听，Crime/Diary 均返回 HTTP 200；任务未操作该进程，最终端口快照中已无 5173 监听。
 - Help Center、Crime 数据基础、犯罪类型地图高亮已有完成记录；本任务研究它们组合后的当前体验，不重复实现这些阶段。
 - Product Design saved user context 不存在；本次以用户当前目标、当前代码和当前运行页面为准。
 - 2026-08-05 实施开始时，`main == origin/main == cf191aa`，单一 worktree；此前审计基于的 UI 改动已经合入当前主线。
-- 实施前的 `.gitignore`、`src/style.css` 行尾状态，以及审计截图、日志和测试报告等未跟踪产物均被保留；本任务没有改写 Git index、分支、worktree 拓扑或远端。
+- 实施前的 `.gitignore`、`src/style.css` 行尾状态，以及审计截图、日志和测试报告等未跟踪产物均被保留且未进入提交；integration owner 只在用户授权范围内更新 index、main、C1/C2 worktree/branch 与远端。
 - 2026-08-06 用户授权 `/root` 作为 integration owner，将当前 S3-I1/I2 WIP 与隔离分支 S3-C1/C2 整合、提交、同步 main/origin，并在验证后清理已整合 worktree 与分支；审计日志、Playwright 报告和 `output/` 仍作为未跟踪产物排除在提交外。
 
 ## Decisions and deviations
@@ -42,18 +42,19 @@
 | 2026-08-06 | combined build 的 Crime lazy chunk 实测为 38375/13527，超过旧上限 38000/13500；主 Entry 同时下降到 892948/240979。 | 只将 Crime 上限最小调整为 38500/13750；Entry 和全局 dist 上限均不提高。 |
 | 2026-08-06 | 完整视觉矩阵暴露 11 个旧 Diary 场景失败；expected/actual/diff 与两次独立复核确认差异来自受测的私密备份 IA 和统一 Help 控件，没有布局或行为回归。 | 仅更新 15 张实际变化的 Win32 Diary baseline；无更新参数复跑为 35 passed、10 designed skips、0 failed，不提高像素阈值。 |
 | 2026-08-06 | `ab8b72c`、`751b5ef`、`6f0c2c2` 经 `b09d4a2` 整合，视觉收口为 `c48108f`，随后同步到 `origin/main`。 | 保留 C1/C2 原始 SHA；独立 Git worktree 注销，本地分支普通删除；不执行 force push 或生产部署。 |
+| 2026-08-06 | GitHub CI/Pages 使用 `VITE_FEATURE_DIARY=1` 与 `VITE_TRACT_CRIME_SNAPSHOT=1`，两端都测得 Crime 38580 raw，超过默认环境推导的 38500 上限 80 bytes；同环境本地复现为 38580/13629。 | 只将 Crime raw 上限调整到 38750，保留 170 bytes 实测余量；gzip 13750、主 Entry 和总 dist 上限保持不变。 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Vite `127.0.0.1:5173`, PID 74548 | Existing/user-owned | Unknown | Running; read-only browser audit only; do not restart or stop. |
+| Vite `127.0.0.1:5173`, PID 74548 | Existing/user-owned | Unknown | Audit 时运行且只读使用；任务未重启或停止它，最终端口快照中已无 5173 监听。 |
 | `npm run quick-preview -- --host 127.0.0.1 --port 5201 --no-open --mode diary` | `/root` | `%TEMP%/engagement-ui-audit-5201.log` | Stopped after capture; PID 60432 terminated and port 5201 verified released. |
 | In-app Browser audit session | `/root` | Screenshots under `output/ui-role-experience-audit/` | Finalized after desktop/mobile Crime, Help and Diary capture; console warning/error check returned empty. |
-| Phase 1/2 implementation tests and browser verification | `/root` | Playwright/test output under existing project artifact paths | Completed on isolated ports 5201/4173; both ports are released. Existing 5173 was not restarted or stopped. |
+| Phase 1/2 implementation tests and browser verification | `/root` | Playwright/test output under existing project artifact paths | Completed on isolated ports 5201/4173; both ports are released. Existing 5173 was not restarted or stopped by this task. |
 | S3-I1/I2 build, browser and visual verification | `/root` | Existing project `dist/`, Playwright output and task evidence | Complete；4173/4178 isolated listeners released，final validate/bundle/Crime visual rerun passed。 |
 | S3-C1/C2 independent Codex task | Codex task `019fd1fa-eb9d-77c3-a3d3-4b484cca0dcf` | Archived task records; original commits `751b5ef`/`6f0c2c2` | Integrated into main; Git worktree unregistered and local branch deleted after remote containment proof. |
-| S3 integration build/test/browser/visual commands | `/root` only | `%TEMP%/engagement-s3-integration-*.log`; shared `dist/`, Playwright output, isolated Vite ports 4173/4178 | Complete；all commands ran serially, listeners were released, and user-owned 5173 was not touched. |
+| S3 integration build/test/browser/visual commands | `/root` only | `%TEMP%/engagement-s3-integration-*.log`; shared `dist/`, Playwright output, isolated Vite ports 4173/4178 | Complete；all commands ran serially, isolated listeners were released, user-owned 5173 was not touched, and the final snapshot had no 4173/4178/5173 listener. |
 
 ## Handoff
 
@@ -68,7 +69,7 @@
 - Static inspection confirmed existing 8/12/16px radii, a surface shadow, 120/180ms motion tokens and reduced-motion handling; visual polish exists but is not consistently orchestrated into a hierarchy.
 - Diary already separates current route, local history and community sample, but its current-route view still stacks route selection, comparison, rating, simulator and filter cards in one long panel.
 - External research used IBM/Carbon progressive-disclosure guidance, ONS interactive-visualisation guidance, WCAG 2.2, W3C reduced-motion guidance, and official crime-reporting methodology sources.
-- The isolated preview was cleaned up; the pre-existing 5173 listener remains PID 74548 and still returns HTTP 200.
+- The isolated preview was cleaned up; the pre-existing 5173 listener was PID 74548 during the audit and returned HTTP 200, while the final port snapshot found no 5173 listener.
 - Independent review accepted the overload and styling evidence, but required narrower wording: the two panels are visually near-equal rather than mathematically identical; Diary has some hierarchy; styling effects exist but are scattered; persona-related content exists as a fixed Homebuyer card even though no user-switchable lens state exists.
 
 ## Next step

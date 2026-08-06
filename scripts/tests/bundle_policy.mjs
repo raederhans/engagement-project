@@ -89,7 +89,9 @@ const budgets = [
   ['Entry', entry, 902_665, 247_583],
   // Owns result-scoped cancellation, partial recovery, immutable provenance,
   // and the dispatch-only lazy edges for task focus and route-corridor evidence.
-  ['Crime', crime, 38_500, 13_750],
+  // CI/Pages enable Diary plus the tract snapshot, so retain 170 raw bytes of
+  // measured headroom for that exact production build without widening gzip.
+  ['Crime', crime, 38_750, 13_750],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],

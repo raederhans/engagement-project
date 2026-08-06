@@ -12,8 +12,9 @@ the shared lazy-import and bundle contracts were manually composed.
 - [x] Preserved the exact C2 SHA and its dependency on C1.
 - [x] Combined task-focus, query-preset, incident-result, chart, catalog, and
   route-corridor lazy manifest assertions without alternate state ownership.
-- [x] Remeasured the combined build; main Entry decreased, while only the Crime
-  lazy ceiling received the measured 500 raw / 250 gzip adjustment.
+- [x] Remeasured the combined and CI-equivalent builds; main Entry decreased,
+  while the Crime lazy ceiling received a total 750 raw / 250 gzip adjustment.
+  The final 250 raw bytes cover the feature-enabled CI/Pages build only.
 - [x] Proved `origin/main` contains `6f0c2c2`, then unregistered the isolated
   Git worktree and deleted `codex/s3-c2-route-corridor-data` locally.
 - [x] Retained the explicit gaps: no GPS matching, final UI, real-time or future
@@ -69,9 +70,9 @@ the shared lazy-import and bundle contracts were manually composed.
 - First-principles review rejected the earlier Turf-based 356 kB geometry path
   in favor of the smaller dependency-free conservative containment proof. No
   new package was added.
-- The Crime raw budget has only 5 bytes of branch-local headroom. Combined
-  I1/I2 integration must remeasure and may require further code splitting; the
-  existing limit must not be raised.
+- The Crime raw budget had only 5 bytes of branch-local headroom. Combined
+  I1/I2 integration therefore had to remeasure both default and CI-equivalent
+  builds; any adjustment required explicit authorization and measured scope.
 
 ## Integration contract
 

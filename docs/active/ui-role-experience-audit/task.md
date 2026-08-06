@@ -60,11 +60,11 @@ Stage 3 integration and synchronization complete: `S3-I1`/`S3-I2` 已作为 `ab8
 | Diary + tract-snapshot browser smoke | PASS；除既有 Crime/Diary、fallback、IndexedDB 流程外，新增验证 `codes=Thefts` 保留、Long-term 即时导航顺序、preset cancel 无副作用、apply 一次刷新、undo 完整恢复；`consoleErrors=0`、`pageErrors=0`。 |
 | S3-I1/I2 + final visual rerun | Crime desktop/portrait/landscape 9/9 PASS。独立视觉审阅确认 Diary 差异来自已受测的私密备份 IA 与统一 Help 控件；只重建 15 张实际变化的 Win32 Diary baselines，最终无更新参数全矩阵 35 passed、10 designed skips、0 failed。 |
 | 独立最终 code review | 上轮 4 项发现全部修复；4 个静态/Node 契约文件 98/98 通过；原生 `<details name>` 未引入新的 P0/P1，当前无阻断。 |
-| Git/进程收口 | 产品提交 `HEAD == origin/main == c48108f` 后开始记录收口；`751b5ef`/`6f0c2c2` 均为 main 祖先，独立 Git worktree 已注销且分支已删除。5173 未被重启或停止，4173/4178 已释放；未执行生产部署。 |
+| Git/进程收口 | `751b5ef`/`6f0c2c2` 均为 main 祖先，独立 Git worktree 已注销且分支已删除。任务没有重启或停止用户拥有的 5173；最终端口快照中 4173/4178/5173 均无监听。未手动执行生产部署。 |
 | 阶段三仓库映射 | `focusMode` / `queryPreset` 不存在；展示状态、查询 store、Crime URL、saved analysis 和 Diary session data 的所有权边界已逐项确认。 |
 | 通勤能力核验 | Diary 当前为 demo/local/sample 组合；`src/utils/match.js` 的 GPS map matching 仍为 TODO 并明确抛错，不得描述为真实路线风险能力。 |
 | 实验基础核验 | 未发现产品行为 telemetry、A/B 分流或远程 collector；阶段三不能把业务 analytics API 当作实验系统。 |
-| Final Stage 3 bundle gate | PASS；Entry 892948/240979，Crime 38375/13527，Route corridor 22908/7531，Task Focus 6070/2776，Query Preset 4934/1939，dist 3480387 bytes。主 Entry 上限未提高；只将实测超限的 Crime lazy chunk 从 38000/13500 最小调整到 38500/13750。 |
+| Final Stage 3 bundle gate | PASS；CI/Pages 等价功能开关构建测得 Entry 893181/241114，Crime 38580/13629，Route corridor 22908/7530，Task Focus 6070/2776，Query Preset 4934/1939，dist 3480819 bytes。主 Entry、Crime gzip 和全局 dist 上限未提高；只将 Crime raw 从 38500 最小调整到 38750，保留 170 bytes 余量。 |
 | 官方研究 | GOV.UK、W3C、Microsoft、FTC/ICO、FBI/ONS/BJS 等一手来源支持任务验证、可跳过/可回退个性化、位置最小化、reported-crime 限制和 guardrail 设计。 |
 | 历史 Stage 3 architecture/final review | 当时结论为 S3.0 protocol prep ready、S3.1 conditional、S3.2 blocked；其 Crime/Diary scope、focus/preset、canonical snapshot、route capability、bundle 与隐私边界继续有效，但 participant gate 已被用户约束取代。 |
 | 用户约束修订 | 明确不招募受试者；旧 protocol/人数门槛保留为历史记录，不再作为当前执行 gate，也不把 desk research/AI walk-through 写成用户研究。 |
