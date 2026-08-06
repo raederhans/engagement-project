@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  createPhiladelphiaCityCoverageFootprint,
   createPhiladelphiaCoverageFootprint,
   evaluatePhiladelphiaRouteCoverage,
 } from '../../src/routes_crime/route_corridor_coverage.js';
@@ -62,4 +63,39 @@ test('coverage admission rejects a route crossing the boundary and a buffer exte
     bufferM: 100,
     footprint,
   }).corridorCovered, false);
+});
+
+test('city-limit proof admits an ordinary cross-district route while preserving boundary clearance', () => {
+  const footprint = createPhiladelphiaCityCoverageFootprint({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { source: 'fixed-fictional-city-limit-fixture' },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-75.25, 39.90],
+          [-75.10, 39.90],
+          [-75.10, 40.05],
+          [-75.25, 40.05],
+          [-75.25, 39.90],
+        ]],
+      },
+    }],
+  });
+
+  const admitted = evaluatePhiladelphiaRouteCoverage({
+    routeInput: createManualRouteInput([[-75.22, 39.96], [-75.13, 39.96]]),
+    bufferM: 500,
+    footprint,
+  });
+  assert.equal(admitted.corridorCovered, true);
+  assert.equal(admitted.method, 'city-limit-interior');
+
+  const nearBoundary = evaluatePhiladelphiaRouteCoverage({
+    routeInput: createManualRouteInput([[-75.105, 39.96], [-75.101, 39.96]]),
+    bufferM: 100,
+    footprint,
+  });
+  assert.equal(nearBoundary.corridorCovered, false);
 });

@@ -133,6 +133,7 @@ export function initPanel(store, handlers) {
   if (sheetHandle) panelRoot.prepend(sheetHandle);
   const analysisContext = crimeShell.querySelector('[data-analysis-context]');
   const taskFocusMount = crimeShell.querySelector('[data-task-focus]');
+  const routeCorridorMount = crimeShell.querySelector('[data-route-corridor-entry]');
   const crimeSetup = crimeShell.querySelector('[data-crime-setup]');
   const resultsOverview = crimeShell.querySelector('[data-crime-results]');
   const analysisHistoryDisclosure = crimeShell.querySelector('[data-analysis-history-disclosure]');
@@ -815,6 +816,7 @@ export function initPanel(store, handlers) {
     analysisHistoryMount,
     taskFocus: {
       mount: taskFocusMount,
+      routeCorridorMount,
       applyTaskFocusPresentation: crimeWorkbench.focus,
     },
     syncPreset,

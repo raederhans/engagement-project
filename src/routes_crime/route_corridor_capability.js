@@ -297,6 +297,10 @@ function normalizeCoverage(coverage) {
     corridorCovered: coverage.corridorCovered === true,
     spatialCoverageSource: typeof coverage.spatialCoverageSource === 'string'
       && coverage.spatialCoverageSource.trim() ? coverage.spatialCoverageSource : null,
+    spatialCoverageKind: typeof coverage.spatialCoverageKind === 'string'
+      && coverage.spatialCoverageKind.trim() ? coverage.spatialCoverageKind : null,
+    spatialCoverageMethod: typeof coverage.spatialCoverageMethod === 'string'
+      && coverage.spatialCoverageMethod.trim() ? coverage.spatialCoverageMethod : null,
     conservativeBoundaryMarginM: Number.isFinite(coverage.conservativeBoundaryMarginM)
       && coverage.conservativeBoundaryMarginM >= 0 ? coverage.conservativeBoundaryMarginM : null,
     spatialDisclosure: coverage.spatialDisclosure === 'coarse-bbox-only'

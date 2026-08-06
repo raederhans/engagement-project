@@ -83,12 +83,24 @@ export function createQueryPresetController({
 
   async function commitCanonical(next, status) {
     pending = true;
+    let failedPort = 'replace';
     try {
       replaceCanonical?.(next);
+      failedPort = 'sync';
       await syncControls?.();
+      failedPort = 'url';
       writeCanonicalUrl?.();
+      failedPort = 'clear';
       clearCurrentArtifact?.();
+      failedPort = 'refresh';
       return { status, refresh: await requestSingleCrimeRefresh?.() };
+    } catch (error) {
+      return {
+        status: 'incomplete',
+        intendedStatus: status,
+        failedPort,
+        error: String(error?.message || error),
+      };
     } finally {
       pending = false;
     }
@@ -222,6 +234,7 @@ export function initCrimeQueryPreset({
     let statusKey = `preset.${view.status}`;
     if (view.status === 'preview') statusKey = 'preset.previewReady';
     else if (view.status === 'undo_stale') statusKey = 'preset.undoStale';
+    else if (view.status === 'incomplete') statusKey = 'preset.appliedIncomplete';
     else if ((view.status === 'applied' || view.status === 'undone')
       && view.refresh?.status !== 'live') statusKey = 'preset.appliedIncomplete';
     else if (view.status === 'idle') statusKey = null;

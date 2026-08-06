@@ -1,4 +1,5 @@
 import {
+  CITY_LIMITS_GEOJSON,
   PD_GEOJSON,
   PROJECT_REGION,
   TRACT_GEOJSON_ENDPOINTS,
@@ -9,6 +10,27 @@ import { publicUrl } from '../utils/public_url.js';
 
 const POLICE_DISTRICTS_FALLBACK = publicUrl('data/police_districts.geojson');
 const TRACTS_FALLBACK = publicUrl('data/tracts_phl.geojson');
+
+/** Retrieve the fixed public Philadelphia municipal boundary. */
+export async function fetchPhiladelphiaCityLimits({ signal, onSourceResolved } = {}) {
+  const raw = await fetchGeoJson(CITY_LIMITS_GEOJSON, {
+    cacheTTL: 10 * 60_000,
+    retries: 0,
+    timeoutMs: 5000,
+    signal,
+  });
+  if (!isValidCityLimits(raw)) {
+    throw new Error('Philadelphia City Limits API returned an invalid FeatureCollection.');
+  }
+  reportResolvedSource(onSourceResolved, {
+    dataset: 'city-limits',
+    kind: 'live',
+    provider: 'Philadelphia City Limits',
+    url: CITY_LIMITS_GEOJSON,
+    cacheHit: false,
+  });
+  return raw;
+}
 
 /** Retrieve live police district boundaries. */
 export async function fetchPoliceDistricts({ signal } = {}) {
@@ -160,6 +182,13 @@ function isValidPoliceDistricts(geo) {
   return geo?.type === 'FeatureCollection' &&
     Array.isArray(geo.features) &&
     geo.features.length >= 20;
+}
+
+function isValidCityLimits(geo) {
+  return geo?.type === 'FeatureCollection'
+    && Array.isArray(geo.features)
+    && geo.features.length >= 1
+    && geo.features.every(({ geometry }) => ['Polygon', 'MultiPolygon'].includes(geometry?.type));
 }
 
 function isValidTracts(geo) {

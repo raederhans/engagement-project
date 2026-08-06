@@ -22,6 +22,8 @@ export const CARTO_SQL_BASE = envValue('VITE_CARTO_SQL_BASE') || 'https://phl.ca
 
 export const PD_GEOJSON = envValue('VITE_POLICE_DISTRICTS_URL') ||
   'https://policegis.phila.gov/arcgis/rest/services/POLICE/Boundaries/MapServer/1/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson';
+export const CITY_LIMITS_GEOJSON =
+  'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/City_Limits/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson';
 
 const tractWhere = encodeURIComponent(
   `STATE='${PROJECT_REGION.stateFips}' AND COUNTY='${PROJECT_REGION.countyFips}'`,

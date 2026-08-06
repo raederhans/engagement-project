@@ -8,6 +8,8 @@ import { preview } from 'vite';
 const manifest = JSON.parse(await readFile(new URL('../../dist/.vite/manifest.json', import.meta.url), 'utf8'));
 const historyChunk = manifest['src/analysis/analysis_history_controller.js']?.file;
 assert.ok(historyChunk, 'Browser smoke requires the Analysis History lazy chunk in the Vite manifest');
+const routeCorridorUiChunk = manifest['src/routes_crime/route_corridor_ui_controller.js']?.file;
+assert.ok(routeCorridorUiChunk, 'Browser smoke requires a separately lazy Route corridor UI chunk');
 const builtJavaScript = await Promise.all(
   Object.values(manifest)
     .map((record) => record.file)
@@ -552,6 +554,30 @@ try {
     'Long-term focus must immediately put trends first without mutating the analysis',
   );
   await page.locator('[data-result-pane="summary"]').waitFor({ state: 'visible' });
+
+  const routeUrlBefore = page.url();
+  const routeRequestsBefore = networkControl.pointRefreshRequests;
+  assert.equal(
+    await page.evaluate((chunk) => performance.getEntriesByType('resource').some((entry) => entry.name.endsWith(chunk)), routeCorridorUiChunk),
+    false,
+    'Changing task focus must not import the Route corridor UI',
+  );
+  await page.getByRole('button', { name: 'View records near a known route' }).click();
+  const routeSurface = page.locator('[data-route-corridor-surface]');
+  await routeSurface.waitFor({ state: 'visible' });
+  assert.equal(await routeSurface.getAttribute('data-route-status'), 'route-required');
+  assert.equal(page.url(), routeUrlBefore, 'Opening Route corridor UI must not mutate the canonical URL');
+  assert.equal(networkControl.pointRefreshRequests, routeRequestsBefore, 'Opening Route corridor UI must not request incidents');
+  assert.equal(
+    await page.evaluate((chunk) => performance.getEntriesByType('resource').some((entry) => entry.name.endsWith(chunk)), routeCorridorUiChunk),
+    true,
+    'The explicit route action must load the second-level UI chunk',
+  );
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  await routeSurface.getByRole('heading', { name: '已知路线历史记录' }).waitFor();
+  assert.match(await routeSurface.locator('[data-route-query-context]').textContent(), /历史时间/);
+  await page.getByRole('button', { name: '切换到英文' }).click();
+  await routeSurface.getByRole('button', { name: 'Close' }).click();
 
   const presetUrlBefore = new URL(page.url());
   const presetDisclosure = page.locator('[data-query-preset-mount]');

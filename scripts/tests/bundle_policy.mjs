@@ -13,6 +13,7 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const entry = manifest['index.html'];
 const crime = manifest['src/routes_crime/index.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
+const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -45,6 +46,7 @@ assert.deepEqual(
     'src/routes_crime/incident_results_controller.js',
     'src/routes_crime/task_focus_controller.js',
     'src/routes_crime/route_corridor_crime_coordinator.js',
+    'src/routes_crime/route_corridor_ui_controller.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
   ]),
@@ -64,6 +66,7 @@ assert.deepEqual(
   'Query Preset must stay self-contained instead of pulling shared state back into the entry',
 );
 assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corridor data as a lazy chunk');
+assert.ok(routeCorridorUi?.isDynamicEntry, 'Vite manifest must contain route-corridor UI as a second-level lazy chunk');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -89,18 +92,21 @@ const budgets = [
   ['Entry', entry, 902_665, 247_583],
   // Owns result-scoped cancellation, partial recovery, immutable provenance,
   // and the dispatch-only lazy edges for task focus and route-corridor evidence.
-  // CI/Pages enable Diary plus the tract snapshot, so retain 170 raw bytes of
-  // measured headroom for that exact production build without widening gzip.
-  ['Crime', crime, 38_750, 13_750],
+  // C3 adds only the explicit-click loader and ports; the controller remains
+  // a separate second-level chunk. The measured feature-enabled build retains
+  // 180 raw / 126 gzip bytes without changing the Entry ceiling.
+  ['Crime', crime, 40_300, 14_400],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
+  ['Route corridor UI', routeCorridorUi, 16_600, 6_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
-  ['Task Focus', taskFocus, 6_600, 3_000],
-  // Owns preview, stale-state admission, one-refresh commit, and full-snapshot undo.
-  ['Query Preset', queryPreset, 5_000, 2_000],
+  ['Task Focus', taskFocus, 6_800, 3_100],
+  // Owns preview, stale-state admission, one-refresh commit, full-snapshot undo,
+  // and explicit failed-port settlement so interrupted transactions do not stay pending.
+  ['Query Preset', queryPreset, 5_200, 2_050],
   ['Diary', diary, 210_100, 65_573],
   // Owns the versioned private schema, v1 migration, exact snapshot token, and
   // serialized two-store transactions. It stays lazy and within a narrow

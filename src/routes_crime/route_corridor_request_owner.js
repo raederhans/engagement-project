@@ -211,6 +211,8 @@ function admitSourceEnvelope(value, spatialCoverage) {
         spatialRegion: spatialCoverage.region,
         corridorCovered: spatialCoverage.corridorCovered,
         spatialCoverageSource: spatialCoverage.source,
+        spatialCoverageKind: spatialCoverage.sourceKind || 'unknown',
+        spatialCoverageMethod: spatialCoverage.method || 'unknown',
         conservativeBoundaryMarginM: spatialCoverage.conservativeMarginM,
         spatialDisclosure: 'coarse-bbox-only',
       }

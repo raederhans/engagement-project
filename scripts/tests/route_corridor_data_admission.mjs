@@ -67,6 +67,7 @@ const coveredSpatialCoverage = async () => ({
   conservativeMarginM: 500,
   source: 'Philadelphia Police GIS',
   sourceKind: 'live',
+  method: 'city-limit-interior',
 });
 
 function createTestRequestOwner(options = {}) {
@@ -260,6 +261,8 @@ test('request owner sends no exact route to the source and locally admits a comp
   assert.equal(result.coverage.spatialRegion, 'Philadelphia');
   assert.equal(result.coverage.corridorCovered, true);
   assert.equal(result.coverage.spatialDisclosure, 'coarse-bbox-only');
+  assert.equal(result.coverage.spatialCoverageKind, 'live');
+  assert.equal(result.coverage.spatialCoverageMethod, 'city-limit-interior');
   assert.equal(sourceParams.routeInput, undefined);
   assert.equal(sourceParams.bufferM, undefined);
   assert.equal(JSON.stringify(sourceParams).includes('-75.1652'), false);

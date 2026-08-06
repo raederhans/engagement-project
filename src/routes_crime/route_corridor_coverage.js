@@ -1,4 +1,7 @@
-import { fetchPoliceDistrictsPreferred } from '../api/boundaries.js';
+import {
+  fetchPhiladelphiaCityLimits,
+  fetchPoliceDistrictsPreferred,
+} from '../api/boundaries.js';
 import {
   ROUTE_CORRIDOR_BUFFER_LIMITS_M,
   validateKnownRouteInput,
@@ -38,6 +41,26 @@ export function createPhiladelphiaCoverageFootprint(geojson) {
   return footprint;
 }
 
+/** Normalize the official municipal boundary used for multi-district proof. */
+export function createPhiladelphiaCityCoverageFootprint(geojson) {
+  if (geojson?.type !== 'FeatureCollection'
+    || !Array.isArray(geojson.features)
+    || geojson.features.length < 1
+    || geojson.features.some(({ geometry }) => !['Polygon', 'MultiPolygon'].includes(geometry?.type))) {
+    throw new Error('Philadelphia route coverage requires a valid city-limit boundary.');
+  }
+  if (footprintCache.has(geojson)) return footprintCache.get(geojson);
+  const footprint = {
+    kind: 'philadelphia-city-limit',
+    featureCount: geojson.features.length,
+    polygons: geojson.features.flatMap(({ geometry }) => (
+      geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
+    )),
+  };
+  footprintCache.set(geojson, footprint);
+  return footprint;
+}
+
 /**
  * Fail-closed local proof that the whole route corridor is inside the known
  * one known police-district polygon. The extra margin absorbs source polygon
@@ -52,9 +75,9 @@ export function evaluatePhiladelphiaRouteCoverage({ routeInput, bufferM, footpri
     || bufferM > ROUTE_CORRIDOR_BUFFER_LIMITS_M.max) {
     throw new Error('Philadelphia coverage requires a valid integral metre buffer.');
   }
-  if (footprint?.kind !== 'philadelphia-police-district-interiors'
+  if (!['philadelphia-police-district-interiors', 'philadelphia-city-limit'].includes(footprint?.kind)
     || !Array.isArray(footprint.polygons)
-    || footprint.polygons.length < 20) {
+    || footprint.polygons.length < (footprint.kind === 'philadelphia-city-limit' ? 1 : 20)) {
     throw new Error('Philadelphia coverage footprint is unavailable.');
   }
 
@@ -75,7 +98,9 @@ export function evaluatePhiladelphiaRouteCoverage({ routeInput, bufferM, footpri
     region: 'Philadelphia',
     corridorCovered,
     conservativeMarginM: PHILADELPHIA_COVERAGE_MARGIN_M,
-    method: 'single-police-district-interior',
+    method: footprint.kind === 'philadelphia-city-limit'
+      ? 'city-limit-interior'
+      : 'single-police-district-interior',
   };
 }
 
@@ -160,16 +185,30 @@ export async function fetchPhiladelphiaRouteCorridorCoverage({
   routeInput,
   bufferM,
   signal,
-} = {}, { fetchBoundaries = fetchPoliceDistrictsPreferred } = {}) {
+} = {}, {
+  fetchCityLimits = fetchPhiladelphiaCityLimits,
+  fetchBoundaries = fetchPoliceDistrictsPreferred,
+} = {}) {
   let source = null;
-  const boundaries = await fetchBoundaries({
-    signal,
-    onSourceResolved: (metadata) => { source = { ...metadata }; },
-  });
+  let footprint;
+  try {
+    const boundaries = await fetchCityLimits({
+      signal,
+      onSourceResolved: (metadata) => { source = { ...metadata }; },
+    });
+    footprint = createPhiladelphiaCityCoverageFootprint(boundaries);
+  } catch (cityLimitError) {
+    if (signal?.aborted) throw signal.reason ?? cityLimitError;
+    const boundaries = await fetchBoundaries({
+      signal,
+      onSourceResolved: (metadata) => { source = { ...metadata }; },
+    });
+    footprint = createPhiladelphiaCoverageFootprint(boundaries);
+  }
   const result = evaluatePhiladelphiaRouteCoverage({
     routeInput,
     bufferM,
-    footprint: createPhiladelphiaCoverageFootprint(boundaries),
+    footprint,
   });
   return {
     ...result,
