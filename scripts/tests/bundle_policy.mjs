@@ -12,6 +12,7 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
 const entry = manifest['index.html'];
 const crime = manifest['src/routes_crime/index.js'];
+const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -43,10 +44,11 @@ assert.deepEqual(
   new Set([
     'src/routes_crime/incident_results_controller.js',
     'src/routes_crime/task_focus_controller.js',
+    'src/routes_crime/route_corridor_crime_coordinator.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
   ]),
-  'Crime must keep incident results, task focus, and Charts behind focused lazy boundaries',
+  'Crime must keep incident results, task focus, route-corridor data, and Charts behind focused lazy boundaries',
 );
 assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
 assert.ok(taskFocus?.isDynamicEntry, 'Vite manifest must contain Task Focus as a lazy chunk');
@@ -61,6 +63,7 @@ assert.deepEqual(
   [],
   'Query Preset must stay self-contained instead of pulling shared state back into the entry',
 );
+assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corridor data as a lazy chunk');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -84,9 +87,12 @@ assert.ok(
 
 const budgets = [
   ['Entry', entry, 902_665, 247_583],
-  // Owns result-scoped cancellation, partial recovery, and immutable provenance
-  // for all Crime surfaces; this is required on every active Crime refresh.
-  ['Crime', crime, 38_000, 13_500],
+  // Owns result-scoped cancellation, partial recovery, immutable provenance,
+  // and the dispatch-only lazy edges for task focus and route-corridor evidence.
+  ['Crime', crime, 38_500, 13_750],
+  // Loaded only after an explicit route-corridor request. Exact route geometry
+  // stays local while this chunk owns coarse admission and local association.
+  ['Route corridor data', routeCorridor, 23_500, 7_800],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.

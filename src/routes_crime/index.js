@@ -86,13 +86,11 @@ const CRIME_LAYER_IDS = [
 
 function canonicalCrimeSource(metadata) {
   if (!metadata?.dataset) return null;
-  const dataset = metadata.dataset === 'police-districts'
-    ? 'districts'
-    : metadata.dataset === 'census-tract-boundaries'
-      ? 'tracts'
-      : metadata.dataset === 'census-tract-statistics'
-        ? 'demographics'
-        : metadata.dataset;
+  const dataset = ({
+    'police-districts': 'districts',
+    'census-tract-boundaries': 'tracts',
+    'census-tract-statistics': 'demographics',
+  })[metadata.dataset] || metadata.dataset;
   const source = metadata.provider || metadata.source;
   if (!source || !['live', 'fallback'].includes(metadata.kind)) return null;
   return {
@@ -108,7 +106,7 @@ function mergeCrimeSources(...collections) {
   for (const metadata of collections.flat()) {
     const source = canonicalCrimeSource(metadata);
     if (!source) continue;
-    const key = [source.dataset, source.kind, source.source, source.asOf || ''].join('\u0000');
+    const key = JSON.stringify(source);
     if (!merged.has(key)) merged.set(key, source);
   }
   return [...merged.values()];
@@ -274,6 +272,7 @@ export async function initCrimeMode(map, {
   let active = true;
   let hoverCleanup = null;
   let popupCleanup = null;
+  let routeCorridorModulePromise = null;
   let currentTractSnapshotProvenance = null;
   let districtData = null;
   let tractData = null;
@@ -595,6 +594,16 @@ export async function initCrimeMode(map, {
     }
   }
 
+  async function requestRouteCorridor(options) {
+    routeCorridorModulePromise ||= import('./route_corridor_crime_coordinator.js');
+    const module = await routeCorridorModulePromise;
+    return module.request(captureCrimeSnapshot, active, options);
+  }
+
+  const clearRouteCorridor = () => (
+    routeCorridorModulePromise?.then(module => module.clear(), Boolean)
+  );
+
   function wireTractSelection() {
     if (tractClickWired || !map.getLayer('tracts-fill')) return;
     tractClickWired = true;
@@ -724,6 +733,8 @@ export async function initCrimeMode(map, {
 
   return {
     requestRefresh,
+    requestRouteCorridor,
+    clearRouteCorridor,
     runProgrammaticMapMove: pointsController.runProgrammaticMapMove,
     fitCurrentSelection,
     updateBuffer: synchronousActions.updateBuffer,
@@ -737,6 +748,7 @@ export async function initCrimeMode(map, {
       active = Boolean(next);
       refreshOwner.setActive(active);
       pointsController.setActive(active);
+      if (!active) clearRouteCorridor();
       if (active) {
         publishCurrentSelection();
         reconcileCrimeLayerVisibility(map, store);

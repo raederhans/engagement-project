@@ -320,12 +320,108 @@ export function buildCountBufferSQL({ start, end, types, center3857, radiusM, dr
   ].join("\n");
 }
 
+/**
+ * Build the complete route-corridor candidate envelope as one SQL command.
+ * The remote source sees only the caller-provided coarse EPSG:3857 bbox. Exact
+ * route geometry and exact corridor association intentionally do not appear in
+ * this statement.
+ */
+export function buildRouteCorridorEnvelopeSQL({
+  start,
+  end,
+  types,
+  drilldownCodes,
+  bbox,
+  candidateLimit = 2_000,
+}) {
+  const limit = ensurePositiveInt(candidateLimit, 'candidateLimit');
+  if (limit > 2_000) throw new Error('candidateLimit cannot exceed 2000.');
+  const startIso = dateFloorGuard(start);
+  const endIso = ensureIso(end, 'end');
+  const candidateClauses = baseTemporalClauses(startIso, endIso, types, { drilldownCodes });
+  const bboxClause = envelopeClause(bbox);
+  if (!bboxClause) throw new Error('A finite EPSG:3857 bbox is required.');
+  candidateClauses.push(`  ${bboxClause}`);
+  const sourceClauses = baseTemporalClauses(startIso, endIso, types, { drilldownCodes });
+
+  return [
+    'WITH candidates AS (',
+    '  SELECT cartodb_id, the_geom, dispatch_date_time, text_general_code, ucr_general, dc_dist, location_block',
+    '  FROM incidents_part1_part2',
+    ...candidateClauses.map((clause) => `  ${clause}`),
+    '),',
+    'bounded_candidates AS (',
+    '  SELECT *',
+    '  FROM candidates',
+    '  ORDER BY cartodb_id ASC',
+    `  LIMIT ${limit + 1}`,
+    '),',
+    'candidate_stats AS (',
+    '  SELECT COUNT(*)::integer AS candidate_total',
+    '  FROM candidates',
+    '),',
+    'source_stats AS (',
+    '  SELECT COUNT(*) FILTER (WHERE the_geom IS NULL OR the_geom_webmercator IS NULL)::integer AS source_wide_unmapped_count',
+    '  FROM incidents_part1_part2',
+    ...sourceClauses.map((clause) => `  ${clause}`),
+    '),',
+    'coverage_stats AS (',
+    "  SELECT MIN((dispatch_date_time AT TIME ZONE 'America/New_York')::date)::text AS coverage_min,",
+    "         MAX((dispatch_date_time AT TIME ZONE 'America/New_York')::date)::text AS coverage_max,",
+    "         COALESCE(jsonb_agg(DISTINCT to_char(dispatch_date_time AT TIME ZONE 'America/New_York', 'YYYY-MM')",
+    "           ORDER BY to_char(dispatch_date_time AT TIME ZONE 'America/New_York', 'YYYY-MM'))",
+    "           FILTER (WHERE dispatch_date_time IS NOT NULL), '[]'::jsonb) AS coverage_months",
+    '  FROM incidents_part1_part2',
+    ')',
+    'SELECT json_build_object(',
+    "  'candidateTotal', candidate_stats.candidate_total,",
+    "  'returnedCandidateCount', COUNT(bounded_candidates.cartodb_id)::integer,",
+    `  'truncated', candidate_stats.candidate_total > ${limit},`,
+    "  'coverageMin', coverage_stats.coverage_min,",
+    "  'coverageMax', coverage_stats.coverage_max,",
+    "  'coverageMonths', coverage_stats.coverage_months,",
+    "  'sourceWideUnmappedCount', source_stats.source_wide_unmapped_count,",
+    "  'candidates', COALESCE(",
+    '    json_agg(',
+    '      json_build_object(',
+    "        'type', 'Feature',",
+    "        'id', bounded_candidates.cartodb_id,",
+    "        'geometry', ST_AsGeoJSON(bounded_candidates.the_geom)::json,",
+    "        'properties', json_build_object(",
+    "          'cartodb_id', bounded_candidates.cartodb_id,",
+    "          'dispatch_date_time', bounded_candidates.dispatch_date_time,",
+    "          'text_general_code', bounded_candidates.text_general_code,",
+    "          'ucr_general', bounded_candidates.ucr_general,",
+    "          'dc_dist', bounded_candidates.dc_dist,",
+    "          'location_block', bounded_candidates.location_block",
+    '        )',
+    '      ) ORDER BY bounded_candidates.cartodb_id ASC',
+    '    ) FILTER (WHERE bounded_candidates.cartodb_id IS NOT NULL),',
+    "    '[]'::json",
+    '  )',
+    ') AS envelope',
+    'FROM candidate_stats',
+    'CROSS JOIN source_stats',
+    'CROSS JOIN coverage_stats',
+    'LEFT JOIN bounded_candidates ON TRUE',
+    'GROUP BY candidate_stats.candidate_total, coverage_stats.coverage_min,',
+    '  coverage_stats.coverage_max, coverage_stats.coverage_months, source_stats.source_wide_unmapped_count;',
+  ].join('\n');
+}
+
 function ensureIso(value, label) {
   if (!value) {
     throw new Error(`Missing required ISO date for ${label}.`);
   }
   const iso = String(value);
-  if (!iso.match(/^\d{4}-\d{2}-\d{2}/)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    throw new Error(`Invalid ISO date for ${label}: ${value}`);
+  }
+  const [year, month, day] = iso.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day) {
     throw new Error(`Invalid ISO date for ${label}: ${value}`);
   }
   return iso;
