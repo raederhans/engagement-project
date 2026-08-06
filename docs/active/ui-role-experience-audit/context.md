@@ -43,6 +43,8 @@
 | 2026-08-06 | 完整视觉矩阵暴露 11 个旧 Diary 场景失败；expected/actual/diff 与两次独立复核确认差异来自受测的私密备份 IA 和统一 Help 控件，没有布局或行为回归。 | 仅更新 15 张实际变化的 Win32 Diary baseline；无更新参数复跑为 35 passed、10 designed skips、0 failed，不提高像素阈值。 |
 | 2026-08-06 | `ab8b72c`、`751b5ef`、`6f0c2c2` 经 `b09d4a2` 整合，视觉收口为 `c48108f`，随后同步到 `origin/main`。 | 保留 C1/C2 原始 SHA；独立 Git worktree 注销，本地分支普通删除；不执行 force push 或生产部署。 |
 | 2026-08-06 | GitHub CI/Pages 使用 `VITE_FEATURE_DIARY=1` 与 `VITE_TRACT_CRIME_SNAPSHOT=1`，两端都测得 Crime 38580 raw，超过默认环境推导的 38500 上限 80 bytes；同环境本地复现为 38580/13629。 | 只将 Crime raw 上限调整到 38750，保留 170 bytes 实测余量；gzip 13750、主 Entry 和总 dist 上限保持不变。 |
+| 2026-08-06 | 首次预算修复后的 Pages、Windows validate、Ubuntu validate/browser smoke 通过；Ubuntu visual 的 7 个 Crime 失败全部对应 I1/I2 只更新 Win32 而漏掉的旧 Linux 基线。CI actual/expected/diff 与独立视觉复核均未发现 Linux 专属裁切、重叠、缺失或滚动回归。 | 只同步 7 张失败的 Linux Crime actual；先以 SHA-256 证明 artifact expected 等于仓库旧基线，不改未失败截图、生产 CSS 或视觉阈值。 |
+| 2026-08-06 | 同一 Ubuntu visual 首次运行还出现一次 URL 时序 flaky：结果已显示时 `a/labelA` 尚未写入 URL，测试过早保存 `analyzedUrl`，retry 随即通过。 | 测试只等待既有 canonical `a/labelA` 出现后再保存 URL；保留“Edit 不改变查询”的原断言，不增加通用 timeout 或额外 retry。 |
 
 ## Live process ownership
 

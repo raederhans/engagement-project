@@ -180,6 +180,10 @@ test('Crime editing preserves the query and result navigation exposes one pane a
   await page.locator('#addrA').press('Enter');
   await expect(page.locator('[data-analysis-context]')).toBeVisible();
   await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
+  await expect.poll(() => {
+    const params = new URL(page.url()).searchParams;
+    return Boolean(params.get('a') && params.get('labelA'));
+  }).toBe(true);
   const analyzedUrl = page.url();
 
   const edit = page.locator('[data-analysis-context-edit]');

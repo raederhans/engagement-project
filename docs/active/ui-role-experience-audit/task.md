@@ -58,7 +58,7 @@ Stage 3 integration and synchronization complete: `S3-I1`/`S3-I2` 已作为 `ab8
 | 阶段一/二关键视觉套件 | 19 passed、8 skipped；覆盖 desktop/portrait/landscape、360/390/768/1440 overflow、键盘流、200% scaling 和 axe serious/critical 扫描。 |
 | S3-I1/I2 focused contracts | `crime_ui_contracts` 48/48、`crime_async_contracts` 28/28；覆盖 presentation-only、即时结果导航顺序、manual pane ownership、direct offense code、preview/no-op/stale/apply/undo 与单次刷新。 |
 | Diary + tract-snapshot browser smoke | PASS；除既有 Crime/Diary、fallback、IndexedDB 流程外，新增验证 `codes=Thefts` 保留、Long-term 即时导航顺序、preset cancel 无副作用、apply 一次刷新、undo 完整恢复；`consoleErrors=0`、`pageErrors=0`。 |
-| S3-I1/I2 + final visual rerun | Crime desktop/portrait/landscape 9/9 PASS。独立视觉审阅确认 Diary 差异来自已受测的私密备份 IA 与统一 Help 控件；只重建 15 张实际变化的 Win32 Diary baselines，最终无更新参数全矩阵 35 passed、10 designed skips、0 failed。 |
+| S3-I1/I2 + final visual rerun | Crime desktop/portrait/landscape 9/9 PASS。独立视觉审阅确认 Diary 差异来自已受测的私密备份 IA 与统一 Help 控件；只重建 15 张实际变化的 Win32 Diary baselines，最终无更新参数全矩阵 35 passed、10 designed skips、0 failed。远端 Ubuntu 首轮又证明 7 张 Linux Crime 基线仍是旧 UI；逐张检查 CI actual/expected/diff 后只同步这 7 张，不提高像素阈值。 |
 | 独立最终 code review | 上轮 4 项发现全部修复；4 个静态/Node 契约文件 98/98 通过；原生 `<details name>` 未引入新的 P0/P1，当前无阻断。 |
 | Git/进程收口 | `751b5ef`/`6f0c2c2` 均为 main 祖先，独立 Git worktree 已注销且分支已删除。任务没有重启或停止用户拥有的 5173；最终端口快照中 4173/4178/5173 均无监听。未手动执行生产部署。 |
 | 阶段三仓库映射 | `focusMode` / `queryPreset` 不存在；展示状态、查询 store、Crime URL、saved analysis 和 Diary session data 的所有权边界已逐项确认。 |
