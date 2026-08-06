@@ -13,6 +13,8 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const entry = manifest['index.html'];
 const crime = manifest['src/routes_crime/index.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
+const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
+const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
 const diary = manifest['src/routes_diary/index.js'];
 const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
 const charts = manifest['src/charts/index.js'];
@@ -40,12 +42,25 @@ assert.deepEqual(
   new Set(crime?.dynamicImports || []),
   new Set([
     'src/routes_crime/incident_results_controller.js',
+    'src/routes_crime/task_focus_controller.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
   ]),
-  'Crime must keep incident results and Charts behind focused lazy boundaries',
+  'Crime must keep incident results, task focus, and Charts behind focused lazy boundaries',
 );
 assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
+assert.ok(taskFocus?.isDynamicEntry, 'Vite manifest must contain Task Focus as a lazy chunk');
+assert.deepEqual(
+  new Set(taskFocus.dynamicImports || []),
+  new Set(['src/routes_crime/query_preset_controller.js']),
+  'Task Focus must keep query preset transactions behind a nested lazy boundary',
+);
+assert.ok(queryPreset?.isDynamicEntry, 'Vite manifest must contain Query Preset as a nested lazy chunk');
+assert.deepEqual(
+  queryPreset.imports || [],
+  [],
+  'Query Preset must stay self-contained instead of pulling shared state back into the entry',
+);
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -74,6 +89,10 @@ const budgets = [
   ['Crime', crime, 38_000, 13_500],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
+  // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
+  ['Task Focus', taskFocus, 6_600, 3_000],
+  // Owns preview, stale-state admission, one-refresh commit, and full-snapshot undo.
+  ['Query Preset', queryPreset, 5_000, 2_000],
   ['Diary', diary, 210_100, 65_573],
   // Owns the versioned private schema, v1 migration, exact snapshot token, and
   // serialized two-store transactions. It stays lazy and within a narrow

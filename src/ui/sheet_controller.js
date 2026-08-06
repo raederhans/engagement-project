@@ -1,5 +1,5 @@
 const SHEET_STATES = ['collapsed', 'half', 'full'];
-import { setTranslatedAttribute, setTranslatedText } from '../i18n/index.js';
+import { setTranslatedAttribute } from '../i18n/index.js';
 
 export function nextSheetState(currentState, direction) {
   const currentIndex = Math.max(0, SHEET_STATES.indexOf(currentState));
@@ -74,21 +74,9 @@ function addSheetHandle(sheet) {
   setSheetState(sheet, sheet.dataset.sheetState);
 }
 
-function enhanceProgressiveSurface(id, label) {
-  const surface = document.getElementById(id);
-  if (!surface || surface.parentElement?.classList.contains('progressive-surface')) return;
-  const details = document.createElement('details');
-  details.className = 'progressive-surface';
-  const summary = document.createElement('summary');
-  setTranslatedText(summary, label);
-  surface.before(details);
-  details.append(summary, surface);
-}
-
 export function initShell() {
   const sheet = document.getElementById('sidepanel');
   if (sheet) addSheetHandle(sheet);
-  enhanceProgressiveSurface('charts', 'sheet.viewDetails');
 }
 
 if (typeof document !== 'undefined') {

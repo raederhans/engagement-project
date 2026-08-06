@@ -16,6 +16,25 @@ const css = await readProductCss();
 const diaryInsightsSource = await readFile(path.join(root, 'src', 'charts', 'diary_insights.js'), 'utf8');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 
+function cssHexToken(name) {
+  const match = css.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'));
+  assert.ok(match, `${name} must be a six-digit hex color token`);
+  return match[1];
+}
+
+function relativeLuminance(hex) {
+  const channels = hex.match(/[0-9a-f]{2}/gi)
+    .map((value) => Number.parseInt(value, 16) / 255)
+    .map((value) => (value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrastRatio(foreground, background) {
+  const luminances = [relativeLuminance(foreground), relativeLuminance(background)]
+    .sort((a, b) => b - a);
+  return (luminances[0] + 0.05) / (luminances[1] + 0.05);
+}
+
 async function sourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -107,6 +126,97 @@ test('P1 design system has one canonical product layer instead of cascade patche
   assert.match(css, /--motion-fast:/);
   assert.doesNotMatch(css, /\bInter\b/);
   assert.doesNotMatch(css, /\bsystem-ui\b/);
+});
+
+test('Help and the Crime workbench share one civic surface hierarchy', () => {
+  for (const token of [
+    '--civic-navy',
+    '--civic-paper',
+    '--civic-paper-light',
+    '--civic-orange',
+    '--civic-gold',
+    '--shadow-overlay',
+    '--motion-disclosure',
+  ]) {
+    assert.match(css, new RegExp(token + ':'), token + ' is missing');
+  }
+  assert.match(css, /\.about-content\s*\{[^}]*--about-navy:\s*var\(--civic-navy\)[^}]*--about-paper:\s*var\(--civic-paper\)/s);
+  assert.match(css, /\.analysis-context\s*\{[^}]*background:[^;]*var\(--civic-paper-light\)[^}]*border-radius:\s*var\(--radius-card\)/s);
+  assert.match(css, /#results-drawer\s*\{[^}]*box-shadow:\s*var\(--shadow-overlay\)/s);
+});
+
+test('civic annotation text and Help controls meet contrast, target, focus, and motion contracts', () => {
+  const orangeInk = cssHexToken('--civic-orange-ink');
+  for (const background of [cssHexToken('--civic-paper'), cssHexToken('--civic-paper-light')]) {
+    assert.ok(
+      contrastRatio(orangeInk, background) >= 4.5,
+      `civic annotation ink must reach 4.5:1 on ${background}`,
+    );
+  }
+  assert.match(css, /\.analysis-context__eyebrow\s*\{[^}]*color:\s*var\(--civic-orange-ink\)/s);
+  assert.match(css, /\.about-content\s*\{[^}]*--about-orange-ink:\s*var\(--civic-orange-ink\)/s);
+  assert.match(css, /\.about-section__heading p\s*\{[^}]*color:\s*var\(--about-orange-ink\)/s);
+  assert.match(css, /\.about-close\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+  assert.match(
+    css,
+    /\.about-close\s*\{[^}]*background:\s*var\(--civic-navy\)[^}]*color:\s*#fff/s,
+    'Help close text must keep sufficient contrast before and after lazy content loads',
+  );
+  assert.match(
+    css,
+    /\.about-close:focus-visible,[\s\S]*?\.about-footer a:focus-visible\s*\{[^}]*outline:\s*3px solid #fff[^}]*box-shadow:\s*0 0 0 5px var\(--brand\)/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.about-content-host\s*\{[^}]*scroll-behavior:\s*auto/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /@keyframes\s+about-panel-enter\s*\{[^}]*opacity:/s,
+    'Help entry motion must not temporarily reduce text contrast',
+  );
+});
+
+test('analysis context and result navigation have touch, focus, and selected-state contracts', () => {
+  assert.match(css, /\.analysis-context:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--brand\)/s);
+  assert.match(css, /\.analysis-context__edit\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+  assert.match(css, /\.analysis-context__edit:focus-visible\s*\{[^}]*outline:/s);
+  assert.match(css, /\.crime-result-nav\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css, /\.crime-result-nav button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+  assert.match(css, /\.crime-result-nav button\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--civic-navy\)/s);
+  assert.match(css, /\.crime-result-nav button:focus-visible\s*\{[^}]*outline:/s);
+});
+
+test('task focus and query preview use layered civic surfaces with responsive accessible dialogs', () => {
+  assert.match(html, /<section class="task-focus"[^>]*aria-labelledby="task-focus-current"[^>]*>/);
+  assert.match(html, /<h2 id="task-focus-current" data-task-focus-current>General overview<\/h2>/);
+  assert.match(html, /<details class="query-preset-entry" data-query-preset-mount(?![^>]*\sopen(?:\s|=|>))[^>]*>/);
+  assert.match(html, /<details class="query-preset-entry"[\s\S]*?<summary>[\s\S]*?Suggested time windows[\s\S]*?<\/summary>/);
+  assert.match(css, /\.task-focus\s*\{[^}]*border:\s*1px solid var\(--civic-rule\)[^}]*border-radius:\s*var\(--radius-card\)[^}]*linear-gradient/s);
+  assert.match(css, /\.query-preset-entry\s*\{[^}]*border-top:\s*1px solid var\(--civic-rule\)/s);
+  assert.match(css, /\.query-preset-entry\s*>\s*summary\s*\{[^}]*min-height:\s*var\(--control-target\)[^}]*list-style:\s*none/s);
+  assert.match(css, /\.task-focus-dialog,[\s\S]*?\.query-preset-dialog\s*\{[^}]*border:\s*0[^}]*border-radius:\s*var\(--radius-sheet\)[^}]*box-shadow:\s*var\(--shadow-overlay\)/s);
+  assert.match(css, /\.task-focus-options label\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+  assert.match(css, /\.query-preset-entry__actions\s+\.button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+  assert.match(css, /\.task-focus-options label:focus-within\s*\{[^}]*outline:/s);
+  assert.match(css, /@media\s*\(max-width:\s*720px\)\s*\{[\s\S]*?\.task-focus-dialog,[\s\S]*?\.query-preset-dialog\s*\{[^}]*margin:\s*auto 0 0[^}]*width:\s*100%/s);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.task-focus-dialog,[\s\S]*?\.query-preset-dialog\s*\{[^}]*transition:\s*none/s);
+});
+
+test('result panes avoid nested scroll and new transitions respect reduced motion', () => {
+  assert.match(css, /\.crime-result-pane\s*\{[^}]*overflow:\s*visible/s);
+  assert.doesNotMatch(
+    css,
+    /#results-drawer\s+\.progressive-surface\[open\]\s*\{[^}]*overflow:\s*auto/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*?#results-drawer\s*\{[^}]*overflow:\s*visible/s,
+  );
+  assert.match(
+    css,
+    /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?#sidepanel[\s\S]*?\.analysis-context[\s\S]*?\.crime-result-pane[\s\S]*?transition:\s*none/s,
+  );
 });
 
 test('stylesheet ownership is explicit and preserves the canonical cascade order', () => {

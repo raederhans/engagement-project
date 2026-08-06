@@ -11,6 +11,7 @@
   --radius-sheet: 16px;
   --motion-fast: 120ms ease;
   --motion-panel: 180ms ease;
+  --motion-disclosure: var(--motion-panel);
   --control-target: 44px;
   --app-bar-height: 60px;
   --sheet-collapsed-height: 104px;
@@ -30,6 +31,15 @@
   --warning: #a15c00;
   --error: #b42318;
   --shadow-surface: 0 12px 36px rgba(16, 32, 51, 0.14);
+  --shadow-overlay: var(--shadow-surface);
+  --civic-navy: #0b2b45;
+  --civic-blue: #173f61;
+  --civic-paper: #f4efe4;
+  --civic-paper-light: #fbf8f0;
+  --civic-orange: #c8682b;
+  --civic-orange-ink: #a64b22;
+  --civic-gold: #f0b35d;
+  --civic-rule: rgba(11, 43, 69, 0.18);
   --surface-white: var(--surface);
   --border-subtle: var(--border);
   --text-main: var(--ink);

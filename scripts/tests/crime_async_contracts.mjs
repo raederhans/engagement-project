@@ -33,6 +33,227 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+function queryPresetFixture() {
+  return {
+    queryMode: 'tract',
+    startMonth: '2024-01',
+    durationMonths: 12,
+    radius: 800,
+    selectedGroups: ['violent'],
+    selectedDrilldownCodes: ['0300'],
+    selectedDistrictCode: null,
+    selectedTractGEOID: '42101000100',
+    overlayTractsLines: true,
+    centerLonLat: null,
+    centerBLonLat: null,
+    addressA: null,
+    addressB: null,
+    per10k: true,
+    classMethod: 'equal',
+    classBins: 7,
+    classPalette: 'OrRd',
+    classOpacity: 0.6,
+    classCustomBreaks: [1, 4, 9],
+  };
+}
+
+test('cancelling a query preset preview has no canonical or refresh side effects', async () => {
+  const { createQueryPresetController } = await import('../../src/routes_crime/query_preset_controller.js');
+  const current = queryPresetFixture();
+  const sideEffects = [];
+  const controller = createQueryPresetController({
+    readCanonical: () => current,
+    readCoverage: () => ({ status: 'ready', min: '2020-01', max: '2026-06' }),
+    replaceCanonical: () => sideEffects.push('replace'),
+    syncControls: () => sideEffects.push('sync'),
+    writeCanonicalUrl: () => sideEffects.push('url'),
+    clearCurrentArtifact: () => sideEffects.push('clear'),
+    requestSingleCrimeRefresh: () => sideEffects.push('refresh'),
+  });
+
+  assert.equal(controller.previewPreset('latest-6-months').status, 'preview');
+  assert.deepEqual(controller.cancelPreview(), { status: 'cancelled' });
+  assert.equal(controller.getPreview(), null);
+  assert.deepEqual(sideEffects, []);
+});
+
+test('query preset confirmation fails closed when canonical state or coverage basis is stale', async () => {
+  const { createQueryPresetController } = await import('../../src/routes_crime/query_preset_controller.js');
+
+  for (const staleSource of ['canonical', 'coverage']) {
+    let current = queryPresetFixture();
+    let coverage = { status: 'ready', min: '2020-01', max: '2026-06' };
+    const sideEffects = [];
+    const controller = createQueryPresetController({
+      readCanonical: () => current,
+      readCoverage: () => coverage,
+      replaceCanonical: () => sideEffects.push('replace'),
+      syncControls: () => sideEffects.push('sync'),
+      writeCanonicalUrl: () => sideEffects.push('url'),
+      clearCurrentArtifact: () => sideEffects.push('clear'),
+      requestSingleCrimeRefresh: () => sideEffects.push('refresh'),
+    });
+    assert.equal(controller.previewPreset('latest-24-months').status, 'preview');
+
+    if (staleSource === 'canonical') current = { ...current, radius: 1200 };
+    else coverage = { ...coverage, max: '2026-07' };
+
+    assert.deepEqual(await controller.confirmPreview(), { status: 'stale' });
+    assert.equal(controller.getPreview(), null);
+    assert.deepEqual(sideEffects, []);
+  }
+});
+
+test('query preset reports exact zero, one, or two-field diffs and a no-op has no side effects', async () => {
+  const { createQueryPresetController, createQueryPresetPreview } = await import('../../src/routes_crime/query_preset_controller.js');
+  const coverage = { status: 'ready', min: '2020-01', max: '2026-06' };
+  const exact = { ...queryPresetFixture(), startMonth: '2026-01', durationMonths: 6 };
+  const oneField = { ...exact, startMonth: '2025-12' };
+  const twoFields = queryPresetFixture();
+
+  const unchanged = createQueryPresetPreview({ presetId: 'latest-6-months', currentState: exact, coverage });
+  assert.equal(unchanged.status, 'unchanged');
+  assert.deepEqual(unchanged.changes, []);
+  assert.deepEqual(
+    createQueryPresetPreview({ presetId: 'latest-6-months', currentState: oneField, coverage }).changes.map(({ field }) => field),
+    ['startMonth'],
+  );
+  assert.deepEqual(
+    createQueryPresetPreview({ presetId: 'latest-6-months', currentState: twoFields, coverage }).changes.map(({ field }) => field),
+    ['startMonth', 'durationMonths'],
+  );
+
+  const sideEffects = [];
+  const controller = createQueryPresetController({
+    readCanonical: () => exact,
+    readCoverage: () => coverage,
+    replaceCanonical: () => sideEffects.push('replace'),
+    syncControls: () => sideEffects.push('sync'),
+    writeCanonicalUrl: () => sideEffects.push('url'),
+    clearCurrentArtifact: () => sideEffects.push('clear'),
+    requestSingleCrimeRefresh: () => sideEffects.push('refresh'),
+  });
+  assert.equal(controller.previewPreset('latest-6-months').status, 'unchanged');
+  assert.deepEqual(await controller.confirmPreview(), { status: 'unchanged' });
+  assert.deepEqual(sideEffects, []);
+  assert.equal(controller.canUndo(), false);
+});
+
+test('query preset confirmation commits once in canonical transaction order and awaits one refresh', async () => {
+  const { createQueryPresetController } = await import('../../src/routes_crime/query_preset_controller.js');
+  let current = queryPresetFixture();
+  const trace = [];
+  const syncGate = deferred();
+  const refreshGate = deferred();
+  const controller = createQueryPresetController({
+    readCanonical: () => current,
+    readCoverage: () => ({ status: 'ready', min: '2020-01', max: '2026-06' }),
+    replaceCanonical: (next) => {
+      trace.push('replace');
+      current = structuredClone(next);
+    },
+    syncControls: () => {
+      trace.push('sync');
+      return syncGate.promise;
+    },
+    writeCanonicalUrl: () => trace.push('url'),
+    clearCurrentArtifact: () => trace.push('clear'),
+    requestSingleCrimeRefresh: () => {
+      trace.push('refresh');
+      return refreshGate.promise;
+    },
+  });
+  const preview = controller.previewPreset('latest-6-months');
+  const confirming = controller.confirmPreview();
+  let settled = false;
+  confirming.then(() => { settled = true; });
+
+  assert.deepEqual(trace, ['replace', 'sync']);
+  assert.equal(settled, false);
+  assert.equal(controller.getPreview(), null);
+  assert.deepEqual(current, preview.after);
+
+  syncGate.resolve();
+  await Promise.resolve();
+  assert.deepEqual(trace, ['replace', 'sync', 'url', 'clear', 'refresh']);
+  assert.equal(settled, false);
+
+  refreshGate.resolve({ applied: true, status: 'live' });
+  assert.deepEqual(await confirming, {
+    status: 'applied',
+    refresh: { applied: true, status: 'live' },
+  });
+  assert.deepEqual(trace, ['replace', 'sync', 'url', 'clear', 'refresh']);
+});
+
+test('query preset undo restores the full prior canonical snapshot through one refresh', async () => {
+  const { createQueryPresetController } = await import('../../src/routes_crime/query_preset_controller.js');
+  const before = queryPresetFixture();
+  let current = structuredClone(before);
+  const trace = [];
+  const controller = createQueryPresetController({
+    readCanonical: () => current,
+    readCoverage: () => ({ status: 'ready', min: '2020-01', max: '2026-06' }),
+    replaceCanonical: (next) => {
+      trace.push('replace');
+      current = structuredClone(next);
+    },
+    syncControls: () => trace.push('sync'),
+    writeCanonicalUrl: () => trace.push('url'),
+    clearCurrentArtifact: () => trace.push('clear'),
+    requestSingleCrimeRefresh: async () => {
+      trace.push('refresh');
+      return { applied: true, status: 'live' };
+    },
+  });
+
+  controller.previewPreset('latest-24-months');
+  await controller.confirmPreview();
+  assert.equal(controller.canUndo(), true);
+  assert.notDeepEqual(current, before);
+
+  assert.deepEqual(await controller.undo(), {
+    status: 'undone',
+    refresh: { applied: true, status: 'live' },
+  });
+  assert.deepEqual(current, before);
+  assert.equal(controller.canUndo(), false);
+  assert.deepEqual(trace, [
+    'replace', 'sync', 'url', 'clear', 'refresh',
+    'replace', 'sync', 'url', 'clear', 'refresh',
+  ]);
+});
+
+test('query preset undo expires without overwriting canonical state changed after apply', async () => {
+  const { createQueryPresetController } = await import('../../src/routes_crime/query_preset_controller.js');
+  let current = queryPresetFixture();
+  const trace = [];
+  const controller = createQueryPresetController({
+    readCanonical: () => current,
+    readCoverage: () => ({ status: 'ready', min: '2020-01', max: '2026-06' }),
+    replaceCanonical: (next) => {
+      trace.push('replace');
+      current = structuredClone(next);
+    },
+    syncControls: () => trace.push('sync'),
+    writeCanonicalUrl: () => trace.push('url'),
+    clearCurrentArtifact: () => trace.push('clear'),
+    requestSingleCrimeRefresh: async () => {
+      trace.push('refresh');
+      return { applied: true, status: 'live' };
+    },
+  });
+
+  controller.previewPreset('latest-6-months');
+  await controller.confirmPreview();
+  current = { ...current, selectedGroups: ['property'] };
+
+  assert.deepEqual(await controller.undo(), { status: 'stale' });
+  assert.deepEqual(current.selectedGroups, ['property']);
+  assert.equal(controller.canUndo(), false);
+  assert.deepEqual(trace, ['replace', 'sync', 'url', 'clear', 'refresh']);
+});
+
 test('each refresh reads one snapshot and superseding aborts the previous generation', async () => {
   let snapshotReads = 0;
   const runs = [];

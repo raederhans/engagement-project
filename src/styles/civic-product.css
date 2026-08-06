@@ -275,48 +275,178 @@ summary {
   line-height: 1.45;
 }
 
-.crime-task-nav {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin: -6px 0 18px;
+.analysis-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: 14px 16px;
+  border: 1px solid var(--civic-rule);
+  background:
+    linear-gradient(135deg, rgba(240, 179, 93, 0.12), transparent 54%),
+    var(--civic-paper-light);
+  border-radius: var(--radius-card);
+  box-shadow: inset 3px 0 0 var(--civic-orange);
+  color: var(--civic-navy);
 }
 
-.crime-task-nav button {
+.analysis-context[hidden],
+.crime-results-overview[hidden],
+.crime-result-pane[hidden],
+.analysis-history-disclosure[hidden],
+#results-drawer[hidden] {
+  display: none;
+}
+
+.analysis-context:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.analysis-context__copy {
+  min-width: 0;
+}
+
+.analysis-context__eyebrow {
+  margin: 0 0 3px;
+  color: var(--civic-orange-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.analysis-context h2 {
+  margin: 0;
+  color: var(--civic-navy);
+  font-size: 18px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.analysis-context [data-analysis-context-meta] {
+  margin: 4px 0 0;
+  color: var(--civic-blue);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.analysis-context__edit {
+  min-height: var(--control-target);
+  flex: 0 0 auto;
+  border-color: var(--civic-navy);
+  color: var(--civic-navy);
+}
+
+.analysis-context__edit:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.crime-results-overview {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  align-items: center;
-  gap: 5px;
+  gap: var(--space-3);
+}
+
+.crime-result-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--civic-rule);
+  border-radius: 10px;
+  background: var(--civic-paper);
+}
+
+.crime-result-nav button {
   min-width: 0;
   min-height: var(--control-target);
-  padding: 5px 7px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--ink-muted);
-  font: 650 11px/1.15 var(--font-product);
-  text-align: left;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--civic-blue);
+  font: 700 12px/1.2 var(--font-product);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.crime-result-nav button[aria-pressed="true"] {
+  background: var(--civic-navy);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(11, 43, 69, 0.2);
+}
+
+.crime-result-nav button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.crime-result-nav button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.crime-result-pane {
+  min-width: 0;
+  overflow: visible;
+}
+
+.analysis-history-disclosure {
+  margin-top: var(--space-3);
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-card);
+  background: var(--civic-paper-light);
+}
+
+.analysis-history-disclosure > summary {
+  display: flex;
+  min-height: var(--control-target);
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  color: var(--civic-navy);
+  font-size: 13px;
+  font-weight: 750;
   cursor: pointer;
 }
 
-.crime-task-nav button > span:first-child {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--surface-muted);
-  color: var(--brand-strong);
-  font-variant-numeric: tabular-nums;
+.analysis-history-disclosure > summary::after {
+  color: var(--civic-orange);
+  content: "+";
+  font-size: 18px;
 }
 
-.crime-task-nav button:hover {
-  border-color: var(--brand);
-  color: var(--brand-strong);
+.analysis-history-disclosure[open] > summary::after {
+  content: "−";
 }
 
-.crime-task-nav button:focus-visible {
+.analysis-history-disclosure > [data-analysis-history-mount] {
+  padding: 0 10px 10px;
+}
+
+.analysis-history-disclosure > summary:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .analysis-context:not([hidden]),
+  .crime-result-pane:not([hidden]) {
+    animation: crime-workbench-enter 180ms ease both;
+  }
+}
+
+@keyframes crime-workbench-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 #sidepanel label {
@@ -339,8 +469,7 @@ summary {
 }
 
 #sidepanel :is(input, select, textarea):focus-visible,
-#advancedFilters > summary:focus-visible,
-.data-details > summary:focus-visible {
+#advancedFilters > summary:focus-visible {
   border-color: var(--brand);
   outline: 2px solid var(--brand);
   outline-offset: 2px;
@@ -418,8 +547,7 @@ summary {
   border-top: 1px solid var(--border);
 }
 
-#advancedFilters > summary,
-.data-details > summary {
+#advancedFilters > summary {
   min-height: var(--control-target);
   display: flex;
   align-items: center;
@@ -431,15 +559,13 @@ summary {
   list-style: none;
 }
 
-#advancedFilters > summary::after,
-.data-details > summary::after {
+#advancedFilters > summary::after {
   color: var(--brand);
   content: "+";
   font-size: 20px;
 }
 
-#advancedFilters[open] > summary::after,
-.data-details[open] > summary::after {
+#advancedFilters[open] > summary::after {
   content: "−";
 }
 
@@ -449,10 +575,17 @@ summary {
 
 .data-details {
   margin: 0 0 16px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-muted);
+}
+
+.data-details h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
 }
 
 #dataStatus,
@@ -465,11 +598,13 @@ summary {
 }
 
 #compare-card {
-  margin-top: 18px;
+  margin-top: 0;
   padding: 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--civic-rule);
   border-radius: 12px;
-  background: var(--surface-muted);
+  background:
+    linear-gradient(145deg, rgba(23, 63, 97, 0.035), transparent 56%),
+    var(--surface);
 }
 
 #compare-card.is-current-analysis {
@@ -661,22 +796,6 @@ summary {
 
   .task-panel__heading p {
     display: none;
-  }
-
-  .crime-task-nav {
-    gap: 4px;
-    margin: 0 0 8px;
-  }
-
-  .crime-task-nav button {
-    grid-template-columns: 20px minmax(0, 1fr);
-    min-height: 44px;
-    padding: 4px 6px;
-  }
-
-  .crime-task-nav button > span:first-child {
-    width: 20px;
-    height: 20px;
   }
 
   #queryModeHelp {

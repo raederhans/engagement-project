@@ -117,11 +117,11 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
   }), {
     mode: 'crime',
     kind: 'live',
-    shortLabel: 'Live · Jul 30',
-    accessibleLabel: 'Live Philadelphia crime data through Jul 30, 2026.',
+    shortLabel: 'Data available · records through Jul 30',
+    accessibleLabel: 'Historical reported records are available through Jul 30, 2026. This is not a live alert.',
     details: [
-      'Incidents: live CARTO · through Jul 30, 2026',
-      'Districts: live Philadelphia Police GIS',
+      'Incidents: data available CARTO · records through Jul 30, 2026',
+      'Districts: data available Philadelphia Police GIS',
     ],
   });
 
@@ -133,7 +133,7 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
     ],
   });
   assert.equal(fallback.kind, 'fallback');
-  assert.equal(fallback.shortLabel, 'Fallback · Jul 30');
+  assert.equal(fallback.shortLabel, 'Fallback · records through Jul 30');
   assert.doesNotMatch(fallback.accessibleLabel, /all data (?:is|are) live/i);
   assert.match(fallback.details.join(' '), /Bundled tract snapshot/);
 
@@ -162,21 +162,27 @@ test('ready scope details are cleared or replaced when status returns to loading
     setAttribute(name, value) { attributes.set(name, value); },
     removeAttribute(name) { attributes.delete(name); },
   };
-  const details = { dataset: {}, textContent: '' };
+  const details = [
+    { dataset: {}, textContent: '' },
+    { dataset: {}, textContent: '' },
+  ];
   const documentRef = {
     querySelector(selector) {
       if (selector === '[data-app-data-status]') return status;
-      if (selector === '[data-app-source-details]') return details;
+      if (selector === '[data-app-source-details]') return details[0];
       return null;
     },
-    querySelectorAll() { return []; },
+    querySelectorAll(selector) {
+      if (selector === '[data-app-source-details]') return details;
+      return [];
+    },
     getElementById() { return null; },
   };
   const presenter = createModeSurfacePresenter({ documentRef });
   const scope = {
     mode: 'crime',
     kind: 'fallback',
-    shortLabel: 'Fallback · Jul 30',
+    shortLabel: 'Fallback · records through Jul 30',
     accessibleLabel: 'Some sources use a published fallback.',
     details: ['Tracts: fallback Bundled tract snapshot'],
   };
@@ -188,22 +194,25 @@ test('ready scope details are cleared or replaced when status returns to loading
   assert.equal(status.dataset.scopeKind, undefined);
 
   presenter.showStatus({ mode: 'crime', phase: 'ready', label: 'Crime data ready' });
-  assert.equal(status.textContent, 'Fallback · Jul 30');
+  assert.equal(status.textContent, 'Fallback · records through Jul 30');
   assert.equal(status.dataset.scopeKind, 'fallback');
   assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
-  assert.equal(details.textContent, scope.details[0]);
+  assert.deepEqual(details.map((element) => element.textContent), [scope.details[0], scope.details[0]]);
 
   presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
   assert.equal(status.textContent, 'Crime loading');
   assert.equal(status.dataset.scopeKind, undefined);
-  assert.equal(details.dataset.scopeKind, undefined);
-  assert.equal(details.textContent, '');
+  assert.ok(details.every((element) => element.dataset.scopeKind === undefined));
+  assert.deepEqual(details.map((element) => element.textContent), ['', '']);
 
   presenter.showStatus({ mode: 'crime', phase: 'failed', label: 'Crime data unavailable' });
   assert.equal(status.textContent, 'Crime data unavailable');
   assert.equal(status.dataset.scopeKind, undefined);
-  assert.equal(details.dataset.scopeKind, undefined);
-  assert.equal(details.textContent, 'Crime data unavailable');
+  assert.ok(details.every((element) => element.dataset.scopeKind === undefined));
+  assert.deepEqual(
+    details.map((element) => element.textContent),
+    ['Crime data unavailable', 'Crime data unavailable'],
+  );
 });
 
 test('stale async mode work cannot replace the final mode status or surface', async () => {

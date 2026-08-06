@@ -10,6 +10,7 @@ const html = readFileSync(new URL('index.html', projectRoot), 'utf8');
 const diaryDemoHtml = readFileSync(new URL('diary-demo.html', projectRoot), 'utf8');
 const mainSource = readFileSync(new URL('src/main.js', projectRoot), 'utf8');
 const diaryDemoSource = readFileSync(new URL('src/diary_demo_main.js', projectRoot), 'utf8');
+const taskFocusSource = readFileSync(new URL('src/routes_crime/task_focus_controller.js', projectRoot), 'utf8');
 
 function requireFile(url, label) {
   assert.equal(existsSync(url), true, `${label} must exist`);
@@ -21,6 +22,11 @@ test('application exposes an accessible language-switch mount and localized stat
   assert.match(html, /data-i18n-placeholder="crime\.address\.primaryPlaceholder"/);
   assert.match(html, /data-i18n-aria-label="app\.label"/);
   assert.ok((html.match(/data-i18n(?:-[a-z-]+)?=/g) || []).length >= 55);
+  assert.doesNotMatch(html, /data-i18n="(?:focus|preset)\./);
+  assert.match(html, /data-focus-i18n="focus\.eyebrow"/);
+  assert.match(html, /data-focus-i18n="preset\.title"/);
+  assert.match(taskFocusSource, /querySelectorAll\?\.\('\[data-focus-i18n\]'\)/);
+  assert.match(taskFocusSource, /dataset\.i18n = element\.dataset\.focusI18n/);
   assert.match(diaryDemoHtml, /data-language-switch-mount/);
   assert.match(diaryDemoHtml, /data-i18n="diary\.demoDocumentTitle"/);
 });
@@ -141,6 +147,7 @@ test('all declared translation keys exist in both catalogs', async () => {
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));
   await import(new URL('src/i18n/help.js', projectRoot));
+  await import(new URL('src/routes_crime/task_focus_controller.js', projectRoot));
   const { messages } = await import(runtimeUrl);
   const candidateFiles = [
     'index.html',
@@ -178,6 +185,7 @@ test('all declared translation keys exist in both catalogs', async () => {
   const keys = new Set();
   const patterns = [
     /data-i18n(?:-[a-z-]+)?="([a-z][a-zA-Z0-9_.-]+)"/g,
+    /data-focus-i18n="([a-z][a-zA-Z0-9_.-]+)"/g,
     /\b(?:t|translateHtml)\(\s*['"]([a-z][a-zA-Z0-9_.-]+)['"]/g,
     /\bsetTranslated(?:Text|Attribute)\([^,]+,\s*['"]([a-z][a-zA-Z0-9_.-]+)['"]/g,
   ];

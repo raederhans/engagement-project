@@ -57,7 +57,7 @@ export function describeCrimeDataScope({ coverageMax = null, sources = [] } = {}
   const kind = hasFallback ? 'fallback' : 'live';
   const shortDate = formatCalendarDate(coverageMax, { includeYear: false });
   const longDate = formatCalendarDate(coverageMax);
-  const shortLabel = `${t(hasFallback ? 'scope.fallback' : 'scope.live')}${shortDate ? ` · ${shortDate}` : ''}`;
+  const shortLabel = `${t(hasFallback ? 'scope.fallback' : 'scope.live')}${shortDate ? ` · ${t('scope.through', { date: shortDate })}` : ''}`;
   const accessibleLabel = t(hasFallback ? 'scope.crime.fallback' : 'scope.crime.live', {
     date: longDate
       ? t(hasFallback ? 'scope.crime.fallbackCoverage' : 'scope.crime.liveCoverage', { date: longDate })

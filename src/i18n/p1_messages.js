@@ -1,5 +1,5 @@
 export const p1MessagePairs = Object.freeze({
-  'scope.live': ['Live', '实时'],
+  'scope.live': ['Data available', '数据可用'],
   'scope.fallback': ['Fallback', '备用'],
   'scope.local': ['Local', '本地'],
   'scope.sample': ['Sample', '示例'],
@@ -12,9 +12,9 @@ export const p1MessagePairs = Object.freeze({
   'scope.source.publishedFallback': ['Published fallback', '已发布备用数据'],
   'scope.source.publicApi': ['Public API', '公共 API'],
   'scope.source.validatedTractSnapshot': ['Validated tract snapshot', '已验证的普查区快照'],
-  'scope.through': ['through {date}', '截至 {date}'],
+  'scope.through': ['records through {date}', '记录截至 {date}'],
   'scope.sourceDetail': ['{dataset}: {kind} {source}{date}', '{dataset}：{kind} {source}{date}'],
-  'scope.crime.live': ['Live Philadelphia crime data{date}.', '费城实时犯罪数据{date}。'],
+  'scope.crime.live': ['Historical reported records are available{date}. This is not a live alert.', '可查看历史上报记录{date}；这不是实时警报。'],
   'scope.crime.fallback': ['Philadelphia crime view uses published fallback data{date}.', '费城犯罪数据视图使用已发布的备用数据{date}。'],
   'scope.crime.liveCoverage': [' through {date}', '，截至 {date}'],
   'scope.crime.fallbackCoverage': ['; incident coverage is through {date}', '；事件数据覆盖至 {date}'],

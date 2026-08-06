@@ -15,7 +15,7 @@
       </div>
       <div class="app-bar__tools">
         <nav class="app-bar__modes" data-mode-switch-mount data-i18n-aria-label="app.modeLabel" aria-label="Explorer mode"></nav>
-        <p class="app-bar__status" data-app-data-status data-phase="loading" data-i18n="app.connecting" role="status" aria-live="polite">Connecting to live data…</p>
+        <p class="app-bar__status" data-app-data-status data-phase="loading" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</p>
         <p class="app-bar__source-details" data-app-source-details></p>
         <div class="app-bar__language" data-language-switch-mount></div>
         <div class="app-bar__help" data-app-help></div>
@@ -28,17 +28,84 @@
     </div>
     <div id="legend"></div>
     <div id="tooltip"></div>
-    <div id="sidepanel" class="task-panel sheet" data-sheet-state="half">
+    <div id="sidepanel" class="task-panel sheet" data-sheet-state="half" data-crime-stage="setup">
+      <section class="task-focus" data-task-focus hidden aria-labelledby="task-focus-current">
+        <div class="task-focus__summary">
+          <p class="task-focus__eyebrow" data-focus-i18n="focus.eyebrow">This session</p>
+          <h2 id="task-focus-current" data-task-focus-current>General overview</h2>
+          <p data-task-focus-description>Start with the overall reported-incident summary.</p>
+        </div>
+        <button class="button button--secondary task-focus__change" type="button" data-task-focus-open aria-haspopup="dialog" aria-controls="task-focus-dialog" aria-describedby="task-focus-note" data-focus-i18n="focus.change">Change focus</button>
+        <p id="task-focus-note" class="task-focus__note" data-focus-i18n="focus.dialogDescription">This only changes information order. Your query and results stay the same.</p>
+        <details class="query-preset-entry" data-query-preset-mount>
+          <summary>
+            <span>
+              <strong data-focus-i18n="focus.suggestedWindows">Suggested time windows</strong>
+              <small data-focus-i18n="focus.suggestedWindowsDescription">Review suggested time settings. Nothing changes until you confirm.</small>
+            </span>
+          </summary>
+          <div class="query-preset-entry__actions">
+            <button class="button button--secondary" type="button" data-query-preset="latest-6-months" aria-haspopup="dialog" aria-controls="query-preset-dialog" data-focus-i18n="focus.reviewLatest6">Review latest 6 months</button>
+            <button class="button button--secondary" type="button" data-query-preset="latest-24-months" aria-haspopup="dialog" aria-controls="query-preset-dialog" data-focus-i18n="focus.reviewLatest24">Review latest 24 months</button>
+          </div>
+          <dialog id="query-preset-dialog" class="query-preset-dialog" data-query-preset-dialog aria-labelledby="query-preset-title" aria-describedby="query-preset-description">
+            <div class="query-preset-dialog__surface">
+              <header>
+                <p class="task-focus__eyebrow" data-focus-i18n="preset.eyebrow">Suggested query change</p>
+                <h2 id="query-preset-title" data-focus-i18n="preset.title">Review time settings</h2>
+                <p id="query-preset-description" data-focus-i18n="preset.description">Check every change before applying it. Your location, radius, categories, and display settings stay the same.</p>
+              </header>
+              <p class="query-preset-dialog__status" data-query-preset-status role="status" aria-live="polite"></p>
+              <ul class="query-preset-dialog__changes" data-query-preset-changes role="list"></ul>
+              <footer class="task-focus-dialog__actions">
+                <button class="button button--secondary" type="button" data-query-preset-cancel data-focus-i18n="preset.cancel">Cancel</button>
+                <button class="button button--primary" type="button" data-query-preset-confirm data-focus-i18n="preset.confirm" disabled>Apply and refresh once</button>
+                <button class="button button--secondary" type="button" data-query-preset-undo data-focus-i18n="preset.undo" hidden>Undo this change</button>
+              </footer>
+            </div>
+          </dialog>
+        </details>
+        <dialog id="task-focus-dialog" class="task-focus-dialog" data-task-focus-dialog aria-labelledby="task-focus-title" aria-describedby="task-focus-description">
+          <form method="dialog" class="task-focus-dialog__surface">
+            <header>
+              <h2 id="task-focus-title" data-focus-i18n="focus.dialogTitle">Choose what to review first</h2>
+              <p id="task-focus-description" data-focus-i18n="focus.dialogDescription">This only changes information order. Your query and results stay the same.</p>
+            </header>
+            <fieldset class="task-focus-options">
+              <legend class="sr-only" data-focus-i18n="focus.dialogTitle">Choose what to review first</legend>
+              <label>
+                <input type="radio" name="crime-task-focus" data-task-focus-option value="general" checked>
+                <span><strong data-focus-i18n="focus.general">General overview</strong><small data-focus-i18n="focus.generalDescription">Start with the overall reported-incident summary.</small></span>
+              </label>
+              <label>
+                <input type="radio" name="crime-task-focus" data-task-focus-option value="long_term">
+                <span><strong data-focus-i18n="focus.longTerm">Long-term context</strong><small data-focus-i18n="focus.longTermDescription">Information order changes to show trends and comparison first; the query time window stays the same.</small></span>
+              </label>
+              <label>
+                <input type="radio" name="crime-task-focus" data-task-focus-option value="daily_living">
+                <span><strong data-focus-i18n="focus.dailyLiving">Daily nearby review</strong><small data-focus-i18n="focus.dailyLivingDescription">Information order changes to show the overview and incident log first. This is historical, not a live alert.</small></span>
+              </label>
+            </fieldset>
+            <footer class="task-focus-dialog__actions">
+              <button class="button button--secondary" type="submit" value="cancel" data-focus-i18n="focus.cancel">Cancel</button>
+              <button class="button button--primary" type="button" data-task-focus-apply data-focus-i18n="focus.apply">Apply focus</button>
+            </footer>
+          </form>
+        </dialog>
+      </section>
+      <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
+        <div class="analysis-context__copy">
+          <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
+          <h2 id="analysis-context-title" data-analysis-context-title></h2>
+          <p data-analysis-context-meta></p>
+        </div>
+        <button class="button button--secondary analysis-context__edit" type="button" data-analysis-context-edit aria-controls="crime-query-controls" data-i18n="crime.editAnalysis">Edit</button>
+      </section>
+      <section id="crime-query-controls" class="crime-query-controls" data-crime-setup>
       <div class="task-panel__heading">
-        <h2 data-i18n="crime.taskTitle">Explore a location</h2>
+        <h2 id="crime-query-title" data-i18n="crime.taskTitle">Explore a location</h2>
         <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
       </div>
-      <nav class="crime-task-nav" data-crime-task-nav data-i18n-aria-label="crime.taskSteps" aria-label="Analysis steps">
-        <button type="button" data-task-target="queryModeSel"><span aria-hidden="true">1</span><span data-i18n="crime.taskStepExplore">Explore</span></button>
-        <button type="button" data-task-target="compare-card"><span aria-hidden="true">2</span><span data-i18n="crime.taskStepSummary">Summary</span></button>
-        <button type="button" data-task-target="incident-results"><span aria-hidden="true">3</span><span data-i18n="crime.taskStepIncidents">Incidents</span></button>
-      </nav>
-
       <label class="field-label" for="queryModeSel" data-i18n="crime.areaLabel">Analysis area</label>
       <select id="queryModeSel" class="field field--compact">
         <option value="buffer" data-i18n="crime.area.buffer" selected>Around a point</option>
@@ -102,18 +169,13 @@
         </div>
       </div>
 
-      <div class="quick-window" data-i18n-aria-label="crime.quickWindow" aria-label="Quick time window">
-        <button id="preset6" type="button" data-i18n="crime.latest6">Latest 6 months</button>
-        <button id="preset12" type="button" data-i18n="crime.latest12">Latest 12 months</button>
-      </div>
-
       <details id="advancedFilters">
         <summary data-i18n="crime.moreFilters">More filters</summary>
         <div class="advanced-filters__body">
-          <details class="data-details">
-            <summary data-i18n="crime.dataDetails">Data details</summary>
-            <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Connecting to live data…</div>
-          </details>
+          <section class="data-details" aria-labelledby="crime-data-details-title">
+            <h3 id="crime-data-details-title" data-i18n="crime.dataDetails">Data details</h3>
+            <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
+          </section>
 
       <div id="rateRow" class="field-row">
         <div class="field-group">
@@ -161,18 +223,6 @@
         <button id="exportCsvBtn" class="button button--secondary" type="button">CSV</button>
       </div>
 
-      <details id="help-card" class="progressive-surface">
-        <summary data-i18n="crime.help">Help</summary>
-        <ul class="help-list">
-          <li data-i18n="crime.help1">Pick a location (Pick on map) and radius for buffer A.</li>
-          <li data-i18n="crime.help2">The time window uses a start month and duration.</li>
-          <li data-i18n="crime.help3">Offense groups and drilldown control which codes are included.</li>
-          <li data-i18n="crime.help4">Analysis area controls the visible geography; tract rate uses ACS population for per-10k.</li>
-          <li data-i18n="crime.help5">Clusters combine dense points; zoom in to see individual incidents.</li>
-          <li data-i18n="crime.help6">Open Help for data sources and limitations.</li>
-        </ul>
-      </details>
-
       <section id="choropleth-controls" class="section-block">
         <h3 class="section-heading" data-i18n="crime.choropleth">Choropleth</h3>
         <div class="field-row field-row--dense">
@@ -218,12 +268,23 @@
       </section>
         </div>
       </details>
+      </section>
+      <section class="crime-results-overview" data-crime-results hidden aria-hidden="true" inert>
+      <nav class="crime-result-nav" data-crime-result-nav data-i18n-aria-label="crime.resultViews" aria-label="Analysis views">
+        <button type="button" data-result-pane-target="summary" aria-controls="crime-summary-pane" aria-pressed="true" data-i18n="crime.resultView.summary">Overview</button>
+        <button type="button" data-result-pane-target="incidents" aria-controls="incident-results" aria-pressed="false" data-i18n="crime.resultView.incidents">Incident log</button>
+        <button type="button" data-result-pane-target="charts" aria-controls="charts" aria-pressed="false" data-i18n="crime.resultView.charts">Charts</button>
+      </nav>
+      <section id="crime-summary-pane" class="crime-result-pane" data-result-pane="summary">
+      <div id="compare-card" class="result-card" role="status" aria-live="polite" tabindex="-1">
+        <p class="crime-summary__empty" data-i18n="crime.summaryEmpty">Choose a location to create an analysis summary.</p>
+      </div>
       <div class="result-meta" data-result-meta="summary" data-availability="unavailable">
         <div class="result-meta__bar">
           <span data-result-meta-status role="status" aria-live="polite">Summary unavailable</span>
           <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry summary</button>
         </div>
-        <details class="result-meta__details">
+        <details class="result-meta__details" name="crime-results">
           <summary data-result-meta-details>Result details</summary>
           <p class="result-meta__result" data-result-meta-result></p>
           <p data-result-meta-generated></p>
@@ -233,11 +294,10 @@
           <p data-result-meta-limitations></p>
         </details>
       </div>
-      <div id="compare-card" class="result-card" role="status" aria-live="polite" tabindex="-1">
-        <p class="crime-summary__empty" data-i18n="crime.summaryEmpty">Choose a location to create an analysis summary.</p>
-      </div>
-      <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details">
-        <section id="incident-results" class="incident-results" aria-labelledby="incident-results-title" aria-busy="false" tabindex="-1">
+      </section>
+      </section>
+      <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details" hidden aria-hidden="true" inert>
+        <section id="incident-results" class="incident-results crime-result-pane" data-result-pane="incidents" aria-labelledby="incident-results-title" aria-busy="false" tabindex="-1" hidden aria-hidden="true" inert>
           <header class="incident-results__header">
             <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Incident log</p>
             <h2 id="incident-results-title" data-i18n="incidents.title">Recent incidents</h2>
@@ -254,7 +314,7 @@
               <span data-result-meta-status role="status" aria-live="polite">Incident result unavailable</span>
               <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry incidents</button>
             </div>
-            <details class="result-meta__details">
+            <details class="result-meta__details" name="crime-results">
               <summary data-result-meta-details>Result details</summary>
               <p class="result-meta__result" data-result-meta-result></p>
               <p data-result-meta-generated></p>
@@ -265,14 +325,14 @@
             </details>
           </div>
         </section>
-        <div id="charts" tabindex="-1">
+        <div id="charts" class="crime-result-pane" data-result-pane="charts" tabindex="-1" hidden aria-hidden="true" inert>
           <h2 data-i18n="crime.analysisDetails">Analysis details</h2>
           <div class="result-meta" data-result-meta="charts" data-availability="unavailable">
             <div class="result-meta__bar">
               <span data-result-meta-status role="status" aria-live="polite">Chart result unavailable</span>
               <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry charts</button>
             </div>
-            <details class="result-meta__details">
+            <details class="result-meta__details" name="crime-results">
               <summary data-result-meta-details>Result details</summary>
               <p class="result-meta__result" data-result-meta-result></p>
               <p data-result-meta-generated></p>
@@ -284,7 +344,7 @@
           </div>
           <section id="residential-stability" class="residential-stability" aria-labelledby="residential-stability-title">
             <div class="residential-stability__heading">
-              <p class="crime-summary__eyebrow" data-i18n="residential.eyebrow">Homebuyer view</p>
+              <p class="crime-summary__eyebrow" data-i18n="residential.eyebrow">Long-term context</p>
               <h3 id="residential-stability-title" data-i18n="residential.title">Long-term crime stability</h3>
               <p data-i18n="residential.subtitle">A compact reading of direction, month-to-month variation, and evidence strength.</p>
             </div>
@@ -292,7 +352,7 @@
               <p data-i18n="residential.empty">Choose an area and at least six months to review stability.</p>
             </div>
           </section>
-          <details id="chart-display-settings" class="chart-settings">
+          <details id="chart-display-settings" class="chart-settings" name="crime-results">
             <summary data-i18n="chart.settings">Display settings</summary>
             <div class="chart-settings__grid">
               <label for="chartPaletteSel">
@@ -372,6 +432,10 @@
           </section>
         </div>
       </aside>
+      <details class="analysis-history-disclosure" data-analysis-history-disclosure name="crime-results" hidden aria-hidden="true" inert>
+        <summary data-i18n="history.savedAnalyses">Saved analyses</summary>
+        <section data-analysis-history-mount></section>
+      </details>
     </div>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/ui/sheet_controller.js"></script>

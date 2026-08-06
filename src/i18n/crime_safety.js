@@ -2,7 +2,7 @@ import { registerMessagePairs } from './messages.js';
 
 registerMessagePairs({
   'chart.view.rolling': ['3-month average', '三个月均值'],
-  'residential.eyebrow': ['Homebuyer view', '购房参考'],
+  'residential.eyebrow': ['Long-term context', '长期背景'],
   'residential.title': ['Long-term crime stability', '长期犯罪稳定性'],
   'residential.subtitle': [
     'A compact reading of direction, month-to-month variation, and evidence strength.',

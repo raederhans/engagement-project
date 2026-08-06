@@ -109,6 +109,31 @@ async function ensureAdvancedFiltersOpen(page) {
   }
 }
 
+async function ensureCrimeEditing(page) {
+  const panel = page.locator('#sidepanel');
+  if (await panel.getAttribute('data-crime-stage') !== 'edit') {
+    await page.locator('[data-analysis-context-edit]').click();
+    await panel.locator('[data-crime-setup]').waitFor({ state: 'visible' });
+  }
+}
+
+async function ensureCrimeResults(page) {
+  const panel = page.locator('#sidepanel');
+  if (await panel.getAttribute('data-crime-stage') === 'edit') {
+    await page.locator('[data-analysis-context-edit]').click();
+  }
+  await panel.locator('[data-crime-results]').waitFor({ state: 'visible' });
+}
+
+async function ensureSavedAnalysesOpen(page) {
+  await ensureCrimeResults(page);
+  const details = page.locator('[data-analysis-history-disclosure]');
+  await details.waitFor({ state: 'visible' });
+  if (!(await details.evaluate((element) => element.open))) {
+    await details.locator(':scope > summary').click();
+  }
+}
+
 async function readSavedArtifact(page, title) {
   return page.evaluate((artifactTitle) => new Promise((resolve, reject) => {
     const openRequest = indexedDB.open('engagement-analysis');
@@ -470,9 +495,10 @@ try {
 
   requests.length = 0;
   const pointRefreshRequestsBeforeCrimeEntry = networkControl.pointRefreshRequests;
-  await page.goto(new URL('?mode=crime&utm_source=portfolio', baseUrl).href, { waitUntil: 'domcontentloaded' });
+  await page.goto(new URL('?mode=crime&utm_source=portfolio&codes=Thefts', baseUrl).href, { waitUntil: 'domcontentloaded' });
   await page.locator('#dataStatus[data-tone="ready"]').waitFor({ state: 'attached' });
-  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  await page.locator('[data-crime-setup]').waitFor({ state: 'visible' });
+  await page.locator('#compare-card').waitFor({ state: 'hidden' });
   assert.equal(
     networkControl.pointRefreshRequests - pointRefreshRequestsBeforeCrimeEntry,
     0,
@@ -490,6 +516,11 @@ try {
     const params = new URLSearchParams(window.location.search);
     return params.has('a') && params.get('labelA') === '1500 MARKET ST, 19102';
   });
+  assert.equal(
+    new URL(page.url()).searchParams.get('codes'),
+    'Thefts',
+    'A canonical direct offense filter must survive time-window option reconciliation',
+  );
   assert.equal(await page.locator('#addrB').inputValue(), '');
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   for (const resultName of ['boundary', 'incidents', 'charts', 'summary']) {
@@ -505,6 +536,70 @@ try {
     1,
     'One settled geocode must own exactly one Crime refresh API generation',
   );
+
+  const focusUrlBefore = page.url();
+  await page.getByRole('button', { name: 'Change focus' }).click();
+  const focusDialog = page.locator('[data-task-focus-dialog]');
+  await focusDialog.getByRole('radio', { name: /Long-term context/ }).check();
+  await focusDialog.getByRole('button', { name: 'Apply focus' }).click();
+  assert.equal(page.url(), focusUrlBefore, 'Task focus must not mutate the canonical Crime URL');
+  assert.equal(await page.locator('[data-task-focus-current]').textContent(), 'Long-term context');
+  assert.deepEqual(
+    await page.locator('[data-panel-view="crime"] [data-result-pane-target]').evaluateAll(
+      (buttons) => buttons.map((button) => button.dataset.resultPaneTarget),
+    ),
+    ['charts', 'summary', 'incidents'],
+    'Long-term focus must immediately put trends first without mutating the analysis',
+  );
+  await page.locator('[data-result-pane="summary"]').waitFor({ state: 'visible' });
+
+  const presetUrlBefore = new URL(page.url());
+  const presetDisclosure = page.locator('[data-query-preset-mount]');
+  assert.equal(await presetDisclosure.getAttribute('open'), null, 'Suggested time windows should be collapsed by default');
+  await presetDisclosure.locator(':scope > summary').click();
+  const presetDialog = page.locator('[data-query-preset-dialog]');
+  await page.getByRole('button', { name: 'Review latest 6 months' }).click();
+  await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'Nothing has been applied yet' }).waitFor();
+  assert.equal(await presetDialog.locator('[data-query-preset-changes] > li').count(), 2);
+  await presetDialog.getByRole('button', { name: 'Cancel' }).click();
+  assert.equal(page.url(), presetUrlBefore.href, 'Cancelling a query preset preview must keep the URL unchanged');
+
+  const pointRefreshRequestsBeforeQueryPreset = networkControl.pointRefreshRequests;
+  await page.getByRole('button', { name: 'Review latest 6 months' }).click();
+  await presetDialog.getByRole('button', { name: 'Apply and refresh once' }).click();
+  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('months') === '6');
+  await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'historical results are ready' }).waitFor();
+  assert.equal(
+    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeQueryPreset,
+    1,
+    'Applying one query preset must own exactly one Crime refresh generation',
+  );
+  const appliedPresetUrl = new URL(page.url());
+  assert.equal(appliedPresetUrl.searchParams.has('preset'), false, 'Preset identity must not become URL truth');
+  for (const key of new Set([...presetUrlBefore.searchParams.keys(), ...appliedPresetUrl.searchParams.keys()])) {
+    if (key === 'start' || key === 'months') continue;
+    assert.equal(
+      appliedPresetUrl.searchParams.get(key),
+      presetUrlBefore.searchParams.get(key),
+      `Query preset apply must preserve canonical field ${key}`,
+    );
+  }
+  await presetDialog.getByRole('button', { name: 'Undo this change' }).click();
+  await page.waitForFunction((expectedMonths) => (
+    new URLSearchParams(window.location.search).get('months') === expectedMonths
+  ), presetUrlBefore.searchParams.get('months'));
+  await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'prior query was restored' }).waitFor();
+  const restoredPresetUrl = new URL(page.url());
+  for (const key of new Set([...presetUrlBefore.searchParams.keys(), ...restoredPresetUrl.searchParams.keys()])) {
+    assert.equal(
+      restoredPresetUrl.searchParams.get(key),
+      presetUrlBefore.searchParams.get(key),
+      `Query preset undo must restore ${key}`,
+    );
+  }
+  await presetDialog.getByRole('button', { name: 'Cancel' }).click();
+
+  await ensureCrimeEditing(page);
   const pointRefreshRequestsBeforePresetRadius = networkControl.pointRefreshRequests;
   await page.locator('#radiusSel').selectOption('1200');
   await page.waitForFunction(() => new URLSearchParams(window.location.search).get('radius') === '1200');
@@ -541,11 +636,15 @@ try {
     1,
     'Committing a custom radius must own exactly one Crime refresh API generation',
   );
+  await ensureCrimeResults(page);
+  await page.locator('[data-result-pane="charts"]').waitFor({ state: 'visible' });
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  await ensureCrimeEditing(page);
   assert.equal(await page.locator('#radiusSel').inputValue(), 'custom');
   assert.equal(await page.locator('#customRadiusInput').inputValue(), '1375');
   assert.equal(await page.locator('#customRadiusRow').isVisible(), true);
-  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  await ensureCrimeResults(page);
   const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
@@ -560,6 +659,7 @@ try {
   );
   await page.getByRole('button', { name: '切换到英文' }).click();
 
+  await ensureSavedAnalysesOpen(page);
   await page.getByLabel('Analysis title').fill('A-only artifact');
   await page.getByRole('button', { name: 'Save analysis' }).click();
   await artifactCard(page, 'A-only artifact').waitFor();
@@ -567,24 +667,28 @@ try {
   assert.ok((await listDatabaseNames(page)).includes('engagement-analysis'));
 
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await ensureSavedAnalysesOpen(page);
   await artifactCard(page, 'A-only artifact').waitFor();
   assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.equal(await page.locator('#addrB').inputValue(), '');
-  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor();
+  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor({ state: 'attached' });
+  await ensureCrimeEditing(page);
   await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('12');
   await page.locator('#startMonth').fill('2025-08');
   await page.locator('#startMonth').dispatchEvent('change');
   await page.locator('#queryModeSel').selectOption('tract');
-  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Needs refresh' }).waitFor();
+  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Needs refresh' }).waitFor({ state: 'attached' });
   await page.locator('#queryModeSel').selectOption('buffer');
-  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor();
+  await artifactCard(page, 'A-only artifact').locator('.analysis-history__data-status').filter({ hasText: 'Sources current' }).waitFor({ state: 'attached' });
 
+  await ensureCrimeEditing(page);
   await page.locator('#durationSel').selectOption('6');
   await page.getByRole('button', { name: 'Compare another area' }).click();
   await page.locator('#addrB').fill('Broad and Girard');
   await page.locator('#searchBBtn').click();
   await page.locator('#addressStatus').filter({ hasText: 'Point B' }).waitFor();
+  await ensureCrimeResults(page);
   await page.locator('#compare-card').filter({ hasText: '1500 MARKET ST' }).waitFor();
   await page.locator('#compare-card').filter({ hasText: 'N BROAD ST' }).waitFor();
   await page.waitForFunction(() => {
@@ -592,6 +696,7 @@ try {
     return params.get('months') === '6' && params.has('b') && params.get('labelB') === 'N BROAD ST & W GIRARD AVE, 19121';
   });
 
+  await ensureCrimeEditing(page);
   await page.locator('#shareViewBtn').click();
   const currentSharedUrl = new URL(page.url());
   assert.equal(currentSharedUrl.searchParams.get('utm_source'), 'portfolio');
@@ -619,6 +724,7 @@ try {
   const requestsBeforeRestore = requests.length;
   const pointRefreshRequestsBeforeRestore = networkControl.pointRefreshRequests;
   const freshCartoRequest = page.waitForRequest((request) => request.url().startsWith('https://phl.carto.com/'));
+  await ensureSavedAnalysesOpen(page);
   await artifactCard(page, 'A-only artifact').getByRole('button', { name: 'Open' }).click();
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'visible' });
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
@@ -661,9 +767,9 @@ try {
   uncachedRestoreUrl.searchParams.set('start', '2025-08');
   uncachedRestoreUrl.searchParams.set('months', '12');
   await page.goto(uncachedRestoreUrl.href, { waitUntil: 'domcontentloaded' });
+  await ensureSavedAnalysesOpen(page);
   await artifactCard(page, 'A-only artifact').waitFor();
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
-  await ensureAdvancedFiltersOpen(page);
   networkControl.stage = 'failCarto';
   networkControl.failCarto = true;
   await artifactCard(page, 'A-only artifact').getByRole('button', { name: 'Open' }).click();
@@ -677,19 +783,21 @@ try {
   assert.equal(await page.locator('[data-app-data-status]').getAttribute('data-phase'), 'ready');
   networkControl.failCarto = false;
   networkControl.stage = 'normal';
-  const chartDisclosure = page.locator('details.progressive-surface').filter({ has: page.locator('#charts') });
-  if (!(await chartDisclosure.getAttribute('open'))) {
-    await chartDisclosure.locator(':scope > summary').click();
-  }
+  await page.getByRole('button', { name: 'Charts', exact: true }).click();
+  await page.locator('[data-result-pane="charts"]').waitFor({ state: 'visible' });
   await page.locator('[data-result-meta="charts"] [data-result-meta-retry]').click();
   await page.locator('[data-result-meta="charts"][data-availability="current"]').waitFor();
+  await ensureCrimeEditing(page);
+  await ensureAdvancedFiltersOpen(page);
   await page.locator('#durationSel').selectOption('6');
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
 
+  await ensureSavedAnalysesOpen(page);
   page.once('dialog', (dialog) => dialog.accept('Renamed A-only'));
   await artifactCard(page, 'A-only artifact').getByRole('button', { name: 'Rename' }).click();
   await artifactCard(page, 'Renamed A-only').waitFor();
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await ensureSavedAnalysesOpen(page);
   await artifactCard(page, 'Renamed A-only').waitFor();
 
   await artifactCard(page, 'Renamed A-only').getByRole('button', { name: 'Share' }).click();
@@ -716,13 +824,16 @@ try {
   await artifactCard(page, 'Renamed A-only').getByRole('button', { name: 'Delete' }).click();
   await artifactCard(page, 'Renamed A-only').waitFor({ state: 'detached' });
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await ensureSavedAnalysesOpen(page);
   await page.locator('.analysis-history__empty').waitFor();
   assert.equal(await artifactCard(page, 'Renamed A-only').count(), 0);
 
   const pointRequestsBeforeClear = networkControl.pointRefreshRequests;
+  await ensureCrimeEditing(page);
   await page.locator('#clearSelBtn').filter({ hasText: 'Remove map point' }).click();
   await page.waitForFunction(() => !new URLSearchParams(window.location.search).has('a'));
-  await page.locator('#compare-card').filter({ hasText: 'Choose a location to create an analysis summary.' }).waitFor();
+  await page.locator('[data-crime-setup]').waitFor({ state: 'visible' });
+  await page.locator('#compare-card').waitFor({ state: 'hidden' });
   assert.equal(await page.locator('#addrA').inputValue(), '');
   assert.equal(await page.locator('#addrB').inputValue(), '');
   assert.equal(await page.locator('#clearSelBtn').isHidden(), true);
@@ -770,7 +881,7 @@ try {
 
     let blocked = false;
     let versionchange = false;
-    let historyVisibleDuringBlock = false;
+    let workspaceVisibleDuringBlock = false;
     oldConnection.onversionchange = () => { versionchange = true; };
     let resolveBlocked;
     const blockedEvent = new Promise((resolve) => { resolveBlocked = resolve; });
@@ -778,7 +889,7 @@ try {
       const request = indexedDB.open('engagement-analysis', 2);
       request.onblocked = () => {
         blocked = true;
-        historyVisibleDuringBlock = Boolean(document.querySelector('.analysis-history')?.getClientRects().length);
+        workspaceVisibleDuringBlock = Boolean(document.querySelector('[data-crime-setup]')?.getClientRects().length);
         resolveBlocked();
       };
       request.onerror = () => reject(request.error);
@@ -798,7 +909,7 @@ try {
     const evidence = {
       blocked,
       versionchange,
-      historyVisibleDuringBlock,
+      workspaceVisibleDuringBlock,
       version: upgradedConnection.version,
       record,
     };
@@ -808,7 +919,7 @@ try {
   assert.deepEqual(upgradeEvidence, {
     blocked: true,
     versionchange: true,
-    historyVisibleDuringBlock: true,
+    workspaceVisibleDuringBlock: true,
     version: 2,
     record: { id: 'migration-fixture', value: 'preserved' },
   });
@@ -885,7 +996,7 @@ try {
     'Only resource errors caused by the deliberate Carto 503 responses may be exempted',
   );
 
-  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; Diary v1->v2 canonical=${diaryMigrationEvidence.entry.schemaVersion}; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/historyVisible=${upgradeEvidence.historyVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
+  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; Diary v1->v2 canonical=${diaryMigrationEvidence.entry.schemaVersion}; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/workspaceVisible=${upgradeEvidence.workspaceVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => {

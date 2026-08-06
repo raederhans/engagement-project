@@ -20,6 +20,7 @@ import {
   decodeCrimeViewState,
   encodeCrimeViewState,
   hasCrimeViewState,
+  replaceCrimeViewState,
 } from './state/crime_view_state.js';
 
 const query = typeof window !== 'undefined'
@@ -90,8 +91,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   let analysisHistoryController = null;
   let analysisHistoryPromise = null;
-  const refreshCrime = async () => {
-    analysisHistoryController?.setCurrentArtifact(null);
+  const refreshCrime = async (clearArtifact = true) => {
+    if (clearArtifact) analysisHistoryController?.setCurrentArtifact(null);
     const result = await coordinator?.requestCrimeRefresh();
     if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     return result;
@@ -128,11 +129,20 @@ window.addEventListener('DOMContentLoaded', async () => {
         onSelectionChange: (_key, { origin } = {}) => {
           if (origin !== 'map') return;
           panel.syncFromStore?.();
-          writeCrimeStateToURL(store);
           analysisHistoryController?.setCurrentArtifact(null);
         },
         onDataScopeChange: modeSurfaces.showDataScope,
         resultMeta: crimeResultMeta,
+        taskFocus: panel.taskFocus,
+        presetPorts: {
+          state: store,
+          normalize: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
+          replace: (next) => replaceCrimeViewState(store, next, { setMode: setAnalysisMode }),
+          sync: () => panel.syncPreset?.(),
+          url: () => writeCrimeStateToURL(store),
+          clear: () => analysisHistoryController?.setCurrentArtifact(null),
+          refresh: () => refreshCrime(false),
+        },
       })),
     loadDiaryModule: () => import('./routes_diary/index.js'),
     getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),

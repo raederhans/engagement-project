@@ -256,9 +256,16 @@ export async function initCrimeMode(map, {
   onSelectionChange = () => {},
   onDataScopeChange = () => {},
   resultMeta = {},
+  taskFocus = null,
+  presetPorts = null,
   now = () => new Date().toISOString(),
 } = {}) {
   await import('../i18n/crime_offense_catalog.js');
+  if (taskFocus?.mount) {
+    void import('./task_focus_controller.js')
+      .then(({ default: initTaskFocus }) => initTaskFocus(taskFocus, presetPorts))
+      .catch((error) => console.warn('Task focus failed:', error));
+  }
   const mapReady = waitForMapReady(map);
   let markerA = null;
   let markerB = null;

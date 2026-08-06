@@ -82,14 +82,19 @@ export function createModeSurfacePresenter({
       status.removeAttribute?.('title');
     }
 
-    const details = documentRef?.querySelector?.('[data-app-source-details]');
-    if (!details) return;
-    if (showScope && scope.details?.length) {
-      details.dataset.scopeKind = scope.kind;
-      details.textContent = scope.details.join(' · ');
-    } else {
-      delete details.dataset.scopeKind;
-      details.textContent = currentStatus.phase === 'failed' ? statusLabel : '';
+    const detailSurfaces = [...(documentRef?.querySelectorAll?.('[data-app-source-details]') || [])];
+    if (!detailSurfaces.length) {
+      const detailSurface = documentRef?.querySelector?.('[data-app-source-details]');
+      if (detailSurface) detailSurfaces.push(detailSurface);
+    }
+    for (const details of detailSurfaces) {
+      if (showScope && scope.details?.length) {
+        details.dataset.scopeKind = scope.kind;
+        details.textContent = scope.details.join(' · ');
+      } else {
+        delete details.dataset.scopeKind;
+        details.textContent = currentStatus.phase === 'failed' ? statusLabel : '';
+      }
     }
   };
 

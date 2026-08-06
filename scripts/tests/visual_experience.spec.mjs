@@ -139,19 +139,104 @@ test.beforeEach(async ({ context }) => {
 test('Crime direct route restores URL state and keeps its primary action usable', async ({ page }, testInfo) => {
   await gotoMode(page, 'crime', { analysis: 'buffer', months: 12, utm_source: 'visual-ci' });
   await expect(page.locator('#durationSel')).toHaveValue('12');
-  await expect(page.locator('#compare-card')).toContainText('Choose a location');
+  await expect(page.locator('[data-crime-setup]')).toBeVisible();
+  await expect(page.locator('[data-analysis-context]')).toBeHidden();
+  await expect(page.locator('#compare-card')).toBeHidden();
+  await expect(page.locator('#results-drawer')).toBeHidden();
   await assertNoHorizontalOverflow(page);
   await assertCtaInsideViewport(page.getByRole('button', { name: 'Pick on map', exact: true }).first());
   await assertFocusNotObscured(page.locator('#addrA'));
   await page.locator('#addrA').fill('1500 Market St');
   await page.locator('#addrA').press('Enter');
   await expect(page.locator('#addressStatus')).toContainText('Point A:');
+  await expect(page.locator('[data-analysis-context]')).toBeVisible();
+  await expect(page.locator('[data-crime-setup]')).toBeHidden();
+  await expect(page.locator('#compare-card')).toBeVisible();
   await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
   expect(new URL(page.url()).searchParams.get('utm_source')).toBe('visual-ci');
   if (testInfo.project.name !== 'desktop') {
     await expectMinimumTouchTarget(page.locator('.maplibregl-ctrl-attrib-button'));
   }
   await captureExperienceScreenshot(page, testInfo, 'crime-analysis');
+});
+
+test('Crime district analysis keeps the unsupported incident log unavailable', async ({ page }, testInfo) => {
+  desktopOnly(testInfo);
+  await gotoMode(page, 'crime', { analysis: 'district', district: '09' });
+  await expect(page.locator('[data-analysis-context]')).toBeVisible();
+  await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
+  const incidentLog = page.getByRole('button', { name: 'Incident log', exact: true });
+  await expect(incidentLog).toBeDisabled();
+  await expect(incidentLog).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('[data-result-pane="incidents"]')).toBeHidden();
+});
+
+test('Crime editing preserves the query and result navigation exposes one pane at a time', async ({ page }, testInfo) => {
+  await gotoMode(page, 'crime');
+  await expect(page.locator('[data-crime-setup]')).toBeVisible();
+  await expect(page.locator('#results-drawer')).toBeHidden();
+
+  await page.locator('#addrA').fill('1500 Market St');
+  await page.locator('#addrA').press('Enter');
+  await expect(page.locator('[data-analysis-context]')).toBeVisible();
+  await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
+  const analyzedUrl = page.url();
+
+  const edit = page.locator('[data-analysis-context-edit]');
+  await edit.click();
+  await expect(page.locator('[data-crime-setup]')).toBeVisible();
+  await expect(page.locator('#queryModeSel')).toBeFocused();
+  await expect(page.locator('[data-result-pane="summary"]')).toBeHidden();
+  expect(page.url()).toBe(analyzedUrl);
+
+  await edit.click();
+  await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Incident log', exact: true }).click();
+  await expect(page.locator('#results-drawer')).toBeVisible();
+  await expect(page.locator('[data-result-pane="incidents"]')).toBeVisible();
+  await expect(page.locator('[data-result-pane="charts"]')).toBeHidden();
+  await expect(page.locator('[data-result-pane="summary"]')).toBeHidden();
+
+  await page.getByRole('button', { name: 'Charts', exact: true }).click();
+  await expect(page.locator('[data-result-pane="charts"]')).toBeVisible();
+  await expect(page.locator('[data-result-pane="incidents"]')).toBeHidden();
+  await assertNoHorizontalOverflow(page);
+
+  if (testInfo.project.name !== 'desktop') {
+    const scrollOwners = await page.locator('#sidepanel *').evaluateAll((elements) => elements
+      .filter((element) => {
+        if (element.offsetParent === null) return false;
+        const overflowY = getComputedStyle(element).overflowY;
+        return overflowY === 'auto' || overflowY === 'scroll';
+      })
+      .map((element) => (element.classList.contains('sheet-content') ? 'sheet-content' : element.id || element.className)));
+    expect(scrollOwners).toEqual(['sheet-content']);
+  }
+});
+
+test('Crime workbench has no horizontal overflow at 360, 390, 768, and 1440 pixels', async ({ page }, testInfo) => {
+  desktopOnly(testInfo);
+  await gotoMode(page, 'crime');
+  await page.locator('#addrA').fill('1500 Market St');
+  await page.locator('#addrA').press('Enter');
+  await expect(page.locator('[data-analysis-context]')).toBeVisible();
+
+  for (const viewport of [
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    await assertNoHorizontalOverflow(page);
+    const resultNav = page.locator('[data-crime-result-nav]');
+    await resultNav.scrollIntoViewIfNeeded();
+    const bounds = await resultNav.boundingBox();
+    expect(bounds, viewport.width + 'px result navigation must have a layout box').not.toBeNull();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
+  }
 });
 
 test('Crime incident results stay synchronized, escaped, and keyboard reachable', async ({ page }, testInfo) => {
@@ -162,7 +247,7 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
 
   const rows = page.locator('.incident-results__item > button');
   await expect(rows).toHaveCount(3);
-  await page.getByRole('button', { name: 'Incidents', exact: true }).click();
+  await page.getByRole('button', { name: 'Incident log', exact: true }).click();
   const firstRow = rows.first();
   await tabTo(page, firstRow);
   await page.keyboard.press('Enter');
@@ -186,7 +271,10 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
   ).toEqual([]);
   await expect(page.locator('[data-incident-results-status]')).toHaveText('3 incidents · newest first');
   await expect(page.locator('.maplibregl-popup')).toBeVisible();
-  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results', { threshold: 0.5 });
+  await captureExperienceScreenshot(page, testInfo, 'crime-incident-results', {
+    maxDiffPixelRatio: 0.008,
+    threshold: 0.5,
+  });
 });
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
@@ -290,17 +378,14 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
   await gotoMode(page, 'crime');
   const moreFilters = page.locator('#advancedFilters');
   await moreFilters.locator(':scope > summary').click();
-  const dataDetails = moreFilters.locator('details.data-details');
-  await dataDetails.locator(':scope > summary').click();
+  const dataDetails = moreFilters.locator('section.data-details');
+  await expect(dataDetails).toBeVisible();
   await expect(page.locator('#dataStatus')).not.toHaveText('Connecting to live data…');
-  const help = page.locator('#help-card');
-  await help.locator(':scope > summary').click();
-  await expect(help).toContainText('data sources, dates, limitations, and fallback status');
   await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-kind', 'fallback');
   await captureExperienceScreenshot(page, testInfo, 'crime-help-data-details', { locator: page.locator('#sidepanel') });
   if (testInfo.project.name !== 'desktop') {
     const mapPick = page.locator('#useCenterBtn');
-    const lastHelpItem = help.locator('li').last();
+    const lastHelpItem = dataDetails.locator('[data-app-source-details]');
     await expect(mapPick).toHaveCSS('position', 'static');
     await lastHelpItem.scrollIntoViewIfNeeded();
     await expect(lastHelpItem).toBeInViewport();
@@ -436,12 +521,19 @@ test('automated accessibility scan reports no critical or serious issues', async
 
   const moreFilters = page.locator('#advancedFilters');
   await moreFilters.locator(':scope > summary').click();
-  await moreFilters.locator('details.data-details > summary').click();
-  await page.locator('#help-card > summary').click();
+  await expect(moreFilters.locator('section.data-details')).toBeVisible();
   expect(
     await auditSeriousAccessibility(page),
-    'crime Help/Data accessibility issues',
+    'crime Data accessibility issues',
   ).toEqual([]);
+
+  await page.locator('#about-toggle').click();
+  await expect(page.locator('#about-panel')).toHaveAttribute('aria-hidden', 'false');
+  expect(
+    await auditSeriousAccessibility(page),
+    'crime Help accessibility issues',
+  ).toEqual([]);
+  await page.keyboard.press('Escape');
 
   await gotoMode(page, 'diary');
   expect(

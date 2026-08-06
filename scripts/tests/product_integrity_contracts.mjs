@@ -106,7 +106,7 @@ test('coverage status has a user-visible ready and failure presentation', () => 
     coverageMax: '2026-07-30',
   }), {
     tone: 'ready',
-    text: 'Live crime coverage: 2006-01-01 to 2026-07-30',
+    text: 'Data available: records from 2006-01-01 through 2026-07-30',
   });
   assert.deepEqual(panelModule.describeCoverageStatus({
     coverageStatus: 'error',
@@ -520,6 +520,73 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     classOpacity: 0.6,
     classCustomBreaks: [1, 2, 3],
   });
+});
+
+test('query preset preview starts from a full canonical snapshot and changes only time fields', async () => {
+  const queryPreset = await import('../../src/routes_crime/query_preset_controller.js').catch(() => ({}));
+  assert.equal(typeof queryPreset.createQueryPresetPreview, 'function');
+  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const input = {
+    queryMode: 'buffer',
+    startMonth: '2025-01',
+    durationMonths: 12,
+    radius: 1375,
+    selectedGroups: ['vehicle'],
+    selectedDrilldownCodes: ['Motor Vehicle Theft'],
+    overlayTractsLines: true,
+    centerLonLat: [-75.166154, 39.95218],
+    centerBLonLat: [-75.2, 39.96],
+    addressA: '1500 MARKET ST',
+    addressB: 'UNIVERSITY CITY',
+    per10k: false,
+    classMethod: 'custom',
+    classBins: 4,
+    classPalette: 'OrRd',
+    classOpacity: 0.6,
+    classCustomBreaks: [1, 2, 3],
+  };
+  const original = structuredClone(input);
+  const preview = queryPreset.createQueryPresetPreview({
+    presetId: 'latest-24-months',
+    currentState: input,
+    coverage: { status: 'ready', min: '2006-01-01', max: '2026-07-30' },
+    normalizeCanonical: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
+    serializeCanonical: encodeCrimeViewState,
+  });
+
+  assert.equal(preview.status, 'preview');
+  assert.deepEqual(preview.before, decodeCrimeViewState(encodeCrimeViewState(input)));
+  assert.deepEqual(preview.patch, {
+    startMonth: '2024-08',
+    durationMonths: 24,
+  });
+  assert.deepEqual(input, original);
+  const changedFields = Object.keys(preview.after).filter((key) => (
+    JSON.stringify(preview.after[key]) !== JSON.stringify(preview.before[key])
+  ));
+  assert.deepEqual(changedFields, ['startMonth', 'durationMonths']);
+  assert.equal(preview.after.centerLonLat[0], input.centerLonLat[0]);
+  assert.equal(preview.after.centerBLonLat[0], input.centerBLonLat[0]);
+  assert.equal(preview.after.radius, input.radius);
+  assert.equal(preview.after.selectedGroups[0], input.selectedGroups[0]);
+  assert.doesNotMatch(encodeCrimeViewState(preview.after), /preset|latest-24-months/);
+});
+
+test('latest-window preview is unavailable without verified and sufficient coverage', async () => {
+  const { createQueryPresetPreview } = await import('../../src/routes_crime/query_preset_controller.js');
+  const currentState = { queryMode: 'buffer', startMonth: '2025-01', durationMonths: 12 };
+  const cases = [
+    { status: 'loading', min: '2006-01-01', max: '2026-07-30' },
+    { status: 'ready', min: '2006-01-01', max: null },
+    { status: 'ready', min: '2025-01-01', max: '2026-07-30' },
+  ];
+  for (const coverage of cases) {
+    assert.deepEqual(createQueryPresetPreview({
+      presetId: 'latest-24-months',
+      currentState,
+      coverage,
+    }), { status: 'unavailable' });
+  }
 });
 
 test('shared Crime state ignores unrelated parameters and rejects invalid ranges', async () => {

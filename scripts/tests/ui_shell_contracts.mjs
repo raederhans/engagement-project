@@ -18,18 +18,62 @@ test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /data-app-help/);
 });
 
-test('analysis summary stays visible while charts are progressively disclosed', async () => {
+test('unselected Crime starts in setup stage with result surfaces hidden and inert', () => {
+  const sidepanelTag = html.match(/<div\b[^>]*id="sidepanel"[^>]*>/i)?.[0] || '';
+  const overviewTag = html.match(/<section\b[^>]*data-crime-results[^>]*>/i)?.[0] || '';
+  const drawerTag = html.match(/<aside\b[^>]*id="results-drawer"[^>]*>/i)?.[0] || '';
+  const historyTag = html.match(/<details\b[^>]*data-analysis-history-disclosure[^>]*>/i)?.[0] || '';
+
+  assert.match(sidepanelTag, /data-crime-stage="setup"/i);
+  for (const tag of [overviewTag, drawerTag, historyTag]) {
+    assert.match(tag, /\bhidden\b/i);
+    assert.match(tag, /aria-hidden="true"/i);
+    assert.match(tag, /\binert\b/i);
+  }
+});
+
+test('default Crime results prioritize the summary and defer saved analyses', () => {
+  const summaryPane = html.match(/<section\b[^>]*data-result-pane="summary"[\s\S]*?<\/section>/i)?.[0] || '';
+  assert.ok(summaryPane.indexOf('id="compare-card"') < summaryPane.indexOf('data-result-meta="summary"'));
+  assert.match(
+    html,
+    /<details\b[^>]*data-analysis-history-disclosure[^>]*name="crime-results"[^>]*hidden[^>]*>/i,
+  );
+  assert.equal(
+    (html.match(/<details\b[^>]*name="crime-results"/gi) || []).length,
+    5,
+    'native details groups must keep one deep result disclosure open at a time',
+  );
+  assert.match(html, /data-analysis-history-disclosure[\s\S]*?<section\b[^>]*data-analysis-history-mount/i);
+});
+
+test('Crime exposes one hidden analysis-context region with an accessible edit action', () => {
+  const contextTag = html.match(/<section\b[^>]*data-analysis-context[^>]*>/i)?.[0] || '';
+  assert.match(contextTag, /\bhidden\b/i);
+  assert.match(contextTag, /aria-labelledby="analysis-context-title"/i);
+  assert.match(contextTag, /tabindex="-1"/i);
+  assert.doesNotMatch(contextTag, /aria-live=/i);
+  assert.match(html, /id="analysis-context-title"/i);
+  assert.match(html, /id="crime-query-controls"[^>]*data-crime-setup/i);
+  assert.match(
+    html,
+    /<button\b[^>]*data-analysis-context-edit[^>]*aria-controls="crime-query-controls"/i,
+  );
+});
+
+test('analysis summary is the default pane while incidents and charts are explicit sibling panes', async () => {
   const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(controller, /enhanceProgressiveSurface\(['"]compare-card['"]/);
-  assert.match(controller, /enhanceProgressiveSurface\(['"]charts['"],\s*['"]sheet\.viewDetails['"]\)/);
-  assert.match(controller, /document\.createElement\(['"]details['"]\)/);
-  assert.doesNotMatch(controller, /details\.open\s*=\s*true/);
+  assert.doesNotMatch(controller, /enhanceProgressiveSurface\(/);
   assert.match(html, /id="results-drawer"[^>]*aria-label="Analysis details"/i);
+  assert.match(html, /data-result-pane="summary"/i);
+  assert.match(html, /id="incident-results"[^>]*data-result-pane="incidents"/i);
+  assert.match(html, /id="charts"[^>]*data-result-pane="charts"/i);
   assert.match(css, /#results-drawer\s*\{[^}]*position:\s*fixed[^}]*right:/s);
   assert.doesNotMatch(html, /id="charts"[^>]*style=/i);
-  assert.match(css, /#results-drawer\s+\.progressive-surface:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*;/s);
   assert.doesNotMatch(css, /!important/);
+  assert.match(panel, /querySelector\(['"]\[data-crime-results\]['"]\)/);
+  assert.doesNotMatch(panel, /crimeShell\.appendChild\(compareCard\)/);
   assert.match(panel, /resultsDrawer\.contains\(chartsPanel\)/);
   assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
@@ -62,16 +106,24 @@ test('current analysis task flow keeps incidents and charts before recent analys
   assert.deepEqual(shell.children, [summary, details, history]);
 });
 
-test('Crime exposes one task path and one synchronized incident-results surface', () => {
-  assert.match(html, /<nav\b[^>]*class="[^"]*crime-task-nav[^"]*"[^>]*aria-label="Analysis steps"/i);
-  assert.match(html, /data-task-target="queryModeSel"/i);
-  assert.match(html, /data-task-target="compare-card"/i);
-  assert.match(html, /data-task-target="incident-results"/i);
-  assert.match(html, /<section\b[^>]*id="incident-results"[^>]*aria-labelledby="incident-results-title"[^>]*>/i);
+test('Crime exposes one result navigation and one synchronized incident-results surface', () => {
+  assert.doesNotMatch(html, /data-crime-task-nav/i);
+  assert.match(html, /<nav\b[^>]*data-crime-result-nav[^>]*aria-label="Analysis views"/i);
+  assert.match(html, /data-result-pane-target="summary"/i);
+  assert.match(html, /data-result-pane-target="incidents"/i);
+  assert.match(html, /data-result-pane-target="charts"/i);
+  assert.match(html, /<section\b[^>]*id="incident-results"[^>]*data-result-pane="incidents"[^>]*aria-labelledby="incident-results-title"[^>]*>/i);
   assert.match(html, /data-incident-results-status[^>]*role="status"[^>]*aria-live="polite"/i);
   assert.match(html, /<ol\b[^>]*data-incident-results-list/i);
   assert.match(html, /data-incident-results-more[^>]*type="button"/i);
   assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+});
+
+test('Crime advanced controls do not nest Data details or a duplicate Help disclosure', () => {
+  assert.doesNotMatch(html, /<details\b[^>]*class="data-details"/i);
+  assert.match(html, /<section\b[^>]*class="data-details"[^>]*aria-labelledby="crime-data-details-title"/i);
+  assert.match(html, /id="crime-data-details-title"[^>]*data-i18n="crime\.dataDetails"/i);
+  assert.doesNotMatch(html, /id="help-card"/i);
 });
 
 test('dynamic incident status copy has one controller owner', () => {

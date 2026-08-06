@@ -15,7 +15,10 @@ import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
 import { createLatestGeocodeOwner } from '../api/geocoder.js';
-import { CRIME_VIEW_QUERY_KEYS, encodeCrimeViewState } from '../state/crime_view_state.js';
+import {
+  CRIME_VIEW_QUERY_KEYS,
+  encodeCrimeViewState,
+} from '../state/crime_view_state.js';
 import { getLastComparison } from '../compare/card.js';
 import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../utils/export_analysis.js';
 import {
@@ -25,11 +28,17 @@ import {
   setTranslatedText,
   t,
 } from '../i18n/index.js';
-import { initCrimeTaskNavigation } from './crime_task_nav.js';
 import {
   localizeOffenseCode,
   onCrimeOffenseCatalogChange,
 } from '../i18n/crime_offenses.js';
+import { createCrimeWorkbenchController } from './crime_workbench.js';
+
+export {
+  applyCrimeWorkspacePresentation,
+  createCrimeAnalysisContext,
+  deriveCrimeWorkspacePresentation,
+} from './crime_workbench.js';
 
 function debounce(fn, wait = 300) {
   let t;
@@ -122,14 +131,37 @@ export function initPanel(store, handlers) {
     panelContentRoot.appendChild(crimeShell);
   }
   if (sheetHandle) panelRoot.prepend(sheetHandle);
-  initCrimeTaskNavigation({ root: crimeShell });
-
-  const compareCard = document.getElementById('compare-card');
+  const analysisContext = crimeShell.querySelector('[data-analysis-context]');
+  const taskFocusMount = crimeShell.querySelector('[data-task-focus]');
+  const crimeSetup = crimeShell.querySelector('[data-crime-setup]');
+  const resultsOverview = crimeShell.querySelector('[data-crime-results]');
+  const analysisHistoryDisclosure = crimeShell.querySelector('[data-analysis-history-disclosure]');
   const chartsPanel = document.getElementById('charts');
   const resultsDrawer = document.getElementById('results-drawer');
-  if (compareCard && compareCard.parentElement !== crimeShell) crimeShell.appendChild(compareCard);
   if (chartsPanel && resultsDrawer && !resultsDrawer.contains(chartsPanel)) resultsDrawer.appendChild(chartsPanel);
   else if (chartsPanel && !resultsDrawer && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
+
+  const crimeWorkbench = createCrimeWorkbenchController({
+    state: store,
+    panelRoot,
+    context: analysisContext,
+    setup: crimeSetup,
+    results: [resultsOverview, analysisHistoryDisclosure],
+    editButton: crimeShell.querySelector('[data-analysis-context-edit]'),
+    contextTitle: crimeShell.querySelector('[data-analysis-context-title]'),
+    contextMeta: crimeShell.querySelector('[data-analysis-context-meta]'),
+    editFocusTarget: document.getElementById('queryModeSel'),
+    summaryPane: crimeShell.querySelector('[data-result-pane="summary"]'),
+    resultDrawer: resultsDrawer,
+    incidentPane: crimeShell.querySelector('[data-result-pane="incidents"]'),
+    chartsPane: crimeShell.querySelector('[data-result-pane="charts"]'),
+    paneButtons: [...crimeShell.querySelectorAll('[data-result-pane-target]')],
+  });
+  crimeShell.addEventListener('click', (event) => {
+    if (event.target?.closest?.('[data-incident-results-edit]')) {
+      crimeWorkbench.setEditing(true);
+    }
+  });
 
   let analysisHistoryMount = crimeShell.querySelector('[data-analysis-history-mount]');
   if (!analysisHistoryMount) {
@@ -248,8 +280,6 @@ export function initPanel(store, handlers) {
   const dataStatus = document.getElementById('dataStatus');
   const startMonth = document.getElementById('startMonth');
   const durationSel = document.getElementById('durationSel');
-  const preset6 = document.getElementById('preset6');
-  const preset12 = document.getElementById('preset12');
   const shareViewBtn = document.getElementById('shareViewBtn');
   const exportJsonBtn = document.getElementById('exportJsonBtn');
   const exportCsvBtn = document.getElementById('exportCsvBtn');
@@ -354,6 +384,7 @@ export function initPanel(store, handlers) {
       const { result } = owned;
       input.value = result.address;
       store.setComparisonPoint(target, ...result.lngLat, result.address);
+      crimeWorkbench.sync();
       if (addressStatus) {
         addressStatus.dataset.tone = 'ready';
         setTranslatedText(addressStatus, 'crime.pointResolved', { target, address: result.address });
@@ -434,7 +465,7 @@ export function initPanel(store, handlers) {
         fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
         fineSel.disabled = true;
         fitMultiSelectRows(fineSel);
-        syncOffenseHighlights([]);
+        if (!preserveSelection) syncOffenseHighlights([]);
       } else {
         fineSel.disabled = false;
         renderStatus('crime.loadingCodes');
@@ -446,19 +477,19 @@ export function initPanel(store, handlers) {
           if (preserveSelection) requestedCodes = normalizeHighlightedOffenses(store.selectedDrilldownCodes);
 
           fineSel.innerHTML = '';
-          if (availableCodes.length === 0) {
+          const renderedCodes = preserveSelection
+            ? [...new Set([...availableCodes, ...requestedCodes])]
+            : availableCodes;
+          if (renderedCodes.length === 0) {
             fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
             syncOffenseHighlights([]);
           } else {
-            for (const c of availableCodes) {
+            for (const c of renderedCodes) {
               const opt = document.createElement('option');
               opt.value = c;
               opt.textContent = localizeOffenseCode(c);
               opt.selected = requestedCodes.includes(c);
               fineSel.appendChild(opt);
-            }
-            if (preserveSelection) {
-              store.selectedDrilldownCodes = requestedCodes.filter((code) => availableCodes.includes(code));
             }
             syncOffenseHighlights(store.selectedDrilldownCodes);
           }
@@ -470,7 +501,7 @@ export function initPanel(store, handlers) {
         }
       }
     }
-    if (notify || requestedCodes.length !== store.selectedDrilldownCodes.length) onChange();
+    if (notify) onChange();
   }
 
   const refreshDrilldownForWindow = () => populateDrilldown(
@@ -555,6 +586,7 @@ export function initPanel(store, handlers) {
     const mode = queryModeSel.value;
     setAnalysisMode(mode);
     if (mode !== 'buffer') store.selectMode = 'idle';
+    crimeWorkbench.sync();
     applyModeUI();
     onChange();
     updateHUD();
@@ -637,17 +669,6 @@ export function initPanel(store, handlers) {
     syncFromStore();
     void refreshTimeWindow();
   });
-  preset6?.addEventListener('click', () => {
-    applyRecentPreset(store, 6, { startMonthInput: startMonth, durationSelect: durationSel });
-    void refreshTimeWindow();
-    void updateHUD();
-  });
-  preset12?.addEventListener('click', () => {
-    applyRecentPreset(store, 12, { startMonthInput: startMonth, durationSelect: durationSel });
-    void refreshTimeWindow();
-    void updateHUD();
-  });
-
   shareViewBtn?.addEventListener('click', async () => {
     writeCrimeStateToURL(store);
     try {
@@ -742,7 +763,7 @@ export function initPanel(store, handlers) {
     });
   }
 
-  function syncFromStore() {
+  function syncControlsFromStore() {
     if (queryModeSel) queryModeSel.value = store.queryMode || 'buffer';
     if (addrA) addrA.value = store.addressA || '';
     if (addrB) addrB.value = store.addressB || '';
@@ -765,13 +786,23 @@ export function initPanel(store, handlers) {
     if (exportJsonBtn) exportJsonBtn.disabled = !exportReady;
     if (exportCsvBtn) exportCsvBtn.disabled = !exportReady;
     applyModeUI();
-    writeCrimeStateToURL(store);
-    analysisHistorySync?.();
+    crimeWorkbench.sync();
     void updateHUD();
   }
 
+  function syncPreset() {
+    onChange.cancel();
+    syncControlsFromStore();
+    return refreshDrilldownForWindow();
+  }
+
+  function syncFromStore() {
+    syncControlsFromStore();
+    writeCrimeStateToURL(store);
+    analysisHistorySync?.();
+  }
+
   syncFromStore();
-  void updateHUD();
   onLanguageChange(() => {
     syncFromStore();
     localizeOffenseOptions(fineSel);
@@ -782,6 +813,11 @@ export function initPanel(store, handlers) {
   return {
     diaryMount: diaryShell,
     analysisHistoryMount,
+    taskFocus: {
+      mount: taskFocusMount,
+      applyTaskFocusPresentation: crimeWorkbench.focus,
+    },
+    syncPreset,
     syncFromStore,
     setAnalysisHistorySync(callback) {
       analysisHistorySync = typeof callback === 'function' ? callback : null;
@@ -796,11 +832,13 @@ export function placeAnalysisHistoryAfterResults({
   analysisHistoryMount,
 } = {}) {
   if (!crimeShell || !analysisHistoryMount) return false;
+  const historySurface = analysisHistoryMount.closest?.('[data-analysis-history-disclosure]')
+    || analysisHistoryMount;
   if (!resultsDrawer || resultsDrawer.parentElement !== crimeShell) {
-    crimeShell.appendChild(analysisHistoryMount);
+    crimeShell.appendChild(historySurface);
     return true;
   }
-  crimeShell.insertBefore(analysisHistoryMount, resultsDrawer.nextSibling || null);
+  crimeShell.insertBefore(historySurface, resultsDrawer.nextSibling || null);
   return true;
 }
 
@@ -829,16 +867,6 @@ function recentStartMonth(durationMonths, coverageMax) {
   date.setDate(1);
   date.setMonth(date.getMonth() - (durationMonths - 1));
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-export function applyRecentPreset(state, durationMonths, {
-  startMonthInput,
-  durationSelect,
-} = {}) {
-  state.startMonth = recentStartMonth(durationMonths, state.coverageMax);
-  state.durationMonths = durationMonths;
-  if (startMonthInput) startMonthInput.value = state.startMonth;
-  if (durationSelect) durationSelect.value = String(durationMonths);
 }
 
 export function readModeFromURL() {

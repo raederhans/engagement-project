@@ -86,6 +86,644 @@ test('incident refresh requires either a buffer location or a selected census tr
   }), 'none');
 });
 
+test('task focus changes presentation without mutating canonical Crime state', async () => {
+  const taskFocus = await import('../../src/routes_crime/task_focus_controller.js').catch(() => ({}));
+  assert.equal(typeof taskFocus.createTaskFocusController, 'function');
+  const { encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const state = {
+    queryMode: 'buffer',
+    startMonth: '2025-01',
+    durationMonths: 12,
+    radius: 1600,
+    selectedGroups: ['property'],
+    selectedDrilldownCodes: ['0500'],
+    centerLonLat: [-75.16, 39.95],
+    centerBLonLat: [-75.17, 39.96],
+    addressA: 'Market Street',
+    addressB: 'Broad Street',
+    classMethod: 'equal',
+    classBins: 7,
+    classPalette: 'Blues',
+    classOpacity: 0.8,
+  };
+  const before = encodeCrimeViewState(state);
+  const applied = [];
+  const controller = taskFocus.createTaskFocusController({
+    presentation: {
+      applyTaskFocusPresentation(config) { applied.push(config); },
+    },
+  });
+
+  assert.equal(controller.getFocusMode(), 'general');
+  const result = controller.setFocusMode('long_term');
+
+  assert.equal(result.focusMode, 'long_term');
+  assert.equal(result.preferredInitialPane, 'charts');
+  assert.equal(applied.at(-1).preferredInitialPane, 'charts');
+  assert.equal(taskFocus.TASK_FOCUS_CONFIG.daily_living.preferredInitialPane, 'incidents');
+  assert.notEqual(
+    taskFocus.TASK_FOCUS_CONFIG.daily_living.preferredInitialPane,
+    taskFocus.TASK_FOCUS_CONFIG.general.preferredInitialPane,
+  );
+  assert.equal(encodeCrimeViewState(state), before);
+  for (const forbidden of [
+    'startMonth',
+    'durationMonths',
+    'radius',
+    'selectedGroups',
+    'selectedDrilldownCodes',
+    'centerLonLat',
+    'centerBLonLat',
+  ]) {
+    assert.equal(Object.hasOwn(result, forbidden), false, `${forbidden} must remain query-owned`);
+  }
+});
+
+test('task focus is page-lifetime memory and never uses browser storage', async () => {
+  const { createTaskFocusController } = await import('../../src/routes_crime/task_focus_controller.js');
+  const storageCalls = [];
+  const storage = new Proxy({}, {
+    get(_target, property) {
+      if (['getItem', 'setItem', 'removeItem'].includes(property)) {
+        return (...args) => storageCalls.push([property, ...args]);
+      }
+      return undefined;
+    },
+  });
+  const originalWindow = globalThis.window;
+  globalThis.window = { localStorage: storage, sessionStorage: storage };
+  try {
+    const first = createTaskFocusController();
+    first.setFocusMode('daily_living');
+    assert.equal(first.getFocusMode(), 'daily_living');
+
+    const second = createTaskFocusController();
+    assert.equal(second.getFocusMode(), 'general');
+    assert.deepEqual(storageCalls, []);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
+test('task focus binds an accessible choice dialog and applies an explicit selection', async () => {
+  const { createTaskFocusController } = await import('../../src/routes_crime/task_focus_controller.js');
+  const interactive = (extra = {}) => {
+    const listeners = new Map();
+    return {
+      dataset: {},
+      textContent: '',
+      hidden: false,
+      attributes: new Map(),
+      addEventListener(type, listener) { listeners.set(type, listener); },
+      click() { listeners.get('click')?.({ preventDefault() {} }); },
+      setAttribute(name, value) { this.attributes.set(name, value); },
+      ...extra,
+    };
+  };
+  const openButton = interactive();
+  const applyButton = interactive();
+  const current = interactive();
+  const description = interactive();
+  const dialog = interactive({
+    open: false,
+    showModal() { this.open = true; },
+    close() { this.open = false; },
+  });
+  const radios = [
+    interactive({ value: 'general', checked: true }),
+    interactive({ value: 'long_term', checked: false }),
+    interactive({ value: 'daily_living', checked: false }),
+  ];
+  const nodes = new Map([
+    ['[data-task-focus-open]', openButton],
+    ['[data-task-focus-dialog]', dialog],
+    ['[data-task-focus-apply]', applyButton],
+    ['[data-task-focus-current]', current],
+    ['[data-task-focus-description]', description],
+  ]);
+  const mount = interactive({
+    hidden: true,
+    querySelector(selector) { return nodes.get(selector) || null; },
+    querySelectorAll(selector) { return selector === '[data-task-focus-option]' ? radios : []; },
+  });
+  const applied = [];
+  const controller = createTaskFocusController({
+    mount,
+    presentation: {
+      applyTaskFocusPresentation(config) { applied.push(config); },
+    },
+  });
+
+  assert.equal(mount.hidden, false);
+  openButton.click();
+  assert.equal(dialog.open, true);
+  for (const radio of radios) radio.checked = radio.value === 'long_term';
+  applyButton.click();
+
+  assert.equal(controller.getFocusMode(), 'long_term');
+  assert.equal(applied.at(-1).preferredInitialPane, 'charts');
+  assert.equal(mount.dataset.taskFocus, 'long_term');
+  assert.match(current.textContent, /Long-term/i);
+  assert.match(description.textContent, /information order|query/i);
+  assert.equal(dialog.open, false);
+  controller.dispose();
+
+  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-task-focus/);
+  assert.match(html, /<dialog[^>]+data-task-focus-dialog/);
+  assert.match(html, /data-task-focus-option[^>]+value="general"/);
+  assert.match(html, /data-task-focus-option[^>]+value="long_term"/);
+  assert.match(html, /data-task-focus-option[^>]+value="daily_living"/);
+});
+
+test('latest-window suggestions use an explicit accessible preview instead of instant apply', async () => {
+  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+
+  assert.match(html, /data-query-preset-mount/);
+  assert.match(html, /data-query-preset="latest-6-months"/);
+  assert.match(html, /data-query-preset="latest-24-months"/);
+  assert.match(html, /<dialog[^>]+data-query-preset-dialog[^>]+aria-labelledby="query-preset-title"/);
+  assert.match(html, /data-query-preset-changes[^>]+role="list"/);
+  assert.match(html, /data-query-preset-cancel/);
+  assert.match(html, /data-query-preset-confirm/);
+  assert.match(html, /data-query-preset-undo/);
+  assert.match(html, /review[^<]+settings|查看[^<]+设置/i);
+});
+
+test('query preset code stays nested-lazy until a user opens a suggestion', async () => {
+  const { createTaskFocusController } = await import('../../src/routes_crime/task_focus_controller.js');
+  const listeners = new Map();
+  const presetButton = {
+    dataset: { queryPreset: 'latest-24-months' },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    click() { listeners.get('click')?.(); },
+  };
+  const presetMount = {
+    querySelectorAll(selector) { return selector === '[data-query-preset]' ? [presetButton] : []; },
+  };
+  const mount = {
+    dataset: {},
+    hidden: true,
+    querySelector(selector) {
+      return selector === '[data-query-preset-mount]' ? presetMount : null;
+    },
+    querySelectorAll: () => [],
+  };
+  const opened = [];
+  let loads = 0;
+  const controller = createTaskFocusController({
+    mount,
+    presetPorts: { marker: 'port' },
+    loadQueryPresetModule: async () => {
+      loads += 1;
+      return {
+        initCrimeQueryPreset(options) {
+          assert.equal(options.mount, presetMount);
+          assert.equal(options.marker, 'port');
+          return { openPreset: (presetId) => opened.push(presetId) };
+        },
+      };
+    },
+  });
+
+  assert.equal(loads, 0);
+  presetButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(loads, 1);
+  assert.deepEqual(opened, ['latest-24-months']);
+  presetButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(loads, 1);
+  assert.deepEqual(opened, ['latest-24-months', 'latest-24-months']);
+  controller.dispose();
+
+  const [taskSource, crimeSource, queryPresetSource] = await Promise.all([
+    readFile(new URL('../../src/routes_crime/task_focus_controller.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/query_preset_controller.js', import.meta.url), 'utf8'),
+  ]);
+  assert.match(taskSource, /import\('\.\/query_preset_controller\.js'\)/);
+  assert.doesNotMatch(crimeSource, /import\('\.\/query_preset_controller\.js'\)/);
+  assert.doesNotMatch(queryPresetSource, /from ['"]\.\.\/i18n\//);
+  assert.doesNotMatch(queryPresetSource, /from ['"]\.\.\/state\//);
+  assert.match(taskSource, /translate:\s*t/);
+});
+
+test('query preset UI renders the exact preview and cancellation leaves the query untouched', async () => {
+  const { initCrimeQueryPreset } = await import('../../src/routes_crime/query_preset_controller.js');
+  const interactive = (extra = {}) => {
+    const listeners = new Map();
+    return {
+      dataset: {},
+      textContent: '',
+      hidden: false,
+      disabled: false,
+      children: [],
+      addEventListener(type, listener) { listeners.set(type, listener); },
+      removeEventListener() {},
+      click() { return this.disabled ? undefined : listeners.get('click')?.({ preventDefault() {} }); },
+      setAttribute(name, value) { this[name] = value; },
+      replaceChildren(...children) { this.children = children; },
+      ...extra,
+    };
+  };
+  const dialog = interactive({
+    open: false,
+    showModal() { this.open = true; },
+    close() { this.open = false; },
+  });
+  const status = interactive();
+  const changes = interactive();
+  const cancel = interactive();
+  const confirm = interactive({ disabled: true });
+  const undo = interactive({ hidden: true });
+  const nodes = new Map([
+    ['[data-query-preset-dialog]', dialog],
+    ['[data-query-preset-status]', status],
+    ['[data-query-preset-changes]', changes],
+    ['[data-query-preset-cancel]', cancel],
+    ['[data-query-preset-confirm]', confirm],
+    ['[data-query-preset-undo]', undo],
+  ]);
+  const mount = interactive({
+    querySelector: (selector) => nodes.get(selector) || null,
+    querySelectorAll: () => [],
+  });
+  const current = queryPresetFixtureForUi();
+  const sideEffects = [];
+  let resolveRefresh;
+  const refreshGate = new Promise((resolve) => { resolveRefresh = resolve; });
+  const strings = {
+    'preset.change.startMonth': 'Start month: {before} → {after}',
+    'preset.change.durationMonths': 'Duration: {before} months → {after} months',
+    'preset.unknown': 'Not set',
+    'preset.previewReady': 'Review the two changes below.',
+  };
+  const ui = initCrimeQueryPreset({
+    mount,
+    documentRef: { createElement: () => interactive() },
+    translate: (key, variables = {}) => Object.entries(variables).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      strings[key] || key,
+    ),
+    readCanonical: () => current,
+    readCoverage: () => ({ status: 'ready', min: '2020-01', max: '2026-06' }),
+    replace: (next) => {
+      Object.assign(current, structuredClone(next));
+      sideEffects.push('replace');
+    },
+    sync: () => sideEffects.push('sync'),
+    url: () => sideEffects.push('url'),
+    clear: () => sideEffects.push('clear'),
+    refresh: () => {
+      sideEffects.push('refresh');
+      return refreshGate;
+    },
+  });
+
+  const preview = ui.openPreset('latest-6-months');
+  assert.equal(preview.status, 'preview');
+  assert.equal(dialog.open, true);
+  assert.equal(confirm.disabled, false);
+  assert.equal(changes.children.length, 2);
+  assert.match(changes.children[0].textContent, /start|开始/i);
+  assert.match(changes.children[1].textContent, /duration|时长/i);
+
+  cancel.click();
+  assert.equal(dialog.open, false);
+  assert.deepEqual(sideEffects, []);
+
+  ui.openPreset('latest-6-months');
+  const pending = ui.confirmPreview();
+  assert.equal(cancel.disabled, true);
+  assert.equal(undo.disabled, true);
+  cancel.click();
+  assert.equal(dialog.open, true, 'A pending canonical transaction must not look cancelled');
+
+  resolveRefresh({ applied: true, status: 'live' });
+  await pending;
+  assert.equal(cancel.disabled, false);
+  assert.equal(undo.disabled, false);
+  assert.equal(undo.hidden, false);
+  assert.deepEqual(sideEffects, ['replace', 'sync', 'url', 'clear', 'refresh']);
+  ui.dispose();
+});
+
+function queryPresetFixtureForUi() {
+  return {
+    queryMode: 'buffer',
+    startMonth: '2025-01',
+    durationMonths: 12,
+    radius: 800,
+    selectedGroups: ['property'],
+    centerLonLat: [-75.16, 39.95],
+    classMethod: 'quantile',
+    classBins: 5,
+    classPalette: 'Blues',
+    classOpacity: 0.75,
+  };
+}
+
+test('focus preference initializes a new analysis pane without stealing manual pane choice', async () => {
+  const { createCrimeWorkbenchController } = await import('../../src/ui/crime_workbench.js');
+  const { createTaskFocusController } = await import('../../src/routes_crime/task_focus_controller.js');
+  const element = (dataset = {}) => ({
+    dataset,
+    hidden: false,
+    inert: false,
+    textContent: '',
+    attributes: new Map(),
+    addEventListener() {},
+    contains: () => false,
+    focus() {},
+    setAttribute(name, value) { this.attributes.set(name, value); },
+    removeAttribute(name) { this.attributes.delete(name); },
+  });
+  const nav = {
+    children: [],
+    append(...buttons) {
+      for (const button of buttons) {
+        this.children = this.children.filter((child) => child !== button);
+        this.children.push(button);
+      }
+    },
+    prepend(button) {
+      this.children = this.children.filter((child) => child !== button);
+      this.children.unshift(button);
+    },
+  };
+  const paneButtons = ['summary', 'incidents', 'charts'].map((pane) => {
+    const button = element({ resultPaneTarget: pane });
+    button.parentElement = nav;
+    nav.children.push(button);
+    return button;
+  });
+  const state = { queryMode: 'buffer', centerLonLat: null, radius: 400 };
+  const panelRoot = element();
+  const crimeShell = element();
+  crimeShell.querySelectorAll = () => paneButtons;
+  const controller = createCrimeWorkbenchController({
+    state,
+    panelRoot,
+    context: element(),
+    setup: element(),
+    results: [element()],
+    editButton: element(),
+    contextTitle: element(),
+    contextMeta: element(),
+    summaryPane: element(),
+    resultDrawer: element(),
+    incidentPane: element(),
+    chartsPane: element(),
+    paneButtons,
+    documentRef: { activeElement: null },
+  });
+
+  assert.equal(typeof controller.setResultPane, 'function');
+  const focusController = createTaskFocusController({
+    mount: {
+      hidden: false,
+      dataset: {},
+      parentElement: crimeShell,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    },
+    presentation: { applyTaskFocusPresentation: controller.focus },
+  });
+  focusController.setFocusMode('long_term');
+  assert.deepEqual(nav.children.map((button) => button.dataset.resultPaneTarget), [
+    'charts', 'summary', 'incidents',
+  ]);
+  state.centerLonLat = [-75.16, 39.95];
+  controller.sync();
+  assert.equal(panelRoot.dataset.crimeResultPane, 'charts');
+
+  controller.setResultPane('incidents');
+  focusController.setFocusMode('daily_living');
+  controller.sync();
+  assert.equal(panelRoot.dataset.crimeResultPane, 'incidents');
+  assert.deepEqual(nav.children.map((button) => button.dataset.resultPaneTarget), [
+    'incidents', 'summary', 'charts',
+  ]);
+
+  state.radius = 800;
+  controller.sync();
+  assert.equal(panelRoot.dataset.crimeResultPane, 'incidents');
+});
+
+test('task focus uses a narrow panel port and a fault-isolated second-level Crime boundary', async () => {
+  const [panelSource, mainSource, crimeSource] = await Promise.all([
+    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(panelSource, /taskFocus\s*:\s*\{/);
+  assert.match(panelSource, /mount\s*:\s*taskFocusMount/);
+  assert.match(panelSource, /applyTaskFocusPresentation\s*:\s*crimeWorkbench\.focus/);
+  assert.match(mainSource, /taskFocus\s*:\s*panel\.taskFocus/);
+  assert.match(crimeSource, /import\('\.\/task_focus_controller\.js'\)/);
+  assert.match(crimeSource, /default:\s*initTaskFocus/);
+  assert.match(crimeSource, /initTaskFocus\(taskFocus, presetPorts\)/);
+  assert.match(crimeSource, /Task focus failed/);
+  const taskSource = await readFile(new URL('../../src/routes_crime/task_focus_controller.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(taskSource, /parentElement|append\?\.\(button\)/);
+});
+
+test('query preset integration owns one URL write and one refresh with no legacy instant mutator', async () => {
+  const [html, panelSource, mainSource, crimeSource] = await Promise.all([
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.doesNotMatch(html, /id="preset(?:6|12)"/);
+  assert.doesNotMatch(panelSource, /applyRecentPreset|\bpreset6\b|\bpreset12\b/);
+  assert.match(panelSource, /function syncControlsFromStore\s*\(\)/);
+  assert.match(panelSource, /function syncFromStore\s*\(\)\s*\{\s*syncControlsFromStore\(\);\s*writeCrimeStateToURL\(store\);/);
+  assert.match(mainSource, /presetPorts\s*:\s*\{/);
+  assert.match(mainSource, /state\s*:\s*store/);
+  assert.match(mainSource, /normalize\s*:\s*\(state\)\s*=>\s*decodeCrimeViewState\(encodeCrimeViewState\(state\)\)/);
+  assert.match(mainSource, /replace\s*:\s*\(next\)\s*=>\s*replaceCrimeViewState/);
+  assert.match(mainSource, /sync\s*:\s*\(\)\s*=>\s*panel\.syncPreset/);
+  assert.match(mainSource, /url\s*:\s*\(\)\s*=>\s*writeCrimeStateToURL\(store\)/);
+  assert.match(mainSource, /clear\s*:\s*\(\)\s*=>\s*analysisHistoryController/);
+  assert.match(mainSource, /refresh\s*:\s*\(\)\s*=>\s*refreshCrime\(false\)/);
+  assert.match(crimeSource, /presetPorts\s*=\s*null/);
+  assert.match(crimeSource, /initTaskFocus\(taskFocus, presetPorts\)/);
+});
+
+test('Crime task and availability copy stays neutral, historical, and non-persona', async () => {
+  const { messages } = await import('../../src/i18n/index.js');
+  await import('../../src/i18n/p1.js');
+  await import('../../src/i18n/crime_safety.js');
+  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+
+  assert.equal(messages.en['residential.eyebrow'], 'Long-term context');
+  assert.equal(messages['zh-CN']['residential.eyebrow'], '长期背景');
+  assert.doesNotMatch(html, /Homebuyer view|购房参考/);
+  assert.equal(messages.en['scope.live'], 'Data available');
+  assert.equal(messages['zh-CN']['scope.live'], '数据可用');
+  assert.match(messages.en['scope.through'], /records through/);
+  assert.match(messages['zh-CN']['scope.through'], /记录截至/);
+  assert.match(messages.en['map.noPointIncidents'], /incident points/i);
+  assert.match(messages['zh-CN']['map.noPointIncidents'], /事件点/);
+  assert.doesNotMatch(messages.en['map.noPointIncidents'], /^No incidents\b/i);
+  for (const key of ['app.connecting', 'crime.coverageReady', 'crime.coverageConnecting', 'crime.exportNotReady']) {
+    assert.doesNotMatch(messages.en[key], /\blive\b/i, `${key} must not imply real-time Crime data`);
+    assert.doesNotMatch(messages['zh-CN'][key], /实时/, `${key} must not imply real-time Crime data`);
+  }
+});
+
+test('Crime workspace derives setup, results, and edit stages without mutating the selection', async () => {
+  const { deriveCrimeWorkspacePresentation } = await import('../../src/ui/panel.js');
+
+  assert.deepEqual(deriveCrimeWorkspacePresentation({
+    queryMode: 'buffer',
+    centerLonLat: null,
+  }), {
+    stage: 'setup',
+    hasAnalysis: false,
+    showContext: false,
+    showSetup: true,
+    showResults: false,
+  });
+
+  const selected = {
+    queryMode: 'buffer',
+    centerLonLat: [-75.16, 39.95],
+    radius: 1600,
+  };
+  assert.deepEqual(deriveCrimeWorkspacePresentation(selected), {
+    stage: 'results',
+    hasAnalysis: true,
+    showContext: true,
+    showSetup: false,
+    showResults: true,
+  });
+  assert.deepEqual(deriveCrimeWorkspacePresentation(selected, { editing: true }), {
+    stage: 'edit',
+    hasAnalysis: true,
+    showContext: true,
+    showSetup: true,
+    showResults: false,
+  });
+  assert.deepEqual(selected.centerLonLat, [-75.16, 39.95]);
+});
+
+test('analysis context summarizes area and time using reported-incident language', async () => {
+  const { createCrimeAnalysisContext } = await import('../../src/ui/panel.js');
+  const context = createCrimeAnalysisContext({
+    addressA: '1500 Market Street',
+    queryMode: 'buffer',
+    centerLonLat: [-75.16, 39.95],
+    radius: 1600,
+    durationMonths: 12,
+    startMonth: '2025-01',
+  });
+
+  assert.deepEqual(context, {
+    title: '1500 Market Street',
+    area: '1,600 m radius',
+    window: '2025-01 · 12 months',
+    evidence: 'Reported incidents',
+    meta: '1,600 m radius · 2025-01 · 12 months · Reported incidents',
+  });
+  assert.doesNotMatch(JSON.stringify(context), /\bsafe(?:ty)?\b|\bdanger(?:ous)?\b/i);
+
+  const comparisonContext = createCrimeAnalysisContext({
+    addressA: '1500 Market Street',
+    addressB: 'Broad Street Station',
+    queryMode: 'buffer',
+    centerLonLat: [-75.16, 39.95],
+    centerBLonLat: [-75.163, 39.953],
+    radius: 400,
+    durationMonths: 6,
+  });
+  assert.equal(comparisonContext.title, '1500 Market Street');
+  assert.match(comparisonContext.meta, /Compared with Broad Street Station/);
+});
+
+test('workspace presentation applies hidden, aria-hidden, and inert as one contract', async () => {
+  const { applyCrimeWorkspacePresentation } = await import('../../src/ui/panel.js');
+  const element = () => ({
+    dataset: {},
+    hidden: false,
+    inert: false,
+    attributes: new Map(),
+    setAttribute(name, value) { this.attributes.set(name, value); },
+  });
+  const panelRoot = element();
+  const context = element();
+  const setup = element();
+  const overview = element();
+  const drawer = element();
+
+  applyCrimeWorkspacePresentation({
+    panelRoot,
+    context,
+    setup,
+    results: [overview, drawer],
+    presentation: {
+      stage: 'results',
+      showContext: true,
+      showSetup: false,
+      showResults: true,
+    },
+  });
+
+  assert.equal(panelRoot.dataset.crimeStage, 'results');
+  assert.deepEqual(
+    [context, setup, overview, drawer].map((node) => ({
+      hidden: node.hidden,
+      inert: node.inert,
+      ariaHidden: node.attributes.get('aria-hidden'),
+    })),
+    [
+      { hidden: false, inert: false, ariaHidden: 'false' },
+      { hidden: true, inert: true, ariaHidden: 'true' },
+      { hidden: false, inert: false, ariaHidden: 'false' },
+      { hidden: false, inert: false, ariaHidden: 'false' },
+    ],
+  );
+});
+
+test('result pane presentation keeps summary as default and exposes only one detail pane', async () => {
+  const { deriveCrimeResultPanePresentation } = await import('../../src/ui/crime_workbench.js');
+
+  assert.deepEqual(deriveCrimeResultPanePresentation(), {
+    pane: 'summary',
+    showSummary: true,
+    showDrawer: false,
+    showIncidents: false,
+    showCharts: false,
+  });
+  assert.deepEqual(deriveCrimeResultPanePresentation('incidents'), {
+    pane: 'incidents',
+    showSummary: false,
+    showDrawer: true,
+    showIncidents: true,
+    showCharts: false,
+  });
+  assert.deepEqual(deriveCrimeResultPanePresentation('charts'), {
+    pane: 'charts',
+    showSummary: false,
+    showDrawer: true,
+    showIncidents: false,
+    showCharts: true,
+  });
+  assert.deepEqual(deriveCrimeResultPanePresentation('incidents', { incidentsAvailable: false }), {
+    pane: 'summary',
+    showSummary: true,
+    showDrawer: false,
+    showIncidents: false,
+    showCharts: false,
+  });
+  assert.equal(deriveCrimeResultPanePresentation('unknown').pane, 'summary');
+});
+
 test('tract polygons remain visible and interactive when choropleth values are unavailable', async (t) => {
   const originalDocument = globalThis.document;
   const elements = new Map();
@@ -752,10 +1390,17 @@ test('only the latest offense-option request may update the selector', async () 
   const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
   assert.match(panelSource, /drilldownRequestGeneration/);
   assert.match(panelSource, /requestGeneration !== drilldownRequestGeneration/);
-  const emptyBranchStart = panelSource.indexOf('if (availableCodes.length === 0)');
+  const emptyBranchStart = panelSource.indexOf('if (renderedCodes.length === 0)');
   const emptyBranchEnd = panelSource.indexOf('} else {', emptyBranchStart);
   assert.ok(emptyBranchStart >= 0 && emptyBranchEnd > emptyBranchStart);
   assert.match(panelSource.slice(emptyBranchStart, emptyBranchEnd), /syncOffenseHighlights\(\[\]\)/);
+  const noGroupsStart = panelSource.indexOf('if (values.length === 0)');
+  const noGroupsEnd = panelSource.indexOf('} else {', noGroupsStart);
+  assert.ok(noGroupsStart >= 0 && noGroupsEnd > noGroupsStart);
+  assert.match(
+    panelSource.slice(noGroupsStart, noGroupsEnd),
+    /if \(!preserveSelection\) syncOffenseHighlights\(\[\]\)/,
+  );
 });
 
 test('time-window analysis refresh starts before the offense-option request settles', async () => {
@@ -777,7 +1422,19 @@ test('every time-window control reloads offense options without duplicating the 
   const handlersEnd = panelSource.indexOf("shareViewBtn?.addEventListener('click'", handlersStart);
   assert.ok(handlersStart >= 0 && handlersEnd > handlersStart);
   const handlers = panelSource.slice(handlersStart, handlersEnd);
-  assert.equal((handlers.match(/refreshTimeWindow\(\)/g) || []).length, 4);
+  assert.equal((handlers.match(/refreshTimeWindow\(\)/g) || []).length, 2);
+  const presetSyncStart = panelSource.indexOf('function syncPreset()');
+  const presetSyncEnd = panelSource.indexOf('function syncFromStore()', presetSyncStart);
+  assert.ok(presetSyncStart >= 0 && presetSyncEnd > presetSyncStart);
+  const presetSync = panelSource.slice(presetSyncStart, presetSyncEnd);
+  assert.match(presetSync, /syncControlsFromStore\(\)/);
+  assert.match(presetSync, /onChange\.cancel\(\)/);
+  assert.match(presetSync, /return refreshDrilldownForWindow\(\)/);
+  assert.doesNotMatch(presetSync, /onChange\(\)/);
+  assert.match(
+    panelSource,
+    /const renderedCodes = preserveSelection\s*\?\s*\[\.\.\.new Set\(\[\.\.\.availableCodes, \.\.\.requestedCodes\]\)\]\s*:\s*availableCodes/,
+  );
 });
 
 test('failed time-window option refresh preserves the visible selectable offense state', async () => {
@@ -801,7 +1458,7 @@ test('initial offense hydration does not duplicate a valid initial Crime refresh
   assert.match(panelSource.slice(initStart, initEnd), /notify:\s*false/);
   assert.match(
     panelSource,
-    /if \(notify \|\| requestedCodes\.length !== store\.selectedDrilldownCodes\.length\) onChange\(\)/,
+    /if \(notify\) onChange\(\)/,
   );
 });
 
@@ -909,5 +1566,5 @@ test('map-selected Crime areas synchronize controls and the canonical URL', asyn
   const callback = source.match(/onSelectionChange:[\s\S]*?onDataScopeChange:/)?.[0] || '';
   assert.match(callback, /origin !== ['"]map['"]/);
   assert.match(callback, /panel\.syncFromStore\?\.\(\)/);
-  assert.match(callback, /writeCrimeStateToURL\(store\)/);
+  assert.doesNotMatch(callback, /writeCrimeStateToURL\(store\)/);
 });

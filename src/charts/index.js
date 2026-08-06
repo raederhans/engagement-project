@@ -103,17 +103,12 @@ export function runTractSummary({ selectedTractGEOID, ...filters }, options, upd
   });
 }
 
-function numberFormatter(maximumFractionDigits = 0) {
-  return new Intl.NumberFormat(getLanguage(), { maximumFractionDigits });
-}
-
-function signedPercent(value) {
-  if (!Number.isFinite(value)) return '—';
-  const prefix = value > 0 ? '+' : '';
-  return `${prefix}${numberFormatter(1).format(value)}%`;
-}
-
 export function getCrimeChartCopy() {
+  const whole = new Intl.NumberFormat(getLanguage(), { maximumFractionDigits: 0 });
+  const decimal = new Intl.NumberFormat(getLanguage(), { maximumFractionDigits: 1 });
+  const signedPercent = (value) => Number.isFinite(value)
+    ? `${value > 0 ? '+' : ''}${decimal.format(value)}%`
+    : '—';
   return Object.freeze({
     citywide: t('chart.citywide'),
     selectedArea: t('chart.selectedArea'),
@@ -129,12 +124,12 @@ export function getCrimeChartCopy() {
     weekdayTotal: t('chart.weekdayTotal'),
     hourTotal: t('chart.hourTotal'),
     monthValue: (series, count, index, indexed) => indexed
-      ? t('chart.tooltip.month', { series, count: numberFormatter().format(count), index: numberFormatter(1).format(index) })
-      : `${series}: ${t('chart.tooltip.count', { count: numberFormatter().format(count) })}`,
-    categoryValue: (count, share) => t('chart.tooltip.category', { count: numberFormatter().format(count), share: numberFormatter(1).format(share) }),
-    shareValue: (share) => t('chart.tooltip.share', { share: numberFormatter(1).format(share) }),
-    countValue: (count) => t('chart.tooltip.count', { count: numberFormatter().format(count) }),
-    hourValue: (hour, count, day) => t('chart.hourValue', { day, hour, count: numberFormatter().format(count) }),
+      ? t('chart.tooltip.month', { series, count: whole.format(count), index: decimal.format(index) })
+      : `${series}: ${t('chart.tooltip.count', { count: whole.format(count) })}`,
+    categoryValue: (count, share) => t('chart.tooltip.category', { count: whole.format(count), share: decimal.format(share) }),
+    shareValue: (share) => t('chart.tooltip.share', { share: decimal.format(share) }),
+    countValue: (count) => t('chart.tooltip.count', { count: whole.format(count) }),
+    hourValue: (hour, count, day) => t('chart.hourValue', { day, hour, count: whole.format(count) }),
     hourLabel: (hour) => `${String(hour).padStart(2, '0')}:00`,
     hourShort: (hour) => `${hour}:00`,
     monthlyInsight(model) {
@@ -146,8 +141,8 @@ export function getCrimeChartCopy() {
       if (!model?.topLabel || !model.topCount) return t('chart.insight.noData');
       return t('chart.insight.top', {
         category: model.topLabel,
-        count: numberFormatter().format(model.topCount),
-        share: numberFormatter(1).format(model.topShare),
+        count: whole.format(model.topCount),
+        share: decimal.format(model.topShare),
       });
     },
     temporalInsight(model) {
@@ -155,7 +150,7 @@ export function getCrimeChartCopy() {
       return t('chart.insight.peakPeriod', {
         day: this.weekdays[model.peakDay],
         hour: String(model.peakHour).padStart(2, '0'),
-        count: numberFormatter().format(model.peakCount),
+        count: whole.format(model.peakCount),
       });
     },
     weekdays: Object.freeze([
@@ -230,7 +225,7 @@ function byMonthRows(rows) {
 }
 
 function buildMatrix(dowHrRows) {
-  const m = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+  const m = Array.from({ length: 7 }, () => Array(24).fill(0));
   for (const r of dowHrRows || []) {
     const d = Number(r.dow);
     const h = Number(r.hr);
@@ -367,10 +362,6 @@ function createDefaultChartSinks() {
   };
 }
 
-function isAbortError(error) {
-  return error?.name === 'AbortError';
-}
-
 /**
  * Fetch and render all charts using the provided filters.
  * @param {{start:string,end:string,types?:string[],center3857:[number,number],radiusM:number}} params
@@ -441,7 +432,7 @@ export async function updateAllCharts(
 
   const chartNames = ['monthly', 'top', 'heat'];
   const settled = await Promise.allSettled([monthlyTask, topTask, heatTask]);
-  if (!isFresh() || settled.some((result) => result.status === 'rejected' && isAbortError(result.reason))) {
+  if (!isFresh() || settled.some((result) => result.status === 'rejected' && result.reason?.name === 'AbortError')) {
     return { applied: false };
   }
 
