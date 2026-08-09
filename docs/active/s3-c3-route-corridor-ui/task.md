@@ -2,7 +2,9 @@
 
 ## Current status
 
-`ready-for-integration` — 实现、验证、独立复核与本分支 Lore commit 边界已完成；等待主任务整合并更新 registry。
+`integration-validated` — 实现、独立复核、分支 Lore commit 与 2026-08-09
+父任务新鲜复验均已完成；候选保持 `main + 1`，等待 fast-forward、远端同步、
+registry closeout 与安全 worktree/branch 清理。
 
 ## Checklist
 
@@ -15,6 +17,9 @@
 - [x] 完成定向测试、完整 validate、browser/visual/a11y 验证。
 - [x] 完成独立 review、第一性原理复核、精确快照复验。
 - [x] 创建 Lore commit 并交付 `ready-for-integration`。
+- [x] 父任务复跑 focused、full validate、feature browser 与 visual/a11y gates。
+- [ ] Fast-forward main，更新 registry/任务状态并同步远端。
+- [ ] 证明包含关系后清理本 worktree/branch；保留 open PR 分支和不明 WIP。
 
 ## Validation evidence
 
@@ -35,6 +40,11 @@
 | Playwright visual matrix（无 update 最终复验） | 35 pass / 10 configured skip；360/390/768/1440、200%、keyboard、reduced-motion、axe critical/serious=0 |
 | visual baselines | 逐图复核后只更新 3 张 desktop Crime 图；无像素阈值变化；最终无 update PASS |
 | product-truth/privacy static review | exact route 不进入 fetch/URL/storage/log/saved analysis；八状态分离；unavailable 不等于 0；误导词仅出现在明确否定说明 |
+| 2026-08-09 parent focused gate | Route UI 7/7；Route data 20/20；Crime async 28/28；Crime UI 48/48 |
+| 2026-08-09 parent `npm run validate` | PASS；标准测试、manifest 与 bundle policy exit 0 |
+| 2026-08-09 feature bundle | Entry 893274/241129；Crime 40145/14150；Route data 13237/4819；Route UI 16383/6093 |
+| 2026-08-09 browser smoke | PASS；console errors 0；page errors 0；4173 released |
+| 2026-08-09 visual/a11y | 35 pass / 10 configured skip；baseline 未更新；4178 released |
 
 ## Open risks and remaining work
 

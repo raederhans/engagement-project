@@ -35,6 +35,32 @@
 | browser smoke | S3-C3 owner (this task), `127.0.0.1:4173` | `.tmp/s3-c3-route-corridor-ui/browser-smoke-final.log` | completed PASS；4173 已释放 |
 | visual matrix | S3-C3 owner (this task), `127.0.0.1:4178` | `.tmp/s3-c3-route-corridor-ui/visual-final-verified.log` | completed PASS；4178 已释放；临时报告提交前删除 |
 
+## Parent integration revalidation (2026-08-09)
+
+- Owner: `/root` integration owner only.
+- Candidate: `d15c425a45544e21558c82395ba611f2d1f203ef` in this worktree.
+- Commands, sequentially: focused route/Crime tests; `npm run validate`;
+  `VITE_TRACT_CRIME_SNAPSHOT=1 VITE_FEATURE_DIARY=1 npm run build:manifest`
+  plus bundle policy and browser smoke on 4173; visual/a11y matrix on 4178.
+- Shared resources: this worktree's `dist/`, `.tmp/s3-c3-integration/`,
+  `test-results/`, and `playwright-report/` only. Ports 4173 and 4178 were free
+  at admission; the user-owned 5173 listener is explicitly out of scope.
+- Logs: `.tmp/s3-c3-integration/*.log`; success requires exit 0, expected test
+  counts, zero browser console/page errors, and an unchanged-baseline visual
+  pass. Only `/root` may start, poll, retry, stop, or interpret these runs.
+- Result: focused Route UI 7/7, Route data 20/20, Crime async 28/28, and Crime
+  UI 48/48 passed; full `npm run validate` exited 0; feature bundle passed at
+  Entry 893274/241129, Crime 40145/14150, Route data 13237/4819, and Route UI
+  16383/6093; browser smoke passed with zero console/page errors; unchanged
+  visual/a11y matrix passed 35 with 10 configured skips. Ports 4173/4178 were
+  released and 5173 retained its original owner.
+- Evidence correction: the first browser-smoke attempt enabled the tract
+  snapshot but omitted `VITE_FEATURE_DIARY=1`, so the standard Diary button was
+  correctly disabled and the smoke timed out there. No product code changed;
+  the corrected two-flag build passed on the single retry.
+- Task-owned `.tmp/s3-c3-integration`, Playwright report/results, and the one
+  generated query log were removed after the results above were recorded.
+
 ## Handoff
 
 - 本任务拥有：S3-C3 产品/测试与 `docs/active/s3-c3-route-corridor-ui/`。
