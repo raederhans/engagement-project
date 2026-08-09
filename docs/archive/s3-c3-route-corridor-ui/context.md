@@ -80,12 +80,86 @@
   13237/4819, and Route UI 16383/6093. The scoped `.tmp` log and generated
   `queries_2026-08-09T1056.log` are removed after this evidence is recorded.
 
+## Remote visual baseline repair and final admission (2026-08-09)
+
+- `fc999cc` repaired the high-severity audit gate and passed audit, full
+  validation, and browser smoke on Ubuntu and Windows. Ubuntu visual run
+  `31309619802` then exposed three deterministic desktop screenshot failures.
+- CI artifacts showed that all three differences were the intentional Stage 6
+  `Known route` entry. The Stage 6 product commit had updated Win32 baselines
+  but omitted the corresponding Linux desktop baselines; no product assertion,
+  CSS, or visual-diff threshold failed or changed.
+- RED: Linux `crime-analysis`, `crime-incident-results`, and
+  `crime-help-data-details` differed by 3%-4% from pre-Stage-6 expectations.
+  GREEN: commit `74d68a5` used the exact Ubuntu captures for those three Linux
+  expectations, retained the 0.5% default and 0.8% incident budgets, and passed
+  visual baseline policy for all 66 platform-specific images.
+- Exact remote result: CI run `31310028016` passed Ubuntu and Windows, including
+  audit, full validate, Ubuntu browser smoke, and the unchanged-threshold visual
+  matrix. Pages run `31310027990` passed build and deploy for the same SHA.
+- The downloaded CI diagnostics under `.tmp/s3-c3-ci-visual` were deleted after
+  the expected/actual/diff review and are not part of repository state.
+
 ## Handoff
 
 - 本任务拥有：S3-C3 产品/测试与 `docs/active/s3-c3-route-corridor-ui/`。
 - 禁止：main/remote/registry 整合、其他 worktree、外部进程、无关 WIP。
 - 目标终态：本分支 exact SHA、验证证据、bundle、残余风险、`ready-for-integration`。
 
+## Pre-cleanup recovery ledger (2026-08-09)
+
+The integration owner recorded every ref below before deletion. Recovery is by
+exact SHA through Git object retention or the linked merged/closed pull request;
+no open pull-request head is included in the deletion set.
+
+### Local branches contained by `main@74d68a5`
+
+| Branch | Recorded tip | Remote evidence |
+| --- | --- | --- |
+| `codex/s3-c3-route-corridor-ui` | `16cb8ce4a8a6950cb13b287a54abe59f3a840958` | Stage 6 product + admission record, fast-forwarded into main |
+| `codex/bilingual-localization` | `65ac92fb6dbd137f92604f84312e2b8bf0ebcf86` | merged PR #42 |
+| `codex/crime-product-integration` | `1e5a73ce9973958dd0b857e797f590957bf18bdb` | merged PR #62 |
+| `codex/crime-product-integration-closeout` | `86d7515178e85ebfe997448ab5707b9a95f18d9e` | merged PR #63 |
+| `codex/incident-status-ownership` | `dc9bf4dd6c9bceaaa8c6be909ee8bf3e7e2c45b7` | merged PR #64 |
+
+### Remote branches with merged PR recovery
+
+`codex/ui-p0-redesign@d35ce35d` (#39), `codex/p1-ui@f21e4826`
+(#41), `codex/bilingual-localization@65ac92fb` (#42),
+`codex/p1-localization-closeout@4da6e62c` (#43),
+`codex/p1-5-8-accessibility-design-ci@8ebd69a1` (#52),
+`codex/p1-5-8-closeout@aa0ad48d` (#54),
+`codex/p2-product-completion@c1e02b58` (#56),
+`codex/p2-result-meta-hotfix@505d28e5` (#57),
+`codex/p2-product-closeout@ce18caba` (#58),
+`codex/local-worktree-cleanup@66b3154e` (#59),
+`codex/local-worktree-cleanup-closeout@ff3c9d12` (#60),
+`codex/local-worktree-cleanup-archive@8190b6da` (#61),
+`codex/crime-product-integration@1e5a73ce` (#62),
+`codex/crime-product-integration-closeout@86d75151` (#63), and
+`codex/incident-status-ownership@dc9bf4dd` (#64).
+
+### Remote closed stacked heads superseded by merged P2 delivery
+
+`codex/comparison-detail-menu@20eda9bf` (#49),
+`codex/chart-studio@a1eea91e` (#50),
+`codex/incident-point-details@8f78a61b` (#51),
+`codex/crime-summary-insights@aecec62d` (#53), and
+`codex/custom-buffer-radius@ffdf3515` (#55) were closed stacked development
+heads. Their delivered behavior is represented by merged P2 PRs #56-#58 and
+the current passing product/integration gates; their exact tips remain recorded
+here for recovery.
+
+### Explicit retain set
+
+Local/remote open QoL PR heads #44-#48 and remote Dependabot heads #65-#67 are
+not Stage 6 dependencies and are retained without merge or deletion. The
+filesystem path `C:/Users/raede/.codex/worktrees/9188/engagement_project` is not
+a registered Git worktree; it is retained because the current Codex/OMX session
+still owns live state there.
+
 ## Next step
 
-主任务按最终 handoff 的 branch/exact SHA 进行 integration 复核，重点处理共享的 Entry/Crime/CSS/bundle/baseline 冲突面并更新主工作树 registry。
+把路线走廊能力保持为显式、按需、历史记录查询；下一阶段先做真实用户场景与
+coverage 失败率验证，再决定是否扩展离线市界 proof、候选数量体验或另立隐私/
+provider 契约的 GPS matching 工作流。开放 QoL 与依赖 PR 继续独立评估。

@@ -2,10 +2,9 @@
 
 ## Current status
 
-`remote-gate-repair-validated` — 阶段 6 已 fast-forward 到 main 并首次同步；
-Pages 通过，CI 因新发布的 transitive nanoid high advisory 在测试前失败。
-最小 lockfile-only 修复已完成 RED/GREEN、干净安装和 full validate，等待推送
-修复提交、远端双平台复验、registry closeout 与安全 worktree/branch 清理。
+`integrated-and-synchronized` — 阶段 6、依赖安全门修复和 Linux 视觉基线
+均已进入 `main`；精确提交 `74d68a5` 的 Ubuntu/Windows CI 与 Pages 全绿。
+已按恢复账本清理已合入或已被替代的 worktree/分支，并保留所有开放 PR。
 
 ## Checklist
 
@@ -21,9 +20,9 @@ Pages 通过，CI 因新发布的 transitive nanoid high advisory 在测试前�
 - [x] 父任务复跑 focused、full validate、feature browser 与 visual/a11y gates。
 - [x] Fast-forward main 并首次同步远端。
 - [x] 定位远端 CI audit gate 并完成 lockfile-only 修复与本地复现。
-- [ ] 推送 audit 修复并等待 Ubuntu/Windows CI 与 Pages。
-- [ ] 更新 registry 与任务 closeout 状态。
-- [ ] 证明包含关系后清理本 worktree/branch；保留 open PR 分支和不明 WIP。
+- [x] 推送 audit 修复并等待 Ubuntu/Windows CI 与 Pages。
+- [x] 更新 registry 与任务 closeout 状态。
+- [x] 证明包含关系后清理本 worktree/branch；保留 open PR 分支和不明 WIP。
 
 ## Validation evidence
 
@@ -52,10 +51,17 @@ Pages 通过，CI 因新发布的 transitive nanoid high advisory 在测试前�
 | first remote push | Pages `31309413233` PASS；CI `31309413231` failed before tests on nanoid high advisory |
 | dependency RED/GREEN | nanoid 3.3.16 reproduced 1 high；lockfile 3.3.18 reports 0 vulnerabilities |
 | clean CI reproduction | `npm ci` + audit + full `npm run validate` PASS；bundle unchanged |
+| first repaired remote CI | `fc999cc` audit、validate、browser smoke PASS；Ubuntu 仅因阶段 6 漏更 3 张 Linux desktop baseline 失败 |
+| Linux baseline RED/GREEN | CI actual/expected/diff 证明三处差异均为新增 `Known route` 入口；更新 3 张 Linux baseline，未改变 0.5%/0.8% 阈值 |
+| final CI | `74d68a5` / run `31310028016` PASS；Ubuntu 3m47s、Windows 56s，含 audit、validate、browser smoke 与 Linux visual matrix |
+| final Pages | `74d68a5` / run `31310027990` build + deploy PASS |
+| Git cleanup | C3 worktree unregistered；5 个 contained local branches 与 20 个 merged/superseded remote branches deleted；open PR #44-#48/#65-#67 retained |
 
 ## Open risks and remaining work
 
 - City Limits 是 live 官方依赖；失败时仍回退到更保守的 single-police-district proof，因此部分正常路线会显示 coverage-unavailable，而不是错误给出 0。
 - 市界附近路线会因 `buffer + 500m` 保守余量而拒绝；这是已验证的 fail-closed 取舍，不是全市所有路线均可用的承诺。
-- shared conflict surface：`index.html`、Crime `index.js`/task focus、`workbench-shell.css`、bundle policy 与 3 张 desktop baseline；需由 integration owner 对当前 main 复核。
-- 分支为 `codex/s3-c3-route-corridor-ui`；本任务不 merge/rebase/push，exact SHA 由最终 handoff 报告。
+- 真实 GPS map matching 仍明确未实现；只有用户显式提供/绘制/导入的已知路线进入本能力。
+- 当前仍是 evidence-informed capability hypothesis；通过工程准入不代表已验证用户需求、真实世界安全结论或生产数据覆盖。
+- 本地与远端仍保留开放 QoL PR #44-#48 及 Dependabot #65-#67；它们未被本任务评估为阶段 6 依赖，也未被自动合并。
+- Windows 未能删除已解除 Git 注册的空 `b1cf` 目录，因为存在外部文件句柄；目录无文件、无分支绑定，不构成 Git 拓扑债务。

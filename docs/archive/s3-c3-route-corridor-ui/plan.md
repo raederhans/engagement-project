@@ -27,6 +27,18 @@
 - [x] C3-3：复用 incident presenter 语义与地图能力，补齐文本/地图等价、隐私/产品真相、响应式/i18n/a11y。
 - [x] C3-4：运行 bundle/manifest、完整 validate、browser smoke、visual matrix 与独立复核。
 - [x] C3-5：精确提交快照复验，创建 Lore commit，交付 ready-for-integration。
+- [x] C3-6：由 integration owner 完成 main 快进、依赖/视觉远端门修复、双端同步、任务归档和安全分支/worktree 清理。
+
+## Integration outcome
+
+- Product/admission commits `d15c425` and `16cb8ce` were fast-forwarded to
+  `main`; lockfile security repair `fc999cc` and Linux visual baseline repair
+  `74d68a5` closed the newly observed remote gates.
+- Exact `74d68a5` passed Ubuntu/Windows CI `31310028016` and Pages
+  `31310027990` before cleanup began.
+- The C3 Git worktree and contained local branch were removed from Git topology.
+  The recovery ledger in `context.md` records every deleted local/remote ref;
+  all open QoL and Dependabot pull-request heads were retained.
 
 ## Acceptance criteria
 
