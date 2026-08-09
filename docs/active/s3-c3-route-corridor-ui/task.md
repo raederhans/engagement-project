@@ -2,9 +2,10 @@
 
 ## Current status
 
-`integration-validated` — 实现、独立复核、分支 Lore commit 与 2026-08-09
-父任务新鲜复验均已完成；候选保持 `main + 1`，等待 fast-forward、远端同步、
-registry closeout 与安全 worktree/branch 清理。
+`remote-gate-repair-validated` — 阶段 6 已 fast-forward 到 main 并首次同步；
+Pages 通过，CI 因新发布的 transitive nanoid high advisory 在测试前失败。
+最小 lockfile-only 修复已完成 RED/GREEN、干净安装和 full validate，等待推送
+修复提交、远端双平台复验、registry closeout 与安全 worktree/branch 清理。
 
 ## Checklist
 
@@ -18,7 +19,10 @@ registry closeout 与安全 worktree/branch 清理。
 - [x] 完成独立 review、第一性原理复核、精确快照复验。
 - [x] 创建 Lore commit 并交付 `ready-for-integration`。
 - [x] 父任务复跑 focused、full validate、feature browser 与 visual/a11y gates。
-- [ ] Fast-forward main，更新 registry/任务状态并同步远端。
+- [x] Fast-forward main 并首次同步远端。
+- [x] 定位远端 CI audit gate 并完成 lockfile-only 修复与本地复现。
+- [ ] 推送 audit 修复并等待 Ubuntu/Windows CI 与 Pages。
+- [ ] 更新 registry 与任务 closeout 状态。
 - [ ] 证明包含关系后清理本 worktree/branch；保留 open PR 分支和不明 WIP。
 
 ## Validation evidence
@@ -45,6 +49,9 @@ registry closeout 与安全 worktree/branch 清理。
 | 2026-08-09 feature bundle | Entry 893274/241129；Crime 40145/14150；Route data 13237/4819；Route UI 16383/6093 |
 | 2026-08-09 browser smoke | PASS；console errors 0；page errors 0；4173 released |
 | 2026-08-09 visual/a11y | 35 pass / 10 configured skip；baseline 未更新；4178 released |
+| first remote push | Pages `31309413233` PASS；CI `31309413231` failed before tests on nanoid high advisory |
+| dependency RED/GREEN | nanoid 3.3.16 reproduced 1 high；lockfile 3.3.18 reports 0 vulnerabilities |
+| clean CI reproduction | `npm ci` + audit + full `npm run validate` PASS；bundle unchanged |
 
 ## Open risks and remaining work
 

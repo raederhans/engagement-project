@@ -61,6 +61,25 @@
 - Task-owned `.tmp/s3-c3-integration`, Playwright report/results, and the one
   generated query log were removed after the results above were recorded.
 
+## Post-push CI dependency gate repair (2026-08-09)
+
+- Local/remote main first synchronized at `16cb8ce`; Pages run `31309413233`
+  passed, but CI run `31309413231` failed on both Ubuntu and Windows before any
+  product test because `npm audit --audit-level=high` found
+  `GHSA-2v37-7h3g-55p8` in transitive `nanoid@3.3.16`.
+- Root path: `vite@8.1.5 -> postcss@8.5.25 -> nanoid@3.3.16`. The upstream
+  advisory marks `3.3.17` as the first patched 3.x release; PostCSS declares
+  `nanoid ^3.3.16`, so the smallest repair is a lockfile-only resolution to
+  `3.3.18`, not a Vite/PostCSS/package.json upgrade or audit suppression.
+- RED: local `npm audit --audit-level=high` reproduced one high vulnerability.
+  GREEN: `npm audit fix --package-lock-only` changed only the two lock entries
+  for nanoid; a clean `npm ci` plus audit reported zero vulnerabilities.
+- Fresh CI reproduction owner: `/root`; no port. Command sequence:
+  `npm ci`, `npm audit --audit-level=high`, then `npm run validate`, all exit 0.
+  Bundle remained Entry 893008/241051, Crime 39939/14054, Route data
+  13237/4819, and Route UI 16383/6093. The scoped `.tmp` log and generated
+  `queries_2026-08-09T1056.log` are removed after this evidence is recorded.
+
 ## Handoff
 
 - 本任务拥有：S3-C3 产品/测试与 `docs/active/s3-c3-route-corridor-ui/`。
