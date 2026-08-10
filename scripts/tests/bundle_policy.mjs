@@ -28,6 +28,7 @@ const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 const evidenceBundle = manifest['src/analysis/evidence_bundle.js'];
 const evidenceBundleHash = manifest['src/analysis/evidence_bundle_hash.js'];
+const sourceHealth = manifest['src/source_health/source_health_controller.js'];
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
 const helpContent = manifest['src/ui/help_content.js'];
 const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
@@ -47,8 +48,9 @@ assert.deepEqual(
     'src/map/initMap.js',
     'src/routes_crime/list_mode_controller.js',
     'src/routes_crime/route_corridor_app_loader.js',
+    'src/source_health/source_health_controller.js',
   ]),
-  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
+  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, Source Health, and their translations behind direct lazy boundaries',
 );
 assert.ok(mapRuntime?.isDynamicEntry, 'Vite manifest must keep MapLibre and map initialization behind a lazy runtime boundary');
 assert.ok(crimeList?.isDynamicEntry, 'Vite manifest must keep the Crime list controller behind its presentation boundary');
@@ -121,6 +123,7 @@ assert.deepEqual(
   'Evidence Bundle must keep browser cryptography behind a nested lazy boundary',
 );
 assert.ok(evidenceBundleHash?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle hashing as a nested lazy chunk');
+assert.ok(sourceHealth?.isDynamicEntry, 'Vite manifest must contain Source Health as a lazy chunk');
 assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain Analysis History translations as a lazy chunk');
 assert.ok(helpContent?.isDynamicEntry, 'Vite manifest must contain Help Center content as a lazy chunk');
 assert.ok(crimeOffenseCatalog?.isDynamicEntry, 'Vite manifest must keep the bilingual Crime offense catalog lazy');
@@ -165,6 +168,9 @@ const budgets = [
   ['Analysis History', analysisHistory, 24_800, 8_100],
   // The feature-flagged aggregate export stays absent from the initial entry.
   ['Evidence Bundle', evidenceBundle, 10_259, 4_000],
+  // Loads only after Data Status is expanded; owns the strict four-clock source
+  // read model and text-first source catalog without importing map runtime code.
+  ['Source Health', sourceHealth, 22_000, 7_500],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
   // Full bilingual source, ACS estimate/MOE, and methodology guidance loads
