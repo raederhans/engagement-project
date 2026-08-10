@@ -1,6 +1,6 @@
 # Batch 8–10 unified integration
 
-Status: in progress
+Status: complete
 
 ## Goal
 
@@ -21,6 +21,15 @@ the repository release gates before pushing and cleaning its isolated worktrees.
   validation pass on one combined revision, or any unrun gate is recorded.
 - The exact pushed revision completes remote CI and Pages before integration
   worktrees are removed.
+
+## Completion
+
+- Product and central integration commit: `8bf9651`.
+- Linux visual baseline follow-up: `8d6c420`.
+- GitHub Actions run `31396682634` passed core, coverage, release, and deploy.
+- GitHub Pages deployment `5833634422` published exact revision `8d6c420`.
+- The completed P0, P8, P9, and P10 isolated worktrees were removed only after
+  the exact remote deployment succeeded.
 
 ## Non-goals
 

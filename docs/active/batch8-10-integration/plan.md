@@ -8,10 +8,10 @@
    combined manifest.
 5. Complete — targeted contracts, lint, build/bundle, shared and ACS browser,
    reviewed Windows visual baselines, and coverage pass on the combined tree.
-6. In progress — create the central integration commit, rerun the exact
-   committed release candidate, and push `main` normally.
-7. Pending — verify the exact remote CI/Pages revision, then remove only the
-   completed P0/P8/P9/P10 isolated worktrees and their task records as allowed.
+6. Complete — central integration and Linux baseline follow-up were committed
+   and pushed normally without rewriting history.
+7. Complete — exact revision `8d6c420` passed remote core, coverage, release,
+   and Pages deployment; only the clean P0/P8/P9/P10 worktrees were removed.
 
 ## Rollback
 

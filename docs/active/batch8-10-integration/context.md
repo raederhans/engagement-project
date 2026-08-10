@@ -46,3 +46,16 @@ and is not owned by this task.
 
 Measurements are local Windows build evidence and must be rechecked by the
 exact committed candidate and remote Linux gates.
+
+## Remote closeout
+
+- The first remote run, `31395793965`, passed Windows core and coverage but
+  correctly rejected two stale Linux Help/Data screenshots. Its diagnostic
+  artifact showed only the reviewed ACS entry insertion; thresholds and
+  product code were not changed to mask the failure.
+- The two Linux platform baselines were updated in `8d6c420` from that run's
+  actual artifacts after visual inspection.
+- Exact-revision run `31396682634` passed core, coverage, Linux release, and
+  deploy. Deployment `5833634422` records the same `8d6c420` revision.
+- P0/P8/P9/P10 source worktrees were clean and had no scoped live process when
+  removed. Other historical worktrees and root untracked output were retained.
