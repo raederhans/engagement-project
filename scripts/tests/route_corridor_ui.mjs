@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createRouteCorridorUiLoader } from '../../src/routes_crime/route_corridor_ui_loader.js';
+import { createOptionalRouteMapPort } from '../../src/routes_crime/route_corridor_app_loader.js';
 
 function button() {
   const listeners = new Map();
@@ -104,13 +105,43 @@ test('route loader resolves the shell-level host without importing before the tr
   assert.equal(receivedHost, shellHost);
 });
 
-test('Crime exposes a secondary explicit entry and keeps the controller behind a dynamic import', async () => {
-  const [html, crime, panel, controller, styles, packageJson, bundlePolicy] = await Promise.all([
+test('optional route map port stays inert in list mode and rebinds one click owner when a map appears', () => {
+  const events = [];
+  const fakeMap = (name) => ({
+    on: (event) => events.push([name, 'on', event]),
+    off: (event) => events.push([name, 'off', event]),
+    getStyle: () => ({ name }),
+  });
+  let currentMap = null;
+  const port = createOptionalRouteMapPort(() => currentMap);
+  const click = () => {};
+  port.on('click', click);
+  assert.equal(port.isAvailable(), false);
+
+  currentMap = fakeMap('first');
+  assert.equal(port.isAvailable(), true);
+  assert.deepEqual(port.getStyle(), { name: 'first' });
+  currentMap = fakeMap('second');
+  assert.deepEqual(port.getStyle(), { name: 'second' });
+  port.off('click', click);
+  assert.deepEqual(events, [
+    ['first', 'on', 'click'],
+    ['first', 'off', 'click'],
+    ['second', 'on', 'click'],
+    ['second', 'off', 'click'],
+  ]);
+});
+
+test('Crime exposes a shared map/list entry and keeps the controller behind nested dynamic imports', async () => {
+  const [html, main, crime, appLoader, panel, controller, styles, listStyles, packageJson, bundlePolicy] = await Promise.all([
     readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_ui_controller.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/styles/workbench-shell.css', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/styles/crime-list-mode.css', import.meta.url), 'utf8'),
     readFile(new URL('../../package.json', import.meta.url), 'utf8'),
     readFile(new URL('./bundle_policy.mjs', import.meta.url), 'utf8'),
   ]);
@@ -123,12 +154,20 @@ test('Crime exposes a secondary explicit entry and keeps the controller behind a
   const scriptIndex = html.indexOf('<script type="module" src="/src/main.js"></script>');
   const sidepanelCloseIndex = html.lastIndexOf('</div>', scriptIndex);
   assert.ok(html.indexOf('data-route-corridor-host') > sidepanelCloseIndex, 'route surface host must live outside #sidepanel');
-  assert.match(crime, /createRouteCorridorUiLoader/);
-  assert.match(crime, /import\('\.\/route_corridor_ui_controller\.js'\)/);
+  const taskFocusEnd = html.indexOf('</section>', html.indexOf('data-task-focus'));
+  assert.ok(html.indexOf('data-route-corridor-entry') > taskFocusEnd, 'Known Route entry must remain visible when list mode does not initialize Task Focus');
+  assert.match(main, /import\('\.\/routes_crime\/route_corridor_app_loader\.js'\)/);
+  assert.doesNotMatch(crime, /route_corridor/);
+  assert.match(appLoader, /createRouteCorridorUiLoader/);
+  assert.match(appLoader, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
+  assert.match(appLoader, /import\('\.\/route_corridor_ui_controller\.js'\)/);
+  assert.match(appLoader, /import\('\.\/hin_2025_ui\.js'\)/);
   assert.match(panel, /routeCorridorMount/);
   assert.doesNotMatch(controller, /aria-modal=["']true/);
   assert.match(controller, /let active = false;/, 'a closed route drawer must not begin as a map-click owner');
   assert.match(controller, /const onMapClick = \(event\) => \{\s*if \(!active \|\| !drawing\) return;/);
+  assert.match(controller, /draw\.hidden = map\.isAvailable\?\.\(\) === false/);
+  assert.doesNotMatch(controller, /requires its mount, map, and request port/);
   assert.match(
     controller,
     /const hideSurface = \([^)]*\) => \{[\s\S]*?active = false;[\s\S]*?surface\.hidden = true;/,
@@ -161,6 +200,7 @@ test('Crime exposes a secondary explicit entry and keeps the controller behind a
   assert.match(controller, /const clearRouteInputs = \(\) => \{[\s\S]*?file\.value = '';/, 'Clear must release the selected file as well as in-memory route geometry');
   assert.doesNotMatch(controller, /localStorage|sessionStorage|indexedDB|history\.pushState|history\.replaceState/);
   assert.doesNotMatch(controller, /createElement\('button'\)[\s\S]*item\.append\(button\)/, 'result rows must not be focusable without a selection behavior');
+  assert.doesNotMatch(listStyles, /body\[data-crime-view="list"\][^{]*\[data-route-corridor-entry\]/);
   assert.match(styles, /\.route-corridor-shell[\s\S]*width:\s*clamp\(420px,[\s\S]*480px\)/);
   assert.match(styles, /max-width:\s*100vw/);
   assert.match(styles, /@media \(max-width: 720px\) and \(orientation: portrait\)[\s\S]*\.route-corridor-shell[\s\S]*inset:/);

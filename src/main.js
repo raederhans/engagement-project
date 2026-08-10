@@ -105,6 +105,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let panel = null;
   let analysisHistoryController = null;
   let analysisHistoryPromise = null;
+  let routeCorridorLoader = null;
+  let routeCorridorLoaderPromise = null;
 
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
@@ -145,6 +147,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   const refreshCrime = async (clearArtifact = true) => {
     if (store.viewMode !== 'crime') return { status: 'superseded' };
+    routeCorridorLoader?.syncCanonical();
     if (clearArtifact) analysisHistoryController?.setCurrentArtifact(null);
     const result = presentationController?.getMode() === 'list'
       ? await requestListRefresh()
@@ -169,6 +172,65 @@ window.addEventListener('DOMContentLoaded', async () => {
     },
   });
   const { diaryMount, analysisHistoryMount } = panel;
+  const routeCorridorMount = panel.taskFocus?.routeCorridorMount;
+  const routeOpen = routeCorridorMount?.querySelector?.('[data-route-corridor-open]');
+  const routeRetry = routeCorridorMount?.querySelector?.('[data-route-corridor-retry]');
+  const routeLoaderStatus = routeCorridorMount?.querySelector?.('[data-route-corridor-loader-status]');
+
+  const readRouteCorridorSnapshot = () => {
+    try {
+      const filters = store.getFilters();
+      return {
+        start: filters.start,
+        end: filters.end,
+        types: [...(filters.types || [])],
+        drilldownCodes: [...(filters.drilldownCodes || [])],
+      };
+    } catch {
+      return { start: null, end: null, types: [], drilldownCodes: [] };
+    }
+  };
+
+  const ensureRouteCorridorLoader = async () => {
+    if (routeCorridorLoader) return routeCorridorLoader;
+    if (!routeCorridorLoaderPromise) {
+      if (routeLoaderStatus) {
+        routeLoaderStatus.hidden = false;
+        routeLoaderStatus.textContent = 'Loading route review…';
+      }
+      if (routeRetry) routeRetry.hidden = true;
+      routeCorridorLoaderPromise = import('./routes_crime/route_corridor_app_loader.js')
+        .then((module) => module.createRouteCorridorAppLoader({
+          mount: routeCorridorMount,
+          readCanonicalSnapshot: readRouteCorridorSnapshot,
+          getMap: () => mapRuntime.getMap(),
+        }))
+        .then((owner) => {
+          routeCorridorLoader = owner;
+          routeCorridorLoader.setActive(store.viewMode === 'crime');
+          routeOpen?.removeEventListener('click', onRouteIntent);
+          routeRetry?.removeEventListener('click', onRouteIntent);
+          return owner;
+        })
+        .catch((error) => {
+          routeCorridorLoaderPromise = null;
+          if (routeLoaderStatus) {
+            routeLoaderStatus.hidden = false;
+            routeLoaderStatus.textContent = 'Route review could not load. Retry when ready.';
+          }
+          if (routeRetry) routeRetry.hidden = false;
+          console.warn('Route corridor loader is unavailable:', error);
+          return null;
+        });
+    }
+    return routeCorridorLoaderPromise;
+  };
+  const onRouteIntent = () => {
+    void ensureRouteCorridorLoader().then((owner) => owner?.open());
+  };
+  routeOpen?.addEventListener('click', onRouteIntent);
+  routeRetry?.addEventListener('click', onRouteIntent);
+
   async function ensureListController() {
     if (listController) return listController;
     if (!listControllerPromise) {
@@ -316,6 +378,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const generation = ++presentationGeneration;
     const ownsPresentation = () => generation === presentationGeneration;
     const normalized = mode === 'list' && store.viewMode === 'crime' ? 'list' : 'map';
+    routeCorridorLoader?.setActive(store.viewMode === 'crime');
     document.documentElement.dataset.crimeView = normalized;
     document.body.dataset.crimeView = normalized;
     mapElement?.setAttribute('aria-hidden', String(normalized === 'list'));

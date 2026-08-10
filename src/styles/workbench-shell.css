@@ -390,29 +390,42 @@ body {
   max-width: 100%;
 }
 
-.route-corridor [data-route-evidence] {
+.route-corridor :is([data-route-evidence], [data-hin-evidence]) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.route-corridor [data-route-evidence] > div {
+.route-corridor :is([data-route-evidence], [data-hin-evidence]) > div {
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
 }
 
-.route-corridor [data-route-evidence] dt {
+.route-corridor :is([data-route-evidence], [data-hin-evidence]) dt {
   font-size: 0.75rem;
   font-weight: 700;
 }
 
-.route-corridor [data-route-evidence] dd {
+.route-corridor :is([data-route-evidence], [data-hin-evidence]) dd {
   margin: var(--space-1) 0 0;
 }
 
+.route-corridor__hin {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.route-corridor__hin > * + * {
+  margin-top: var(--space-3);
+}
+
+.route-corridor__hin :is(h3, h4, p, ul, dl, details) {
+  margin-bottom: 0;
+}
+
 @media (max-width: 720px) {
-  .route-corridor [data-route-evidence] {
+  .route-corridor :is([data-route-evidence], [data-hin-evidence]) {
     grid-template-columns: 1fr;
   }
 

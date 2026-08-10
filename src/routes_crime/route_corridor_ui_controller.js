@@ -207,7 +207,7 @@ export function initRouteCorridorUi({
   readFile = readRouteGeoJsonFile,
 } = {}) {
   if (!mount?.querySelector || !map || typeof requestRouteCorridor !== 'function') {
-    throw new Error('Route corridor UI requires its mount, map, and request port.');
+    throw new Error('Route corridor UI requires its mount, map port, and request port.');
   }
   const host = shellHost || mount.ownerDocument?.querySelector?.('[data-route-corridor-host]')
     || mount.querySelector('[data-route-corridor-host]');
@@ -472,6 +472,7 @@ export function initRouteCorridorUi({
   close.addEventListener('click', onClose);
   documentRef.addEventListener?.('keydown', onKeyDown);
   map.on('click', onMapClick);
+  draw.hidden = map.isAvailable?.() === false;
   const releaseLanguage = onLanguageChange(() => {
     applyTranslations(host);
     renderWaypointEditor();
@@ -485,6 +486,7 @@ export function initRouteCorridorUi({
   return {
     open() {
       active = true;
+      draw.hidden = map.isAvailable?.() === false;
       host.hidden = false;
       host.inert = false;
       surface.hidden = false;
@@ -510,6 +512,7 @@ export function initRouteCorridorUi({
     },
     setActive(next) {
       active = Boolean(next);
+      if (active) draw.hidden = map.isAvailable?.() === false;
       if (!active) {
         clearRouteInputs();
         hideSurface();
@@ -554,6 +557,7 @@ function surfaceHtml() {
     <p class="route-corridor__truth" data-i18n="route.truth">${t('route.truth')}</p>
     <p data-route-status role="status" aria-live="polite" aria-atomic="true"></p>
     <dl data-route-evidence></dl><ol class="incident-results__list" data-route-results></ol>
+    <section class="route-corridor__hin" data-route-hin-context aria-live="polite"></section>
     </div>
     <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button><button class="button button--secondary" data-route-close data-i18n="route.close" type="button">${t('route.close')}</button></footer>
   </section>`;
@@ -616,7 +620,7 @@ function renderResults(documentRef, node, matches) {
 
 function renderMap(map, routeInput, bufferM, matches) {
   removeMap(map);
-  if (!routeInput || !map.getStyle?.()) return;
+  if (!map || !routeInput || !map.getStyle?.()) return;
   const route = { type: 'Feature', properties: {}, geometry: routeInput.geometry };
   const latitude = routeInput.geometry.coordinates.reduce((sum, coordinate) => sum + Number(coordinate[1]), 0)
     / routeInput.geometry.coordinates.length;
@@ -629,6 +633,7 @@ function renderMap(map, routeInput, bufferM, matches) {
 }
 
 function removeMap(map) {
+  if (!map) return;
   for (const id of [IDS.points, IDS.route, IDS.corridor]) if (map.getLayer?.(id)) map.removeLayer(id);
   for (const id of [IDS.points, IDS.corridor]) if (map.getSource?.(id)) map.removeSource(id);
 }

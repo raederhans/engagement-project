@@ -14,8 +14,10 @@ const entry = manifest['index.html'];
 const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
 const crimeList = manifest['src/routes_crime/list_mode_controller.js'];
+const routeCorridorApp = manifest['src/routes_crime/route_corridor_app_loader.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
+const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -44,6 +46,7 @@ assert.deepEqual(
     'src/ui/help_content.js',
     'src/map/initMap.js',
     'src/routes_crime/list_mode_controller.js',
+    'src/routes_crime/route_corridor_app_loader.js',
   ]),
   'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
 );
@@ -63,12 +66,10 @@ assert.deepEqual(
   new Set([
     'src/routes_crime/incident_results_controller.js',
     'src/routes_crime/task_focus_controller.js',
-    'src/routes_crime/route_corridor_crime_coordinator.js',
-    'src/routes_crime/route_corridor_ui_controller.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
   ]),
-  'Crime must keep incident results, task focus, route-corridor data, and Charts behind focused lazy boundaries',
+  'Map Crime must keep incident results, task focus, and Charts behind focused lazy boundaries while shared Known Route stays app-owned',
 );
 assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
 assert.ok(taskFocus?.isDynamicEntry, 'Vite manifest must contain Task Focus as a lazy chunk');
@@ -83,8 +84,24 @@ assert.deepEqual(
   [],
   'Query Preset must stay self-contained instead of pulling shared state back into the entry',
 );
+assert.ok(routeCorridorApp?.isDynamicEntry, 'Vite manifest must keep the shared map/list Known Route adapter lazy');
+assert.deepEqual(
+  new Set(routeCorridorApp.dynamicImports || []),
+  new Set([
+    'src/routes_crime/route_corridor_crime_coordinator.js',
+    'src/routes_crime/route_corridor_ui_controller.js',
+    'src/routes_crime/hin_2025_ui.js',
+  ]),
+  'Known Route app adapter must own the nested data and UI lazy boundaries',
+);
 assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corridor data as a lazy chunk');
 assert.ok(routeCorridorUi?.isDynamicEntry, 'Vite manifest must contain route-corridor UI as a second-level lazy chunk');
+assert.deepEqual(
+  new Set(routeCorridorUi.dynamicImports || []),
+  new Set(),
+  'Route corridor UI must not own additional data or health adapters',
+);
+assert.ok(hin2025Ui?.isDynamicEntry, 'Vite manifest must contain HIN 2025 UI/context as a nested lazy chunk');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -119,11 +136,14 @@ const budgets = [
   // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
   ['Crime', crime, 42_000, 14_900],
   ['Crime list', crimeList, 6_500, 2_600],
+  ['Route corridor app adapter', routeCorridorApp, 3_500, 1_500],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
   // Includes the shell-owned drawer and shared map/manual waypoint editor.
   ['Route corridor UI', routeCorridorUi, 24_000, 8_300],
+  // Text-first HIN context plus dependency-free local segment association.
+  ['HIN 2025 context', hin2025Ui, 20_000, 6_500],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
@@ -172,6 +192,11 @@ const publicFiles = await listFiles(publicDir);
 const artifactFiles = [...distFiles, ...publicFiles];
 const distBytes = await sumFileSizes(distFiles);
 assert.ok(distBytes <= 4_000_000, `Total dist size must stay <= 4000000; received ${distBytes}`);
+for (const rootDir of [distDir, publicDir]) {
+  const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
+  const size = (await stat(hinArtifact)).size;
+  assert.ok(size <= 280_000, `${relative(hinArtifact)} must stay <= 280000 bytes; received ${size}`);
+}
 
 const forbiddenRoadFiles = new Set([
   'streets_phl.raw.geojson',

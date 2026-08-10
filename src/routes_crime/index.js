@@ -44,7 +44,6 @@ import {
   observeCrimeRefreshJob,
   readCrimeSnapshot,
 } from './crime_refresh_owner.js';
-import { createRouteCorridorUiLoader } from './route_corridor_ui_loader.js';
 import { createCrimeMapSelectionCoordinator } from './crime_map_selection_coordinator.js';
 import { setTranslatedText, t } from '../i18n/index.js';
 import {
@@ -272,7 +271,6 @@ export async function initCrimeMode(map, {
   let active = true;
   let hoverCleanup = null;
   let popupCleanup = null;
-  let routeCorridorModulePromise = null;
   let currentTractSnapshotProvenance = null;
   let districtData = null;
   let tractData = null;
@@ -585,7 +583,6 @@ export async function initCrimeMode(map, {
     if (!normalizeCrimeRefreshScope(scope)) {
       return { status: 'failed', error: `Unknown Crime result scope: ${scope}` };
     }
-    routeCorridorUi?.syncCanonical();
     try {
       const result = await refreshOwner.refresh({ signal, scope });
       if (result?.status === 'busy') return result;
@@ -595,30 +592,6 @@ export async function initCrimeMode(map, {
       return { status: 'failed', error: String(error?.message || error) };
     }
   }
-
-  async function requestRouteCorridor(options) {
-    routeCorridorModulePromise ||= import('./route_corridor_crime_coordinator.js');
-    const module = await routeCorridorModulePromise;
-    return module.request(captureCrimeSnapshot, active, options);
-  }
-
-  const clearRouteCorridor = () => (
-    routeCorridorModulePromise?.then(module => module.clear(), Boolean)
-  );
-
-  const routeCorridorUi = taskFocus?.routeCorridorMount
-    ? createRouteCorridorUiLoader({
-        mount: taskFocus.routeCorridorMount,
-        loadUi: () => import('./route_corridor_ui_controller.js'),
-        ports: {
-          map,
-          requestRouteCorridor,
-          clearRouteCorridor,
-          readCanonicalSnapshot: captureCrimeSnapshot,
-          translate: t,
-        },
-      })
-    : null;
 
   const selectionCoordinator = createCrimeMapSelectionCoordinator({
     map,
@@ -752,8 +725,6 @@ export async function initCrimeMode(map, {
       active = Boolean(next);
       refreshOwner.setActive(active);
       pointsController.setActive(active);
-      routeCorridorUi?.setActive(active);
-      if (!active) clearRouteCorridor();
       if (active) {
         publishCurrentSelection();
         reconcileCrimeLayerVisibility(map, store);

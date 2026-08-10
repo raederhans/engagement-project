@@ -463,15 +463,19 @@ test('Crime adapter rejects a completed route result when the canonical query ch
   assert.equal((await pendingResult).status, 'superseded');
 });
 
-test('Crime production integration exposes only an explicit lazy route request boundary', async () => {
-  const source = await readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8');
+test('shared map/list integration exposes only an explicit lazy route request boundary', async () => {
+  const [main, source] = await Promise.all([
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
+  ]);
+  assert.match(main, /import\('\.\/routes_crime\/route_corridor_app_loader\.js'\)/);
   assert.match(source, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
-  assert.match(source, /routeCorridorModulePromise/);
-  assert.match(source, /routeCorridorModulePromise \|\|= import/);
-  assert.match(source, /routeCorridorModulePromise\?\.then\(module => module\.clear\(\)/);
-  assert.match(source, /if \(!active\) clearRouteCorridor\(\)/);
+  assert.match(source, /requestModulePromise/);
+  assert.match(source, /requestModulePromise \|\|= import/);
+  assert.match(source, /requestModulePromise\?\.then\(\(module\) => module\.clear\(\)/);
   assert.match(source, /requestRouteCorridor/);
   assert.match(source, /clearRouteCorridor/);
+  assert.match(source, /getMap/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|navigator\.geolocation/);
 });
 
