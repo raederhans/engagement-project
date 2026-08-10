@@ -9,7 +9,7 @@ import { closeSegmentPopup, mountSegmentsLayer, updateSegmentsData, removeSegmen
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, clearSimPoint } from '../map/routing_overlay.js';
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
-import { openRatingModal, closeRatingModal } from './form_submit.js';
+import { openRatingModal, closeRatingModal, submitSegmentFeedback } from './form_submit.js';
 import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId } from '../state/store.js';
 import {
@@ -137,11 +137,11 @@ let refreshDiaryPanel = null;
 let refreshDiaryCopy = null;
 const diaryQs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const diaryPath = typeof window !== 'undefined' ? window.location.pathname || '' : '';
-const ROUTE_SAFETY_EXPRESSION = [
+const ROUTE_EXPERIENCE_RATING_EXPRESSION = [
   'case',
-  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 4], '#34d399',
-  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 2.5], '#fbbf24',
-  '#f87171',
+  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 4], '#7c3aed',
+  ['>=', ['coalesce', ['get', 'overlay_safety'], 3], 2.5], '#3b82f6',
+  '#64748b',
 ];
 let historyPeriodFilter = '30d';
 let historyModeFilter = 'all';
@@ -969,7 +969,7 @@ function selectRoute(routeId, { fitBounds = false } = {}) {
     const isCommunity = store.diaryViewMode === 'community';
     const overlayData = buildRouteOverlayCollection(feature, ROUTE_SEG_IDS_PROP) || feature;
     drawRouteOverlay(mapRef, DIARY_ROUTE_PRIMARY_SOURCE_ID, overlayData, {
-      lineColorExpression: ROUTE_SAFETY_EXPRESSION,
+      lineColorExpression: ROUTE_EXPERIENCE_RATING_EXPRESSION,
       width: 7,
       opacity: isCommunity ? 0.7 : 0.95,
     });
@@ -1545,6 +1545,7 @@ export async function initDiaryMode(map, options = {}) {
         isCurrent,
         canInteract: () => store.diaryViewMode === 'live',
         onAction: guardDiaryCommit(handleSegmentAction, session, ownerIsCurrent),
+        submitFeedback: submitSegmentFeedback,
       });
       layerMounted = true;
     }

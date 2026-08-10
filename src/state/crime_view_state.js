@@ -8,6 +8,15 @@ const RADIUS_MIN = 100;
 const RADIUS_MAX = 10_000;
 const CRIME_REFRESH_SCOPES = Object.freeze(['boundary', 'incidents', 'charts', 'summary']);
 const CRIME_REFRESH_SCOPE_SET = new Set(['all', ...CRIME_REFRESH_SCOPES]);
+export const CRIME_STATE_ACTIONS = Object.freeze({
+  RESTORE_URL: 'crime.url.restore',
+  REPLACE_PRESET: 'crime.preset.replace',
+  RESTORE_HISTORY: 'crime.history.restore',
+  SELECT_TRACT: 'crime.map.select-tract',
+  SELECT_DISTRICT: 'crime.map.select-district',
+  SELECT_POINT: 'crime.map.select-point',
+  END_MAP_SELECTION: 'crime.map.end-selection',
+});
 export const CRIME_VIEW_QUERY_KEYS = new Set([
   'analysis', 'start', 'months', 'radius', 'groups', 'codes', 'district', 'tract',
   'tractLines', 'a', 'b', 'labelA', 'labelB', 'rate', 'class', 'bins', 'palette',
@@ -179,7 +188,7 @@ export function decodeCrimeViewState(value) {
   };
 }
 
-export function applyCrimeViewState(target, decoded, { setMode } = {}) {
+function applyDecodedCrimeViewState(target, decoded, { setMode } = {}) {
   if (!decoded) return target;
   Object.assign(target, decoded);
   setMode?.(decoded.queryMode);
@@ -188,7 +197,7 @@ export function applyCrimeViewState(target, decoded, { setMode } = {}) {
   return target;
 }
 
-export function replaceCrimeViewState(target, decoded, { setMode } = {}) {
+function replaceDecodedCrimeViewState(target, decoded, { setMode } = {}) {
   const canonical = decodeCrimeViewState(encodeCrimeViewState(decoded || {}));
   Object.assign(target, {
     centerLonLat: null,
@@ -214,4 +223,59 @@ export function replaceCrimeViewState(target, decoded, { setMode } = {}) {
     target.setComparisonPoint?.('B', ...canonical.centerBLonLat, canonical.addressB);
   }
   return target;
+}
+
+export function mutateCrimeViewState(target, action, payload, options = {}) {
+  switch (action) {
+    case CRIME_STATE_ACTIONS.RESTORE_URL:
+      return applyDecodedCrimeViewState(
+        target,
+        typeof payload === 'string' || payload instanceof URLSearchParams
+          ? decodeCrimeViewState(payload)
+          : payload,
+        options,
+      );
+    case CRIME_STATE_ACTIONS.REPLACE_PRESET:
+    case CRIME_STATE_ACTIONS.RESTORE_HISTORY:
+      return replaceDecodedCrimeViewState(target, payload, options);
+    case CRIME_STATE_ACTIONS.SELECT_TRACT:
+      target.selectedTractGEOID = payload?.geoid || null;
+      return target;
+    case CRIME_STATE_ACTIONS.SELECT_DISTRICT:
+      target.selectedDistrictCode = payload?.code || null;
+      return target;
+    case CRIME_STATE_ACTIONS.SELECT_POINT: {
+      const selectedTarget = payload?.target === 'B' ? 'B' : 'A';
+      target.setComparisonPoint?.(
+        selectedTarget,
+        payload?.lng,
+        payload?.lat,
+        payload?.label,
+      );
+      return target;
+    }
+    case CRIME_STATE_ACTIONS.END_MAP_SELECTION:
+      target.selectMode = 'idle';
+      return target;
+    default:
+      throw new TypeError(`Unknown Crime state action: ${action}`);
+  }
+}
+
+export function applyCrimeViewState(target, decoded, { setMode } = {}) {
+  return mutateCrimeViewState(
+    target,
+    CRIME_STATE_ACTIONS.RESTORE_URL,
+    decoded,
+    { setMode },
+  );
+}
+
+export function replaceCrimeViewState(target, decoded, { setMode } = {}) {
+  return mutateCrimeViewState(
+    target,
+    CRIME_STATE_ACTIONS.RESTORE_HISTORY,
+    decoded,
+    { setMode },
+  );
 }

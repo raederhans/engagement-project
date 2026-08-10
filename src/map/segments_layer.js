@@ -1,5 +1,4 @@
 import maplibregl from 'maplibre-gl';
-import { submitSegmentFeedback } from '../routes_diary/form_submit.js';
 import { escapeHtml } from '../utils/html.js';
 import { t } from '../i18n/index.js';
 import {
@@ -27,10 +26,10 @@ import {
  */
 
 const COLOR_BINS = [
-  { max: 2.5, color: '#f87171' },    // risky
-  { max: 3.4, color: '#fbbf24' },    // caution
-  { max: 4.25, color: '#34d399' },   // safer
-  { max: Infinity, color: '#10b981' } // safest
+  { max: 2.5, color: '#64748b' },     // low experience rating
+  { max: 3.4, color: '#3b82f6' },     // middle experience rating
+  { max: 4.25, color: '#7c3aed' },    // high experience rating
+  { max: Infinity, color: '#5b21b6' } // highest experience rating
 ];
 
 const clickRegistrations = new Map();
@@ -285,6 +284,7 @@ function registerClickHandlers(map, layerId, {
   isCurrent = () => true,
   canInteract = () => true,
   onAction,
+  submitFeedback,
 } = {}) {
   cleanupClickHandlers(map, layerId);
   if (!map || !layerId) return;
@@ -322,6 +322,7 @@ function registerClickHandlers(map, layerId, {
       wireSegmentCardBehavior(popup, props, state, render, {
         signal,
         isCurrent: interactionIsCurrent,
+        submitFeedback,
       });
     };
     render();
@@ -560,6 +561,7 @@ export function buildSegmentCardHtml(props, state = {}) {
 function wireSegmentCardBehavior(popup, props, state, rerender, {
   signal,
   isCurrent = () => true,
+  submitFeedback,
 } = {}) {
   const el = popup.getElement();
   const card = el?.querySelector('.diary-segment-card');
@@ -612,6 +614,7 @@ function wireSegmentCardBehavior(popup, props, state, rerender, {
         props,
         state,
         rerender,
+        submitFeedback,
         signal,
         isCurrent,
       }).catch(() => {
@@ -627,11 +630,14 @@ export async function submitSegmentCardFeedback({
   props,
   state,
   rerender = () => {},
-  submitFeedback = submitSegmentFeedback,
+  submitFeedback,
   signal,
   isCurrent = () => true,
 }) {
   if (!state?.rating || signal?.aborted || !isCurrent()) return null;
+  if (typeof submitFeedback !== 'function') {
+    throw new TypeError('Diary segment feedback submit port is required.');
+  }
   const segmentId = props?.[SEGMENT_ID_PROP] || props?.id;
   const response = await submitFeedback({
     segmentId,

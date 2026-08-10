@@ -3,6 +3,7 @@ import { renderDistrictChoropleth } from '../map/render_choropleth.js';
 import { attachHover } from '../map/ui_tooltip.js';
 import { wirePoints } from '../map/wire_points.js';
 import { store, initCoverageAndDefaults } from '../state/store.js';
+import { CRIME_STATE_ACTIONS, createCrimeStatePort } from '../state/crime_state_port.js';
 import {
   crimeSelectionKey,
   hasActiveIncidentSelection,
@@ -257,6 +258,7 @@ export async function initCrimeMode(map, {
   resultMeta = {},
   taskFocus = null,
   presetPorts = null,
+  statePort = null,
   now = () => new Date().toISOString(),
 } = {}) {
   await import('../i18n/crime_offense_catalog.js');
@@ -278,6 +280,7 @@ export async function initCrimeMode(map, {
   let districtData = null;
   let tractData = null;
   let lastCameraSelectionKey = null;
+  const crimeState = statePort || createCrimeStatePort({ state: store });
 
   try {
     await initCoverageAndDefaults();
@@ -627,7 +630,7 @@ export async function initCrimeMode(map, {
       const feature = event.features?.[0];
       const geoid = tractFeatureGEOID(feature);
       if (!active || store.queryMode !== 'tract' || !geoid) return;
-      store.selectedTractGEOID = geoid;
+      crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_TRACT, { geoid });
       publishCurrentSelection(undefined, { origin: 'map' });
       upsertSelectedTract(map, geoid);
       removeBufferOverlay(map);
@@ -680,7 +683,7 @@ export async function initCrimeMode(map, {
       const feature = event.features?.[0];
       const code = String(feature?.properties?.DIST_NUMC || '').padStart(2, '0');
       if (!active || store.queryMode !== 'district' || !code) return;
-      store.selectedDistrictCode = code;
+      crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_DISTRICT, { code });
       publishCurrentSelection(undefined, { origin: 'map' });
       upsertSelectedDistrict(map, code);
       removeBufferOverlay(map);
@@ -691,7 +694,12 @@ export async function initCrimeMode(map, {
   map.on('click', (event) => {
     if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
     const target = store.selectTarget === 'B' ? 'B' : 'A';
-    store.setComparisonPoint(target, event.lngLat.lng, event.lngLat.lat, t('crime.mapPoint', { target }));
+    crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_POINT, {
+      target,
+      lng: event.lngLat.lng,
+      lat: event.lngLat.lat,
+      label: t('crime.mapPoint', { target }),
+    });
     publishCurrentSelection(undefined, { origin: 'map' });
     onPointChange(target);
     syncComparisonOverlays({
@@ -700,7 +708,7 @@ export async function initCrimeMode(map, {
       radiusM: store.radius,
       queryMode: store.queryMode,
     });
-    store.selectMode = 'idle';
+    crimeState.mutate(CRIME_STATE_ACTIONS.END_MAP_SELECTION);
     for (const id of ['useCenterBtn', 'usePointBBtn']) {
       const button = document.getElementById(id);
       if (button) setTranslatedText(button, 'crime.pickOnMap');

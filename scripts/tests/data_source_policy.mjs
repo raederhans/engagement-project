@@ -605,6 +605,7 @@ test('segment popup submission uses truthful demo semantics without claiming com
   const response = await submitSegmentCardFeedback({
     props: { segment_id: 'seg_popup_1' },
     state,
+    submitFeedback: formSubmit.submitSegmentFeedback,
     rerender() {
       renders += 1;
     },
@@ -621,6 +622,24 @@ test('segment popup submission uses truthful demo semantics without claiming com
   assert.match(html, /not stored or shared/i);
   assert.doesNotMatch(html, /community aggregates/i);
   assert.doesNotMatch(html, /appear in the aggregate soon/i);
+});
+
+test('segment popup submission fails closed when the Diary submit port is missing', async () => {
+  const state = {
+    mode: 'input',
+    rating: 4,
+    selectedTags: new Set(['poor_lighting']),
+  };
+
+  await assert.rejects(
+    submitSegmentCardFeedback({
+      props: { segment_id: 'seg_popup_missing_port' },
+      state,
+    }),
+    /submit port is required/i,
+  );
+  assert.equal(state.mode, 'input');
+  assert.equal(state.submissionResult, undefined);
 });
 
 test('stale segment popup submission aborts transport and commits no popup state', async () => {
