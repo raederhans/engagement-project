@@ -104,6 +104,11 @@
         <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
         <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
       </section>
+      <section class="acs-multitract-entry" data-acs-multitract-entry aria-label="ACS complete-tract population aggregate／ACS 完整 tract 人口聚合">
+        <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog">Compare complete tracts／比较完整 tract</button>
+        <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
+        <button class="button button--secondary" type="button" data-acs-multitract-retry hidden>Retry／重试</button>
+      </section>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -481,6 +486,9 @@
       </details>
     </div>
     <aside id="route-corridor-shell" class="route-corridor-shell" data-route-corridor-host aria-labelledby="route-corridor-title" hidden inert></aside>
+    <dialog id="acs-multitract-dialog" class="acs-multitract-dialog" data-acs-multitract-dialog aria-labelledby="acs-multitract-title" aria-describedby="acs-multitract-description">
+      <div data-acs-multitract-host></div>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/ui/sheet_controller.js"></script>
   </body>

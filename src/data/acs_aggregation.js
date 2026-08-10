@@ -161,8 +161,12 @@ function normalizeSelections(selections) {
   return { status: 'available', selections: normalized };
 }
 
-/** Aggregate B01003 only for two or more complete, 2020-vintage Census tracts. */
-export function aggregateAcsTractPopulation({ selections, snapshot } = {}) {
+/**
+ * Review a candidate set against the admitted VRE snapshot without calculating
+ * an aggregate. Product surfaces use this as the explicit boundary between a
+ * user-entered list and the later Calculate action.
+ */
+export function reviewAcsTractSelections({ selections, snapshot } = {}) {
   const admittedSelections = normalizeSelections(selections);
   if (admittedSelections.status !== 'available') return admittedSelections;
 
@@ -176,9 +180,30 @@ export function aggregateAcsTractPopulation({ selections, snapshot } = {}) {
     return notComparable('snapshot-geography-vintage-mismatch');
   }
 
+  const availableGeoids = new Set(admittedSnapshot.rows.map(({ geoid }) => geoid));
+  if (admittedSelections.selections.some(({ geoid }) => !availableGeoids.has(geoid))) {
+    return unavailable('tract-vre-unavailable');
+  }
+  return {
+    status: 'available',
+    reason: null,
+    review: Object.freeze({
+      selections: Object.freeze(admittedSelections.selections.map((selection) => (
+        Object.freeze({ ...selection })
+      ))),
+      snapshot: admittedSnapshot,
+    }),
+  };
+}
+
+/** Aggregate B01003 only for two or more complete, 2020-vintage Census tracts. */
+export function aggregateAcsTractPopulation({ selections, snapshot } = {}) {
+  const reviewed = reviewAcsTractSelections({ selections, snapshot });
+  if (reviewed.status !== 'available') return reviewed;
+  const { selections: admittedSelections, snapshot: admittedSnapshot } = reviewed.review;
+
   const rowByGeoid = new Map(admittedSnapshot.rows.map((row) => [row.geoid, row]));
-  const rows = admittedSelections.selections.map(({ geoid }) => rowByGeoid.get(geoid));
-  if (rows.some((row) => !row)) return unavailable('tract-vre-unavailable');
+  const rows = admittedSelections.map(({ geoid }) => rowByGeoid.get(geoid));
 
   const estimate = rows.reduce((sum, row) => sum + row.estimate, 0);
   const replicates = Array.from({ length: ACS_VRE_REPLICATE_COUNT }, (_, index) => (
@@ -203,7 +228,7 @@ export function aggregateAcsTractPopulation({ selections, snapshot } = {}) {
       variance: uncertainty.variance,
       confidenceLevel: 0.9,
       tractCount: rows.length,
-      geoids: admittedSelections.selections.map(({ geoid }) => geoid),
+      geoids: admittedSelections.map(({ geoid }) => geoid),
       period: admittedSnapshot.manifest.period,
       release: admittedSnapshot.manifest.release,
       geographyVintage: admittedSnapshot.manifest.geographyVintage,
@@ -216,6 +241,10 @@ export function aggregateAcsTractPopulation({ selections, snapshot } = {}) {
         geographyUrl: admittedSnapshot.manifest.geographyUrl,
         accessedAt: admittedSnapshot.manifest.accessedAt,
         retrievedAt: admittedSnapshot.manifest.retrievedAt,
+        sourceAsOf: '2024-12-31',
+        snapshotVersion: admittedSnapshot.schemaVersion,
+        snapshotIdentity: admittedSnapshot.manifest.rowsSha256,
+        recordCount: admittedSnapshot.manifest.rowCount,
       },
     },
   };

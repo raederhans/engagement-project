@@ -1,0 +1,178 @@
+.acs-multitract-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.acs-multitract-dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(820px, calc(100dvh - 32px));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-overlay);
+}
+
+.acs-multitract-dialog::backdrop {
+  background: rgb(16 32 51 / 55%);
+}
+
+.acs-multitract__surface {
+  padding: clamp(18px, 4vw, 32px);
+}
+
+.acs-multitract__header h2,
+.acs-multitract__header p,
+.acs-multitract__status,
+.acs-multitract__hint {
+  margin-block: 0;
+}
+
+.acs-multitract__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.acs-multitract__eyebrow {
+  color: var(--brand-strong);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acs-multitract__workflow {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-start: var(--space-5);
+}
+
+.acs-multitract__workflow label {
+  font-weight: 700;
+}
+
+.acs-multitract__workflow textarea {
+  width: 100%;
+  min-height: 112px;
+  box-sizing: border-box;
+  padding: var(--space-3);
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.acs-multitract__workflow textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.acs-multitract__hint,
+.acs-multitract__status {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.acs-multitract__actions,
+.acs-multitract__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.acs-multitract__table-scroll,
+.acs-aggregate {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.acs-multitract__table-scroll:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.acs-multitract__selection-table,
+.acs-aggregate table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+}
+
+.acs-multitract__selection-table caption,
+.acs-aggregate caption {
+  padding: var(--space-3);
+  background: var(--surface-muted);
+  font-weight: 750;
+  text-align: left;
+}
+
+.acs-multitract__selection-table th,
+.acs-multitract__selection-table td,
+.acs-aggregate th,
+.acs-aggregate td {
+  padding: var(--space-2) var(--space-3);
+  border-block-start: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.acs-multitract__selection-table code {
+  white-space: nowrap;
+}
+
+.acs-multitract__selection-error {
+  color: var(--error);
+  font-weight: 650;
+}
+
+.acs-multitract__limitations {
+  margin-block-start: var(--space-5);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+
+.acs-multitract__limitations summary {
+  min-height: var(--control-target);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.acs-multitract__limitations li + li {
+  margin-block-start: var(--space-2);
+}
+
+.acs-multitract__footer {
+  justify-content: flex-end;
+  margin-block-start: var(--space-5);
+}
+
+@media (max-width: 560px) {
+  .acs-multitract-dialog {
+    width: 100vw;
+    max-width: none;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  }
+
+  .acs-multitract__actions .button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acs-multitract-dialog {
+    scroll-behavior: auto;
+  }
+}

@@ -107,6 +107,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let analysisHistoryPromise = null;
   let routeCorridorLoader = null;
   let routeCorridorLoaderPromise = null;
+  let acsMultitractLoader = null;
+  let acsMultitractLoaderPromise = null;
 
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
@@ -230,6 +232,60 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
   routeOpen?.addEventListener('click', onRouteIntent);
   routeRetry?.addEventListener('click', onRouteIntent);
+
+  const acsMultitractDialog = document.querySelector('[data-acs-multitract-dialog]');
+  const acsMultitractOpen = document.querySelector('[data-acs-multitract-open]');
+  const acsMultitractRetry = document.querySelector('[data-acs-multitract-retry]');
+  const acsMultitractStatus = document.querySelector('[data-acs-multitract-loader-status]');
+  const showAcsMultitractLoadFailure = (error) => {
+    if (acsMultitractStatus) {
+      acsMultitractStatus.hidden = false;
+      acsMultitractStatus.textContent = 'Complete-tract review could not load／完整 tract 审查无法加载';
+    }
+    if (acsMultitractRetry) acsMultitractRetry.hidden = false;
+    console.warn('ACS complete-tract review is unavailable:', error);
+  };
+  const ensureAcsMultitractLoader = async () => {
+    if (acsMultitractLoader) return acsMultitractLoader;
+    if (!acsMultitractLoaderPromise) {
+      if (acsMultitractStatus) {
+        acsMultitractStatus.hidden = false;
+        acsMultitractStatus.textContent = 'Loading complete-tract review／正在加载完整 tract 审查…';
+      }
+      if (acsMultitractRetry) acsMultitractRetry.hidden = true;
+      acsMultitractLoaderPromise = import('./acs_multitract/loader.js')
+        .then((module) => module.createAcsMultitractLoader({
+          dialog: acsMultitractDialog,
+          opener: acsMultitractOpen,
+        }))
+        .then((owner) => {
+          acsMultitractLoader = owner;
+          return owner;
+        })
+        .catch((error) => {
+          acsMultitractLoaderPromise = null;
+          showAcsMultitractLoadFailure(error);
+          return null;
+        });
+    }
+    return acsMultitractLoaderPromise;
+  };
+  const onAcsMultitractIntent = () => {
+    if (acsMultitractStatus) {
+      acsMultitractStatus.hidden = false;
+      acsMultitractStatus.textContent = 'Loading complete-tract review／正在加载完整 tract 审查…';
+    }
+    if (acsMultitractRetry) acsMultitractRetry.hidden = true;
+    void ensureAcsMultitractLoader()
+      .then(async (owner) => {
+        if (!owner) return;
+        await owner.open();
+        if (acsMultitractStatus) acsMultitractStatus.hidden = true;
+      })
+      .catch(showAcsMultitractLoadFailure);
+  };
+  acsMultitractOpen?.addEventListener('click', onAcsMultitractIntent);
+  acsMultitractRetry?.addEventListener('click', onAcsMultitractIntent);
 
   async function ensureListController() {
     if (listController) return listController;
