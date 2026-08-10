@@ -3,7 +3,7 @@ import { renderDistrictChoropleth } from '../map/render_choropleth.js';
 import { attachHover } from '../map/ui_tooltip.js';
 import { wirePoints } from '../map/wire_points.js';
 import { store, initCoverageAndDefaults } from '../state/store.js';
-import { CRIME_STATE_ACTIONS, createCrimeStatePort } from '../state/crime_state_port.js';
+import { createCrimeStatePort } from '../state/crime_state_port.js';
 import {
   crimeSelectionKey,
   hasActiveIncidentSelection,
@@ -45,6 +45,7 @@ import {
   readCrimeSnapshot,
 } from './crime_refresh_owner.js';
 import { createRouteCorridorUiLoader } from './route_corridor_ui_loader.js';
+import { createCrimeMapSelectionCoordinator } from './crime_map_selection_coordinator.js';
 import { setTranslatedText, t } from '../i18n/index.js';
 import {
   bufferBounds,
@@ -268,8 +269,6 @@ export async function initCrimeMode(map, {
   const mapReady = waitForMapReady(map);
   let markerA = null;
   let markerB = null;
-  let tractClickWired = false;
-  let districtClickWired = false;
   let active = true;
   let hoverCleanup = null;
   let popupCleanup = null;
@@ -467,7 +466,7 @@ export async function initCrimeMode(map, {
           } else {
             clearSelectedTract(map);
           }
-          wireTractSelection();
+          selectionCoordinator.wireTractSelection();
           boundaryOutcome = { applied: true, status: 'success', featureCount };
         } else {
           const [merged, outlineResult] = await Promise.all([
@@ -492,7 +491,7 @@ export async function initCrimeMode(map, {
           } else {
             clearSelectedDistrict(map);
           }
-          wireDistrictSelection();
+          selectionCoordinator.wireDistrictSelection();
           boundaryOutcome = classifyDistrictBoundaryRefresh({
             featureCount,
             overlayRequested: Boolean(snapshot.overlayTractsLines),
@@ -621,20 +620,46 @@ export async function initCrimeMode(map, {
       })
     : null;
 
-  function wireTractSelection() {
-    if (tractClickWired || !map.getLayer('tracts-fill')) return;
-    tractClickWired = true;
-    map.on('click', 'tracts-fill', (event) => {
-      const feature = event.features?.[0];
-      const geoid = tractFeatureGEOID(feature);
-      if (!active || store.queryMode !== 'tract' || !geoid) return;
-      crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_TRACT, { geoid });
+  const selectionCoordinator = createCrimeMapSelectionCoordinator({
+    map,
+    state: store,
+    statePort: crimeState,
+    isActive: () => active,
+    readTractId: tractFeatureGEOID,
+    translate: t,
+    onTractSelected({ feature, geoid }) {
       publishCurrentSelection(undefined, { origin: 'map' });
       upsertSelectedTract(map, geoid);
       removeBufferOverlay(map);
       void fitCurrentSelection({ feature, force: true }).then(() => requestRefresh());
-    });
-  }
+    },
+    onDistrictSelected({ feature, code }) {
+      publishCurrentSelection(undefined, { origin: 'map' });
+      upsertSelectedDistrict(map, code);
+      removeBufferOverlay(map);
+      void fitCurrentSelection({ feature, force: true }).then(() => requestRefresh());
+    },
+    onPointSelected({ target }) {
+      publishCurrentSelection(undefined, { origin: 'map' });
+      onPointChange(target);
+      syncComparisonOverlays({
+        centerLonLat: store.centerLonLat,
+        centerBLonLat: store.centerBLonLat,
+        radiusM: store.radius,
+        queryMode: store.queryMode,
+      });
+    },
+    onPointSelectionEnded() {
+      for (const id of ['useCenterBtn', 'usePointBBtn']) {
+        const button = document.getElementById(id);
+        if (button) setTranslatedText(button, 'crime.pickOnMap');
+      }
+      const hint = document.getElementById('useMapHint');
+      if (hint) hint.style.display = 'none';
+      document.body.style.cursor = '';
+      void fitCurrentSelection({ force: true }).then(() => requestRefresh());
+    },
+  });
 
   function ensureDistrictInteractions() {
     if (!hoverCleanup) hoverCleanup = attachHover(map, 'districts-fill');
@@ -673,49 +698,6 @@ export async function initCrimeMode(map, {
     const { data: _data, ...outcome } = result;
     return outcome;
   }
-
-  function wireDistrictSelection() {
-    if (districtClickWired || !map.getLayer('districts-fill')) return;
-    districtClickWired = true;
-    map.on('click', 'districts-fill', (event) => {
-      const feature = event.features?.[0];
-      const code = String(feature?.properties?.DIST_NUMC || '').padStart(2, '0');
-      if (!active || store.queryMode !== 'district' || !code) return;
-      crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_DISTRICT, { code });
-      publishCurrentSelection(undefined, { origin: 'map' });
-      upsertSelectedDistrict(map, code);
-      removeBufferOverlay(map);
-      void fitCurrentSelection({ feature, force: true }).then(() => requestRefresh());
-    });
-  }
-
-  map.on('click', (event) => {
-    if (!active || store.queryMode !== 'buffer' || store.selectMode !== 'point') return;
-    const target = store.selectTarget === 'B' ? 'B' : 'A';
-    crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_POINT, {
-      target,
-      lng: event.lngLat.lng,
-      lat: event.lngLat.lat,
-      label: t('crime.mapPoint', { target }),
-    });
-    publishCurrentSelection(undefined, { origin: 'map' });
-    onPointChange(target);
-    syncComparisonOverlays({
-      centerLonLat: store.centerLonLat,
-      centerBLonLat: store.centerBLonLat,
-      radiusM: store.radius,
-      queryMode: store.queryMode,
-    });
-    crimeState.mutate(CRIME_STATE_ACTIONS.END_MAP_SELECTION);
-    for (const id of ['useCenterBtn', 'usePointBBtn']) {
-      const button = document.getElementById(id);
-      if (button) setTranslatedText(button, 'crime.pickOnMap');
-    }
-    const hint = document.getElementById('useMapHint');
-    if (hint) hint.style.display = 'none';
-    document.body.style.cursor = '';
-    void fitCurrentSelection({ force: true }).then(() => requestRefresh());
-  });
 
   async function fitCurrentSelection({
     snapshot = captureCrimeSnapshot(),

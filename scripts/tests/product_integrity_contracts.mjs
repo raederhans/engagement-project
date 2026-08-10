@@ -310,7 +310,10 @@ test('Crime controls expose one time model and one geography model', async () =>
   assert.match(html, /id="dataStatus"[^>]*aria-live="polite"/);
   assert.doesNotMatch(panelSource, /store\.timeWindowMonths\s*=/);
   assert.doesNotMatch(panelSource, /store\.adminLevel\s*=/);
-  assert.match(panelSource, /setAnalysisMode\(mode\)/);
+  assert.match(
+    panelSource,
+    /crimeState\.mutate\(CRIME_STATE_ACTIONS\.SET_MODE,\s*\{ mode \}\)/,
+  );
 });
 
 test('mobile layout keeps results in the same scroll column as controls', async () => {

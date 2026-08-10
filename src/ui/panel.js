@@ -1,5 +1,4 @@
 import {
-  expandGroupsToCodes,
   normalizeHighlightedOffenses,
   syncOffenseHighlightOptions,
 } from '../utils/types.js';
@@ -11,6 +10,7 @@ import {
   setViewMode,
   onViewModeChange,
 } from '../state/store.js';
+import { CRIME_STATE_ACTIONS, createCrimeStatePort } from '../state/crime_state_port.js';
 import { publicUrl } from '../utils/public_url.js';
 import { TRACT_CRIME_SNAPSHOT_ENABLED } from '../config.js';
 import { fetchJson } from '../utils/http.js';
@@ -119,6 +119,12 @@ export function initPanel(store, handlers) {
   if (!panelRoot) {
     return { diaryMount: null, analysisHistoryMount: null };
   }
+  const crimeState = createCrimeStatePort({
+    state: store,
+    setMode: setAnalysisMode,
+    normalizeCoverage: normalizeCoverageWindow,
+    clearSelection: clearCrimeAnalysisSelection,
+  });
 
   const sheetContent = panelRoot.querySelector(':scope > .sheet-content');
   const panelContentRoot = sheetContent || panelRoot;
@@ -326,7 +332,10 @@ export function initPanel(store, handlers) {
   const onChange = debounce(() => {
     // Derive selected offense codes from groups (unless drilldown overrides)
     if (!store.selectedDrilldownCodes || store.selectedDrilldownCodes.length === 0) {
-      store.selectedTypes = expandGroupsToCodes(store.selectedGroups || []);
+      crimeState.mutate(CRIME_STATE_ACTIONS.SET_OFFENSE_GROUPS, {
+        groups: store.selectedGroups || [],
+        resetHighlights: false,
+      });
     }
     writeCrimeStateToURL(store);
     handlers.onChange?.();
@@ -335,8 +344,10 @@ export function initPanel(store, handlers) {
 
   const syncOffenseHighlights = (codes = store.selectedDrilldownCodes) => {
     const normalized = syncOffenseHighlightOptions(fineSel, codes);
-    store.selectedDrilldownCodes = normalized;
-    setTranslatedText(fineSelHint, 'crime.drilldownHint', { count: normalized.length });
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_OFFENSE_HIGHLIGHTS, { codes: normalized });
+    setTranslatedText(fineSelHint, 'crime.drilldownHint', {
+      count: store.selectedDrilldownCodes.length,
+    });
   };
 
   const syncComparisonControls = () => {
@@ -350,11 +361,8 @@ export function initPanel(store, handlers) {
       addrB?.focus();
       return;
     }
-    store.centerB3857 = null;
-    store.centerBLonLat = null;
-    store.addressB = '';
+    crimeState.mutate(CRIME_STATE_ACTIONS.CLEAR_COMPARISON, { target: 'B' });
     if (addrB) addrB.value = '';
-    if (store.selectTarget === 'B') store.selectMode = 'idle';
     onChange();
   });
 
@@ -366,14 +374,13 @@ export function initPanel(store, handlers) {
 
   function beginMapSelection(target) {
     if (store.selectMode !== 'point') {
-      store.selectMode = 'point';
-      store.selectTarget = target;
+      crimeState.mutate(CRIME_STATE_ACTIONS.BEGIN_MAP_SELECTION, { target });
       if (target === 'A' && useCenterBtn) setTranslatedText(useCenterBtn, 'crime.cancel');
       if (target === 'B' && usePointBBtn) setTranslatedText(usePointBBtn, 'crime.cancel');
       useMapHint?.classList.remove('is-hidden');
       document.body.style.cursor = 'crosshair';
     } else {
-      store.selectMode = 'idle';
+      crimeState.mutate(CRIME_STATE_ACTIONS.END_MAP_SELECTION);
       if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
       if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
       useMapHint?.classList.add('is-hidden');
@@ -401,7 +408,12 @@ export function initPanel(store, handlers) {
       if (!owned.applied) return;
       const { result } = owned;
       input.value = result.address;
-      store.setComparisonPoint(target, ...result.lngLat, result.address);
+      crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_POINT, {
+        target,
+        lng: result.lngLat[0],
+        lat: result.lngLat[1],
+        label: result.address,
+      });
       crimeWorkbench.sync();
       if (addressStatus) {
         addressStatus.dataset.tone = 'ready';
@@ -436,7 +448,7 @@ export function initPanel(store, handlers) {
   function applyRadius(value) {
     const radius = Number(value);
     if (!Number.isInteger(radius) || radius < 100 || radius > 10_000 || store.radius === radius) return;
-    store.radius = radius;
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_RADIUS, { radius });
     handlers.onRadiusInput?.(radius);
     onChange();
   }
@@ -468,8 +480,10 @@ export function initPanel(store, handlers) {
     let requestedCodes = preserveSelection
       ? normalizeHighlightedOffenses(store.selectedDrilldownCodes)
       : [];
-    store.selectedGroups = values;
-    if (!preserveSelection) store.selectedDrilldownCodes = [];
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_OFFENSE_GROUPS, {
+      groups: values,
+      resetHighlights: !preserveSelection,
+    });
 
     // populate drilldown options (filtered by time window availability)
     if (fineSel) {
@@ -543,12 +557,16 @@ export function initPanel(store, handlers) {
   });
 
   rateSel?.addEventListener('change', () => {
-    store.per10k = rateSel.value === 'per10k';
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_RATE, {
+      per10k: rateSel.value === 'per10k',
+    });
     onChange();
   });
 
   overlayTractsChk?.addEventListener('change', () => {
-    store.overlayTractsLines = overlayTractsChk.checked;
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_TRACT_OVERLAY, {
+      visible: overlayTractsChk.checked,
+    });
     handlers.onTractsOverlayToggle?.(store.overlayTractsLines);
     updateHUD();
   });
@@ -560,22 +578,38 @@ export function initPanel(store, handlers) {
     classCustomRow?.classList.toggle('is-hidden', store.classMethod !== 'custom');
   }
   classMethodSel?.addEventListener('change', () => {
-    store.classMethod = classMethodSel.value;
-    if (store.classMethod !== 'custom') store.classCustomBreaks = [];
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_CLASSIFICATION, {
+      classMethod: classMethodSel.value,
+      classCustomBreaks: classMethodSel.value === 'custom' ? store.classCustomBreaks : [],
+    });
     syncClassUI();
     onChange();
   });
   classBinsRange?.addEventListener('input', () => {
-    store.classBins = Number(classBinsRange.value) || 5;
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_CLASSIFICATION, {
+      classBins: Number(classBinsRange.value) || 5,
+    });
     syncClassUI();
   });
   classBinsRange?.addEventListener('change', () => { onChange(); });
-  classPaletteSel?.addEventListener('change', () => { store.classPalette = classPaletteSel.value; onChange(); });
-  classOpacityRange?.addEventListener('input', () => { store.classOpacity = Number(classOpacityRange.value) || 0.75; syncClassUI(); });
+  classPaletteSel?.addEventListener('change', () => {
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_CLASSIFICATION, {
+      classPalette: classPaletteSel.value,
+    });
+    onChange();
+  });
+  classOpacityRange?.addEventListener('input', () => {
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_CLASSIFICATION, {
+      classOpacity: Number(classOpacityRange.value) || 0.75,
+    });
+    syncClassUI();
+  });
   classOpacityRange?.addEventListener('change', () => { onChange(); });
   classCustomInput?.addEventListener('change', () => {
     const parts = (classCustomInput.value || '').split(',').map(s => Number(s.trim())).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
-    store.classCustomBreaks = parts;
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_CLASSIFICATION, {
+      classCustomBreaks: parts,
+    });
     onChange();
   });
 
@@ -602,8 +636,7 @@ export function initPanel(store, handlers) {
   // Mode selection
   queryModeSel?.addEventListener('change', () => {
     const mode = queryModeSel.value;
-    setAnalysisMode(mode);
-    if (mode !== 'buffer') store.selectMode = 'idle';
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_MODE, { mode });
     crimeWorkbench.sync();
     applyModeUI();
     onChange();
@@ -612,7 +645,7 @@ export function initPanel(store, handlers) {
 
   // Clear selection
   clearSelBtn?.addEventListener('click', () => {
-    clearCrimeAnalysisSelection(store);
+    crimeState.mutate(CRIME_STATE_ACTIONS.CLEAR_SELECTION);
     if (addressStatus) addressStatus.textContent = '';
     if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
     if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
@@ -624,7 +657,7 @@ export function initPanel(store, handlers) {
   // Esc exits transient selection mode
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && store.selectMode === 'point') {
-      store.selectMode = 'idle';
+      crimeState.mutate(CRIME_STATE_ACTIONS.END_MAP_SELECTION);
       if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
       if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
       useMapHint?.classList.add('is-hidden');
@@ -676,14 +709,16 @@ export function initPanel(store, handlers) {
   }
 
   startMonth?.addEventListener('change', () => {
-    store.startMonth = startMonth.value || null;
-    normalizeCoverageWindow(store);
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_TIME_WINDOW, {
+      startMonth: startMonth.value || null,
+    });
     syncFromStore();
     void refreshTimeWindow();
   });
   durationSel?.addEventListener('change', () => {
-    store.durationMonths = Number(durationSel.value) || 6;
-    normalizeCoverageWindow(store);
+    crimeState.mutate(CRIME_STATE_ACTIONS.SET_TIME_WINDOW, {
+      durationMonths: Number(durationSel.value) || 6,
+    });
     syncFromStore();
     void refreshTimeWindow();
   });
