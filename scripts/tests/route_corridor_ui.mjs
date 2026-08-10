@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createRouteCorridorUiLoader } from '../../src/routes_crime/route_corridor_ui_loader.js';
-import { createOptionalRouteMapPort } from '../../src/routes_crime/route_corridor_app_loader.js';
+import { createOptionalRouteMapPort } from '../../src/routes_crime/route_corridor_app_runtime.js';
 
 function button() {
   const listeners = new Map();
@@ -133,11 +133,12 @@ test('optional route map port stays inert in list mode and rebinds one click own
 });
 
 test('Crime exposes a shared map/list entry and keeps the controller behind nested dynamic imports', async () => {
-  const [html, main, crime, appLoader, panel, controller, styles, listStyles, packageJson, bundlePolicy] = await Promise.all([
+  const [html, main, crime, appLoader, appRuntime, panel, controller, styles, listStyles, packageJson, bundlePolicy] = await Promise.all([
     readFile(new URL('../../index.html', import.meta.url), 'utf8'),
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/route_corridor_app_runtime.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_ui_controller.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/styles/workbench-shell.css', import.meta.url), 'utf8'),
@@ -159,9 +160,11 @@ test('Crime exposes a shared map/list entry and keeps the controller behind nest
   assert.match(main, /import\('\.\/routes_crime\/route_corridor_app_loader\.js'\)/);
   assert.doesNotMatch(crime, /route_corridor/);
   assert.match(appLoader, /createRouteCorridorUiLoader/);
-  assert.match(appLoader, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
-  assert.match(appLoader, /import\('\.\/route_corridor_ui_controller\.js'\)/);
-  assert.match(appLoader, /import\('\.\/hin_2025_ui\.js'\)/);
+  assert.match(appLoader, /import\('\.\/route_corridor_app_runtime\.js'\)/);
+  assert.doesNotMatch(appLoader, /route_corridor_crime_coordinator|route_corridor_ui_controller|hin_2025_ui/);
+  assert.match(appRuntime, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
+  assert.match(appRuntime, /import\('\.\/route_corridor_ui_controller\.js'\)/);
+  assert.match(appRuntime, /import\('\.\/hin_2025_ui\.js'\)/);
   assert.match(panel, /routeCorridorMount/);
   assert.doesNotMatch(controller, /aria-modal=["']true/);
   assert.match(controller, /let active = false;/, 'a closed route drawer must not begin as a map-click owner');

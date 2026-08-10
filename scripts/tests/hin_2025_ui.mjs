@@ -44,14 +44,16 @@ test('HIN text surface names street context, period, separated timestamps, metho
 });
 
 test('Known Route controller supports the same keyboard/file surface through an optional map port and keeps HIN nested-lazy', async () => {
-  const [controller, appLoader, listCss] = await Promise.all([
+  const [controller, appLoader, appRuntime, listCss] = await Promise.all([
     readFile(new URL('../../src/routes_crime/route_corridor_ui_controller.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/route_corridor_app_runtime.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/styles/crime-list-mode.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(appLoader, /createOptionalRouteMapPort\(getMap\)/);
-  assert.match(appLoader, /isAvailable: \(\) => Boolean\(resolve\(\)\)/);
-  assert.match(appLoader, /import\('\.\/hin_2025_ui\.js'\)/);
+  assert.match(appLoader, /import\('\.\/route_corridor_app_runtime\.js'\)/);
+  assert.match(appRuntime, /createOptionalRouteMapPort\(getMap\)/);
+  assert.match(appRuntime, /isAvailable: \(\) => Boolean\(resolve\(\)\)/);
+  assert.match(appRuntime, /import\('\.\/hin_2025_ui\.js'\)/);
   assert.doesNotMatch(controller, /hin_2025_ui|requestKnownRouteHin2025Context/);
   assert.match(controller, /requires its mount, map port, and request port/);
   assert.match(controller, /draw\.hidden = map\.isAvailable\?\.\(\) === false/);

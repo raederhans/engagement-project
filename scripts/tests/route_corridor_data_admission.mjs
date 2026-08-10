@@ -464,21 +464,24 @@ test('Crime adapter rejects a completed route result when the canonical query ch
 });
 
 test('shared map/list integration exposes only an explicit lazy route request boundary', async () => {
-  const [main, source, crimeController] = await Promise.all([
+  const [main, source, runtime, crimeController] = await Promise.all([
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/route_corridor_app_runtime.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
   assert.match(main, /import\('\.\/routes_crime\/route_corridor_app_loader\.js'\)/);
-  assert.match(source, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
-  assert.match(source, /requestModulePromise/);
-  assert.match(source, /requestModulePromise \|\|= import/);
-  assert.match(source, /requestModulePromise\?\.then\(\(module\) => module\.clear\(\)/);
-  assert.match(source, /requestRouteCorridor/);
-  assert.match(source, /clearRouteCorridor/);
-  assert.match(source, /getMap/);
+  assert.match(source, /import\('\.\/route_corridor_app_runtime\.js'\)/);
+  assert.doesNotMatch(source, /requestModulePromise|requestRouteCorridor|clearRouteCorridor/);
+  assert.match(runtime, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
+  assert.match(runtime, /requestModulePromise/);
+  assert.match(runtime, /requestModulePromise \|\|= import/);
+  assert.match(runtime, /requestModulePromise\?\.then\(\(module\) => module\.clear\(\)/);
+  assert.match(runtime, /requestRouteCorridor/);
+  assert.match(runtime, /clearRouteCorridor/);
+  assert.match(runtime, /getMap/);
   assert.doesNotMatch(crimeController, /requestRouteCorridor|clearRouteCorridor/);
-  assert.doesNotMatch(source, /localStorage|sessionStorage|navigator\.geolocation/);
+  assert.doesNotMatch(`${source}\n${runtime}`, /localStorage|sessionStorage|navigator\.geolocation/);
 });
 
 test('lazy module facade creates one coordinator so concurrent first requests share cancellation ownership', async () => {

@@ -33,7 +33,9 @@ Workflow-level permission is `contents: read`. Only `deploy` receives
 `pages: write` and `id-token: write`. Browser diagnostics are retained for 7
 days and the Pages candidate for 1 day. A failed or superseded gate cannot
 deploy; the workflow does not update visual baselines or relax bundle/pixel
-budgets.
+budgets. Diagnostic and coverage retention use SHA-pinned
+`actions/upload-artifact` v7.0.1, whose action runtime is Node.js 24; changing
+that pin requires updating the immutable-action workflow contract as well.
 
 Pull-request checks may cancel an older in-progress PR run. Main release runs
 do not cancel a release already in progress, and the Pages concurrency group

@@ -8,6 +8,7 @@ import {
   adaptCrimeCoverageObservation,
   adaptTransportObservation,
   bundledArtifactObservations,
+  createSourceHealthObservations,
 } from '../../src/source_health/source_health_adapters.js';
 import { BUNDLED_SOURCE_RECEIPTS } from '../../src/source_health/source_health_bundled_receipts.js';
 import { SOURCE_HEALTH_CATALOG } from '../../src/source_health/source_health_catalog.js';
@@ -160,6 +161,33 @@ test('official URLs and bundled receipt versions match committed fixtures', asyn
   }
   const observations = bundledArtifactObservations({ now: NOW });
   assert.equal(observations.find(({ sourceId }) => sourceId === 'tract-crime-snapshot').status, 'stale');
+});
+
+test('feature-owned observations register explicitly without changing the default assembly', () => {
+  const existing = createSourceHealthObservations({}, { now: NOW });
+  assert.deepEqual(existing, [
+    adaptCrimeCoverageObservation(undefined, { now: NOW }),
+    ...bundledArtifactObservations({ now: NOW }),
+  ]);
+  assert.deepEqual(existing.map(({ sourceId }) => sourceId), [
+    'philadelphia-reported-crime',
+    'acs-tract-population',
+    'tract-crime-snapshot',
+  ]);
+
+  const featureOwned = admitSourceHealthObservation(observation({ sourceId: 'hin-2025' }));
+  const registeredSourceHealthObservations = [featureOwned];
+  const extended = createSourceHealthObservations({
+    registeredSourceHealthObservations,
+  }, { now: NOW });
+  assert.deepEqual(extended.slice(0, existing.length), existing);
+  assert.equal(extended.at(-1), featureOwned);
+  assert.equal(Object.isFrozen(extended), true);
+  assert.deepEqual(registeredSourceHealthObservations, [featureOwned]);
+  assert.throws(
+    () => createSourceHealthObservations({ registeredSourceHealthObservations: {} }, { now: NOW }),
+    /must be an array/,
+  );
 });
 
 class TestNode {

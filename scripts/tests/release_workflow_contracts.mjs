@@ -57,6 +57,15 @@ test('release uploads one SHA-named Pages candidate and deploy consumes that exa
 
 test('diagnostic and coverage artifacts retain evidence without weakening gates', async () => {
   const workflow = await readFile(ciUrl, 'utf8');
+  const artifactUses = [...workflow.matchAll(/actions\/upload-artifact@([0-9a-f]{40})/g)];
+  assert.equal(artifactUses.length, 2);
+  assert.deepEqual(
+    artifactUses.map((match) => match[1]),
+    Array(2).fill('043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'),
+  );
+  assert.equal((workflow.match(
+    /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/g,
+  ) || []).length, 2);
   assert.match(workflow, /browser-diagnostics-\$\{\{ github\.run_attempt \}\}[\s\S]*?retention-days:\s*7/);
   assert.match(workflow, /coverage-report-\$\{\{ github\.run_attempt \}\}[\s\S]*?retention-days:\s*14/);
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/);

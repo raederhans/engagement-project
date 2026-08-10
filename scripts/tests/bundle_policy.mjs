@@ -15,6 +15,7 @@ const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
 const crimeList = manifest['src/routes_crime/list_mode_controller.js'];
 const routeCorridorApp = manifest['src/routes_crime/route_corridor_app_loader.js'];
+const routeCorridorRuntime = manifest['src/routes_crime/route_corridor_app_runtime.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
@@ -89,12 +90,18 @@ assert.deepEqual(
 assert.ok(routeCorridorApp?.isDynamicEntry, 'Vite manifest must keep the shared map/list Known Route adapter lazy');
 assert.deepEqual(
   new Set(routeCorridorApp.dynamicImports || []),
+  new Set(['src/routes_crime/route_corridor_app_runtime.js']),
+  'Known Route app adapter must keep all runtime ports behind the explicit open action',
+);
+assert.ok(routeCorridorRuntime?.isDynamicEntry, 'Vite manifest must contain the Known Route runtime ports as a nested lazy chunk');
+assert.deepEqual(
+  new Set(routeCorridorRuntime.dynamicImports || []),
   new Set([
     'src/routes_crime/route_corridor_crime_coordinator.js',
     'src/routes_crime/route_corridor_ui_controller.js',
     'src/routes_crime/hin_2025_ui.js',
   ]),
-  'Known Route app adapter must own the nested data and UI lazy boundaries',
+  'Known Route runtime must own the nested data, HIN, and UI boundaries',
 );
 assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corridor data as a lazy chunk');
 assert.ok(routeCorridorUi?.isDynamicEntry, 'Vite manifest must contain route-corridor UI as a second-level lazy chunk');
@@ -139,7 +146,10 @@ const budgets = [
   // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
   ['Crime', crime, 42_000, 14_900],
   ['Crime list', crimeList, 6_500, 2_600],
-  ['Route corridor app adapter', routeCorridorApp, 3_500, 1_500],
+  ['Route corridor app adapter', routeCorridorApp, 2_975, 1_275],
+  // Loads only after the user opens Known Route; keeps mutable map/request/HIN
+  // ports out of the app-level mode entry.
+  ['Route corridor runtime ports', routeCorridorRuntime, 3_000, 1_400],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
@@ -228,7 +238,7 @@ async function verifyWorkflowPolicy() {
   const approvedUses = new Map([
     ['actions/checkout', '3d3c42e5aac5ba805825da76410c181273ba90b1'],
     ['actions/setup-node', '820762786026740c76f36085b0efc47a31fe5020'],
-    ['actions/upload-artifact', 'ea165f8d65b6e75b540449e92b4886f43607fa02'],
+    ['actions/upload-artifact', '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'],
     ['actions/configure-pages', '45bfe0192ca1faeb007ade9deae92b16b8254a0d'],
     ['actions/upload-pages-artifact', 'fc324d3547104276b827a68afc52ff2a11cc49c9'],
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],

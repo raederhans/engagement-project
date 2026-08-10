@@ -134,8 +134,15 @@ export function bundledArtifactObservations({ now = new Date() } = {}) {
 }
 
 export function createSourceHealthObservations(runtimeEvidence = {}, options = {}) {
+  // Feature modules adapt their own evidence, then register the admitted
+  // observation here without adding source-specific imports to this assembler.
+  const registered = runtimeEvidence.registeredSourceHealthObservations ?? [];
+  if (!Array.isArray(registered)) {
+    throw new TypeError('registered source health observations must be an array');
+  }
   return Object.freeze([
     adaptCrimeCoverageObservation(runtimeEvidence.crimeCoverage, options),
     ...bundledArtifactObservations(options),
+    ...registered,
   ]);
 }
