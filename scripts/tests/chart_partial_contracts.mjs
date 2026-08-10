@@ -80,6 +80,30 @@ test('one failed chart does not prevent successful charts from rendering', async
   assert.deepEqual(sinks.calls.filter(([name]) => name === 'error').map(([, , options]) => options.chart), ['monthly']);
 });
 
+test('malformed fulfilled chart payload is unavailable instead of an admitted empty result', async () => {
+  for (const malformedTop of [
+    {},
+    { rows: [{ text_general_code: 'Thefts', n: 'NaN' }] },
+  ]) {
+    const sinks = createSinks();
+    const result = await updateAllCharts(bufferParams(), {
+      fetchers: {
+        fetchMonthlySeriesCity: async () => ({ rows: [{ m: '2026-01-01', n: 4 }] }),
+        fetchMonthlySeriesBuffer: async () => ({ rows: [] }),
+        fetchTopTypesBuffer: async () => malformedTop,
+        fetch7x24Buffer: async () => ({ rows: [] }),
+      },
+      sinks,
+    });
+
+    assert.equal(result.status, 'partial');
+    assert.deepEqual(result.failed, ['top']);
+    assert.equal(sinks.calls.some(([name]) => name === 'top'), false);
+    assert.equal(sinks.calls.filter(([name]) => name === 'error')[0][2].chart, 'top');
+    assert.doesNotMatch(sinks.calls.find(([name]) => name === 'status')?.[1] || '', /no incidents/i);
+  }
+});
+
 test('all chart failures return failed status instead of rejecting', async () => {
   const sinks = createSinks();
   const fail = (message) => async () => { throw new Error(message); };

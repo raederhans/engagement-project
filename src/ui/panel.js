@@ -19,8 +19,13 @@ import {
   CRIME_VIEW_QUERY_KEYS,
   encodeCrimeViewState,
 } from '../state/crime_view_state.js';
-import { getLastComparison } from '../compare/card.js';
-import { analysisExportToCsv, buildAnalysisExport, downloadTextFile } from '../utils/export_analysis.js';
+import { getLastComparison, getLastComparisonSnapshot } from '../compare/card.js';
+import {
+  analysisExportToCsv,
+  buildAnalysisExport,
+  downloadTextFile,
+  isEvidenceBundleEnabled,
+} from '../utils/export_analysis.js';
 import {
   applyTranslations,
   onLanguageChange,
@@ -33,6 +38,7 @@ import {
   onCrimeOffenseCatalogChange,
 } from '../i18n/crime_offenses.js';
 import { createCrimeWorkbenchController } from './crime_workbench.js';
+import { buildCrimeEvidenceSource } from './crime_data_sources.js';
 
 export {
   applyCrimeWorkspacePresentation,
@@ -284,6 +290,17 @@ export function initPanel(store, handlers) {
   const shareViewBtn = document.getElementById('shareViewBtn');
   const exportJsonBtn = document.getElementById('exportJsonBtn');
   const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const exportEvidenceBundleBtn = isEvidenceBundleEnabled() && exportJsonBtn?.parentElement
+    ? document.createElement('button')
+    : null;
+  if (exportEvidenceBundleBtn) {
+    exportEvidenceBundleBtn.id = 'exportEvidenceBundleBtn';
+    exportEvidenceBundleBtn.type = 'button';
+    exportEvidenceBundleBtn.className = 'button button--secondary';
+    exportEvidenceBundleBtn.style.gridColumn = '1 / -1';
+    setTranslatedText(exportEvidenceBundleBtn, 'crime.exportEvidenceBundle');
+    exportJsonBtn.parentElement.insertBefore(exportEvidenceBundleBtn, exportCsvBtn?.nextSibling || null);
+  }
   const overlayTractsChk = document.getElementById('overlayTractsChk');
   const overlayLabel = overlayTractsChk ? overlayTractsChk.parentElement?.querySelector('span') : null;
   const dataDetails = document.querySelector('.data-details');
@@ -700,6 +717,39 @@ export function initPanel(store, handlers) {
       showExportError(error);
     }
   });
+  exportEvidenceBundleBtn?.addEventListener('click', async () => {
+    try {
+      const {
+        buildEvidenceBundleSections,
+        composeEvidenceBundle,
+        EVIDENCE_BUNDLE_SCHEMA_VERSION,
+      } = await import('../analysis/evidence_bundle.js');
+      const generatedAt = new Date().toISOString();
+      const legacy = currentExport();
+      const source = buildCrimeEvidenceSource({
+        coverageMin: store.coverageMin,
+        coverageMax: store.coverageMax,
+        comparisonSnapshot: getLastComparisonSnapshot(legacy.filters),
+      });
+      const sections = buildEvidenceBundleSections({
+        filters: legacy.filters,
+        comparison: legacy.comparison,
+        source,
+      });
+      const bundle = await composeEvidenceBundle({
+        schemaVersion: EVIDENCE_BUNDLE_SCHEMA_VERSION,
+        generatedAt,
+        ...sections,
+      });
+      downloadTextFile(
+        'engagement-evidence-bundle.json',
+        `${JSON.stringify(bundle, null, 2)}\n`,
+        'application/json',
+      );
+    } catch (error) {
+      showExportError(error);
+    }
+  });
 
   function showExportError(error) {
     if (!dataStatus) return;
@@ -786,6 +836,7 @@ export function initPanel(store, handlers) {
     const exportReady = store.coverageStatus === 'ready';
     if (exportJsonBtn) exportJsonBtn.disabled = !exportReady;
     if (exportCsvBtn) exportCsvBtn.disabled = !exportReady;
+    if (exportEvidenceBundleBtn) exportEvidenceBundleBtn.disabled = !exportReady;
     applyModeUI();
     crimeWorkbench.sync();
     void updateHUD();

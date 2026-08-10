@@ -577,6 +577,40 @@ test('Crime task and availability copy stays neutral, historical, and non-person
   }
 });
 
+test('Evidence Bundle download is feature-flagged, bilingual, and does not replace legacy exports', async () => {
+  const [html, panelSource] = await Promise.all([
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
+  ]);
+  const { messages } = await import('../../src/i18n/index.js');
+
+  assert.match(html, /id="exportJsonBtn"/);
+  assert.match(html, /id="exportCsvBtn"/);
+  assert.doesNotMatch(html, /exportEvidenceBundleBtn/, 'flagged experiment button is created only at runtime');
+  assert.match(panelSource, /isEvidenceBundleEnabled/);
+  assert.match(panelSource, /exportEvidenceBundleBtn/);
+  assert.match(panelSource, /composeEvidenceBundle/);
+  assert.match(panelSource, /buildEvidenceBundleSections/);
+  assert.match(panelSource, /import\(['"]\.\.\/analysis\/evidence_bundle\.js['"]\)/);
+  assert.doesNotMatch(panelSource, /from ['"]\.\.\/analysis\/evidence_bundle\.js['"]/, 'flag-off entry must not eagerly load the experiment composer');
+  assert.doesNotMatch(
+    panelSource,
+    /buildEvidenceBundleSections,[\s\S]{0,200}from ['"]\.\.\/utils\/export_analysis\.js['"]/,
+    'flag-off entry must not eagerly load the experiment bridge',
+  );
+  assert.match(panelSource, /engagement-evidence-bundle\.json/);
+  assert.match(
+    panelSource,
+    /exportEvidenceBundleBtn\.style\.gridColumn\s*=\s*['"]1\s*\/\s*-1['"]/,
+    'the flagged fourth action must span the full second grid row',
+  );
+  assert.equal(messages.en['crime.exportEvidenceBundle'], 'Evidence bundle');
+  assert.equal(messages['zh-CN']['crime.exportEvidenceBundle'], '证据包');
+  for (const copy of [messages.en['crime.exportEvidenceBundle'], messages['zh-CN']['crime.exportEvidenceBundle']]) {
+    assert.doesNotMatch(copy, /verified safe|real[- ]?time|complete record|已验证安全|实时|完整记录/i);
+  }
+});
+
 test('Crime workspace derives setup, results, and edit stages without mutating the selection', async () => {
   const { deriveCrimeWorkspacePresentation } = await import('../../src/ui/panel.js');
 

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { fetchPoints } from '../../src/api/crime.js';
+import * as crimeApi from '../../src/api/crime.js';
 import {
   createTractSummaryFetchers,
   resolveSelectedTractGeometry,
@@ -20,8 +20,54 @@ import {
   normalizeCrimeRefreshScope,
 } from '../../src/routes_crime/index.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
+import { joinDistrictCountsToGeoJSON } from '../../src/utils/join.js';
 
 const { createCrimeRefreshOwner } = refreshContract;
+const { fetchPoints } = crimeApi;
+
+test('Crime external response admission rejects malformed HTTP 200 payloads and preserves admitted zero', () => {
+  assert.equal(typeof crimeApi.admitCrimeResponse, 'function');
+
+  assert.deepEqual(crimeApi.admitCrimeResponse('monthly', { rows: [] }), { rows: [] });
+  assert.deepEqual(crimeApi.admitCrimeResponse('count', { rows: [{ n: 0 }] }), { rows: [{ n: 0 }] });
+  assert.throws(() => crimeApi.admitCrimeResponse('monthly', {}), /rows/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('monthly', { rows: [{ m: '2026-13-01', n: 1 }] }), /month/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('monthly', { rows: [{ m: '2026-01-01', n: Number.NaN }] }), /count/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('count', { rows: [] }), /count/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('count', { rows: [{ n: 'NaN' }] }), /count/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('heat', { rows: [{ dow: 7, hr: 3, n: 1 }] }), /day-of-week/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('heat', { rows: [{ dow: 1, hr: 24, n: 1 }] }), /hour/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('district', { rows: [{ dc_dist: 'not-a-district', n: 1 }] }), /district/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('top', { rows: [{ text_general_code: '', n: 1 }] }), /offense/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('codes', { rows: [{ text_general_code: null }] }), /offense/i);
+});
+
+test('Crime point admission rejects malformed GeoJSON instead of normalizing it to an empty result', () => {
+  assert.equal(typeof crimeApi.admitCrimeResponse, 'function');
+  assert.deepEqual(
+    crimeApi.admitCrimeResponse('points', { type: 'FeatureCollection', features: [] }),
+    { type: 'FeatureCollection', features: [] },
+  );
+  assert.throws(() => crimeApi.admitCrimeResponse('points', { type: 'FeatureCollection' }), /features/i);
+  assert.throws(() => crimeApi.admitCrimeResponse('points', {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [Number.NaN, 39.9] }, properties: {} }],
+  }), /coordinates/i);
+});
+
+test('district joins preserve missing-district zero but reject malformed admitted rows', () => {
+  const districts = {
+    type: 'FeatureCollection',
+    features: [
+      { type: 'Feature', properties: { DIST_NUMC: '01' }, geometry: null },
+      { type: 'Feature', properties: { DIST_NUMC: '02' }, geometry: null },
+    ],
+  };
+  const joined = joinDistrictCountsToGeoJSON(districts, [{ dc_dist: '01', n: 3 }]);
+  assert.deepEqual(joined.features.map(({ properties }) => properties.value), [3, 0]);
+  assert.throws(() => joinDistrictCountsToGeoJSON(districts, [{ dc_dist: '01', n: Number.NaN }]), /count/i);
+  assert.throws(() => joinDistrictCountsToGeoJSON(districts, [{ dc_dist: 'invalid', n: 3 }]), /district/i);
+});
 
 function deferred() {
   let resolve;
@@ -570,7 +616,12 @@ test('tract summaries adapt tract count, offense, and population data to the sha
     tractGEOID: '42101000100',
     fetchMonthly: async ({ tractGEOID }) => {
       assert.equal(tractGEOID, '42101000100');
-      return { rows: [{ n: 4 }, { n: 5 }] };
+      return {
+        rows: [
+          { m: '2098-01-01', n: 4 },
+          { m: '2098-02-01', n: 5 },
+        ],
+      };
     },
     fetchTop: async ({ tractGEOID }) => {
       assert.equal(tractGEOID, '42101000100');

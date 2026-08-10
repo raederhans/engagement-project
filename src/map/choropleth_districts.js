@@ -13,7 +13,10 @@ export async function getDistrictsMerged({ start, end, types, signal, onSourceRe
     fetchPoliceDistrictsCachedFirst({ signal, onSourceResolved }),
     fetchByDistrict({ start, end, types, signal }),
   ]);
-  const rows = Array.isArray(resp?.rows) ? resp.rows : resp;
+  if (!resp || !Array.isArray(resp.rows)) {
+    throw new TypeError('Invalid Crime district response: rows must be present as an array');
+  }
+  const rows = resp.rows;
   const merged = joinDistrictCountsToGeoJSON(geo, rows);
   // attach names
   for (const f of merged.features || []) {

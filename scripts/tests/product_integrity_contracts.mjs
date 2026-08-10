@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -22,6 +23,161 @@ import {
 } from '../../src/routes_diary/diary_seed_data.js';
 
 const { store } = stateModule;
+const evidenceBundleUrl = new URL('../../src/analysis/evidence_bundle.js', import.meta.url);
+
+function evidenceSource(overrides = {}) {
+  return {
+    id: 'philadelphia-reported-crime',
+    dataset: 'incidents_part1_part2',
+    status: 'available',
+    url: 'https://phl.carto.com/api/v2/sql',
+    provider: 'City of Philadelphia via CARTO',
+    vintage: '2026-07-30',
+    asOf: '2026-07-30',
+    retrievedAt: '2026-08-10T00:00:00.000Z',
+    revisionPolicy: 'Provider records may be revised after retrieval.',
+    coverage: { start: '2006-01-01', end: '2026-07-30', geography: 'Philadelphia' },
+    snapshotIdentity: 'coverage:2006-01-01:2026-07-30',
+    ...overrides,
+  };
+}
+
+function evidenceQuery(overrides = {}) {
+  return {
+    type: 'crime-analysis',
+    timeRange: {
+      start: '2025-08-01',
+      endExclusive: '2026-08-01',
+      timeZone: 'America/New_York',
+    },
+    offenseCodes: ['Thefts'],
+    geography: {
+      mode: 'buffer',
+      radiusM: 400,
+      exactSelection: 'omitted-for-privacy',
+    },
+    comparisonRequested: false,
+    display: {
+      adminLevel: 'districts',
+      per10k: false,
+    },
+    ...overrides,
+  };
+}
+
+function evidenceResult(overrides = {}) {
+  return {
+    status: 'available',
+    comparison: {
+      a: {
+        point: 'A',
+        status: 'available',
+        total: 0,
+      },
+    },
+    ...overrides,
+  };
+}
+
+function evidenceInput(overrides = {}) {
+  return {
+    schemaVersion: 'engagement-evidence-bundle/v1',
+    generatedAt: '2026-08-10T00:00:00.000Z',
+    query: evidenceQuery(),
+    result: evidenceResult(),
+    provenance: { sources: [evidenceSource()] },
+    limitations: ['Historical reported records are not a complete measure of safety.'],
+    privacy: { mode: 'aggregate-only', excludedFields: ['raw incident rows', 'exact addresses'] },
+    ...overrides,
+  };
+}
+
+test('Evidence Bundle v1 uses stable browser-native SHA-256 section hashes', async () => {
+  assert.equal(existsSync(evidenceBundleUrl), true, 'Evidence Bundle composer must exist');
+  const { canonicalSerialize, composeEvidenceBundle } = await import(evidenceBundleUrl);
+  const first = await composeEvidenceBundle(evidenceInput());
+  const second = await composeEvidenceBundle(evidenceInput({
+    generatedAt: '2026-08-10T12:00:00.000Z',
+    query: {
+      display: { per10k: false, adminLevel: 'districts' },
+      comparisonRequested: false,
+      geography: { exactSelection: 'omitted-for-privacy', radiusM: 400, mode: 'buffer' },
+      offenseCodes: ['Thefts'],
+      timeRange: { timeZone: 'America/New_York', endExclusive: '2026-08-01', start: '2025-08-01' },
+      type: 'crime-analysis',
+    },
+    provenance: { sources: [evidenceSource({ retrievedAt: '2026-08-10T12:00:00.000Z' })] },
+  }));
+  const expectedQueryHash = [...new Uint8Array(await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(canonicalSerialize(evidenceQuery())),
+  ))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  assert.equal(first.schemaVersion, 'engagement-evidence-bundle/v1');
+  assert.equal(first.checksums.algorithm, 'SHA-256');
+  assert.equal(first.checksums.query, expectedQueryHash);
+  assert.deepEqual(first.checksums, second.checksums, 'volatile export timestamps must not change section hashes');
+  assert.equal(first.snapshotIdentity, second.snapshotIdentity);
+});
+
+test('Evidence Bundle v1 rejects sensitive fields and unknown schema versions', async () => {
+  assert.equal(existsSync(evidenceBundleUrl), true, 'Evidence Bundle composer must exist');
+  const { composeEvidenceBundle } = await import(evidenceBundleUrl);
+  for (const field of [
+    'incidentRows', 'incidents', 'rows', 'features', 'exactAddress', 'label',
+    'gpsTrace', 'diaryNotes', 'notes', 'routeGeometry', 'route', 'mediaUrl',
+  ]) {
+    await assert.rejects(
+      composeEvidenceBundle(evidenceInput({ query: { type: 'crime-analysis', [field]: 'sensitive' } })),
+      new RegExp(field, 'i'),
+    );
+  }
+  for (const [field, mutate] of [
+    ['description', (input) => { input.query.description = '1500 Market St'; }],
+    ['data', (input) => { input.result.data = [{ dispatch_date_time: 'raw incident' }]; }],
+    ['memo', (input) => { input.provenance.memo = '1500 Market St'; }],
+    ['polyline', (input) => { input.query.geography.polyline = 'encoded-route'; }],
+    ['link', (input) => { input.provenance.sources[0].coverage.link = 'https://example.test/private'; }],
+  ]) {
+    const candidate = evidenceInput();
+    mutate(candidate);
+    await assert.rejects(
+      composeEvidenceBundle(candidate),
+      new RegExp(field, 'i'),
+      `unknown v1 field ${field} must fail closed`,
+    );
+  }
+  await assert.rejects(
+    composeEvidenceBundle(evidenceInput({ schemaVersion: 'engagement-evidence-bundle/v2' })),
+    /schema/i,
+  );
+});
+
+test('Evidence Bundle keeps source unavailable distinct from an admitted aggregate zero', async () => {
+  assert.equal(existsSync(evidenceBundleUrl), true, 'Evidence Bundle composer must exist');
+  const { composeEvidenceBundle } = await import(evidenceBundleUrl);
+  const unavailable = await composeEvidenceBundle(evidenceInput({
+    result: { status: 'unavailable' },
+    provenance: { sources: [evidenceSource({ status: 'unavailable', vintage: null, asOf: null, retrievedAt: null, snapshotIdentity: null })] },
+  }));
+  assert.equal(unavailable.result.status, 'unavailable');
+  assert.equal(unavailable.provenance.sources[0].status, 'unavailable');
+  assert.equal(Object.hasOwn(unavailable.result, 'total'), false);
+
+  const zero = await composeEvidenceBundle(evidenceInput());
+  assert.equal(zero.result.status, 'available');
+  assert.equal(zero.result.comparison.a.total, 0);
+  const withoutRetrievalEvidence = await composeEvidenceBundle(evidenceInput({
+    provenance: { sources: [evidenceSource({ retrievedAt: null })] },
+  }));
+  assert.equal(withoutRetrievalEvidence.provenance.sources[0].retrievedAt, null);
+  await assert.rejects(
+    composeEvidenceBundle(evidenceInput({
+      provenance: { sources: [evidenceSource({ status: 'unavailable' })] },
+    })),
+    /unavailable/i,
+  );
+});
 
 test('Diary view models have one focused owner and remain available from the lazy facade', () => {
   assert.equal(diaryModule.createRouteSummaryModel, createRouteSummaryModelOwner);
@@ -898,7 +1054,13 @@ test('Crime refresh outcomes never label stale work as live', async () => {
 });
 
 test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', async () => {
-  const { buildAnalysisExport, analysisExportToCsv } = await import('../../src/utils/export_analysis.js');
+  const {
+    analysisExportToCsv,
+    buildAnalysisExport,
+    isEvidenceBundleEnabled,
+  } = await import('../../src/utils/export_analysis.js');
+  const { buildEvidenceBundleSections, composeEvidenceBundle } = await import(evidenceBundleUrl);
+  const { buildCrimeEvidenceSource } = await import('../../src/ui/crime_data_sources.js');
   const payload = buildAnalysisExport({
     filters: { start: '2025-08-01', end: '2026-08-01', types: ['Theft'] },
     comparison: { a: { label: '=unsafe', total: 10 }, b: { label: 'B', total: 20 } },
@@ -909,6 +1071,81 @@ test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', asy
   const csv = analysisExportToCsv(payload);
   assert.match(csv, /point,label,total/);
   assert.match(csv, /A,"'=unsafe",10/);
+
+  assert.equal(isEvidenceBundleEnabled({ VITE_FEATURE_EVIDENCE_BUNDLE: '1' }), true);
+  assert.equal(isEvidenceBundleEnabled({ VITE_FEATURE_EVIDENCE_BUNDLE: '0' }), false);
+  const sections = buildEvidenceBundleSections({
+    filters: {
+      start: '2025-08-01',
+      end: '2026-08-01',
+      types: ['Theft'],
+      queryMode: 'buffer',
+      center3857: [-8360000, 4850000],
+      centerB3857: [-8361000, 4851000],
+      addressA: '1500 Market St',
+      addressB: 'Home',
+      radiusM: 400,
+      adminLevel: 'districts',
+      per10k: false,
+    },
+    comparison: { a: { label: '1500 Market St', total: 0, per10k: null, top3: [] }, b: null },
+    source: evidenceSource(),
+  });
+  const serializedSections = JSON.stringify(sections);
+  assert.doesNotMatch(serializedSections, /1500 Market|\bHome\b|-8360000|-8361000/);
+  assert.deepEqual(sections.query.geography, {
+    mode: 'buffer',
+    radiusM: 400,
+    exactSelection: 'omitted-for-privacy',
+  });
+  assert.equal(sections.result.status, 'available');
+  assert.equal(sections.result.comparison.a.total, 0);
+  const validBundle = await composeEvidenceBundle({
+    schemaVersion: 'engagement-evidence-bundle/v1',
+    generatedAt: '2026-08-10T15:00:00.000Z',
+    ...sections,
+  });
+  assert.equal(validBundle.result.comparison.a.total, 0, 'builder output must satisfy the exact v1 schema');
+  const comparisonSnapshot = {
+    filterKey: 'matching-filter',
+    generatedAt: '2026-08-10T14:30:00.000Z',
+    comparison: { a: { total: 0 }, b: null },
+  };
+  const sourceAtFirstExport = buildCrimeEvidenceSource({
+    coverageMin: '2006-01-01',
+    coverageMax: '2026-07-30',
+    comparisonSnapshot,
+    generatedAt: '2026-08-10T15:00:00.000Z',
+  });
+  const sourceAtLaterExport = buildCrimeEvidenceSource({
+    coverageMin: '2006-01-01',
+    coverageMax: '2026-07-30',
+    comparisonSnapshot,
+    generatedAt: '2026-08-10T20:00:00.000Z',
+  });
+  assert.equal(sourceAtFirstExport.retrievedAt, comparisonSnapshot.generatedAt);
+  assert.equal(sourceAtLaterExport.retrievedAt, comparisonSnapshot.generatedAt);
+  assert.equal(
+    buildCrimeEvidenceSource({
+      coverageMin: '2006-01-01',
+      coverageMax: '2026-07-30',
+      comparisonSnapshot: null,
+      generatedAt: '2026-08-10T20:00:00.000Z',
+    }).retrievedAt,
+    null,
+    'export time must not be invented as retrieval time when no matching snapshot exists',
+  );
+  assert.throws(
+    () => buildEvidenceBundleSections({
+      filters: { start: '2025-08-01', end: '2026-08-01', radiusM: 400 },
+      comparison: { a: { total: '' } },
+      source: evidenceSource(),
+    }),
+    /admitted aggregate count/i,
+    'an empty count must not be coerced into an admitted zero',
+  );
+  assert.equal(payload.schemaVersion, 1, 'legacy JSON schema must remain unchanged');
+  assert.equal(csv, analysisExportToCsv(payload), 'legacy CSV output must remain unchanged');
 });
 
 test('Diary local repository stores normalized route records without a backend', async () => {
@@ -1364,6 +1601,68 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
   });
 });
 
+test('tract enrichment keeps shared boundaries and prior snapshots immutable', () => {
+  const geometry = {
+    type: 'Polygon',
+    coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 39.9]]],
+  };
+  const sharedTracts = {
+    type: 'FeatureCollection',
+    source: 'shared-cache',
+    features: [{
+      type: 'Feature',
+      properties: { GEOID: '42101000100', stable: 'preserve-me' },
+      geometry,
+    }],
+  };
+  const snapshot = {
+    meta: {
+      schema_version: 2,
+      start: '2025-08-01',
+      end: '2026-08-01',
+      generated_at: '2026-07-31T01:00:00.000Z',
+      coverage_date: '2026-07-30',
+      row_count: 1,
+      source_dataset: 'incidents_part1_part2',
+      tract_source: 'public/data/tracts_phl.geojson',
+    },
+    rows: [{
+      geoid: '42101000100',
+      total: 7,
+      offenses: [
+        { code: 'Robbery Firearm', n: 2 },
+        { code: 'Theft', n: 5 },
+      ],
+    }],
+  };
+
+  const first = tractView.mergeTractSnapshotData({
+    tracts: sharedTracts,
+    stats: [{ geoid: '42101000100', pop: 1000 }],
+    snapshot,
+    start: '2025-08-01',
+    end: '2026-08-01',
+    types: ['Theft'],
+  });
+  const second = tractView.mergeTractSnapshotData({
+    tracts: sharedTracts,
+    stats: [{ geoid: '42101000100', pop: 1000 }],
+    snapshot,
+    start: '2025-08-01',
+    end: '2026-08-01',
+    types: ['Robbery Firearm'],
+  });
+
+  assert.notEqual(first.geojson, sharedTracts);
+  assert.notEqual(first.geojson.features[0], sharedTracts.features[0]);
+  assert.notEqual(first.geojson.features[0].properties, sharedTracts.features[0].properties);
+  assert.equal(first.geojson.features[0].geometry, geometry);
+  assert.equal(second.geojson.features[0].geometry, geometry);
+  assert.deepEqual(sharedTracts.features[0].properties, { GEOID: '42101000100', stable: 'preserve-me' });
+  assert.equal(first.geojson.features[0].properties.value, 5);
+  assert.equal(second.geojson.features[0].properties.value, 2);
+});
+
 test('bundle policy keeps feature translation catalogs outside the established entry budget', async () => {
   const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
   assert.match(source, /\['Entry', entry, 902_665, 247_583\]/);
@@ -1434,6 +1733,35 @@ test('missing or mismatched tract snapshot is unavailable rather than a true zer
   assert.equal(result.dataStatus, 'unavailable');
   assert.deepEqual(result.values, []);
   assert.match(result.statusMessage, /does not cover/i);
+  assert.equal(result.geojson.features[0].properties.value, null);
+});
+
+test('malformed tract counts are unavailable instead of becoming admitted zero', () => {
+  const result = tractView.mergeTractSnapshotData({
+    tracts: {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: { GEOID: '42101000100' }, geometry: null }],
+    },
+    stats: [{ geoid: '42101000100', pop: 1000 }],
+    snapshot: {
+      meta: {
+        schema_version: 2,
+        start: '2025-08-01',
+        end: '2026-08-01',
+        generated_at: '2026-07-31T01:00:00.000Z',
+        coverage_date: '2026-07-30',
+        row_count: 1,
+        source_dataset: 'incidents_part1_part2',
+        tract_source: 'public/data/tracts_phl.geojson',
+      },
+      rows: [{ geoid: '42101000100', total: Number.NaN, offenses: [] }],
+    },
+    start: '2025-08-01',
+    end: '2026-08-01',
+  });
+
+  assert.equal(result.dataStatus, 'unavailable');
+  assert.deepEqual(result.values, []);
   assert.equal(result.geojson.features[0].properties.value, null);
 });
 

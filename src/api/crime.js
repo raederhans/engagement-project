@@ -5,6 +5,120 @@ import { expandGroupsToCodes } from "../utils/types.js";
 import { fetchTractsCachedFirst } from "./boundaries.js";
 import { getTractPolygonAndBboxByGEOID } from "../utils/tract_geom.js";
 
+function invalidCrimeResponse(kind, detail) {
+  throw new TypeError(`Invalid Crime ${kind} response: ${detail}`);
+}
+
+function admittedCount(value, kind) {
+  const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    invalidCrimeResponse(kind, 'count must be a non-negative safe integer');
+  }
+  return normalized;
+}
+
+function admittedInteger(value, { min, max, kind, field }) {
+  const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+  if (!Number.isInteger(normalized) || normalized < min || normalized > max) {
+    invalidCrimeResponse(kind, `${field} is outside the admitted range`);
+  }
+  return normalized;
+}
+
+function admittedText(value, kind, field, maxLength = 240) {
+  if (typeof value !== 'string' || !value.trim() || value.length > maxLength) {
+    invalidCrimeResponse(kind, `${field} must be non-empty bounded text`);
+  }
+  return value;
+}
+
+function admittedMonth(value, kind) {
+  if (typeof value !== 'string') invalidCrimeResponse(kind, 'month must be a string');
+  const match = /^(\d{4})-(\d{2})-01(?:T.*)?$/.exec(value);
+  const month = Number(match?.[2]);
+  if (!match || month < 1 || month > 12 || Number.isNaN(Date.parse(value.length === 10 ? `${value}T00:00:00Z` : value))) {
+    invalidCrimeResponse(kind, 'month must identify the first day of a valid calendar month');
+  }
+  return value;
+}
+
+function admittedRows(payload, kind, validateRow) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray(payload.rows)) {
+    invalidCrimeResponse(kind, 'rows must be present as an array');
+  }
+  payload.rows.forEach((row, index) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      invalidCrimeResponse(kind, `row ${index} must be an object`);
+    }
+    validateRow(row, index);
+  });
+  return payload;
+}
+
+function admitPointResponse(payload) {
+  if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
+    invalidCrimeResponse('points', 'a FeatureCollection with features is required');
+  }
+  payload.features.forEach((feature, index) => {
+    if (!feature || feature.type !== 'Feature' || feature.geometry?.type !== 'Point'
+      || !Array.isArray(feature.geometry.coordinates)
+      || feature.geometry.coordinates.length < 2
+      || !feature.geometry.coordinates.slice(0, 2).every(Number.isFinite)) {
+      invalidCrimeResponse('points', `feature ${index} must have finite Point coordinates`);
+    }
+    if (!feature.properties || typeof feature.properties !== 'object' || Array.isArray(feature.properties)) {
+      invalidCrimeResponse('points', `feature ${index} properties must be an object`);
+    }
+  });
+  return payload;
+}
+
+/**
+ * Admit a CARTO Crime response according to the schema of the originating query.
+ * Group-by queries may contain an empty rows array; missing/malformed rows fail closed.
+ */
+export function admitCrimeResponse(kind, payload) {
+  switch (kind) {
+    case 'points':
+      return admitPointResponse(payload);
+    case 'monthly':
+      return admittedRows(payload, kind, (row) => {
+        admittedMonth(row.m, kind);
+        admittedCount(row.n, kind);
+      });
+    case 'top':
+      return admittedRows(payload, kind, (row) => {
+        admittedText(row.text_general_code, kind, 'offense code');
+        admittedCount(row.n, kind);
+      });
+    case 'heat':
+      return admittedRows(payload, kind, (row) => {
+        admittedInteger(row.dow, { min: 0, max: 6, kind, field: 'day-of-week' });
+        admittedInteger(row.hr, { min: 0, max: 23, kind, field: 'hour' });
+        admittedCount(row.n, kind);
+      });
+    case 'district':
+      return admittedRows(payload, kind, (row) => {
+        const district = admittedText(String(row.dc_dist ?? ''), kind, 'district', 2);
+        if (!/^\d{1,2}$/.test(district) || Number(district) < 1 || Number(district) > 99) {
+          invalidCrimeResponse(kind, 'district must be a one- or two-digit positive code');
+        }
+        admittedCount(row.n, kind);
+      });
+    case 'count': {
+      admittedRows(payload, kind, (row) => admittedCount(row.n, kind));
+      if (payload.rows.length !== 1) invalidCrimeResponse(kind, 'count query must return exactly one row');
+      return payload;
+    }
+    case 'codes':
+      return admittedRows(payload, kind, (row) => {
+        admittedText(row.text_general_code, kind, 'offense code');
+      });
+    default:
+      invalidCrimeResponse(String(kind || 'unknown'), 'query type is not admitted');
+  }
+}
+
 /**
  * Fetch crime point features for Map A.
  * @param {object} params
@@ -32,13 +146,13 @@ export async function fetchPoints({
     start, end, types, bbox, center3857, radiusM, dc_dist, drilldownCodes, tractGeometry,
   });
   await logQuery('fetchPoints', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('points', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `format=GeoJSON&q=${encodeURIComponent(sql)}`,
     cacheTTL: 30_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -52,13 +166,13 @@ export async function fetchPoints({
 export async function fetchMonthlySeriesCity({ start, end, types, dc_dist, signal }) {
   const sql = Q.buildMonthlyCitySQL({ start, end, types, dc_dist });
   await logQuery('fetchMonthlySeriesCity', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('monthly', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 300_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -87,13 +201,13 @@ export async function fetchMonthlySeriesBuffer({
     radiusM,
   });
   await logQuery('fetchMonthlySeriesBuffer', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('monthly', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -124,13 +238,13 @@ export async function fetchTopTypesBuffer({
     limit,
   });
   await logQuery('fetchTopTypesBuffer', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('top', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -159,13 +273,13 @@ export async function fetch7x24Buffer({
     radiusM,
   });
   await logQuery('fetch7x24Buffer', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('heat', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 60_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -179,13 +293,13 @@ export async function fetch7x24Buffer({
 export async function fetchByDistrict({ start, end, types, signal }) {
   const sql = Q.buildByDistrictSQL({ start, end, types });
   await logQuery('fetchByDistrict', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('district', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
     cacheTTL: 120_000,
     signal,
-  });
+  }));
 }
 
 /**
@@ -194,9 +308,9 @@ export async function fetchByDistrict({ start, end, types, signal }) {
 export async function fetchTopTypesByDistrict({ start, end, types, dc_dist, limit = 5, signal }) {
   const sql = Q.buildTopTypesDistrictSQL({ start, end, types, dc_dist, limit });
   await logQuery('fetchTopTypesByDistrict', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('top', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000, signal,
-  });
+  }));
 }
 
 /**
@@ -205,9 +319,9 @@ export async function fetchTopTypesByDistrict({ start, end, types, dc_dist, limi
 export async function fetch7x24District({ start, end, types, dc_dist, signal }) {
   const sql = Q.buildHeatmap7x24DistrictSQL({ start, end, types, dc_dist });
   await logQuery('fetch7x24District', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('heat', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 60_000, signal,
-  });
+  }));
 }
 
 /**
@@ -225,9 +339,8 @@ export async function fetchCountBuffer({ start, end, types, center3857, radiusM,
     cacheTTL: 30_000,
     signal,
   });
-  const rows = json?.rows;
-  const n = Array.isArray(rows) && rows.length > 0 ? Number(rows[0]?.n) || 0 : 0;
-  return n;
+  const admitted = admitCrimeResponse('count', json);
+  return admittedCount(admitted.rows[0].n, 'count');
 }
 
 /**
@@ -271,8 +384,8 @@ export async function fetchAvailableCodesForGroups({ start, end, groups, signal 
     signal,
   });
 
-  const rows = json?.rows || [];
-  return rows.map((r) => r.text_general_code).filter(Boolean);
+  const admitted = admitCrimeResponse('codes', json);
+  return admitted.rows.map((row) => row.text_general_code);
 }
 
 /**
@@ -291,9 +404,9 @@ export async function fetchMonthlySeriesTract({ start, end, types, tractGEOID, s
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildMonthlyTractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326 });
   await logQuery('fetchMonthlySeriesTract', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('monthly', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
-  });
+  }));
 }
 
 /**
@@ -312,9 +425,9 @@ export async function fetchTopTypesTract({ start, end, types, tractGEOID, limit 
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildTopTypesTractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326, limit });
   await logQuery('fetchTopTypesTract', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('top', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
-  });
+  }));
 }
 
 /**
@@ -333,9 +446,9 @@ export async function fetch7x24Tract({ start, end, types, tractGEOID, signal }) 
   if (!pb) throw new Error(`Tract ${tractGEOID} not found`);
   const sql = Q.buildHeatmap7x24TractSQL({ start, end, types, tractGEOID, tractGeometry: pb.geojsonPolygon4326 });
   await logQuery('fetch7x24Tract', sql);
-  return fetchJson(CARTO_SQL_BASE, {
+  return admitCrimeResponse('heat', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `q=${encodeURIComponent(sql)}`, cacheTTL: 90_000, signal,
-  });
+  }));
 }
 
 // Aliases matching request naming

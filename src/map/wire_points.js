@@ -5,7 +5,7 @@ import {
   refreshPoints,
 } from './points.js';
 import { onLanguageChange, t } from '../i18n/index.js';
-import { formatLocalizedDate } from '../i18n/date.js';
+import { formatCrimeIncidentDate } from '../i18n/date.js';
 import { escapeHtml } from '../utils/html.js';
 
 function createDebounced(fn, wait, scheduler) {
@@ -92,7 +92,7 @@ export function wirePoints(map, deps) {
           translate: t,
           languageChange: onLanguageChange,
           getResultKey: incidentResultKey,
-          formatDate: formatLocalizedDate,
+          formatDate: formatCrimeIncidentDate,
           escape: escapeHtml,
         });
         if (destroyed) {

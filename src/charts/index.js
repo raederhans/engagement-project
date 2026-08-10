@@ -4,6 +4,7 @@ import { clearMonthlyChart, renderMonthly } from './line_monthly.js';
 import { clearTopNChart, renderTopN } from './bar_topn.js';
 import { clearTemporalChart, render7x24 } from './heat_7x24.js';
 import {
+  admitCrimeResponse,
   fetchMonthlySeriesCity,
   fetchMonthlySeriesBuffer,
   fetchTopTypesBuffer,
@@ -69,7 +70,10 @@ export function createTractSummaryFetchers({
   return {
     async fetchCountBuffer({ start, end, types, signal }) {
       const response = await fetchMonthly({ start, end, types, tractGEOID, signal });
-      return (response?.rows || []).reduce((sum, row) => sum + (Number(row?.n) || 0), 0);
+      return admitCrimeResponse('monthly', response).rows.reduce(
+        (sum, row) => sum + Number(row.n),
+        0,
+      );
     },
     fetchTopTypesBuffer({ start, end, types, limit, signal }) {
       return fetchTop({ start, end, types, tractGEOID, limit, signal });
@@ -221,15 +225,15 @@ onLanguageChange(() => {
 });
 
 function byMonthRows(rows) {
-  return (rows || []).map((r) => ({ m: dayjs(r.m).format('YYYY-MM'), n: Number(r.n) || 0 }));
+  return rows.map((r) => ({ m: dayjs(r.m).format('YYYY-MM'), n: Number(r.n) }));
 }
 
 function buildMatrix(dowHrRows) {
   const m = Array.from({ length: 7 }, () => Array(24).fill(0));
-  for (const r of dowHrRows || []) {
+  for (const r of dowHrRows) {
     const d = Number(r.dow);
     const h = Number(r.hr);
-    const n = Number(r.n) || 0;
+    const n = Number(r.n);
     if (d >= 0 && d <= 6 && h >= 0 && h <= 23) m[d][h] = n;
   }
   return m;
@@ -444,18 +448,32 @@ export async function updateAllCharts(
     else failed.push({ chart, error: result.reason });
   });
 
-  const rowsOf = (result) => (Array.isArray(result?.rows) ? result.rows : result) || [];
-  const monthly = values.monthly ? {
-    cityRows: byMonthRows(rowsOf(values.monthly.city)),
-    areaRows: byMonthRows(rowsOf(values.monthly.area)),
-  } : null;
-  const topRows = values.top ? rowsOf(values.top) : null;
-  const heatMatrix = values.heat ? buildMatrix(rowsOf(values.heat)) : null;
+  let monthly = null;
+  let topRows = null;
+  let heatRows = null;
+  let heatMatrix = null;
+  const admitChartValue = (chart, callback) => {
+    if (!(chart in values)) return null;
+    try {
+      return callback();
+    } catch (error) {
+      delete values[chart];
+      failed.push({ chart, error });
+      return null;
+    }
+  };
+  monthly = admitChartValue('monthly', () => ({
+    cityRows: byMonthRows(admitCrimeResponse('monthly', values.monthly.city).rows),
+    areaRows: byMonthRows(admitCrimeResponse('monthly', values.monthly.area).rows),
+  }));
+  topRows = admitChartValue('top', () => admitCrimeResponse('top', values.top).rows);
+  heatRows = admitChartValue('heat', () => admitCrimeResponse('heat', values.heat).rows);
+  if (heatRows) heatMatrix = buildMatrix(heatRows);
   let statusKey = null;
   if (failed.length === 0) {
     const allZeroCity = monthly?.cityRows.length > 0 && monthly.cityRows.every((row) => Number(row.n || 0) === 0);
     const noneTop = !topRows?.length;
-    const noneHeat = !rowsOf(values.heat).length;
+    const noneHeat = !heatRows?.length;
     if (queryMode === 'tract' && !monthly?.areaRows.length && noneTop && noneHeat) {
       statusKey = 'chart.noTractIncidents';
     } else if (allZeroCity && noneTop && noneHeat) {

@@ -10,6 +10,14 @@ export function formatLocalizedDate(value, options = { dateStyle: 'medium', time
   return new Intl.DateTimeFormat(getDateLocale(), options).format(date);
 }
 
+export function formatCrimeIncidentDate(value) {
+  return formatLocalizedDate(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'America/New_York',
+  });
+}
+
 export function formatCalendarDate(value, { includeYear = true } = {}) {
   if (!value) return null;
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);

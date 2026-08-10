@@ -18,6 +18,10 @@ export function buildAnalysisExport({ filters, comparison, generatedAt = new Dat
   };
 }
 
+export function isEvidenceBundleEnabled(env = import.meta.env) {
+  return env?.VITE_FEATURE_EVIDENCE_BUNDLE === '1';
+}
+
 export function analysisExportToCsv(payload) {
   const lines = ['point,label,total,per10k,change30d'];
   for (const [key, point] of Object.entries(payload?.comparison || {})) {

@@ -18,11 +18,20 @@ export function leftPad2(s) {
 export function joinDistrictCountsToGeoJSON(districts, rows) {
   const out = { ...districts, features: [] };
   const map = new Map();
-  if (Array.isArray(rows)) {
-    for (const r of rows) {
-      const key = leftPad2(r?.dc_dist);
-      if (key) map.set(key, Number(r?.n) || 0);
+  if (!Array.isArray(rows)) throw new TypeError('Invalid district rows: rows must be an array');
+  for (const row of rows) {
+    const rawDistrict = String(row?.dc_dist ?? '');
+    if (!/^\d{1,2}$/.test(rawDistrict) || Number(rawDistrict) < 1 || Number(rawDistrict) > 99) {
+      throw new TypeError('Invalid district row: district must be a one- or two-digit positive code');
     }
+    const key = leftPad2(rawDistrict);
+    const rawCount = row?.n;
+    const count = typeof rawCount === 'string' && /^\d+$/.test(rawCount) ? Number(rawCount) : rawCount;
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new TypeError('Invalid district row: count must be a non-negative safe integer');
+    }
+    if (map.has(key)) throw new TypeError(`Invalid district rows: duplicate district ${key}`);
+    map.set(key, count);
   }
 
   if (!districts || districts.type !== "FeatureCollection" || !Array.isArray(districts.features)) {

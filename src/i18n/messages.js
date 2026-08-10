@@ -98,6 +98,7 @@ const messagePairs = Object.freeze({
   'crime.urlUpdated': ['URL updated', '链接已更新'],
   'crime.exportNotReady': ['Historical crime coverage is not ready for export.', '历史犯罪记录范围尚未就绪，无法导出。'],
   'crime.exportUnavailable': ['Export is unavailable.', '当前无法导出。'],
+  'crime.exportEvidenceBundle': ['Evidence bundle', '证据包'],
   'crime.help': ['Help', '帮助'],
   'crime.help1': ['Pick a location (Pick on map) and radius for buffer A.', '为缓冲区 A 选择地点（在地图上选点）和半径。'],
   'crime.help2': ['The time window uses a start month and duration.', '时间范围由开始月份和持续时间决定。'],

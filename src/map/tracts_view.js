@@ -102,9 +102,31 @@ function snapshotProvenance(meta, geoids) {
   };
 }
 
+function snapshotCount(value) {
+  const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+  return Number.isSafeInteger(normalized) && normalized >= 0 ? normalized : null;
+}
+
+function snapshotRowsAreAdmitted(rows) {
+  if (!Array.isArray(rows)) return false;
+  return rows.every((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)
+      || typeof row.geoid !== 'string' || !/^\d{11}$/.test(row.geoid)
+      || snapshotCount(row.total) == null || !Array.isArray(row.offenses)) return false;
+    const offenseCodes = new Set();
+    return row.offenses.every((offense) => {
+      if (!offense || typeof offense !== 'object' || Array.isArray(offense)
+        || typeof offense.code !== 'string' || !offense.code.trim() || offense.code.length > 240
+        || offenseCodes.has(offense.code) || snapshotCount(offense.n) == null) return false;
+      offenseCodes.add(offense.code);
+      return true;
+    });
+  });
+}
+
 export function mergeTractSnapshotData({ tracts, stats, snapshot, start, end, types = [], per10k = false }) {
   const populationByGeoid = new Map(stats.map((row) => [row.geoid, row]));
-  const tractFeatures = tracts.features || [];
+  const tractFeatures = Array.isArray(tracts?.features) ? tracts.features : [];
   const tractGeoids = tractFeatures.map(tractFeatureGEOID);
   const snapshotGeoids = Array.isArray(snapshot?.rows) ? snapshot.rows.map((row) => String(row.geoid || '')) : [];
   const uniqueTractGeoids = new Set(tractGeoids);
@@ -123,37 +145,41 @@ export function mergeTractSnapshotData({ tracts, stats, snapshot, start, end, ty
     && snapshot?.meta?.start === start
     && snapshot?.meta?.end === end
     && Array.isArray(snapshot?.rows)
-    && Number(snapshot?.meta?.row_count) === snapshot.rows.length
+    && snapshot?.meta?.row_count === snapshot.rows.length
     && provenance != null
-    && exactGeography;
+    && exactGeography
+    && snapshotRowsAreAdmitted(snapshot.rows);
   const selectedTypes = new Set(types || []);
   const rowByGeoid = matches
     ? new Map(snapshot.rows.map((row) => [row.geoid, row]))
     : new Map();
   const values = [];
 
-  for (const ft of tracts.features || []) {
+  const enrichedFeatures = tractFeatures.map((ft) => {
     const g = tractFeatureGEOID(ft);
     const populationRow = populationByGeoid.get(g);
     const crimeRow = rowByGeoid.get(g);
     const rawValue = matches && crimeRow
       ? (selectedTypes.size
-        ? (crimeRow.offenses || []).reduce(
-          (sum, offense) => sum + (selectedTypes.has(offense.code) ? Number(offense.n) || 0 : 0),
+        ? crimeRow.offenses.reduce(
+          (sum, offense) => sum + (selectedTypes.has(offense.code) ? snapshotCount(offense.n) : 0),
           0,
         )
-        : Number(crimeRow.total) || 0)
+        : snapshotCount(crimeRow.total))
       : null;
-    ft.properties.__geoid = g;
-    ft.properties.__pop = populationRow?.pop ?? null;
-    ft.properties.value = rawValue == null
+    const properties = { ...(ft?.properties || {}) };
+    properties.__geoid = g;
+    properties.__pop = populationRow?.pop ?? null;
+    properties.value = rawValue == null
       ? null
       : (per10k && populationRow?.pop > 0
         ? Math.round((rawValue / populationRow.pop) * 10000)
         : rawValue);
-    if (ft.properties.__pop === null || ft.properties.__pop < 500) ft.properties.__mask = true;
-    if (ft.properties.value != null) values.push(ft.properties.value);
-  }
+    if (properties.__pop === null || properties.__pop < 500) properties.__mask = true;
+    else delete properties.__mask;
+    if (properties.value != null) values.push(properties.value);
+    return { ...ft, properties };
+  });
 
   const dataStatus = matches ? 'available' : 'unavailable';
   const statusMessage = matches
@@ -165,7 +191,7 @@ export function mergeTractSnapshotData({ tracts, stats, snapshot, start, end, ty
       : 'Tract snapshot is unavailable in this build.');
   const filterLabel = selectedTypes.size ? ` · ${selectedTypes.size} selected offense${selectedTypes.size === 1 ? '' : 's'}` : ' · all offenses';
   return {
-    geojson: tracts,
+    geojson: { ...tracts, features: enrichedFeatures },
     values: dataStatus === 'available' ? values : [],
     dataStatus,
     provenance: matches ? provenance : null,

@@ -11,6 +11,7 @@ const diaryDemoHtml = readFileSync(new URL('diary-demo.html', projectRoot), 'utf
 const mainSource = readFileSync(new URL('src/main.js', projectRoot), 'utf8');
 const diaryDemoSource = readFileSync(new URL('src/diary_demo_main.js', projectRoot), 'utf8');
 const taskFocusSource = readFileSync(new URL('src/routes_crime/task_focus_controller.js', projectRoot), 'utf8');
+const wirePointsSource = readFileSync(new URL('src/map/wire_points.js', projectRoot), 'utf8');
 
 function requireFile(url, label) {
   assert.equal(existsSync(url), true, `${label} must exist`);
@@ -116,6 +117,30 @@ test('dates follow the selected application language instead of the browser loca
   assert.match(formatCalendarDate('2026-07-31'), /2026年7月31日/);
   assert.doesNotMatch(formatCalendarDate('2026-07-31'), /Jul/i);
   setLanguage('en');
+});
+
+test('Crime incident timestamps use Philadelphia time without changing the generic formatter', async () => {
+  const { setLanguage } = await import(runtimeUrl);
+  const dateModule = await import(dateUrl);
+  assert.equal(typeof dateModule.formatCrimeIncidentDate, 'function');
+  setLanguage('en');
+  const timestamp = '2026-01-01T02:30:00.000Z';
+  const expectedPhiladelphia = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'America/New_York',
+  }).format(new Date(timestamp));
+  const expectedUtc = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(timestamp));
+
+  assert.equal(dateModule.formatCrimeIncidentDate(timestamp), expectedPhiladelphia);
+  assert.notEqual(dateModule.formatCrimeIncidentDate(timestamp), expectedUtc, 'Philadelphia fixture must cross the calendar day');
+  assert.equal(dateModule.formatLocalizedDate(timestamp, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }), expectedUtc);
+  assert.match(wirePointsSource, /formatCrimeIncidentDate/);
+  assert.doesNotMatch(wirePointsSource, /formatDate:\s*formatLocalizedDate/);
 });
 
 test('Crime chart renderers receive localized copy and contain no reader-visible English fallback', async () => {

@@ -128,6 +128,25 @@ test('coverage query uses Philadelphia calendar dates', async () => {
   assert.match(meta.COVERAGE_SQL, /MAX\([^)]+\)::date AS max_dt/i);
 });
 
+test('Crime coverage response admission fails closed on missing or invalid rows', async () => {
+  const meta = await import('../../src/api/meta.js');
+  assert.equal(typeof meta.admitCoverageResponse, 'function');
+  assert.deepEqual(meta.admitCoverageResponse({ rows: [{ min_dt: '2006-01-01', max_dt: '2026-08-01' }] }), {
+    min: '2006-01-01',
+    max: '2026-08-01',
+  });
+  assert.deepEqual(meta.admitCoverageResponse({
+    rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-08-01T00:00:00.000Z' }],
+  }), {
+    min: '2006-01-01',
+    max: '2026-08-01',
+  });
+  assert.throws(() => meta.admitCoverageResponse({}), /rows/i);
+  assert.throws(() => meta.admitCoverageResponse({ rows: [] }), /coverage/i);
+  assert.throws(() => meta.admitCoverageResponse({ rows: [{ min_dt: 'invalid', max_dt: '2026-08-01' }] }), /coverage/i);
+  assert.throws(() => meta.admitCoverageResponse({ rows: [{ min_dt: '2026-08-02', max_dt: '2026-08-01' }] }), /coverage/i);
+});
+
 test('result provenance keeps technical count and location caveats behind details', async () => {
   const { createCrimeRefreshProvenance } = await import('../../src/ui/crime_result_meta.js');
   const provenance = createCrimeRefreshProvenance({
