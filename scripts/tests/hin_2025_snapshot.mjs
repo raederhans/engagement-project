@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
+  acquireOfficialHin2025,
   HIN_2025_ARTIFACT_MAX_BYTES,
   HIN_2025_FEATURE_COUNT,
   normalizeHin2025Snapshot,
   renderHin2025Snapshot,
   validateHin2025Snapshot,
   validateOfficialHin2025Contract,
+  validateOfficialHin2025TimeSemantics,
 } from '../lib/hin_2025_snapshot.mjs';
+import {
+  compareHin2025SemanticSnapshots,
+  createHin2025Receipt,
+  renderHin2025Receipt,
+  validateHin2025Receipt,
+  writeHin2025LifecycleAtomic,
+} from '../lib/hin_2025_receipt.mjs';
 
 const item = {
   id: '7e416319784a463fa0d8b528d7ccf511',
@@ -91,6 +102,40 @@ test('official admission requires the exact current schema, count, no GlobalID, 
   }), /field schema changed/i);
 });
 
+test('official acquisition is sequential and fails closed when City period semantics drift', async () => {
+  const officialText = '<p>The updated High Injury Network was released. The updated HIN is based on crash data from 2019 to 2023.</p>';
+  assert.deepEqual(validateOfficialHin2025TimeSemantics(officialText), {
+    crashDataPeriod: [2019, 2023],
+    networkVintage: 2025,
+    officialContext: 'https://www.phila.gov/2025-11-25-city-of-philadelphia-releases-vision-zero-action-plan-2030/',
+  });
+  assert.throws(
+    () => validateOfficialHin2025TimeSemantics('The updated HIN uses a different period.'),
+    /period semantics changed or are unavailable/i,
+  );
+
+  const responses = [item, layer, { count: 162 }, geojson, officialText];
+  let active = 0;
+  let maximumActive = 0;
+  const requested = [];
+  const acquired = await acquireOfficialHin2025({
+    request: async (url) => {
+      requested.push(url);
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      const value = responses[requested.length - 1];
+      await Promise.resolve();
+      active -= 1;
+      return typeof value === 'string'
+        ? { ok: true, text: async () => value }
+        : { ok: true, json: async () => structuredClone(value) };
+    },
+  });
+  assert.equal(maximumActive, 1, 'ArcGIS and official context reads remain sequential');
+  assert.equal(requested.length, 5);
+  assert.equal(acquired.geojson.features.length, 162);
+});
+
 test('normalization is deterministic, retains all official fields, and keeps source timestamps separate', () => {
   const input = {
     item,
@@ -124,6 +169,97 @@ test('committed snapshot is valid and stays below the hard artifact ceiling', as
   assert.match(snapshot.meta.licenseAndWarranty, /without Warranty/i);
   assert.equal(snapshot.meta.coordinatePrecision, 6);
   assert.equal(snapshot.meta.objectIdScope, 'snapshot-local-only');
+});
+
+test('sidecar receipt identifies exact committed bytes and does not invent legacy clocks', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../public/data/hin_2025.snapshot.json', import.meta.url), 'utf8'));
+  const receiptText = await readFile(new URL('../../public/data/hin_2025.receipt.json', import.meta.url), 'utf8');
+  const receipt = JSON.parse(receiptText);
+  assert.deepEqual(validateHin2025Receipt(receipt, { snapshot }), receipt);
+  assert.equal(renderHin2025Receipt(receipt, { snapshot }).text, receiptText);
+  assert.equal(receipt.artifact.identity, 'sha256:b518f8b370c6375f5d3188ec2ec487ed834b7b7c25cb51f5f5e554285749e250');
+  assert.equal(receipt.artifact.builtAt, null);
+  assert.equal(receipt.review.reviewedAt, null);
+  assert.equal(receipt.review.reviewedBy, null);
+  assert.match(receipt.source.sourceAsOfMeaning, /not the crash-data period, retrieval, build, or observation time/i);
+
+  const drifted = structuredClone(receipt);
+  drifted.source.fields[1].type = 'esriFieldTypeDouble';
+  assert.throws(() => validateHin2025Receipt(drifted, { snapshot }), /source contract drifted/i);
+  const falseClock = structuredClone(receipt);
+  falseClock.artifact.builtAt = falseClock.artifact.retrievedAt;
+  assert.throws(() => validateHin2025Receipt(falseClock, { snapshot }), /build-clock semantics|legacy receipt/i);
+});
+
+test('semantic comparison ignores transport retrieval/item metadata but reports actual feature change', () => {
+  const current = normalizeHin2025Snapshot({
+    item,
+    layer,
+    geojson,
+    retrievedAt: '2026-08-10T10:29:36.678Z',
+  });
+  const candidate = normalizeHin2025Snapshot({
+    item: { ...item, modified: Date.parse('2026-08-11T00:00:00.000Z') },
+    layer,
+    geojson,
+    retrievedAt: '2026-08-11T00:01:00.000Z',
+  });
+  assert.deepEqual(compareHin2025SemanticSnapshots(current, candidate), { changed: false, reasons: [] });
+
+  const changed = structuredClone(candidate);
+  changed.rows[0][1] = 'REVIEW REQUIRED';
+  assert.deepEqual(compareHin2025SemanticSnapshots(current, changed), {
+    changed: true,
+    reasons: ['feature-content'],
+  });
+  const reviewed = createHin2025Receipt({
+    snapshot: changed,
+    builtAt: '2026-08-11T00:02:00.000Z',
+    review: {
+      status: 'admitted-after-review',
+      reviewedAt: '2026-08-11T00:02:00.000Z',
+      reviewedBy: 'test reviewer',
+    },
+  });
+  assert.equal(reviewed.review.status, 'admitted-after-review');
+});
+
+test('reviewed snapshot and receipt are staged and replaced as one validated lifecycle pair', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'hin-2025-lifecycle-'));
+  try {
+    const snapshot = normalizeHin2025Snapshot({
+      item,
+      layer,
+      geojson,
+      retrievedAt: '2026-08-11T00:01:00.000Z',
+    });
+    const receipt = createHin2025Receipt({
+      snapshot,
+      builtAt: '2026-08-11T00:02:00.000Z',
+      review: {
+        status: 'admitted-after-review',
+        reviewedAt: '2026-08-11T00:02:00.000Z',
+        reviewedBy: 'test reviewer',
+      },
+    });
+    const snapshotDestination = path.join(directory, 'hin_2025.snapshot.json');
+    const receiptDestination = path.join(directory, 'hin_2025.receipt.json');
+    const written = await writeHin2025LifecycleAtomic({
+      snapshotDestination,
+      receiptDestination,
+      snapshot,
+      receipt,
+    });
+    assert.equal(JSON.parse(await readFile(snapshotDestination, 'utf8')).meta.retrievedAt, snapshot.meta.retrievedAt);
+    assert.deepEqual(
+      validateHin2025Receipt(JSON.parse(await readFile(receiptDestination, 'utf8')), { snapshot }),
+      receipt,
+    );
+    assert.equal(written.snapshot.bytes, renderHin2025Snapshot(snapshot).bytes);
+    assert.equal(written.receipt.bytes, renderHin2025Receipt(receipt, { snapshot }).bytes);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('snapshot-local identities cannot be reordered or presented as a cross-version key', () => {

@@ -5,34 +5,41 @@ export const HIN_2025_SCHEMA = 'phl-hin-2025-v1';
 export const HIN_2025_FEATURE_COUNT = 162;
 export const HIN_2025_ARTIFACT_MAX_BYTES = 280_000;
 export const HIN_2025_COORDINATE_PRECISION = 6;
+export const HIN_2025_ITEM_ID = '7e416319784a463fa0d8b528d7ccf511';
+export const HIN_2025_LAYER_ID = 0;
+export const HIN_2025_CRASH_DATA_PERIOD = Object.freeze([2019, 2023]);
+export const HIN_2025_NETWORK_VINTAGE = 2025;
 
-export const HIN_2025_ITEM_URL = 'https://www.arcgis.com/sharing/rest/content/items/7e416319784a463fa0d8b528d7ccf511';
+export const HIN_2025_ITEM_URL = `https://www.arcgis.com/sharing/rest/content/items/${HIN_2025_ITEM_ID}`;
 export const HIN_2025_LAYER_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/high_injury_network_2025/FeatureServer/0';
 export const HIN_2025_OFFICIAL_CONTEXT_URL = 'https://visionzerophl.com/plans-and-reports/action-plan-25-30';
+export const HIN_2025_TIME_SEMANTICS_URL = 'https://www.phila.gov/2025-11-25-city-of-philadelphia-releases-vision-zero-action-plan-2030/';
 
 const HIN_2025_COUNT_URL = `${HIN_2025_LAYER_URL}/query?where=1%3D1&returnCountOnly=true&f=json`;
 const HIN_2025_QUERY_URL = `${HIN_2025_LAYER_URL}/query?where=1%3D1&outFields=objectid%2Cstname%2Clength_ft%2CShape__Length&returnGeometry=true&outSR=4326&orderByFields=objectid%20ASC&f=geojson`;
-const EXPECTED_FIELDS = Object.freeze([
+export const HIN_2025_EXPECTED_FIELDS = Object.freeze([
   ['objectid', 'esriFieldTypeOID'],
   ['stname', 'esriFieldTypeString'],
   ['length_ft', 'esriFieldTypeDouble'],
   ['Shape__Length', 'esriFieldTypeDouble'],
 ]);
-const EXPECTED_GEOMETRY_COUNTS = Object.freeze({ LineString: 6, MultiLineString: 156 });
+export const HIN_2025_EXPECTED_GEOMETRY_COUNTS = Object.freeze({ LineString: 6, MultiLineString: 156 });
 
 export async function acquireOfficialHin2025({ request = fetch } = {}) {
-  const [item, layer, countResult, geojson] = await Promise.all([
-    requestJson(`${HIN_2025_ITEM_URL}?f=pjson`, request),
-    requestJson(`${HIN_2025_LAYER_URL}?f=pjson`, request),
-    requestJson(HIN_2025_COUNT_URL, request),
-    requestJson(HIN_2025_QUERY_URL, request),
-  ]);
+  // ArcGIS intermittently rejects the four-request burst. Sequential reads
+  // avoid manufacturing a source failure while preserving fail-closed checks.
+  const item = await requestJson(`${HIN_2025_ITEM_URL}?f=pjson`, request);
+  const layer = await requestJson(`${HIN_2025_LAYER_URL}?f=pjson`, request);
+  const countResult = await requestJson(HIN_2025_COUNT_URL, request);
+  const geojson = await requestJson(HIN_2025_QUERY_URL, request);
+  const officialContextText = await requestText(HIN_2025_TIME_SEMANTICS_URL, request);
   validateOfficialHin2025Contract({ item, layer, countResult, geojson });
-  return { item, layer, countResult, geojson };
+  validateOfficialHin2025TimeSemantics(officialContextText);
+  return { item, layer, countResult, geojson, officialContextText };
 }
 
 export function validateOfficialHin2025Contract({ item, layer, countResult, geojson } = {}) {
-  if (item?.id !== '7e416319784a463fa0d8b528d7ccf511'
+  if (item?.id !== HIN_2025_ITEM_ID
     || item.type !== 'Feature Service'
     || item.access !== 'public') {
     throw new Error('HIN 2025 item identity, type, or public access changed.');
@@ -45,7 +52,7 @@ export function validateOfficialHin2025Contract({ item, layer, countResult, geoj
   }
   const fields = Array.isArray(layer.fields)
     ? layer.fields.map(({ name, type }) => [name, type]) : null;
-  if (JSON.stringify(fields) !== JSON.stringify(EXPECTED_FIELDS)) {
+  if (JSON.stringify(fields) !== JSON.stringify(HIN_2025_EXPECTED_FIELDS)) {
     throw new Error('HIN 2025 official field schema changed.');
   }
   if (countResult?.count !== HIN_2025_FEATURE_COUNT) {
@@ -80,10 +87,23 @@ export function validateOfficialHin2025Contract({ item, layer, countResult, geoj
     }
     geometryCounts[feature.geometry.type] += 1;
   }
-  if (JSON.stringify(geometryCounts) !== JSON.stringify(EXPECTED_GEOMETRY_COUNTS)) {
+  if (JSON.stringify(geometryCounts) !== JSON.stringify(HIN_2025_EXPECTED_GEOMETRY_COUNTS)) {
     throw new Error('HIN 2025 mixed geometry counts changed.');
   }
   return { featureCount: HIN_2025_FEATURE_COUNT, geometryCounts };
+}
+
+export function validateOfficialHin2025TimeSemantics(value) {
+  const text = plainText(value);
+  if (!/updated high injury network/i.test(text)
+    || !/updated HIN is based on crash data from 2019 to 2023/i.test(text)) {
+    throw new Error('HIN 2025 official crash-data period semantics changed or are unavailable.');
+  }
+  return Object.freeze({
+    crashDataPeriod: [...HIN_2025_CRASH_DATA_PERIOD],
+    networkVintage: HIN_2025_NETWORK_VINTAGE,
+    officialContext: HIN_2025_TIME_SEMANTICS_URL,
+  });
 }
 
 export function normalizeHin2025Snapshot({ item, layer, geojson, retrievedAt } = {}) {
@@ -109,8 +129,8 @@ export function normalizeHin2025Snapshot({ item, layer, geojson, retrievedAt } =
     meta: {
       dataset: 'Philadelphia High Injury Network 2025',
       definition: 'Historical planning network developed by Philadelphia OTIS from 2019-2023 crash data to guide traffic safety investments; not a live condition or route certification.',
-      crashDataPeriod: [2019, 2023],
-      networkVintage: 2025,
+      crashDataPeriod: [...HIN_2025_CRASH_DATA_PERIOD],
+      networkVintage: HIN_2025_NETWORK_VINTAGE,
       retrievedAt: retrieved,
       itemMetadataModifiedAt: epochToIso(item.modified, 'item modified'),
       layerDataEditedAt: epochToIso(layer.editingInfo.dataLastEditDate, 'layer data edit'),
@@ -121,7 +141,7 @@ export function normalizeHin2025Snapshot({ item, layer, geojson, retrievedAt } =
       method: 'ArcGIS GeoJSON ordered by objectid; rows encode [snapshotObjectId, streetName, lengthFt, shapeLength, geometryType, coordinates]; coordinates rounded to 6 decimals.',
       licenseAndWarranty: plainText(item.licenseInfo),
       featureCount: HIN_2025_FEATURE_COUNT,
-      geometryCounts: { ...EXPECTED_GEOMETRY_COUNTS },
+      geometryCounts: { ...HIN_2025_EXPECTED_GEOMETRY_COUNTS },
       coordinatePrecision: HIN_2025_COORDINATE_PRECISION,
       objectIdScope: 'snapshot-local-only',
     },
@@ -135,8 +155,8 @@ export function validateHin2025Snapshot(snapshot) {
   if (snapshot?.schema !== HIN_2025_SCHEMA) throw new Error('HIN 2025 snapshot schema is unsupported.');
   const meta = snapshot.meta;
   if (meta?.dataset !== 'Philadelphia High Injury Network 2025'
-    || meta?.networkVintage !== 2025
-    || JSON.stringify(meta.crashDataPeriod) !== JSON.stringify([2019, 2023])
+    || meta?.networkVintage !== HIN_2025_NETWORK_VINTAGE
+    || JSON.stringify(meta.crashDataPeriod) !== JSON.stringify(HIN_2025_CRASH_DATA_PERIOD)
     || meta.featureCount !== HIN_2025_FEATURE_COUNT
     || meta.coordinatePrecision !== HIN_2025_COORDINATE_PRECISION
     || meta.objectIdScope !== 'snapshot-local-only') {
@@ -181,7 +201,7 @@ export function validateHin2025Snapshot(snapshot) {
     geometryCounts[type] += 1;
   }
   if (JSON.stringify(geometryCounts) !== JSON.stringify(meta.geometryCounts)
-    || JSON.stringify(geometryCounts) !== JSON.stringify(EXPECTED_GEOMETRY_COUNTS)) {
+    || JSON.stringify(geometryCounts) !== JSON.stringify(HIN_2025_EXPECTED_GEOMETRY_COUNTS)) {
     throw new Error('HIN 2025 snapshot geometry counts are invalid.');
   }
   return { featureCount: snapshot.rows.length, geometryCounts };
@@ -219,6 +239,12 @@ async function requestJson(url, request) {
   const value = await response.json();
   if (value?.error) throw new Error(`HIN 2025 ArcGIS error: ${value.error.message || 'unknown'}.`);
   return value;
+}
+
+async function requestText(url, request) {
+  const response = await request(url, { headers: { accept: 'text/html' } });
+  if (!response?.ok) throw new Error(`HIN 2025 official context request failed (${response?.status || 'unknown'}).`);
+  return response.text();
 }
 
 function epochToIso(value, label) {

@@ -32,7 +32,14 @@ test('HIN text surface names street context, period, separated timestamps, metho
     'hin.layerSchema',
     'hin.itemMetadata',
     'hin.officialItem',
+    'hin.officialLayer',
     'hin.officialContext',
+    'hin.officialRelease',
+    'hin.sourceAsOf',
+    'hin.builtUnknown',
+    'hin.snapshotIdentity',
+    'hin.receipt',
+    'hin.features',
     'hin.license',
   ]) assert.match(source, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(source, /2019–2023/);
@@ -40,6 +47,10 @@ test('HIN text surface names street context, period, separated timestamps, metho
   assert.match(source, /does not mean the route belongs to the HIN/i);
   assert.match(source, /does not mean[\s\S]*crash occurred on the route/i);
   assert.match(source, /not a zero result/i);
+  assert.match(source, /not GPS map matching/i);
+  assert.match(source, /safer-route advice/i);
+  assert.match(source, /services\.arcgis\.com/);
+  assert.match(source, /www\.phila\.gov/);
   assert.doesNotMatch(source, /risk score|safety score|safer-route recommendation|GPS matched|official safety certification/i);
 });
 

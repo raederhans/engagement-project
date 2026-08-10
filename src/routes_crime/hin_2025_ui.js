@@ -13,7 +13,13 @@ registerMessagePairs({
   'hin.relation': ['Relation', '关联关系'],
   'hin.method': ['Method and tolerance', '方法与容差'],
   'hin.period': ['Crash-data period / network', '事故数据期间／网络版本'],
+  'hin.sourceAsOf': ['Source data edited', '来源数据编辑时间'],
   'hin.snapshot': ['Snapshot retrieved', '快照获取时间'],
+  'hin.built': ['Snapshot built', '快照构建时间'],
+  'hin.builtUnknown': ['Not recorded in the legacy snapshot; not inferred from retrieval', '旧版快照未记录；不会从获取时间推断'],
+  'hin.snapshotIdentity': ['Snapshot identity', '快照标识'],
+  'hin.receipt': ['Lifecycle receipt / review', '生命周期收据／审查'],
+  'hin.features': ['Admitted features / geometry', '已准入要素／几何类型'],
   'hin.layerData': ['Layer data edited', '图层数据编辑时间'],
   'hin.layerSchema': ['Layer schema edited', '图层结构编辑时间'],
   'hin.itemMetadata': ['Item metadata modified', '条目元数据修改时间'],
@@ -21,9 +27,11 @@ registerMessagePairs({
   'hin.identityValue': ['Snapshot-local only; not a cross-version timeline key', '仅限本快照；不是跨版本时间线标识'],
   'hin.streetNames': ['Associated street names', '关联街道名称'],
   'hin.officialItem': ['Official ArcGIS item', '官方 ArcGIS 条目'],
+  'hin.officialLayer': ['Official ArcGIS layer', '官方 ArcGIS 图层'],
   'hin.officialContext': ['Official Vision Zero context', '官方 Vision Zero 背景'],
+  'hin.officialRelease': ['Official period and network release', '官方数据期间与网络发布说明'],
   'hin.license': ['City license and warranty', '市政府许可与保证条款'],
-  'hin.limitations': ['This is a 2025 historical planning network based on 2019–2023 crash data. “Near or intersects” uses an inclusive 20 m local equirectangular segment-distance approximation. It does not mean the route belongs to the HIN, that a crash occurred on the route, or that the route is safer, certified, live, predictive, or risk-scored.', '这是基于 2019–2023 年事故数据的 2025 历史规划网络。“接近或相交”使用固定 20 米、包含边界的局部等距圆柱投影线段距离近似。它不表示路线属于 HIN、事故发生在路线上，也不表示路线更安全、经过认证、实时、可预测或具有风险评分。'],
+  'hin.limitations': ['This is a 2025 historical planning network based on 2019–2023 crash data. Known Route is user-supplied geometry, not GPS map matching. “Near or intersects” uses an inclusive 20 m local equirectangular segment-distance approximation. It does not mean the route belongs to the HIN, that a crash occurred on the route, or that the route is safer, certified, live, predictive, risk-scored, or safer-route advice.', '这是基于 2019–2023 年事故数据的 2025 历史规划网络。Known Route 是用户提供的几何，不是 GPS 地图匹配。“接近或相交”使用固定 20 米、包含边界的局部等距圆柱投影线段距离近似。它不表示路线属于 HIN、事故发生在路线上，也不表示路线更安全、经过认证、实时、可预测、具有风险评分或构成更安全路线建议。'],
 });
 
 export function createHin2025Presentation(result = {}) {
@@ -123,7 +131,12 @@ function renderEvidence(documentRef, node, presentation) {
     [t('hin.relation'), presentation.relation],
     [t('hin.method'), `${presentation.method}; ${presentation.toleranceM} m`],
     [t('hin.period'), `${snapshot.crashDataPeriod?.[0]}–${snapshot.crashDataPeriod?.[1]} / ${snapshot.networkVintage}`],
+    [t('hin.sourceAsOf'), snapshot.sourceAsOf],
     [t('hin.snapshot'), snapshot.retrievedAt],
+    [t('hin.built'), snapshot.builtAt || t('hin.builtUnknown')],
+    [t('hin.snapshotIdentity'), snapshot.snapshotIdentity],
+    [t('hin.receipt'), `${snapshot.receiptSchema || '—'} / ${snapshot.reviewStatus || '—'}`],
+    [t('hin.features'), `${snapshot.featureCount ?? '—'} / ${(snapshot.geometryTypes || []).join(', ') || '—'}`],
     [t('hin.layerData'), snapshot.layerDataEditedAt],
     [t('hin.layerSchema'), snapshot.layerSchemaEditedAt],
     [t('hin.itemMetadata'), snapshot.itemMetadataModifiedAt],
@@ -148,7 +161,9 @@ function renderHandoff(documentRef, node, snapshot) {
   }
   const links = [
     [snapshot.sourceItem, t('hin.officialItem')],
+    [snapshot.sourceLayer, t('hin.officialLayer')],
     [snapshot.officialContext, t('hin.officialContext')],
+    [snapshot.officialTimeSemantics, t('hin.officialRelease')],
   ].filter(([href]) => safeOfficialUrl(href));
   links.forEach(([href, label], index) => {
     if (index) node.append(documentRef.createTextNode(' · '));
@@ -166,7 +181,7 @@ function safeOfficialUrl(value) {
   try {
     const url = new URL(value);
     return url.protocol === 'https:'
-      && ['www.arcgis.com', 'visionzerophl.com'].includes(url.hostname);
+      && ['www.arcgis.com', 'services.arcgis.com', 'visionzerophl.com', 'www.phila.gov'].includes(url.hostname);
   } catch {
     return false;
   }

@@ -11,10 +11,20 @@ import {
   createHin2025ContextAdapter,
   loadHin2025Snapshot,
 } from '../../src/routes_crime/hin_2025_context.js';
+import {
+  adaptHin2025SourceHealthObservation,
+  createHin2025EvidenceContribution,
+  HIN_2025_RECEIPT_URL,
+  loadHin2025LifecycleReceipt,
+} from '../../src/routes_crime/hin_2025_lifecycle.js';
 import { createManualRouteInput } from '../../src/routes_crime/route_input.js';
 
 const committedSnapshot = JSON.parse(await readFile(
   new URL('../../public/data/hin_2025.snapshot.json', import.meta.url),
+  'utf8',
+));
+const committedReceipt = JSON.parse(await readFile(
+  new URL('../../public/data/hin_2025.receipt.json', import.meta.url),
   'utf8',
 ));
 const metresToLatitude = (metres) => metres / 6_371_008.8 * 180 / Math.PI;
@@ -105,6 +115,80 @@ test('local loader requests only the versioned same-origin artifact and never re
   assert.doesNotMatch(observed.url, /arcgis|FeatureServer/i);
   assert.equal(JSON.stringify(observed).includes('-74.99'), false);
   assert.equal(observed.options.method, 'GET');
+});
+
+test('admitted lifecycle metadata reaches text presentation without exposing snapshot rows', () => {
+  const snapshot = syntheticSnapshot();
+  snapshot.lifecycleReceipt = structuredClone(committedReceipt);
+  const result = associateKnownRouteWithHin2025({ routeInput: route, snapshot });
+  assert.equal(result.snapshot.snapshotIdentity, committedReceipt.artifact.identity);
+  assert.equal(result.snapshot.builtAt, null);
+  assert.equal(result.snapshot.buildClockStatus, 'not-recorded-in-legacy-snapshot');
+  assert.equal(result.snapshot.sourceAsOf, committedReceipt.source.sourceAsOf);
+  assert.deepEqual(result.snapshot.geometryTypes, ['LineString', 'MultiLineString']);
+  assert.equal('rows' in result.snapshot, false);
+});
+
+test('lifecycle receipt loader is same-origin and feature adapter reports historical snapshot as partial', async () => {
+  let observed;
+  const receipt = await loadHin2025LifecycleReceipt({
+    request: async (url, options) => {
+      observed = { url, options };
+      return { ok: true, json: async () => structuredClone(committedReceipt) };
+    },
+  });
+  assert.equal(observed.url, HIN_2025_RECEIPT_URL);
+  assert.doesNotMatch(observed.url, /arcgis|FeatureServer/i);
+  assert.equal(observed.options.method, 'GET');
+  const observation = adaptHin2025SourceHealthObservation({
+    receipt,
+    observedAt: '2026-08-10T12:00:00.000Z',
+  });
+  assert.equal(observation.sourceId, 'hin-2025');
+  assert.equal(observation.status, 'partial');
+  assert.equal(observation.statusReason, 'bundled-historical-planning-snapshot');
+  assert.equal(observation.recordCount, 162);
+  assert.equal(observation.clocks.sourceAsOf, '2025-12-10T17:29:32.369Z');
+  assert.equal(observation.clocks.builtAt, null);
+  assert.match(observation.snapshot.identity, /^sha256:[0-9a-f]{64}$/);
+
+  const drifted = structuredClone(receipt);
+  drifted.source.fields[0].name = 'silently_changed';
+  const unavailable = adaptHin2025SourceHealthObservation({
+    receipt: drifted,
+    observedAt: '2026-08-10T12:00:00.000Z',
+  });
+  assert.equal(unavailable.status, 'unavailable');
+  assert.equal(unavailable.statusReason, 'lifecycle-receipt-schema-drift');
+  assert.equal(unavailable.recordCount, null);
+});
+
+test('Evidence handoff is aggregate-only and excludes route/snapshot identifying content', () => {
+  const observation = adaptHin2025SourceHealthObservation({
+    receipt: committedReceipt,
+    observedAt: '2026-08-10T12:00:00.000Z',
+  });
+  const result = associateKnownRouteWithHin2025({
+    routeInput: route,
+    snapshot: syntheticSnapshot({ streetName: 'MUST NOT LEAK' }),
+  });
+  const contribution = createHin2025EvidenceContribution({
+    result,
+    sourceHealthObservation: observation,
+  });
+  assert.equal(contribution.context.status, 'ready');
+  assert.equal(contribution.context.associatedStreetNameCount, 1);
+  assert.equal(contribution.source.snapshot.identity, observation.snapshot.identity);
+  assert.equal(Object.isFrozen(contribution), true);
+  const serialized = JSON.stringify(contribution);
+  assert.doesNotMatch(serialized, /MUST NOT LEAK|-75|snapshotObjectIds|coordinates|gpsTrace|routeGeometry|\[\[\[/i);
+
+  const unavailable = createHin2025EvidenceContribution({
+    result: { status: 'unavailable' },
+    sourceHealthObservation: observation,
+  });
+  assert.equal(unavailable.context.associatedStreetNameCount, null);
+  assert.equal(unavailable.context.admittedZero, false);
 });
 
 test('narrow adapter keeps exact route in memory and distinguishes snapshot unavailable from admitted zero', async () => {

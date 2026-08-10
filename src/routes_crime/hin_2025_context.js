@@ -1,5 +1,6 @@
 import { publicUrl } from '../utils/public_url.js';
 import { validateKnownRouteInput } from './route_corridor_capability.js';
+import { loadHin2025LifecycleReceipt } from './hin_2025_lifecycle.js';
 
 export const HIN_2025_LOCAL_SNAPSHOT_URL = publicUrl('data/hin_2025.snapshot.json');
 export const HIN_2025_ASSOCIATION_TOLERANCE_M = 20;
@@ -103,13 +104,17 @@ export function associateKnownRouteWithHin2025({ routeInput, snapshot } = {}) {
     toleranceM: HIN_2025_ASSOCIATION_TOLERANCE_M,
     method: HIN_2025_ASSOCIATION_METHOD,
     matches,
-    snapshot: publicSnapshotMetadata(snapshot.meta),
+    snapshot: publicSnapshotMetadata(snapshot.meta, snapshot.lifecycleReceipt),
   };
 }
 
 async function loadDefaultSnapshot() {
   if (!defaultSnapshotPromise) {
-    defaultSnapshotPromise = loadHin2025Snapshot()
+    defaultSnapshotPromise = Promise.all([
+      loadHin2025Snapshot(),
+      loadHin2025LifecycleReceipt(),
+    ])
+      .then(([snapshot, lifecycleReceipt]) => ({ ...snapshot, lifecycleReceipt }))
       .catch((error) => {
         defaultSnapshotPromise = null;
         throw error;
@@ -164,7 +169,10 @@ function validateRuntimeSnapshot(snapshot) {
   return snapshot;
 }
 
-function publicSnapshotMetadata(meta) {
+function publicSnapshotMetadata(meta, lifecycleReceipt = null) {
+  const source = lifecycleReceipt?.source;
+  const artifact = lifecycleReceipt?.artifact;
+  const review = lifecycleReceipt?.review;
   return {
     dataset: meta.dataset,
     definition: meta.definition,
@@ -178,6 +186,18 @@ function publicSnapshotMetadata(meta) {
     officialContext: meta.officialContext,
     licenseAndWarranty: meta.licenseAndWarranty,
     objectIdScope: meta.objectIdScope,
+    sourceAsOf: source?.sourceAsOf || meta.layerDataEditedAt,
+    sourceAsOfMeaning: source?.sourceAsOfMeaning || null,
+    builtAt: artifact?.builtAt ?? null,
+    buildClockStatus: artifact?.buildClockStatus || 'not-recorded-in-legacy-snapshot',
+    snapshotIdentity: artifact?.identity || null,
+    featureCount: artifact?.featureCount ?? meta.featureCount,
+    geometryTypes: artifact?.geometryTypes ? [...artifact.geometryTypes] : Object.keys(meta.geometryCounts || {}).sort(),
+    geometryCounts: artifact?.geometryCounts ? { ...artifact.geometryCounts } : { ...meta.geometryCounts },
+    receiptSchema: lifecycleReceipt?.schema || null,
+    reviewStatus: review?.status || null,
+    sourceLayer: source?.layerUrl || meta.sourceLayer,
+    officialTimeSemantics: source?.officialContext || null,
   };
 }
 
