@@ -557,7 +557,7 @@ test('query preset integration owns one URL write and one refresh with no legacy
 
 test('Crime task and availability copy stays neutral, historical, and non-persona', async () => {
   const { messages } = await import('../../src/i18n/index.js');
-  await import('../../src/i18n/p1.js');
+  await import('../../src/ui/data_scope.js');
   await import('../../src/i18n/crime_safety.js');
   const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
 

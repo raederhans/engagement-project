@@ -11,6 +11,7 @@ const manifestPath = path.join(distDir, '.vite', 'manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
 const entry = manifest['index.html'];
+const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
@@ -23,6 +24,7 @@ const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 const evidenceBundle = manifest['src/analysis/evidence_bundle.js'];
+const evidenceBundleHash = manifest['src/analysis/evidence_bundle_hash.js'];
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
 const helpContent = manifest['src/ui/help_content.js'];
 const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
@@ -39,9 +41,11 @@ assert.deepEqual(
     'src/analysis/analysis_history_controller.js',
     'src/analysis/evidence_bundle.js',
     'src/ui/help_content.js',
+    'src/map/initMap.js',
   ]),
-  'Entry must keep Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
+  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
 );
+assert.ok(mapRuntime?.isDynamicEntry, 'Vite manifest must keep MapLibre and map initialization behind a lazy runtime boundary');
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
   new Set([
@@ -82,6 +86,12 @@ assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
 assert.ok(evidenceBundle?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle as a lazy chunk');
+assert.deepEqual(
+  new Set(evidenceBundle.dynamicImports || []),
+  new Set(['src/analysis/evidence_bundle_hash.js']),
+  'Evidence Bundle must keep browser cryptography behind a nested lazy boundary',
+);
+assert.ok(evidenceBundleHash?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle hashing as a nested lazy chunk');
 assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain Analysis History translations as a lazy chunk');
 assert.ok(helpContent?.isDynamicEntry, 'Vite manifest must contain Help Center content as a lazy chunk');
 assert.ok(crimeOffenseCatalog?.isDynamicEntry, 'Vite manifest must keep the bilingual Crime offense catalog lazy');
@@ -92,7 +102,7 @@ assert.ok(
 );
 
 const budgets = [
-  ['Entry', entry, 902_665, 247_583],
+  ['Entry', entry, 875_585, 247_583],
   // Owns result-scoped cancellation, fail-closed data admission, immutable
   // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
   ['Crime', crime, 42_000, 14_900],
@@ -119,7 +129,7 @@ const budgets = [
   // Includes cached comparison rendering plus truthful refresh cancellation/freshness states.
   ['Analysis History', analysisHistory, 23_000, 7_800],
   // The feature-flagged aggregate export stays absent from the initial entry.
-  ['Evidence Bundle', evidenceBundle, 10_800, 4_000],
+  ['Evidence Bundle', evidenceBundle, 10_259, 4_000],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
   // Full bilingual source and methodology guidance loads only when Help is opened.
@@ -127,7 +137,7 @@ const budgets = [
   // Loaded with Crime initialization so the versioned taxonomy never inflates the app entry.
   ['Crime offense catalog', crimeOffenseCatalog, 9_000, 2_800],
   // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.
-  ['P1 translations', p1Messages, 9_100, 3_300],
+  ['P1 translations', p1Messages, 8_644, 3_300],
 ];
 const measurements = [];
 

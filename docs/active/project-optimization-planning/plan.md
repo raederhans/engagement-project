@@ -34,6 +34,8 @@
 - [x] Stage 8: 由主监督逐条复核 ready-for-integration 交付，创建四个 Lore 提交并按 A → B → C 架构 → C 发布顺序整合到本地 `main`。
 - [x] Stage 9: 修复只会在统一候选中暴露的发布门、严格数据夹具、bundle policy 与视觉稳定性问题，完成最终 `npm run ci:release`。
 - [x] Stage 10: 提交整合修复与中央交接记录；保留 execution worktree 和用户既有未跟踪产物，不触发远端部署。
+- [x] Stage 11: 在唯一 release owner 下发布当前候选；首个 `268bfab` run 因陈旧 Linux visual baseline fail closed，形成并完整重验修复候选 `f6413ec`，再以 exact-artifact promotion 完成 Actions、Pages、HTTP 与生产 browser canary 闭环。
+- [x] Stage 12: 在生产健康后恢复 bundle headroom；锁定更严格的 lazy/budget contracts，拆分 MapLibre 与 Evidence hashing ownership，收窄 P1 catalog，并完成 fresh release gate；只形成第二次发布的本地候选，不 push。
 
 ## Execution continuation (2026-08-10)
 
@@ -56,7 +58,7 @@
 
 ## Remaining boundaries after local integration
 
-- 未经新的外部生产授权，不 push `main`，因为该动作会触发 GitHub Actions 与 Pages 发布。
+- Phase 1 已将 `f6413ec` 发布到生产；Phase 2 的性能候选未经新的第二次生产授权不得 push，因为该动作会触发新的 GitHub Actions 与 Pages 发布。
 - 不清理 execution/planning worktree、未注册的 `d35d` 或用户既有未跟踪日志/输出；它们继续作为证据或用户 WIP 保留。
 - 不在本批次选择后端、地图或 telemetry 供应商，也不加入 AI safety score、实时犯罪警报或 safer-route recommendation。
 - GitHub Pages 环境保护、required checks 等远端 settings 只能在有仓库权限的外部步骤核验，不能用本地测试替代。

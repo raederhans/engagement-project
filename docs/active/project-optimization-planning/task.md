@@ -2,7 +2,7 @@
 
 ## Current status
 
-六条规划、三条执行线、跨 worktree 整合与统一本地发布门均已完成。A/B/C 交付已作为四个 Lore 提交整合到本地 `main`，统一候选的整合修复已提交为 `5f8f526`。用户已授权按严格串行的两阶段继续：Phase 1 正在对 exact `268bfab` 做 fresh preflight，成功后才 non-force push 并核验 Actions/Pages/生产 canary；Phase 2 只在生产健康后恢复 bundle headroom，默认仅本地 Lore commit，不二次 push。
+Phase 1 已完成生产闭环：最初 `268bfab` push 的 run `31358114549` 因两个陈旧 Linux baseline fail closed，未上传 artifact、未部署；修复候选 `f6413ec` 的 run `31358772095` 全绿，SHA 命名 artifact、deployment、远端 main、HTTP 与生产 browser canary 均已验证。Phase 2 headroom 实现与 fresh release gate 也已完成；包含本记录的本地 Lore commit 是第二次发布候选，未经新授权不 push。
 
 ## Checklist
 
@@ -32,8 +32,9 @@
 - [x] Fresh 完成 `npm ci`、high audit 与 `npm run ci:release`；本地 exact `268bfab` 三门 exit 0，且无 baseline 变化。
 - [x] Non-force push exact `268bfab`；单 workflow run `31358114549` 的 core/coverage 通过，但 Linux visual 因两个陈旧 baseline 失败，artifact 未上传、deploy 跳过，生产未更新。
 - [x] 同步已审查的 Linux portrait / landscape baseline；fresh npm ci、high audit 与完整本地 release gate 全部 exit 0，无产品源码或阈值变化。
-- [ ] 创建 Phase 1 repair Lore commit，并对新候选重新执行远端 release/Pages/canary 闭环。
-- [ ] Phase 1 生产健康后实现 bundle headroom，完整验证并创建仅本地的 Phase 2 Lore commit。
+- [x] 创建 Phase 1 repair Lore commit `f6413ec`，并完成 run `31358772095`、exact artifact、deployment、HTTP 与生产 browser canary 闭环。
+- [x] 定位 manifest/import graph/重复 catalog/翻译与静态引用的最窄根因，锁定 lazy ownership 和更严格 bundle ceiling。
+- [x] 实现 bundle headroom，完整验证并由包含本记录的本地 Phase 2 Lore commit 交付；未经新授权不 push。
 
 ## Planning tasks
 
@@ -86,7 +87,8 @@
 
 ## Open risks and remaining work
 
-- 本地 `main` 已整合并验证，但尚未 push，因此不能声称 GitHub Actions 或 Pages 已运行，也不能声称生产已发布。
+- Phase 1 生产已验证为 exact `f6413ec`；Phase 2 仅为本地第二次发布候选，尚未获得 push 授权，因此不能把本地性能门称为第二次生产发布。
+- 正式 release build 的 Crime chunk 为 41,985 / 42,000，仅余 15 bytes；本次验收由 Entry、Evidence Bundle 与 P1 的真实余量满足。任何后续 Crime 功能都应先拆分 ownership，不得提高 ceiling。
 - `worktrees/d35d`、三个 execution worktree 和规划 worktree 均保留；本批次不做拓扑清理或删除证据。
 - GitHub environment protection、required checks 与 Pages settings 仍需要远端权限核验。
 - 用户既有 `.playwright-mcp/`、`logs/`、`output/` 等未跟踪内容未归属本批次，继续保留且不进入提交。
@@ -104,3 +106,15 @@
 | Browser smoke | PASS；consoleErrors=0；pageErrors=0；8 remote hosts deterministic mocked |
 | Visual experience | 35 passed / 10 conditional skips / 0 failed；3 projects；单张 portrait baseline 经 expected/actual/diff 审查后更新并普通模式复验 |
 | Final static ownership | `git diff --check` 0；package-lock 无差异；scoped node/npm 0；4173/4178 listener 0 |
+
+## Phase 1 remote and Phase 2 local evidence
+
+| Gate | Final result |
+| --- | --- |
+| Phase 1 exact production | `f6413ecd78c2062cc8d4ff4b17ac63eed3ac0993`；run `31358772095`；artifact `9051623197`；deployment `5826805774`；Pages/JS/public GeoJSON HTTP 200；production browser console/page errors 0 |
+| Phase 2 RED budget lock | 旧 manifest 缺少 `src/map/initMap.js` dynamic edge，`bundle_policy` exit 1；Entry/Evidence/P1 ceilings 只收紧、不放宽 |
+| Phase 2 fresh dependencies / targeted | `npm ci` 395/396、0 vulnerabilities；targeted contracts 125/125 |
+| Phase 2 lint / audit / coverage | JS/CSS lint exit 0；high audit 0 vulnerabilities；coverage report exit 0、line 50.46% report-only |
+| Phase 2 final `ci:release` | exit 0；bundle policy PASS；browser smoke consoleErrors=0/pageErrors=0；visual 35 passed / 10 conditional skips / 0 failed |
+| Phase 2 release-feature bundle | Entry 106,891/33,150；Crime 41,985/14,823；Evidence 10,124/3,714；Route UI 23,410/8,085；P1 7,359/2,659；dist 3,534,827 bytes |
+| Resource / publication boundary | 4173/4178 listener 0；scoped node/npm 0；无 baseline/README/dependency 变化；Phase 2 未 push，生产仍为 `f6413ec` |

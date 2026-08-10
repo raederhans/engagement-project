@@ -1,7 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { initializeTranslations } from './i18n/index.js';
-import { initMap } from './map/initMap.js';
 import { setAnalysisMode, store, setViewMode, onViewModeChange } from './state/store.js';
 import {
   initPanel,
@@ -69,6 +68,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyCrimeViewState(store, decodeCrimeViewState(sharedParams), { setMode: setAnalysisMode });
   }
   const initialMode = setViewMode(readModeFromURL(), { silent: true });
+  const { initMap } = await import('./map/initMap.js');
   const map = initMap({ mode: initialMode, center: store.centerLonLat || undefined });
   const chartsPane = document.getElementById('charts');
   const aboutController = initAboutPanel({ initialMode });

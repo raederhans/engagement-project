@@ -133,3 +133,34 @@
 - Release gate 内 JS/CSS lint、完整 tests、manifest build、bundle policy、browser smoke 与 Windows visual 全部通过；browser smoke `consoleErrors=0` / `pageErrors=0`，visual 35 passed / 10 conditional skips / 0 failed。
 - Bundle 输出未变：dist 3,532,279 bytes；Entry 899,558；Crime 41,716；Evidence Bundle 10,501；Route corridor UI 23,410；P1 translations 9,013。4173/4178 与 scoped node/npm 已释放。
 - 当前 tracked scope 仅中央 `context.md` / `task.md` 与两个经审查的 Linux incident-results baseline；没有产品源码、threshold、断言或其他 baseline 变化。Linux 决定性复验仍待新候选远端 run。
+
+## Phase 1 production closure 2026-08-10
+
+- 修复 Lore commit / deployed SHA：`f6413ecd78c2062cc8d4ff4b17ac63eed3ac0993`。Non-force push 后 `origin/main` 与直接 `ls-remote` 均指向该 SHA。
+- 单一 workflow run：`31358772095` (`CI and Pages release`)；head SHA `f6413ec`，conclusion success。Jobs：coverage `93363324930`、core `93363324946`、release `93363324960`、deploy `93363864996`，全部 success。
+- Exact artifact：`github-pages-f6413ecd78c2062cc8d4ff4b17ac63eed3ac0993`，artifact ID `9051623197`，run head SHA `f6413ec`；deploy job 先通过“candidate is still main tip”，再消费该 SHA 命名 artifact。
+- GitHub deployment：ID `5826805774`，SHA `f6413ec`，state success，environment URL `https://raederhans.github.io/engagement-project/`。Pages API 仍为 workflow build、HTTPS enforced。
+- 直接 HTTP（2026-08-10T05:34:52Z）：root `https://raederhans.github.io/engagement-project/` 200 / 32,902 bytes；root 实际引用的 `assets/index-BCRdwSwX.js` 200 / 899,596 bytes；公开 `data/police_districts.geojson` 200 / 219,113 bytes。
+- 生产 browser canary：Crime 页面可加载，状态为 historical records through Aug 8, 2026 / not a live alert；Known Route 可打开并明确 historical-only、not live/predictive/risk-score/safer-route、exact route stays in browser memory；Diary 可打开并明确 demo、ratings save on this device、not shared online；Help Center 的 sources/methods/limits 均可见。
+- Browser errors：Playwright CLI 捕获 `consoleErrors=[]`、`pageErrors=[]`；CLI console 总计 15 条消息，errors 0 / warnings 0。证据在 `output/playwright/phase1-production-canary-f6413ec/`；session 已关闭，4173/4178 与 scoped process 为空。
+- Phase 1 结论边界：`268bfab` 只曾 push 且远端 release 失败，未部署；正式已发布并验证的 exact SHA 是 `f6413ec`。本节保留为未提交 records，随 Phase 2 本地 Lore commit 一并入库，不为 records 单独再次 push。
+
+## Phase 2 bundle-headroom owner contract 2026-08-10
+
+- 唯一 bundle/checkpoint/build/browser owner 仍为当前任务；Phase 1 Playwright session 与远端 run 已结束。Phase 2 默认只本地 commit，不 push。
+- 分析输出与日志：`.tmp/bundle-headroom/`。先用 Vite manifest + source map 建立 raw/gzip、静态/dynamic import graph 与 entry module ownership，不增加 dependency、不改 ceiling。
+- 基线：dist 3,532,279 bytes；Entry 899,558/245,041 gzip；Crime 41,716/14,816；Evidence Bundle 10,501/3,848；Route corridor UI 23,410/8,085；P1 translations 9,013/3,231。
+- 目标：Entry raw 至少减少 30 KiB，或降到 902,665 ceiling 的 <=97%；至少两个其他近 ceiling chunk 获得 >5% raw headroom。保持 lazy ownership、功能、数据诚实性、可访问性与现有 ceilings；不改 README、不加依赖。
+- 共享资源：main checkout 的 `node_modules` / `dist` / Playwright 输出、4173/4178 与 `.tmp/bundle-headroom/`；builder 与完整验证严格串行。相同假设三次同失败即停止重跑并重查契约。
+
+## Phase 2 bundle-headroom closure 2026-08-10
+
+- Manifest/source-map 根因：Entry 静态 `main.js -> initMap.js -> maplibre-gl`，其中 MapLibre source ownership 约 803,086 bytes；P1 同时携带 data-scope 与 Diary catalogs；Evidence Bundle 把敏感键检测与 Web Crypto 摘要都放在同一首级 lazy chunk。
+- 最小实现：`main.js` 在 `DOMContentLoaded` 生命周期内动态导入 `initMap`；scope message pairs 随 `data_scope.js` 注册而不再进入 P1；Evidence Bundle 合并等价敏感键正则，并将 recursive volatile-field filtering / SHA-256 放入二级 lazy `evidence_bundle_hash.js`；Crime 来源去重删除冗余 `Map.has` 探测并复用 charts lazy promise。没有新增依赖、删除功能、改变诚实性/可访问性文案、修改 README 或提高预算。
+- 测试先收紧 raw ceilings：Entry `902,665 -> 875,585`、Evidence Bundle `10,800 -> 10,259`、P1 translations `9,100 -> 8,644`；旧产物先因缺少 map runtime dynamic edge 明确失败。其他 ceiling 与 total dist ceiling 不变。
+- 正式 release-feature build（`VITE_FEATURE_DIARY=1`、`VITE_TRACT_CRIME_SNAPSHOT=1`）最终为：Entry `106,891/33,150 gzip`；Crime `41,985/14,823`；Evidence Bundle `10,124/3,714`；Route corridor UI `23,410/8,085`；P1 translations `7,359/2,659`；dist `3,534,827`。
+- 相对 Phase 1 基线：Entry raw 减少 792,667 bytes（约 88.1%），对原 ceiling 留 88.2% 余量；Evidence raw 减少 377 bytes，对原 ceiling 留 6.26% 余量；P1 raw 减少 1,654 bytes，对原 ceiling 留 19.13% 余量。满足 Entry 与另外两个近 ceiling chunk 的验收。拆分引入少量 chunk/runtime 开销，total dist 增加 2,548 bytes，但仍比既有 4,000,000 ceiling 低 465,173 bytes，ceiling 未放宽。
+- Fresh 验证：`npm ci` exit 0（395 installed / 396 audited / 0 vulnerabilities）；targeted contracts 125/125；JS/CSS lint exit 0；显式 high audit 0 vulnerabilities；coverage report exit 0（line 50.46%，report-only）；最终 `npm run ci:release` exit 0。
+- 首次完整 Phase 2 release gate 没有被隐去：普通 build 已通过，但 release flags 使 Crime raw 达 `42,018`，超过现有 ceiling 18 bytes，整门 fail closed。定位后删除等价来源去重的冗余探测；正式 flag build 变为 `41,985`，未重跑碰运气或放宽 budget。
+- 最终 release gate：完整 tests / manifest / bundle 全过；browser smoke `consoleErrors=0`、`pageErrors=0`；visual 35 passed / 10 conditional skips / 0 failed，未更新 baseline。日志与状态在 `.tmp/bundle-headroom/11-*` 至 `23-*`；4173/4178 与 scoped node/npm 已释放。
+- 发布边界：Phase 2 只进入包含本记录的本地 Lore commit。`origin/main` 与当前生产继续保持 Phase 1 exact `f6413ec`；未经本任务中的新明确授权，不 push 第二候选。

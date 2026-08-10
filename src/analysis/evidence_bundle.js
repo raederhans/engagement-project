@@ -2,31 +2,7 @@ export const EVIDENCE_BUNDLE_SCHEMA_VERSION = 'engagement-evidence-bundle/v1';
 
 const SOURCE_STATUSES = new Set(['available', 'fallback', 'stale', 'unavailable']);
 const RESULT_STATUSES = new Set(['available', 'partial', 'stale', 'unavailable']);
-const VOLATILE_HASH_FIELDS = new Set(['generatedAt', 'retrievedAt', 'exportedAt']);
-const SENSITIVE_KEY_PATTERNS = Object.freeze([
-  /^raw/,
-  /^incidents?$/,
-  /^rows$/,
-  /^features$/,
-  /incident(rows?|records?|features?)/,
-  /address/,
-  /^label$/,
-  /^location$/,
-  /gps/,
-  /trace/,
-  /diarynotes?/,
-  /^notes?$/,
-  /^route$/,
-  /routegeometry/,
-  /mediaurls?/,
-  /(photo|image|video)urls?/,
-  /attachments?/,
-  /^geometry$/,
-  /coordinates?/,
-  /center(3857|lonlat)/,
-  /^bbox$/,
-  /^(lat|lng|latitude|longitude)$/,
-]);
+const SENSITIVE_KEY_PATTERN = /(?:^raw|^incidents?$|^rows$|^features$|incident(?:rows?|records?|features?)|address|^label$|^location$|gps|trace|diarynotes?|^notes?$|^route$|routegeometry|mediaurls?|(?:photo|image|video)urls?|attachments?|^geometry$|coordinates?|center(?:3857|lonlat)|^bbox$|^(?:lat|lng|latitude|longitude)$)/;
 
 function fail(message) {
   throw new TypeError(`Invalid Evidence Bundle: ${message}`);
@@ -80,7 +56,7 @@ function admittedAggregateCount(value, label) {
 
 function sensitiveFieldName(key) {
   const normalized = String(key).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  return SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(normalized));
+  return SENSITIVE_KEY_PATTERN.test(normalized);
 }
 
 function assertNoSensitiveFields(value, path = 'bundle', seen = new WeakSet()) {
@@ -123,27 +99,8 @@ function canonicalValue(value, path = 'section', seen = new WeakSet()) {
   return normalized;
 }
 
-function withoutVolatileFields(value) {
-  if (Array.isArray(value)) return value.map(withoutVolatileFields);
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => !VOLATILE_HASH_FIELDS.has(key))
-    .map(([key, item]) => [key, withoutVolatileFields(item)]));
-}
-
 export function canonicalSerialize(value) {
   return JSON.stringify(canonicalValue(value));
-}
-
-async function sha256(value) {
-  if (!globalThis.crypto?.subtle || typeof TextEncoder !== 'function') {
-    fail('browser Web Crypto SHA-256 is unavailable');
-  }
-  const digest = await globalThis.crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(canonicalSerialize(value)),
-  );
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function validateCoverage(coverage, sourceLabel) {
@@ -380,15 +337,16 @@ export async function composeEvidenceBundle(input = {}) {
   const provenance = canonicalValue(sections.provenance, 'provenance');
   const limitations = canonicalValue(sections.limitations, 'limitations');
   const privacy = canonicalValue(sections.privacy, 'privacy');
+  const { sha256CanonicalValue } = await import('./evidence_bundle_hash.js');
   const checksums = {
     algorithm: 'SHA-256',
     canonicalization: 'sorted-json-keys/v1',
-    excludedVolatileFields: [...VOLATILE_HASH_FIELDS].sort(),
-    query: await sha256(withoutVolatileFields(query)),
-    result: await sha256(withoutVolatileFields(result)),
-    provenance: await sha256(withoutVolatileFields(provenance)),
+    excludedVolatileFields: ['exportedAt', 'generatedAt', 'retrievedAt'],
+    query: await sha256CanonicalValue(query),
+    result: await sha256CanonicalValue(result),
+    provenance: await sha256CanonicalValue(provenance),
   };
-  const snapshotIdentity = `sha256:${await sha256({
+  const snapshotIdentity = `sha256:${await sha256CanonicalValue({
     provenance: checksums.provenance,
     query: checksums.query,
     result: checksums.result,

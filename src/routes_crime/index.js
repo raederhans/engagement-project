@@ -108,8 +108,7 @@ function mergeCrimeSources(...collections) {
   for (const metadata of collections.flat()) {
     const source = canonicalCrimeSource(metadata);
     if (!source) continue;
-    const key = JSON.stringify(source);
-    if (!merged.has(key)) merged.set(key, source);
+    merged.set(JSON.stringify(source), source);
   }
   return [...merged.values()];
 }
@@ -117,8 +116,7 @@ function mergeCrimeSources(...collections) {
 let chartsModulePromise;
 
 function loadChartsModule() {
-  if (!chartsModulePromise) chartsModulePromise = import('../charts/index.js');
-  return chartsModulePromise;
+  return chartsModulePromise ||= import('../charts/index.js');
 }
 
 async function updateCharts(filters, options) {
