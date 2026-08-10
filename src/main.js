@@ -340,7 +340,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       const owner = await ensureMapCoordinator();
       if (!ownsPresentation() || presentationController.getMode() !== 'map') return;
       mapRuntime.getMap()?.resize?.();
-      await owner.schedule(store.viewMode);
+      const result = await owner.schedule(store.viewMode);
+      if (!ownsPresentation() || store.viewMode !== 'crime' || owner.getActiveMode() !== 'crime') return;
+      void ensureAnalysisHistory();
+      if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     } catch (error) {
       if (!ownsPresentation()) return;
       console.warn('Map runtime is unavailable:', error);
@@ -361,6 +364,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
   onViewModeChange((mode) => {
+    analysisHistoryController?.cancelPendingRestore();
     if (mode === 'diary' && presentationController.getMode() === 'list') {
       presentationController.setMode('map', { origin: 'product-mode' });
       return;

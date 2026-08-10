@@ -132,21 +132,24 @@ const budgets = [
   // and explicit failed-port settlement so interrupted transactions do not stay pending.
   ['Query Preset', queryPreset, 5_200, 2_050],
   ['Diary', diary, 210_100, 65_573],
-  // Owns the versioned private schema, v1 migration, exact snapshot token, and
-  // serialized two-store transactions. It stays lazy and within a narrow
-  // regression budget while preserving the concurrency guarantees.
-  ['Diary local storage', diaryStorage, 21_000, 6_400],
+  // Owns the versioned private schema, v1 migration, exact snapshot token,
+  // serialized two-store transactions, and the extracted local-data controller.
+  // It stays lazy and within a narrow regression budget after that controller
+  // moved out of the larger Diary route chunk.
+  ['Diary local storage', diaryStorage, 27_500, 8_000],
   ['Charts', charts, 233_791, 79_747],
   // Includes local-history trend/tag/heatmap rendering and the device-only data bridge.
   ['Diary Insights', insights, 11_200, 3_600],
-  // Includes cached comparison rendering plus truthful refresh cancellation/freshness states.
-  ['Analysis History', analysisHistory, 23_000, 7_800],
+  // Includes cached comparison rendering, truthful refresh cancellation/freshness
+  // states, and v1/v2 analysis-artifact compatibility for structured ACS evidence.
+  ['Analysis History', analysisHistory, 24_800, 8_100],
   // The feature-flagged aggregate export stays absent from the initial entry.
   ['Evidence Bundle', evidenceBundle, 10_259, 4_000],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
-  // Full bilingual source and methodology guidance loads only when Help is opened.
-  ['Help Center', helpContent, 22_500, 9_300],
+  // Full bilingual source, ACS estimate/MOE, and methodology guidance loads
+  // only when Help is opened.
+  ['Help Center', helpContent, 23_300, 9_700],
   // Loaded with Crime initialization so the versioned taxonomy never inflates the app entry.
   ['Crime offense catalog', crimeOffenseCatalog, 9_000, 2_800],
   // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.

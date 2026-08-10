@@ -348,7 +348,7 @@
   color: #23364d;
 }
 
-.maplibregl-ctrl-attrib a {
+#map .maplibregl-ctrl-attrib a {
   color: #084985;
   text-decoration: underline;
   text-decoration-thickness: 1px;

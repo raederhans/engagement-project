@@ -1820,7 +1820,7 @@ test('tract enrichment keeps shared boundaries and prior snapshots immutable', (
 test('bundle policy keeps feature translation catalogs outside the established entry budget', async () => {
   const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
   assert.match(source, /\['Entry', entry, 875_585, 247_583\]/);
-  assert.match(source, /\['Analysis History', analysisHistory, 23_000, 7_800\]/);
+  assert.match(source, /\['Analysis History', analysisHistory, 24_800, 8_100\]/);
   assert.match(source, /\['Evidence Bundle', evidenceBundle, 10_259, 4_000\]/);
   assert.match(source, /\['P1 translations', p1Messages, 8_644, 3_300\]/);
 });

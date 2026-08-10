@@ -135,7 +135,7 @@ test('dynamic incident status copy has one controller owner', () => {
 });
 
 test('incident results prioritize the compact event list before provenance details', () => {
-  const incidentSection = html.match(/<section\b[^>]*id="incident-results"[\s\S]*?<\/section>/i)?.[0] || '';
+  const incidentSection = html.match(/<section\b[^>]*id="incident-results"[\s\S]*?<div\b[^>]*id="charts"/i)?.[0] || '';
   const listIndex = incidentSection.indexOf('data-incident-results-list');
   const provenanceIndex = incidentSection.indexOf('data-result-meta="incidents"');
 

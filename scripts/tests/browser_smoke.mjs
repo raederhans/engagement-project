@@ -853,7 +853,7 @@ try {
   const downloadedArtifact = await artifactDownload;
   const artifactPayload = JSON.parse(await readFile(await downloadedArtifact.path(), 'utf8'));
   assert.equal(artifactPayload.kind, 'engagement-analysis-artifact');
-  assert.equal(artifactPayload.schemaVersion, 1);
+  assert.equal(artifactPayload.schemaVersion, 2);
 
   page.once('dialog', (dialog) => dialog.accept());
   await artifactCard(page, 'Renamed A-only').getByRole('button', { name: 'Delete' }).click();
