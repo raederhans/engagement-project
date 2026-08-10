@@ -290,3 +290,18 @@ test('source-health lazy boundary stays bounded and map-free', async () => {
   assert.match(contents[1], /source-health\.css/);
   assert.doesNotMatch(contents.join('\n'), /maplibre|initMap|optional_map_runtime|@turf/);
 });
+
+test('app shell exposes a native accessible entry and keeps the controller dynamically imported', async () => {
+  const [html, main] = await Promise.all([
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+  ]);
+  assert.match(html, /<details[^>]*data-source-health-entry/);
+  assert.match(html, /<summary[^>]*aria-controls="source-health-surface"/);
+  assert.match(html, /data-source-health-loader-status[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
+  assert.match(html, /data-source-health-retry[^>]*hidden/);
+  assert.match(html, /id="source-health-surface"[^>]*data-source-health-host[^>]*aria-busy="false"[^>]*hidden/);
+  assert.match(main, /import \{ createSourceHealthLoader \} from '\.\/source_health\/source_health_loader\.js';/);
+  assert.match(main, /loadUi: \(\) => import\('\.\/source_health\/source_health_controller\.js'\)/);
+  assert.doesNotMatch(main, /^import .*source_health_controller/m);
+});

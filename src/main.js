@@ -10,6 +10,7 @@ import { initAboutPanel } from './ui/about.js';
 import { initLanguageSwitch } from './ui/language_switch.js';
 import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfaces.js';
 import { setSheetState } from './ui/sheet_controller.js';
+import { createSourceHealthLoader } from './source_health/source_health_loader.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
 import { createCrimeResultMetaPresenter } from './ui/crime_result_meta.js';
@@ -85,6 +86,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   const viewModeRoot = document.querySelector('[data-crime-view-mode]');
   const aboutController = initAboutPanel({ initialMode });
   const modeSurfaces = createModeSurfacePresenter({ documentRef: document, aboutController });
+  const sourceHealthLoader = createSourceHealthLoader({
+    mount: document.querySelector('[data-source-health-entry]'),
+    loadUi: () => import('./source_health/source_health_controller.js'),
+    getRuntimeEvidence: () => ({
+      crimeCoverage: {
+        status: store.coverageStatus,
+        min: store.coverageMin,
+        max: store.coverageMax,
+      },
+    }),
+  });
   let listController = null;
   let listControllerPromise = null;
   let mapCrimeController = null;
@@ -163,7 +175,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       listControllerPromise = import('./routes_crime/list_mode_controller.js')
         .then((module) => module.createCrimeListController({
           resultMeta: crimeResultMeta,
-          onCoverageChange: () => panel.syncFromStore?.(),
+          onCoverageChange: () => {
+            panel.syncFromStore?.();
+            sourceHealthLoader.refresh();
+          },
           onDataScopeChange: modeSurfaces.showDataScope,
         }))
         .then((owner) => {
@@ -212,6 +227,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             && presentationController?.getMode() === 'map',
           onCoverageChange: () => {
             if (store.viewMode === 'crime') panel.syncFromStore?.();
+            sourceHealthLoader.refresh();
           },
           onPointChange: () => {
             if (store.viewMode === 'crime') panel.syncFromStore?.();

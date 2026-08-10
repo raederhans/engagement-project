@@ -27,7 +27,7 @@ export function createSourceHealthLoader({
       return Promise.resolve(controller);
     }
     if (!promise) {
-      setState('loading', 'Loading source evidence…');
+      setState('loading', 'Loading source evidence…／正在加载来源证据……');
       promise = loadUi()
         .then((module) => {
           controller = module.initSourceHealthSurface({
@@ -39,7 +39,7 @@ export function createSourceHealthLoader({
         })
         .catch((error) => {
           promise = null;
-          setState('unavailable', 'Source evidence could not load. Retry when ready.');
+          setState('unavailable', 'Source evidence could not load. Retry when ready.／来源证据加载失败，请重试。');
           warn('Data Status surface is unavailable:', error);
           return null;
         });

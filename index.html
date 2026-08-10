@@ -186,6 +186,12 @@
           <section class="data-details" aria-labelledby="crime-data-details-title">
             <h3 id="crime-data-details-title" data-i18n="crime.dataDetails">Data details</h3>
             <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
+            <details class="source-health-entry" data-source-health-entry data-source-health-loader="idle">
+              <summary aria-controls="source-health-surface">Source Health &amp; Data Freshness Center／来源健康与数据新鲜度中心</summary>
+              <p data-source-health-loader-status role="status" aria-live="polite" hidden></p>
+              <button class="button button--secondary" type="button" data-source-health-retry hidden>Retry source evidence／重试来源证据</button>
+              <section id="source-health-surface" data-source-health-host aria-busy="false" hidden></section>
+            </details>
           </section>
 
       <div id="rateRow" class="field-row">
