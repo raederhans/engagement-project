@@ -5,6 +5,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import maplibregl from 'maplibre-gl';
 
+import './source_health_contracts.mjs';
+
 import * as acs from '../../src/api/acs.js';
 import * as boundaries from '../../src/api/boundaries.js';
 import * as config from '../../src/config.js';

@@ -1,0 +1,98 @@
+.source-health__intro,
+.source-health__admission-warning {
+  margin: 0 0 var(--space-3, 12px);
+  color: var(--text-muted, #475569);
+  line-height: 1.5;
+}
+
+.source-health__admission-warning {
+  color: var(--danger-text, #9f1239);
+  font-weight: 650;
+}
+
+.source-health__sources {
+  display: grid;
+  gap: var(--space-3, 12px);
+}
+
+.source-health__source {
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--border-subtle, #cbd5e1);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-raised, #fff);
+}
+
+.source-health__source-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.source-health__status {
+  padding: 2px 8px;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.source-health__status[data-status='current'] { color: #166534; }
+.source-health__status[data-status='partial'],
+.source-health__status[data-status='stale'] { color: #92400e; }
+.source-health__status[data-status='unavailable'] { color: #9f1239; }
+.source-health__status[data-status='unknown'] { color: #475569; }
+
+.source-health__facts,
+.source-health__clocks {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.4fr) minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.source-health__facts dt,
+.source-health__clocks dt {
+  font-weight: 700;
+}
+
+.source-health__facts dd,
+.source-health__clocks dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.source-health__subheading {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.source-health__clocks {
+  grid-column: 1 / -1;
+}
+
+.source-health__limitations {
+  margin: 6px 0;
+  padding-inline-start: 1.2rem;
+}
+
+.source-health__handoff {
+  margin-bottom: 0;
+}
+
+@media (max-width: 540px) {
+  .source-health__facts,
+  .source-health__clocks {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (forced-colors: active) {
+  .source-health__status,
+  .source-health__source {
+    border: 1px solid CanvasText;
+  }
+}

@@ -1,0 +1,292 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+import { createSourceHealthLoader } from '../../src/source_health/source_health_loader.js';
+import {
+  adaptCrimeCoverageObservation,
+  adaptTransportObservation,
+  bundledArtifactObservations,
+} from '../../src/source_health/source_health_adapters.js';
+import { BUNDLED_SOURCE_RECEIPTS } from '../../src/source_health/source_health_bundled_receipts.js';
+import { SOURCE_HEALTH_CATALOG } from '../../src/source_health/source_health_catalog.js';
+import {
+  admitSourceHealthObservation,
+  buildSourceHealthReadModel,
+  SOURCE_HEALTH_SCHEMA_VERSION,
+  SOURCE_HEALTH_STATUSES,
+} from '../../src/source_health/source_health_read_model.js';
+import { renderSourceHealthSurface } from '../../src/source_health/source_health_view.js';
+
+const NOW = '2026-08-10T12:00:00.000Z';
+
+function observation(overrides = {}) {
+  return {
+    sourceId: 'philadelphia-reported-crime',
+    status: 'current',
+    statusReason: 'fixture',
+    clocks: {
+      sourceAsOf: '2026-08-08',
+      retrievedAt: '2026-08-09T01:00:00.000Z',
+      builtAt: '2026-08-09T02:00:00.000Z',
+      observedAt: NOW,
+    },
+    snapshot: { version: 'fixture-v1', identity: 'fixture:1' },
+    boundaryVintage: null,
+    coverage: { geography: 'Philadelphia', temporalStart: '2006-01-01', temporalEnd: '2026-08-08' },
+    transport: { endpointUrl: 'https://example.test/data', lastModified: null, etag: null },
+    recordCount: 0,
+    ...overrides,
+  };
+}
+
+test('source health preserves four clocks as distinct immutable evidence', () => {
+  const admitted = admitSourceHealthObservation(observation());
+  assert.deepEqual(admitted.clocks, {
+    sourceAsOf: '2026-08-08',
+    retrievedAt: '2026-08-09T01:00:00.000Z',
+    builtAt: '2026-08-09T02:00:00.000Z',
+    observedAt: NOW,
+  });
+  assert.equal(Object.isFrozen(admitted.clocks), true);
+  assert.throws(() => admitSourceHealthObservation(observation({
+    clocks: {
+      sourceAsOf: '2026-08-08',
+      retrievedAt: '2026-08-09',
+      builtAt: '2026-08-09T02:00:00.000Z',
+      observedAt: NOW,
+    },
+  })), /retrievedAt/);
+});
+
+test('HTTP validators remain transport evidence and never become a business clock', () => {
+  const transport = adaptTransportObservation({
+    sourceId: 'philadelphia-city-limits',
+    endpointUrl: 'https://example.test/city-limits',
+    observedAt: NOW,
+    lastModified: 'Sat, 08 Aug 2026 10:00:00 GMT',
+    etag: '"transport-v1"',
+  });
+  assert.equal(transport.status, 'unknown');
+  assert.deepEqual(transport.clocks, {
+    sourceAsOf: null,
+    retrievedAt: null,
+    builtAt: null,
+    observedAt: NOW,
+  });
+  assert.equal(transport.transport.lastModified, 'Sat, 08 Aug 2026 10:00:00 GMT');
+  assert.equal(transport.transport.etag, '"transport-v1"');
+});
+
+test('missing fields, unknown fields, and duplicate observations fail closed per supported source', () => {
+  const missingStatus = observation();
+  delete missingStatus.status;
+  const extraField = { ...observation(), unexpectedFreshness: true };
+  const model = buildSourceHealthReadModel({
+    catalog: SOURCE_HEALTH_CATALOG,
+    observations: [missingStatus, extraField],
+  });
+  const crime = model.sources.find(({ id }) => id === 'philadelphia-reported-crime');
+  assert.equal(model.schemaVersion, SOURCE_HEALTH_SCHEMA_VERSION);
+  assert.equal(model.rejectedObservationCount, 2);
+  assert.equal(crime.status, 'unavailable');
+  assert.equal(crime.statusReason, 'schema-drift');
+  assert.equal(crime.recordCount, null);
+});
+
+test('zero, unavailable, partial, stale, and unknown remain separate states', () => {
+  assert.deepEqual(SOURCE_HEALTH_STATUSES, ['current', 'partial', 'stale', 'unavailable', 'unknown']);
+  const currentZero = admitSourceHealthObservation(observation({ recordCount: 0 }));
+  assert.equal(currentZero.status, 'current');
+  assert.equal(currentZero.recordCount, 0);
+  for (const status of ['unavailable', 'unknown']) {
+    assert.throws(
+      () => admitSourceHealthObservation(observation({ status, recordCount: 0 })),
+      /must not coerce recordCount/,
+    );
+  }
+  assert.equal(admitSourceHealthObservation(observation({ status: 'partial' })).status, 'partial');
+  assert.equal(admitSourceHealthObservation(observation({ status: 'stale' })).status, 'stale');
+  const untouched = buildSourceHealthReadModel({ catalog: SOURCE_HEALTH_CATALOG }).sources;
+  assert.equal(untouched.every(({ status }) => status === 'unknown'), true);
+});
+
+test('Crime coverage uses semantic dates and fails unavailable on malformed coverage', () => {
+  assert.equal(adaptCrimeCoverageObservation({
+    status: 'ready', min: '2006-01-01', max: '2026-08-08',
+  }, { now: NOW }).status, 'current');
+  assert.equal(adaptCrimeCoverageObservation({
+    status: 'ready', min: '2006-01-01', max: '2026-07-01',
+  }, { now: NOW }).status, 'stale');
+  assert.equal(adaptCrimeCoverageObservation({
+    status: 'ready', min: '2006-01-01', max: 'latest',
+  }, { now: NOW }).status, 'unavailable');
+  assert.equal(adaptCrimeCoverageObservation({ status: 'error' }, { now: NOW }).recordCount, null);
+});
+
+test('official URLs and bundled receipt versions match committed fixtures', async () => {
+  const [acsText, tractText] = await Promise.all([
+    readFile(new URL('../../src/data/acs_tracts_2024_pa101.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../public/data/tract_crime_counts_last12m.json', import.meta.url), 'utf8'),
+  ]);
+  const acs = JSON.parse(acsText);
+  const tract = JSON.parse(tractText);
+  assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.acsPopulation, {
+    sourceId: 'acs-tract-population',
+    sourceAsOf: `${acs.manifest.vintage}-12-31`,
+    retrievedAt: acs.manifest.retrievedAt,
+    builtAt: null,
+    version: `${acs.manifest.vintage} ACS 5-year (${acs.manifest.period.replace('-', '–')}), table B01003`,
+    identity: acs.manifest.rowsSha256,
+    recordCount: acs.manifest.rowCount,
+  });
+  assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.tractCrime, {
+    sourceId: 'tract-crime-snapshot',
+    sourceAsOf: tract.meta.coverage_date,
+    retrievedAt: null,
+    builtAt: tract.meta.generated_at,
+    version: `tract crime snapshot schema v${tract.meta.schema_version}`,
+    identity: `coverage:${tract.meta.start}:${tract.meta.end}:${tract.meta.row_count}`,
+    recordCount: tract.meta.row_count,
+    temporalStart: tract.meta.start,
+    temporalEnd: tract.meta.end,
+  });
+  assert.equal(SOURCE_HEALTH_CATALOG.length, 8);
+  for (const source of SOURCE_HEALTH_CATALOG) {
+    assert.match(source.canonicalUrl, /^https:\/\//);
+    assert.match(source.officialHandoff.url, /^https:\/\//);
+    assert.match(source.license.url, /^https:\/\//);
+  }
+  const observations = bundledArtifactObservations({ now: NOW });
+  assert.equal(observations.find(({ sourceId }) => sourceId === 'tract-crime-snapshot').status, 'stale');
+});
+
+class TestNode {
+  constructor(tagName, ownerDocument) {
+    this.tagName = tagName.toUpperCase();
+    this.ownerDocument = ownerDocument;
+    this.children = [];
+    this.attributes = new Map();
+    this.dataset = {};
+    this.hidden = false;
+    this.className = '';
+    this._text = '';
+  }
+
+  set textContent(value) { this._text = String(value); this.children = []; }
+  get textContent() { return `${this._text}${this.children.map((child) => typeof child === 'string' ? child : child.textContent).join('')}`; }
+  append(...children) { this.children.push(...children); }
+  appendChild(child) { this.append(child); return child; }
+  replaceChildren(...children) { this._text = ''; this.children = [...children]; }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  queryAll(tagName) {
+    const expected = tagName.toUpperCase();
+    return [
+      ...(this.tagName === expected ? [this] : []),
+      ...this.children.flatMap((child) => child instanceof TestNode ? child.queryAll(expected) : []),
+    ];
+  }
+}
+
+class TestDocument {
+  createElement(tagName) { return new TestNode(tagName, this); }
+  createDocumentFragment() { return new TestNode('fragment', this); }
+}
+
+test('text-first surface renders semantic no-map DOM with four clocks and accessible links', () => {
+  const documentRef = new TestDocument();
+  const host = new TestNode('section', documentRef);
+  host.hidden = true;
+  const observations = [
+    adaptCrimeCoverageObservation({ status: 'error' }, { now: NOW }),
+    ...bundledArtifactObservations({ now: NOW }),
+  ];
+  const model = buildSourceHealthReadModel({ catalog: SOURCE_HEALTH_CATALOG, observations });
+  renderSourceHealthSurface({ host, model, language: 'zh-CN' });
+
+  assert.equal(host.hidden, false);
+  assert.equal(host.getAttribute('aria-labelledby'), 'source-health-title');
+  assert.equal(host.queryAll('article').length, SOURCE_HEALTH_CATALOG.length);
+  assert.ok(host.queryAll('dl').length > SOURCE_HEALTH_CATALOG.length);
+  assert.ok(host.queryAll('a').every((anchor) => anchor.target === '_blank' && anchor.rel === 'noopener noreferrer'));
+  assert.match(host.textContent, /来源健康与数据新鲜度中心/);
+  assert.match(host.textContent, /来源事实截至/);
+  assert.match(host.textContent, /获取时间/);
+  assert.match(host.textContent, /构建时间/);
+  assert.match(host.textContent, /观测时间/);
+  assert.doesNotMatch(host.textContent, /real-time danger|实时危险/i);
+  assert.equal(host.queryAll('canvas').length, 0);
+  assert.equal(host.queryAll('svg').length, 0);
+});
+
+function control() {
+  const listeners = new Map();
+  return {
+    hidden: true,
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener(type) { listeners.delete(type); },
+    dispatch(type) { listeners.get(type)?.(); },
+    setAttribute(name, value) { this[name] = value; },
+  };
+}
+
+test('Data Status controller remains lazy until native details opens and retries import failure', async () => {
+  const status = control();
+  const retry = control();
+  const host = control();
+  const mount = {
+    open: false,
+    dataset: {},
+    ...control(),
+    querySelector(selector) {
+      return new Map([
+        ['[data-source-health-host]', host],
+        ['[data-source-health-loader-status]', status],
+        ['[data-source-health-retry]', retry],
+      ]).get(selector) || null;
+    },
+  };
+  let imports = 0;
+  const loader = createSourceHealthLoader({
+    mount,
+    warn: () => {},
+    loadUi: async () => {
+      imports += 1;
+      if (imports === 1) throw new Error('chunk failed');
+      return { initSourceHealthSurface: () => ({ refresh() {} }) };
+    },
+  });
+  assert.equal(imports, 0);
+  mount.dispatch('toggle');
+  assert.equal(imports, 0);
+  mount.open = true;
+  mount.dispatch('toggle');
+  await loader.whenIdle();
+  assert.equal(imports, 1);
+  assert.equal(mount.dataset.sourceHealthLoader, 'unavailable');
+  assert.equal(retry.hidden, false);
+  retry.dispatch('click');
+  await loader.whenIdle();
+  assert.equal(imports, 2);
+  assert.equal(mount.dataset.sourceHealthLoader, 'ready');
+  assert.equal(host['aria-busy'], 'false');
+});
+
+test('source-health lazy boundary stays bounded and map-free', async () => {
+  const paths = [
+    '../../src/source_health/source_health_loader.js',
+    '../../src/source_health/source_health_controller.js',
+    '../../src/source_health/source_health_view.js',
+    '../../src/source_health/source_health_catalog.js',
+    '../../src/source_health/source_health_read_model.js',
+    '../../src/source_health/source_health_adapters.js',
+    '../../src/styles/source-health.css',
+  ];
+  const contents = await Promise.all(paths.map((path) => readFile(new URL(path, import.meta.url), 'utf8')));
+  assert.ok(Buffer.byteLength(contents[0]) <= 4_000, 'static loader must remain a small entry-edge module');
+  assert.ok(contents.slice(1).reduce((sum, value) => sum + Buffer.byteLength(value), 0) <= 50_000, 'lazy source-health implementation must stay under its focused raw ceiling');
+  assert.match(contents[1], /source-health\.css/);
+  assert.doesNotMatch(contents.join('\n'), /maplibre|initMap|optional_map_runtime|@turf/);
+});
