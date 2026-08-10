@@ -22,6 +22,7 @@ import {
   loadDemoRoutes as loadDemoRoutesOwner,
   loadDemoSegments as loadDemoSegmentsOwner,
 } from '../../src/routes_diary/diary_seed_data.js';
+import './evidence_bundle_v2.mjs';
 
 const { store } = stateModule;
 const evidenceBundleUrl = new URL('../../src/analysis/evidence_bundle.js', import.meta.url);

@@ -38,6 +38,21 @@ export function createAnalysisRepository({ adapter } = {}) {
       return artifact;
     },
 
+    async saveManyAtomic(values) {
+      if (!Array.isArray(values) || values.length === 0) {
+        throw new Error('Invalid analysis import.');
+      }
+      if (typeof adapter.putManyAtomic !== 'function') {
+        throw new Error('Atomic analysis import is unavailable.');
+      }
+      const artifacts = values.map(validateAnalysisArtifact);
+      if (new Set(artifacts.map(({ id }) => id)).size !== artifacts.length) {
+        throw new Error('Duplicate analysis import id.');
+      }
+      await adapter.putManyAtomic(artifacts);
+      return artifacts;
+    },
+
     async list() {
       const rows = await adapter.getAll();
       const items = [];
@@ -131,8 +146,14 @@ export function createIndexedDbAnalysisAdapter({
   async function write(operation) {
     const db = await connect();
     const tx = db.transaction(ANALYSIS_STORE_NAME, 'readwrite');
-    await operation(tx.store);
-    await tx.done;
+    try {
+      await operation(tx.store);
+      await tx.done;
+    } catch (error) {
+      try { tx.abort(); } catch {}
+      try { await tx.done; } catch {}
+      throw error;
+    }
   }
 
   return {
@@ -140,6 +161,12 @@ export function createIndexedDbAnalysisAdapter({
 
     async put(value) {
       await write((store) => store.put(value));
+    },
+
+    async putManyAtomic(values) {
+      await write(async (store) => {
+        for (const value of values) await store.add(value);
+      });
     },
 
     async get(id) {

@@ -303,6 +303,40 @@ test('IndexedDB writes do not resolve before transaction completion', async () =
   assert.equal(settled, true);
 });
 
+test('IndexedDB atomic imports abort the transaction instead of retaining a partial batch', async () => {
+  const transactionDone = deferred();
+  const writes = [];
+  let aborted = false;
+  const tx = {
+    store: {
+      async add(value) {
+        writes.push(value.id);
+        if (value.id === 'second') throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+      },
+    },
+    done: transactionDone.promise,
+    abort() {
+      aborted = true;
+      writes.length = 0;
+      transactionDone.reject(new DOMException('Transaction aborted', 'AbortError'));
+    },
+  };
+  const adapter = createIndexedDbAnalysisAdapter({
+    openDatabase: async () => ({
+      objectStoreNames: { contains: () => true },
+      transaction: () => tx,
+      close() {},
+    }),
+  });
+
+  await assert.rejects(
+    adapter.putManyAtomic([{ id: 'first' }, { id: 'second' }]),
+    /quota/i,
+  );
+  assert.equal(aborted, true);
+  assert.deepEqual(writes, []);
+});
+
 test('IndexedDB lifecycle events are nonfatal, observable, and reset stale connections', async () => {
   const statuses = [];
   const opened = [];
