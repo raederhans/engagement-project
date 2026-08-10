@@ -1,6 +1,5 @@
-import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
-import { initializeTranslations } from './i18n/index.js';
+import { initializeTranslations, setTranslatedText } from './i18n/index.js';
 import { setAnalysisMode, store, setViewMode, onViewModeChange } from './state/store.js';
 import {
   initPanel,
@@ -14,6 +13,14 @@ import { setSheetState } from './ui/sheet_controller.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
 import { createCrimeResultMetaPresenter } from './ui/crime_result_meta.js';
+import {
+  createCrimeViewModeController,
+  readCrimeViewMode,
+} from './ui/crime_view_mode.js';
+import {
+  createOptionalMapRuntime,
+  loadOptionalMapRuntime,
+} from './map/optional_map_runtime.js';
 import {
   applyCrimeViewState,
   decodeCrimeViewState,
@@ -61,24 +68,42 @@ const diaryInsightsLoader = createDiaryInsightsLoader({
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
-  initializeTranslations({ documentRef: document, storage: window.localStorage, navigatorRef: window.navigator });
+  initializeTranslations({
+    documentRef: document,
+    storage: window.localStorage,
+    navigatorRef: window.navigator,
+  });
   initLanguageSwitch({ documentRef: document });
   const sharedParams = new URLSearchParams(window.location.search || '');
   if (hasCrimeViewState(sharedParams)) {
     applyCrimeViewState(store, decodeCrimeViewState(sharedParams), { setMode: setAnalysisMode });
   }
   const initialMode = setViewMode(readModeFromURL(), { silent: true });
-  const { initMap } = await import('./map/initMap.js');
-  const map = initMap({ mode: initialMode, center: store.centerLonLat || undefined });
   const chartsPane = document.getElementById('charts');
+  const mapElement = document.getElementById('map');
+  const mapStatus = document.querySelector('[data-map-runtime-status]');
+  const viewModeRoot = document.querySelector('[data-crime-view-mode]');
   const aboutController = initAboutPanel({ initialMode });
   const modeSurfaces = createModeSurfacePresenter({ documentRef: document, aboutController });
+  let listController = null;
+  let listControllerPromise = null;
+  let mapCrimeController = null;
+  let presentationController = null;
+  let presentationGeneration = 0;
+  let panel = null;
+  let analysisHistoryController = null;
+  let analysisHistoryPromise = null;
+
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
       const scope = root.dataset.resultMeta;
       return [scope, createCrimeResultMetaPresenter({
         root,
-        onRetry: () => coordinator?.retryCrimeResult(scope),
+        onRetry: () => (
+          presentationController?.getMode() === 'list'
+            ? ensureListController().then((owner) => owner.requestRefresh({ scope }))
+            : coordinator?.retryCrimeResult(scope)
+        ),
       })];
     }),
   );
@@ -89,67 +114,137 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   writeMode(initialMode);
 
-  let analysisHistoryController = null;
-  let analysisHistoryPromise = null;
+  const mapRuntime = createOptionalMapRuntime({
+    loadMap: () => loadOptionalMapRuntime({
+      mode: store.viewMode,
+      center: store.centerLonLat || undefined,
+    }),
+    onStatusChange(snapshot) {
+      if (!mapStatus) return;
+      mapStatus.dataset.phase = snapshot.phase;
+      const key = snapshot.phase === 'loading'
+        ? 'crime.viewMode.mapLoading'
+        : snapshot.phase === 'ready'
+          ? 'crime.viewMode.mapReady'
+          : snapshot.phase === 'failed' ? 'crime.viewMode.mapFailed' : null;
+      if (key) setTranslatedText(mapStatus, key);
+    },
+  });
+
   const refreshCrime = async (clearArtifact = true) => {
+    if (store.viewMode !== 'crime') return { status: 'superseded' };
     if (clearArtifact) analysisHistoryController?.setCurrentArtifact(null);
-    const result = await coordinator?.requestCrimeRefresh();
+    const result = presentationController?.getMode() === 'list'
+      ? await requestListRefresh()
+      : await ensureMapCoordinator().then((owner) => owner.requestCrimeRefresh());
     if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     return result;
   };
-  const panel = initPanel(store, {
+
+  panel = initPanel(store, {
     onChange: refreshCrime,
-    onRadiusInput: () => coordinator?.updateCrimeBuffer(),
-    getMapCenter: () => map.getCenter(),
-    onAddressResolved: async () => coordinator.fitCurrentCrimeSelection({ force: true }),
-    onTractsOverlayToggle: (visible) => coordinator?.setTractsOverlayVisible(visible),
+    onRadiusInput: () => {
+      if (presentationController?.getMode() === 'map') coordinator?.updateCrimeBuffer();
+    },
+    getMapCenter: () => mapRuntime.getMap()?.getCenter?.() || null,
+    onAddressResolved: async () => {
+      if (presentationController?.getMode() === 'list') return true;
+      await ensureMapCoordinator();
+      return coordinator.fitCurrentCrimeSelection({ force: true });
+    },
+    onTractsOverlayToggle: (visible) => {
+      if (presentationController?.getMode() === 'map') coordinator?.setTractsOverlayVisible(visible);
+    },
   });
   const { diaryMount, analysisHistoryMount } = panel;
+  async function ensureListController() {
+    if (listController) return listController;
+    if (!listControllerPromise) {
+      listControllerPromise = import('./routes_crime/list_mode_controller.js')
+        .then((module) => module.createCrimeListController({
+          resultMeta: crimeResultMeta,
+          onCoverageChange: () => panel.syncFromStore?.(),
+          onDataScopeChange: modeSurfaces.showDataScope,
+        }))
+        .then((owner) => {
+          listController = owner;
+          return owner;
+        })
+        .catch((error) => {
+          listControllerPromise = null;
+          throw error;
+        });
+    }
+    return listControllerPromise;
+  }
 
-  coordinator = createModeCoordinator({
-    map,
-    diaryFeatureEnabled,
-    getCurrentMode: () => store.viewMode,
-    writeMode,
-    onModeIntent: modeSurfaces.showIntent,
-    onModeSettled: modeSurfaces.settle,
-    onShortStatusChange: modeSurfaces.showStatus,
-    onDataScopeChange: modeSurfaces.showDataScope,
-    chartsPane,
-    diaryMount,
-    loadCrimeController: () => import('./routes_crime/index.js')
-      .then((module) => module.initCrimeMode(map, {
-        isActive: () => store.viewMode === 'crime',
-        onCoverageChange: () => {
-          if (store.viewMode === 'crime') panel.syncFromStore?.();
-        },
-        onPointChange: () => {
-          if (store.viewMode === 'crime') panel.syncFromStore?.();
-        },
-        onSelectionChange: (_key, { origin } = {}) => {
-          if (origin !== 'map') return;
-          panel.syncFromStore?.();
-          analysisHistoryController?.setCurrentArtifact(null);
-        },
-        onDataScopeChange: modeSurfaces.showDataScope,
-        resultMeta: crimeResultMeta,
-        taskFocus: panel.taskFocus,
-        presetPorts: {
-          state: store,
-          normalize: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
-          replace: (next) => replaceCrimeViewState(store, next, { setMode: setAnalysisMode }),
-          sync: () => panel.syncPreset?.(),
-          url: () => writeCrimeStateToURL(store),
-          clear: () => analysisHistoryController?.setCurrentArtifact(null),
-          refresh: () => refreshCrime(false),
-        },
-      })),
-    loadDiaryModule: () => import('./routes_diary/index.js'),
-    getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),
-  });
+  async function requestListRefresh(options = {}) {
+    const ownsList = () => store.viewMode === 'crime'
+      && presentationController?.getMode() === 'list';
+    if (!ownsList()) return { status: 'superseded' };
+    modeSurfaces.showIntent('crime');
+    modeSurfaces.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime list' });
+    const result = await ensureListController().then((owner) => owner.requestRefresh(options));
+    if (!ownsList()) return { status: 'superseded' };
+    const phase = ['live', 'partial', 'idle'].includes(result?.status) ? 'ready' : 'failed';
+    modeSurfaces.showStatus({ mode: 'crime', phase, label: 'Crime list' });
+    modeSurfaces.settle('crime', phase);
+    return result;
+  }
+
+  async function ensureMapCoordinator() {
+    if (coordinator) return coordinator;
+    const map = await mapRuntime.ensureMap();
+    coordinator = createModeCoordinator({
+      map,
+      diaryFeatureEnabled,
+      getCurrentMode: () => store.viewMode,
+      writeMode,
+      onModeIntent: modeSurfaces.showIntent,
+      onModeSettled: modeSurfaces.settle,
+      onShortStatusChange: modeSurfaces.showStatus,
+      onDataScopeChange: modeSurfaces.showDataScope,
+      chartsPane,
+      diaryMount,
+      loadCrimeController: () => import('./routes_crime/index.js')
+        .then((module) => module.initCrimeMode(map, {
+          isActive: () => store.viewMode === 'crime'
+            && presentationController?.getMode() === 'map',
+          onCoverageChange: () => {
+            if (store.viewMode === 'crime') panel.syncFromStore?.();
+          },
+          onPointChange: () => {
+            if (store.viewMode === 'crime') panel.syncFromStore?.();
+          },
+          onSelectionChange: (_key, { origin } = {}) => {
+            if (origin !== 'map') return;
+            panel.syncFromStore?.();
+            analysisHistoryController?.setCurrentArtifact(null);
+          },
+          onDataScopeChange: modeSurfaces.showDataScope,
+          resultMeta: crimeResultMeta,
+          taskFocus: panel.taskFocus,
+          presetPorts: {
+            state: store,
+            normalize: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
+            replace: (next) => replaceCrimeViewState(store, next, { setMode: setAnalysisMode }),
+            sync: () => panel.syncPreset?.(),
+            url: () => writeCrimeStateToURL(store),
+            clear: () => analysisHistoryController?.setCurrentArtifact(null),
+            refresh: () => refreshCrime(false),
+          },
+        })).then((controller) => {
+          mapCrimeController = controller;
+          return controller;
+        }),
+      loadDiaryModule: () => import('./routes_diary/index.js'),
+      getDiaryInsights: (owner) => diaryInsightsLoader.getHost(owner),
+    });
+    return coordinator;
+  }
 
   const ensureAnalysisHistory = () => {
-    if (!analysisHistoryMount || store.viewMode !== 'crime' || coordinator.getActiveMode() !== 'crime') return null;
+    if (!analysisHistoryMount || store.viewMode !== 'crime') return null;
     if (!analysisHistoryPromise) {
       analysisHistoryPromise = import('./i18n/history.js')
         .then(() => import('./analysis/analysis_history_controller.js'))
@@ -158,10 +253,18 @@ window.addEventListener('DOMContentLoaded', async () => {
           store,
           syncControls: () => panel.syncFromStore?.(),
           syncCanonicalUrl: () => writeCrimeStateToURL(store),
-          focusAnalysis: () => coordinator.fitCurrentCrimeSelection({ force: true }),
-          scheduleCrime: () => coordinator.schedule('crime'),
-          cancelCrimeTransition: () => coordinator.cancelCurrentTransition(),
-          getCurrentCrimeProvenance: () => coordinator.getCurrentCrimeProvenance(),
+          focusAnalysis: () => (
+            presentationController.getMode() === 'list'
+              ? document.getElementById('crime-list-results-title')?.focus?.()
+              : coordinator?.fitCurrentCrimeSelection({ force: true })
+          ),
+          scheduleCrime: () => scheduleProductMode('crime'),
+          cancelCrimeTransition: () => coordinator?.cancelCurrentTransition(),
+          getCurrentCrimeProvenance: () => (
+            presentationController.getMode() === 'list'
+              ? listController?.getCurrentProvenance() || {}
+              : coordinator?.getCurrentCrimeProvenance() || {}
+          ),
         }))
         .then((controller) => {
           analysisHistoryController = controller;
@@ -177,16 +280,95 @@ window.addEventListener('DOMContentLoaded', async () => {
     return analysisHistoryPromise;
   };
 
-  const scheduleMode = async (mode, { explicit = false } = {}) => {
+  async function scheduleProductMode(mode, { explicit = false } = {}) {
     if (explicit) analysisHistoryController?.cancelPendingRestore();
-    const result = await coordinator.schedule(mode);
-    if (store.viewMode === 'crime' && coordinator.getActiveMode() === 'crime') {
+    if (mode === 'crime' && presentationController.getMode() === 'list') {
+      const result = await requestListRefresh();
+      void ensureAnalysisHistory();
+      return result;
+    }
+    const owner = await ensureMapCoordinator();
+    const result = await owner.schedule(mode);
+    if (store.viewMode === 'crime' && owner.getActiveMode() === 'crime') {
       void ensureAnalysisHistory();
       if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     }
     return result;
-  };
+  }
 
-  onViewModeChange((mode) => void scheduleMode(mode, { explicit: true }));
-  await scheduleMode(store.viewMode);
+  async function applyPresentation(mode, { origin = 'initial' } = {}) {
+    const generation = ++presentationGeneration;
+    const ownsPresentation = () => generation === presentationGeneration;
+    const normalized = mode === 'list' && store.viewMode === 'crime' ? 'list' : 'map';
+    document.documentElement.dataset.crimeView = normalized;
+    document.body.dataset.crimeView = normalized;
+    mapElement?.setAttribute('aria-hidden', String(normalized === 'list'));
+    if (mapElement) mapElement.inert = normalized === 'list';
+    panel.setCrimePresentationMode?.(normalized);
+    const listResults = document.querySelector('[data-crime-list-results]');
+    if (listResults) listResults.hidden = normalized !== 'list';
+    for (const input of viewModeRoot?.querySelectorAll?.('input[name="crime-view-mode"]') || []) {
+      input.checked = input.value === normalized;
+    }
+    if (viewModeRoot) viewModeRoot.hidden = store.viewMode !== 'crime';
+
+    if (normalized === 'list') {
+      coordinator?.cancelCurrentTransition?.('Crime list view selected');
+      mapCrimeController?.setActive?.(false);
+      const listOwner = await ensureListController();
+      if (!ownsPresentation() || presentationController.getMode() !== 'list') {
+        listOwner.setActive(false);
+        return;
+      }
+      listOwner.setActive(true);
+      if (mapStatus) {
+        mapStatus.dataset.phase = origin === 'fallback' ? 'failed' : 'ready';
+        setTranslatedText(
+          mapStatus,
+          origin === 'fallback' ? 'crime.viewMode.mapFailed' : 'crime.viewMode.listReady',
+        );
+      }
+      await listOwner.initialize();
+      if (!ownsPresentation() || presentationController.getMode() !== 'list') return;
+      panel.syncFromStore?.();
+      if (store.viewMode === 'crime') await scheduleProductMode('crime');
+      return;
+    }
+
+    listController?.setActive(false);
+    try {
+      const owner = await ensureMapCoordinator();
+      if (!ownsPresentation() || presentationController.getMode() !== 'map') return;
+      mapRuntime.getMap()?.resize?.();
+      await owner.schedule(store.viewMode);
+    } catch (error) {
+      if (!ownsPresentation()) return;
+      console.warn('Map runtime is unavailable:', error);
+      presentationController.setMode('list', { origin: 'fallback' });
+    }
+  }
+
+  presentationController = createCrimeViewModeController({
+    getHref: () => window.location.href,
+    replaceHref: (href) => window.history.replaceState({}, '', href),
+    addEventListener: (...args) => window.addEventListener(...args),
+    removeEventListener: (...args) => window.removeEventListener(...args),
+    onChange: (mode, meta) => void applyPresentation(mode, meta),
+  });
+  viewModeRoot?.addEventListener('change', (event) => {
+    if (event.target?.name === 'crime-view-mode') {
+      presentationController.setMode(event.target.value);
+    }
+  });
+  onViewModeChange((mode) => {
+    if (mode === 'diary' && presentationController.getMode() === 'list') {
+      presentationController.setMode('map', { origin: 'product-mode' });
+      return;
+    }
+    void applyPresentation(presentationController.getMode(), { origin: 'product-mode' });
+  });
+
+  const initialPresentation = readCrimeViewMode(window.location.href);
+  presentationController.setMode(initialPresentation, { origin: 'initial' });
+  await applyPresentation(initialPresentation, { origin: 'initial' });
 });

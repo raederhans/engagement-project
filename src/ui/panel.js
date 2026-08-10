@@ -328,6 +328,7 @@ export function initPanel(store, handlers) {
   const classOpacityVal = document.getElementById('classOpacityVal');
   const classCustomRow = document.getElementById('classCustomRow');
   const classCustomInput = document.getElementById('classCustomInput');
+  let crimePresentationMode = 'map';
 
   const onChange = debounce(() => {
     // Derive selected offense codes from groups (unless drilldown overrides)
@@ -616,6 +617,7 @@ export function initPanel(store, handlers) {
   function applyModeUI() {
     const mode = store.queryMode || 'buffer';
     const isBuffer = mode === 'buffer';
+    const isList = crimePresentationMode === 'list';
     if (bufferSelectRow) bufferSelectRow.style.display = isBuffer ? '' : 'none';
     if (bufferRadiusRow) bufferRadiusRow.style.display = isBuffer ? '' : 'none';
     useMapHint?.classList.toggle('is-hidden', !(isBuffer && store.selectMode === 'point'));
@@ -628,9 +630,15 @@ export function initPanel(store, handlers) {
     if (compareAreaBtn) compareAreaBtn.style.display = isBuffer ? '' : 'none';
     if (isBuffer) syncComparisonControls();
     else setComparisonFieldsVisible({ button: compareAreaBtn, fields: comparisonFields }, false);
-    if (queryModeHelp) {
-      setTranslatedText(queryModeHelp, `crime.modeHelp.${mode}`);
+    if (useCenterBtn) useCenterBtn.disabled = isList;
+    if (usePointBBtn) usePointBBtn.disabled = isList;
+    for (const option of queryModeSel?.options || []) {
+      if (option.value === 'district' || option.value === 'tract') option.disabled = isList;
     }
+    if (queryModeHelp) setTranslatedText(
+      queryModeHelp,
+      isList ? 'crime.viewMode.listOnlyArea' : `crime.modeHelp.${mode}`,
+    );
   }
 
   // Mode selection
@@ -907,6 +915,10 @@ export function initPanel(store, handlers) {
     },
     syncPreset,
     syncFromStore,
+    setCrimePresentationMode(mode) {
+      crimePresentationMode = mode === 'list' ? 'list' : 'map';
+      applyModeUI();
+    },
     setAnalysisHistorySync(callback) {
       analysisHistorySync = typeof callback === 'function' ? callback : null;
       analysisHistorySync?.();

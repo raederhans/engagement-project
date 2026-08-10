@@ -24,9 +24,7 @@ export function createModeUrlWriter({ getHref, replaceHref, getCrimeQuery }) {
   return (mode) => {
     const normalized = mode === 'diary' ? 'diary' : 'crime';
     const url = new URL(getHref());
-    if (normalized === 'diary') {
-      crimeQuery = new URLSearchParams(getCrimeQuery?.() || crimeQuery);
-    }
+    crimeQuery = new URLSearchParams(getCrimeQuery?.() || crimeQuery);
     for (const key of CRIME_VIEW_QUERY_KEYS) url.searchParams.delete(key);
     if (normalized === 'crime') {
       for (const [key, value] of crimeQuery) {

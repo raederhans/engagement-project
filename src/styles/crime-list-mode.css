@@ -1,0 +1,225 @@
+.crime-view-mode {
+  display: inline-flex;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-control);
+  background: var(--civic-paper-light);
+}
+
+.crime-view-mode legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.crime-view-mode label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-target);
+  padding: 0 var(--space-2);
+  border-radius: calc(var(--radius-control) - 2px);
+  cursor: pointer;
+}
+
+.crime-view-mode label:has(input:checked) {
+  background: var(--civic-navy);
+  color: #fff;
+}
+
+.crime-view-mode label:focus-within {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.crime-view-mode input {
+  position: absolute;
+  opacity: 0;
+}
+
+.map-runtime-status:empty {
+  display: none;
+}
+
+.crime-list-results {
+  margin-top: var(--space-3);
+}
+
+.crime-list-results h3 {
+  scroll-margin-top: calc(var(--app-bar-height) + var(--space-3));
+}
+
+.crime-list-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-card);
+}
+
+.crime-list-table-scroll:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.crime-list-results table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.crime-list-results caption {
+  padding: var(--space-3);
+  color: var(--muted);
+  text-align: left;
+}
+
+.crime-list-results :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--civic-rule);
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.crime-list-results thead th,
+.crime-list-results tbody th {
+  color: var(--civic-navy);
+  font-weight: 700;
+}
+
+.crime-list-limitations {
+  margin: var(--space-3) 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+}
+
+html[data-crime-view="list"] {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+body[data-crime-view="list"] {
+  height: auto;
+  min-height: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+body[data-crime-view="list"] #map,
+body[data-crime-view="list"] #legend,
+body[data-crime-view="list"] #tooltip,
+body[data-crime-view="list"] [data-map-recovery],
+body[data-crime-view="list"] [data-map-only-control],
+body[data-crime-view="list"] [data-route-corridor-entry],
+body[data-crime-view="list"] #choropleth-controls,
+body[data-crime-view="list"] #overlayTractsChk,
+body[data-crime-view="list"] #overlayTractsChk + span,
+body[data-crime-view="list"] [data-result-meta="boundary"] {
+  display: none;
+}
+
+body[data-crime-view="list"] #sidepanel {
+  position: relative;
+  inset: auto;
+  width: min(100%, 1120px);
+  height: auto;
+  max-height: none;
+  display: block;
+  margin: calc(var(--app-bar-height) + var(--space-4)) auto var(--space-6);
+  overflow: visible;
+}
+
+body[data-crime-view="list"] :is(.sheet-handle) {
+  display: none;
+}
+
+body[data-crime-view="list"] .sheet-content {
+  overflow: visible;
+}
+
+body[data-crime-view="list"] #results-drawer {
+  position: static;
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  box-shadow: none;
+}
+
+body[data-crime-view="list"] .incident-results__list,
+body[data-crime-view="list"] .incident-results__selected,
+body[data-crime-view="list"] .incident-results__more,
+body[data-crime-view="list"] [data-incident-results-status],
+body[data-crime-view="list"] [data-incident-results-state],
+body[data-crime-view="list"] .incident-results__header > [data-i18n="incidents.description"] {
+  display: none;
+}
+
+body[data-crime-view="list"] [data-crime-list-results] {
+  display: block;
+}
+
+body[data-crime-view="map"] [data-crime-list-results] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body[data-crime-view="list"] .app-bar {
+    position: relative;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  body[data-crime-view="list"] .app-bar__identity {
+    flex: 1 0 100%;
+  }
+
+  body[data-crime-view="list"] .app-bar__tools {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-crime-view="list"] :is(.app-bar__modes, .crime-view-mode, .mode-switch__group) {
+    width: 100%;
+  }
+
+  body[data-crime-view="list"] .mode-switch__button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  body[data-crime-view="list"] :is(.map-runtime-status, .app-bar__status) {
+    max-width: none;
+    grid-column: 1 / -1;
+    overflow: visible;
+    text-align: left;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .crime-view-mode label {
+    flex: 1;
+    justify-content: center;
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+
+  body[data-crime-view="list"] #sidepanel {
+    margin-top: var(--space-2);
+    padding-inline: 12px;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-crime-view="list"] :is(#sidepanel, #results-drawer, .crime-list-results) {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

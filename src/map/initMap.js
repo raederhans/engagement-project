@@ -16,9 +16,13 @@ export function initMap(options = {}) {
     center = DEFAULT_CENTER,
     zoom = DEFAULT_ZOOM,
     mode = 'crime',
+    maplibre = maplibregl,
   } = options;
 
-  const map = new maplibregl.Map({
+  if (maplibre.supported?.() === false) {
+    throw new Error('WebGL is unavailable in this browser.');
+  }
+  const map = new maplibre.Map({
     container,
     style: resolveMapStyle(mode),
     center,
@@ -26,6 +30,7 @@ export function initMap(options = {}) {
   });
   installDefaultMapControls(map, {
     initialView: { center, zoom },
+    maplibre,
   });
   const contextRecovery = installMapContextRecovery(map);
   map.once?.('remove', contextRecovery.remove);

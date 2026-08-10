@@ -1634,3 +1634,49 @@ test('map-selected Crime areas synchronize controls and the canonical URL', asyn
   assert.match(callback, /panel\.syncFromStore\?\.\(\)/);
   assert.doesNotMatch(callback, /writeCrimeStateToURL\(store\)/);
 });
+
+test('Crime list presentation exposes semantic controls, result table, status, and limitations', async () => {
+  const [html, css] = await Promise.all([
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readProductCss(),
+  ]);
+  assert.match(html, /<fieldset[^>]*data-crime-view-mode[^>]*>/);
+  assert.match(html, /<input[^>]*type="radio"[^>]*name="crime-view-mode"[^>]*value="map"/);
+  assert.match(html, /<input[^>]*type="radio"[^>]*name="crime-view-mode"[^>]*value="list"/);
+  assert.match(html, /data-map-runtime-status[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /<section[^>]*data-crime-list-results[^>]*aria-labelledby="crime-list-results-title"/);
+  assert.match(html, /<table[^>]*data-crime-list-table[^>]*>/);
+  assert.match(html, /<caption[^>]*data-crime-list-caption/);
+  for (const scope of ['col', 'row']) assert.match(html, new RegExp(`<th[^>]*scope="${scope}"`));
+  assert.match(html, /data-crime-list-status[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /data-crime-list-description[^>]*data-i18n="crime\.list\.description"/);
+  assert.match(html, /data-crime-list-limitations/);
+  assert.match(css, /html\[data-crime-view="list"\][^}]*overflow-y:\s*auto/s);
+  assert.match(css, /body\[data-crime-view="list"\][^}]*height:\s*auto[^}]*overflow-y:\s*visible/s);
+  assert.match(css, /body\[data-crime-view="list"\][^}]*\[data-incident-results-status\][^}]*display:\s*none/s);
+});
+
+test('Crime list refresh focuses the visible result surface for the selected result tab', async () => {
+  const { resolveCrimeListFocusTarget } = await import('../../src/ui/crime_list_results.js');
+  const heading = { id: 'crime-list-results-title' };
+  const summary = { id: 'compare-card' };
+  const summaryPane = { querySelector: (selector) => selector === '#compare-card' ? summary : null };
+  const incidentPane = { hidden: true, inert: true };
+  const root = { closest: () => incidentPane };
+  const documentRef = {
+    getElementById: () => heading,
+    querySelector: () => summaryPane,
+  };
+
+  assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), summary);
+  incidentPane.hidden = false;
+  incidentPane.inert = false;
+  assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), heading);
+});
+
+test('list-first entry has no static MapLibre or initMap import', async () => {
+  const main = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(main, /^import\s+['"]maplibre-gl\/dist\/maplibre-gl\.css['"];?$/m);
+  assert.doesNotMatch(main, /await import\(['"]\.\/map\/initMap\.js['"]\)/);
+  assert.match(main, /createOptionalMapRuntime/);
+});

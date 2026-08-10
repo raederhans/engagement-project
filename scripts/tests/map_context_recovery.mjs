@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { installMapContextRecovery } from '../../src/map/initMap.js';
+import { initMap, installMapContextRecovery } from '../../src/map/initMap.js';
 
 function createElement() {
   const listeners = new Map();
@@ -114,4 +114,20 @@ test('removing WebGL recovery releases listeners, timers, and visible status', (
   assert.equal(root.dataset.phase, 'idle');
   harness.emit('webglcontextlost');
   assert.equal(root.hidden, true);
+});
+
+test('map initialization fails accessibly before construction when WebGL is unsupported', () => {
+  let constructions = 0;
+  const maplibre = {
+    supported: () => false,
+    Map: class {
+      constructor() { constructions += 1; }
+    },
+  };
+
+  assert.throws(
+    () => initMap({ maplibre }),
+    /WebGL is unavailable/i,
+  );
+  assert.equal(constructions, 0);
 });

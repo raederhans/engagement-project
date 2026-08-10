@@ -383,6 +383,27 @@ test('Diary URLs remove Crime-only keys and Crime restores its canonical state',
   assert.equal(current.hash, '#map');
 });
 
+test('Crime mode URL writes use the latest public query instead of a startup snapshot', async () => {
+  const { createModeUrlWriter } = await import('../../src/ui/mode_surfaces.js');
+  let href = 'https://example.test/app?mode=crime&view=list&analysis=buffer&months=6';
+  let crimeQuery = 'analysis=buffer&months=6';
+  const writer = createModeUrlWriter({
+    getHref: () => href,
+    replaceHref: (nextHref) => { href = nextHref; },
+    getCrimeQuery: () => crimeQuery,
+  });
+
+  crimeQuery = 'analysis=buffer&start=2025-09&months=12&a=-75.16%2C39.95&labelA=Market+St';
+  writer('crime');
+
+  const current = new URL(href);
+  assert.equal(current.searchParams.get('view'), 'list');
+  assert.equal(current.searchParams.get('start'), '2025-09');
+  assert.equal(current.searchParams.get('months'), '12');
+  assert.equal(current.searchParams.get('a'), '-75.16,39.95');
+  assert.equal(current.searchParams.get('labelA'), 'Market St');
+});
+
 test('late Crime synchronization cannot append Crime keys while Diary owns the URL', (t) => {
   const originalWindow = globalThis.window;
   let replacedUrl = null;
@@ -495,4 +516,70 @@ test('closed Help content is removed from layout and interaction', () => {
     /\.about-panel\.about--open\s*\{[^}]*display:\s*block\s*;/s,
   );
   assert.doesNotMatch(aboutSource, /document\.createElement\(['"]style['"]\)|injectStyles/);
+});
+
+test('Crime presentation mode is URL-backed without serializing Diary private state', async () => {
+  const viewModes = await import('../../src/ui/crime_view_mode.js').catch(() => ({}));
+  assert.equal(typeof viewModes.readCrimeViewMode, 'function');
+  assert.equal(typeof viewModes.writeCrimeViewMode, 'function');
+
+  assert.equal(viewModes.readCrimeViewMode('?mode=crime&view=list&analysis=buffer'), 'list');
+  assert.equal(viewModes.readCrimeViewMode('?mode=diary&view=list&route=private-route'), 'map');
+
+  const next = new URL(viewModes.writeCrimeViewMode(
+    'https://example.test/app?mode=crime&analysis=buffer&a=-75.16%2C39.95&route=private-route#results',
+    'list',
+  ));
+  assert.equal(next.searchParams.get('view'), 'list');
+  assert.equal(next.searchParams.get('analysis'), 'buffer');
+  assert.equal(next.searchParams.get('a'), '-75.16,39.95');
+  assert.equal(next.searchParams.get('route'), null);
+  assert.equal(next.hash, '#results');
+});
+
+test('optional map runtime loads once, reports failure, and remains retry-safe', async () => {
+  const runtimeModule = await import('../../src/map/optional_map_runtime.js').catch(() => ({}));
+  assert.equal(typeof runtimeModule.createOptionalMapRuntime, 'function');
+
+  let loads = 0;
+  const expectedMap = { id: 'map' };
+  const runtime = runtimeModule.createOptionalMapRuntime({
+    loadMap: async () => { loads += 1; return expectedMap; },
+  });
+  assert.equal(runtime.getMap(), null);
+  assert.equal(await runtime.ensureMap(), expectedMap);
+  assert.equal(await runtime.ensureMap(), expectedMap);
+  assert.equal(loads, 1);
+
+  const failure = runtimeModule.createOptionalMapRuntime({
+    loadMap: async () => { throw new Error('WebGL unavailable'); },
+  });
+  await assert.rejects(failure.ensureMap(), /WebGL unavailable/);
+  assert.equal(failure.getMap(), null);
+  assert.equal(failure.getStatus().phase, 'failed');
+});
+
+test('browser history restores Crime presentation mode without changing query truth', async () => {
+  const viewModes = await import('../../src/ui/crime_view_mode.js').catch(() => ({}));
+  assert.equal(typeof viewModes.createCrimeViewModeController, 'function');
+  let href = 'https://example.test/app?mode=crime&analysis=buffer&a=-75.16%2C39.95&view=list';
+  const listeners = new Map();
+  const changes = [];
+  const controller = viewModes.createCrimeViewModeController({
+    getHref: () => href,
+    replaceHref: (next) => { href = next; },
+    addEventListener: (name, listener) => listeners.set(name, listener),
+    removeEventListener: (name) => listeners.delete(name),
+    onChange: (mode, meta) => changes.push([mode, meta.origin]),
+  });
+
+  assert.equal(controller.getMode(), 'list');
+  controller.setMode('map');
+  assert.equal(new URL(href).searchParams.get('view'), 'map');
+  assert.equal(new URL(href).searchParams.get('a'), '-75.16,39.95');
+  href = 'https://example.test/app?mode=crime&analysis=buffer&a=-75.16%2C39.95&view=list';
+  listeners.get('popstate')();
+  assert.deepEqual(changes.at(-1), ['list', 'history']);
+  controller.destroy();
+  assert.equal(listeners.has('popstate'), false);
 });

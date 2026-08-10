@@ -15,6 +15,12 @@
       </div>
       <div class="app-bar__tools">
         <nav class="app-bar__modes" data-mode-switch-mount data-i18n-aria-label="app.modeLabel" aria-label="Explorer mode"></nav>
+        <fieldset class="crime-view-mode" data-crime-view-mode>
+          <legend data-i18n="crime.viewMode.label">Crime view</legend>
+          <label><input type="radio" name="crime-view-mode" value="map" checked><span data-i18n="crime.viewMode.map">Map</span></label>
+          <label><input type="radio" name="crime-view-mode" value="list"><span data-i18n="crime.viewMode.list">List</span></label>
+        </fieldset>
+        <p class="map-runtime-status" data-map-runtime-status data-phase="idle" role="status" aria-live="polite"></p>
         <p class="app-bar__status" data-app-data-status data-phase="loading" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</p>
         <p class="app-bar__source-details" data-app-source-details></p>
         <div class="app-bar__language" data-language-switch-mount></div>
@@ -124,7 +130,7 @@
         <div class="search-control">
           <input id="addrA" class="field search-control__input" type="search" name="address-a" autocomplete="street-address" enterkeyhint="search" aria-describedby="addressStatus" data-i18n-placeholder="crime.address.primaryPlaceholder" placeholder="1500 Market St" />
           <button id="searchABtn" class="button button--secondary" type="button" data-i18n="crime.find">Find</button>
-          <button id="useCenterBtn" class="button button--primary" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
+          <button id="useCenterBtn" class="button button--primary" type="button" data-map-only-control data-i18n="crime.pickOnMap">Pick on map</button>
         </div>
         <button id="compareAreaBtn" class="button button--dashed" type="button" data-i18n="crime.compareAdd" aria-expanded="false" aria-controls="comparisonFields">Compare another area</button>
         <div id="comparisonFields" hidden>
@@ -132,7 +138,7 @@
           <div class="search-control">
             <input id="addrB" class="field search-control__input" type="search" name="address-b" autocomplete="street-address" enterkeyhint="search" aria-describedby="addressStatus" data-i18n-placeholder="crime.address.comparisonPlaceholder" placeholder="Broad St & Girard Ave" />
             <button id="searchBBtn" class="button button--secondary" type="button" data-i18n="crime.find">Find</button>
-            <button id="usePointBBtn" class="button button--primary" type="button" data-i18n="crime.pickOnMap">Pick on map</button>
+            <button id="usePointBBtn" class="button button--primary" type="button" data-map-only-control data-i18n="crime.pickOnMap">Pick on map</button>
           </div>
         </div>
         <div id="addressStatus" class="status-badge is-hidden" role="status" aria-live="polite"></div>
@@ -314,6 +320,32 @@
           <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
           <ol class="incident-results__list" data-incident-results-list></ol>
           <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show more incidents</button>
+          <section class="crime-list-results" data-crime-list-results aria-labelledby="crime-list-results-title" hidden>
+            <h3 id="crime-list-results-title" tabindex="-1" data-i18n="crime.list.title">Reported incident records</h3>
+            <p data-crime-list-description data-i18n="crime.list.description">Review admitted historical records for this query in the table below. A map is not required.</p>
+            <p data-crime-list-status role="status" aria-live="polite" data-i18n="crime.list.idle">Enter an address and run the Crime query to review incident records without a map.</p>
+            <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.tableRegion" aria-label="Scrollable incident records table">
+              <table data-crime-list-table>
+                <caption data-crime-list-caption data-i18n="crime.list.caption">Historical reported incident records for the current Crime query</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" data-i18n="map.incidentOffense">Offense</th>
+                    <th scope="col" data-i18n="map.incidentOccurred">Date and time</th>
+                    <th scope="col" data-i18n="map.incidentLocation">Reported location</th>
+                    <th scope="col" data-i18n="map.incidentDistrict">Police district</th>
+                  </tr>
+                </thead>
+                <tbody data-crime-list-body>
+                  <tr><th scope="row" data-i18n="crime.list.noRows">No admitted records yet</th><td colspan="3">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <ul class="crime-list-limitations" data-crime-list-limitations>
+              <li data-i18n="crime.list.limitHistorical">These are historical reported records, not live conditions or a prediction.</li>
+              <li data-i18n="crime.list.limitLocation">Locations are generalized to roughly the hundred block and are not precise addresses.</li>
+              <li data-i18n="crime.list.limitRecord">One source row is not guaranteed to equal one unique incident.</li>
+            </ul>
+          </section>
           <div class="result-meta" data-result-meta="incidents" data-availability="unavailable">
             <div class="result-meta__bar">
               <span data-result-meta-status role="status" aria-live="polite">Incident result unavailable</span>

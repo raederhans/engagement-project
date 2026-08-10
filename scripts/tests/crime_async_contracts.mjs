@@ -984,3 +984,68 @@ test('Crime synchronous UI actions require both controller and mode ownership', 
     'none',
   ]);
 });
+
+test('Crime list refresh uses one snapshot for incidents, summary, charts, and provenance', async () => {
+  const listModule = await import('../../src/routes_crime/list_mode_controller.js').catch(() => ({}));
+  assert.equal(typeof listModule.createCrimeListController, 'function');
+  const calls = [];
+  const snapshot = {
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: ['Thefts'],
+    resolvedOffenseCodes: ['Thefts'],
+    drilldownCodes: [],
+    queryMode: 'buffer',
+    center3857: [-8364000, 4855000],
+    centerLonLat: [-75.16, 39.95],
+    centerB3857: null,
+    centerBLonLat: null,
+    addressA: '1500 Market St',
+    addressB: null,
+    radiusM: 400,
+    adminLevel: 'districts',
+    per10k: false,
+    coverageDate: '2026-06-30',
+    overlayTractsLines: false,
+  };
+  const view = {
+    loading(scope) { calls.push(['loading', scope]); return scope; },
+    incidents(payload) { calls.push(['incidents', payload]); },
+    ready(scope, provenance) { calls.push(['ready', scope, provenance]); },
+    failed(scope) { calls.push(['failed', scope]); },
+    clear(scope) { calls.push(['clear', scope]); },
+    focusResults() { calls.push(['focus']); },
+  };
+  const controller = listModule.createCrimeListController({
+    readSnapshot: () => structuredClone(snapshot),
+    initializeCoverage: async () => {},
+    fetchIncidents: async (value) => {
+      assert.deepEqual(value.center3857, snapshot.center3857);
+      assert.equal(value.radiusM, 400);
+      return { type: 'FeatureCollection', features: [{ properties: { cartodb_id: 1 } }] };
+    },
+    updateSummary: async (value) => {
+      assert.deepEqual(value.center3857, snapshot.center3857);
+      return { applied: true, status: 'success', a: { status: 'success', total: 1 } };
+    },
+    updateCharts: async (value) => {
+      assert.deepEqual(value.center3857, snapshot.center3857);
+      return { applied: true, status: 'success', succeeded: ['monthly', 'top', 'heat'], failed: [] };
+    },
+    createProvenance: ({ name, snapshot: value }) => {
+      assert.deepEqual(value, snapshot);
+      return Object.freeze({ name, selection: value.centerLonLat });
+    },
+    view,
+  });
+
+  const result = await controller.requestRefresh();
+  assert.equal(result.status, 'live');
+  assert.deepEqual(result.succeeded.sort(), ['charts', 'incidents', 'summary']);
+  assert.ok(calls.some(([kind, payload]) => kind === 'incidents' && payload.count === 1));
+  assert.deepEqual(
+    calls.filter(([kind]) => kind === 'ready').map(([, scope]) => scope).sort(),
+    ['charts', 'incidents', 'summary'],
+  );
+  assert.equal(calls.at(-1)[0], 'focus');
+});

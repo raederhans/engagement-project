@@ -228,6 +228,7 @@ test('stylesheet ownership is explicit and preserves the canonical cascade order
     './styles/workbench-shell.css',
     './styles/civic-product.css',
     './styles/crime-charts-responsive.css',
+    './styles/crime-list-mode.css',
   ]);
   assert.equal((css.match(/^:root\s*\{/gm) || []).length, 1);
 });

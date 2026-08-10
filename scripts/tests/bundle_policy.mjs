@@ -13,6 +13,7 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const entry = manifest['index.html'];
 const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
+const crimeList = manifest['src/routes_crime/list_mode_controller.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
@@ -42,10 +43,21 @@ assert.deepEqual(
     'src/analysis/evidence_bundle.js',
     'src/ui/help_content.js',
     'src/map/initMap.js',
+    'src/routes_crime/list_mode_controller.js',
   ]),
   'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
 );
 assert.ok(mapRuntime?.isDynamicEntry, 'Vite manifest must keep MapLibre and map initialization behind a lazy runtime boundary');
+assert.ok(crimeList?.isDynamicEntry, 'Vite manifest must keep the Crime list controller behind its presentation boundary');
+assert.ok(
+  crimeList.dynamicImports?.includes('src/charts/index.js'),
+  'Crime list queries must keep Charts lazy until a supported analysis runs',
+);
+assert.ok(
+  ![...(crimeList.imports || []), ...(crimeList.dynamicImports || [])]
+    .some((key) => key === 'src/map/initMap.js' || key === 'src/routes_crime/index.js'),
+  'Crime list presentation must not import the MapLibre-backed Crime controller',
+);
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
   new Set([
@@ -106,6 +118,7 @@ const budgets = [
   // Owns result-scoped cancellation, fail-closed data admission, immutable
   // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
   ['Crime', crime, 42_000, 14_900],
+  ['Crime list', crimeList, 6_500, 2_600],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
