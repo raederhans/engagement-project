@@ -2,7 +2,7 @@
 
 ## Current status
 
-六条规划、三条执行线、跨 worktree 整合与统一本地发布门均已完成。A/B/C 交付已作为四个 Lore 提交整合到本地 `main`，统一候选的整合修复已提交为 `5f8f526`。最终 `npm run ci:release` exit 0；当前仅缺 push 后的远端 Actions/Pages 证据，因 push 会触发生产部署，本任务未越权执行。
+六条规划、三条执行线、跨 worktree 整合与统一本地发布门均已完成。A/B/C 交付已作为四个 Lore 提交整合到本地 `main`，统一候选的整合修复已提交为 `5f8f526`。用户已授权按严格串行的两阶段继续：Phase 1 正在对 exact `268bfab` 做 fresh preflight，成功后才 non-force push 并核验 Actions/Pages/生产 canary；Phase 2 只在生产健康后恢复 bundle headroom，默认仅本地 Lore commit，不二次 push。
 
 ## Checklist
 
@@ -28,7 +28,12 @@
 - [x] 解决重叠文件语义、统一候选发布门与视觉稳定性问题。
 - [x] 完成 npm ci、audit、coverage、full validate、bundle、browser smoke 与 visual gate。
 - [x] 提交整合修复并同步中央任务记录。
-- [ ] 获得外部生产授权后 push，并核验 GitHub Actions、Pages 与远端保护设置。
+- [x] 获得 exact `268bfab` 的一次生产 push 授权，并完成 HEAD/remote/worktree/auth/Pages/端口/进程起点审计。
+- [x] Fresh 完成 `npm ci`、high audit 与 `npm run ci:release`；本地 exact `268bfab` 三门 exit 0，且无 baseline 变化。
+- [x] Non-force push exact `268bfab`；单 workflow run `31358114549` 的 core/coverage 通过，但 Linux visual 因两个陈旧 baseline 失败，artifact 未上传、deploy 跳过，生产未更新。
+- [x] 同步已审查的 Linux portrait / landscape baseline；fresh npm ci、high audit 与完整本地 release gate 全部 exit 0，无产品源码或阈值变化。
+- [ ] 创建 Phase 1 repair Lore commit，并对新候选重新执行远端 release/Pages/canary 闭环。
+- [ ] Phase 1 生产健康后实现 bundle headroom，完整验证并创建仅本地的 Phase 2 Lore commit。
 
 ## Planning tasks
 

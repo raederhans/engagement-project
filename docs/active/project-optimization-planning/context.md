@@ -102,3 +102,34 @@
 - 本地 `main` 已包含四个 execution commits 和 `5f8f526` 整合修复；本中央记录提交位于其后。
 - 下一项未完成工作只有外部生产边界：获得授权后 push，等待远端 Actions/Pages，并补记远端 SHA、required checks、environment protection 和 deployment 证据。
 - 在新的清理授权前，所有 planning/execution worktree、`d35d`、失败/成功日志和用户未跟踪 WIP 均保持原样。
+
+## Phase 1 release-owner contract 2026-08-10
+
+- 唯一远端发布与 live-process owner：当前委托任务；其他 task/worktree 不得启动、轮询、重试、停止或解释本轮 install/build/browser/Pages 进程。
+- 精确候选：本地 `main` / `HEAD` 为 `268bfaba76eedcd525183de1dcc89fb97f6b61ff`；fresh `git fetch origin main` 后 `origin/main` 为 `dc1e5672d8b2229bebf587e2ec72ba3550f2f592`，ahead 6 / behind 0，且远端为候选祖先。
+- 工作目录：`C:/Users/raede/Desktop/dev/engagement_project`。共享资源为该 checkout 的 `node_modules`、`dist`、coverage/Playwright 输出、4173/4178 端口与 GitHub Actions/Pages；全部严格串行。
+- Phase 1 命令：`npm ci`；`npm audit --audit-level=high`；`npm run ci:release`。日志与 exit-code 状态写入 `.tmp/release-268bfab/01-npm-ci.*`、`02-npm-audit-high.*`、`03-ci-release.*`。
+- 成功条件：三条命令 exit 0；没有 baseline 更新；候选仍为 exact `268bfab`；scoped node/npm 与 4173/4178 最终释放；fetch 后再次证明无 behind，才允许 non-force push `HEAD:main`。
+- 失败/停止条件：远端出现新提交、无法归属的 tracked dirt、high/critical advisory、视觉 expected/actual/diff 不能证明变化、端口/输出被其他 owner 占用，或同一假设连续三次相同失败。失败先查根因，不盲目重跑或放宽契约。
+- 起点审计：所有已登记 worktree 均无 tracked dirt；主 checkout 仅有既有未跟踪 `.playwright-mcp/`、`logs/`、`output/`，全部保留且不纳入提交。4173/4178 与 scoped engagement_project node/npm 均为空。GitHub auth 可用；Pages 为 workflow build，当前生产 deployment SHA 为 `dc1e5672...`。`main` 当前未启用 branch protection；`github-pages` environment 使用自定义 branch policy。
+
+## Phase 1 first remote attempt 2026-08-10
+
+- Non-force push 将 exact `268bfaba76eedcd525183de1dcc89fb97f6b61ff` 推到 `origin/main`，只触发一个 `CI and Pages release` run `31358114549`；run head SHA 与远端 main 均为 `268bfab`。
+- `core` job `93361505892` 与 `coverage` job `93361505843` 通过；`release` job `93361505797` 在 Linux visual gate 失败，因此 exact Pages artifact 未上传，`deploy` job `93362108112` 被跳过。生产仍为旧 deployment SHA `dc1e5672...`，不能声称 `268bfab` 已部署。
+- 失败严格限于 Crime incident-results 的 Linux portrait / landscape 两张 screenshot；33 visual passed、10 conditional skips、2 failed。诊断 artifact 为 `browser-diagnostics-1` / `9051414407`，本地副本位于 `.tmp/release-268bfab/browser-diagnostics/`。
+- 已逐张审查 expected / actual / diff：旧 Linux baseline 仍显示旧的 `Fallback · Jul 30`，landscape 还未呈现语义断言要求可见的 selected incident details；actual 显示当前诚实的 `Fallback · records through Jul 30` 与选中详情。portrait 两次 actual 字节一致；landscape 两次结构一致，仅有少量栅格化差异。
+- 根因是 `5f8f526` 新增跨平台确定性滚动并只更新 Windows portrait baseline，遗漏两个 Linux baseline；不是产品行为回归，也不需要放宽 visual threshold。最小修复只同步经审查的 Linux portrait / landscape baseline，并将形成新候选后重新执行完整门。
+
+## Phase 1 repair live-test contract 2026-08-10
+
+- 唯一 owner 仍为当前委托任务；原 run `31358114549` 已完成且无 live job。修复只包含两个经审查的 Linux baseline 与中央记录，不改产品源码、visual threshold 或断言。
+- 串行命令仍为 `npm ci`、`npm audit --audit-level=high`、`npm run ci:release`；新日志写入 `.tmp/release-repair/01-npm-ci.*`、`02-npm-audit-high.*`、`03-ci-release.*`。
+- 成功条件：三条 exit 0，Windows visual 35 passed / 10 conditional skips，只有预期的四个 tracked 文件；随后按 `$write-lore-commits` 形成新候选。Linux baseline 的决定性验证必须来自新候选的远端 release job，不以 Windows 本地通过代替。
+
+## Phase 1 repair local validation 2026-08-10
+
+- Fresh `npm ci` exit 0（395 installed / 396 audited / 0 vulnerabilities）；显式 `npm audit --audit-level=high` exit 0；`npm run ci:release` exit 0。
+- Release gate 内 JS/CSS lint、完整 tests、manifest build、bundle policy、browser smoke 与 Windows visual 全部通过；browser smoke `consoleErrors=0` / `pageErrors=0`，visual 35 passed / 10 conditional skips / 0 failed。
+- Bundle 输出未变：dist 3,532,279 bytes；Entry 899,558；Crime 41,716；Evidence Bundle 10,501；Route corridor UI 23,410；P1 translations 9,013。4173/4178 与 scoped node/npm 已释放。
+- 当前 tracked scope 仅中央 `context.md` / `task.md` 与两个经审查的 Linux incident-results baseline；没有产品源码、threshold、断言或其他 baseline 变化。Linux 决定性复验仍待新候选远端 run。
