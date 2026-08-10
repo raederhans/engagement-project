@@ -8,6 +8,7 @@ import {
   createDiaryEntry,
   createDiaryLocalRepository,
 } from '../../src/routes_diary/local_repository.js';
+import * as diaryStorage from '../../src/routes_diary/diary_storage.js';
 
 function deferred() {
   let resolve;
@@ -458,4 +459,154 @@ test('backup apply delegates the import intent for an atomic latest-state replan
     plan: { snapshotToken: expectedSnapshotToken },
     snapshot: { entries: [{ id: 'incoming' }], drafts: [], warnings: [] },
   });
+});
+
+test('local-data controller refreshes its immutable read model from repository truth after commit', async () => {
+  assert.equal(typeof diaryStorage.createDiaryLocalController, 'function');
+  const calls = [];
+  let durableSnapshot = { entries: [], drafts: [{ routeId: 'route-a' }], warnings: [] };
+  const controller = diaryStorage.createDiaryLocalController({
+    lifecycle: {
+      async snapshot() {
+        calls.push('snapshot');
+        return structuredClone(durableSnapshot);
+      },
+      async commitEntry(entry, routeId) {
+        calls.push(['commit', entry.id, routeId]);
+        durableSnapshot = { entries: [entry], drafts: [], warnings: [] };
+        return { applied: true, entry };
+      },
+      dispose() {},
+    },
+  });
+
+  await controller.initialize();
+  const before = controller.getViewState();
+  const entry = { id: 'entry-a', routeId: 'route-a', score: 4 };
+  const result = await controller.commitEntry(entry, 'route-a');
+  const after = controller.getViewState();
+
+  assert.deepEqual(result, { applied: true, entry });
+  assert.deepEqual(calls, ['snapshot', ['commit', 'entry-a', 'route-a'], 'snapshot']);
+  assert.deepEqual(before.snapshot, { entries: [], drafts: [{ routeId: 'route-a' }], warnings: [] });
+  assert.deepEqual(after.snapshot, durableSnapshot);
+  assert.equal(Object.isFrozen(after.snapshot), true);
+  assert.equal(Object.isFrozen(after.snapshot.entries), true);
+  assert.equal(Object.hasOwn(after, 'entries'), false);
+});
+
+test('local-data controller deletes through the lifecycle then re-reads concurrent repository truth', async () => {
+  const calls = [];
+  let durableSnapshot = {
+    entries: [{ id: 'remove-me' }, { id: 'existing' }],
+    drafts: [],
+    warnings: [],
+  };
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: {
+      async snapshot() {
+        calls.push('snapshot');
+        return structuredClone(durableSnapshot);
+      },
+    },
+    lifecycle: {
+      async deleteEntry(id) {
+        calls.push(['delete', id]);
+        durableSnapshot = {
+          entries: [{ id: 'existing' }, { id: 'concurrent-tab-entry' }],
+          drafts: [],
+          warnings: [],
+        };
+        return { applied: true };
+      },
+      dispose() {},
+    },
+  });
+
+  await controller.initialize();
+  const result = await controller.deleteEntry('remove-me');
+
+  assert.equal(result.applied, true);
+  assert.deepEqual(calls, ['snapshot', ['delete', 'remove-me'], 'snapshot']);
+  assert.deepEqual(
+    controller.getViewState().snapshot.entries.map(({ id }) => id),
+    ['existing', 'concurrent-tab-entry'],
+  );
+});
+
+test('disposed local-data controller ignores a late repository snapshot', async () => {
+  const snapshotGate = deferred();
+  let changes = 0;
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: { snapshot: () => snapshotGate.promise },
+    lifecycle: { dispose() {} },
+    onChange() { changes += 1; },
+  });
+
+  const pending = controller.initialize();
+  controller.dispose();
+  snapshotGate.resolve({ entries: [{ id: 'late' }], drafts: [], warnings: [] });
+
+  assert.deepEqual(await pending, { applied: false, reason: 'stale' });
+  assert.equal(changes, 0);
+  assert.deepEqual(controller.getViewState().snapshot.entries, []);
+});
+
+test('local-data controller owns backup preview and refreshes repository truth after import', async () => {
+  const transitions = [];
+  let durableSnapshot = { entries: [{ id: 'local' }], drafts: [], warnings: [] };
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: { snapshot: async () => structuredClone(durableSnapshot) },
+    lifecycle: {
+      async snapshot() { return structuredClone(durableSnapshot); },
+      async applyImport(prepared, options) {
+        assert.equal(prepared.backup.mode, options.strategy);
+        durableSnapshot = {
+          entries: [{ id: 'local' }, { id: 'imported' }],
+          drafts: [{ routeId: 'draft-imported' }],
+          warnings: [],
+        };
+        return { applied: true, plan: prepared, snapshot: structuredClone(durableSnapshot) };
+      },
+      dispose() {},
+    },
+    createBackupPlan(_snapshot, text, { mode }) {
+      assert.equal(text, '{"backup":true}');
+      return {
+        backup: { mode },
+        source: { migratedFrom: null },
+        summary: { entriesAdded: mode === 'merge' ? 1 : 2 },
+        snapshotToken: `token-${mode}`,
+      };
+    },
+    onChange(view) { transitions.push(view.dataStatus?.key || null); },
+  });
+
+  await controller.initialize();
+  await controller.prepareImport({
+    name: 'diary.json',
+    size: 128,
+    async text() { return '{"backup":true}'; },
+  });
+  const preview = controller.getViewState().importPreview;
+  assert.deepEqual(preview, {
+    fileName: 'diary.json',
+    migratedFrom: null,
+    mergeSummary: { entriesAdded: 1 },
+    replaceSummary: { entriesAdded: 2 },
+  });
+
+  const result = await controller.applyImport('merge');
+
+  assert.equal(result.applied, true);
+  assert.deepEqual(
+    controller.getViewState().snapshot.entries.map(({ id }) => id),
+    ['local', 'imported'],
+  );
+  assert.deepEqual(controller.getViewState().snapshot.drafts, [{ routeId: 'draft-imported' }]);
+  assert.equal(controller.getViewState().importPreview, null);
+  assert.ok(transitions.includes('diary.backupPreparing'));
+  assert.ok(transitions.includes('diary.backupReady'));
+  assert.ok(transitions.includes('diary.backupImporting'));
+  assert.ok(transitions.includes('diary.backupMerged'));
 });

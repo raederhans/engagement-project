@@ -1552,6 +1552,43 @@ test('Diary submission completion waits for the atomic local commit before apply
   assert.deepEqual(calls.find(([kind]) => kind === 'highlight')[1], ['seg-1']);
 });
 
+test('Diary submission delegates the durable commit to the session local-data controller', async () => {
+  const calls = [];
+  const payload = { route_id: 'route-1', segment_ids: ['seg-1'], overall_rating: 4 };
+  const entry = { id: 'entry-controller', routeId: 'route-1', score: 4 };
+
+  const result = await diaryModule.handleDiarySubmissionSuccess({
+    payload,
+    response: { persisted: false, mode: 'demo' },
+  }, {
+    createLocalEntry: () => entry,
+    localController: {
+      async commitEntry(value, routeId) {
+        calls.push(['controller-commit', value, routeId]);
+        return { applied: true, entry: value };
+      },
+    },
+    localLifecycle: {
+      async commitEntry() {
+        throw new Error('legacy lifecycle path used');
+      },
+    },
+    aggregationModel: {
+      applySubmission() { calls.push(['apply']); },
+      buildFeatureCollection() { return null; },
+    },
+    refreshAlternativeRoute() {},
+    notify() {},
+    notifyPanel() {},
+    highlightSegments() {},
+    routeFeature: { properties: { route_id: 'route-1', name: 'Route 1' } },
+  });
+
+  assert.equal(result.applied, true);
+  assert.deepEqual(calls[0], ['controller-commit', entry, 'route-1']);
+  assert.deepEqual(calls[1], ['apply']);
+});
+
 test('a failed local Diary commit does not mutate aggregation or show success', async () => {
   const calls = [];
   await assert.rejects(

@@ -1,0 +1,359 @@
+import {
+  createDiaryBackupPlan as createDefaultBackupPlan,
+  serializeDiaryPrivateBackup as serializeDefaultBackup,
+} from './diary_data_portability.js';
+import { downloadTextFile as downloadDefaultTextFile } from '../utils/export_analysis.js';
+
+const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+
+function freezeSnapshot(value = {}) {
+  const snapshot = {
+    entries: Object.freeze([...(Array.isArray(value.entries) ? value.entries : [])]),
+    drafts: Object.freeze([...(Array.isArray(value.drafts) ? value.drafts : [])]),
+    warnings: Object.freeze([...(Array.isArray(value.warnings) ? value.warnings : [])]),
+  };
+  return Object.freeze(snapshot);
+}
+
+const EMPTY_SNAPSHOT = freezeSnapshot();
+
+function localizeControllerError(error, fallbackKey, translate) {
+  const message = error?.message || String(error || '');
+  const knownKeys = {
+    'Diary backup is not valid JSON.': 'diary.backupInvalidJson',
+    'Unsupported Diary backup schema.': 'diary.backupUnsupported',
+    'Invalid Diary entry in backup.': 'diary.backupInvalidEntry',
+    'Local Diary storage is unavailable in this browser.': 'diary.localStorageUnavailable',
+  };
+  return knownKeys[message] ? translate(knownKeys[message]) : (message || translate(fallbackKey));
+}
+
+export function createDiaryLocalController({
+  repository,
+  lifecycle,
+  isCurrent = () => true,
+  onChange = () => {},
+  onEntryDeleted = () => {},
+  translate = (key) => key,
+  createBackupPlan = createDefaultBackupPlan,
+  serializeBackup = serializeDefaultBackup,
+  downloadTextFile = downloadDefaultTextFile,
+  now = () => new Date(),
+} = {}) {
+  if (!lifecycle) throw new Error('Diary local controller requires a lifecycle.');
+
+  let active = true;
+  let importPlans = null;
+  let viewState = Object.freeze({
+    snapshot: EMPTY_SNAPSHOT,
+    storageWarning: null,
+    importPreview: null,
+    replaceConfirm: false,
+    deleteConfirmId: null,
+    dataStatus: null,
+    busy: false,
+    focusTarget: null,
+  });
+  const ownsSession = () => active && isCurrent();
+
+  const publish = (patch, metadata = {}) => {
+    if (!ownsSession()) return false;
+    viewState = Object.freeze({ ...viewState, ...patch });
+    if (!metadata.silent) onChange(viewState, metadata);
+    return true;
+  };
+
+  const readRepositorySnapshot = async () => {
+    if (repository?.snapshot) return repository.snapshot();
+    if (repository?.list) {
+      return { entries: await repository.list(), drafts: [], warnings: [] };
+    }
+    return lifecycle.snapshot();
+  };
+
+  const applySnapshot = (snapshot) => {
+    const normalized = freezeSnapshot(snapshot);
+    const storageWarning = normalized.warnings.length
+      ? translate('diary.storageRowsSkipped', { count: normalized.warnings.length })
+      : null;
+    return publish({ snapshot: normalized, storageWarning }, { snapshotChanged: true });
+  };
+
+  const refresh = async () => {
+    if (!ownsSession()) return { applied: false, reason: 'stale' };
+    const snapshot = await readRepositorySnapshot();
+    return applySnapshot(snapshot)
+      ? { applied: true, snapshot: viewState.snapshot }
+      : { applied: false, reason: 'stale' };
+  };
+
+  const clearImportState = (patch = {}, metadata = {}) => {
+    importPlans = null;
+    return publish({ importPreview: null, replaceConfirm: false, ...patch }, metadata);
+  };
+
+  return {
+    async initialize() {
+      try {
+        return await refresh();
+      } catch (error) {
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        const storageWarning = localizeControllerError(error, 'diary.localStorageUnavailable', translate);
+        publish({ snapshot: EMPTY_SNAPSHOT, storageWarning }, { snapshotChanged: true });
+        return { applied: false, reason: 'unavailable', error };
+      }
+    },
+
+    async refresh() {
+      return refresh();
+    },
+
+    async loadDraft(routeId) {
+      return lifecycle.loadDraft(routeId);
+    },
+
+    persistDraft(routeId, draft, options) {
+      clearImportState({}, { silent: true });
+      return lifecycle.persistDraft(routeId, draft, options);
+    },
+
+    async commitEntry(entry, routeId) {
+      if (!ownsSession()) return { applied: false, reason: 'stale' };
+      const result = await lifecycle.commitEntry(entry, routeId);
+      if (!result?.applied || !ownsSession()) return result;
+      const refreshed = await refresh();
+      if (!refreshed.applied) return refreshed;
+      clearImportState({}, { silent: true });
+      return result;
+    },
+
+    async deleteEntry(itemOrId) {
+      const id = typeof itemOrId === 'object' ? itemOrId?.id : itemOrId;
+      if (!id || viewState.busy || !ownsSession()) return { applied: false, reason: 'stale' };
+      const label = typeof itemOrId === 'object' && itemOrId?.label
+        ? itemOrId.label
+        : translate('diary.untitledRoute');
+      publish({
+        busy: true,
+        dataStatus: { key: 'diary.routeDeleting', params: { label } },
+        focusTarget: 'data-status',
+      });
+      try {
+        const result = await lifecycle.deleteEntry(id);
+        if (!result?.applied || !ownsSession()) return result;
+        const refreshed = await refresh();
+        if (!refreshed.applied) return refreshed;
+        importPlans = null;
+        publish({
+          importPreview: null,
+          replaceConfirm: false,
+          deleteConfirmId: null,
+          dataStatus: { key: 'diary.routeDeleted', params: { label } },
+          focusTarget: 'history-title',
+        });
+        onEntryDeleted(id);
+        return result;
+      } catch (error) {
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        publish({
+          dataStatus: {
+            key: 'diary.routeDeleteFailed',
+            params: { message: localizeControllerError(error, 'diary.localStorageUnavailable', translate) },
+            tone: 'error',
+          },
+          focusTarget: 'data-status',
+        });
+        return { applied: false, reason: 'failed', error };
+      } finally {
+        if (ownsSession()) publish({ busy: false });
+      }
+    },
+
+    async prepareImport(file) {
+      if (!file || viewState.busy || !ownsSession()) return { applied: false, reason: 'unavailable' };
+      publish({
+        busy: true,
+        dataStatus: { key: 'diary.backupPreparing' },
+        focusTarget: 'data-status',
+      });
+      try {
+        if (Number(file.size) > MAX_BACKUP_BYTES) throw new Error('Diary backup is too large.');
+        const text = await file.text();
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        const snapshot = await readRepositorySnapshot();
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        const merge = createBackupPlan(snapshot, text, { mode: 'merge' });
+        const replace = createBackupPlan(snapshot, text, { mode: 'replace' });
+        importPlans = { merge, replace };
+        const importPreview = Object.freeze({
+          fileName: file.name || '',
+          migratedFrom: merge.source.migratedFrom,
+          mergeSummary: merge.summary,
+          replaceSummary: replace.summary,
+        });
+        publish({
+          importPreview,
+          replaceConfirm: false,
+          dataStatus: { key: 'diary.backupReady' },
+          focusTarget: 'import-preview',
+        });
+        return { applied: true, preview: importPreview };
+      } catch (error) {
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        importPlans = null;
+        publish({
+          importPreview: null,
+          replaceConfirm: false,
+          dataStatus: {
+            key: 'diary.backupOperationFailed',
+            params: { message: localizeControllerError(error, 'diary.importFailed', translate) },
+            tone: 'error',
+          },
+          focusTarget: 'data-status',
+        });
+        return { applied: false, reason: 'failed', error };
+      } finally {
+        if (ownsSession()) publish({ busy: false });
+      }
+    },
+
+    async applyImport(strategy) {
+      const prepared = importPlans?.[strategy];
+      if (!prepared || viewState.busy || !ownsSession()) return { applied: false, reason: 'unavailable' };
+      publish({
+        busy: true,
+        dataStatus: { key: 'diary.backupImporting' },
+        focusTarget: 'data-status',
+      });
+      try {
+        const result = await lifecycle.applyImport(prepared, {
+          strategy,
+          confirmReplace: strategy === 'replace',
+        });
+        if (!result?.applied || !ownsSession()) return result;
+        const refreshed = await refresh();
+        if (!refreshed.applied) return refreshed;
+        importPlans = null;
+        publish({
+          importPreview: null,
+          replaceConfirm: false,
+          dataStatus: {
+            key: strategy === 'replace' ? 'diary.backupReplaced' : 'diary.backupMerged',
+            params: {
+              entries: viewState.snapshot.entries.length,
+              drafts: viewState.snapshot.drafts.length,
+            },
+          },
+          focusTarget: 'data-status',
+        });
+        return result;
+      } catch (error) {
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        if (error?.code === 'DIARY_BACKUP_PREVIEW_STALE') {
+          importPlans = null;
+          publish({
+            importPreview: null,
+            replaceConfirm: false,
+            dataStatus: { key: 'diary.backupPreviewStale', tone: 'error' },
+            focusTarget: 'data-status',
+          });
+        } else {
+          publish({
+            dataStatus: {
+              key: 'diary.backupOperationFailed',
+              params: { message: localizeControllerError(error, 'diary.importFailed', translate) },
+              tone: 'error',
+            },
+            focusTarget: 'data-status',
+          });
+        }
+        return { applied: false, reason: 'failed', error };
+      } finally {
+        if (ownsSession()) publish({ busy: false });
+      }
+    },
+
+    async exportBackup() {
+      if (viewState.busy || !ownsSession()) return { applied: false, reason: 'unavailable' };
+      publish({
+        busy: true,
+        dataStatus: { key: 'diary.backupExporting' },
+        focusTarget: 'data-status',
+      });
+      try {
+        const refreshed = await refresh();
+        if (!refreshed.applied) return refreshed;
+        const backup = serializeBackup(viewState.snapshot);
+        const timestamp = now();
+        const isoDate = (timestamp instanceof Date ? timestamp : new Date(timestamp)).toISOString().slice(0, 10);
+        downloadTextFile(
+          `engagement-diary-private-${isoDate}.json`,
+          `${JSON.stringify(backup, null, 2)}\n`,
+          'application/json',
+        );
+        publish({ dataStatus: { key: 'diary.backupExported' }, focusTarget: 'data-status' });
+        return { applied: true, backup };
+      } catch (error) {
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
+        publish({
+          dataStatus: {
+            key: 'diary.backupOperationFailed',
+            params: { message: localizeControllerError(error, 'diary.localStorageUnavailable', translate) },
+            tone: 'error',
+          },
+          focusTarget: 'data-status',
+        });
+        return { applied: false, reason: 'failed', error };
+      } finally {
+        if (ownsSession()) publish({ busy: false });
+      }
+    },
+
+    clearImportPreview({ notify = false } = {}) {
+      importPlans = null;
+      if (notify) return clearImportState();
+      viewState = Object.freeze({ ...viewState, importPreview: null, replaceConfirm: false });
+      return true;
+    },
+
+    requestReplace() {
+      return publish({ replaceConfirm: true, dataStatus: null, focusTarget: 'replace-confirm' });
+    },
+
+    cancelImport() {
+      return clearImportState({
+        dataStatus: { key: 'diary.backupCancelled' },
+        focusTarget: 'choose-backup',
+      });
+    },
+
+    requestDelete(id) {
+      return publish({ deleteConfirmId: id, dataStatus: null, focusTarget: `delete-confirm:${id}` });
+    },
+
+    cancelDelete(id) {
+      return publish({ deleteConfirmId: null, focusTarget: `delete-action:${id}` });
+    },
+
+    takeFocusTarget() {
+      const focusTarget = viewState.focusTarget;
+      viewState = Object.freeze({ ...viewState, focusTarget: null });
+      return focusTarget;
+    },
+
+    localizeError(error, fallbackKey) {
+      return localizeControllerError(error, fallbackKey, translate);
+    },
+
+    getViewState() {
+      return viewState;
+    },
+
+    dispose() {
+      if (!active) return;
+      active = false;
+      importPlans = null;
+      lifecycle.dispose();
+    },
+  };
+}

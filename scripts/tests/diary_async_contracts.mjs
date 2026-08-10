@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { loadJsonFromCandidates } from '../../src/routes_diary/demo_data_loader.js';
+import { createDiaryLocalController } from '../../src/routes_diary/diary_storage.js';
 import { addNetworkLayer } from '../../src/map/network_layer.js';
 import {
   createDiaryInsightsPort,
@@ -237,14 +238,27 @@ function createDiaryMapFake() {
   };
 }
 
-test('Diary storage loading can retry and stale owner failures cannot rewrite current data UI', async () => {
-  const source = await readFile(new URL('../../src/routes_diary/index.js', import.meta.url), 'utf8');
-  assert.match(
-    source,
-    /diaryStorageModulePromise\s*=\s*request[\s\S]*?catch\(\(error\)\s*=>\s*\{[\s\S]*?diaryStorageModulePromise\s*=\s*null/,
-  );
-  const guardedCatches = source.match(/catch \(error\) \{\s*if \(!diarySessionIsCurrent\(session, ownerIsCurrent\)\) return;/g) || [];
-  assert.ok(guardedCatches.length >= 4, `expected four owner-fenced local-data catches, received ${guardedCatches.length}`);
+test('Diary local controller retries transient storage reads but stops after session disposal', async () => {
+  let reads = 0;
+  const controller = createDiaryLocalController({
+    repository: {
+      async snapshot() {
+        reads += 1;
+        if (reads === 1) throw new Error('storage warming up');
+        return { entries: [{ id: 'entry-after-retry' }], drafts: [], warnings: [] };
+      },
+    },
+    lifecycle: { dispose() {} },
+    translate: (key) => key,
+  });
+
+  assert.equal((await controller.initialize()).reason, 'unavailable');
+  assert.equal((await controller.refresh()).applied, true);
+  assert.deepEqual(controller.getViewState().snapshot.entries, [{ id: 'entry-after-retry' }]);
+
+  controller.dispose();
+  assert.deepEqual(await controller.refresh(), { applied: false, reason: 'stale' });
+  assert.equal(reads, 2);
 });
 
 test('demo data loader falls back in order after an ordinary request failure', async () => {
