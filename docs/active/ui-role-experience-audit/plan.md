@@ -216,7 +216,7 @@ Immediate stop conditions:
 - 2026-08-05：用户明确说明个人项目不会、也不能招募受试者，并要求基于既有假设继续广泛检索，依次产出场景假设、功能、UI 布局和必要的代码结构。
 - 本阶段产出是 `evidence-informed hypotheses`，不是访谈、可用性测试或已验证用户需求。
 - 当前状态：`S3-D0/D1/D2/D3 COMPLETE`；`S3-I1/S3-I2 COMPLETE AND SYNCED`；`S3-C1/C2 COMPLETE AND SYNCED`；长期偏好、telemetry、final corridor UI 与生产 rollout 保持未来独立项目。
-- 研究阶段最初只更新研究、设计和实现合同；在用户后续明确授权后，当前主工作树已完成 S3-I1/I2 本地实现与验证，但仍未 commit、push 或 deploy。
+- 研究阶段最初只更新研究、设计和实现合同；用户后续授权实现后，S3-I1/I2 曾先在本地完成验证，随后按本节当前状态完成 commit、整合与同步。该历史转换不代表外部生产发布。
 
 ### Replacement validation method
 

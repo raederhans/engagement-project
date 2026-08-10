@@ -174,9 +174,9 @@ async function verifyWorkflowPolicy() {
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],
   ]);
   const expectedUseCounts = new Map([
-    ['actions/checkout', 4],
-    ['actions/setup-node', 3],
-    ['actions/upload-artifact', 1],
+    ['actions/checkout', 5],
+    ['actions/setup-node', 4],
+    ['actions/upload-artifact', 2],
     ['actions/configure-pages', 1],
     ['actions/upload-pages-artifact', 1],
     ['actions/deploy-pages', 1],
@@ -207,18 +207,16 @@ async function verifyWorkflowPolicy() {
 
   const ci = await readFile(path.join(workflowDir, 'ci.yml'), 'utf8');
   assert.match(ci, /^permissions:\r?\n  contents: read\r?$/m, 'CI must keep workflow-level contents: read permissions');
-  assertJobInheritsWorkflowPermissions(ci, 'validate', 'CI validate job');
-
-  const pages = await readFile(path.join(workflowDir, 'deploy-pages.yml'), 'utf8');
-  assert.match(pages, /^permissions:\r?\n  contents: read\r?$/m, 'Pages workflow default permissions must be contents: read only');
-  assertJobInheritsWorkflowPermissions(pages, 'build', 'Pages build job');
-  const deployBlock = extractJobBlock(pages, 'deploy');
+  assertJobInheritsWorkflowPermissions(ci, 'core', 'CI core job');
+  assertJobInheritsWorkflowPermissions(ci, 'release', 'CI release job');
+  assertJobInheritsWorkflowPermissions(ci, 'coverage', 'CI coverage job');
+  const deployBlock = extractJobBlock(ci, 'deploy');
   assert.match(
     deployBlock,
     /^    permissions:\r?\n      contents: read\r?\n      pages: write\r?\n      id-token: write\r?$/m,
     'Pages deploy job must explicitly grant contents: read, pages: write, and id-token: write',
   );
-  assert.match(deployBlock, /^    needs: build\r?$/m, 'Pages deploy job must still depend on build');
+  assert.match(deployBlock, /^    needs: \[core, release, coverage\]\r?$/m, 'Pages deploy job must depend on every same-run gate');
   assert.match(deployBlock, /^    environment:\r?\n      name: github-pages\r?\n      url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}\r?$/m, 'Pages deploy environment and URL contract must remain intact');
 }
 
@@ -253,16 +251,16 @@ function verifyReadOnlyJobPermissionGuard() {
     'Permission policy must reject a build job that grants Pages write permissions',
   );
 
-  const unsafeValidateJob = [
+  const unsafeCoreJob = [
     'jobs:',
-    '  validate:',
+    '  core:',
     '    permissions:',
     '      contents: write',
   ].join('\n');
   assert.throws(
-    () => assertJobInheritsWorkflowPermissions(unsafeValidateJob, 'validate', 'CI validate job'),
+    () => assertJobInheritsWorkflowPermissions(unsafeCoreJob, 'core', 'CI core job'),
     /must inherit workflow-level read-only permissions/,
-    'Permission policy must reject any broader validate job permissions',
+    'Permission policy must reject any broader core job permissions',
   );
 }
 

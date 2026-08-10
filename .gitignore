@@ -28,3 +28,10 @@ desktop.ini
 # Test coverage
 coverage/
 .nyc_output/
+
+# Browser test output
+playwright-report/
+test-results/
+
+# Test-generated query logs
+logs/queries_*.log

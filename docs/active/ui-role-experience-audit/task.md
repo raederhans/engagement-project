@@ -2,7 +2,7 @@
 
 ## Current status
 
-Stage 3 integration and synchronization complete: `S3-I1`/`S3-I2` 已作为 `ab8b72c` 提交；`S3-C1`/`S3-C2` 原始提交 `751b5ef`/`6f0c2c2` 通过 merge commit `b09d4a2` 保留并整合；受审阅的 Diary 视觉基线以 `c48108f` 收口。产品提交已同步到 `origin/main`，独立 Git worktree 已注销，本地分支已删除。所有体验结论仍是 evidence-informed product hypotheses，不是用户研究结论；`S3-I3` 继续作为未授权的未来选项。
+`archive-ready` — Stage 3 integration and synchronization complete: `S3-I1`/`S3-I2` 已作为 `ab8b72c` 提交；`S3-C1`/`S3-C2` 原始提交 `751b5ef`/`6f0c2c2` 通过 merge commit `b09d4a2` 保留并整合；受审阅的 Diary 视觉基线以 `c48108f` 收口。产品提交已同步到 `origin/main`，独立 Git worktree 已注销，本地分支已删除。所有体验结论仍是 evidence-informed product hypotheses，不是用户研究结论；`S3-I3` 继续作为未授权的未来选项。目录暂留 `docs/active/` 作为并行任务交接面，待 integration owner 确认无引用后归档。
 
 ## Checklist
 

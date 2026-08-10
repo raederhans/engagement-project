@@ -35,14 +35,25 @@ Use `.env.local` for an optional `VITE_MAPTILER_API_KEY`. Never commit that file
 
 ## Validation
 
-Run the full repository gate before opening a pull request:
+Run the core repository gate before opening a pull request:
 
 ```bash
 npm run validate
 ```
 
-This validates demo data, runs the two checked-in regression scripts, and builds
-the production bundle. If a change affects external street-data generation,
+This validates checked-in data, runs the full Node/contract suite, builds the
+production bundle and manifest, and checks bundle policy. Also run correctness
+lint for JavaScript and CSS:
+
+```bash
+npm run lint:js
+npm run lint:css
+```
+
+Release owners run `npm run ci:release`, which includes dependency audit,
+correctness lint, the core gate, browser smoke, and visual checks. They also run
+`npm run coverage:report`; coverage is report-only and does not establish
+complete browser coverage. If a change affects external street-data generation,
 also run the relevant fetch or segmentation command and describe the source and
 result in the pull request.
 

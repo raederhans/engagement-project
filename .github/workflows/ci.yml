@@ -1,4 +1,4 @@
-name: CI
+name: CI and Pages release
 
 on:
   pull_request:
@@ -11,15 +11,11 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  validate:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  core:
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,35 +29,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-
-      - name: Validate data, tests, and production build
+      - name: Run Windows core gate
         env:
           VITE_FEATURE_DIARY: '1'
           VITE_TRACT_CRIME_SNAPSHOT: '1'
-        run: npm run validate
+        run: npm run ci:core
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install Playwright Chromium
-        if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser smoke
-        if: runner.os == 'Linux'
+      - name: Audit, lint, validate, and verify the release candidate
         env:
           VITE_FEATURE_DIARY: '1'
           VITE_TRACT_CRIME_SNAPSHOT: '1'
-        run: npm run test:browser-smoke
+        run: npm run ci:release
 
-      - name: Run visual experience checks
-        if: runner.os == 'Linux'
-        env:
-          VITE_FEATURE_DIARY: '1'
-          VITE_TRACT_CRIME_SNAPSHOT: '1'
-        run: npm run test:visual-experience
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload exact Pages candidate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          name: github-pages-${{ github.sha }}
+          path: dist
+          retention-days: 1
 
       - name: Upload browser diagnostics
-        if: failure() && runner.os == 'Linux'
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: browser-diagnostics-${{ github.run_attempt }}
@@ -70,3 +81,62 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate report-only Node coverage
+        env:
+          NODE_V8_COVERAGE: coverage/v8
+        run: npm run coverage:report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report-${{ github.run_attempt }}
+          path: coverage/
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [core, release, coverage]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Verify candidate is still main tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip="$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)"
+          test "$tip" = "${{ github.sha }}" || {
+            echo "Candidate ${{ github.sha }} was superseded by $tip; refusing deployment."
+            exit 1
+          }
+
+      - name: Deploy exact verified Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        with:
+          artifact_name: github-pages-${{ github.sha }}

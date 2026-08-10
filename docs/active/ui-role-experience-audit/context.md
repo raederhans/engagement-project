@@ -76,6 +76,8 @@
 
 ## Next step
 
+状态修正：本记录已 `archive-ready`，不再是当前执行队列；暂留 active 仅用于并行任务交接，实际归档由 integration owner 在确认无活跃引用后完成。
+
 本轮 Stage 3 实现、整合、验证和双端同步已完成：
 
 1. `S3-D0/D1/D2/D3 COMPLETE`：已冻结证据阶梯、H0-H6 场景、证据等级、反例、能力边界、UI/视觉方向和代码结构；这些是 product hypotheses，不是已验证用户需求。

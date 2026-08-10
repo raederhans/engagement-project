@@ -1,15 +1,11 @@
-# Automation Tasks & TODO.md (Single Source of Truth)
+# Task Record Guidance
 
-- Use a single file `docs/TODO.md` to track phased tasks.
-- Sections: **Pending**, **In Progress**, **Completed**, **Blocked**.
-- Item format: `- [ ] <verb phrase>  (ID: <short-id>)  (owner: codex|human)`
-- Status is changed ONLY by moving the line between sections and toggling the box.
-
-## Execution Rules for codex
-1) Before coding, consult `crime_dashboard_codex_plan.txt`.
-2) Always pick the TOP Pending item owned by `codex`.
-3) After finishing, move it to **Completed** and append a one-line outcome.
-4) If blocked, move to **Blocked** with reason + suggestion.
-5) Keep long logs in `logs/`, not in chat.
-
-Stop conditions: Pending is empty OR `# STOP` appears in `docs/TODO.md`.
+- The repository and current user request are the final sources of truth.
+- Use `docs/active/<task-name>/plan.md`, `context.md`, and `task.md` for complex,
+  multi-stage work. Keep one set per task and update it in place.
+- `docs/TODO.md` is a follow-up index, not a command queue or single source of
+  truth. Do not launch work solely because an old TODO line exists.
+- Archive a task only after implementation, required validation, Git/deployment
+  facts, and handoff state agree. Archive records remain historical evidence.
+- Preserve private Diary data boundaries, `unavailable != 0`, historical-not-
+  predictive Crime semantics, and existing live-process/worktree ownership.

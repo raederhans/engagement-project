@@ -376,14 +376,10 @@ test('TIGER fallback uses current area fields and normalizes them into the publi
   assert.equal(normalized.properties.AWATER, 4);
 });
 
-test('CI and Pages explicitly build with the validated tract snapshot enabled', async () => {
-  const [ciWorkflow, pagesWorkflow] = await Promise.all([
-    readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'),
-    readFile(new URL('../../.github/workflows/deploy-pages.yml', import.meta.url), 'utf8'),
-  ]);
-  for (const workflow of [ciWorkflow, pagesWorkflow]) {
-    assert.match(workflow, /VITE_TRACT_CRIME_SNAPSHOT:\s*['"]?1['"]?/);
-  }
+test('the single CI release job builds with the validated tract snapshot enabled', async () => {
+  const ciWorkflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.match(ciWorkflow, /VITE_TRACT_CRIME_SNAPSHOT:\s*['"]?1['"]?/);
+  assert.match(ciWorkflow, /npm run ci:release/);
 });
 
 test('data contracts have one aggregate entry and CI validates them on Linux and Windows', async () => {
@@ -405,9 +401,9 @@ test('data contracts have one aggregate entry and CI validates them on Linux and
   }
   assert.match(packageJson.scripts.test, /(?:^|&&\s*)npm run test:data-contract(?:\s*&&|$)/);
   assert.doesNotMatch(packageJson.scripts.validate, /npm run data:check/);
-  assert.match(ciWorkflow, /matrix:\s*[\s\S]*os:\s*\[ubuntu-latest, windows-latest\]/);
-  assert.match(ciWorkflow, /runs-on:\s*\$\{\{\s*matrix\.os\s*\}\}/);
-  assert.match(ciWorkflow, /Install Playwright Chromium[\s\S]*if:\s*runner\.os == 'Linux'/);
+  assert.match(ciWorkflow, /core:\s*[\s\S]*runs-on:\s*windows-latest/);
+  assert.match(ciWorkflow, /release:\s*[\s\S]*runs-on:\s*ubuntu-latest/);
+  assert.match(ciWorkflow, /Install Playwright Chromium[\s\S]*npm run ci:release/);
 });
 
 test('the historical precompute entry delegates instead of keeping a second implementation', async () => {
