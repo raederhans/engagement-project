@@ -214,6 +214,21 @@ function deepFreeze(value, seen = new WeakSet()) {
   return Object.freeze(value);
 }
 
+function sourceImportSummary(bundle, major) {
+  const sources = bundle.provenance.sources;
+  return {
+    sourceStatuses: [...new Set(sources.map(({ status }) => status))].sort(),
+    sourceCoverage: sources.map((source) => ({
+      sourceId: source.id,
+      start: source.coverage.start,
+      end: source.coverage.end,
+    })),
+    sourceStatusReasons: major === 2
+      ? sources.map((source) => ({ sourceId: source.id, reason: source.statusReason }))
+      : sources.map((source) => ({ sourceId: source.id, reason: null })),
+  };
+}
+
 export async function previewEvidenceBundleImport(raw, {
   maxBytes = EVIDENCE_BUNDLE_DEFAULT_MAX_BYTES,
   expectedScope = EVIDENCE_BUNDLE_PUBLIC_SCOPE,
@@ -236,6 +251,7 @@ export async function previewEvidenceBundleImport(raw, {
   assertScope(scope, expectedScope);
   const recovered = recoveredArtifact(bundle, major, sourceAdapter, { createId, now });
   const artifacts = recovered.recoverable ? [recovered.artifact] : [];
+  const sourceSummary = sourceImportSummary(bundle, major);
   const preview = deepFreeze({
     kind: 'evidence-bundle-import-preview',
     schemaVersion: bundle.schemaVersion,
@@ -246,9 +262,12 @@ export async function previewEvidenceBundleImport(raw, {
     summary: {
       queryType: bundle.query.type,
       geographyMode: bundle.query.geography.mode,
+      geography: structuredClone(bundle.query.geography),
       timeRange: structuredClone(bundle.query.timeRange),
       resultStatus: bundle.result.status,
       sourceCount: bundle.provenance.sources.length,
+      ...sourceSummary,
+      limitations: structuredClone(bundle.limitations),
     },
     recovery: {
       status: recovered.recoverable ? 'ready' : 'not-recoverable',

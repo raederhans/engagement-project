@@ -1,5 +1,3 @@
-import { sha256CanonicalValue } from './evidence_bundle_hash.js';
-
 export const EVIDENCE_BUNDLE_V2_SCHEMA_VERSION = 'engagement-evidence-bundle/v2';
 export const EVIDENCE_BUNDLE_PUBLIC_SCOPE = Object.freeze({
   product: 'engagement-project',
@@ -361,6 +359,7 @@ function validateChecksumShape(checksums) {
 }
 
 async function contentChecksums(content) {
+  const { sha256CanonicalValue } = await import('./evidence_bundle_hash.js');
   const sections = {};
   for (const name of SECTION_NAMES) {
     sections[name] = await sha256CanonicalValue(content[name], { excludeVolatileFields: false });

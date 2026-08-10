@@ -38,7 +38,6 @@ import {
   onCrimeOffenseCatalogChange,
 } from '../i18n/crime_offenses.js';
 import { createCrimeWorkbenchController } from './crime_workbench.js';
-import { buildCrimeEvidenceSource } from './crime_data_sources.js';
 
 export {
   applyCrimeWorkspacePresentation,
@@ -762,27 +761,22 @@ export function initPanel(store, handlers) {
   });
   exportEvidenceBundleBtn?.addEventListener('click', async () => {
     try {
-      const {
-        buildEvidenceBundleSections,
-        composeEvidenceBundle,
-        EVIDENCE_BUNDLE_SCHEMA_VERSION,
-      } = await import('../analysis/evidence_bundle.js');
+      const { composeCrimeEvidenceBundleV2 } = await import('../analysis/evidence_bundle_product.js');
       const generatedAt = new Date().toISOString();
       const legacy = currentExport();
-      const source = buildCrimeEvidenceSource({
-        coverageMin: store.coverageMin,
-        coverageMax: store.coverageMax,
-        comparisonSnapshot: getLastComparisonSnapshot(legacy.filters),
-      });
-      const sections = buildEvidenceBundleSections({
+      const comparisonSnapshot = getLastComparisonSnapshot(legacy.filters);
+      const bundle = await composeCrimeEvidenceBundleV2({
+        generatedAt,
+        analysisGeneratedAt: comparisonSnapshot?.comparison?.a
+          ? comparisonSnapshot.generatedAt
+          : null,
         filters: legacy.filters,
         comparison: legacy.comparison,
-        source,
-      });
-      const bundle = await composeEvidenceBundle({
-        schemaVersion: EVIDENCE_BUNDLE_SCHEMA_VERSION,
-        generatedAt,
-        ...sections,
+        crimeCoverage: {
+          status: store.coverageStatus,
+          min: store.coverageMin,
+          max: store.coverageMax,
+        },
       });
       downloadTextFile(
         'engagement-evidence-bundle.json',

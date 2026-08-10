@@ -16,7 +16,7 @@ import {
 import { setAnalysisMode, setViewMode } from '../state/store.js';
 import { downloadTextFile } from '../utils/export_analysis.js';
 import { createAnalysisHistoryView } from '../ui/analysis_history_panel.js';
-import { t } from '../i18n/index.js';
+import { onLanguageChange, t } from '../i18n/index.js';
 
 const PRIVATE_SHARE_KEYS = ['artifact', 'artifactId', 'title', 'result'];
 const ANALYSIS_SOURCES = [
@@ -89,6 +89,8 @@ export function createAnalysisHistoryController({
   ),
   confirmDelete = (artifact) => window.confirm(t('history.deleteConfirm', { title: artifact.title })),
   currentHref = () => window.location.href,
+  previewBundleImport,
+  applyBundleImport,
 } = {}) {
   if (!store || !repository || !view) throw new Error('Analysis history requires store, repository, and view.');
   let pendingAction = false;
@@ -277,6 +279,23 @@ export function createAnalysisHistoryController({
       view.showStatus(t('history.shareCopied'), 'success');
       return { status: 'copied', url };
     },
+    async previewEvidenceBundle(raw) {
+      if (typeof previewBundleImport !== 'function') {
+        throw new Error('Evidence Bundle import preview is unavailable.');
+      }
+      return runPending(() => previewBundleImport(raw));
+    },
+    async applyEvidenceBundle(preview) {
+      if (typeof applyBundleImport !== 'function') {
+        throw new Error('Evidence Bundle import Apply is unavailable.');
+      }
+      return runPending(async () => {
+        const result = await applyBundleImport(preview, { repository });
+        await load();
+        view.showStatus(t('history.import.appliedCount', { count: result.artifactCount }), 'success');
+        return result;
+      });
+    },
   });
 }
 
@@ -298,6 +317,22 @@ export async function initAnalysisHistory({
     },
   });
   const repository = createAnalysisRepository({ adapter });
+  let importRuntimePromise = null;
+  const loadImportRuntime = () => {
+    if (!importRuntimePromise) {
+      importRuntimePromise = Promise.all([
+        import('./evidence_bundle_import.js'),
+        import('./evidence_bundle_source_adapter.js'),
+      ]).then(([importer, source]) => ({
+        importer,
+        sourceAdapter: source.evidenceBundleSourceAdapter,
+      })).catch((error) => {
+        importRuntimePromise = null;
+        throw error;
+      });
+    }
+    return importRuntimePromise;
+  };
   let controller;
   view = createAnalysisHistoryView(mount, {
     onSave: (title) => controller.save(title),
@@ -317,7 +352,31 @@ export async function initAnalysisHistory({
     scheduleCrime,
     cancelCrimeTransition,
     getCurrentCrimeProvenance,
+    previewBundleImport: async (raw) => {
+      const { importer, sourceAdapter } = await loadImportRuntime();
+      return importer.previewEvidenceBundleImport(raw, { sourceAdapter });
+    },
+    applyBundleImport: async (preview, options) => {
+      const { importer } = await loadImportRuntime();
+      return importer.applyEvidenceBundleImport(preview, options);
+    },
   });
+  const importMount = document.createElement('div');
+  importMount.className = 'analysis-history__import';
+  mount.append(importMount);
+  const {
+    createEvidenceBundleImportCopy,
+    createEvidenceBundleImportPreviewView,
+  } = await import('../ui/evidence_bundle_import_preview.js');
+  void import('../styles/evidence-bundle-import.css').catch((error) => {
+    console.warn('Evidence Bundle import styles could not load:', error);
+  });
+  const importView = createEvidenceBundleImportPreviewView(importMount, {
+    copy: createEvidenceBundleImportCopy(t),
+    onPreview: (raw) => controller.previewEvidenceBundle(raw),
+    onApply: (preview) => controller.applyEvidenceBundle(preview),
+  });
+  onLanguageChange(() => importView.setCopy(createEvidenceBundleImportCopy(t)));
   await controller.load();
   return controller;
 }

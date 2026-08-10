@@ -589,10 +589,10 @@ test('Evidence Bundle download is feature-flagged, bilingual, and does not repla
   assert.doesNotMatch(html, /exportEvidenceBundleBtn/, 'flagged experiment button is created only at runtime');
   assert.match(panelSource, /isEvidenceBundleEnabled/);
   assert.match(panelSource, /exportEvidenceBundleBtn/);
-  assert.match(panelSource, /composeEvidenceBundle/);
-  assert.match(panelSource, /buildEvidenceBundleSections/);
-  assert.match(panelSource, /import\(['"]\.\.\/analysis\/evidence_bundle\.js['"]\)/);
-  assert.doesNotMatch(panelSource, /from ['"]\.\.\/analysis\/evidence_bundle\.js['"]/, 'flag-off entry must not eagerly load the experiment composer');
+  assert.match(panelSource, /composeCrimeEvidenceBundleV2/);
+  assert.match(panelSource, /import\(['"]\.\.\/analysis\/evidence_bundle_product\.js['"]\)/);
+  assert.doesNotMatch(panelSource, /composeEvidenceBundle\s*[,}]/, 'the product writer must not keep writing v1');
+  assert.doesNotMatch(panelSource, /from ['"]\.\.\/analysis\/evidence_bundle_product\.js['"]/, 'flag-off entry must not eagerly load the v2 product composer');
   assert.doesNotMatch(
     panelSource,
     /buildEvidenceBundleSections,[\s\S]{0,200}from ['"]\.\.\/utils\/export_analysis\.js['"]/,

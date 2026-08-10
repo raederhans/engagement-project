@@ -76,6 +76,11 @@ function createHarness(overrides = {}) {
     async get(id) { return rows.get(id) ?? null; },
     async rename(id, title) { calls.push(['rename', id, title]); return rows.get(id); },
     async delete(id) { rows.delete(id); calls.push(['delete', id]); return true; },
+    async saveManyAtomic(values) {
+      calls.push(['save-many-atomic', values]);
+      for (const value of values) rows.set(value.id, value);
+      return values;
+    },
   };
   const view = {
     render(model) { calls.push(['render', model]); },
@@ -133,6 +138,15 @@ function createHarness(overrides = {}) {
     downloadArtifact: (artifact) => calls.push(['download', artifact.id]),
     confirmDelete: () => true,
     currentHref: () => 'https://example.test/app/?mode=crime&campaign=portfolio',
+    previewBundleImport: async (raw) => {
+      calls.push(['import-preview', raw]);
+      return Object.freeze({ recovery: Object.freeze({ status: 'ready' }) });
+    },
+    applyBundleImport: async (preview, { repository: target }) => {
+      calls.push(['import-apply', preview]);
+      const artifacts = await target.saveManyAtomic([savedArtifact({ id: 'imported-analysis' })]);
+      return { status: 'applied', artifactCount: artifacts.length, remoteRefresh: false };
+    },
     ...overrides,
   });
   return { calls, controller, repository, rows, store, view };
@@ -207,6 +221,51 @@ test('storage failure returns a visible warning instead of an unhandled action r
     ['status', 'Analysis could not be saved locally: Storage quota exceeded', 'warning'],
   );
   assert.equal(harness.calls.some(([kind, value]) => kind === 'pending' && value === false), true);
+});
+
+test('Evidence Bundle preview is write-free and Apply performs one local atomic write without Crime refresh', async () => {
+  const harness = createHarness();
+  const before = [...harness.rows.keys()];
+  const preview = await harness.controller.previewEvidenceBundle('{"schemaVersion":"engagement-evidence-bundle/v2"}');
+
+  assert.equal(preview.recovery.status, 'ready');
+  assert.deepEqual([...harness.rows.keys()], before, 'preview must not change saved history');
+  assert.equal(harness.calls.some(([kind]) => kind === 'save-many-atomic'), false);
+  assert.equal(harness.calls.some(([kind]) => kind === 'schedule'), false);
+
+  const applied = await harness.controller.applyEvidenceBundle(preview);
+  assert.equal(applied.status, 'applied');
+  assert.equal(harness.calls.filter(([kind]) => kind === 'save-many-atomic').length, 1);
+  assert.equal(harness.rows.has('analysis-1'), true, 'existing history remains available');
+  assert.equal(harness.rows.has('imported-analysis'), true);
+  assert.equal(harness.calls.some(([kind]) => kind === 'schedule'), false, 'Apply does not refresh remote data');
+  assert.equal(harness.calls.filter(([kind]) => kind === 'render').length >= 1, true);
+});
+
+test('failed Evidence Bundle preview or Apply preserves existing history and remains retryable', async () => {
+  let previewAttempts = 0;
+  let applyAttempts = 0;
+  const harness = createHarness({
+    previewBundleImport: async () => {
+      previewAttempts += 1;
+      if (previewAttempts === 1) throw new Error('checksum mismatch for content');
+      return Object.freeze({ recovery: Object.freeze({ status: 'ready' }) });
+    },
+    applyBundleImport: async () => {
+      applyAttempts += 1;
+      if (applyAttempts === 1) throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+      return { status: 'applied', artifactCount: 1, remoteRefresh: false };
+    },
+  });
+  const before = [...harness.rows];
+
+  await assert.rejects(harness.controller.previewEvidenceBundle('bad'), /checksum mismatch/i);
+  assert.deepEqual([...harness.rows], before);
+  const preview = await harness.controller.previewEvidenceBundle('good');
+  await assert.rejects(harness.controller.applyEvidenceBundle(preview), /quota/i);
+  assert.deepEqual([...harness.rows], before);
+  assert.equal((await harness.controller.applyEvidenceBundle(preview)).status, 'applied');
+  assert.equal(harness.calls.some(([kind]) => kind === 'schedule'), false);
 });
 
 test('restore consumes the coordinator Crime schedule as its only refresh', async () => {
@@ -825,10 +884,11 @@ test('list derives transient current and unknown source status without changing 
 });
 
 test('panel stays storage-agnostic and main loads history only after Crime becomes active', async () => {
-  const [panelSource, mainSource, viewSource] = await Promise.all([
+  const [panelSource, mainSource, viewSource, controllerSource] = await Promise.all([
     readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/ui/analysis_history_panel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/analysis/analysis_history_controller.js', import.meta.url), 'utf8'),
   ]);
 
   assert.doesNotMatch(panelSource, /analysis_repository|analysis_history_controller|\bfrom ['"]idb['"]/);
@@ -843,4 +903,12 @@ test('panel stays storage-agnostic and main loads history only after Crime becom
   assert.match(viewSource, /history\.needsRefresh/);
   assert.match(viewSource, /history\.sourceUnknown/);
   assert.match(viewSource, /Promise\.resolve\(action\(id\)\)\.catch\(reportActionError\)/);
+  assert.match(controllerSource, /import\(['"]\.\/evidence_bundle_import\.js['"]\)/);
+  assert.match(controllerSource, /import\(['"]\.\/evidence_bundle_source_adapter\.js['"]\)/);
+  assert.match(controllerSource, /import\(['"]\.\.\/ui\/evidence_bundle_import_preview\.js['"]\)/);
+  assert.doesNotMatch(controllerSource, /from ['"]\.\/evidence_bundle_import\.js['"]/);
+  assert.doesNotMatch(controllerSource, /from ['"]\.\.\/ui\/evidence_bundle_import_preview\.js['"]/);
+  assert.match(controllerSource, /createEvidenceBundleImportPreviewView/);
+  assert.match(controllerSource, /onPreview:\s*\(raw\)\s*=>\s*controller\.previewEvidenceBundle\(raw\)/);
+  assert.match(controllerSource, /onApply:\s*\(preview\)\s*=>\s*controller\.applyEvidenceBundle\(preview\)/);
 });

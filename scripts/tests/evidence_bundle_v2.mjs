@@ -19,7 +19,16 @@ import {
   EVIDENCE_BUNDLE_V2_SCHEMA_VERSION,
   validateEvidenceBundleV2,
 } from '../../src/analysis/evidence_bundle_v2.js';
-import { createEvidenceBundleImportPreviewView } from '../../src/ui/evidence_bundle_import_preview.js';
+import {
+  composeCrimeEvidenceBundleV2,
+} from '../../src/analysis/evidence_bundle_product.js';
+import {
+  evidenceBundleSourceAdapter,
+} from '../../src/analysis/evidence_bundle_source_adapter.js';
+import {
+  createEvidenceBundleImportCopy,
+  createEvidenceBundleImportPreviewView,
+} from '../../src/ui/evidence_bundle_import_preview.js';
 
 const SOURCE_KEYS = new Set([
   'id', 'dataset', 'provider', 'canonicalUrl', 'status', 'coverage',
@@ -178,6 +187,72 @@ test('v2 writer round-trips canonical content and keeps source semantics behind 
     canonicalSerialize({ z: [2, { b: 1, a: 0 }], a: true }),
     canonicalSerialize({ a: true, z: [2, { a: 0, b: 1 }] }),
   );
+});
+
+test('product writer emits v2 from the admitted Source Health read model without private selection data', async () => {
+  const bundle = await composeCrimeEvidenceBundleV2({
+    generatedAt: '2026-08-10T06:00:00.000Z',
+    analysisGeneratedAt: '2026-08-10T05:30:00.000Z',
+    filters: {
+      queryMode: 'district',
+      selectedDistrictCode: '1',
+      start: '2025-08-01',
+      end: '2026-08-01',
+      resolvedOffenseCodes: ['Thefts'],
+      adminLevel: 'districts',
+      per10k: false,
+      addressA: '1500 Market Street',
+      center3857: [-8360000, 4850000],
+    },
+    comparison: result().comparison,
+    crimeCoverage: { status: 'ready', min: '2006-01-01', max: '2026-08-09' },
+  });
+
+  assert.equal(bundle.schemaVersion, EVIDENCE_BUNDLE_V2_SCHEMA_VERSION);
+  assert.equal(bundle.provenance.sourceContractVersion, evidenceBundleSourceAdapter.contractVersion);
+  assert.deepEqual(bundle.provenance.sources.map(({ id }) => id), ['philadelphia-reported-crime']);
+  assert.equal(bundle.provenance.sources[0].status, 'current');
+  assert.equal(bundle.provenance.sources[0].coverage.end, '2026-08-09');
+  assert.deepEqual(bundle.query.geography, { mode: 'district', districtCode: '1' });
+  const productContent = structuredClone(bundle);
+  delete productContent.privacy;
+  assert.doesNotMatch(
+    JSON.stringify(productContent),
+    /1500 Market|center3857|centerLonLat|rawIncident|routeGeometry|gpsTrace|diaryNotes|attachments/i,
+  );
+
+  const preview = await previewEvidenceBundleImport(JSON.stringify(bundle), {
+    sourceAdapter: evidenceBundleSourceAdapter,
+    createId: () => 'product-v2',
+    now: () => '2026-08-10T07:00:00.000Z',
+  });
+  assert.equal(preview.recovery.status, 'ready');
+  assert.deepEqual(preview.summary.sourceStatuses, ['current']);
+  assert.deepEqual(preview.summary.sourceCoverage, [{
+    sourceId: 'philadelphia-reported-crime',
+    start: '2006-01-01',
+    end: '2026-08-09',
+  }]);
+  assert.ok(preview.summary.limitations.some((item) => /not real-time/i.test(item)));
+});
+
+test('product writer fails closed to unavailable when Source Health cannot admit Crime coverage', async () => {
+  const bundle = await composeCrimeEvidenceBundleV2({
+    generatedAt: '2026-08-10T06:00:00.000Z',
+    analysisGeneratedAt: '2026-08-10T05:30:00.000Z',
+    filters: {
+      queryMode: 'district', selectedDistrictCode: '1', start: '2025-08-01', end: '2026-08-01',
+      adminLevel: 'districts', per10k: false,
+    },
+    comparison: result().comparison,
+    crimeCoverage: { status: 'error', min: null, max: null },
+  });
+  assert.equal(bundle.provenance.sources[0].status, 'unavailable');
+  assert.equal(bundle.provenance.sources[0].statusReason, 'coverage-probe-failed');
+  assert.ok(bundle.provenance.sources[0].limitations.some((item) => /not a real-time alert/i.test(item)));
+  assert.equal(bundle.result.status, 'unavailable');
+  assert.equal(Object.hasOwn(bundle.result, 'comparison'), false);
+  assert.doesNotMatch(JSON.stringify(bundle.result), /"total"\s*:\s*0/);
 });
 
 test('v1 remains readable while v2 is the new writer contract', async () => {
@@ -369,6 +444,9 @@ class FakeElement extends EventTarget {
     this.attributes = new Map();
     this.disabled = false;
     this.textContent = '';
+    this.value = '';
+    this.dataset = {};
+    this.hidden = false;
   }
 
   append(...children) { this.children.push(...children); }
@@ -403,18 +481,34 @@ test('import preview view is text-first, keyboard-native, and independent from m
         applied: 'Applied.',
         failed: 'Import failed',
         schemaLabel: 'Schema',
+        queryLabel: 'Query',
         geographyLabel: 'Geography',
+        timeRangeLabel: 'Time range',
         resultStatusLabel: 'Result status',
-        sourceCountLabel: 'Sources',
+        sourceStatusLabel: 'Source status',
+        sourceReasonLabel: 'Source reason',
+        sourceCoverageLabel: 'Source coverage',
+        limitationsLabel: 'Limitations',
         recoveryLabel: 'Recovery',
+        recoveryReasonLabel: 'Reason',
+        unknownValue: 'Unknown',
       },
       onPreview: async () => null,
       onApply: async (preview) => { applied = preview; },
     });
     const preview = {
       schemaVersion: EVIDENCE_BUNDLE_V2_SCHEMA_VERSION,
-      summary: { geographyMode: 'district', resultStatus: 'available', sourceCount: 1 },
-      recovery: { status: 'ready' },
+      summary: {
+        queryType: 'crime-analysis',
+        geographyMode: 'district',
+        timeRange: { start: '2025-08-01', endExclusive: '2026-08-01' },
+        resultStatus: 'available',
+        sourceStatuses: ['current'],
+        sourceStatusReasons: [{ sourceId: 'crime', reason: 'coverage-within-policy' }],
+        sourceCoverage: [{ sourceId: 'crime', start: '2006-01-01', end: '2026-08-09' }],
+        limitations: ['Historical records are not a real-time alert.'],
+      },
+      recovery: { status: 'ready', reason: null },
     };
     view.setPreview(preview);
     const nodes = descendants(mount);
@@ -427,13 +521,117 @@ test('import preview view is text-first, keyboard-native, and independent from m
     assert.equal(input.type, 'file');
     assert.equal(label.attributes.get('for'), input.id);
     assert.equal(status.attributes.get('aria-live'), 'polite');
+    assert.match(nodes.map((node) => node.textContent).join(' '), /crime-analysis/);
+    assert.match(nodes.map((node) => node.textContent).join(' '), /2006-01-01.*2026-08-09/);
+    assert.match(nodes.map((node) => node.textContent).join(' '), /not a real-time alert/);
     assert.equal(globalThis.document.activeElement, buttons[1], 'focus moves to explicit Apply action');
     buttons[1].dispatchEvent(new Event('click'));
     await Promise.resolve();
     assert.equal(applied, preview);
+
+    view.setPreview({
+      ...preview,
+      recovery: {
+        status: 'not-recoverable',
+        reason: 'exact-buffer-selection-was-excluded-for-privacy',
+      },
+    });
+    assert.match(nodes.map((node) => node.textContent).join(' '), /exact-buffer-selection-was-excluded-for-privacy/);
+    input.dispatchEvent(new Event('change'));
+    assert.equal(buttons[1].disabled, true, 'a changed file invalidates the earlier preview');
   } finally {
     globalThis.document = originalDocument;
   }
   const sourceText = await readFile(new URL('../../src/ui/evidence_bundle_import_preview.js', import.meta.url), 'utf8');
   assert.doesNotMatch(sourceText, /(?:from|import\()\s*['"][^'"]*(?:maplibre|\/map\/)/i);
+});
+
+test('file selection reads only on Preview and failed/reselected files cannot apply a stale preview', async () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = {
+    activeElement: null,
+    createElement: (tag) => new FakeElement(tag),
+  };
+  try {
+    const mount = new FakeElement('main');
+    const expectedPreview = {
+      schemaVersion: EVIDENCE_BUNDLE_V2_SCHEMA_VERSION,
+      summary: {
+        queryType: 'crime-analysis',
+        geographyMode: 'district',
+        geography: { mode: 'district', districtCode: '01' },
+        timeRange: { start: '2025-08-01', endExclusive: '2026-08-01' },
+        resultStatus: 'available',
+        sourceStatuses: ['current'],
+        sourceStatusReasons: [{ sourceId: 'crime', reason: 'coverage-within-policy' }],
+        sourceCoverage: [{ sourceId: 'crime', start: '2006-01-01', end: '2026-08-09' }],
+        limitations: ['Historical aggregate only.'],
+      },
+      recovery: { status: 'ready', reason: null },
+    };
+    let readCount = 0;
+    let previewRaw = null;
+    let applyCount = 0;
+    createEvidenceBundleImportPreviewView(mount, {
+      copy: {
+        heading: 'Import evidence bundle', description: 'Preview first.', fileLabel: 'Bundle file',
+        preview: 'Preview', apply: 'Apply', noFile: 'Choose a file.', ready: 'Ready.',
+        notRecoverable: 'Not recoverable', applied: 'Applied.', failed: 'Failed', schemaLabel: 'Schema',
+        queryLabel: 'Query', geographyLabel: 'Geography', timeRangeLabel: 'Time range',
+        resultStatusLabel: 'Result', sourceStatusLabel: 'Source', sourceReasonLabel: 'Reason',
+        sourceCoverageLabel: 'Coverage', limitationsLabel: 'Limitations', recoveryLabel: 'Recovery',
+        recoveryReasonLabel: 'Recovery reason', unknownValue: 'Unknown',
+      },
+      onPreview: async (raw) => { previewRaw = raw; return expectedPreview; },
+      onApply: async () => { applyCount += 1; },
+    });
+    const nodes = descendants(mount);
+    const input = nodes.find((node) => node.tagName === 'INPUT');
+    const buttons = nodes.filter((node) => node.tagName === 'BUTTON');
+    input.files = [{
+      async text() { readCount += 1; return '{"schemaVersion":"engagement-evidence-bundle/v2"}'; },
+    }];
+    assert.equal(readCount, 0, 'selecting a file alone does not read or apply it');
+    buttons[0].dispatchEvent(new Event('click'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(readCount, 1);
+    assert.match(previewRaw, /engagement-evidence-bundle\/v2/);
+    assert.equal(buttons[1].disabled, false);
+    buttons[1].dispatchEvent(new Event('click'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(applyCount, 1);
+    assert.equal(buttons[1].disabled, true, 'an applied preview cannot be applied twice');
+
+    input.dispatchEvent(new Event('change'));
+    buttons[1].dispatchEvent(new Event('click'));
+    await Promise.resolve();
+    assert.equal(applyCount, 1, 'reselection cannot apply the previous preview');
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
+test('import preview copy is bilingual and keeps unavailable distinct from zero', () => {
+  const translations = {
+    en: {
+      'history.import.heading': 'Import evidence bundle',
+      'history.import.sourceStatusLabel': 'Source status',
+      'history.import.sourceReasonLabel': 'Source status reason',
+      'history.import.unknownValue': 'Unknown or unavailable',
+    },
+    zh: {
+      'history.import.heading': '导入证据包',
+      'history.import.sourceStatusLabel': '来源状态',
+      'history.import.sourceReasonLabel': '来源状态原因',
+      'history.import.unknownValue': '未知或不可用',
+    },
+  };
+  for (const language of ['en', 'zh']) {
+    const copy = createEvidenceBundleImportCopy((key) => translations[language][key] || key);
+    assert.equal(copy.heading, translations[language]['history.import.heading']);
+    assert.equal(copy.sourceStatusLabel, translations[language]['history.import.sourceStatusLabel']);
+    assert.equal(copy.sourceReasonLabel, translations[language]['history.import.sourceReasonLabel']);
+    assert.equal(copy.unknownValue, translations[language]['history.import.unknownValue']);
+    assert.doesNotMatch(copy.unknownValue, /\b0\b|零/);
+  }
 });
