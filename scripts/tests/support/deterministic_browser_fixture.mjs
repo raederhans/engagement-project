@@ -28,6 +28,15 @@ function cartoResponse(request) {
     return { rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-07-30T00:00:00Z' }] };
   }
   if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
+  if (/SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body)) {
+    return { rows: [{ dc_dist: '06', n: 12 }] };
+  }
+  if (/date_trunc\('month',\s*dispatch_date_time\)\s+AS\s+m/i.test(body)) {
+    return { rows: [{ m: '2025-07-01T00:00:00Z', n: 12 }] };
+  }
+  if (/EXTRACT\(DOW[\s\S]*AS\s+dow[\s\S]*EXTRACT\(HOUR[\s\S]*AS\s+hr/i.test(body)) {
+    return { rows: [{ dow: 1, hr: 12, n: 12 }] };
+  }
   if (/text_general_code/i.test(body) && /GROUP BY/i.test(body)) {
     return { rows: [{ text_general_code: 'Thefts', n: 8 }] };
   }

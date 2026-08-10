@@ -1115,7 +1115,7 @@ test('Live route keeps rating primary and places Simulator in a closed disclosur
   const primaryActions = findElements(mount, (element) => (
     element.tagName === 'BUTTON' && element.className === 'diary-btn-primary'
   ));
-  assert.deepEqual(primaryActions.map((button) => button.textContent), ['Rate this route']);
+  assert.deepEqual(primaryActions.map((button) => button.textContent), ['Rate your experience on this route']);
 });
 
 test('initial Diary route receives one panel-aware camera fit', async (t) => {

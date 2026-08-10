@@ -5,6 +5,9 @@ import { access, readFile } from 'node:fs/promises';
 
 const ciUrl = new URL('../../.github/workflows/ci.yml', import.meta.url);
 const legacyPagesUrl = new URL('../../.github/workflows/deploy-pages.yml', import.meta.url);
+const packageUrl = new URL('../../package.json', import.meta.url);
+const auditRunnerUrl = new URL('../run_npm_audit.mjs', import.meta.url);
+const releaseRunnerUrl = new URL('../run_release_gate.mjs', import.meta.url);
 
 function jobBlock(workflow, name) {
   const start = new RegExp(`^  ${name}:\\r?$`, 'm').exec(workflow);
@@ -76,4 +79,40 @@ test('PR checks may cancel stale runs while main releases and active Pages deplo
     'false',
   ]);
   assert.doesNotMatch(deploy, /cancel-in-progress:\s*true/);
+});
+
+test('release audit strips inherited npm allow-scripts config before starting nested npm', async () => {
+  const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
+  assert.equal(packageJson.scripts['audit:dependencies'], 'node scripts/run_npm_audit.mjs');
+
+  const { sanitizeNpmEnvironment } = await import(auditRunnerUrl);
+  const sanitized = sanitizeNpmEnvironment({
+    PATH: 'kept',
+    npm_config_allow_scripts: 'native-package',
+    NPM_CONFIG_ALLOW_SCRIPTS: 'another-source',
+  });
+  assert.deepEqual(sanitized, { PATH: 'kept' });
+});
+
+test('JavaScript lint targets only live source surfaces after Diary server removal', async () => {
+  const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
+  assert.equal(
+    packageJson.scripts['lint:js'],
+    'eslint src scripts ./*.js ./*.mjs --max-warnings=0',
+  );
+});
+
+test('local release gate injects the same feature flags as GitHub release CI', async () => {
+  const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
+  assert.equal(packageJson.scripts['ci:release'], 'node scripts/run_release_gate.mjs');
+
+  const { createReleaseEnvironment } = await import(releaseRunnerUrl);
+  assert.deepEqual(createReleaseEnvironment({
+    PATH: 'kept',
+    npm_config_allow_scripts: 'inherited-user-policy',
+  }), {
+    PATH: 'kept',
+    VITE_FEATURE_DIARY: '1',
+    VITE_TRACT_CRIME_SNAPSHOT: '1',
+  });
 });

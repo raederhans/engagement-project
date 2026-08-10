@@ -1693,7 +1693,7 @@ test('bundle policy keeps feature translation catalogs outside the established e
   const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
   assert.match(source, /\['Entry', entry, 902_665, 247_583\]/);
   assert.match(source, /\['Analysis History', analysisHistory, 23_000, 7_800\]/);
-  assert.match(source, /\['P1 translations', p1Messages, 9_000, 3_300\]/);
+  assert.match(source, /\['P1 translations', p1Messages, 9_100, 3_300\]/);
 });
 
 test('tract snapshot requires the exact current tract identity set', () => {

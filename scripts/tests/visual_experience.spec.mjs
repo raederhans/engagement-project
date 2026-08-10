@@ -275,6 +275,10 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
   ).toEqual([]);
   await expect(page.locator('[data-incident-results-status]')).toHaveText('3 incidents · newest first');
   await expect(page.locator('.maplibregl-popup')).toBeVisible();
+  await page.locator('#incident-results').evaluate((element) => {
+    element.scrollIntoView({ block: 'start', inline: 'nearest' });
+  });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
   await captureExperienceScreenshot(page, testInfo, 'crime-incident-results', {
     maxDiffPixelRatio: 0.008,
     threshold: 0.5,
@@ -287,7 +291,7 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   expect(crimeRequests(experience.requests)).toEqual([]);
   await assertNoHorizontalOverflow(page);
   const rateAction = page.locator('.diary-rate-action');
-  const rateButton = page.getByRole('button', { name: 'Rate this route' });
+  const rateButton = page.getByRole('button', { name: 'Rate your experience on this route' });
   if (testInfo.project.name !== 'desktop') {
     await rateAction.scrollIntoViewIfNeeded();
     await expect(rateAction).toHaveCSS('position', testInfo.project.name === 'portrait' ? 'sticky' : 'static');
@@ -434,7 +438,7 @@ test('Sample community stays visibly read-only and illustrative', async ({ page 
 
 test('Rating flow exposes both steps and records the result in My routes', async ({ page }, testInfo) => {
   await gotoMode(page, 'diary');
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await expect(page.locator('.diary-step-label')).toContainText('Step 1');
   const continueButton = page.getByRole('button', { name: 'Continue' });
   await expect(continueButton).toBeDisabled();
@@ -488,7 +492,7 @@ test('Crime search and Diary rating complete their primary keyboard flows', asyn
   await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
 
   await gotoMode(page, 'diary');
-  const rate = page.getByRole('button', { name: 'Rate this route' });
+  const rate = page.getByRole('button', { name: 'Rate your experience on this route' });
   await tabTo(page, rate);
   await page.keyboard.press('Enter');
   const firstStar = page.getByRole('radio', { name: '1 star' });
@@ -551,7 +555,7 @@ test('automated accessibility scan reports no critical or serious issues', async
   ).toEqual([]);
 
   await page.getByRole('button', { name: 'Live route', exact: true }).click();
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   expect(
     await auditSeriousAccessibility(page),
     'diary rating modal accessibility issues',
@@ -572,7 +576,7 @@ test('two-hundred-percent layout scaling keeps controls reflowed and focus visib
   await assertFocusNotObscured(page.locator('#addrA'));
   await gotoMode(page, 'diary');
   await assertNoHorizontalOverflow(page);
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByRole('radio', { name: '5 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await assertNoHorizontalOverflow(page);

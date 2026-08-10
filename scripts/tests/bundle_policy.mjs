@@ -22,6 +22,7 @@ const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
 const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
+const evidenceBundle = manifest['src/analysis/evidence_bundle.js'];
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
 const helpContent = manifest['src/ui/help_content.js'];
 const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
@@ -36,9 +37,10 @@ assert.deepEqual(
     'src/routes_diary/ui_insights_panel.js',
     'src/i18n/history.js',
     'src/analysis/analysis_history_controller.js',
+    'src/analysis/evidence_bundle.js',
     'src/ui/help_content.js',
   ]),
-  'Entry must keep Crime, Diary, Help, Diary Insights, Analysis History, and their translations behind direct lazy boundaries',
+  'Entry must keep Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, and their translations behind direct lazy boundaries',
 );
 assert.deepEqual(
   new Set(crime?.dynamicImports || []),
@@ -79,6 +81,7 @@ assert.equal(diary.css, undefined, 'Diary must not introduce delayed mode-only C
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
+assert.ok(evidenceBundle?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle as a lazy chunk');
 assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain Analysis History translations as a lazy chunk');
 assert.ok(helpContent?.isDynamicEntry, 'Vite manifest must contain Help Center content as a lazy chunk');
 assert.ok(crimeOffenseCatalog?.isDynamicEntry, 'Vite manifest must keep the bilingual Crime offense catalog lazy');
@@ -90,16 +93,14 @@ assert.ok(
 
 const budgets = [
   ['Entry', entry, 902_665, 247_583],
-  // Owns result-scoped cancellation, partial recovery, immutable provenance,
-  // and the dispatch-only lazy edges for task focus and route-corridor evidence.
-  // C3 adds only the explicit-click loader and ports; the controller remains
-  // a separate second-level chunk. The measured feature-enabled build retains
-  // 180 raw / 126 gzip bytes without changing the Entry ceiling.
-  ['Crime', crime, 40_300, 14_400],
+  // Owns result-scoped cancellation, fail-closed data admission, immutable
+  // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
+  ['Crime', crime, 42_000, 14_900],
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
-  ['Route corridor UI', routeCorridorUi, 16_600, 6_200],
+  // Includes the shell-owned drawer and shared map/manual waypoint editor.
+  ['Route corridor UI', routeCorridorUi, 24_000, 8_300],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
@@ -117,6 +118,8 @@ const budgets = [
   ['Diary Insights', insights, 11_200, 3_600],
   // Includes cached comparison rendering plus truthful refresh cancellation/freshness states.
   ['Analysis History', analysisHistory, 23_000, 7_800],
+  // The feature-flagged aggregate export stays absent from the initial entry.
+  ['Evidence Bundle', evidenceBundle, 10_800, 4_000],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
   // Full bilingual source and methodology guidance loads only when Help is opened.
@@ -124,7 +127,7 @@ const budgets = [
   // Loaded with Crime initialization so the versioned taxonomy never inflates the app entry.
   ['Crime offense catalog', crimeOffenseCatalog, 9_000, 2_800],
   // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.
-  ['P1 translations', p1Messages, 9_000, 3_300],
+  ['P1 translations', p1Messages, 9_100, 3_300],
 ];
 const measurements = [];
 

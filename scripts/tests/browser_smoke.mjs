@@ -37,6 +37,15 @@ function cartoResponse(request) {
     return { rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-07-30T00:00:00Z' }] };
   }
   if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
+  if (/SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body)) {
+    return { rows: [{ dc_dist: '06', n: 12 }] };
+  }
+  if (/date_trunc\('month',\s*dispatch_date_time\)\s+AS\s+m/i.test(body)) {
+    return { rows: [{ m: '2025-07-01T00:00:00Z', n: 12 }] };
+  }
+  if (/EXTRACT\(DOW[\s\S]*AS\s+dow[\s\S]*EXTRACT\(HOUR[\s\S]*AS\s+hr/i.test(body)) {
+    return { rows: [{ dow: 1, hr: 12, n: 12 }] };
+  }
   if (/text_general_code/i.test(body) && /GROUP BY/i.test(body)) {
     return { rows: [{ text_general_code: 'Thefts', n: 8 }] };
   }
@@ -329,7 +338,7 @@ try {
   assert.ok(routeOptions.length >= 2, 'Diary draft isolation requires at least two demo routes');
   const [routeA, routeB] = routeOptions;
 
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByRole('radio', { name: '4 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'poor lighting' }).click();
@@ -347,7 +356,7 @@ try {
   await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
   const restoredRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
   await restoredRouteSelect.selectOption(routeA);
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByText('Unfinished rating restored from this device.').waitFor();
   assert.match(await page.locator('.diary-step-label').textContent(), /Step 2/);
   assert.equal(await page.getByRole('button', { name: 'poor lighting' }).getAttribute('aria-pressed'), 'true');
@@ -355,7 +364,7 @@ try {
   await page.getByRole('button', { name: 'Close rating dialog' }).click();
 
   await restoredRouteSelect.selectOption(routeB);
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   assert.match(await page.locator('.diary-step-label').textContent(), /Step 1/);
   await page.getByRole('radio', { name: '3 stars' }).click();
   await waitForDiarySnapshot(
@@ -366,7 +375,7 @@ try {
   await page.getByRole('button', { name: 'Close rating dialog' }).click();
 
   await restoredRouteSelect.selectOption(routeA);
-  await page.getByRole('button', { name: 'Rate this route' }).click();
+  await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByText('Unfinished rating restored from this device.').waitFor();
   await page.getByRole('button', { name: 'Save rating' }).click();
   await page.getByText('Saved locally on this device.').waitFor();
