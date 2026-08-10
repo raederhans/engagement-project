@@ -59,6 +59,7 @@
     "test:diary-insights": "node --test scripts/tests/diary_insights_contracts.mjs",
     "test:ui-p0": "node --test scripts/tests/ui_shell_contracts.mjs scripts/tests/crime_ui_contracts.mjs scripts/tests/mode_ui_contracts.mjs scripts/tests/diary_rating_flow.mjs scripts/tests/map_context_recovery.mjs",
     "test:browser-smoke": "node scripts/tests/browser_smoke.mjs",
+    "test:acs-multitract-browser": "node scripts/tests/acs_multitract_browser.mjs",
     "test:visual-experience": "npm run build && playwright test --config=playwright.config.mjs",
     "test:visual-experience:dist": "playwright test --config=playwright.config.mjs",
     "test:architecture-ports": "node --test scripts/tests/architecture_ports.mjs",

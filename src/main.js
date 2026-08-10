@@ -86,6 +86,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const viewModeRoot = document.querySelector('[data-crime-view-mode]');
   const aboutController = initAboutPanel({ initialMode });
   const modeSurfaces = createModeSurfacePresenter({ documentRef: document, aboutController });
+  const registeredSourceHealthObservations = [];
   const sourceHealthLoader = createSourceHealthLoader({
     mount: document.querySelector('[data-source-health-entry]'),
     loadUi: () => import('./source_health/source_health_controller.js'),
@@ -95,8 +96,17 @@ window.addEventListener('DOMContentLoaded', async () => {
         min: store.coverageMin,
         max: store.coverageMax,
       },
+      registeredSourceHealthObservations: [...registeredSourceHealthObservations],
     }),
   });
+  const registerSourceHealthObservation = (observation) => {
+    if (!observation?.sourceId) return;
+    const index = registeredSourceHealthObservations
+      .findIndex(({ sourceId }) => sourceId === observation.sourceId);
+    if (index === -1) registeredSourceHealthObservations.push(observation);
+    else registeredSourceHealthObservations.splice(index, 1, observation);
+    sourceHealthLoader.refresh();
+  };
   let listController = null;
   let listControllerPromise = null;
   let mapCrimeController = null;
@@ -206,6 +216,7 @@ window.addEventListener('DOMContentLoaded', async () => {
           mount: routeCorridorMount,
           readCanonicalSnapshot: readRouteCorridorSnapshot,
           getMap: () => mapRuntime.getMap(),
+          onSourceHealthObservation: registerSourceHealthObservation,
         }))
         .then((owner) => {
           routeCorridorLoader = owner;
@@ -257,6 +268,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         .then((module) => module.createAcsMultitractLoader({
           dialog: acsMultitractDialog,
           opener: acsMultitractOpen,
+          onSourceHealthObservation: registerSourceHealthObservation,
         }))
         .then((owner) => {
           acsMultitractLoader = owner;

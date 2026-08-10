@@ -3,8 +3,16 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
+import { preview } from 'vite';
 
-const BASE_URL = process.env.ACS_BROWSER_BASE_URL || 'http://127.0.0.1:4189/';
+const externalBaseUrl = String(process.env.ACS_BROWSER_BASE_URL || '').trim();
+let server = null;
+if (!externalBaseUrl) {
+  server = await preview({
+    preview: { host: '127.0.0.1', port: 4189, strictPort: true },
+  });
+}
+const BASE_URL = externalBaseUrl || new URL(server.config.base, server.resolvedUrls.local[0]).href;
 const OUTPUT_DIR = '.tmp/batch9-acs-multitract/browser';
 const fixture = await readFile('src/data/acs_vre_b01003_2024_pa101.json', 'utf8');
 await mkdir(OUTPUT_DIR, { recursive: true });
@@ -151,4 +159,11 @@ try {
 } finally {
   await context.close();
   await browser.close();
+  await new Promise((resolve, reject) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.httpServer.close((error) => (error ? reject(error) : resolve()));
+  });
 }

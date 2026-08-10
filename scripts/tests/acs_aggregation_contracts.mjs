@@ -340,6 +340,9 @@ test('product entry keeps the facade and VRE source behind a second-level lazy b
   assert.match(main, /import\('\.\/acs_multitract\/loader\.js'\)/);
   assert.doesNotMatch(main, /from ['"].*acs_aggregation/);
   assert.match(loader, /import\('\.\/controller\.js'\)/);
+  assert.match(loader, /onSourceHealthObservation,/);
+  assert.match(loader, /onEvidenceRecord,/);
+  assert.match(main, /onSourceHealthObservation: registerSourceHealthObservation/);
   assert.match(controller, /from ['"]\.\.\/acs_aggregation\.js['"]/);
   assert.match(controller, /from ['"]\.\/workflow\.js['"]/);
   assert.match(controller, /onLanguageChange\(render\)/);

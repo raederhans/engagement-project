@@ -254,6 +254,9 @@ const messagePairs = Object.freeze({
   'sheet.viewDetails': ['View charts and details', '查看图表和详情'],
 
   'history.label': ['Recent analyses', '最近的分析'],
+  'acs.multitract.entry': ['Compare complete tracts', '比较完整 tract'],
+  'acs.multitract.retry': ['Retry', '重试'],
+  'acs.multitract.ariaLabel': ['ACS complete-tract population aggregate', 'ACS 完整 tract 人口聚合'],
   'history.savedAnalyses': ['Saved analyses', '已保存的分析'],
   'history.import.heading': ['Import evidence bundle', '导入证据包'],
   'history.import.description': ['Choose a JSON bundle, review its public analysis state, then apply it explicitly to this browser only.', '选择 JSON 证据包，先审查其中的公开分析状态，再明确应用到此浏览器。'],

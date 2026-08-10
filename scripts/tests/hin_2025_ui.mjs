@@ -51,6 +51,8 @@ test('HIN text surface names street context, period, separated timestamps, metho
   assert.match(source, /safer-route advice/i);
   assert.match(source, /services\.arcgis\.com/);
   assert.match(source, /www\.phila\.gov/);
+  assert.match(source, /onSourceHealthObservation/);
+  assert.match(source, /result\?\.sourceHealthObservation/);
   assert.doesNotMatch(source, /risk score|safety score|safer-route recommendation|GPS matched|official safety certification/i);
 });
 

@@ -51,6 +51,7 @@ export function createHin2025Presentation(result = {}) {
 export function initHin2025Ui({
   root,
   requestContext = requestKnownRouteHin2025Context,
+  onSourceHealthObservation = () => {},
 } = {}) {
   if (!root?.querySelector || typeof requestContext !== 'function') {
     throw new Error('HIN 2025 UI requires a root and request port.');
@@ -108,6 +109,9 @@ export function initHin2025Ui({
       statusNode.textContent = t('hin.pending');
       const result = await requestContext({ routeInput });
       if (requestGeneration !== generation) return { status: 'superseded' };
+      if (result?.sourceHealthObservation) {
+        try { onSourceHealthObservation(result.sourceHealthObservation); } catch {}
+      }
       render(result);
       return result;
     },

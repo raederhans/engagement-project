@@ -202,6 +202,8 @@ test('narrow adapter keeps exact route in memory and distinguishes snapshot unav
   const noMatch = await readyAdapter.request({ routeInput: route });
   assert.equal(argumentCount, 0, 'snapshot loader must not receive exact route input');
   assert.equal(noMatch.status, 'no-associated-streets');
+  assert.equal(noMatch.sourceHealthObservation.status, 'unavailable');
+  assert.equal(noMatch.sourceHealthObservation.statusReason, 'lifecycle-receipt-schema-drift');
 
   const unavailable = await createHin2025ContextAdapter({
     loadSnapshot: async () => { throw new Error('local artifact unavailable'); },
@@ -209,6 +211,19 @@ test('narrow adapter keeps exact route in memory and distinguishes snapshot unav
   assert.equal(unavailable.status, 'unavailable');
   assert.equal(unavailable.reason, 'snapshot-unavailable');
   assert.deepEqual(unavailable.matches, []);
+  assert.equal(unavailable.sourceHealthObservation.status, 'unavailable');
+  assert.equal(unavailable.sourceHealthObservation.statusReason, 'lifecycle-receipt-unavailable');
+});
+
+test('context returns an admitted HIN observation without copying exact route geometry into it', async () => {
+  const snapshot = syntheticSnapshot();
+  snapshot.lifecycleReceipt = structuredClone(committedReceipt);
+  const result = await createHin2025ContextAdapter({
+    loadSnapshot: async () => snapshot,
+  }).request({ routeInput: route });
+  assert.equal(result.sourceHealthObservation.sourceId, 'hin-2025');
+  assert.equal(result.sourceHealthObservation.status, 'partial');
+  assert.equal(JSON.stringify(result.sourceHealthObservation).includes('-74.99'), false);
 });
 
 test('runtime context has no ArcGIS, persistence, URL mutation, GPS matching, or network-route disclosure path', async () => {

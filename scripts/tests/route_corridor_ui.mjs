@@ -152,8 +152,8 @@ test('Crime exposes a shared map/list entry and keeps the controller behind nest
   assert.match(html, /data-route-corridor-retry[^>]*hidden/);
   assert.match(html, /data-route-corridor-open[^>]*aria-expanded="false"[^>]*aria-controls="route-corridor-shell"/);
   assert.match(html, /id="route-corridor-shell"[^>]*data-route-corridor-host[^>]*hidden[^>]*inert/);
-  const scriptIndex = html.indexOf('<script type="module" src="/src/main.js"></script>');
-  const sidepanelCloseIndex = html.lastIndexOf('</div>', scriptIndex);
+  const historyEnd = html.indexOf('</details>', html.indexOf('data-analysis-history-disclosure'));
+  const sidepanelCloseIndex = html.indexOf('</div>', historyEnd);
   assert.ok(html.indexOf('data-route-corridor-host') > sidepanelCloseIndex, 'route surface host must live outside #sidepanel');
   const taskFocusEnd = html.indexOf('</section>', html.indexOf('data-task-focus'));
   assert.ok(html.indexOf('data-route-corridor-entry') > taskFocusEnd, 'Known Route entry must remain visible when list mode does not initialize Task Focus');
@@ -165,6 +165,8 @@ test('Crime exposes a shared map/list entry and keeps the controller behind nest
   assert.match(appRuntime, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
   assert.match(appRuntime, /import\('\.\/route_corridor_ui_controller\.js'\)/);
   assert.match(appRuntime, /import\('\.\/hin_2025_ui\.js'\)/);
+  assert.match(appLoader, /onSourceHealthObservation/);
+  assert.match(appRuntime, /initHin2025Ui\(\{ root, onSourceHealthObservation \}\)/);
   assert.match(panel, /routeCorridorMount/);
   assert.doesNotMatch(controller, /aria-modal=["']true/);
   assert.match(controller, /let active = false;/, 'a closed route drawer must not begin as a map-click owner');

@@ -153,7 +153,13 @@ test('official URLs and bundled receipt versions match committed fixtures', asyn
     temporalStart: tract.meta.start,
     temporalEnd: tract.meta.end,
   });
-  assert.equal(SOURCE_HEALTH_CATALOG.length, 8);
+  assert.equal(SOURCE_HEALTH_CATALOG.length, 10);
+  assert.deepEqual(
+    SOURCE_HEALTH_CATALOG
+      .filter(({ id }) => ['acs-tract-population-vre', 'hin-2025'].includes(id))
+      .map(({ id }) => id),
+    ['acs-tract-population-vre', 'hin-2025'],
+  );
   for (const source of SOURCE_HEALTH_CATALOG) {
     assert.match(source.canonicalUrl, /^https:\/\//);
     assert.match(source.officialHandoff.url, /^https:\/\//);
@@ -331,5 +337,7 @@ test('app shell exposes a native accessible entry and keeps the controller dynam
   assert.match(html, /id="source-health-surface"[^>]*data-source-health-host[^>]*aria-busy="false"[^>]*hidden/);
   assert.match(main, /import \{ createSourceHealthLoader \} from '\.\/source_health\/source_health_loader\.js';/);
   assert.match(main, /loadUi: \(\) => import\('\.\/source_health\/source_health_controller\.js'\)/);
+  assert.match(main, /registeredSourceHealthObservations: \[\.\.\.registeredSourceHealthObservations\]/);
+  assert.match(main, /onSourceHealthObservation: registerSourceHealthObservation/g);
   assert.doesNotMatch(main, /^import .*source_health_controller/m);
 });

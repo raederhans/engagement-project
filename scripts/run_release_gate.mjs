@@ -11,6 +11,7 @@ const RELEASE_STEPS = Object.freeze([
   ['run', 'lint:css'],
   ['run', 'ci:core'],
   ['run', 'test:browser-smoke'],
+  ['run', 'test:acs-multitract-browser'],
   ['run', 'test:visual-experience:dist'],
 ]);
 

@@ -176,7 +176,10 @@ test('sidecar receipt identifies exact committed bytes and does not invent legac
   const receiptText = await readFile(new URL('../../public/data/hin_2025.receipt.json', import.meta.url), 'utf8');
   const receipt = JSON.parse(receiptText);
   assert.deepEqual(validateHin2025Receipt(receipt, { snapshot }), receipt);
-  assert.equal(renderHin2025Receipt(receipt, { snapshot }).text, receiptText);
+  assert.equal(
+    renderHin2025Receipt(receipt, { snapshot }).text,
+    receiptText.replace(/\r\n/g, '\n'),
+  );
   assert.equal(receipt.artifact.identity, 'sha256:b518f8b370c6375f5d3188ec2ec487ed834b7b7c25cb51f5f5e554285749e250');
   assert.equal(receipt.artifact.builtAt, null);
   assert.equal(receipt.review.reviewedAt, null);

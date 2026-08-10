@@ -235,6 +235,18 @@ body {
   display: block;
 }
 
+.acs-multitract-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.acs-multitract-entry p {
+  margin: 0;
+}
+
 .route-corridor__disclosure,
 .route-corridor__truth,
 .route-corridor [data-route-query-context],

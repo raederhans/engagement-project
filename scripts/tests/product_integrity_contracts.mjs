@@ -1818,11 +1818,16 @@ test('tract enrichment keeps shared boundaries and prior snapshots immutable', (
   assert.equal(second.geojson.features[0].properties.value, 2);
 });
 
-test('bundle policy keeps feature translation catalogs outside the established entry budget', async () => {
+test('bundle policy keeps lazy product surfaces and admitted source artifacts outside the established entry budget', async () => {
   const source = await readFile(new URL('../../scripts/tests/bundle_policy.mjs', import.meta.url), 'utf8');
   assert.match(source, /\['Entry', entry, 875_585, 247_583\]/);
   assert.match(source, /\['Analysis History', analysisHistory, 24_800, 8_100\]/);
-  assert.match(source, /\['Evidence Bundle', evidenceBundle, 10_259, 4_000\]/);
+  assert.match(source, /\['Evidence Bundle product', evidenceBundleProduct, 2_000, 1_000\]/);
+  assert.match(source, /\['Evidence Bundle v2', evidenceBundleV2, 24_000, 6_500\]/);
+  assert.match(source, /\['ACS multi-tract controller', acsMultitractController, 22_000, 8_000\]/);
+  assert.match(source, /vreArtifactBytes <= 200_000/);
+  assert.match(source, /nonVreDistBytes <= 4_000_000/);
+  assert.match(source, /distBytes <= 4_200_000/);
   assert.match(source, /\['P1 translations', p1Messages, 8_644, 3_300\]/);
 });
 

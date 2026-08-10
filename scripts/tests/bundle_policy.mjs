@@ -19,6 +19,9 @@ const routeCorridorRuntime = manifest['src/routes_crime/route_corridor_app_runti
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
+const acsMultitractLoader = manifest['src/acs_multitract/loader.js'];
+const acsMultitractController = manifest['src/acs_multitract/controller.js'];
+const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -27,9 +30,15 @@ const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
 const charts = manifest['src/charts/index.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
-const evidenceBundle = manifest['src/analysis/evidence_bundle.js'];
+const evidenceBundleProduct = manifest['src/analysis/evidence_bundle_product.js'];
+const evidenceBundleV2 = Object.values(manifest).find((record) => record.name === 'evidence_bundle_v2');
+const evidenceBundleImport = manifest['src/analysis/evidence_bundle_import.js'];
+const evidenceBundleSourceAdapter = manifest['src/analysis/evidence_bundle_source_adapter.js'];
+const evidenceBundleImportPreview = manifest['src/ui/evidence_bundle_import_preview.js'];
+const evidenceBundleImportStyles = manifest['src/styles/evidence-bundle-import.css'];
 const evidenceBundleHash = manifest['src/analysis/evidence_bundle_hash.js'];
 const sourceHealth = manifest['src/source_health/source_health_controller.js'];
+const sourceHealthCatalog = Object.values(manifest).find((record) => record.name === 'source_health_catalog');
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
 const helpContent = manifest['src/ui/help_content.js'];
 const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
@@ -44,14 +53,15 @@ assert.deepEqual(
     'src/routes_diary/ui_insights_panel.js',
     'src/i18n/history.js',
     'src/analysis/analysis_history_controller.js',
-    'src/analysis/evidence_bundle.js',
+    'src/analysis/evidence_bundle_product.js',
     'src/ui/help_content.js',
     'src/map/initMap.js',
     'src/routes_crime/list_mode_controller.js',
     'src/routes_crime/route_corridor_app_loader.js',
+    'src/acs_multitract/loader.js',
     'src/source_health/source_health_controller.js',
   ]),
-  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle, Source Health, and their translations behind direct lazy boundaries',
+  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle v2, ACS multi-tract, Source Health, and their translations behind direct lazy boundaries',
 );
 assert.ok(mapRuntime?.isDynamicEntry, 'Vite manifest must keep MapLibre and map initialization behind a lazy runtime boundary');
 assert.ok(crimeList?.isDynamicEntry, 'Vite manifest must keep the Crime list controller behind its presentation boundary');
@@ -111,6 +121,18 @@ assert.deepEqual(
   'Route corridor UI must not own additional data or health adapters',
 );
 assert.ok(hin2025Ui?.isDynamicEntry, 'Vite manifest must contain HIN 2025 UI/context as a nested lazy chunk');
+assert.ok(acsMultitractLoader?.isDynamicEntry, 'Vite manifest must keep the ACS multi-tract loader lazy');
+assert.deepEqual(
+  new Set(acsMultitractLoader.dynamicImports || []),
+  new Set(['src/acs_multitract/controller.js']),
+  'ACS multi-tract must keep its VRE workflow behind a second-level lazy boundary',
+);
+assert.ok(acsMultitractController?.isDynamicEntry, 'Vite manifest must contain the ACS multi-tract controller as a nested lazy chunk');
+assert.equal(
+  (acsMultitractController.assets || []).filter((asset) => /acs_vre_b01003_2024_pa101-.*\.json$/.test(asset)).length,
+  1,
+  'ACS multi-tract controller must own exactly one admitted VRE source artifact',
+);
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -123,11 +145,21 @@ assert.equal(diary.css, undefined, 'Diary must not introduce delayed mode-only C
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
-assert.ok(evidenceBundle?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle as a lazy chunk');
 assert.deepEqual(
-  new Set(evidenceBundle.dynamicImports || []),
+  new Set(analysisHistory.dynamicImports || []),
+  new Set([
+    'src/analysis/evidence_bundle_import.js',
+    'src/analysis/evidence_bundle_source_adapter.js',
+    'src/ui/evidence_bundle_import_preview.js',
+  ]),
+  'Analysis History must keep Evidence Bundle validation and preview behind explicit import intent',
+);
+assert.ok(evidenceBundleProduct?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle v2 product writer as a lazy chunk');
+assert.ok(evidenceBundleV2, 'Vite manifest must contain the shared Evidence Bundle v2 validator');
+assert.deepEqual(
+  new Set(evidenceBundleV2.dynamicImports || []),
   new Set(['src/analysis/evidence_bundle_hash.js']),
-  'Evidence Bundle must keep browser cryptography behind a nested lazy boundary',
+  'Evidence Bundle v2 must keep browser cryptography behind a nested lazy boundary',
 );
 assert.ok(evidenceBundleHash?.isDynamicEntry, 'Vite manifest must contain Evidence Bundle hashing as a nested lazy chunk');
 assert.ok(sourceHealth?.isDynamicEntry, 'Vite manifest must contain Source Health as a lazy chunk');
@@ -155,8 +187,12 @@ const budgets = [
   ['Route corridor data', routeCorridor, 23_500, 7_800],
   // Includes the shell-owned drawer and shared map/manual waypoint editor.
   ['Route corridor UI', routeCorridorUi, 24_000, 8_300],
-  // Text-first HIN context plus dependency-free local segment association.
-  ['HIN 2025 context', hin2025Ui, 20_000, 6_500],
+  // Text-first HIN context plus dependency-free local segment association and
+  // the admitted lifecycle receipt/source-health adapter.
+  ['HIN 2025 context', hin2025Ui, 20_000, 7_200],
+  ['ACS multi-tract loader', acsMultitractLoader, 1_000, 600],
+  ['ACS multi-tract controller', acsMultitractController, 22_000, 8_000],
+  ['ACS multi-tract styles', acsMultitractStyles, 4_000, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
@@ -176,11 +212,17 @@ const budgets = [
   // Includes cached comparison rendering, truthful refresh cancellation/freshness
   // states, and v1/v2 analysis-artifact compatibility for structured ACS evidence.
   ['Analysis History', analysisHistory, 24_800, 8_100],
-  // The feature-flagged aggregate export stays absent from the initial entry.
-  ['Evidence Bundle', evidenceBundle, 10_259, 4_000],
+  // The feature-flagged v2 writer and import path stay absent from the initial entry.
+  ['Evidence Bundle product', evidenceBundleProduct, 2_000, 1_000],
+  ['Evidence Bundle v2', evidenceBundleV2, 24_000, 6_500],
+  ['Evidence Bundle import', evidenceBundleImport, 7_500, 3_300],
+  ['Evidence Bundle source adapter', evidenceBundleSourceAdapter, 5_500, 2_100],
+  ['Evidence Bundle import preview', evidenceBundleImportPreview, 6_000, 2_200],
+  ['Evidence Bundle import styles', evidenceBundleImportStyles, 1_600, 700],
   // Loads only after Data Status is expanded; owns the strict four-clock source
   // read model and text-first source catalog without importing map runtime code.
   ['Source Health', sourceHealth, 22_000, 7_500],
+  ['Source Health catalog', sourceHealthCatalog, 15_000, 5_000],
   // Keeps bilingual history copy out of the entry and below a focused lazy-resource budget.
   ['Analysis History translations', analysisHistoryMessages, 4_000, 1_700],
   // Full bilingual source, ACS estimate/MOE, and methodology guidance loads
@@ -207,7 +249,13 @@ const distFiles = await listFiles(distDir);
 const publicFiles = await listFiles(publicDir);
 const artifactFiles = [...distFiles, ...publicFiles];
 const distBytes = await sumFileSizes(distFiles);
-assert.ok(distBytes <= 4_000_000, `Total dist size must stay <= 4000000; received ${distBytes}`);
+const vreArtifacts = distFiles.filter((file) => /acs_vre_b01003_2024_pa101-.*\.json$/.test(path.basename(file)));
+assert.equal(vreArtifacts.length, 1, 'dist must contain exactly one admitted ACS VRE source artifact');
+const vreArtifactBytes = await sumFileSizes(vreArtifacts);
+const nonVreDistBytes = distBytes - vreArtifactBytes;
+assert.ok(vreArtifactBytes <= 200_000, `ACS VRE source artifact must stay <= 200000; received ${vreArtifactBytes}`);
+assert.ok(nonVreDistBytes <= 4_000_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4000000; received ${nonVreDistBytes}`);
+assert.ok(distBytes <= 4_200_000, `Transparent total dist size must stay <= 4200000; received ${distBytes}`);
 for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;
@@ -232,7 +280,7 @@ await verifyWorkflowPolicy();
 await verifyDependabotPolicy();
 verifyReadOnlyJobPermissionGuard();
 
-console.log(`[Bundle Policy] PASS - ${measurements.join(', ')}; dist ${distBytes} bytes.`);
+console.log(`[Bundle Policy] PASS - ${measurements.join(', ')}; dist ${distBytes} bytes (${nonVreDistBytes} excluding ${vreArtifactBytes}-byte ACS VRE source artifact).`);
 
 async function verifyWorkflowPolicy() {
   const approvedUses = new Map([

@@ -104,11 +104,6 @@
         <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
         <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
       </section>
-      <section class="acs-multitract-entry" data-acs-multitract-entry aria-label="ACS complete-tract population aggregate／ACS 完整 tract 人口聚合">
-        <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog">Compare complete tracts／比较完整 tract</button>
-        <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-acs-multitract-retry hidden>Retry／重试</button>
-      </section>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -149,6 +144,12 @@
         <div id="addressStatus" class="status-badge is-hidden" role="status" aria-live="polite"></div>
         <div id="useMapHint" class="field-help is-hidden" data-i18n="crime.mapHint">Click the map to set the selected point. Press Esc to cancel.</div>
       </div>
+
+      <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
+        <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
+        <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
+        <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
+      </section>
 
       <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
         <div class="result-meta__bar">

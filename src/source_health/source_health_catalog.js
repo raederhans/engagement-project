@@ -129,6 +129,28 @@ export const SOURCE_HEALTH_CATALOG = Object.freeze([
     },
   }),
   source({
+    id: 'acs-tract-population-vre',
+    dataset: '2024 ACS 5-year B01003 variance replicate estimate snapshot',
+    provider: 'U.S. Census Bureau ACS 5-year Variance Replicate Estimates',
+    canonicalUrl: 'https://www.census.gov/programs-surveys/acs/data/variance-tables.html',
+    license: CENSUS_REUSE,
+    coverage: {
+      geography: 'Complete Philadelphia County census tracts selected by exact GEOID',
+      temporalStart: '2020-01-01',
+      temporalEnd: '2024-12-31',
+    },
+    boundaryVintage: '2020 Census tract geography',
+    revisionPolicy: 'The product admits only the bundled, validated 2024 five-year VRE snapshot after an explicit tract review.',
+    limitations: [
+      'The workflow accepts complete tracts only; it does not estimate route buffers, addresses, partial tracts, or map-selected areas.',
+      'ACS values are estimates. Standard errors and 90% margins of error describe sampling uncertainty and do not remove other sources of error.',
+    ],
+    officialHandoff: {
+      label: 'ACS Variance Replicate Estimates',
+      url: 'https://www.census.gov/programs-surveys/acs/data/variance-tables.html',
+    },
+  }),
+  source({
     id: 'tract-crime-snapshot',
     dataset: 'Derived tract crime snapshot',
     provider: 'Engagement Project build from Philadelphia Crime Incidents and bundled tract geometry',
@@ -173,6 +195,28 @@ export const SOURCE_HEALTH_CATALOG = Object.freeze([
     officialHandoff: {
       label: 'OpenDataPhilly City Limits',
       url: 'https://opendataphilly.org/datasets/city-limits/',
+    },
+  }),
+  source({
+    id: 'hin-2025',
+    dataset: 'Philadelphia High Injury Network 2025 historical planning snapshot',
+    provider: 'City of Philadelphia Office of Transportation and Infrastructure Systems',
+    canonicalUrl: 'https://www.arcgis.com/home/item.html?id=7e416319784a463fa0d8b528d7ccf511',
+    license: CITY_LICENSE,
+    coverage: {
+      geography: 'Philadelphia High Injury Network planning geometry',
+      temporalStart: '2019-01-01',
+      temporalEnd: '2023-12-31',
+    },
+    boundaryVintage: null,
+    revisionPolicy: 'A validated local snapshot and lifecycle receipt change only after explicit semantic review of the official item and layer.',
+    limitations: [
+      'This is a historical planning network based on 2019–2023 crash data, not live road conditions, a prediction, or a safety score.',
+      'Known Route is user-supplied geometry, not GPS map matching; proximity does not establish route identity, crash occurrence, or safer-route advice.',
+    ],
+    officialHandoff: {
+      label: 'City Vision Zero Action Plan 2030 release',
+      url: 'https://www.phila.gov/2025-11-25-city-of-philadelphia-releases-vision-zero-action-plan-2030/',
     },
   }),
   source({

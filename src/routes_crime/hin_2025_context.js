@@ -1,6 +1,9 @@
 import { publicUrl } from '../utils/public_url.js';
 import { validateKnownRouteInput } from './route_corridor_capability.js';
-import { loadHin2025LifecycleReceipt } from './hin_2025_lifecycle.js';
+import {
+  adaptHin2025SourceHealthObservation,
+  loadHin2025LifecycleReceipt,
+} from './hin_2025_lifecycle.js';
 
 export const HIN_2025_LOCAL_SNAPSHOT_URL = publicUrl('data/hin_2025.snapshot.json');
 export const HIN_2025_ASSOCIATION_TOLERANCE_M = 20;
@@ -47,12 +50,24 @@ export function createHin2025ContextAdapter({
       try {
         // Deliberately no arguments: exact route geometry stays in this call.
         const snapshot = await loadSnapshot();
-        return associateKnownRouteWithHin2025({
+        const result = associateKnownRouteWithHin2025({
           routeInput: routeAdmission.value,
           snapshot,
         });
+        return {
+          ...result,
+          sourceHealthObservation: adaptHin2025SourceHealthObservation({
+            receipt: snapshot.lifecycleReceipt,
+            observedAt: new Date().toISOString(),
+          }),
+        };
       } catch {
-        return unavailableResult('snapshot-unavailable');
+        return unavailableResult('snapshot-unavailable', {
+          sourceHealthObservation: adaptHin2025SourceHealthObservation({
+            unavailableReason: 'snapshot-or-receipt-unavailable',
+            observedAt: new Date().toISOString(),
+          }),
+        });
       }
     },
   });
@@ -123,7 +138,7 @@ async function loadDefaultSnapshot() {
   return defaultSnapshotPromise;
 }
 
-function unavailableResult(reason) {
+function unavailableResult(reason, { sourceHealthObservation = null } = {}) {
   return {
     status: 'unavailable',
     reason,
@@ -132,6 +147,7 @@ function unavailableResult(reason) {
     method: HIN_2025_ASSOCIATION_METHOD,
     matches: [],
     snapshot: null,
+    ...(sourceHealthObservation ? { sourceHealthObservation } : {}),
   };
 }
 

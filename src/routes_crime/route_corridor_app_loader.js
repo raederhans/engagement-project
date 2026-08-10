@@ -9,6 +9,7 @@ export function createRouteCorridorAppLoader({
   readCanonicalSnapshot,
   getMap = () => null,
   translate,
+  onSourceHealthObservation = () => {},
 } = {}) {
   return createRouteCorridorUiLoader({
     mount,
@@ -16,6 +17,7 @@ export function createRouteCorridorAppLoader({
       .then((module) => module.loadRouteCorridorUiRuntime({
         getMap,
         readCanonicalSnapshot,
+        onSourceHealthObservation,
       })),
     ports: {
       readCanonicalSnapshot,

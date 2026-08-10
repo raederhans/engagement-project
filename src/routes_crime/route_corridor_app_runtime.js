@@ -2,6 +2,7 @@
 export async function loadRouteCorridorUiRuntime({
   readCanonicalSnapshot,
   getMap = () => null,
+  onSourceHealthObservation = () => {},
 } = {}) {
   const controller = await import('./route_corridor_ui_controller.js');
   return {
@@ -12,13 +13,19 @@ export async function loadRouteCorridorUiRuntime({
           mount: options.mount,
           readCanonicalSnapshot,
           getMap,
+          onSourceHealthObservation,
         }),
       });
     },
   };
 }
 
-function createRouteCorridorRuntimePorts({ mount, readCanonicalSnapshot, getMap }) {
+function createRouteCorridorRuntimePorts({
+  mount,
+  readCanonicalSnapshot,
+  getMap,
+  onSourceHealthObservation,
+}) {
   let requestModulePromise = null;
   let hinUiPromise = null;
   let hinGeneration = 0;
@@ -27,7 +34,7 @@ function createRouteCorridorRuntimePorts({ mount, readCanonicalSnapshot, getMap 
     const root = mount?.querySelector?.('[data-route-hin-context]');
     if (!root) return;
     hinUiPromise ||= import('./hin_2025_ui.js')
-      .then((module) => module.initHin2025Ui({ root }));
+      .then((module) => module.initHin2025Ui({ root, onSourceHealthObservation }));
     void hinUiPromise
       .then((ui) => (requestGeneration === hinGeneration ? ui.review(routeInput) : null))
       .catch(() => {
