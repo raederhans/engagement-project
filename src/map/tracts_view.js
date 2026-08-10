@@ -169,11 +169,18 @@ export function mergeTractSnapshotData({ tracts, stats, snapshot, start, end, ty
       : null;
     const properties = { ...(ft?.properties || {}) };
     properties.__geoid = g;
-    properties.__pop = populationRow?.pop ?? null;
+    const population = populationRow?.population ?? null;
+    properties.__population = population ? structuredClone(population) : null;
+    properties.__pop = population?.estimate ?? populationRow?.pop ?? null;
+    properties.__popMoe90 = population?.moe90 ?? null;
+    properties.__popVintage = population?.vintage ?? null;
+    properties.__popSource = population?.source ?? null;
+    properties.__popRetrievedAt = population?.retrievedAt ?? null;
+    properties.__popStatus = population?.status ?? (properties.__pop == null ? 'unavailable' : 'partial');
     properties.value = rawValue == null
       ? null
-      : (per10k && populationRow?.pop > 0
-        ? Math.round((rawValue / populationRow.pop) * 10000)
+      : (per10k
+        ? (properties.__pop > 0 ? Math.round((rawValue / properties.__pop) * 10000) : null)
         : rawValue);
     if (properties.__pop === null || properties.__pop < 500) properties.__mask = true;
     else delete properties.__mask;

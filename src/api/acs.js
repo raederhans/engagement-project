@@ -3,9 +3,10 @@ import {
   ACS_SNAPSHOT_YEAR,
   CENSUS_REPORTER_ACS_URL,
 } from '../config.js';
+import { normalizeAcsRow, normalizeAcsSnapshot } from '../data/acs_population.js';
 import { fetchJson } from '../utils/http.js';
 
-const ACS_LOCAL_URL = new URL('../data/acs_tracts_2023_pa101.json', import.meta.url).href;
+const ACS_LOCAL_URL = new URL('../data/acs_tracts_2024_pa101.json', import.meta.url).href;
 const CENSUS_REPORTER_CACHE_TTL = 24 * 60 * 60_000;
 const censusReporterCaches = new WeakMap();
 
@@ -31,7 +32,7 @@ export async function fetchTractStats({
 }
 
 /**
- * Prefer explicitly configured live ACS endpoints. A bundled 2023 snapshot is
+ * Prefer explicitly configured live ACS endpoints. A bundled 2024 snapshot is
  * retained as the safe fallback because the public Census API now requires a
  * key and GitHub Pages cannot keep that credential private.
  */
@@ -54,6 +55,8 @@ export async function fetchTractStatsPreferred({
           kind: 'live',
           provider: 'Configured Census API',
           url: endpoints.population,
+          vintage: ACS_SNAPSHOT_YEAR,
+          asOf: `${ACS_SNAPSHOT_YEAR}-12-31`,
           cacheHit: false,
         });
         return live;
@@ -91,10 +94,15 @@ export async function fetchTractStatsPreferred({
   }
 
   try {
-    const snapshot = await fetchJsonImpl(localUrl, {
+    const snapshotPayload = await fetchJsonImpl(localUrl, {
       timeoutMs: 8000,
       retries: 1,
       signal,
+    });
+    const snapshot = normalizeAcsSnapshot(snapshotPayload, {
+      vintage: ACS_SNAPSHOT_YEAR,
+      source: 'Bundled ACS snapshot',
+      retrievedAt: null,
     });
     if (!isValidNormalizedRows(snapshot)) {
       throw new Error('Bundled ACS snapshot is invalid.');
@@ -106,6 +114,7 @@ export async function fetchTractStatsPreferred({
       url: localUrl,
       vintage: ACS_SNAPSHOT_YEAR,
       asOf: `${ACS_SNAPSHOT_YEAR}-12-31`,
+      retrievedAt: snapshotPayload?.manifest?.retrievedAt ?? null,
       cacheHit: false,
     });
     return snapshot;
@@ -161,6 +170,7 @@ async function fetchCensusReporterResult({
     if (!/^\d{11}$/.test(geoid)) return [];
 
     const population = estimate(tables, 'B01003', 'B01003001');
+    const populationMoe = margin(tables, 'B01003', 'B01003001');
     const renterTotal = estimate(tables, 'B25003', 'B25003001');
     const renterCount = estimate(tables, 'B25003', 'B25003003');
     const medianIncome = estimate(tables, 'B19013', 'B19013001');
@@ -170,14 +180,19 @@ async function fetchCensusReporterResult({
       ? Number(((belowPoverty / povertyUniverse) * 100).toFixed(1))
       : null;
 
-    return [{
+    return [normalizeAcsRow({
       geoid,
       pop: population,
+      population: { estimate: population, moe90: populationMoe },
       renter_total: renterTotal,
       renter_count: renterCount,
       median_income: medianIncome,
       poverty_pct: povertyPct,
-    }];
+    }, {
+      vintage: censusReporterReleaseMetadata(payload.release).vintage ?? null,
+      source: 'Census Reporter',
+      retrievedAt: null,
+    })];
   });
   const metadata = censusReporterReleaseMetadata(payload.release);
   if (isValidNormalizedRows(rows)) {
@@ -206,6 +221,7 @@ function normalizeAcsRows(populationRows, povertyRows) {
     populationHeader,
     [
       'B01003_001E',
+      'B01003_001M',
       'B25003_001E',
       'B25003_003E',
       'B19013_001E',
@@ -244,14 +260,22 @@ function normalizeAcsRows(populationRows, povertyRows) {
     );
     if (!geoid) return [];
 
-    return [{
+    return [normalizeAcsRow({
       geoid,
       pop: toNumber(row[populationIndex.B01003_001E]),
+      population: {
+        estimate: toNumber(row[populationIndex.B01003_001E]),
+        moe90: toNumber(row[populationIndex.B01003_001M]),
+      },
       renter_total: toNumber(row[populationIndex.B25003_001E]),
       renter_count: toNumber(row[populationIndex.B25003_003E]),
       median_income: toNumber(row[populationIndex.B19013_001E]),
       poverty_pct: povertyByGeoid.get(geoid) ?? null,
-    }];
+    }, {
+      vintage: ACS_SNAPSHOT_YEAR,
+      source: 'Configured Census API',
+      retrievedAt: null,
+    })];
   });
 }
 
@@ -288,6 +312,10 @@ function toNumber(value) {
 
 function estimate(tables, tableId, columnId) {
   return toNumber(tables?.[tableId]?.estimate?.[columnId]);
+}
+
+function margin(tables, tableId, columnId) {
+  return toNumber(tables?.[tableId]?.error?.[columnId]);
 }
 
 function reporterCacheFor(fetchJsonImpl) {

@@ -9,11 +9,15 @@ function csvCell(value) {
 }
 
 export function buildAnalysisExport({ filters, comparison, generatedAt = new Date().toISOString() }) {
+  const legacyComparison = structuredClone(comparison || null);
+  for (const point of Object.values(legacyComparison || {})) {
+    if (point && typeof point === 'object') delete point.population;
+  }
   return {
     schemaVersion: 1,
     generatedAt,
     filters: structuredClone(filters || {}),
-    comparison: structuredClone(comparison || null),
+    comparison: legacyComparison,
     notes: 'Crime incidents are reported records, not a complete measure of safety. Locations may be generalized.',
   };
 }

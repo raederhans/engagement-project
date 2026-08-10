@@ -857,7 +857,7 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   });
 
   assert.equal(created.kind, ANALYSIS_ARTIFACT_KIND);
-  assert.equal(created.schemaVersion, 1);
+  assert.equal(created.schemaVersion, 2);
   assert.equal(created.id, 'analysis-1');
   assert.equal(created.title.length, 120);
   assert.equal(created.title.startsWith('Night safety'), true);
@@ -880,10 +880,91 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
     () => validateAnalysisArtifact({ ...created, kind: 'wrong-kind' }),
     /artifact kind/i,
   );
-  assert.throws(
-    () => validateAnalysisArtifact({ ...created, schemaVersion: 2 }),
-    /unsupported analysis artifact/i,
-  );
+  const legacy = validateAnalysisArtifact({
+    ...created,
+    schemaVersion: 1,
+    resultSummary: {
+      generatedAt: created.resultSummary.generatedAt,
+      comparison: {
+        a: { label: 'Point A', total: 10, per10k: null, top3: [], delta30: null },
+        b: null,
+      },
+    },
+  });
+  assert.equal(legacy.schemaVersion, 1);
+  assert.equal(legacy.resultSummary.comparison.a.population, undefined);
+});
+
+test('analysis artifact v2 round-trips structured population while v1 remains readable', async () => {
+  const { createAnalysisArtifact, validateAnalysisArtifact } = await import('../../src/analysis/analysis_artifact.js');
+  const population = {
+    estimate: 2_000,
+    moe90: null,
+    vintage: '2024',
+    source: 'U.S. Census Bureau',
+    retrievedAt: '2026-08-10T08:38:25.000Z',
+    status: 'available',
+    method: 'centroid-in-buffer-whole-tract-sum',
+    moe90Status: 'unavailable',
+  };
+  const artifact = createAnalysisArtifact({
+    title: 'ACS denominator',
+    viewState: { queryMode: 'buffer', centerLonLat: [-75.16, 39.95] },
+    resultSummary: {
+      generatedAt: '2026-08-10T09:00:00.000Z',
+      comparison: { a: { total: 8, per10k: 40, population }, b: null },
+    },
+  }, {
+    createId: () => 'analysis-acs-v2',
+    now: () => '2026-08-10T09:01:00.000Z',
+  });
+
+  assert.equal(artifact.schemaVersion, 2);
+  assert.deepEqual(validateAnalysisArtifact(structuredClone(artifact)), artifact);
+  assert.deepEqual(artifact.resultSummary.comparison.a.population, population);
+});
+
+test('tract map properties expose ACS estimate, 90% MOE, vintage, and source without changing rate math', () => {
+  const result = tractView.mergeTractSnapshotData({
+    tracts: {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { GEOID: '42101000100' },
+        geometry: { type: 'Polygon', coordinates: [] },
+      }],
+    },
+    stats: [{
+      geoid: '42101000100',
+      pop: 2_000,
+      population: {
+        estimate: 2_000,
+        moe90: 120,
+        vintage: '2024',
+        source: 'U.S. Census Bureau',
+        retrievedAt: '2026-08-10T08:38:25.000Z',
+        status: 'available',
+      },
+    }],
+    snapshot: null,
+    start: '2025-01-01',
+    end: '2026-01-01',
+    per10k: true,
+  });
+  const properties = result.geojson.features[0].properties;
+  assert.equal(properties.__pop, 2_000);
+  assert.equal(properties.__popMoe90, 120);
+  assert.equal(properties.__popVintage, '2024');
+  assert.equal(properties.__popSource, 'U.S. Census Bureau');
+  assert.equal(properties.__popStatus, 'available');
+  assert.deepEqual(properties.__population, {
+    estimate: 2_000,
+    moe90: 120,
+    vintage: '2024',
+    source: 'U.S. Census Bureau',
+    retrievedAt: '2026-08-10T08:38:25.000Z',
+    status: 'available',
+  });
 });
 
 test('analysis save eligibility is deterministic for every Crime query mode', async () => {
@@ -1093,11 +1174,15 @@ test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', asy
   const { buildCrimeEvidenceSource } = await import('../../src/ui/crime_data_sources.js');
   const payload = buildAnalysisExport({
     filters: { start: '2025-08-01', end: '2026-08-01', types: ['Theft'] },
-    comparison: { a: { label: '=unsafe', total: 10 }, b: { label: 'B', total: 20 } },
+    comparison: {
+      a: { label: '=unsafe', total: 10, population: { estimate: 2500, moe90: 300 } },
+      b: { label: 'B', total: 20 },
+    },
     generatedAt: '2026-07-31T00:00:00.000Z',
   });
   assert.equal(payload.schemaVersion, 1);
   assert.equal(payload.comparison.b.total, 20);
+  assert.equal(payload.comparison.a.population, undefined, 'legacy v1 export must not acquire v2 population fields');
   const csv = analysisExportToCsv(payload);
   assert.match(csv, /point,label,total/);
   assert.match(csv, /A,"'=unsafe",10/);
@@ -1623,7 +1708,7 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
     },
     stats: [
       { geoid: '42101000100', pop: 1000 },
-      { geoid: '42101000200', pop: 2000 },
+      { geoid: '42101000200', pop: null },
     ],
     snapshot: {
       meta: {
@@ -1651,11 +1736,12 @@ test('tract snapshot values honor the same resolved offense filter as the rest o
     start: '2025-08-01',
     end: '2026-08-01',
     types: ['Robbery Firearm'],
-    per10k: false,
+    per10k: true,
   });
 
   assert.equal(result.dataStatus, 'available');
-  assert.deepEqual(result.values, [2, 0]);
+  assert.deepEqual(result.values, [20]);
+  assert.equal(result.geojson.features[1].properties.value, null, 'a missing denominator must not become a zero rate');
   assert.deepEqual(result.provenance, {
     schemaVersion: 2,
     start: '2025-08-01',

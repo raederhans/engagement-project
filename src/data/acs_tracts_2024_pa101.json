@@ -1,0 +1,3285 @@
+{
+  "schemaVersion": "engagement-acs-tract-population/v1",
+  "manifest": {
+    "dataset": "American Community Survey 5-Year Detailed Table B01003",
+    "vintage": "2024",
+    "period": "2020-2024",
+    "geography": "Census tracts in Philadelphia County, Pennsylvania (state 42, county 101)",
+    "source": "U.S. Census Bureau ACS Table-Based Summary File",
+    "sourceUrl": "https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b01003.dat",
+    "retrievedAt": "2026-08-10T08:53:02.383Z",
+    "rowCount": 408,
+    "variables": {
+      "estimate": "B01003_001E",
+      "moe90": "B01003_001M"
+    },
+    "rowsSha256": "sha256:c30e568037e55fd77b49396d039d98e03b2dc0d2bbe5c3f3035dcfe9c83db356",
+    "hashContract": "SHA-256 of JSON.stringify(rows); retrievedAt excluded"
+  },
+  "rows": [
+    {
+      "geoid": "42101000101",
+      "population": {
+        "estimate": 1963,
+        "moe90": 287,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000102",
+      "population": {
+        "estimate": 3172,
+        "moe90": 444,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000200",
+      "population": {
+        "estimate": 3103,
+        "moe90": 503,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000300",
+      "population": {
+        "estimate": 4727,
+        "moe90": 536,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000401",
+      "population": {
+        "estimate": 2919,
+        "moe90": 518,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000403",
+      "population": {
+        "estimate": 1010,
+        "moe90": 291,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000404",
+      "population": {
+        "estimate": 2588,
+        "moe90": 375,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000500",
+      "population": {
+        "estimate": 3395,
+        "moe90": 230,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000600",
+      "population": {
+        "estimate": 1923,
+        "moe90": 302,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000701",
+      "population": {
+        "estimate": 2229,
+        "moe90": 326,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000702",
+      "population": {
+        "estimate": 2055,
+        "moe90": 515,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000801",
+      "population": {
+        "estimate": 1604,
+        "moe90": 366,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000803",
+      "population": {
+        "estimate": 3947,
+        "moe90": 570,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000805",
+      "population": {
+        "estimate": 2263,
+        "moe90": 311,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000806",
+      "population": {
+        "estimate": 2303,
+        "moe90": 373,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000901",
+      "population": {
+        "estimate": 2000,
+        "moe90": 273,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101000902",
+      "population": {
+        "estimate": 2624,
+        "moe90": 382,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001001",
+      "population": {
+        "estimate": 2726,
+        "moe90": 428,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001002",
+      "population": {
+        "estimate": 3759,
+        "moe90": 527,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001101",
+      "population": {
+        "estimate": 4192,
+        "moe90": 681,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001102",
+      "population": {
+        "estimate": 2811,
+        "moe90": 404,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001201",
+      "population": {
+        "estimate": 4063,
+        "moe90": 679,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001203",
+      "population": {
+        "estimate": 1725,
+        "moe90": 313,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001204",
+      "population": {
+        "estimate": 3420,
+        "moe90": 454,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001301",
+      "population": {
+        "estimate": 1997,
+        "moe90": 656,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001302",
+      "population": {
+        "estimate": 4524,
+        "moe90": 1147,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001400",
+      "population": {
+        "estimate": 4350,
+        "moe90": 796,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001500",
+      "population": {
+        "estimate": 3118,
+        "moe90": 678,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001600",
+      "population": {
+        "estimate": 2400,
+        "moe90": 391,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001700",
+      "population": {
+        "estimate": 3060,
+        "moe90": 628,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001800",
+      "population": {
+        "estimate": 3314,
+        "moe90": 406,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101001900",
+      "population": {
+        "estimate": 3612,
+        "moe90": 563,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002000",
+      "population": {
+        "estimate": 2414,
+        "moe90": 349,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002100",
+      "population": {
+        "estimate": 2575,
+        "moe90": 319,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002200",
+      "population": {
+        "estimate": 2219,
+        "moe90": 407,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002300",
+      "population": {
+        "estimate": 2958,
+        "moe90": 423,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002400",
+      "population": {
+        "estimate": 4710,
+        "moe90": 641,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002500",
+      "population": {
+        "estimate": 4330,
+        "moe90": 508,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002701",
+      "population": {
+        "estimate": 3892,
+        "moe90": 453,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002702",
+      "population": {
+        "estimate": 4652,
+        "moe90": 602,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002801",
+      "population": {
+        "estimate": 3965,
+        "moe90": 652,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002802",
+      "population": {
+        "estimate": 5778,
+        "moe90": 867,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101002900",
+      "population": {
+        "estimate": 4239,
+        "moe90": 540,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003001",
+      "population": {
+        "estimate": 3810,
+        "moe90": 409,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003002",
+      "population": {
+        "estimate": 3354,
+        "moe90": 460,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003100",
+      "population": {
+        "estimate": 4743,
+        "moe90": 1097,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003200",
+      "population": {
+        "estimate": 4326,
+        "moe90": 614,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003300",
+      "population": {
+        "estimate": 6302,
+        "moe90": 1134,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003600",
+      "population": {
+        "estimate": 6310,
+        "moe90": 1223,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003701",
+      "population": {
+        "estimate": 5737,
+        "moe90": 921,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003702",
+      "population": {
+        "estimate": 3453,
+        "moe90": 892,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003800",
+      "population": {
+        "estimate": 3622,
+        "moe90": 658,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003901",
+      "population": {
+        "estimate": 6463,
+        "moe90": 828,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101003902",
+      "population": {
+        "estimate": 5107,
+        "moe90": 704,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004001",
+      "population": {
+        "estimate": 4103,
+        "moe90": 782,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004002",
+      "population": {
+        "estimate": 5544,
+        "moe90": 961,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004101",
+      "population": {
+        "estimate": 5517,
+        "moe90": 668,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004103",
+      "population": {
+        "estimate": 4750,
+        "moe90": 1455,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004104",
+      "population": {
+        "estimate": 3622,
+        "moe90": 701,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004201",
+      "population": {
+        "estimate": 4405,
+        "moe90": 830,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101004202",
+      "population": {
+        "estimate": 5637,
+        "moe90": 899,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101005400",
+      "population": {
+        "estimate": 1687,
+        "moe90": 299,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101005500",
+      "population": {
+        "estimate": 6421,
+        "moe90": 1064,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101005600",
+      "population": {
+        "estimate": 1010,
+        "moe90": 285,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006000",
+      "population": {
+        "estimate": 6426,
+        "moe90": 918,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006100",
+      "population": {
+        "estimate": 2975,
+        "moe90": 680,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006200",
+      "population": {
+        "estimate": 4139,
+        "moe90": 736,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006300",
+      "population": {
+        "estimate": 4040,
+        "moe90": 747,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006400",
+      "population": {
+        "estimate": 4536,
+        "moe90": 891,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006500",
+      "population": {
+        "estimate": 4924,
+        "moe90": 1011,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006600",
+      "population": {
+        "estimate": 2766,
+        "moe90": 903,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101006700",
+      "population": {
+        "estimate": 7209,
+        "moe90": 1355,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007000",
+      "population": {
+        "estimate": 3733,
+        "moe90": 1046,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007101",
+      "population": {
+        "estimate": 1867,
+        "moe90": 382,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007102",
+      "population": {
+        "estimate": 4488,
+        "moe90": 787,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007200",
+      "population": {
+        "estimate": 4634,
+        "moe90": 913,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007300",
+      "population": {
+        "estimate": 3460,
+        "moe90": 626,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007400",
+      "population": {
+        "estimate": 3632,
+        "moe90": 811,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007700",
+      "population": {
+        "estimate": 1734,
+        "moe90": 195,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007800",
+      "population": {
+        "estimate": 4705,
+        "moe90": 604,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101007900",
+      "population": {
+        "estimate": 4261,
+        "moe90": 755,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008000",
+      "population": {
+        "estimate": 3667,
+        "moe90": 796,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008101",
+      "population": {
+        "estimate": 2498,
+        "moe90": 563,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008102",
+      "population": {
+        "estimate": 5370,
+        "moe90": 1088,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008200",
+      "population": {
+        "estimate": 7562,
+        "moe90": 992,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008301",
+      "population": {
+        "estimate": 3723,
+        "moe90": 793,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008302",
+      "population": {
+        "estimate": 4850,
+        "moe90": 838,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008400",
+      "population": {
+        "estimate": 5080,
+        "moe90": 1111,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008500",
+      "population": {
+        "estimate": 6817,
+        "moe90": 1026,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008601",
+      "population": {
+        "estimate": 3715,
+        "moe90": 590,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008602",
+      "population": {
+        "estimate": 2667,
+        "moe90": 518,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008701",
+      "population": {
+        "estimate": 4147,
+        "moe90": 592,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008702",
+      "population": {
+        "estimate": 3526,
+        "moe90": 611,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008801",
+      "population": {
+        "estimate": 2530,
+        "moe90": 287,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101008802",
+      "population": {
+        "estimate": 6050,
+        "moe90": 604,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009000",
+      "population": {
+        "estimate": 7560,
+        "moe90": 774,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009100",
+      "population": {
+        "estimate": 3024,
+        "moe90": 333,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009200",
+      "population": {
+        "estimate": 3255,
+        "moe90": 659,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009300",
+      "population": {
+        "estimate": 4210,
+        "moe90": 669,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009400",
+      "population": {
+        "estimate": 3685,
+        "moe90": 692,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009500",
+      "population": {
+        "estimate": 3758,
+        "moe90": 829,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009600",
+      "population": {
+        "estimate": 3586,
+        "moe90": 772,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009801",
+      "population": {
+        "estimate": 2534,
+        "moe90": 552,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101009802",
+      "population": {
+        "estimate": 5820,
+        "moe90": 1005,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010000",
+      "population": {
+        "estimate": 5774,
+        "moe90": 1072,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010100",
+      "population": {
+        "estimate": 6596,
+        "moe90": 1186,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010200",
+      "population": {
+        "estimate": 3225,
+        "moe90": 667,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010300",
+      "population": {
+        "estimate": 2104,
+        "moe90": 533,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010400",
+      "population": {
+        "estimate": 3775,
+        "moe90": 780,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010500",
+      "population": {
+        "estimate": 4044,
+        "moe90": 624,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010600",
+      "population": {
+        "estimate": 1512,
+        "moe90": 238,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010700",
+      "population": {
+        "estimate": 3529,
+        "moe90": 896,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010800",
+      "population": {
+        "estimate": 4497,
+        "moe90": 1035,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101010900",
+      "population": {
+        "estimate": 2718,
+        "moe90": 462,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011000",
+      "population": {
+        "estimate": 3290,
+        "moe90": 729,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011100",
+      "population": {
+        "estimate": 3668,
+        "moe90": 868,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011200",
+      "population": {
+        "estimate": 5938,
+        "moe90": 1448,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011300",
+      "population": {
+        "estimate": 3793,
+        "moe90": 696,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011400",
+      "population": {
+        "estimate": 6361,
+        "moe90": 1063,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011500",
+      "population": {
+        "estimate": 4766,
+        "moe90": 829,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011700",
+      "population": {
+        "estimate": 1990,
+        "moe90": 284,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011800",
+      "population": {
+        "estimate": 4400,
+        "moe90": 963,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101011900",
+      "population": {
+        "estimate": 4347,
+        "moe90": 1157,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012000",
+      "population": {
+        "estimate": 1820,
+        "moe90": 347,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012100",
+      "population": {
+        "estimate": 3146,
+        "moe90": 461,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012201",
+      "population": {
+        "estimate": 3133,
+        "moe90": 624,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012203",
+      "population": {
+        "estimate": 969,
+        "moe90": 182,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012204",
+      "population": {
+        "estimate": 4107,
+        "moe90": 548,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012501",
+      "population": {
+        "estimate": 2319,
+        "moe90": 464,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101012502",
+      "population": {
+        "estimate": 4133,
+        "moe90": 509,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013100",
+      "population": {
+        "estimate": 1657,
+        "moe90": 415,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013200",
+      "population": {
+        "estimate": 3765,
+        "moe90": 484,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013300",
+      "population": {
+        "estimate": 3782,
+        "moe90": 472,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013401",
+      "population": {
+        "estimate": 2993,
+        "moe90": 376,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013402",
+      "population": {
+        "estimate": 2770,
+        "moe90": 538,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013500",
+      "population": {
+        "estimate": 4465,
+        "moe90": 462,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013601",
+      "population": {
+        "estimate": 2546,
+        "moe90": 279,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013602",
+      "population": {
+        "estimate": 3769,
+        "moe90": 507,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013701",
+      "population": {
+        "estimate": 2045,
+        "moe90": 321,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013702",
+      "population": {
+        "estimate": 3924,
+        "moe90": 930,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013800",
+      "population": {
+        "estimate": 2183,
+        "moe90": 368,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101013900",
+      "population": {
+        "estimate": 2850,
+        "moe90": 799,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014000",
+      "population": {
+        "estimate": 6065,
+        "moe90": 1144,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014100",
+      "population": {
+        "estimate": 3253,
+        "moe90": 508,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014201",
+      "population": {
+        "estimate": 3114,
+        "moe90": 504,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014202",
+      "population": {
+        "estimate": 2655,
+        "moe90": 476,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014300",
+      "population": {
+        "estimate": 1979,
+        "moe90": 265,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014400",
+      "population": {
+        "estimate": 5501,
+        "moe90": 676,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014500",
+      "population": {
+        "estimate": 2330,
+        "moe90": 454,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014600",
+      "population": {
+        "estimate": 6163,
+        "moe90": 534,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014700",
+      "population": {
+        "estimate": 3394,
+        "moe90": 742,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014800",
+      "population": {
+        "estimate": 978,
+        "moe90": 278,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101014900",
+      "population": {
+        "estimate": 4436,
+        "moe90": 858,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015101",
+      "population": {
+        "estimate": 2202,
+        "moe90": 539,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015102",
+      "population": {
+        "estimate": 4815,
+        "moe90": 1337,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015200",
+      "population": {
+        "estimate": 7116,
+        "moe90": 1818,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015300",
+      "population": {
+        "estimate": 5923,
+        "moe90": 1307,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015600",
+      "population": {
+        "estimate": 1558,
+        "moe90": 466,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015700",
+      "population": {
+        "estimate": 2945,
+        "moe90": 558,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101015800",
+      "population": {
+        "estimate": 6770,
+        "moe90": 707,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016001",
+      "population": {
+        "estimate": 2288,
+        "moe90": 341,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016002",
+      "population": {
+        "estimate": 4401,
+        "moe90": 776,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016100",
+      "population": {
+        "estimate": 6769,
+        "moe90": 989,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016200",
+      "population": {
+        "estimate": 2768,
+        "moe90": 662,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016300",
+      "population": {
+        "estimate": 2726,
+        "moe90": 583,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016400",
+      "population": {
+        "estimate": 4012,
+        "moe90": 789,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016500",
+      "population": {
+        "estimate": 1907,
+        "moe90": 542,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016600",
+      "population": {
+        "estimate": 1802,
+        "moe90": 405,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016701",
+      "population": {
+        "estimate": 3084,
+        "moe90": 730,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016702",
+      "population": {
+        "estimate": 2539,
+        "moe90": 600,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016800",
+      "population": {
+        "estimate": 3280,
+        "moe90": 667,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016901",
+      "population": {
+        "estimate": 3549,
+        "moe90": 1303,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101016902",
+      "population": {
+        "estimate": 4083,
+        "moe90": 994,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017000",
+      "population": {
+        "estimate": 3240,
+        "moe90": 539,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017100",
+      "population": {
+        "estimate": 3953,
+        "moe90": 845,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017201",
+      "population": {
+        "estimate": 2837,
+        "moe90": 920,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017202",
+      "population": {
+        "estimate": 4538,
+        "moe90": 852,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017300",
+      "population": {
+        "estimate": 2788,
+        "moe90": 787,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017400",
+      "population": {
+        "estimate": 2190,
+        "moe90": 545,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017500",
+      "population": {
+        "estimate": 6409,
+        "moe90": 2079,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017601",
+      "population": {
+        "estimate": 4435,
+        "moe90": 969,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017602",
+      "population": {
+        "estimate": 3370,
+        "moe90": 653,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017701",
+      "population": {
+        "estimate": 2883,
+        "moe90": 844,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017702",
+      "population": {
+        "estimate": 3960,
+        "moe90": 804,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017800",
+      "population": {
+        "estimate": 7039,
+        "moe90": 2022,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101017900",
+      "population": {
+        "estimate": 5382,
+        "moe90": 1104,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018001",
+      "population": {
+        "estimate": 2257,
+        "moe90": 304,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018002",
+      "population": {
+        "estimate": 5073,
+        "moe90": 1084,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018300",
+      "population": {
+        "estimate": 4282,
+        "moe90": 699,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018400",
+      "population": {
+        "estimate": 2210,
+        "moe90": 368,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018801",
+      "population": {
+        "estimate": 3099,
+        "moe90": 611,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101018802",
+      "population": {
+        "estimate": 3440,
+        "moe90": 1559,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019000",
+      "population": {
+        "estimate": 7426,
+        "moe90": 1545,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019100",
+      "population": {
+        "estimate": 8704,
+        "moe90": 1489,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019200",
+      "population": {
+        "estimate": 7885,
+        "moe90": 1835,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019501",
+      "population": {
+        "estimate": 4539,
+        "moe90": 1032,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019502",
+      "population": {
+        "estimate": 3856,
+        "moe90": 783,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019700",
+      "population": {
+        "estimate": 7050,
+        "moe90": 1046,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019800",
+      "population": {
+        "estimate": 5494,
+        "moe90": 1093,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101019900",
+      "population": {
+        "estimate": 4168,
+        "moe90": 1055,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020000",
+      "population": {
+        "estimate": 1436,
+        "moe90": 206,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020101",
+      "population": {
+        "estimate": 4311,
+        "moe90": 994,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020102",
+      "population": {
+        "estimate": 3491,
+        "moe90": 1006,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020200",
+      "population": {
+        "estimate": 3672,
+        "moe90": 686,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020300",
+      "population": {
+        "estimate": 2675,
+        "moe90": 593,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020400",
+      "population": {
+        "estimate": 4083,
+        "moe90": 858,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020500",
+      "population": {
+        "estimate": 3689,
+        "moe90": 1358,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020600",
+      "population": {
+        "estimate": 1972,
+        "moe90": 276,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020701",
+      "population": {
+        "estimate": 4252,
+        "moe90": 480,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020702",
+      "population": {
+        "estimate": 2353,
+        "moe90": 264,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020800",
+      "population": {
+        "estimate": 2646,
+        "moe90": 307,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101020900",
+      "population": {
+        "estimate": 2973,
+        "moe90": 379,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021000",
+      "population": {
+        "estimate": 4645,
+        "moe90": 648,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021100",
+      "population": {
+        "estimate": 2542,
+        "moe90": 335,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021200",
+      "population": {
+        "estimate": 2939,
+        "moe90": 626,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021300",
+      "population": {
+        "estimate": 3305,
+        "moe90": 332,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021400",
+      "population": {
+        "estimate": 3570,
+        "moe90": 513,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021500",
+      "population": {
+        "estimate": 3897,
+        "moe90": 679,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021600",
+      "population": {
+        "estimate": 2493,
+        "moe90": 281,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021700",
+      "population": {
+        "estimate": 6235,
+        "moe90": 794,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021800",
+      "population": {
+        "estimate": 4946,
+        "moe90": 600,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101021900",
+      "population": {
+        "estimate": 1553,
+        "moe90": 293,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101022000",
+      "population": {
+        "estimate": 1425,
+        "moe90": 233,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023100",
+      "population": {
+        "estimate": 1606,
+        "moe90": 219,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023500",
+      "population": {
+        "estimate": 1053,
+        "moe90": 183,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023600",
+      "population": {
+        "estimate": 2571,
+        "moe90": 557,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023700",
+      "population": {
+        "estimate": 5298,
+        "moe90": 1052,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023800",
+      "population": {
+        "estimate": 6036,
+        "moe90": 1316,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101023900",
+      "population": {
+        "estimate": 1965,
+        "moe90": 386,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024000",
+      "population": {
+        "estimate": 3619,
+        "moe90": 735,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024100",
+      "population": {
+        "estimate": 1488,
+        "moe90": 280,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024200",
+      "population": {
+        "estimate": 5367,
+        "moe90": 883,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024300",
+      "population": {
+        "estimate": 4295,
+        "moe90": 625,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024400",
+      "population": {
+        "estimate": 3007,
+        "moe90": 640,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024500",
+      "population": {
+        "estimate": 5065,
+        "moe90": 1539,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024600",
+      "population": {
+        "estimate": 2302,
+        "moe90": 481,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024700",
+      "population": {
+        "estimate": 5143,
+        "moe90": 1022,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024800",
+      "population": {
+        "estimate": 2268,
+        "moe90": 541,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101024900",
+      "population": {
+        "estimate": 3476,
+        "moe90": 890,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025200",
+      "population": {
+        "estimate": 7464,
+        "moe90": 1192,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025300",
+      "population": {
+        "estimate": 4055,
+        "moe90": 692,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025400",
+      "population": {
+        "estimate": 4053,
+        "moe90": 809,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025500",
+      "population": {
+        "estimate": 2688,
+        "moe90": 340,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025600",
+      "population": {
+        "estimate": 2812,
+        "moe90": 389,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025700",
+      "population": {
+        "estimate": 3475,
+        "moe90": 500,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025800",
+      "population": {
+        "estimate": 1701,
+        "moe90": 374,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101025900",
+      "population": {
+        "estimate": 4618,
+        "moe90": 1068,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026000",
+      "population": {
+        "estimate": 2902,
+        "moe90": 570,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026100",
+      "population": {
+        "estimate": 2880,
+        "moe90": 880,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026200",
+      "population": {
+        "estimate": 4781,
+        "moe90": 898,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026301",
+      "population": {
+        "estimate": 4495,
+        "moe90": 844,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026302",
+      "population": {
+        "estimate": 4923,
+        "moe90": 813,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026400",
+      "population": {
+        "estimate": 5493,
+        "moe90": 1276,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026500",
+      "population": {
+        "estimate": 4727,
+        "moe90": 1135,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026600",
+      "population": {
+        "estimate": 6324,
+        "moe90": 1016,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026700",
+      "population": {
+        "estimate": 6875,
+        "moe90": 1443,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026800",
+      "population": {
+        "estimate": 4852,
+        "moe90": 576,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101026900",
+      "population": {
+        "estimate": 2558,
+        "moe90": 397,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027000",
+      "population": {
+        "estimate": 2634,
+        "moe90": 478,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027100",
+      "population": {
+        "estimate": 2410,
+        "moe90": 359,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027200",
+      "population": {
+        "estimate": 3985,
+        "moe90": 594,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027300",
+      "population": {
+        "estimate": 5908,
+        "moe90": 1000,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027401",
+      "population": {
+        "estimate": 3606,
+        "moe90": 737,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027402",
+      "population": {
+        "estimate": 6731,
+        "moe90": 1076,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027500",
+      "population": {
+        "estimate": 4237,
+        "moe90": 806,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027600",
+      "population": {
+        "estimate": 4484,
+        "moe90": 775,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027700",
+      "population": {
+        "estimate": 5523,
+        "moe90": 1565,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027800",
+      "population": {
+        "estimate": 4612,
+        "moe90": 1161,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027901",
+      "population": {
+        "estimate": 2767,
+        "moe90": 758,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101027902",
+      "population": {
+        "estimate": 4925,
+        "moe90": 891,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028000",
+      "population": {
+        "estimate": 4083,
+        "moe90": 994,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028100",
+      "population": {
+        "estimate": 3020,
+        "moe90": 674,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028200",
+      "population": {
+        "estimate": 4775,
+        "moe90": 723,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028300",
+      "population": {
+        "estimate": 5915,
+        "moe90": 1724,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028400",
+      "population": {
+        "estimate": 3328,
+        "moe90": 734,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028500",
+      "population": {
+        "estimate": 2533,
+        "moe90": 627,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028600",
+      "population": {
+        "estimate": 6617,
+        "moe90": 1090,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028700",
+      "population": {
+        "estimate": 2514,
+        "moe90": 960,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028800",
+      "population": {
+        "estimate": 4286,
+        "moe90": 1104,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028901",
+      "population": {
+        "estimate": 4274,
+        "moe90": 1003,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101028902",
+      "population": {
+        "estimate": 6163,
+        "moe90": 1144,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029000",
+      "population": {
+        "estimate": 7597,
+        "moe90": 1479,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029100",
+      "population": {
+        "estimate": 4241,
+        "moe90": 707,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029200",
+      "population": {
+        "estimate": 3783,
+        "moe90": 652,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029300",
+      "population": {
+        "estimate": 2692,
+        "moe90": 677,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029400",
+      "population": {
+        "estimate": 3402,
+        "moe90": 844,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029800",
+      "population": {
+        "estimate": 5360,
+        "moe90": 813,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101029900",
+      "population": {
+        "estimate": 4221,
+        "moe90": 1000,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030000",
+      "population": {
+        "estimate": 6901,
+        "moe90": 1311,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030100",
+      "population": {
+        "estimate": 6555,
+        "moe90": 1233,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030200",
+      "population": {
+        "estimate": 7657,
+        "moe90": 1241,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030501",
+      "population": {
+        "estimate": 4529,
+        "moe90": 706,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030502",
+      "population": {
+        "estimate": 6564,
+        "moe90": 2067,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030600",
+      "population": {
+        "estimate": 6987,
+        "moe90": 859,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030700",
+      "population": {
+        "estimate": 4432,
+        "moe90": 719,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030800",
+      "population": {
+        "estimate": 4751,
+        "moe90": 713,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101030900",
+      "population": {
+        "estimate": 4528,
+        "moe90": 886,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031000",
+      "population": {
+        "estimate": 7377,
+        "moe90": 1435,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031101",
+      "population": {
+        "estimate": 4411,
+        "moe90": 842,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031102",
+      "population": {
+        "estimate": 5168,
+        "moe90": 1013,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031200",
+      "population": {
+        "estimate": 5345,
+        "moe90": 866,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031300",
+      "population": {
+        "estimate": 6463,
+        "moe90": 1226,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031401",
+      "population": {
+        "estimate": 6990,
+        "moe90": 2108,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031402",
+      "population": {
+        "estimate": 6124,
+        "moe90": 768,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031501",
+      "population": {
+        "estimate": 7526,
+        "moe90": 1422,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031502",
+      "population": {
+        "estimate": 3671,
+        "moe90": 498,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031600",
+      "population": {
+        "estimate": 5610,
+        "moe90": 1137,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031700",
+      "population": {
+        "estimate": 5873,
+        "moe90": 1085,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031800",
+      "population": {
+        "estimate": 3989,
+        "moe90": 759,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101031900",
+      "population": {
+        "estimate": 5392,
+        "moe90": 997,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032000",
+      "population": {
+        "estimate": 7173,
+        "moe90": 1771,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032100",
+      "population": {
+        "estimate": 4102,
+        "moe90": 841,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032300",
+      "population": {
+        "estimate": 4158,
+        "moe90": 787,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032500",
+      "population": {
+        "estimate": 5598,
+        "moe90": 1030,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032600",
+      "population": {
+        "estimate": 7014,
+        "moe90": 943,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101032900",
+      "population": {
+        "estimate": 4053,
+        "moe90": 616,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033000",
+      "population": {
+        "estimate": 10596,
+        "moe90": 1873,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033101",
+      "population": {
+        "estimate": 4969,
+        "moe90": 1099,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033102",
+      "population": {
+        "estimate": 3705,
+        "moe90": 480,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033200",
+      "population": {
+        "estimate": 2581,
+        "moe90": 456,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033300",
+      "population": {
+        "estimate": 4296,
+        "moe90": 531,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033400",
+      "population": {
+        "estimate": 5033,
+        "moe90": 895,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033500",
+      "population": {
+        "estimate": 4262,
+        "moe90": 903,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033600",
+      "population": {
+        "estimate": 7585,
+        "moe90": 1144,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033701",
+      "population": {
+        "estimate": 6134,
+        "moe90": 1612,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033702",
+      "population": {
+        "estimate": 4723,
+        "moe90": 534,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033800",
+      "population": {
+        "estimate": 6142,
+        "moe90": 804,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101033900",
+      "population": {
+        "estimate": 3292,
+        "moe90": 497,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034000",
+      "population": {
+        "estimate": 3057,
+        "moe90": 430,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034100",
+      "population": {
+        "estimate": 5843,
+        "moe90": 794,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034200",
+      "population": {
+        "estimate": 3751,
+        "moe90": 451,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034400",
+      "population": {
+        "estimate": 8023,
+        "moe90": 725,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034501",
+      "population": {
+        "estimate": 5001,
+        "moe90": 940,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034502",
+      "population": {
+        "estimate": 5093,
+        "moe90": 529,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034600",
+      "population": {
+        "estimate": 2691,
+        "moe90": 537,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034701",
+      "population": {
+        "estimate": 8066,
+        "moe90": 1593,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034702",
+      "population": {
+        "estimate": 3762,
+        "moe90": 343,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034801",
+      "population": {
+        "estimate": 4364,
+        "moe90": 569,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034802",
+      "population": {
+        "estimate": 5869,
+        "moe90": 943,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034803",
+      "population": {
+        "estimate": 3631,
+        "moe90": 537,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101034900",
+      "population": {
+        "estimate": 5910,
+        "moe90": 704,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035100",
+      "population": {
+        "estimate": 3698,
+        "moe90": 593,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035200",
+      "population": {
+        "estimate": 4548,
+        "moe90": 561,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035301",
+      "population": {
+        "estimate": 4902,
+        "moe90": 652,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035302",
+      "population": {
+        "estimate": 4662,
+        "moe90": 1033,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035500",
+      "population": {
+        "estimate": 7818,
+        "moe90": 1215,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035601",
+      "population": {
+        "estimate": 5543,
+        "moe90": 777,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035602",
+      "population": {
+        "estimate": 3436,
+        "moe90": 465,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035701",
+      "population": {
+        "estimate": 5069,
+        "moe90": 654,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035702",
+      "population": {
+        "estimate": 4679,
+        "moe90": 913,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035800",
+      "population": {
+        "estimate": 6049,
+        "moe90": 1056,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101035900",
+      "population": {
+        "estimate": 4640,
+        "moe90": 715,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036000",
+      "population": {
+        "estimate": 3200,
+        "moe90": 394,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036100",
+      "population": {
+        "estimate": 3916,
+        "moe90": 577,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036201",
+      "population": {
+        "estimate": 5100,
+        "moe90": 1432,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036202",
+      "population": {
+        "estimate": 5456,
+        "moe90": 694,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036203",
+      "population": {
+        "estimate": 4722,
+        "moe90": 476,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036301",
+      "population": {
+        "estimate": 3952,
+        "moe90": 781,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036302",
+      "population": {
+        "estimate": 3751,
+        "moe90": 592,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036303",
+      "population": {
+        "estimate": 6771,
+        "moe90": 1183,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036400",
+      "population": {
+        "estimate": 993,
+        "moe90": 159,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036501",
+      "population": {
+        "estimate": 5046,
+        "moe90": 551,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036502",
+      "population": {
+        "estimate": 4496,
+        "moe90": 658,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036600",
+      "population": {
+        "estimate": 2372,
+        "moe90": 365,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036700",
+      "population": {
+        "estimate": 3970,
+        "moe90": 659,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036901",
+      "population": {
+        "estimate": 155,
+        "moe90": 10,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101036902",
+      "population": {
+        "estimate": 5829,
+        "moe90": 352,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037200",
+      "population": {
+        "estimate": 3902,
+        "moe90": 782,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037300",
+      "population": {
+        "estimate": 5962,
+        "moe90": 848,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037500",
+      "population": {
+        "estimate": 3805,
+        "moe90": 522,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037600",
+      "population": {
+        "estimate": 3155,
+        "moe90": 534,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037700",
+      "population": {
+        "estimate": 5611,
+        "moe90": 749,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037800",
+      "population": {
+        "estimate": 2113,
+        "moe90": 422,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101037900",
+      "population": {
+        "estimate": 4906,
+        "moe90": 615,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038000",
+      "population": {
+        "estimate": 2421,
+        "moe90": 558,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038100",
+      "population": {
+        "estimate": 702,
+        "moe90": 247,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038200",
+      "population": {
+        "estimate": 2931,
+        "moe90": 624,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038301",
+      "population": {
+        "estimate": 2405,
+        "moe90": 316,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038400",
+      "population": {
+        "estimate": 2484,
+        "moe90": 218,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038500",
+      "population": {
+        "estimate": 1869,
+        "moe90": 177,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038600",
+      "population": {
+        "estimate": 1352,
+        "moe90": 240,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038700",
+      "population": {
+        "estimate": 2370,
+        "moe90": 265,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038800",
+      "population": {
+        "estimate": 3981,
+        "moe90": 691,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101038900",
+      "population": {
+        "estimate": 3246,
+        "moe90": 555,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101039001",
+      "population": {
+        "estimate": 4124,
+        "moe90": 727,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101039002",
+      "population": {
+        "estimate": 4826,
+        "moe90": 1102,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101039100",
+      "population": {
+        "estimate": 2152,
+        "moe90": 546,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980001",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980002",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980003",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980100",
+      "population": {
+        "estimate": 292,
+        "moe90": 430,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980200",
+      "population": {
+        "estimate": 68,
+        "moe90": 51,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980300",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980400",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980500",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980600",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980701",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980702",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980800",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980901",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980902",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980903",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980904",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980905",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101980906",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101989100",
+      "population": {
+        "estimate": 1190,
+        "moe90": 89,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101989200",
+      "population": {
+        "estimate": 0,
+        "moe90": 12,
+        "status": "available"
+      }
+    },
+    {
+      "geoid": "42101989300",
+      "population": {
+        "estimate": 453,
+        "moe90": 10,
+        "status": "available"
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { escapeHtml } from "../utils/html.js";
 import { applyTranslations, onLanguageChange, t } from '../i18n/index.js';
 import { formatCalendarDate } from '../i18n/date.js';
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
+import { populationEstimate } from '../data/acs_population.js';
 
 function localized(key, params = {}) {
   const serialized = Object.keys(params).length
@@ -115,6 +116,9 @@ function publicComparison(comparison) {
     per10k: point.per10k,
     top3: point.top3 || [],
     delta30: point.delta30,
+    ...(point.population && typeof point.population === 'object'
+      ? { population: point.population }
+      : {}),
   }) : null;
   return { a: normalize(comparison?.a), b: normalize(comparison?.b) };
 }
@@ -290,6 +294,41 @@ function renderComparisonDetails(a, b, { start, end } = {}) {
   </details>`;
 }
 
+function populationValue(metric, field, formatter = String) {
+  const value = metric?.[field];
+  if (value == null || value === '') return detailText('summary.metricUnavailable');
+  return formatter(value);
+}
+
+function renderPopulationEvidence(a, b) {
+  const points = [a, b].filter((point) => point?.population && typeof point.population === 'object');
+  if (!points.length) return '';
+  const usesBufferApproximation = points.some(
+    (point) => point.population.method === 'centroid-in-buffer-whole-tract-sum',
+  );
+  const renderPoint = (point) => {
+    const population = point.population;
+    const estimate = populationValue(population, 'estimate', (value) => Number(value).toLocaleString());
+    const moe90 = population.moe90 == null && population.method === 'centroid-in-buffer-whole-tract-sum'
+      ? detailText('summary.populationMoeBufferUnavailable')
+      : populationValue(population, 'moe90', (value) => `±${Number(value).toLocaleString()}`);
+    return `<section class="crime-comparison-categories__area">
+      <h5>${escapeHtml(point.label || t('summary.selectedArea'))}</h5>
+      <dl class="crime-summary__metrics">
+        <div><dt>${detailText('summary.populationEstimate')}</dt><dd>${estimate}</dd></div>
+        <div><dt>${detailText('summary.populationMoe90')}</dt><dd>${moe90}</dd></div>
+        <div><dt>${detailText('summary.populationVintage')}</dt><dd>${escapeHtml(populationValue(population, 'vintage'))}</dd></div>
+      </dl>
+    </section>`;
+  };
+  return `<section class="crime-comparison-categories" aria-label="${escapeHtml(t('summary.populationEvidence'))}">
+    <h4>${detailText('summary.populationEvidence')}</h4>
+    <div class="crime-comparison-categories__grid">${points.map(renderPoint).join('')}</div>
+    ${usesBufferApproximation ? `<p class="crime-comparison-details__notice">${detailText('summary.populationBufferMethod')}</p>` : ''}
+    <p class="crime-comparison-details__notice">${detailText('summary.populationUncertaintyBoundary')}</p>
+  </section>`;
+}
+
 export function bindComparisonDisclosure(details, state) {
   if (!details || !state) return false;
   details.open = Boolean(state.open);
@@ -354,6 +393,7 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
       <p class="crime-summary__context">${localized('summary.context', { range: formatDateRange(start, end), coverage: coverageLabel })}</p>
       <p class="crime-summary__notice" data-i18n="summary.notice">${t('summary.notice')}</p>
       ${comparison}
+      ${renderPopulationEvidence(a, b)}
     </section>`;
 }
 
@@ -557,6 +597,11 @@ export async function updateCompare(
       });
       const population = populationRequested
         ? resolveMetric(populationResult, retainedPoint, 'population', (response) => {
+            if (response?.population && typeof response.population === 'object') {
+              return populationEstimate(response.population) == null
+                ? null
+                : structuredClone(response.population);
+            }
             const value = Number(response?.pop);
             return Number.isFinite(value) ? value : null;
           })
@@ -568,8 +613,9 @@ export async function updateCompare(
       const status = failures === applicable.length
         ? 'failed'
         : failures > 0 ? 'partial' : 'success';
-      const per10kValue = count.value != null && population.value > 0
-        ? (count.value / population.value) * 10000
+      const populationPointEstimate = populationEstimate(population.value);
+      const per10kValue = count.value != null && populationPointEstimate > 0
+        ? (count.value / populationPointEstimate) * 10000
         : null;
       return {
         label,

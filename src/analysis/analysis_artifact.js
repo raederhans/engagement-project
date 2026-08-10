@@ -1,7 +1,8 @@
 import { decodeCrimeViewState, encodeCrimeViewState } from '../state/crime_view_state.js';
 
 export const ANALYSIS_ARTIFACT_KIND = 'engagement-analysis-artifact';
-export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 1;
+export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 2;
+const LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION = 1;
 export const ANALYSIS_TITLE_MAX_LENGTH = 120;
 const VIEW_STATE_KEYS = new Set([
   'queryMode', 'startMonth', 'durationMonths', 'radius', 'selectedGroups',
@@ -112,10 +113,40 @@ function normalizeTopRow(value) {
   };
 }
 
-function normalizeComparisonPoint(value, label) {
+function normalizePopulation(value, label) {
+  if (!isPlainObject(value)) throw new Error(`Invalid analysis artifact comparison ${label} population.`);
+  requireKeys(value, new Set([
+    'estimate', 'moe90', 'vintage', 'source', 'retrievedAt', 'status', 'method', 'moe90Status',
+  ]), `comparison ${label} population`);
+  if (!['available', 'partial', 'unavailable'].includes(value.status)) {
+    throw new Error(`Invalid analysis artifact comparison ${label} population status.`);
+  }
+  const population = {
+    estimate: requireNumber(value.estimate, `comparison ${label} population estimate`, {
+      min: 0, max: 1_000_000_000, nullable: true,
+    }),
+    moe90: requireNumber(value.moe90, `comparison ${label} population MOE`, {
+      min: 0, max: 1_000_000_000, nullable: true,
+    }),
+    vintage: value.vintage == null ? null : requireText(value.vintage, `comparison ${label} population vintage`, 32),
+    source: value.source == null ? null : requireText(value.source, `comparison ${label} population source`, 240),
+    retrievedAt: value.retrievedAt == null ? null : requireTimestamp(value.retrievedAt, `comparison ${label} population retrieval timestamp`),
+    status: value.status,
+  };
+  if (value.method != null) population.method = requireText(value.method, `comparison ${label} population method`, 160);
+  if (value.moe90Status != null) population.moe90Status = requireText(value.moe90Status, `comparison ${label} population MOE status`, 32);
+  if (population.estimate == null && population.status !== 'unavailable') {
+    throw new Error(`Invalid analysis artifact comparison ${label} population semantics.`);
+  }
+  return population;
+}
+
+function normalizeComparisonPoint(value, label, schemaVersion) {
   if (value == null) return null;
   if (!isPlainObject(value)) throw new Error(`Invalid analysis artifact comparison ${label}.`);
-  requireKeys(value, new Set(['label', 'total', 'per10k', 'top3', 'delta30']), `comparison ${label}`);
+  const allowedKeys = new Set(['label', 'total', 'per10k', 'top3', 'delta30']);
+  if (schemaVersion >= 2) allowedKeys.add('population');
+  requireKeys(value, allowedKeys, `comparison ${label}`);
   if (!Array.isArray(value.top3) || value.top3.length > 3) {
     throw new Error(`Invalid analysis artifact comparison ${label} top results.`);
   }
@@ -125,6 +156,9 @@ function normalizeComparisonPoint(value, label) {
     per10k: requireNumber(value.per10k, `comparison ${label} rate`, { min: 0, max: 1_000_000_000, nullable: true }),
     top3: value.top3.map(normalizeTopRow),
     delta30: requireNumber(value.delta30, `comparison ${label} delta`, { min: -1_000_000, max: 1_000_000, nullable: true }),
+    ...(schemaVersion >= 2 && value.population != null
+      ? { population: normalizePopulation(value.population, label) }
+      : {}),
   };
 }
 
@@ -137,7 +171,8 @@ function normalizeComparisonPointForCreation(value, label) {
     per10k: value.per10k ?? null,
     top3: value.top3 ?? [],
     delta30: value.delta30 ?? null,
-  }, label);
+    ...(value.population != null ? { population: value.population } : {}),
+  }, label, ANALYSIS_ARTIFACT_SCHEMA_VERSION);
 }
 
 function normalizeResultSummaryForCreation(value) {
@@ -152,7 +187,7 @@ function normalizeResultSummaryForCreation(value) {
   };
 }
 
-function normalizeResultSummary(value) {
+function normalizeResultSummary(value, schemaVersion) {
   if (value == null) return null;
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact result summary.');
   requireKeys(value, new Set(['generatedAt', 'comparison']), 'result summary');
@@ -165,8 +200,8 @@ function normalizeResultSummary(value) {
   return {
     generatedAt,
     comparison: {
-      a: normalizeComparisonPoint(value.comparison.a, 'Point A'),
-      b: normalizeComparisonPoint(value.comparison.b, 'Point B'),
+      a: normalizeComparisonPoint(value.comparison.a, 'Point A', schemaVersion),
+      b: normalizeComparisonPoint(value.comparison.b, 'Point B', schemaVersion),
     },
   };
 }
@@ -251,18 +286,18 @@ export function validateAnalysisArtifact(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact.');
   requireKeys(value, ARTIFACT_KEYS, 'root');
   if (value.kind !== ANALYSIS_ARTIFACT_KIND) throw new Error('Invalid analysis artifact kind.');
-  if (value.schemaVersion !== ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+  if (![LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION, ANALYSIS_ARTIFACT_SCHEMA_VERSION].includes(value.schemaVersion)) {
     throw new Error(`Unsupported analysis artifact schema version: ${value.schemaVersion}.`);
   }
   const artifact = {
     kind: ANALYSIS_ARTIFACT_KIND,
-    schemaVersion: ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+    schemaVersion: value.schemaVersion,
     id: requireText(value.id, 'id', 160),
     title: requireText(value.title, 'title', ANALYSIS_TITLE_MAX_LENGTH),
     createdAt: requireTimestamp(value.createdAt, 'creation timestamp'),
     updatedAt: requireTimestamp(value.updatedAt, 'update timestamp'),
     viewState: validateViewState(value.viewState),
-    resultSummary: normalizeResultSummary(value.resultSummary),
+    resultSummary: normalizeResultSummary(value.resultSummary, value.schemaVersion),
     provenance: normalizeProvenance(value.provenance),
   };
   if (Date.parse(artifact.updatedAt) < Date.parse(artifact.createdAt)) {

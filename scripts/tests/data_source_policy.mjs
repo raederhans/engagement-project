@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import maplibregl from 'maplibre-gl';
@@ -275,8 +276,8 @@ test('ACS uses configured live endpoints first and falls back to the validated s
       liveCalls.push(url);
       if (url === 'live:population') {
         return [
-          ['NAME', 'B01003_001E', 'B25003_001E', 'B25003_003E', 'B19013_001E', 'state', 'county', 'tract'],
-          ['Tract 1', '100', '40', '20', '50000', '42', '101', '000100'],
+          ['NAME', 'B01003_001E', 'B01003_001M', 'B25003_001E', 'B25003_003E', 'B19013_001E', 'state', 'county', 'tract'],
+          ['Tract 1', '100', '7', '40', '20', '50000', '42', '101', '000100'],
         ];
       }
       if (url === 'live:poverty') {
@@ -294,11 +295,21 @@ test('ACS uses configured live endpoints first and falls back to the validated s
     kind: 'live',
     provider: 'Configured Census API',
     url: 'live:population',
+    vintage: config.ACS_SNAPSHOT_YEAR,
+    asOf: `${config.ACS_SNAPSHOT_YEAR}-12-31`,
     cacheHit: false,
   }]);
   assert.deepEqual(liveRows[0], {
     geoid: '42101000100',
     pop: 100,
+    population: {
+      estimate: 100,
+      moe90: 7,
+      vintage: config.ACS_SNAPSHOT_YEAR,
+      source: 'Configured Census API',
+      retrievedAt: null,
+      status: 'available',
+    },
     renter_total: 40,
     renter_count: 20,
     median_income: 50000,
@@ -327,7 +338,17 @@ test('ACS uses configured live endpoints first and falls back to the validated s
     },
   });
   assert.ok(fallbackCalls.includes('local:snapshot'));
-  assert.deepEqual(fallbackRows, snapshot);
+  assert.deepEqual(fallbackRows, [{
+    ...snapshot[0],
+    population: {
+      estimate: 90,
+      moe90: null,
+      vintage: config.ACS_SNAPSHOT_YEAR,
+      source: 'Bundled ACS snapshot',
+      retrievedAt: null,
+      status: 'partial',
+    },
+  }]);
   assert.deepEqual(fallbackSources, [{
     dataset: 'census-tract-statistics',
     kind: 'fallback',
@@ -335,6 +356,7 @@ test('ACS uses configured live endpoints first and falls back to the validated s
     url: 'local:snapshot',
     vintage: config.ACS_SNAPSHOT_YEAR,
     asOf: `${config.ACS_SNAPSHOT_YEAR}-12-31`,
+    retrievedAt: null,
     cacheHit: false,
   }]);
 });
@@ -385,7 +407,7 @@ test('ACS can use the keyless online Census Reporter feed', async () => {
       release: { id: 'acs2024_5yr' },
       data: {
         '14000US42101000100': {
-          B01003: { estimate: { B01003001: 100 } },
+          B01003: { estimate: { B01003001: 100 }, error: { B01003001: 7 } },
           B25003: { estimate: { B25003001: 40, B25003003: 20 } },
           B19013: { estimate: { B19013001: 50000 } },
           B17001: { estimate: { B17001001: 80, B17001002: 10 } },
@@ -397,6 +419,14 @@ test('ACS can use the keyless online Census Reporter feed', async () => {
   assert.deepEqual(rows, [{
     geoid: '42101000100',
     pop: 100,
+    population: {
+      estimate: 100,
+      moe90: 7,
+      vintage: '2024',
+      source: 'Census Reporter',
+      retrievedAt: null,
+      status: 'available',
+    },
     renter_total: 40,
     renter_count: 20,
     median_income: 50000,
@@ -411,6 +441,74 @@ test('ACS can use the keyless online Census Reporter feed', async () => {
     asOf: '2024-12-31',
     cacheHit: false,
   }]);
+});
+
+test('ACS keeps a usable estimate when MOE is missing and never coerces missing estimates to zero', async () => {
+  const rows = await acs.fetchTractStats({
+    endpoints: { population: 'live:population', poverty: 'live:poverty' },
+    fetchJsonImpl: async (url) => url === 'live:population'
+      ? [
+          ['NAME', 'B01003_001E', 'B01003_001M', 'B25003_001E', 'B25003_003E', 'B19013_001E', 'state', 'county', 'tract'],
+          ['Estimate only', '125', '', '40', '20', '50000', '42', '101', '000100'],
+          ['Unavailable', '', '', '0', '0', '', '42', '101', '000200'],
+        ]
+      : [
+          ['NAME', 'S1701_C03_001E', 'state', 'county', 'tract'],
+          ['Estimate only', '12.5', '42', '101', '000100'],
+          ['Unavailable', '', '42', '101', '000200'],
+        ],
+  });
+
+  assert.deepEqual(rows.map(({ pop, population }) => ({ pop, population })), [
+    {
+      pop: 125,
+      population: {
+        estimate: 125,
+        moe90: null,
+        vintage: config.ACS_SNAPSHOT_YEAR,
+        source: 'Configured Census API',
+        retrievedAt: null,
+        status: 'partial',
+      },
+    },
+    {
+      pop: null,
+      population: {
+        estimate: null,
+        moe90: null,
+        vintage: config.ACS_SNAPSHOT_YEAR,
+        source: 'Configured Census API',
+        retrievedAt: null,
+        status: 'unavailable',
+      },
+    },
+  ]);
+});
+
+test('bundled ACS 2024 snapshot has a reproducible manifest and canonical row hash', () => {
+  const snapshotPath = new URL('../../src/data/acs_tracts_2024_pa101.json', import.meta.url);
+  const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+  assert.equal(snapshot.schemaVersion, 'engagement-acs-tract-population/v1');
+  assert.equal(snapshot.manifest.vintage, '2024');
+  assert.equal(snapshot.manifest.period, '2020-2024');
+  assert.deepEqual(snapshot.manifest.variables, {
+    estimate: 'B01003_001E',
+    moe90: 'B01003_001M',
+  });
+  assert.match(snapshot.manifest.sourceUrl, /^https:\/\/www2\.census\.gov\//);
+  assert.equal(snapshot.manifest.rowCount, snapshot.rows.length);
+  assert.equal(snapshot.rows.length, 408);
+  const rowsJson = JSON.stringify(snapshot.rows);
+  assert.equal(
+    `sha256:${createHash('sha256').update(rowsJson).digest('hex')}`,
+    snapshot.manifest.rowsSha256,
+  );
+  assert.equal(snapshot.rows.every((row) => (
+    /^\d{11}$/.test(row.geoid)
+    && Number.isInteger(row.population?.estimate)
+    && Number.isInteger(row.population?.moe90)
+    && row.population.status === 'available'
+  )), true);
 });
 
 test('Census Reporter cache hits preserve release vintage and as-of provenance', async () => {

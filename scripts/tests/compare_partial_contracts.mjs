@@ -100,6 +100,31 @@ test('fulfilled responses with missing metric payloads are unavailable rather th
   });
 });
 
+test('comparison retains the structured denominator contract while per-10k uses only its point estimate', async () => {
+  const population = {
+    estimate: 2_000,
+    moe90: null,
+    vintage: '2024',
+    source: 'U.S. Census Bureau',
+    retrievedAt: '2026-08-10T08:38:25.000Z',
+    status: 'available',
+    method: 'centroid-in-buffer-whole-tract-sum',
+    moe90Status: 'unavailable',
+  };
+  const result = await updateCompare(baseFilters({ start: '2031-02-15', centerB3857: null }), {
+    view: createView(),
+    fetchers: {
+      fetchCountBuffer: async () => 8,
+      fetchTopTypesBuffer: async () => ({ rows: [] }),
+      estimatePopInBuffer: async () => ({ pop: population.estimate, population }),
+    },
+  });
+
+  assert.equal(result.a.per10k, 40);
+  assert.deepEqual(result.a.population, population);
+  assert.deepEqual(getLastComparison(baseFilters({ start: '2031-02-15', centerB3857: null })).a.population, population);
+});
+
 test('a fully failed point does not hide the other successful point', async () => {
   const result = await updateCompare(baseFilters({ start: '2031-03-01' }), {
     view: createView(),

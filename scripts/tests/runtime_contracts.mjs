@@ -131,7 +131,7 @@ test('unfinished map matching never returns fabricated segment IDs', () => {
   );
 });
 
-test('buffer population joins ACS rows to tract geometry by GEOID', async () => {
+test('buffer population joins ACS rows by GEOID but does not invent an aggregate MOE', async () => {
   const result = await estimatePopInBuffer({
     center3857: [0, 0],
     radiusM: 1000,
@@ -146,10 +146,57 @@ test('buffer population joins ACS rows to tract geometry by GEOID', async () => 
         },
       }],
     }),
-    fetchStats: async () => [{ geoid: '42101000100', pop: 1234 }],
+    fetchStats: async () => [{
+      geoid: '42101000100',
+      pop: 1234,
+      population: {
+        estimate: 1234,
+        moe90: 87,
+        vintage: '2024',
+        source: 'U.S. Census Bureau',
+        retrievedAt: '2026-08-10T08:38:25.000Z',
+        status: 'available',
+      },
+    }],
   });
 
-  assert.deepEqual(result, { pop: 1234, tractsChecked: 1 });
+  assert.deepEqual(result, {
+    pop: 1234,
+    tractsChecked: 1,
+    population: {
+      estimate: 1234,
+      moe90: null,
+      vintage: '2024',
+      source: 'U.S. Census Bureau',
+      retrievedAt: '2026-08-10T08:38:25.000Z',
+      status: 'available',
+      method: 'centroid-in-buffer-whole-tract-sum',
+      moe90Status: 'unavailable',
+    },
+  });
+});
+
+test('buffer population is unavailable when any selected tract estimate is missing', async () => {
+  const result = await estimatePopInBuffer({
+    center3857: [0, 0],
+    radiusM: 1000,
+    fetchTracts: async () => ({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { GEOID: '42101000100' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-0.001, -0.001], [0.001, -0.001], [0.001, 0.001], [-0.001, 0.001], [-0.001, -0.001]]],
+        },
+      }],
+    }),
+    fetchStats: async () => [{ geoid: '42101000100', pop: null }],
+  });
+
+  assert.equal(result.pop, null);
+  assert.equal(result.population.estimate, null);
+  assert.equal(result.population.status, 'unavailable');
 });
 
 test('local circle geometry preserves the 64-step overlay and spherical radius contract', () => {

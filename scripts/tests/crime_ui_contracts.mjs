@@ -1277,6 +1277,38 @@ test('detailed comparison keeps unavailable metrics truthful and handles a zero 
   assert.match(html, /No category data available/i);
 });
 
+test('comparison discloses the ACS denominator estimate, unavailable buffer MOE, and vintage without a rate interval claim', async () => {
+  const { buildCrimeSummaryHtml } = await import('../../src/compare/card.js');
+  const html = buildCrimeSummaryHtml({
+    a: {
+      label: 'Point A',
+      total: 8,
+      per10k: 40,
+      top3: [],
+      delta30: null,
+      population: {
+        estimate: 2_000,
+        moe90: null,
+        vintage: '2024',
+        source: 'U.S. Census Bureau',
+        retrievedAt: '2026-08-10T08:38:25.000Z',
+        status: 'available',
+        method: 'centroid-in-buffer-whole-tract-sum',
+        moe90Status: 'unavailable',
+      },
+    },
+    b: null,
+  });
+
+  assert.match(html, /Population estimate[\s\S]*2,000/i);
+  assert.match(html, /ACS 90% MOE[\s\S]*Unavailable for circular buffer/i);
+  assert.match(html, /ACS vintage[\s\S]*2024/i);
+  assert.match(html, /centroids fall inside the circle/i);
+  assert.match(html, /denominator uncertainty only/i);
+  assert.match(html, /not a confidence interval for the crime rate/i);
+  assert.doesNotMatch(html, /statistically significant|significance/i);
+});
+
 test('comparison disclosure state survives a rerendered details element', async () => {
   const { bindComparisonDisclosure } = await import('../../src/compare/card.js');
   assert.equal(typeof bindComparisonDisclosure, 'function');

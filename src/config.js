@@ -4,7 +4,7 @@
  * Public GitHub Pages builds must not embed private API keys. Official Census
  * URLs are therefore opt-in and should point at a credential-hiding proxy or
  * another managed endpoint. Census Reporter is the default keyless live source,
- * with the bundled ACS snapshot retained only as a resilient fallback.
+ * with the bundled ACS 2024 5-year snapshot retained only as a resilient fallback.
  */
 const env = import.meta?.env || {};
 const envValue = (name) => String(env[name] || '').trim();
@@ -16,7 +16,10 @@ export const PROJECT_REGION = Object.freeze({
 });
 
 export const CRIME_DATASET_START = '2006-01-01';
-export const ACS_SNAPSHOT_YEAR = '2023';
+export const ACS_SNAPSHOT_YEAR = '2024';
+export const ACS_SNAPSHOT_PERIOD = '2020-2024';
+export const ACS_SUMMARY_FILE_URL =
+  'https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b01003.dat';
 
 export const CARTO_SQL_BASE = envValue('VITE_CARTO_SQL_BASE') || 'https://phl.carto.com/api/v2/sql';
 
