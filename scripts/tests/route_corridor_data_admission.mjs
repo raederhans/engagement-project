@@ -464,9 +464,10 @@ test('Crime adapter rejects a completed route result when the canonical query ch
 });
 
 test('shared map/list integration exposes only an explicit lazy route request boundary', async () => {
-  const [main, source] = await Promise.all([
+  const [main, source, crimeController] = await Promise.all([
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_crime/route_corridor_app_loader.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
   assert.match(main, /import\('\.\/routes_crime\/route_corridor_app_loader\.js'\)/);
   assert.match(source, /import\('\.\/route_corridor_crime_coordinator\.js'\)/);
@@ -476,6 +477,7 @@ test('shared map/list integration exposes only an explicit lazy route request bo
   assert.match(source, /requestRouteCorridor/);
   assert.match(source, /clearRouteCorridor/);
   assert.match(source, /getMap/);
+  assert.doesNotMatch(crimeController, /requestRouteCorridor|clearRouteCorridor/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|navigator\.geolocation/);
 });
 

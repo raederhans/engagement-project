@@ -743,13 +743,26 @@ body {
     grid-row: 2;
   }
 
+  .task-focus:not([hidden]) + .route-corridor-entry:not(:has([data-route-corridor-loader-status]:not([hidden]))):not(:has([data-route-corridor-retry]:not([hidden]))) {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    min-height: var(--control-target);
+    justify-content: flex-end;
+    margin-top: calc(-1 * (var(--control-target) + var(--space-2)));
+    pointer-events: none;
+  }
+
+  .task-focus:not([hidden]) + .route-corridor-entry > button {
+    pointer-events: auto;
+  }
+
   .query-preset-entry {
     grid-column: 1;
     grid-row: 2;
   }
 
   .query-preset-entry {
-    grid-column: 1 / -1;
     padding-top: 0;
   }
 

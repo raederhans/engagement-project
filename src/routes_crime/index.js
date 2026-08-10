@@ -710,8 +710,6 @@ export async function initCrimeMode(map, {
 
   return {
     requestRefresh,
-    requestRouteCorridor,
-    clearRouteCorridor,
     runProgrammaticMapMove: pointsController.runProgrammaticMapMove,
     fitCurrentSelection,
     updateBuffer: synchronousActions.updateBuffer,
