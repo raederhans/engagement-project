@@ -89,7 +89,7 @@ test('Diary insight context titles and empty states state their actual scope', (
     emptyTags: 'No local tags saved in this period.',
   });
   assert.deepEqual(describeDiaryInsightsContext({ mode: 'community' }), {
-    title: 'Sample community patterns',
+    title: 'Illustrative sample patterns',
     hint: 'Illustrative sample data',
     intro: 'Read-only example patterns; these are not community submissions.',
     emptyTrend: 'No sample ratings are available.',

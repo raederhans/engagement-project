@@ -281,7 +281,7 @@ try {
   page.on('request', (request) => requests.push(request.url()));
 
   await page.goto(new URL('?mode=diary', baseUrl).href, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
   await page.waitForTimeout(250);
   const crimeApiHosts = new Set([
     'citygeo-geocoder-pub.databridge.phila.gov',
@@ -344,7 +344,7 @@ try {
   await page.getByRole('button', { name: 'Close rating dialog' }).click();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
   const restoredRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
   await restoredRouteSelect.selectOption(routeA);
   await page.getByRole('button', { name: 'Rate this route' }).click();
@@ -776,7 +776,7 @@ try {
     'Held artifact restore must start exactly one Crime refresh generation',
   );
   await page.getByRole('button', { name: 'Diary', exact: true }).click();
-  await page.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
   const cancelledSnapshotText = await page.locator('.analysis-history__snapshot').textContent();
   assert.match(cancelledSnapshotText, /refresh was cancelled/i);
   assert.doesNotMatch(cancelledSnapshotText, /Refreshing live data/i);
@@ -981,7 +981,7 @@ try {
       },
     });
     await migrationPage.goto(new URL('?mode=diary', baseUrl).href, { waitUntil: 'domcontentloaded' });
-    await migrationPage.getByRole('heading', { name: 'Route Safety Diary (demo)' }).waitFor();
+    await migrationPage.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
     const migrated = await readDiarySnapshot(migrationPage);
     diaryMigrationEvidence = {
       entry: migrated.entries.find((entry) => entry.id === 'legacy-diary-entry'),

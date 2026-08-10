@@ -6,6 +6,10 @@ import {
   createRouteCorridorPresentation,
   createRouteQueryKey,
   createRouteBufferWidthExpression,
+  createWaypointEditorState,
+  reduceWaypointEditor,
+  createRouteInputFromWaypoints,
+  createRouteCloseResult,
 } from '../../src/routes_crime/route_corridor_ui_controller.js';
 import { createQueryPresetController } from '../../src/routes_crime/query_preset_controller.js';
 
@@ -30,6 +34,53 @@ test('route corridor keeps all eight states distinct and only admitted empty res
     assert.equal(presentation.zeroClaim, status === 'no-mapped-incidents');
     if (status !== 'no-mapped-incidents') assert.doesNotMatch(presentation.summary, /^0\b/i);
   }
+});
+
+test('route presentation exposes the eight reader phases without weakening legacy statuses', () => {
+  const cases = [
+    [{ status: 'route-required' }, 'route-required'],
+    [{ status: 'route-required', phase: 'drawing' }, 'drawing'],
+    [{ status: 'superseded', phase: 'route-provided' }, 'route-provided'],
+    [{ status: 'pending' }, 'pending'],
+    [{ status: 'coverage-unavailable' }, 'coverage-unavailable'],
+    [{ status: 'source-failure' }, 'source-failure'],
+    [{ status: 'no-mapped-incidents' }, 'admitted-zero'],
+    [{ status: 'ready', matches: [{ id: 'mapped' }] }, 'ready'],
+  ];
+  assert.deepEqual(cases.map(([result]) => createRouteCorridorPresentation(result).phase), cases.map(([, phase]) => phase));
+});
+
+test('keyboard waypoint reducer supports add, edit, remove, undo, clear and the shared manual route model', () => {
+  let state = createWaypointEditorState();
+  assert.equal(state.waypoints.length, 2, 'two native-input rows are available immediately');
+  state = reduceWaypointEditor(state, { type: 'set', index: 0, field: 'lon', value: '-75.1652' });
+  state = reduceWaypointEditor(state, { type: 'set', index: 0, field: 'lat', value: '39.9526' });
+  state = reduceWaypointEditor(state, { type: 'set', index: 1, field: 'lon', value: '-75.1550' });
+  state = reduceWaypointEditor(state, { type: 'set', index: 1, field: 'lat', value: '39.9490' });
+  assert.deepEqual(createRouteInputFromWaypoints(state).geometry.coordinates, [
+    [-75.1652, 39.9526],
+    [-75.155, 39.949],
+  ]);
+
+  state = reduceWaypointEditor(state, { type: 'add' });
+  assert.equal(state.waypoints.length, 3);
+  state = reduceWaypointEditor(state, { type: 'remove', index: 2 });
+  assert.equal(state.waypoints.length, 2);
+  state = reduceWaypointEditor(state, { type: 'undo' });
+  assert.equal(state.waypoints.length, 3);
+  state = reduceWaypointEditor(state, { type: 'clear' });
+  assert.equal(state.waypoints.length, 2);
+  assert.throws(() => createRouteInputFromWaypoints(state), /two complete waypoints/i);
+});
+
+test('closing a pending review aborts back to retryable route-provided without clearing the route', () => {
+  assert.deepEqual(
+    createRouteCloseResult({ status: 'pending' }, { geometry: { type: 'LineString' } }),
+    { status: 'superseded', phase: 'route-provided' },
+  );
+  assert.deepEqual(createRouteCloseResult({ status: 'pending' }, null), { status: 'route-required' });
+  const ready = { status: 'ready', matches: [{ id: '1' }] };
+  assert.equal(createRouteCloseResult(ready, { geometry: {} }), ready);
 });
 
 test('query preset port exceptions settle as incomplete instead of leaving the transaction pending', async () => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import maplibregl from 'maplibre-gl';
 
@@ -463,7 +464,7 @@ test('Census Reporter cache hits preserve release vintage and as-of provenance',
   }]);
 });
 
-test('Diary client uses a real API when configured and deterministic demo semantics otherwise', async () => {
+test('Diary client is strictly local-only even when a legacy API base is supplied', async () => {
   assert.equal(typeof diary.createDiaryClient, 'function');
   const payload = {
     route_id: 'route_demo_1',
@@ -476,38 +477,39 @@ test('Diary client uses a real API when configured and deterministic demo semant
     timestamp: '2026-07-30T00:00:00.000Z',
   };
 
-  const demoClient = diary.createDiaryClient({ apiBase: '' });
-  const first = await demoClient.submitDiary(payload);
-  const second = await demoClient.submitDiary(payload);
-  assert.deepEqual(first, second);
+  let requests = 0;
+  const localClient = diary.createDiaryClient({
+    apiBase: 'https://example.test/api/diary/',
+    request: async () => { requests += 1; },
+  });
+  const first = await localClient.submitDiary({
+    ...payload,
+    notes: 'private note',
+    route_geometry: { type: 'LineString', coordinates: [[-75.1, 39.9], [-75.2, 40]] },
+    draft: { unfinished: true },
+  });
+  const second = await localClient.submitDiary(payload);
+  assert.deepEqual(first.updated_segments, second.updated_segments);
   assert.equal(first.persisted, false);
   assert.equal(first.mode, 'demo');
+  assert.equal(first.capability, 'local-only');
+  assert.match(first.message, /browser session/i);
+  assert.match(first.message, /no remote data was written/i);
+  assert.doesNotMatch(first.message, /saved|durable|persisted|已保存/iu);
   assert.deepEqual(first.updated_segments.map((row) => row.rating), [4, 2]);
+  assert.equal(requests, 0, 'legacy configuration must not upload ratings, notes, geometry, or drafts');
+  assert.equal(Object.hasOwn(config, 'DIARY_API_BASE'), false);
+});
 
-  const requests = [];
-  const controller = new AbortController();
-  const apiClient = diary.createDiaryClient({
-    apiBase: 'https://example.test/api/diary/',
-    request: async (url, options) => {
-      requests.push({ url, options });
-      return { ok: true, submission_id: 'sub_1', updated_segments: [] };
-    },
-  });
-  await apiClient.submitDiary(payload, { signal: controller.signal });
-  assert.equal(requests[0].url, 'https://example.test/api/diary/submit');
-  assert.equal(requests[0].options.method, 'POST');
-  assert.equal(requests[0].options.retries, 0);
-  assert.equal(requests[0].options.signal, controller.signal);
-  assert.deepEqual(JSON.parse(requests[0].options.body), {
-    overall_rating: 4,
-    tags: ['poor_lighting'],
-    travel_mode: 'bike',
-    segment_overrides: [{ segment_id: 'seg_2', rating: 2 }],
-    save_as_route: false,
-    matched_segments: ['seg_1', 'seg_2'],
-    timestamp: 1785369600000,
-  });
-  assert.equal(requests[0].options.headers['x-user-hash'], 'demo_user');
+test('legacy Diary 501 endpoints are absent from the live tree and backend docs are historical proposals', () => {
+  for (const path of ['submit.js', 'segments.js', 'route.js']) {
+    assert.equal(existsSync(new URL(`../../server/api/diary/${path}`, import.meta.url)), false);
+  }
+  for (const path of ['API_DIARY.md', 'API_BACKEND_DIARY_M2.md']) {
+    const text = readFileSync(new URL(`../../docs/${path}`, import.meta.url), 'utf8');
+    assert.match(text.slice(0, 500), /historical proposal/i);
+    assert.match(text.slice(0, 500), /not a production capability/i);
+  }
 });
 
 test('submission completion closes the modal and still invokes the captured callback', () => {
@@ -615,9 +617,9 @@ test('segment popup submission uses truthful demo semantics without claiming com
   assert.equal(renders, 1);
 
   const html = buildSegmentCardHtml({ segment_id: 'seg_popup_1' }, state);
-  assert.match(html, /Browser demo only/i);
-  assert.match(html, /not saved/i);
-  assert.match(html, /not added to community aggregates/i);
+  assert.match(html, /Browser-local demo only/i);
+  assert.match(html, /not stored or shared/i);
+  assert.doesNotMatch(html, /community aggregates/i);
   assert.doesNotMatch(html, /appear in the aggregate soon/i);
 });
 

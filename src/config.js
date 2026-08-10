@@ -53,7 +53,6 @@ export const ACS_API_ENDPOINTS = acsPopulationUrl && acsPovertyUrl
 export const CENSUS_REPORTER_ACS_URL = envValue('VITE_CENSUS_REPORTER_ACS_URL') ||
   `https://api.censusreporter.org/1.0/data/show/latest?table_ids=B01003%2CB25003%2CB19013%2CB17001&geo_ids=140%7C05000US${PROJECT_REGION.stateFips}${PROJECT_REGION.countyFips}`;
 
-export const DIARY_API_BASE = envValue('VITE_DIARY_API_BASE').replace(/\/+$/, '');
 export const DIARY_SEGMENTS_URL = typeof import.meta.env === 'undefined'
   ? ''
   : String(import.meta.env.VITE_DIARY_SEGMENTS_URL || '').trim();

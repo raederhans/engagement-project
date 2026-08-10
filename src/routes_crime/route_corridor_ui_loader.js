@@ -8,12 +8,15 @@ export function createRouteCorridorUiLoader({
   const open = mount?.querySelector?.('[data-route-corridor-open]');
   const retry = mount?.querySelector?.('[data-route-corridor-retry]');
   const status = mount?.querySelector?.('[data-route-corridor-loader-status]');
+  const host = mount?.ownerDocument?.querySelector?.('[data-route-corridor-host]')
+    || mount?.querySelector?.('[data-route-corridor-host]');
   const translate = ports.translate || ((key) => ({
     'route.loader.loading': 'Loading route review…',
     'route.loader.unavailable': 'Route review could not load. Retry when ready.',
   })[key] || key);
   let promise = null;
   let controller = null;
+  open?.setAttribute?.('aria-expanded', 'false');
   const state = (value, message = '') => {
     mount.dataset.routeCorridorLoader = value;
     status.hidden = !message;
@@ -30,7 +33,7 @@ export function createRouteCorridorUiLoader({
       state('loading', translate('route.loader.loading'));
       promise = loadUi()
         .then((module) => {
-          controller = module.initRouteCorridorUi({ mount, ...ports });
+          controller = module.initRouteCorridorUi({ mount, host, returnFocus: open, ...ports });
           state('ready');
           controller.open?.();
           return controller;

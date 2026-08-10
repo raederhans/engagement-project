@@ -1,14 +1,16 @@
-# Route Safety Diary - API Contract Specification
+> **Historical proposal — not a production capability.** This document describes an unimplemented backend concept. The shipped static Pages product is local-only, exposes none of these endpoints, and does not upload ratings, notes, route geometry, or drafts.
+
+# Route Experience Diary - API Contract Specification (Historical Proposal)
 
 **Date:** 2025-11-07
-**Status:** M1 - Mock Implementation (501 stubs)
+**Status:** Historical proposal; the former 501 stubs were removed from the live tree
 **Backend:** M2 (PostgreSQL + PostGIS + serverless functions)
 
 ---
 
 ## Overview
 
-This document defines the API contracts for the Route Safety Diary feature. For M1, all endpoints return mock data with 500ms simulated latency. For M2, these will be implemented as serverless functions (Vercel/Netlify) with PostgreSQL + PostGIS backend.
+This document preserves an abandoned Route Diary API proposal. Its mock responses and backend shapes are historical examples only: the static product does not expose these endpoints, and there is no planned production implementation represented by this file.
 
 ---
 
@@ -557,85 +559,9 @@ export async function submitImprove(segmentId) {
 
 ---
 
-### 7. POST /api/diary/route
+### 7. Archived route-endpoint proposal
 
-Compute safer alternative route using A* with safety penalties.
-
-#### Request
-
-**Body:**
-```json
-{
-  "from": [-75.1900, 39.9520],
-  "to": [-75.1850, 39.9550],
-  "time": "2025-11-07T14:00:00Z"
-}
-```
-
-#### Response (Success - Alternative Found)
-
-**Status:** 200 OK
-```json
-{
-  "ok": true,
-  "route": {
-    "type": "Feature",
-    "geometry": {
-      "type": "LineString",
-      "coordinates": [
-        [-75.1900, 39.9520],
-        [-75.1895, 39.9525],
-        [-75.1890, 39.9530],
-        [-75.1850, 39.9550]
-      ]
-    },
-    "properties": {
-      "segments": ["seg_001", "seg_003", "seg_005"],
-      "total_length_m": 450,
-      "avg_rating": 4.2,
-      "total_time_s": 360
-    }
-  },
-  "direct_route": {
-    "segments": ["seg_001", "seg_002", "seg_004"],
-    "total_length_m": 380,
-    "avg_rating": 2.8,
-    "total_time_s": 240
-  },
-  "comparison": {
-    "time_diff_s": 120,
-    "time_diff_display": "+2 min",
-    "safety_gain": 1.4,
-    "avoided_segments": 2
-  }
-}
-```
-
-#### Response (No Alternative)
-
-**Status:** 200 OK
-```json
-{
-  "ok": true,
-  "route": null,
-  "message": "No safer alternative found within acceptable time limit"
-}
-```
-
-#### M1 Mock Implementation
-
-```javascript
-// src/api/diary.js (client-side)
-export async function getSaferRoute(params) {
-  // Always return null for M1 (A* not implemented)
-  console.warn('[Diary] A* routing not implemented yet (M1 stub)');
-  return {
-    ok: true,
-    route: null,
-    message: 'No safer alternative found within acceptable time limit'
-  };
-}
-```
+The former route-endpoint example and client-method hint were removed because no such production endpoint, routing service, or client capability exists. The current product does not claim to recommend alternative routes.
 
 ---
 

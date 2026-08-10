@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="app.documentTitle">Philadelphia Engagement Explorer</title>
-    <meta name="description" data-i18n-content="app.description" content="Explore Philadelphia crime patterns, compare two locations, and try a browser-local route safety diary." />
+    <meta name="description" data-i18n-content="app.description" content="Explore Philadelphia crime patterns, compare two locations, and try a browser-local route experience diary." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
@@ -66,10 +66,9 @@
           </dialog>
         </details>
         <section class="route-corridor-entry" data-route-corridor-entry>
-          <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen">Known route</button>
+          <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
           <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
-          <div data-route-corridor-host></div>
         </section>
         <dialog id="task-focus-dialog" class="task-focus-dialog" data-task-focus-dialog aria-labelledby="task-focus-title" aria-describedby="task-focus-description">
           <form method="dialog" class="task-focus-dialog__surface">
@@ -443,6 +442,7 @@
         <section data-analysis-history-mount></section>
       </details>
     </div>
+    <aside id="route-corridor-shell" class="route-corridor-shell" data-route-corridor-host aria-labelledby="route-corridor-title" hidden inert></aside>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/ui/sheet_controller.js"></script>
   </body>

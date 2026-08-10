@@ -283,7 +283,7 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
   await gotoMode(page, 'diary');
-  await expect(page.getByRole('heading', { name: 'Route Safety Diary (demo)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Route Experience Diary (demo)' })).toBeVisible();
   expect(crimeRequests(experience.requests)).toEqual([]);
   await assertNoHorizontalOverflow(page);
   const rateAction = page.locator('.diary-rate-action');

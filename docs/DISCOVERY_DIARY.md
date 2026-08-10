@@ -1,9 +1,11 @@
-# Route Safety Diary - Discovery & Gap Analysis Report
+> **Historical discovery — not a production capability.** This report describes an early prototype and unbuilt options. Current static Pages behavior is local-first and does not provide GPS or route recommendations.
+
+# Route Experience Diary - Discovery & Gap Analysis Report (Historical)
 
 **Date:** 2025-11-07
 **Agent:** Agent-M (Monitor/Reviewer/Auditor)
 **Mode:** Discovery & Specification Intake
-**Status:** ✅ Complete
+**Status:** Historical discovery; implementation guidance superseded
 
 ---
 
@@ -551,30 +553,7 @@ function calculateSegmentRating(segment, ratings, decayDays = 90) {
 }
 ```
 
-**Safer Alternative Routing (src/map/routing_overlay.js):**
-
-```javascript
-// A* pathfinding with safety penalties
-function findSaferRoute(origin, destination, segments) {
-  // Cost function: time + safety penalty
-  const getCost = (segment) => {
-    const baseTime = segment.length_m / walkSpeed_m_per_s;
-    const safetyPenalty = (5 - segment.rating) * 60; // 60s penalty per rating point
-    return baseTime + safetyPenalty;
-  };
-
-  const route = aStar(origin, destination, segments, getCost);
-  const directRoute = aStar(origin, destination, segments, (s) => s.length_m);
-
-  const timeDiff = route.totalTime - directRoute.totalTime;
-  const safetyGain = route.avgRating - directRoute.avgRating;
-
-  if (timeDiff < 900 && safetyGain > 0.5) { // < 15 min, +0.5 rating
-    return { route, timeDiff, safetyGain };
-  }
-  return null; // No meaningful alternative
-}
-```
+**Archived alternative-routing idea:** The former method sketch was removed. It was never a shipped API or runtime capability, and the product does not recommend routes from personal ratings.
 
 ---
 

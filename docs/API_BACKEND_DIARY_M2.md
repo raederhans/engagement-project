@@ -1,14 +1,16 @@
-# Route Safety Diary — M2 Backend API Specification
+> **Historical proposal — not a production capability.** This backend design is retained only as design history. The shipped static Pages product is local-only and has no Diary upload API.
+
+# Route Experience Diary — M2 Backend API Specification (Historical Proposal)
 
 **Version:** M2
-**Status:** Agent-I implementation spec
+**Status:** Historical proposal; not implemented or deployed
 **Audience:** Backend developers (Agent-I), DevOps, QA
 
 ---
 
 ## 1. Purpose
 
-This document specifies the **REST API contracts** for the Route Safety Diary M2 backend, including:
+This document preserves proposed **REST API contracts** for an unimplemented Route Diary M2 backend, including:
 - Rating submission and retrieval
 - Route discovery and pathfinding with A* cost function
 - Aggregation endpoints

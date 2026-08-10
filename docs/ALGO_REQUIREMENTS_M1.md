@@ -1,8 +1,10 @@
-# Route Safety Diary - Algorithm Requirements (M1)
+> **Historical proposal — not a production capability.** This file records early algorithm ideas. The shipped static product has no GPS tracking, route recommendation service, or objective safety model.
+
+# Route Experience Diary - Algorithm Requirements (Historical M1 Proposal)
 
 **Date:** 2025-11-07
 **Purpose:** Mathematical specifications and implementation requirements for M1 algorithms
-**Status:** Ready for implementation
+**Status:** Historical proposal; not approved for implementation
 
 ---
 
@@ -506,17 +508,9 @@ function shouldShowAlternative(altRoute, directRoute) {
 }
 ```
 
-### M1 Stub Behavior
+### Archived M1 routing idea
 
-For M1, `findSaferRoute()` returns `null` (no alternative). This allows UI testing without implementing full A*.
-
-```javascript
-export function findSaferRoute(origin, destination, segments) {
-  // TODO: Implement A* with safety penalties in M2
-  console.warn('[Diary] A* routing not implemented yet (M1 stub)');
-  return null;
-}
-```
+The former alternative-route stub and method hint were removed. No route recommendation API or algorithm is part of the shipped product.
 
 ---
 

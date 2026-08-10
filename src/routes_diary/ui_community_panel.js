@@ -32,10 +32,10 @@ export function renderCommunityPanel(container, state = {}) {
   notice.appendChild(noticeText);
   container.appendChild(notice);
 
-  // High concern segments
+  // Illustrative sample ratings
   const segmentsCard = createDiaryCard();
-  const concernTitle = createSectionTitle(t('diary.highConcern'));
-  setTranslatedText(concernTitle, 'diary.highConcern');
+  const concernTitle = createSectionTitle(t('diary.sampleRouteRatings'));
+  setTranslatedText(concernTitle, 'diary.sampleRouteRatings');
   segmentsCard.appendChild(concernTitle);
   const segList = document.createElement('div');
   segList.className = 'diary-community-list';
@@ -52,8 +52,9 @@ export function renderCommunityPanel(container, state = {}) {
     setTranslatedText(tags, 'diary.tags', { tags: seg.tagsKey ? t(seg.tagsKey) : seg.tags });
     const badge = document.createElement('div');
     badge.className = 'diary-score-pill';
-    badge.classList.add(seg.score < 2.5 ? 'is-bad' : seg.score < 4 ? 'is-mid' : 'is-good');
+    badge.classList.add(seg.score < 2.5 ? 'is-order-low' : seg.score < 4 ? 'is-order-middle' : 'is-order-high');
     badge.textContent = seg.score.toFixed(1);
+    badge.setAttribute('aria-label', t('diary.sampleScoreLabel', { score: seg.score.toFixed(1) }));
     meta.appendChild(tags);
     meta.appendChild(badge);
     btn.appendChild(title);

@@ -44,9 +44,9 @@
   --border-subtle: var(--border);
   --text-main: var(--ink);
   --text-muted: var(--ink-muted);
-  --safety-high: #34d399;
-  --safety-med: #fbbf24;
-  --safety-low: #f87171;
+  --safety-high: #7c3aed;
+  --safety-med: #3b82f6;
+  --safety-low: #64748b;
   --density-blue: #60a5fa;
   --diary-primary: #047857;
   --diary-primary-hover: #065f46;

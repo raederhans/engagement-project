@@ -1,7 +1,9 @@
-# Route Safety Diary - M1 Execution Plan
+> **Historical proposal — not a production capability.** This superseded execution plan includes unbuilt backend, GPS, and routing ideas. It must not be used as current implementation guidance.
+
+# Route Experience Diary - M1 Execution Plan (Historical Proposal)
 
 **Date:** 2025-11-07
-**Status:** Scaffolding Complete - Ready for Codex Implementation
+**Status:** Historical proposal; superseded by the static local-first product
 **Architecture:** Vanilla JS port of React UI scenarios (no React migration)
 **Feature Flag:** `VITE_FEATURE_DIARY` (OFF by default)
 
@@ -348,10 +350,7 @@ export async function getSegments(params) {
   // M1: Return seed data with mock aggregates
 }
 
-export async function getSaferRoute(params) {
-  // TODO: POST /api/diary/route
-  // M1: Return null (no alternative found)
-}
+// The proposed alternative-route network method was never implemented.
 ```
 
 **Acceptance:**
@@ -469,14 +468,7 @@ export function removeSaferRoute(map) {
   // TODO: Remove route layer and strip UI
 }
 
-// TODO: A* pathfinding with safety penalties (stub for M1)
-export function findSaferRoute(origin, destination, segments) {
-  // TODO: Implement A* with cost = length_m * (1 + penalty(rating))
-  // penalty(rating) = (5 - rating) / 5  → 0.0 (rating=5) to 0.8 (rating=1)
-  //
-  // For M1: Return null (no alternative found)
-  return null;
-}
+// The proposed route-recommendation method was not implemented and is not a product capability.
 
 function aStar(start, goal, graph, costFn) {
   // TODO: Standard A* implementation
@@ -491,7 +483,7 @@ function aStar(start, goal, graph, costFn) {
 - [ ] Strip displays time difference and avoided segments
 - [ ] "Show route" button zooms to fit route bounds
 - [ ] Dismiss button removes route
-- [ ] `findSaferRoute()` returns null for M1 (stub)
+- [ ] Historical route-recommendation stub removed; no product capability implied
 
 ---
 
@@ -728,11 +720,7 @@ async getSegments(params: {
   ids?: string[]
 }): Promise<FeatureCollection>
 
-async getSaferRoute(params: {
-  from: [number, number],
-  to: [number, number],
-  time?: string
-}): Promise<{route: LineString, meta: {timeDiff: string, avoidedSegments: number}} | null>
+// No alternative-route network method exists in the static local-first product.
 
 async submitAgree(segmentId: string): Promise<{ok: boolean, new_n_eff: number}>
 
@@ -814,11 +802,7 @@ drawSaferRoute(
 
 removeSaferRoute(map: MapLibreMap): void
 
-findSaferRoute(
-  origin: [number, number],
-  destination: [number, number],
-  segments: FeatureCollection
-): {route: Feature<LineString>, meta: object} | null
+// Historical route-recommendation signature removed; no runtime method exists.
 ```
 
 ---

@@ -13,6 +13,7 @@ import * as panelModule from '../../src/ui/panel.js';
 import { buildTopTypesSQL } from '../../src/utils/sql.js';
 import { getSegmentDisplayLabel } from '../../src/routes_diary/labels.js';
 import { readProductCss } from './helpers/css_source.mjs';
+import { messages } from '../../src/i18n/messages.js';
 import {
   createRouteSummaryModel as createRouteSummaryModelOwner,
   filterLocalDiaryEntries as filterLocalDiaryEntriesOwner,
@@ -187,6 +188,30 @@ test('Diary view models have one focused owner and remain available from the laz
 test('Diary seed loading has one cache owner and remains available from the lazy facade', () => {
   assert.equal(diaryModule.loadDemoSegments, loadDemoSegmentsOwner);
   assert.equal(diaryModule.loadDemoRoutes, loadDemoRoutesOwner);
+});
+
+test('Diary reader copy and Sample Community visuals stay personal, illustrative, and neutral', async () => {
+  const [communitySource, diaryCss, html] = await Promise.all([
+    readFile(new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/styles/diary-map-ui.css', import.meta.url), 'utf8'),
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+  ]);
+  for (const locale of ['en', 'zh-CN']) {
+    assert.match(messages[locale]['diary.title'], locale === 'en' ? /Route Experience Diary/ : /路线体验日记/);
+    const diaryCopy = Object.entries(messages[locale])
+      .filter(([key]) => /^(diary|rating|segment)\./.test(key))
+      .map(([, value]) => value)
+      .join('\n');
+    assert.doesNotMatch(
+      diaryCopy,
+      /Route Safety Diary|safety score|community safety score|High risk|Moderate risk|Generally safe|safer route|safest route|路线安全日记|安全评分|社区安全评分|高风险|中等风险|总体安全/iu,
+    );
+  }
+  assert.match(html, /browser-local route experience diary/i);
+  assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|high concern/i);
+  assert.match(communitySource, /is-order-low|is-order-middle|is-order-high/);
+  assert.doesNotMatch(diaryCss, /\.diary-score-pill\.is-(?:good|mid|bad)/);
+  assert.match(diaryCss, /\.diary-score-pill\.is-order-low/);
 });
 
 function preserveStore(t) {
@@ -1517,7 +1542,8 @@ test('Diary submission completion waits for the atomic local commit before apply
   releaseCommit();
   assert.equal((await completion).applied, true);
   assert.deepEqual(calls.find(([kind]) => kind === 'apply'), ['apply', payload]);
-  assert.match(calls.find(([kind]) => kind === 'toast')[1], /browser demo only/i);
+  assert.match(calls.find(([kind]) => kind === 'toast')[1], /browser/i);
+  assert.match(calls.find(([kind]) => kind === 'toast')[1], /no data was uploaded/i);
   assert.deepEqual(calls.find(([kind]) => kind === 'highlight')[1], ['seg-1']);
 });
 

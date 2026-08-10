@@ -1335,9 +1335,9 @@ body.about-is-open {
 }
 
 .diary-segment-risk { font-weight: 700; }
-.diary-segment-risk.is-high { color: #b91c1c; }
-.diary-segment-risk.is-moderate { color: #92400e; }
-.diary-segment-risk.is-safe { color: #15803d; }
+.diary-segment-risk.is-high { color: #475569; }
+.diary-segment-risk.is-moderate { color: #1d4ed8; }
+.diary-segment-risk.is-safe { color: #6d28d9; }
 .diary-segment-issues-summary { margin-top: var(--space-2); }
 .diary-chip-group--compact { margin-top: var(--space-1); }
 
@@ -1549,19 +1549,19 @@ body.about-is-open {
   background: #e2e8f0;
 }
 
-.diary-score-pill.is-good {
-  background: #bbf7d0;
-  color: #065f46;
+.diary-score-pill.is-order-high {
+  background: #ede9fe;
+  color: #5b21b6;
 }
 
-.diary-score-pill.is-mid {
-  background: #fef9c3;
-  color: #92400e;
+.diary-score-pill.is-order-middle {
+  background: #dbeafe;
+  color: #1e40af;
 }
 
-.diary-score-pill.is-bad {
-  background: #fecdd3;
-  color: #9f1239;
+.diary-score-pill.is-order-low {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .diary-community-subtitle {
