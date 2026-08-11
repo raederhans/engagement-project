@@ -2,9 +2,10 @@
 
 ## Current truth
 
-- The worktree is detached, clean, and starts at exact `main`/`origin/main`
-  `67eddae4f023aea6a29808654d5012d51f6342ac`; stage0 `3217a2a` and stage1
-  `66964fc` are separate worktrees and are not present here.
+- The original handoff started from exact `67eddae4f023aea6a29808654d5012d51f6342ac`.
+  The integration owner reviewed and integrated it as local main commit
+  `025f8a6b6239df60163fedc3f8201249b66f01ee`; stage0 `3217a2a` and stage1
+  `66964fc` remain separate and were not integrated.
 - ACS estimates and VRE use committed snapshots with manifests. Their semantic
   row identities exclude retrieval time, but their fetch scripts currently
   either write a destination or verify the committed destination directly.
@@ -28,6 +29,12 @@
 - A live read-only audit observed all three admitted contracts unchanged at
   `2026-08-11T05:23:06.750Z`. Its two generated reports were removed after
   inspection; no candidate or committed artifact was written.
+- Integration review added four bounded repairs before admission: canonical
+  tract JSON comparison, tool-owned stale-candidate cleanup, 45-second
+  per-request source timeouts, and last-wins runtime Source Health deduplication.
+- Combined local main validation, JS/CSS lint, reviewer re-review, and diff
+  checks passed. These facts do not claim hosted workflow, Pages, or endpoint
+  availability beyond the recorded one-time probe.
 
 ## Decisions and deviations
 
@@ -43,19 +50,18 @@
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| None | B2 owner | N/A | No dev server, browser, deployment, or shared process is running. Short Node tests, production build, and live read-only source audit completed. |
+| None | Integration owner | System temp validation log | Combined validation completed; no dev server, browser, deployment, or shared process is running. |
 
 ## Handoff
 
-The handoff commit contains only ACS/VRE/HIN acquisition exports, candidate
-audit/workflow, receipt-backed Source Health, source/workflow tests, directly
-related bundle action-policy counts, docs, package entry points, and this task
-record. Obtain its exact local identity with `git rev-parse HEAD` after checkout.
-The upstream supervisor owns review/integration, push, main updates, hosted CI
-observation, and any deployment.
+The original source commit was
+`f4a762643ed91619aae7887051980a3cfd2f9e20`; the reviewed local integration is
+`025f8a6b6239df60163fedc3f8201249b66f01ee`. The integration owner owns the
+remaining remote push, hosted CI observation, worktree cleanup, and any future
+deployment claim.
 
 ## Next step
 
-Integration owner: review the local handoff commit, preserve the candidate-only
-and human-admission boundaries, then run hosted workflow/CI observation before
-any main integration or release claim.
+Push the reviewed local main, verify exact local/remote identity, observe hosted
+CI without treating live endpoint availability as release truth, and remove only
+the two completed B1/B2 delivery worktrees.
