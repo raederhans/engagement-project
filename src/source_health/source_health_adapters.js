@@ -89,6 +89,8 @@ export function bundledArtifactObservations({ now = new Date() } = {}) {
   const observed = exactNow(now);
   const observedAt = observed.toISOString();
   const acs = BUNDLED_SOURCE_RECEIPTS.acsPopulation;
+  const acsVre = BUNDLED_SOURCE_RECEIPTS.acsVre;
+  const hin = BUNDLED_SOURCE_RECEIPTS.hin2025;
   const tract = BUNDLED_SOURCE_RECEIPTS.tractCrime;
   const tractStale = dateAgeDays(tract.sourceAsOf, observed) > 7;
   return Object.freeze([
@@ -108,6 +110,40 @@ export function bundledArtifactObservations({ now = new Date() } = {}) {
         temporalEnd: '2024-12-31',
       },
       recordCount: acs.recordCount,
+    }),
+    admitSourceHealthObservation({
+      ...emptyObservation(acsVre.sourceId, 'partial', 'bundled-vre-snapshot', observedAt),
+      clocks: {
+        sourceAsOf: acsVre.sourceAsOf,
+        retrievedAt: acsVre.retrievedAt,
+        builtAt: acsVre.builtAt,
+        observedAt,
+      },
+      snapshot: { version: acsVre.version, identity: acsVre.identity },
+      boundaryVintage: acsVre.boundaryVintage,
+      coverage: {
+        geography: acsVre.geography,
+        temporalStart: acsVre.temporalStart,
+        temporalEnd: acsVre.temporalEnd,
+      },
+      recordCount: acsVre.recordCount,
+    }),
+    admitSourceHealthObservation({
+      ...emptyObservation(hin.sourceId, 'partial', 'bundled-historical-planning-snapshot', observedAt),
+      clocks: {
+        sourceAsOf: hin.sourceAsOf,
+        retrievedAt: hin.retrievedAt,
+        builtAt: hin.builtAt,
+        observedAt,
+      },
+      snapshot: { version: hin.version, identity: hin.identity },
+      boundaryVintage: hin.boundaryVintage,
+      coverage: {
+        geography: hin.geography,
+        temporalStart: hin.temporalStart,
+        temporalEnd: hin.temporalEnd,
+      },
+      recordCount: hin.recordCount,
     }),
     admitSourceHealthObservation({
       ...emptyObservation(
@@ -140,9 +176,22 @@ export function createSourceHealthObservations(runtimeEvidence = {}, options = {
   if (!Array.isArray(registered)) {
     throw new TypeError('registered source health observations must be an array');
   }
-  return Object.freeze([
+  const observations = [
     adaptCrimeCoverageObservation(runtimeEvidence.crimeCoverage, options),
     ...bundledArtifactObservations(options),
-    ...registered,
-  ]);
+  ];
+  const registeredBySourceId = new Map();
+  const observationsWithoutSourceId = [];
+  for (const observation of registered) {
+    const sourceId = typeof observation?.sourceId === 'string' ? observation.sourceId : null;
+    if (sourceId) registeredBySourceId.set(sourceId, observation);
+    else observationsWithoutSourceId.push(observation);
+  }
+  for (const [sourceId, observation] of registeredBySourceId) {
+    const bundledIndex = observations.findIndex((item) => item.sourceId === sourceId);
+    if (bundledIndex >= 0) observations.splice(bundledIndex, 1, observation);
+    else observations.push(observation);
+  }
+  observations.push(...observationsWithoutSourceId);
+  return Object.freeze(observations);
 }

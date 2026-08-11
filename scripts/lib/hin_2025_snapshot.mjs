@@ -25,14 +25,14 @@ export const HIN_2025_EXPECTED_FIELDS = Object.freeze([
 ]);
 export const HIN_2025_EXPECTED_GEOMETRY_COUNTS = Object.freeze({ LineString: 6, MultiLineString: 156 });
 
-export async function acquireOfficialHin2025({ request = fetch } = {}) {
+export async function acquireOfficialHin2025({ request = fetch, timeoutMs = null } = {}) {
   // ArcGIS intermittently rejects the four-request burst. Sequential reads
   // avoid manufacturing a source failure while preserving fail-closed checks.
-  const item = await requestJson(`${HIN_2025_ITEM_URL}?f=pjson`, request);
-  const layer = await requestJson(`${HIN_2025_LAYER_URL}?f=pjson`, request);
-  const countResult = await requestJson(HIN_2025_COUNT_URL, request);
-  const geojson = await requestJson(HIN_2025_QUERY_URL, request);
-  const officialContextText = await requestText(HIN_2025_TIME_SEMANTICS_URL, request);
+  const item = await requestJson(`${HIN_2025_ITEM_URL}?f=pjson`, request, timeoutMs);
+  const layer = await requestJson(`${HIN_2025_LAYER_URL}?f=pjson`, request, timeoutMs);
+  const countResult = await requestJson(HIN_2025_COUNT_URL, request, timeoutMs);
+  const geojson = await requestJson(HIN_2025_QUERY_URL, request, timeoutMs);
+  const officialContextText = await requestText(HIN_2025_TIME_SEMANTICS_URL, request, timeoutMs);
   validateOfficialHin2025Contract({ item, layer, countResult, geojson });
   validateOfficialHin2025TimeSemantics(officialContextText);
   return { item, layer, countResult, geojson, officialContextText };
@@ -233,18 +233,32 @@ export async function writeHin2025SnapshotAtomic(destination, snapshot) {
   return { destination: resolved, bytes };
 }
 
-async function requestJson(url, request) {
-  const response = await request(url, { headers: { accept: 'application/json' } });
+async function requestJson(url, request, timeoutMs) {
+  const response = await request(url, {
+    headers: { accept: 'application/json' },
+    ...requestTimeout(timeoutMs),
+  });
   if (!response?.ok) throw new Error(`HIN 2025 source request failed (${response?.status || 'unknown'}).`);
   const value = await response.json();
   if (value?.error) throw new Error(`HIN 2025 ArcGIS error: ${value.error.message || 'unknown'}.`);
   return value;
 }
 
-async function requestText(url, request) {
-  const response = await request(url, { headers: { accept: 'text/html' } });
+async function requestText(url, request, timeoutMs) {
+  const response = await request(url, {
+    headers: { accept: 'text/html' },
+    ...requestTimeout(timeoutMs),
+  });
   if (!response?.ok) throw new Error(`HIN 2025 official context request failed (${response?.status || 'unknown'}).`);
   return response.text();
+}
+
+function requestTimeout(timeoutMs) {
+  if (timeoutMs === null) return {};
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError('HIN request timeoutMs must be a positive integer or null.');
+  }
+  return { signal: AbortSignal.timeout(timeoutMs) };
 }
 
 function epochToIso(value, label) {

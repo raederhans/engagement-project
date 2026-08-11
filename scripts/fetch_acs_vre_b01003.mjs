@@ -189,13 +189,22 @@ function parseArgs(argv) {
   return options;
 }
 
-async function acquireRows(input) {
+export async function acquireRows(input, { request = fetch, timeoutMs = null } = {}) {
   if (input) return parseOfficialVreCsv(await fs.readFile(input, 'utf8'));
-  const response = await fetch(ACS_VRE_SOURCE_URL, {
+  const response = await request(ACS_VRE_SOURCE_URL, {
     headers: { accept: 'application/zip', 'user-agent': 'engagement-project-acs-vre/1.0' },
+    ...requestTimeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`Official ACS VRE source returned HTTP ${response.status}.`);
   return parseOfficialVreCsv(extractOfficialCsvFromZip(await response.arrayBuffer()));
+}
+
+function requestTimeout(timeoutMs) {
+  if (timeoutMs === null) return {};
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError('ACS VRE request timeoutMs must be a positive integer or null.');
+  }
+  return { signal: AbortSignal.timeout(timeoutMs) };
 }
 
 async function verifySnapshot(output, rows) {

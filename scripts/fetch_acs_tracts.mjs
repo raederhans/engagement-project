@@ -96,12 +96,21 @@ function parseArgs(argv) {
   return options;
 }
 
-async function fetchOfficialRows() {
-  const response = await fetch(ACS_SOURCE_URL, {
+export async function fetchOfficialRows({ request = fetch, timeoutMs = null } = {}) {
+  const response = await request(ACS_SOURCE_URL, {
     headers: { accept: 'text/plain', 'user-agent': 'engagement-project-acs-snapshot/1.0' },
+    ...requestTimeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`Official ACS Summary File returned HTTP ${response.status}.`);
   return parseSummaryFile(await response.text());
+}
+
+function requestTimeout(timeoutMs) {
+  if (timeoutMs === null) return {};
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError('ACS request timeoutMs must be a positive integer or null.');
+  }
+  return { signal: AbortSignal.timeout(timeoutMs) };
 }
 
 async function verifySnapshot(outputPath, officialRows) {

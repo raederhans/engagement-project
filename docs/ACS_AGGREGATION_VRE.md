@@ -63,3 +63,13 @@ MOEs, area weighting, population weighting, or a locally invented formula.
 - The facade `src/acs_aggregation.js` is deliberately outside current initial,
   Crime, and map entry graphs. An integration owner may lazy-load it only when
   a reviewed complete-multi-tract selection surface exists.
+
+## Candidate audit and admission
+
+The monthly/manual source candidate audit is documented in
+`docs/SOURCE_CANDIDATE_AUDIT.md`. It remains pinned to the admitted 2024 B01003
+estimate and VRE contracts. Retrieval-clock-only differences are a no-op; a new
+vintage, table, variable, geography, summary level, replicate schema, row set,
+or semantic value retains a temporary candidate, exits non-zero, and requires
+human review. The audit cannot modify the committed snapshot or Source Health
+receipt and is not a release gate.

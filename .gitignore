@@ -29,6 +29,9 @@ desktop.ini
 coverage/
 .nyc_output/
 
+# Local source candidate audit output
+.source-audit/
+
 # Browser test output
 playwright-report/
 test-results/

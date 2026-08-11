@@ -28,6 +28,14 @@ npm run data:acquire:hin-2025 -- --accept-reviewed-change --reviewed-by "reviewe
 
 This is a controlled artifact write and requires the repository's live-test/acquisition slot. Never use the acceptance flag merely to bypass a failing contract.
 
+The scheduled/manual candidate audit in `docs/SOURCE_CANDIDATE_AUDIT.md` uses a
+separate temporary output directory and never supplies either acceptance flag.
+When a safely normalized HIN candidate changes, it writes a candidate snapshot
+plus a `not-admitted` candidate receipt whose build/review clocks and reviewer
+remain null. Transport or official contract drift fails before admission and is
+reported as an audit failure. Neither outcome changes the committed lifecycle
+pair or release truth.
+
 ## Validation
 
 ```text

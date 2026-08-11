@@ -127,11 +127,15 @@ test('Crime coverage uses semantic dates and fails unavailable on malformed cove
 });
 
 test('official URLs and bundled receipt versions match committed fixtures', async () => {
-  const [acsText, tractText] = await Promise.all([
+  const [acsText, vreText, hinReceiptText, tractText] = await Promise.all([
     readFile(new URL('../../src/data/acs_tracts_2024_pa101.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/data/acs_vre_b01003_2024_pa101.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../public/data/hin_2025.receipt.json', import.meta.url), 'utf8'),
     readFile(new URL('../../public/data/tract_crime_counts_last12m.json', import.meta.url), 'utf8'),
   ]);
   const acs = JSON.parse(acsText);
+  const vre = JSON.parse(vreText);
+  const hin = JSON.parse(hinReceiptText);
   const tract = JSON.parse(tractText);
   assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.acsPopulation, {
     sourceId: 'acs-tract-population',
@@ -141,6 +145,32 @@ test('official URLs and bundled receipt versions match committed fixtures', asyn
     version: `${acs.manifest.vintage} ACS 5-year (${acs.manifest.period.replace('-', '–')}), table B01003`,
     identity: acs.manifest.rowsSha256,
     recordCount: acs.manifest.rowCount,
+  });
+  assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.acsVre, {
+    sourceId: 'acs-tract-population-vre',
+    sourceAsOf: '2024-12-31',
+    retrievedAt: vre.manifest.retrievedAt,
+    builtAt: null,
+    version: `${vre.schemaVersion}:${vre.manifest.release}`,
+    identity: vre.manifest.rowsSha256,
+    recordCount: vre.manifest.rowCount,
+    boundaryVintage: '2020 Census tract geography',
+    geography: vre.manifest.geography,
+    temporalStart: '2020-01-01',
+    temporalEnd: '2024-12-31',
+  });
+  assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.hin2025, {
+    sourceId: 'hin-2025',
+    sourceAsOf: hin.source.sourceAsOf,
+    retrievedAt: hin.artifact.retrievedAt,
+    builtAt: hin.artifact.builtAt,
+    version: `${hin.artifact.schema}@${hin.source.networkVintage}`,
+    identity: hin.artifact.identity,
+    recordCount: hin.artifact.featureCount,
+    boundaryVintage: null,
+    geography: 'Philadelphia High Injury Network historical planning geometry',
+    temporalStart: '2019-01-01',
+    temporalEnd: '2023-12-31',
   });
   assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.tractCrime, {
     sourceId: 'tract-crime-snapshot',
@@ -166,10 +196,18 @@ test('official URLs and bundled receipt versions match committed fixtures', asyn
     assert.match(source.license.url, /^https:\/\//);
   }
   const observations = bundledArtifactObservations({ now: NOW });
+  assert.deepEqual(observations.map(({ sourceId }) => sourceId), [
+    'acs-tract-population',
+    'acs-tract-population-vre',
+    'hin-2025',
+    'tract-crime-snapshot',
+  ]);
+  assert.equal(observations.find(({ sourceId }) => sourceId === 'acs-tract-population-vre').status, 'partial');
+  assert.equal(observations.find(({ sourceId }) => sourceId === 'hin-2025').status, 'partial');
   assert.equal(observations.find(({ sourceId }) => sourceId === 'tract-crime-snapshot').status, 'stale');
 });
 
-test('feature-owned observations register explicitly without changing the default assembly', () => {
+test('feature-owned observations replace matching bundled evidence without duplication', () => {
   const existing = createSourceHealthObservations({}, { now: NOW });
   assert.deepEqual(existing, [
     adaptCrimeCoverageObservation(undefined, { now: NOW }),
@@ -178,18 +216,36 @@ test('feature-owned observations register explicitly without changing the defaul
   assert.deepEqual(existing.map(({ sourceId }) => sourceId), [
     'philadelphia-reported-crime',
     'acs-tract-population',
+    'acs-tract-population-vre',
+    'hin-2025',
     'tract-crime-snapshot',
   ]);
 
-  const featureOwned = admitSourceHealthObservation(observation({ sourceId: 'hin-2025' }));
+  const featureOwned = admitSourceHealthObservation(observation({
+    sourceId: 'hin-2025',
+    statusReason: 'runtime-receipt',
+  }));
   const registeredSourceHealthObservations = [featureOwned];
   const extended = createSourceHealthObservations({
     registeredSourceHealthObservations,
   }, { now: NOW });
-  assert.deepEqual(extended.slice(0, existing.length), existing);
-  assert.equal(extended.at(-1), featureOwned);
+  assert.equal(extended.length, existing.length);
+  assert.equal(extended.find(({ sourceId }) => sourceId === 'hin-2025'), featureOwned);
+  assert.equal(extended.filter(({ sourceId }) => sourceId === 'hin-2025').length, 1);
   assert.equal(Object.isFrozen(extended), true);
   assert.deepEqual(registeredSourceHealthObservations, [featureOwned]);
+
+  const latestFeatureOwned = admitSourceHealthObservation(observation({
+    sourceId: 'hin-2025',
+    statusReason: 'latest-runtime-receipt',
+  }));
+  const deduplicated = createSourceHealthObservations({
+    registeredSourceHealthObservations: [featureOwned, latestFeatureOwned],
+  }, { now: NOW });
+  assert.equal(deduplicated.length, existing.length);
+  assert.equal(deduplicated.find(({ sourceId }) => sourceId === 'hin-2025'), latestFeatureOwned);
+  assert.equal(deduplicated.filter(({ sourceId }) => sourceId === 'hin-2025').length, 1);
+
   assert.throws(
     () => createSourceHealthObservations({ registeredSourceHealthObservations: {} }, { now: NOW }),
     /must be an array/,

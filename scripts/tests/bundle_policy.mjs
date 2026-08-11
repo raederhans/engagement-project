@@ -292,9 +292,9 @@ async function verifyWorkflowPolicy() {
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],
   ]);
   const expectedUseCounts = new Map([
-    ['actions/checkout', 5],
-    ['actions/setup-node', 4],
-    ['actions/upload-artifact', 2],
+    ['actions/checkout', 6],
+    ['actions/setup-node', 5],
+    ['actions/upload-artifact', 3],
     ['actions/configure-pages', 1],
     ['actions/upload-pages-artifact', 1],
     ['actions/deploy-pages', 1],
@@ -336,6 +336,19 @@ async function verifyWorkflowPolicy() {
   );
   assert.match(deployBlock, /^    needs: \[core, release, coverage\]\r?$/m, 'Pages deploy job must depend on every same-run gate');
   assert.match(deployBlock, /^    environment:\r?\n      name: github-pages\r?\n      url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}\r?$/m, 'Pages deploy environment and URL contract must remain intact');
+
+  const sourceAudit = await readFile(path.join(workflowDir, 'audit-source-candidates.yml'), 'utf8');
+  assert.match(
+    sourceAudit,
+    /^permissions:\r?\n  contents: read\r?$/m,
+    'Source candidate audit must keep workflow-level contents: read permissions',
+  );
+  assertJobInheritsWorkflowPermissions(sourceAudit, 'audit', 'Source candidate audit job');
+  assert.doesNotMatch(
+    sourceAudit,
+    /(?:contents|issues|pull-requests|pages|id-token): write|git (?:add|commit|push)|gh (?:issue|pr)|deploy-pages/i,
+    'Source candidate audit must not gain repository, review, or deployment write behavior',
+  );
 }
 
 async function verifyDependabotPolicy() {

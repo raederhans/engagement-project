@@ -1,0 +1,50 @@
+name: Audit source candidates
+
+on:
+  schedule:
+    - cron: '17 9 15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-candidate-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout admitted contracts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Generate candidate-only audit evidence
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          npm run data:audit:source-candidates -- \
+            --output-dir "$RUNNER_TEMP/source-candidate-audit"
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload audit report and review candidates
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: source-candidate-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/source-candidate-audit/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail closed when audit or review is required
+        if: steps.audit.outputs.status != '0'
+        run: exit 1
