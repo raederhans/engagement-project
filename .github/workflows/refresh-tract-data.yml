@@ -20,9 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check exact 14-day cadence
+      - name: Check exact 7-day cadence
         id: cadence
-        run: node scripts/check_data_refresh_due.mjs --anchor 2026-08-03 --interval 14
+        run: node scripts/check_data_refresh_due.mjs --anchor 2026-08-03 --interval 7
 
       - name: Setup Node.js
         if: github.event_name == 'workflow_dispatch' || steps.cadence.outputs.due == 'true'
@@ -41,6 +41,7 @@ jobs:
           VITE_FEATURE_DIARY: '1'
           VITE_TRACT_CRIME_SNAPSHOT: '1'
         run: |
+          set -euo pipefail
           npm run data:refresh:tract-crime
           npm run validate
 
@@ -54,8 +55,34 @@ jobs:
           if ! git diff --quiet -- public/data/tracts_phl.geojson; then
             tract_changed=true
           fi
-          if ! git diff --ignore-matching-lines='"generated_at":' --quiet -- public/data/tract_crime_counts_last12m.json; then
-            snapshot_changed=true
+          if ! git diff --quiet -- public/data/tract_crime_counts_last12m.json; then
+            if ! node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync } from 'node:fs';
+
+          const artifact = 'public/data/tract_crime_counts_last12m.json';
+          const previous = JSON.parse(execFileSync('git', ['show', `HEAD:${artifact}`], { encoding: 'utf8' }));
+          const current = JSON.parse(readFileSync(artifact, 'utf8'));
+          delete previous.meta.generated_at;
+          delete current.meta.generated_at;
+
+          function canonicalize(value) {
+            if (Array.isArray(value)) return value.map(canonicalize);
+            if (value && typeof value === 'object') {
+              return Object.fromEntries(
+                Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]),
+              );
+            }
+            return value;
+          }
+
+          if (JSON.stringify(canonicalize(previous)) !== JSON.stringify(canonicalize(current))) {
+            process.exitCode = 1;
+          }
+          NODE
+            then
+              snapshot_changed=true
+            fi
           fi
           if [[ "$tract_changed" == false && "$snapshot_changed" == false ]]; then
             git restore -- public/data/tracts_phl.geojson public/data/tract_crime_counts_last12m.json
@@ -81,4 +108,4 @@ jobs:
             --base main \
             --head "$branch" \
             --title "Refresh published tract data" \
-            --body "Automated biweekly refresh of the published Philadelphia tract boundary and crime snapshot. Generated files were rebuilt and the full validation suite passed. Review and merge manually; this workflow never pushes directly to main."
+            --body "Automated weekly refresh of the published Philadelphia tract boundary and crime snapshot. Generated files were rebuilt and the full validation suite passed. Review and merge manually; this workflow never pushes directly to main."

@@ -7,7 +7,7 @@ const options = parseArgs(process.argv.slice(2));
 const date = options.date || new Date().toISOString().slice(0, 10);
 const due = isCadenceDue(date, {
   anchor: options.anchor || '2026-08-03',
-  intervalDays: Number(options.interval || 14),
+  intervalDays: Number(options.interval || 7),
 });
 const line = `due=${due}`;
 console.log(line);
