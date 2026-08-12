@@ -92,7 +92,7 @@ S2-0 public contract
 | Lane | Task ID | Worktree | Start state |
 | --- | --- | --- | --- |
 | S2-0 Contract / Product Semantics | `019ff435-0c08-7323-902c-39d181428af1` | `C:/Users/raede/.codex/worktrees/d9bd/engagement_project` | Completed; lane `22d685e`, integrated `065d824`; worktree clean |
-| S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Completed; lane `beb193a`, integrated `4db3f06`; worktree clean |
+| S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Completed; lane `beb193a` plus follow-up `362cff3`, integrated as `4db3f06` and path-equivalent primary correction `db62cd0`; worktree clean |
 | S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Completed; lane commits `f2a9285` and `51680a1`, integrated as `084098c` and `22e41a0`; worktree retained for audit |
 | S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Completed; lane commit `02de320`, integrated as `8e9068a`; worktree retained for audit |
 
