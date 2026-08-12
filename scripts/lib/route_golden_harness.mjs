@@ -14,6 +14,8 @@ export const ROUTE_GOLDEN_MANIFEST_SCHEMA_VERSION = 'route-golden-manifest/v1';
 export const ROUTE_GOLDEN_CASE_SCHEMA_VERSION = 'route-golden-case/v1';
 export const ROUTE_GOLDEN_FIXTURE_SET_VERSION = 'synthetic-route-generation/v1';
 export const ROUTE_GOLDEN_LEDGER_SCHEMA_VERSION = 'route-golden-ledger/v1';
+export const ROUTE_GOLDEN_FULL_ORACLE_SCOPE = 'full-oracle/v1';
+export const ROUTE_GOLDEN_PRIMARY_ONLY_SCOPE = 'primary-only/v1';
 export const DEFAULT_ROUTE_GOLDEN_MANIFEST_URL = new URL(
   '../tests/fixtures/route_generation/manifest.json',
   import.meta.url,
@@ -23,6 +25,10 @@ const COHORT_NAMES = Object.freeze(['reachable', 'terminal', 'conformance']);
 const TIE_BREAK_CONTRACT = Object.freeze(['objectiveCostUnits', 'edgeIdsLexicographic']);
 const SOLVER_TERMINAL_STATUSES = new Set([
   'ready', 'no-route', 'endpoint-unavailable', 'invalid-input',
+]);
+const COMPARISON_SCOPES = new Set([
+  ROUTE_GOLDEN_FULL_ORACLE_SCOPE,
+  ROUTE_GOLDEN_PRIMARY_ONLY_SCOPE,
 ]);
 const FAILURE_CLASS_ORDER = Object.freeze([
   'fixture-load-error',
@@ -227,11 +233,15 @@ export async function loadGoldenFixtureSet({
 export async function runGoldenCases({
   solve,
   solverId = 'injected-solver',
+  comparisonScope = ROUTE_GOLDEN_FULL_ORACLE_SCOPE,
   manifestUrl = DEFAULT_ROUTE_GOLDEN_MANIFEST_URL,
   loadJson = readJson,
 } = {}) {
   if (typeof solve !== 'function') throw new TypeError('runGoldenCases solve must be a function');
   requireNonEmptyString(solverId, 'solver-id-invalid', 'runGoldenCases solverId');
+  if (!COMPARISON_SCOPES.has(comparisonScope)) {
+    throw new TypeError(`Unsupported Golden comparisonScope: ${comparisonScope}`);
+  }
 
   const resolvedManifestUrl = resolveManifestUrl(manifestUrl);
   const manifest = validateGoldenManifest(await loadJson(resolvedManifestUrl));
@@ -256,7 +266,7 @@ export async function runGoldenCases({
         continue;
       }
 
-      entries.push(await runOneGoldenCase({ solve, fixture, cohort }));
+      entries.push(await runOneGoldenCase({ solve, fixture, cohort, comparisonScope }));
     }
   }
 
@@ -278,6 +288,7 @@ export async function runGoldenCases({
     fixtureSetVersion: manifest.fixtureSetVersion,
     oracleContractVersion: manifest.oracleContractVersion,
     solverId,
+    comparisonScope,
     entries,
     summary: {
       totalCases: entries.length,
@@ -294,13 +305,25 @@ export function normalizeGoldenOutcome(value) {
   return normalizeJsonValue(value, new WeakSet());
 }
 
-async function runOneGoldenCase({ solve, fixture, cohort }) {
+function projectOutcomeForScope(outcome, comparisonScope) {
+  if (comparisonScope === ROUTE_GOLDEN_FULL_ORACLE_SCOPE || outcome.status !== 'ready') {
+    return outcome;
+  }
+  return {
+    status: outcome.status,
+    primary: outcome.primary,
+  };
+}
+
+async function runOneGoldenCase({ solve, fixture, cohort, comparisonScope }) {
   const oracleOutcome = normalizeGoldenOutcome(solveReferenceRoute(fixture.input));
   const expectedOutcome = normalizeGoldenOutcome(fixture.expected);
   const fixtureMatchesOracle = isDeepStrictEqual(expectedOutcome, oracleOutcome);
+  const scopedOracleOutcome = projectOutcomeForScope(oracleOutcome, comparisonScope);
+  const scopedExpectedOutcome = projectOutcomeForScope(expectedOutcome, comparisonScope);
   const rounds = [
-    await invokeSolver(solve, fixture.input),
-    await invokeSolver(solve, fixture.input),
+    await invokeSolver(solve, fixture.input, comparisonScope),
+    await invokeSolver(solve, fixture.input, comparisonScope),
   ];
   const deterministic = isDeepStrictEqual(roundSignature(rounds[0]), roundSignature(rounds[1]));
   const failureClasses = new Set();
@@ -330,18 +353,23 @@ async function runOneGoldenCase({ solve, fixture, cohort }) {
   if (stableCanonicalResult) {
     const outcome = rounds[0].outcome;
     terminalOutcome = { source: 'solver', ...outcome };
-    const expectedAgreement = isDeepStrictEqual(outcome, expectedOutcome);
-    const oracleAgreement = isDeepStrictEqual(outcome, oracleOutcome);
+    const expectedAgreement = isDeepStrictEqual(outcome, scopedExpectedOutcome);
+    const oracleAgreement = isDeepStrictEqual(outcome, scopedOracleOutcome);
     checks.expectedAgreement = expectedAgreement ? 'pass' : 'fail';
     checks.oracleAgreement = oracleAgreement ? 'pass' : 'fail';
     if (!expectedAgreement) {
       failureClasses.add('expected-outcome-mismatch');
-      if (outcome.status !== expectedOutcome.status) failureClasses.add('unexpected-terminal-status');
+      if (outcome.status !== scopedExpectedOutcome.status) failureClasses.add('unexpected-terminal-status');
     }
     if (!oracleAgreement) failureClasses.add('oracle-mismatch');
 
     if (outcome.status === 'ready') {
-      const readyInspection = inspectReadyOutcome(outcome, fixture.input, oracleOutcome);
+      const readyInspection = inspectReadyOutcome(
+        outcome,
+        fixture.input,
+        scopedOracleOutcome,
+        comparisonScope,
+      );
       Object.assign(checks, readyInspection.checks);
       for (const failureClass of readyInspection.failureClasses) failureClasses.add(failureClass);
     }
@@ -372,7 +400,7 @@ async function runOneGoldenCase({ solve, fixture, cohort }) {
   });
 }
 
-async function invokeSolver(solve, input) {
+async function invokeSolver(solve, input, comparisonScope) {
   let returned;
   try {
     returned = await solve({
@@ -400,27 +428,41 @@ async function invokeSolver(solve, input) {
   return {
     kind: 'returned',
     outcome,
-    failureClasses: inspectCanonicalOutcome(outcome),
+    failureClasses: inspectCanonicalOutcome(outcome, comparisonScope),
   };
 }
 
-function inspectCanonicalOutcome(outcome) {
+function inspectCanonicalOutcome(outcome, comparisonScope) {
   if (!isPlainObject(outcome)) return ['solver-invalid-result'];
   if (!Object.hasOwn(outcome, 'status') || !isNonEmptyString(outcome.status)) {
     return ['missing-terminal-status', 'solver-invalid-result'];
   }
   if (!SOLVER_TERMINAL_STATUSES.has(outcome.status)) return ['solver-invalid-result'];
   try {
-    validateExpectedOutcomeShape(outcome, 'solver-result');
+    validateExpectedOutcomeShape(outcome, 'solver-result', comparisonScope);
     return [];
   } catch {
     return ['solver-invalid-result'];
   }
 }
 
-function inspectReadyOutcome(outcome, input, oracleOutcome) {
+function inspectReadyOutcome(outcome, input, oracleOutcome, comparisonScope) {
   const failures = new Set();
   const routeChecks = [inspectRouteFacts(outcome.primary, input.graph, input.request)];
+  if (comparisonScope === ROUTE_GOLDEN_PRIMARY_ONLY_SCOPE) {
+    for (const inspection of routeChecks) {
+      for (const failureClass of inspection.failureClasses) failures.add(failureClass);
+    }
+    return {
+      checks: {
+        continuity: routeChecks[0].continuity ? 'pass' : 'fail',
+        distance: routeChecks[0].distance ? 'pass' : 'fail',
+        cost: routeChecks[0].cost ? 'pass' : 'fail',
+        alternatives: 'not-evaluated',
+      },
+      failureClasses: orderFailureClasses(failures),
+    };
+  }
   if (outcome.alternatives.kind === 'multiple-distinct') {
     routeChecks.push(inspectRouteFacts(outcome.alternatives.bestDistinct, input.graph, input.request));
     if (isDeepStrictEqual(outcome.primary.edgeIds, outcome.alternatives.bestDistinct.edgeIds)) {
@@ -583,12 +625,21 @@ function validateRequestShape(request, caseId) {
   requireNonEmptyString(request.destinationNodeId, 'fixture-request-invalid', `${caseId} destinationNodeId`);
 }
 
-function validateExpectedOutcomeShape(outcome, caseId) {
+function validateExpectedOutcomeShape(
+  outcome,
+  caseId,
+  comparisonScope = ROUTE_GOLDEN_FULL_ORACLE_SCOPE,
+) {
   requirePlainObject(outcome, 'outcome-invalid', `${caseId} outcome must be an object`);
   if (!SOLVER_TERMINAL_STATUSES.has(outcome.status)) {
     throw new GoldenFixtureError('outcome-status-invalid', `${caseId} outcome status is invalid`);
   }
   if (outcome.status === 'ready') {
+    if (comparisonScope === ROUTE_GOLDEN_PRIMARY_ONLY_SCOPE) {
+      requireExactKeys(outcome, ['status', 'primary'], 'outcome-invalid', `${caseId} ready outcome`);
+      validateRouteFactsShape(outcome.primary, `${caseId} primary`);
+      return;
+    }
     requireExactKeys(outcome, ['status', 'primary', 'alternatives'], 'outcome-invalid', `${caseId} ready outcome`);
     validateRouteFactsShape(outcome.primary, `${caseId} primary`);
     requirePlainObject(outcome.alternatives, 'outcome-alternatives-invalid', `${caseId} alternatives must be an object`);

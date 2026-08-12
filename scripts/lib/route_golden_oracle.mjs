@@ -65,10 +65,8 @@ export function inspectReferenceRouteInput({ graph, request } = {}) {
         distanceTotal += edge.distanceMm;
       }
 
-      if (!Number.isSafeInteger(edge.objectiveCostUnits)) {
+      if (!Number.isSafeInteger(edge.objectiveCostUnits) || edge.objectiveCostUnits < 0) {
         violations.push('edge-objective-cost-invalid');
-      } else if (edge.objectiveCostUnits < 0) {
-        violations.push('edge-objective-cost-negative');
       } else {
         objectiveCostTotal += edge.objectiveCostUnits;
       }
