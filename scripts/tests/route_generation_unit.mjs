@@ -11,6 +11,13 @@ import {
   findShortestPath,
   solveShortestRoute,
 } from '../../src/route_generation/base_dijkstra.js';
+import { generateRouteFoundation } from '../../src/route_generation/public_adapter.js';
+import {
+  CANDIDATE_SET_LIMITATIONS,
+  ROUTE_DECISION_SCHEMA_VERSIONS,
+  admitCandidateSet,
+  admitRouteCandidateFacts,
+} from '../../src/route_decision/contracts/index.js';
 
 function edge(edgeId, fromNodeId, toNodeId, distanceMm, objectiveCostUnits) {
   return { edgeId, fromNodeId, toNodeId, distanceMm, objectiveCostUnits };
@@ -29,6 +36,54 @@ function graphArtifact({
     directed,
     nodes: nodes.map((nodeId) => ({ nodeId })),
     edges,
+  };
+}
+
+function s0GraphArtifact({
+  graphId = 'graph-fixture-1',
+  nodes = ['a', 'b', 'c'],
+  edges = [
+    edge('a-b', 'a', 'b', 1_250, 1_300),
+    edge('b-c', 'b', 'c', 2_000, 2_100),
+  ],
+  components,
+  mode = 'walk',
+  schemaVersion = ROUTE_DECISION_SCHEMA_VERSIONS.graphArtifact,
+} = {}) {
+  const byNodeId = components?.byNodeId ?? Object.fromEntries(nodes.map((nodeId) => [nodeId, 0]));
+  return {
+    schemaVersion,
+    graphId,
+    mode,
+    directed: true,
+    nodes: nodes.map((nodeId) => ({ nodeId })),
+    edges,
+    components: components ?? {
+      kind: 'weakly-connected',
+      count: 1,
+      byNodeId,
+    },
+    provenance: {
+      dataClassification: 'synthetic',
+      sourceIds: ['synthetic-fixture'],
+    },
+    receipt: {
+      artifactVersion: 'fixture-graph-v1',
+    },
+  };
+}
+
+function s0RouteRequest(overrides = {}) {
+  return {
+    schemaVersion: ROUTE_DECISION_SCHEMA_VERSIONS.routeRequest,
+    requestId: 'request-1',
+    graphId: 'graph-fixture-1',
+    mode: 'walk',
+    originNodeId: 'a',
+    destinationNodeId: 'c',
+    decisionPolicyId: 'distance-first-v1',
+    maxCandidateCount: 3,
+    ...overrides,
   };
 }
 
@@ -501,4 +556,187 @@ test('compiler and router do not mutate the graph artifact or route request', ()
   solveShortestRoute(request);
 
   assert.deepEqual(request, before);
+});
+
+test('public adapter maps an exact S0 RouteRequest that the internal solver cannot consume directly', () => {
+  const graph = s0GraphArtifact();
+  const request = s0RouteRequest();
+  const directInternalResult = solveShortestRoute({ graphArtifact: graph, ...request });
+
+  assert.equal(directInternalResult.status, 'endpoint_unavailable');
+
+  const outcome = generateRouteFoundation(graph, request);
+  assert.equal(outcome.status, 'ready');
+  assert.deepEqual(outcome.candidateFacts, [{
+    schemaVersion: ROUTE_DECISION_SCHEMA_VERSIONS.routeCandidateFacts,
+    candidateId: 'request-1',
+    edgeIds: ['a-b', 'b-c'],
+    distanceMm: 3_250,
+    objectiveCostUnits: 3_400,
+    observations: {},
+    provenance: {
+      graphId: 'graph-fixture-1',
+      dataClassification: 'synthetic',
+    },
+  }]);
+  assert.deepEqual(outcome.candidateSet, {
+    schemaVersion: ROUTE_DECISION_SCHEMA_VERSIONS.candidateSet,
+    candidateSetId: 'request-1',
+    candidateSetRevision: 'fixture-graph-v1',
+    requestId: 'request-1',
+    graphId: 'graph-fixture-1',
+    strategy: 'base-objective-only',
+    objectiveFactorId: 'objective-cost-units',
+    candidateIds: ['request-1'],
+    candidateCount: 1,
+    completeness: 'incomplete',
+    constraintAwareSearch: false,
+    limitations: [...CANDIDATE_SET_LIMITATIONS],
+  });
+  assert.deepEqual(admitRouteCandidateFacts(outcome.candidateFacts[0]), outcome.candidateFacts[0]);
+  assert.deepEqual(admitCandidateSet(outcome.candidateSet), outcome.candidateSet);
+  assert.equal(Object.isFrozen(outcome), true);
+  assert.equal(Object.isFrozen(outcome.candidateFacts), true);
+  assert.equal(Object.isFrozen(outcome.candidateFacts[0].observations), true);
+});
+
+test('public ready candidate preserves solver edge order and independently recomputable graph facts', () => {
+  const graph = s0GraphArtifact({
+    nodes: ['start', 'middle', 'end'],
+    edges: [
+      edge('z-direct', 'start', 'end', 10, 4),
+      edge('b', 'middle', 'end', 400, 2),
+      edge('a', 'start', 'middle', 400, 2),
+    ],
+  });
+  graph.graphId = 'graph-path-order';
+  const request = s0RouteRequest({
+    requestId: 'request-path-order',
+    graphId: 'graph-path-order',
+    originNodeId: 'start',
+    destinationNodeId: 'end',
+  });
+
+  const outcome = generateRouteFoundation(graph, request);
+  const candidate = outcome.candidateFacts[0];
+  const edgeById = new Map(graph.edges.map((candidateEdge) => [candidateEdge.edgeId, candidateEdge]));
+  const recomputed = candidate.edgeIds.reduce((totals, edgeId) => {
+    const candidateEdge = edgeById.get(edgeId);
+    totals.distanceMm += candidateEdge.distanceMm;
+    totals.objectiveCostUnits += candidateEdge.objectiveCostUnits;
+    return totals;
+  }, { distanceMm: 0, objectiveCostUnits: 0 });
+
+  assert.equal(outcome.status, 'ready');
+  assert.deepEqual(candidate.edgeIds, ['a', 'b']);
+  assert.deepEqual(recomputed, {
+    distanceMm: candidate.distanceMm,
+    objectiveCostUnits: candidate.objectiveCostUnits,
+  });
+  assert.deepEqual(candidate.observations, {});
+});
+
+test('public adapter returns a truthful ready self-route with one zero-edge candidate', () => {
+  const outcome = generateRouteFoundation(
+    s0GraphArtifact({ nodes: ['a'], edges: [] }),
+    s0RouteRequest({ destinationNodeId: 'a' }),
+  );
+
+  assert.equal(outcome.status, 'ready');
+  assert.equal(outcome.candidateSet.candidateCount, 1);
+  assert.deepEqual(outcome.candidateSet.candidateIds, ['request-1']);
+  assert.deepEqual(outcome.candidateFacts[0].edgeIds, []);
+  assert.equal(outcome.candidateFacts[0].distanceMm, 0);
+  assert.equal(outcome.candidateFacts[0].objectiveCostUnits, 0);
+});
+
+test('public endpoint-unavailable and no-route terminals remain distinct zero-candidate sets', () => {
+  const endpointUnavailable = generateRouteFoundation(
+    s0GraphArtifact(),
+    s0RouteRequest({ destinationNodeId: 'missing' }),
+  );
+  const disconnectedGraph = s0GraphArtifact({
+    nodes: ['a', 'b', 'x', 'y'],
+    edges: [
+      edge('a-b', 'a', 'b', 100, 1),
+      edge('x-y', 'x', 'y', 100, 1),
+    ],
+    components: {
+      kind: 'weakly-connected',
+      count: 2,
+      byNodeId: { a: 0, b: 0, x: 1, y: 1 },
+    },
+  });
+  const noRoute = generateRouteFoundation(
+    disconnectedGraph,
+    s0RouteRequest({ destinationNodeId: 'y' }),
+  );
+
+  assert.equal(endpointUnavailable.status, 'endpoint-unavailable');
+  assert.equal(noRoute.status, 'no-route');
+  for (const outcome of [endpointUnavailable, noRoute]) {
+    assert.equal(outcome.status === 'no-feasible-route', false);
+    assert.deepEqual(outcome.candidateFacts, []);
+    assert.equal(outcome.candidateSet.candidateCount, 0);
+    assert.deepEqual(outcome.candidateSet.candidateIds, []);
+    assert.equal(outcome.candidateSet.completeness, 'incomplete');
+    assert.equal(outcome.candidateSet.constraintAwareSearch, false);
+    assert.deepEqual(outcome.candidateSet.limitations, CANDIDATE_SET_LIMITATIONS);
+    assert.deepEqual(admitCandidateSet(outcome.candidateSet), outcome.candidateSet);
+  }
+});
+
+test('public adapter fails closed on schema drift and graph/request identity mismatch', () => {
+  const futureGraph = s0GraphArtifact({ schemaVersion: 'engagement-route-graph/v2' });
+  const futureRequest = s0RouteRequest({ schemaVersion: 'engagement-route-request/v2' });
+  const mismatchedRequest = s0RouteRequest({ graphId: 'another-graph' });
+  const extraFieldGraph = { ...s0GraphArtifact(), unknownField: true };
+
+  const outcomes = [
+    generateRouteFoundation(futureGraph, s0RouteRequest()),
+    generateRouteFoundation(s0GraphArtifact(), futureRequest),
+    generateRouteFoundation(s0GraphArtifact(), mismatchedRequest),
+    generateRouteFoundation(extraFieldGraph, s0RouteRequest()),
+  ];
+
+  for (const outcome of outcomes) {
+    assert.equal(outcome.status, 'invalid-input');
+    assert.equal(Object.keys(outcome).length, 2);
+    assert.equal(typeof outcome.reasonCode, 'string');
+    assert.equal('candidateSet' in outcome, false);
+    assert.equal('candidateFacts' in outcome, false);
+    assert.equal(Object.isFrozen(outcome), true);
+  }
+});
+
+test('public adapter rejects graph and request getters without executing them', () => {
+  let getterCalls = 0;
+  const onRead = () => {
+    getterCalls += 1;
+  };
+  const graph = s0GraphArtifact();
+  defineThrowingGetter(graph.edges[0], 'distanceMm', onRead);
+  const request = s0RouteRequest();
+  defineThrowingGetter(request, 'originNodeId', onRead);
+
+  const graphOutcome = generateRouteFoundation(graph, s0RouteRequest());
+  const requestOutcome = generateRouteFoundation(s0GraphArtifact(), request);
+
+  assert.equal(graphOutcome.status, 'invalid-input');
+  assert.equal(requestOutcome.status, 'invalid-input');
+  assert.equal(getterCalls, 0);
+});
+
+test('public adapter does not mutate or retain caller graph and request objects', () => {
+  const graph = s0GraphArtifact();
+  const request = s0RouteRequest();
+  const before = structuredClone({ graph, request });
+
+  const outcome = generateRouteFoundation(graph, request);
+  assert.deepEqual({ graph, request }, before);
+  graph.edges[0].distanceMm = 999_999;
+  request.originNodeId = 'mutated';
+
+  assert.equal(outcome.candidateFacts[0].distanceMm, 3_250);
+  assert.equal(outcome.candidateSet.requestId, 'request-1');
 });
