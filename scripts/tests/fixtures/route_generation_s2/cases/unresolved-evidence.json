@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "unresolved-evidence",
+  "title": "Missing complete edge evidence excludes the route and remains unresolved",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "unresolved-evidence-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "a-b", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "b-d", "fromNodeId": "b", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "unresolved-evidence-request",
+      "graphId": "unresolved-evidence-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 1,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": [{
+        "constraintId": "requires-step-free",
+        "factorId": "step-free",
+        "locality": "edge-local",
+        "edgeEvidenceRequirement": "complete",
+        "operator": "equals",
+        "expectedValue": true,
+        "routeAggregation": "every-directed-edge",
+        "aggregationVersion": "every-directed-edge-fail-dominates-unresolved/v1",
+        "unresolvedStates": ["unknown", "unavailable", "partial", "stale", "invalid", "missing"],
+        "unresolvedDisposition": "exclude-and-report"
+      }]
+    },
+    "edgeObservationsByEdgeId": {
+      "b-d": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": true, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } }
+    }
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "unresolved-constraint-evidence",
+    "routes": [],
+    "search": {
+      "requestedCandidateCount": 1,
+      "candidateCount": 0,
+      "expandedStateCount": 1,
+      "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "unresolved-evidence",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

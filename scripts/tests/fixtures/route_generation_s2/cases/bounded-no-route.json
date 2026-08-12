@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "bounded-no-route",
+  "title": "Available endpoints in disconnected components have no directed route in scope",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "bounded-no-route-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "c" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "a-b", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "c-d", "fromNodeId": "c", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "bounded-no-route-request",
+      "graphId": "bounded-no-route-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 2,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "no-directed-route-in-bounded-scope",
+    "routes": [],
+    "search": {
+      "requestedCandidateCount": 2,
+      "candidateCount": 0,
+      "expandedStateCount": 2,
+      "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

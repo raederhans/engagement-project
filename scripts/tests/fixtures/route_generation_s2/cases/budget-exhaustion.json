@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "budget-exhaustion",
+  "title": "One expansion finalizes the cheap direct route before the remaining frontier exhausts budget",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "budget-exhaustion-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "direct", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "a-b", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 10, "objectiveCostUnits": 2 },
+        { "edgeId": "b-d", "fromNodeId": "b", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 2 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "budget-exhaustion-request",
+      "graphId": "budget-exhaustion-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 2,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 1, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "stopped",
+    "termination": "search-budget-exhausted",
+    "routes": [{ "edgeIds": ["direct"], "nodeIds": ["a", "d"], "distanceMm": 10, "objectiveCostUnits": 1, "observations": {} }],
+    "search": {
+      "requestedCandidateCount": 2,
+      "candidateCount": 1,
+      "expandedStateCount": 1,
+      "completeness": { "routeSearch": "not-proven", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "exhausted"
+    }
+  }
+}

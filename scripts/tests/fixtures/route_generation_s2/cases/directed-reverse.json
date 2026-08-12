@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "directed-reverse",
+  "title": "A directed edge cannot be traversed in reverse",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "directed-reverse-s2-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "d" }],
+      "edges": [{ "edgeId": "a-d", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "directed-reverse-s2-request",
+      "graphId": "directed-reverse-s2-graph",
+      "mode": "walk",
+      "originNodeId": "d",
+      "destinationNodeId": "a",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 2,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "no-directed-route-in-bounded-scope",
+    "routes": [],
+    "search": {
+      "requestedCandidateCount": 2,
+      "candidateCount": 0,
+      "expandedStateCount": 1,
+      "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

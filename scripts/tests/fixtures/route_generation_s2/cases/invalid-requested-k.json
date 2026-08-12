@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "invalid-requested-k",
+  "title": "An invalid requested K is rejected before search",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "invalid-requested-k-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "d" }],
+      "edges": [{ "edgeId": "a-d", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "invalid-requested-k-request",
+      "graphId": "invalid-requested-k-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 0,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": { "status": "rejected", "termination": "invalid-input", "routes": [], "search": null }
+}

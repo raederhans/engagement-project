@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "self-route",
+  "title": "The same endpoint returns one zero-edge route without expansion",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "self-route-s2-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "d" }],
+      "edges": [{ "edgeId": "a-d", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "self-route-s2-request",
+      "graphId": "self-route-s2-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "a",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 1,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 1, "maxRouteEdgeCount": 0 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "requested-candidate-count-reached",
+    "routes": [{ "edgeIds": [], "nodeIds": ["a"], "distanceMm": 0, "objectiveCostUnits": 0, "observations": {} }],
+    "search": {
+      "requestedCandidateCount": 1,
+      "candidateCount": 1,
+      "expandedStateCount": 0,
+      "completeness": { "routeSearch": "not-proven", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

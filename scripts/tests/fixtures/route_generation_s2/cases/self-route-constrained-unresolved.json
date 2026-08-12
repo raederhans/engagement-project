@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "self-route-constrained-unresolved",
+  "title": "A constrained zero-edge self route cannot invent observed capability evidence",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "self-route-constrained-unresolved-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "d" }],
+      "edges": [{ "edgeId": "a-d", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 }]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "self-route-constrained-unresolved-request",
+      "graphId": "self-route-constrained-unresolved-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "a",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 1,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 1, "maxRouteEdgeCount": 0 },
+      "hardConstraints": [{
+        "constraintId": "requires-step-free",
+        "factorId": "step-free",
+        "locality": "edge-local",
+        "edgeEvidenceRequirement": "complete",
+        "operator": "equals",
+        "expectedValue": true,
+        "routeAggregation": "every-directed-edge",
+        "aggregationVersion": "every-directed-edge-fail-dominates-unresolved/v1",
+        "unresolvedStates": ["unknown", "unavailable", "partial", "stale", "invalid", "missing"],
+        "unresolvedDisposition": "exclude-and-report"
+      }]
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "unresolved-constraint-evidence",
+    "routes": [],
+    "search": {
+      "requestedCandidateCount": 1,
+      "candidateCount": 0,
+      "expandedStateCount": 0,
+      "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "unresolved-evidence",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

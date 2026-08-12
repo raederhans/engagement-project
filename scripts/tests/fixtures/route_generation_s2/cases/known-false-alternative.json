@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "known-false-alternative",
+  "title": "A known-false cheap edge is excluded and the eligible alternative becomes primary",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "known-false-alternative-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "cheap", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "a-b", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 20, "objectiveCostUnits": 2 },
+        { "edgeId": "b-d", "fromNodeId": "b", "toNodeId": "d", "distanceMm": 20, "objectiveCostUnits": 2 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "known-false-alternative-request",
+      "graphId": "known-false-alternative-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 1,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": [{
+        "constraintId": "requires-step-free",
+        "factorId": "step-free",
+        "locality": "edge-local",
+        "edgeEvidenceRequirement": "complete",
+        "operator": "equals",
+        "expectedValue": true,
+        "routeAggregation": "every-directed-edge",
+        "aggregationVersion": "every-directed-edge-fail-dominates-unresolved/v1",
+        "unresolvedStates": ["unknown", "unavailable", "partial", "stale", "invalid", "missing"],
+        "unresolvedDisposition": "exclude-and-report"
+      }]
+    },
+    "edgeObservationsByEdgeId": {
+      "cheap": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": false, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } },
+      "a-b": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": true, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } },
+      "b-d": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": true, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } }
+    }
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "requested-candidate-count-reached",
+    "routes": [{
+      "edgeIds": ["a-b", "b-d"],
+      "nodeIds": ["a", "b", "d"],
+      "distanceMm": 40,
+      "objectiveCostUnits": 4,
+      "observations": { "step-free": { "state": "observed", "value": true } }
+    }],
+    "search": {
+      "requestedCandidateCount": 1,
+      "candidateCount": 1,
+      "expandedStateCount": 2,
+      "completeness": { "routeSearch": "not-proven", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "eligible-candidates-returned",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

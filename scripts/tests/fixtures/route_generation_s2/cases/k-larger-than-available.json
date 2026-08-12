@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "k-larger-than-available",
+  "title": "Exhausting two available paths below K proves bounded completeness",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "k-larger-than-available-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "c" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "a-b", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "b-d", "fromNodeId": "b", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "a-c", "fromNodeId": "a", "toNodeId": "c", "distanceMm": 20, "objectiveCostUnits": 2 },
+        { "edgeId": "c-d", "fromNodeId": "c", "toNodeId": "d", "distanceMm": 20, "objectiveCostUnits": 2 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "k-larger-than-available-request",
+      "graphId": "k-larger-than-available-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 4,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "bounded-search-space-exhausted",
+    "routes": [
+      { "edgeIds": ["a-b", "b-d"], "nodeIds": ["a", "b", "d"], "distanceMm": 20, "objectiveCostUnits": 2, "observations": {} },
+      { "edgeIds": ["a-c", "c-d"], "nodeIds": ["a", "c", "d"], "distanceMm": 40, "objectiveCostUnits": 4, "observations": {} }
+    ],
+    "search": {
+      "requestedCandidateCount": 4,
+      "candidateCount": 2,
+      "expandedStateCount": 3,
+      "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}

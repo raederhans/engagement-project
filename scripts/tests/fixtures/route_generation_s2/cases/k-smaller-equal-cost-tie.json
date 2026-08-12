@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "route-golden-s2-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "caseId": "k-smaller-equal-cost-tie",
+  "title": "K smaller than three equal-cost routes returns the edge-sequence prefix",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "k-smaller-equal-cost-tie-graph",
+      "directed": true,
+      "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "c" }, { "nodeId": "d" }],
+      "edges": [
+        { "edgeId": "c-last", "fromNodeId": "c", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "b-direct", "fromNodeId": "a", "toNodeId": "d", "distanceMm": 5, "objectiveCostUnits": 2 },
+        { "edgeId": "a-last", "fromNodeId": "b", "toNodeId": "d", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "c-first", "fromNodeId": "a", "toNodeId": "c", "distanceMm": 10, "objectiveCostUnits": 1 },
+        { "edgeId": "a-first", "fromNodeId": "a", "toNodeId": "b", "distanceMm": 10, "objectiveCostUnits": 1 }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "k-smaller-equal-cost-tie-request",
+      "graphId": "k-smaller-equal-cost-tie-graph",
+      "mode": "walk",
+      "originNodeId": "a",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 2,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": { "maxExpandedStates": 20, "maxRouteEdgeCount": 4 },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "completed",
+    "termination": "requested-candidate-count-reached",
+    "routes": [
+      { "edgeIds": ["a-first", "a-last"], "nodeIds": ["a", "b", "d"], "distanceMm": 20, "objectiveCostUnits": 2, "observations": {} },
+      { "edgeIds": ["b-direct"], "nodeIds": ["a", "d"], "distanceMm": 5, "objectiveCostUnits": 2, "observations": {} }
+    ],
+    "search": {
+      "requestedCandidateCount": 2,
+      "candidateCount": 2,
+      "expandedStateCount": 3,
+      "completeness": { "routeSearch": "not-proven", "scope": "loopless-directed-routes-within-max-route-edge-count" },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget"
+    }
+  }
+}
