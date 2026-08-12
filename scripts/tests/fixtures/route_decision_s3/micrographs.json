@@ -1,0 +1,538 @@
+{
+  "fixtureVersion": "s3-micrograph-fixtures/v1",
+  "cases": [
+    {
+      "caseId": "objective-candidateful",
+      "configurationIndex": 0,
+      "nodes": ["o", "a", "b", "d"],
+      "edges": [
+        ["e-a1", "o", "a", 700, 10],
+        ["e-a2", "a", "d", 700, 10],
+        ["e-b1", "o", "b", 500, 15],
+        ["e-b2", "b", "d", 500, 15]
+      ],
+      "expectedTermination": "bounded-search-space-exhausted",
+      "expectedCandidateCount": 2
+    },
+    {
+      "caseId": "distance-provided-set-ranking",
+      "configurationIndex": 1,
+      "nodes": ["o", "a", "b", "d"],
+      "edges": [
+        ["e-a1", "o", "a", 25000000, 5],
+        ["e-a2", "a", "d", 25000000, 5],
+        ["e-b1", "o", "b", 500, 10],
+        ["e-b2", "b", "d", 500, 10]
+      ],
+      "expectedTermination": "bounded-search-space-exhausted",
+      "expectedCandidateCount": 2,
+      "expectedRankedCandidateIds": ["candidate:2", "candidate:1"]
+    },
+    {
+      "caseId": "g4-candidateful",
+      "configurationIndex": 4,
+      "nodes": ["o", "a", "d"],
+      "edges": [
+        ["e1", "o", "a", 500, 5],
+        ["e2", "a", "d", 500, 5]
+      ],
+      "expectedTermination": "bounded-search-space-exhausted",
+      "expectedCandidateCount": 1
+    },
+    {
+      "caseId": "g4-candidateful-unresolved",
+      "configurationIndex": 4,
+      "nodes": ["o", "a", "u", "d"],
+      "edges": [
+        ["e-a1", "o", "a", 500, 5],
+        ["e-a2", "a", "d", 500, 5],
+        ["e-u1", "o", "u", 600, 6],
+        ["e-u2", "u", "d", 600, 6]
+      ],
+      "evidenceOverrides": {
+        "e-u1:step-free": "unknown"
+      },
+      "expectedTermination": "unresolved-constraint-evidence",
+      "expectedCandidateCount": 1
+    },
+    {
+      "caseId": "no-directed-route",
+      "configurationIndex": 0,
+      "nodes": ["o", "d"],
+      "edges": [],
+      "expectedTermination": "no-directed-route-in-bounded-scope",
+      "expectedCandidateCount": 0
+    },
+    {
+      "caseId": "no-eligible-route",
+      "configurationIndex": 4,
+      "nodes": ["o", "d"],
+      "edges": [
+        ["e1", "o", "d", 1000, 10]
+      ],
+      "evidenceOverrides": {
+        "e1:step-free": false
+      },
+      "expectedTermination": "no-eligible-route-in-bounded-scope",
+      "expectedCandidateCount": 0
+    },
+    {
+      "caseId": "invalid-input-probe",
+      "configurationIndex": 0,
+      "nodes": ["o", "d"],
+      "edges": [
+        ["e1", "o", "d", 1000, 10]
+      ],
+      "requestOverrides": {
+        "requestedCandidateCount": 0
+      },
+      "expectedTermination": "invalid-input",
+      "expectedCandidateCount": 0
+    },
+    {
+      "caseId": "expanded-state-budget",
+      "configurationIndex": 0,
+      "nodes": ["o", "a", "d"],
+      "edges": [
+        ["e1", "o", "a", 500, 5],
+        ["e2", "a", "d", 500, 5]
+      ],
+      "requestOverrides": {
+        "bounds": {
+          "maxExpandedStates": 1,
+          "maxRouteEdgeCount": 1024
+        }
+      },
+      "expectedTermination": "search-budget-exhausted",
+      "expectedCandidateCount": 0
+    },
+    {
+      "caseId": "frontier-capacity",
+      "configurationIndex": 0,
+      "generator": {
+        "kind": "fanout-capacity",
+        "width": 4097
+      },
+      "expectedTermination": "search-capacity-exhausted",
+      "expectedCandidateCount": 0
+    },
+    {
+      "caseId": "requested-k-five",
+      "configurationIndex": 0,
+      "generator": {
+        "kind": "parallel-routes",
+        "count": 6
+      },
+      "expectedTermination": "requested-candidate-count-reached",
+      "expectedCandidateCount": 5
+    },
+    {
+      "caseId": "route-order-and-distinctness",
+      "configurationIndex": 0,
+      "nodes": ["o", "a", "b", "d"],
+      "edges": [
+        ["a-1", "o", "a", 500, 5],
+        ["a-2", "a", "d", 500, 5],
+        ["b-1", "o", "b", 500, 5],
+        ["b-2", "b", "d", 500, 5]
+      ],
+      "expectedTermination": "bounded-search-space-exhausted",
+      "expectedCandidateCount": 2,
+      "expectedOrderedEdgeIds": [["a-1", "a-2"], ["b-1", "b-2"]]
+    },
+    {
+      "caseId": "clamp-floor-and-tie-break",
+      "policyKind": "clamp-floor",
+      "nodes": ["o", "a", "b", "c", "d"],
+      "edges": [
+        ["a-1", "o", "a", 1, 1],
+        ["a-2", "a", "d", 0, 0],
+        ["b-1", "o", "b", 1, 1],
+        ["b-2", "b", "d", 0, 0],
+        ["c-1", "o", "c", 4, 4],
+        ["c-2", "c", "d", 0, 0]
+      ],
+      "expectedTermination": "bounded-search-space-exhausted",
+      "expectedCandidateCount": 3,
+      "expectedRankedCandidateIds": ["candidate:1", "candidate:2", "candidate:3"],
+      "expectedScoreUnits": [66660000, 66660000, 0]
+    }
+  ],
+  "resourceCases": [
+    {
+      "caseId": "expansion-order-budget-boundary",
+      "configurationIndex": 0,
+      "generator": { "kind": "expansion-order-budget" },
+      "requestOverrides": {
+        "requestedCandidateCount": 1,
+        "bounds": { "maxExpandedStates": 2, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-budget-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 1,
+          "candidateCount": 0,
+          "expandedStateCount": 2,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "not-required",
+          "budgetOutcome": "exhausted",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [],
+        "providedSetDecisionLiteralId": "zero-budget"
+      }
+    },
+    {
+      "caseId": "shared-second-pass-budget",
+      "configurationIndex": 4,
+      "generator": { "kind": "second-pass-chain" },
+      "evidenceOverrides": { "e-oa:step-free": false },
+      "requestOverrides": {
+        "requestedCandidateCount": 1,
+        "bounds": { "maxExpandedStates": 2, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-budget-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 1,
+          "candidateCount": 0,
+          "expandedStateCount": 2,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "no-eligible-route-not-proven",
+          "budgetOutcome": "exhausted",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [],
+        "providedSetDecisionLiteralId": "zero-budget"
+      }
+    },
+    {
+      "caseId": "candidateful-budget-unresolved",
+      "configurationIndex": 4,
+      "generator": { "kind": "candidateful-budget" },
+      "evidenceOverrides": { "e-ad:step-free": "unknown" },
+      "requestOverrides": {
+        "requestedCandidateCount": 5,
+        "bounds": { "maxExpandedStates": 2, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-budget-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 5,
+          "candidateCount": 1,
+          "expandedStateCount": 2,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "unresolved-evidence",
+          "budgetOutcome": "exhausted",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": true
+        },
+        "orderedCandidates": [{ "candidateId": "candidate:1", "edgeIds": ["e-od"] }],
+        "providedSetDecisionLiteralId": "g4-single-candidate"
+      }
+    },
+    {
+      "caseId": "candidateful-budget-known-false",
+      "configurationIndex": 4,
+      "generator": { "kind": "candidateful-budget" },
+      "evidenceOverrides": { "e-ad:step-free": false },
+      "requestOverrides": {
+        "requestedCandidateCount": 5,
+        "bounds": { "maxExpandedStates": 2, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-budget-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 5,
+          "candidateCount": 1,
+          "expandedStateCount": 2,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "eligible-candidates-returned",
+          "budgetOutcome": "exhausted",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [{ "candidateId": "candidate:1", "edgeIds": ["e-od"] }],
+        "providedSetDecisionLiteralId": "g4-single-candidate"
+      }
+    },
+    {
+      "caseId": "candidateful-capacity-unresolved",
+      "configurationIndex": 4,
+      "generator": { "kind": "candidateful-capacity", "width": 4097 },
+      "evidenceOverrides": { "e-ad:step-free": "unknown" },
+      "requestOverrides": {
+        "requestedCandidateCount": 5,
+        "bounds": { "maxExpandedStates": 100, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-capacity-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 5,
+          "candidateCount": 1,
+          "expandedStateCount": 3,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "unresolved-evidence",
+          "budgetOutcome": "within-budget",
+          "capacityOutcome": "exhausted",
+          "unresolvedEvidenceEncountered": true
+        },
+        "orderedCandidates": [{ "candidateId": "candidate:1", "edgeIds": ["e-od"] }],
+        "providedSetDecisionLiteralId": "g4-single-candidate"
+      }
+    },
+    {
+      "caseId": "candidateful-capacity-known-false",
+      "configurationIndex": 4,
+      "generator": { "kind": "candidateful-capacity", "width": 4097 },
+      "evidenceOverrides": { "e-ad:step-free": false },
+      "requestOverrides": {
+        "requestedCandidateCount": 5,
+        "bounds": { "maxExpandedStates": 100, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-capacity-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 5,
+          "candidateCount": 1,
+          "expandedStateCount": 3,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "eligible-candidates-returned",
+          "budgetOutcome": "within-budget",
+          "capacityOutcome": "exhausted",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [{ "candidateId": "candidate:1", "edgeIds": ["e-od"] }],
+        "providedSetDecisionLiteralId": "g4-single-candidate"
+      }
+    },
+    {
+      "caseId": "k-before-next-budget",
+      "configurationIndex": 0,
+      "generator": { "kind": "direct-k" },
+      "requestOverrides": {
+        "requestedCandidateCount": 1,
+        "bounds": { "maxExpandedStates": 1, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "requested-candidate-count-reached",
+        "searchMetadata": {
+          "status": "completed",
+          "requestedCandidateCount": 1,
+          "candidateCount": 1,
+          "expandedStateCount": 1,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "not-required",
+          "budgetOutcome": "within-budget",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": null
+        },
+        "orderedCandidates": [{ "candidateId": "candidate:1", "edgeIds": ["e-od"] }],
+        "providedSetDecisionLiteralId": "objective-single-candidate"
+      }
+    },
+    {
+      "caseId": "capacity-before-future-k",
+      "configurationIndex": 0,
+      "generator": { "kind": "capacity-before-k", "width": 4096 },
+      "requestOverrides": {
+        "requestedCandidateCount": 1,
+        "bounds": { "maxExpandedStates": 2, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-capacity-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 1,
+          "candidateCount": 0,
+          "expandedStateCount": 1,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "not-required",
+          "budgetOutcome": "within-budget",
+          "capacityOutcome": "exhausted",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [],
+        "providedSetDecisionLiteralId": "zero-capacity"
+      }
+    },
+    {
+      "caseId": "budget-before-capacity",
+      "configurationIndex": 0,
+      "generator": { "kind": "budget-before-capacity", "width": 4095 },
+      "requestOverrides": {
+        "requestedCandidateCount": 1,
+        "bounds": { "maxExpandedStates": 1, "maxRouteEdgeCount": 1024 }
+      },
+      "expected": {
+        "termination": "search-budget-exhausted",
+        "searchMetadata": {
+          "status": "stopped",
+          "requestedCandidateCount": 1,
+          "candidateCount": 0,
+          "expandedStateCount": 1,
+          "routeSearchCompleteness": "not-proven",
+          "constraintOutcome": "not-required",
+          "budgetOutcome": "exhausted",
+          "capacityOutcome": "within-capacity",
+          "unresolvedEvidenceEncountered": false
+        },
+        "orderedCandidates": [],
+        "providedSetDecisionLiteralId": "zero-budget"
+      }
+    }
+  ],
+  "providedSetDecisionLiterals": {
+    "zero-budget": {
+      "evaluationSchemaVersion": "engagement-route-search-decision-evaluation/v2",
+      "evaluationStatus": "not-evaluated",
+      "reasonCode": "candidate-search-budget-exhausted",
+      "decisionSchemaVersion": null,
+      "scope": null,
+      "decisionStatus": null,
+      "admittedCandidateIds": [],
+      "rankedCandidateIds": [],
+      "rejectedCandidateIds": [],
+      "unresolvedCandidateIds": [],
+      "publicExplanation": {
+        "hardConstraintTrace": [],
+        "softPreferenceTrace": [],
+        "candidateDispositions": [],
+        "rankingTrace": []
+      }
+    },
+    "zero-capacity": {
+      "evaluationSchemaVersion": "engagement-route-search-decision-evaluation/v2",
+      "evaluationStatus": "not-evaluated",
+      "reasonCode": "candidate-search-capacity-exhausted",
+      "decisionSchemaVersion": null,
+      "scope": null,
+      "decisionStatus": null,
+      "admittedCandidateIds": [],
+      "rankedCandidateIds": [],
+      "rejectedCandidateIds": [],
+      "unresolvedCandidateIds": [],
+      "publicExplanation": {
+        "hardConstraintTrace": [],
+        "softPreferenceTrace": [],
+        "candidateDispositions": [],
+        "rankingTrace": []
+      }
+    },
+    "g4-single-candidate": {
+      "evaluationSchemaVersion": "engagement-route-search-decision-evaluation/v2",
+      "evaluationStatus": "evaluated",
+      "reasonCode": "provided-candidate-set-evaluated",
+      "decisionSchemaVersion": "engagement-route-search-decision/v1",
+      "scope": "provided-candidate-set",
+      "decisionStatus": "ranked-in-provided-set",
+      "admittedCandidateIds": ["candidate:1"],
+      "rankedCandidateIds": ["candidate:1"],
+      "rejectedCandidateIds": [],
+      "unresolvedCandidateIds": [],
+      "publicExplanation": {
+        "hardConstraintTrace": [
+          {
+            "candidateId": "candidate:1", "stage": "hard-constraint",
+            "constraintId": "requires-curb-ramp-present", "factorId": "curb-ramp-present",
+            "observationState": "observed", "actualValue": true, "operator": "equals",
+            "expectedValue": true, "outcome": "pass", "reasonCode": "hard-constraint-passed"
+          },
+          {
+            "candidateId": "candidate:1", "stage": "hard-constraint",
+            "constraintId": "requires-paved-surface", "factorId": "paved-surface",
+            "observationState": "observed", "actualValue": true, "operator": "equals",
+            "expectedValue": true, "outcome": "pass", "reasonCode": "hard-constraint-passed"
+          },
+          {
+            "candidateId": "candidate:1", "stage": "hard-constraint",
+            "constraintId": "requires-step-free", "factorId": "step-free",
+            "observationState": "observed", "actualValue": true, "operator": "equals",
+            "expectedValue": true, "outcome": "pass", "reasonCode": "hard-constraint-passed"
+          }
+        ],
+        "softPreferenceTrace": [
+          {
+            "candidateId": "candidate:1", "stage": "soft-preference",
+            "preferenceId": "distance", "factorId": "distance-mm", "observationState": "observed",
+            "rawValue": 1, "unit": "millimetres", "direction": "minimize", "rangeMin": 0,
+            "rangeMax": 100000000, "rangeSpan": 100000000, "utilityNumerator": 999999990000,
+            "utilityBasisPoints": 9999, "weightBasisPoints": 5000, "weightedScoreUnits": 49995000,
+            "outcome": "scored", "reasonCode": "soft-preference-scored"
+          },
+          {
+            "candidateId": "candidate:1", "stage": "soft-preference",
+            "preferenceId": "objective-cost", "factorId": "objective-cost-units", "observationState": "observed",
+            "rawValue": 1, "unit": "cost-units", "direction": "minimize", "rangeMin": 0,
+            "rangeMax": 100000000, "rangeSpan": 100000000, "utilityNumerator": 999999990000,
+            "utilityBasisPoints": 9999, "weightBasisPoints": 5000, "weightedScoreUnits": 49995000,
+            "outcome": "scored", "reasonCode": "soft-preference-scored"
+          }
+        ],
+        "candidateDispositions": [{
+          "candidateId": "candidate:1", "stage": "candidate-disposition", "outcome": "admitted",
+          "constraintIds": [], "preferenceIds": [], "totalScoreUnits": 99990000,
+          "reasonCode": "candidate-admitted"
+        }],
+        "rankingTrace": [{
+          "candidateId": "candidate:1", "stage": "ranking", "outcome": "ranked",
+          "totalScoreUnits": 99990000, "rank": 1,
+          "tieBreakValues": [
+            { "factorId": "score-units", "direction": "descending", "value": 99990000 },
+            { "factorId": "objective-cost-units", "direction": "ascending", "value": 1 },
+            { "factorId": "distance-mm", "direction": "ascending", "value": 1 },
+            { "factorId": "candidate-id", "direction": "ascending", "value": "candidate:1" }
+          ],
+          "decidingFactorId": null, "reasonCode": "candidate-ranked"
+        }]
+      }
+    },
+    "objective-single-candidate": {
+      "evaluationSchemaVersion": "engagement-route-search-decision-evaluation/v2",
+      "evaluationStatus": "evaluated",
+      "reasonCode": "provided-candidate-set-evaluated",
+      "decisionSchemaVersion": "engagement-route-search-decision/v1",
+      "scope": "provided-candidate-set",
+      "decisionStatus": "ranked-in-provided-set",
+      "admittedCandidateIds": ["candidate:1"],
+      "rankedCandidateIds": ["candidate:1"],
+      "rejectedCandidateIds": [],
+      "unresolvedCandidateIds": [],
+      "publicExplanation": {
+        "hardConstraintTrace": [],
+        "softPreferenceTrace": [{
+          "candidateId": "candidate:1", "stage": "soft-preference",
+          "preferenceId": "objective-cost", "factorId": "objective-cost-units", "observationState": "observed",
+          "rawValue": 1, "unit": "cost-units", "direction": "minimize", "rangeMin": 0,
+          "rangeMax": 100000000, "rangeSpan": 100000000, "utilityNumerator": 999999990000,
+          "utilityBasisPoints": 9999, "weightBasisPoints": 10000, "weightedScoreUnits": 99990000,
+          "outcome": "scored", "reasonCode": "soft-preference-scored"
+        }],
+        "candidateDispositions": [{
+          "candidateId": "candidate:1", "stage": "candidate-disposition", "outcome": "admitted",
+          "constraintIds": [], "preferenceIds": [], "totalScoreUnits": 99990000,
+          "reasonCode": "candidate-admitted"
+        }],
+        "rankingTrace": [{
+          "candidateId": "candidate:1", "stage": "ranking", "outcome": "ranked",
+          "totalScoreUnits": 99990000, "rank": 1,
+          "tieBreakValues": [
+            { "factorId": "score-units", "direction": "descending", "value": 99990000 },
+            { "factorId": "objective-cost-units", "direction": "ascending", "value": 1 },
+            { "factorId": "distance-mm", "direction": "ascending", "value": 1 },
+            { "factorId": "candidate-id", "direction": "ascending", "value": "candidate:1" }
+          ],
+          "decidingFactorId": null, "reasonCode": "candidate-ranked"
+        }]
+      }
+    }
+  }
+}
