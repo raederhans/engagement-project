@@ -35,6 +35,11 @@
 | 2026-08-12 | Initial S3-0 independent review returned code `REQUEST CHANGES` and architecture `BLOCK` despite fresh 15/15 focused, 107/107 foundation, 92/92 S2, ESLint, and diff-check passes. | S3-0 must bind admitted execution/oracle/run records, K/search bounds and constraints, honest G0-G4 semantics, profile role, graph/source handoff, partial/stopped truth, denominator units, and evidence-gated claims before S3-2 opens. |
 | 2026-08-12 | Freeze repair defaults at requested K=5, maxExpandedStates=100000, maxRouteEdgeCount=1024, while preserving existing S2 distinctness/tie-break/constraint/capacity versions. | Prevents post-hoc tuning; exhaustion or incompleteness must be reported rather than raising bounds to obtain a desired result. |
 | 2026-08-12 | Treat Profile A/B as non-behavioral synthetic cohort strata for this S3 run. | Avoids pretending profile labels affect product execution; behavior is defined only by the exact configuration policy and search request. |
+| 2026-08-12 | The primary secondary inspection kept S3-2 closed despite fresh S3-0 17/17 plus 50/50 short regressions and S3-1 31/31 passing. | S3-0 still accepted hand-written replay/oracle/observation evidence and lacked measured performance distributions; its shallow external handoff did not match S3-1. S3-1 also trusted caller-supplied normalization audit summaries. |
+| 2026-08-12 | Narrow the first S3 1,000 x 5 product run to a full admitted synthetic GraphArtifact/v1; retain S3-1 only as private candidate-lifecycle evidence. | Current product search admits only synthetic GraphArtifact/v1. This avoids reclassifying external candidate data or inventing a second receipt schema while still preserving the source/license/topology research outcome. |
+| 2026-08-12 | Integrate S3-1 private candidate lifecycle as `af7e1ac` plus `65b31d8`. | Full graph/baseline lifecycle evidence is reaudited and internally bound; receipt/product/publish promotion stays false, and this private evidence is not an S3 product graph. |
+| 2026-08-12 | Accept and integrate S3-0 as `d33c27d` after repeated adversarial repair and final code `ACCEPT` / architecture `CLEAR`. | Final central evidence is 31/31 focused and 77/77 adjacent plus ESLint/syntax; terminal/resource/context truth, candidateful unresolved, oracle evaluation, comparison, graph identity, replay and claim denominators are frozen. |
+| 2026-08-12 | Open only the S3-2 micrograph-first implementation gate. | S3-2 must provide a separate clean-room oracle, recursive dependency-boundary tests, differential fixtures and real primary/replay invocations before any 1,000 x 5 live gate opens. |
 
 ## Lane ownership
 
@@ -54,12 +59,13 @@ accepted S3-R semantics ──────────────────�
 accepted S3-1 candidate graph/data handoff ─────────┘
 ```
 
-- S3-R is an accepted read-only semantic input. S3-0 must close both independent
-  review lanes before integration; S3-1 must remain candidate-only and may not
-  model external data as the existing synthetic-only product GraphArtifact.
-- S3-2 may perform read-only repository mapping and produce a proposed test
-  matrix immediately. It must not implement or generate expected results until
-  the primary owner sends exact accepted protocol and graph identity shapes.
+- S3-R is an accepted read-only semantic input. S3-0 and S3-1 are integrated;
+  S3-1 remains candidate-only and may not model external data as the existing
+  synthetic-only product GraphArtifact.
+- S3-2 may now implement against exact integrated `d33c27d`, beginning with
+  bounded micrographs and differential fixtures. It may not start the 1,000 x 5
+  run, publish data, or claim clean-room independence until its recursive import
+  boundary and real execution receipts pass review.
 - A source endpoint, research note, or candidate download does not open the
   S3-2 gate. The
   primary owner must first review license/provenance/topology and the exact
@@ -89,7 +95,7 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 
 ## Next step
 
-Review the revised S3-0 and S3-1 deliveries independently. Only after both are
-accepted and integrated may the primary owner send exact protocol, graph, and
-S3-R semantic identities to S3-2 and open its micrograph-first implementation
-gate.
+Move the clean S3-2 worktree to integrated `d33c27d`, send the exact S3-0/S3-R
+handoff, and implement the clean-room oracle plus thin product adapter on bounded
+micrographs. Keep S3-1 private lifecycle evidence out of the product path and
+keep the 1,000 x 5 execution gate closed until S3-2 passes independent review.
