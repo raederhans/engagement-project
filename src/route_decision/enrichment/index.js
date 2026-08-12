@@ -257,8 +257,8 @@ function admitReceipt(raw, sourceId) {
   };
 }
 
-function admitEdgeObservation(raw, index, sourceId) {
-  const label = `SyntheticObservationSource.edgeObservations[${index}]`;
+function admitEdgeObservation(raw, index, sourceId, labelOverride = null) {
+  const label = labelOverride || `SyntheticObservationSource.edgeObservations[${index}]`;
   const value = exactObject(raw, label, [
     'edgeId',
     'factorId',
@@ -486,7 +486,9 @@ function candidateAudit(candidate, source, index) {
     const existingObservation = candidate.observations[factorId];
     if (existingObservation) {
       const allowedSourceIds = new Set([source.sourceId]);
-      if (SEARCH_CAPABILITY_FACTOR_SET.has(factorId)) {
+      if (SEARCH_CAPABILITY_FACTOR_SET.has(factorId)
+        && existingObservation.state === 'observed'
+        && existingObservation.value === true) {
         allowedSourceIds.add(ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId);
       }
       if (!publicObservation
@@ -545,6 +547,292 @@ function enrichCandidates(rawCandidates, graphId, source) {
   }
   const index = edgeObservationIndex(source);
   return candidates.map((candidate) => candidateAudit(candidate, source, index));
+}
+
+function admitEnvelopeReceipt(raw) {
+  const value = exactObject(raw, 'RouteCandidateEnrichmentResult.sourceReceipt', [
+    'schemaVersion',
+    'sourceId',
+    'artifactVersion',
+    'dataClassification',
+    'sourceAsOf',
+    'retrievedAt',
+    'builtAt',
+    'observedAt',
+    'mappingPolicyVersion',
+    'coverage',
+    'limitations',
+  ]);
+  const sourceId = syntheticId(
+    value.sourceId,
+    'RouteCandidateEnrichmentResult.sourceReceipt.sourceId',
+  );
+  return admitReceipt(raw, sourceId);
+}
+
+function admitSourceIdentityBinding(raw, sourceId) {
+  const value = exactObject(raw, 'RouteCandidateEnrichmentResult.sourceIdentityBinding', [
+    'schemaVersion',
+    'outputSourceId',
+    'acceptedInputSourceIds',
+    'aggregateIdentityVersion',
+  ]);
+  const expected = sourceIdentityBinding(sourceId);
+  const acceptedInputSourceIds = strictArray(
+    value.acceptedInputSourceIds,
+    'RouteCandidateEnrichmentResult.sourceIdentityBinding.acceptedInputSourceIds',
+    { max: 2 },
+  ).map((item, index) => syntheticId(
+    item,
+    `RouteCandidateEnrichmentResult.sourceIdentityBinding.acceptedInputSourceIds[${index}]`,
+  ));
+  if (value.schemaVersion !== expected.schemaVersion
+    || value.outputSourceId !== expected.outputSourceId
+    || value.aggregateIdentityVersion !== expected.aggregateIdentityVersion
+    || acceptedInputSourceIds.length !== expected.acceptedInputSourceIds.length
+    || !acceptedInputSourceIds.every(
+      (item, index) => item === expected.acceptedInputSourceIds[index],
+    )) {
+    fail('source identity binding must exactly match the admitted source receipt');
+  }
+  return expected;
+}
+
+function admitEnrichedCandidateFacts(raw, label) {
+  const candidates = strictArray(raw, label, { max: MAX_CANDIDATES })
+    .map((candidate) => admitRouteCandidateFacts(candidate));
+  const candidateIds = candidates.map(({ candidateId }) => candidateId);
+  if (new Set(candidateIds).size !== candidateIds.length) {
+    fail(`${label} candidateIds must be unique`);
+  }
+  return candidates;
+}
+
+function expectedAuditReason(state) {
+  if (state === 'observed' || state === 'zero') return null;
+  if (state === 'missing') return 'field-missing';
+  return UNRESOLVED_REASON_BY_STATE[state];
+}
+
+function admitCandidateAuditFactor(raw, auditIndex, factorIndex, candidate, receipt) {
+  const label = `RouteCandidateEnrichmentResult.candidateAudits[${auditIndex}].factors[${factorIndex}]`;
+  const value = exactObject(raw, label, [
+    'factorId',
+    'state',
+    'value',
+    'unit',
+    'reasonCode',
+    'inputSourceId',
+    'outputSourceId',
+    'edgeEvidence',
+  ]);
+  const factorId = [...FACTOR_ORDER.keys()][factorIndex];
+  if (value.factorId !== factorId) {
+    fail(`${label}.factorId must follow canonical factor order`);
+  }
+  const edgeEvidence = strictArray(value.edgeEvidence, `${label}.edgeEvidence`, {
+    max: MAX_EDGE_OBSERVATIONS,
+  }).map((item, evidenceIndex) => admitEdgeObservation(
+    item,
+    evidenceIndex,
+    receipt.sourceId,
+    `${label}.edgeEvidence[${evidenceIndex}]`,
+  ));
+  if (edgeEvidence.length !== candidate.edgeIds.length
+    || !edgeEvidence.every((item, index) => (
+      item.edgeId === candidate.edgeIds[index] && item.factorId === factorId
+    ))) {
+    fail(`${label}.edgeEvidence must exactly bind the candidate edge sequence and factor`);
+  }
+
+  const aggregate = factorId === 'stairs-count'
+    ? aggregateCount(edgeEvidence)
+    : aggregateBoolean(edgeEvidence);
+  const unit = factorId === 'stairs-count' ? 'count' : 'boolean';
+  const reasonCode = expectedAuditReason(aggregate.state);
+  if (value.state !== aggregate.state
+    || value.value !== aggregate.value
+    || value.unit !== unit
+    || value.reasonCode !== reasonCode) {
+    fail(`${label} aggregate fields drift from edge evidence`);
+  }
+
+  const publicObservation = toPublicObservation(factorId, aggregate, receipt.sourceId);
+  const candidateObservation = candidate.observations[factorId];
+  if (publicObservation) {
+    if (!candidateObservation
+      || candidateObservation.sourceId !== receipt.sourceId
+      || !sameObservationSemantics(candidateObservation, publicObservation)) {
+      fail(`${label} aggregate must exactly match the enriched candidate observation`);
+    }
+  } else if (candidateObservation) {
+    fail(`${label} missing aggregate must remain omitted from candidate observations`);
+  }
+
+  let inputSourceId = null;
+  if (value.inputSourceId !== null) {
+    inputSourceId = syntheticId(value.inputSourceId, `${label}.inputSourceId`);
+    const aggregateInputAllowed = SEARCH_CAPABILITY_FACTOR_SET.has(factorId)
+      && aggregate.state === 'observed'
+      && aggregate.value === true
+      && inputSourceId === ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId;
+    if (inputSourceId !== receipt.sourceId && !aggregateInputAllowed) {
+      fail(`${label}.inputSourceId is not bound to the admitted source identity`);
+    }
+  }
+  const outputSourceId = value.outputSourceId === null
+    ? null
+    : syntheticId(value.outputSourceId, `${label}.outputSourceId`);
+  const expectedOutputSourceId = publicObservation ? receipt.sourceId : null;
+  if (outputSourceId !== expectedOutputSourceId) {
+    fail(`${label}.outputSourceId must match the enriched candidate observation`);
+  }
+
+  return {
+    factorId,
+    state: aggregate.state,
+    value: aggregate.value,
+    unit,
+    reasonCode,
+    inputSourceId,
+    outputSourceId,
+    edgeEvidence,
+  };
+}
+
+function admitCandidateAudits(raw, candidates, receipt) {
+  const rawAudits = strictArray(
+    raw,
+    'RouteCandidateEnrichmentResult.candidateAudits',
+    { max: MAX_CANDIDATES },
+  );
+  if (rawAudits.length !== candidates.length) {
+    fail('candidate audits must exactly match candidate count');
+  }
+  return rawAudits.map((rawAudit, auditIndex) => {
+    const label = `RouteCandidateEnrichmentResult.candidateAudits[${auditIndex}]`;
+    const value = exactObject(rawAudit, label, ['candidateId', 'factors']);
+    const candidate = candidates[auditIndex];
+    if (boundedId(value.candidateId, `${label}.candidateId`) !== candidate.candidateId) {
+      fail(`${label}.candidateId must match candidate order`);
+    }
+    const rawFactors = strictArray(value.factors, `${label}.factors`, {
+      max: FACTOR_ORDER.size,
+    });
+    if (rawFactors.length !== FACTOR_ORDER.size) {
+      fail(`${label}.factors must contain every controlled factor`);
+    }
+    return {
+      candidateId: candidate.candidateId,
+      factors: rawFactors.map((factor, factorIndex) => admitCandidateAuditFactor(
+        factor,
+        auditIndex,
+        factorIndex,
+        candidate,
+        receipt,
+      )),
+    };
+  });
+}
+
+function assertEnrichmentEnvelopeBindings(graphId, candidates, receipt) {
+  if (receipt.coverage.graphId !== graphId) {
+    fail('source receipt graphId must match enriched candidate graphId');
+  }
+  const coveredEdges = new Set(receipt.coverage.edgeIds);
+  for (const candidate of candidates) {
+    if (candidate.provenance.graphId !== graphId) {
+      fail('enriched candidate graphId must match envelope graphId');
+    }
+    for (const edgeId of candidate.edgeIds) {
+      if (!coveredEdges.has(edgeId)) {
+        fail('source receipt must cover every enriched candidate edge');
+      }
+    }
+  }
+}
+
+export function admitRouteCandidateEnrichmentResult(raw) {
+  const value = exactObject(raw, 'RouteCandidateEnrichmentResult', [
+    'schemaVersion',
+    'aggregationVersion',
+    'graphId',
+    'candidateFacts',
+    'sourceReceipt',
+    'sourceIdentityBinding',
+    'candidateAudits',
+  ]);
+  if (value.schemaVersion !== ROUTE_ENRICHMENT_SCHEMA_VERSIONS.candidateBatchResult) {
+    fail('RouteCandidateEnrichmentResult.schemaVersion is unsupported');
+  }
+  if (value.aggregationVersion !== ROUTE_ENRICHMENT_AGGREGATION_VERSION) {
+    fail('RouteCandidateEnrichmentResult.aggregationVersion is unsupported');
+  }
+  const graphId = boundedId(value.graphId, 'RouteCandidateEnrichmentResult.graphId');
+  const candidates = admitEnrichedCandidateFacts(
+    value.candidateFacts,
+    'RouteCandidateEnrichmentResult.candidateFacts',
+  );
+  const receipt = admitEnvelopeReceipt(value.sourceReceipt);
+  const identityBinding = admitSourceIdentityBinding(
+    value.sourceIdentityBinding,
+    receipt.sourceId,
+  );
+  assertEnrichmentEnvelopeBindings(graphId, candidates, receipt);
+  const candidateAudits = admitCandidateAudits(value.candidateAudits, candidates, receipt);
+  return deepFreeze({
+    schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.candidateBatchResult,
+    aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
+    graphId,
+    candidateFacts: candidates,
+    sourceReceipt: receipt,
+    sourceIdentityBinding: identityBinding,
+    candidateAudits,
+  });
+}
+
+export function admitRouteCandidateSearchEnrichmentResult(raw) {
+  const value = exactObject(raw, 'RouteCandidateSearchEnrichmentResult', [
+    'schemaVersion',
+    'aggregationVersion',
+    'searchResult',
+    'sourceReceipt',
+    'sourceIdentityBinding',
+    'candidateAudits',
+  ]);
+  if (value.schemaVersion !== ROUTE_ENRICHMENT_SCHEMA_VERSIONS.searchResult) {
+    fail('RouteCandidateSearchEnrichmentResult.schemaVersion is unsupported');
+  }
+  if (value.aggregationVersion !== ROUTE_ENRICHMENT_AGGREGATION_VERSION) {
+    fail('RouteCandidateSearchEnrichmentResult.aggregationVersion is unsupported');
+  }
+  const searchResult = admitRouteCandidateSearchResult(value.searchResult);
+  if (!searchResult.request || !searchResult.candidateSet) {
+    fail('RouteCandidateSearchEnrichmentResult must contain a searched result');
+  }
+  const receipt = admitEnvelopeReceipt(value.sourceReceipt);
+  const identityBinding = admitSourceIdentityBinding(
+    value.sourceIdentityBinding,
+    receipt.sourceId,
+  );
+  assertEnrichmentEnvelopeBindings(
+    searchResult.request.graphId,
+    searchResult.candidateFacts,
+    receipt,
+  );
+  const candidateAudits = admitCandidateAudits(
+    value.candidateAudits,
+    searchResult.candidateFacts,
+    receipt,
+  );
+  return deepFreeze({
+    schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.searchResult,
+    aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
+    searchResult,
+    sourceReceipt: receipt,
+    sourceIdentityBinding: identityBinding,
+    candidateAudits,
+  });
 }
 
 export function enrichRouteCandidateFacts(raw) {

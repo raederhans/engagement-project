@@ -16,6 +16,8 @@ import {
   ROUTE_ENRICHMENT_AGGREGATION_VERSION,
   ROUTE_ENRICHMENT_SCHEMA_VERSIONS,
   ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY,
+  admitRouteCandidateEnrichmentResult,
+  admitRouteCandidateSearchEnrichmentResult,
   admitSyntheticObservationSource,
   enrichRouteCandidateFacts,
   enrichRouteCandidateSearchResult,
@@ -335,6 +337,178 @@ test('candidate-batch enrichment can supply constraint evidence before SearchRes
   constrained.candidateFacts = batch.candidateFacts;
   const result = enrichRouteCandidateSearchResult({ searchResult: constrained, source: allTrueSource() });
   assert.equal(result.searchResult.candidateFacts[0].observations['step-free'].value, true);
+});
+
+test('enrichment result admissions round-trip complete candidate and search artifacts', () => {
+  const candidateInput = searchResult();
+  const candidateResult = enrichRouteCandidateFacts({
+    graphId: candidateInput.request.graphId,
+    candidateFacts: candidateInput.candidateFacts,
+    source: allTrueSource(),
+  });
+  const searchEnrichmentResult = enrichRouteCandidateSearchResult({
+    searchResult: searchResult(),
+    source: allTrueSource(),
+  });
+
+  assert.deepEqual(admitRouteCandidateEnrichmentResult(candidateResult), candidateResult);
+  assert.deepEqual(
+    admitRouteCandidateSearchEnrichmentResult(searchEnrichmentResult),
+    searchEnrichmentResult,
+  );
+});
+
+test('candidate enrichment result admission rejects envelope, receipt, audit, and aggregate drift', () => {
+  const candidateInput = searchResult();
+  const baseline = enrichRouteCandidateFacts({
+    graphId: candidateInput.request.graphId,
+    candidateFacts: candidateInput.candidateFacts,
+    source: allTrueSource(),
+  });
+  const tamperCases = [
+    {
+      label: 'aggregation version',
+      mutate: (value) => { value.aggregationVersion = 'future-aggregation/v2'; },
+      pattern: /aggregationVersion is unsupported/,
+    },
+    {
+      label: 'candidate identity',
+      mutate: (value) => { value.candidateAudits[0].candidateId = 'candidate-other'; },
+      pattern: /candidateId must match candidate order/,
+    },
+    {
+      label: 'factor aggregate state',
+      mutate: (value) => { value.candidateAudits[0].factors[0].state = 'unknown'; },
+      pattern: /aggregate fields drift from edge evidence/,
+    },
+    {
+      label: 'factor aggregate value',
+      mutate: (value) => { value.candidateAudits[0].factors[0].value = false; },
+      pattern: /aggregate fields drift from edge evidence/,
+    },
+    {
+      label: 'edge evidence aggregate',
+      mutate: (value) => {
+        value.candidateAudits[0].factors[0].edgeEvidence[0].value = false;
+      },
+      pattern: /aggregate fields drift from edge evidence/,
+    },
+    {
+      label: 'receipt coverage',
+      mutate: (value) => { value.sourceReceipt.coverage.edgeIds = ['a-b']; },
+      pattern: /cover every enriched candidate edge/,
+    },
+    {
+      label: 'candidate source identity',
+      mutate: (value) => {
+        value.candidateFacts[0].observations['step-free'].sourceId = 'synthetic-other-source';
+      },
+      pattern: /aggregate must exactly match the enriched candidate observation/,
+    },
+    {
+      label: 'receipt source identity',
+      mutate: (value) => { value.sourceReceipt.sourceId = 'synthetic-other-source'; },
+      pattern: /source identity binding must exactly match/,
+    },
+    {
+      label: 'source identity binding',
+      mutate: (value) => {
+        value.sourceIdentityBinding.acceptedInputSourceIds.reverse();
+      },
+      pattern: /source identity binding must exactly match/,
+    },
+  ];
+
+  for (const { label, mutate, pattern } of tamperCases) {
+    const tampered = structuredClone(baseline);
+    mutate(tampered);
+    assert.throws(
+      () => admitRouteCandidateEnrichmentResult(tampered),
+      pattern,
+      label,
+    );
+  }
+});
+
+test('search enrichment result admission rejects search and audit identity drift', () => {
+  const baseline = enrichRouteCandidateSearchResult({
+    searchResult: searchResult(),
+    source: allTrueSource(),
+  });
+
+  const searchIdentityDrift = structuredClone(baseline);
+  searchIdentityDrift.searchResult.candidateSet.candidateIds[0] = 'candidate-other';
+  assert.throws(
+    () => admitRouteCandidateSearchEnrichmentResult(searchIdentityDrift),
+    /candidate IDs must exactly match candidateSet order/,
+  );
+
+  const auditOrderDrift = structuredClone(baseline);
+  auditOrderDrift.candidateAudits[0].factors.reverse();
+  assert.throws(
+    () => admitRouteCandidateSearchEnrichmentResult(auditOrderDrift),
+    /factorId must follow canonical factor order/,
+  );
+});
+
+test('enrichment result admissions reject accessors without calls and return detached frozen copies', () => {
+  const candidateInput = searchResult();
+  const baseline = enrichRouteCandidateFacts({
+    graphId: candidateInput.request.graphId,
+    candidateFacts: candidateInput.candidateFacts,
+    source: allTrueSource(),
+  });
+
+  let topLevelReads = 0;
+  const topLevelAccessor = structuredClone(baseline);
+  Object.defineProperty(topLevelAccessor, 'aggregationVersion', {
+    enumerable: true,
+    get() { topLevelReads += 1; return ROUTE_ENRICHMENT_AGGREGATION_VERSION; },
+  });
+  assert.throws(
+    () => admitRouteCandidateEnrichmentResult(topLevelAccessor),
+    /data properties only/,
+  );
+  assert.equal(topLevelReads, 0);
+
+  let nestedReads = 0;
+  const nestedAccessor = structuredClone(baseline);
+  Object.defineProperty(nestedAccessor.candidateAudits[0].factors[0], 'state', {
+    enumerable: true,
+    get() { nestedReads += 1; return 'observed'; },
+  });
+  assert.throws(
+    () => admitRouteCandidateEnrichmentResult(nestedAccessor),
+    /data properties only/,
+  );
+  assert.equal(nestedReads, 0);
+
+  const callerOwned = structuredClone(baseline);
+  const admitted = admitRouteCandidateEnrichmentResult(callerOwned);
+  callerOwned.sourceReceipt.coverage.edgeIds[0] = 'mutated-edge';
+  callerOwned.candidateAudits[0].factors[0].edgeEvidence[0].value = false;
+  assert.equal(admitted.sourceReceipt.coverage.edgeIds[0], 'a-b');
+  assert.equal(admitted.candidateAudits[0].factors[0].edgeEvidence[0].value, true);
+  assert.equal(Object.isFrozen(admitted), true);
+  assert.equal(Object.isFrozen(admitted.candidateFacts[0]), true);
+  assert.equal(Object.isFrozen(admitted.sourceReceipt.coverage.edgeIds), true);
+  assert.equal(Object.isFrozen(admitted.candidateAudits[0].factors[0].edgeEvidence[0]), true);
+
+  const searchCallerOwned = structuredClone(enrichRouteCandidateSearchResult({
+    searchResult: searchResult(),
+    source: allTrueSource(),
+  }));
+  const admittedSearch = admitRouteCandidateSearchEnrichmentResult(searchCallerOwned);
+  searchCallerOwned.searchResult.candidateFacts[0].candidateId = 'mutated-candidate';
+  searchCallerOwned.candidateAudits[0].factors[0].edgeEvidence[0].value = false;
+  assert.equal(admittedSearch.searchResult.candidateFacts[0].candidateId, 'candidate-a');
+  assert.equal(admittedSearch.candidateAudits[0].factors[0].edgeEvidence[0].value, true);
+  assert.equal(Object.isFrozen(admittedSearch), true);
+  assert.equal(Object.isFrozen(admittedSearch.searchResult.candidateFacts[0]), true);
+  assert.equal(
+    Object.isFrozen(admittedSearch.candidateAudits[0].factors[0].edgeEvidence[0]),
+    true,
+  );
 });
 
 test('observed zero is retained and never inferred from missing evidence', () => {
