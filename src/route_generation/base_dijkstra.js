@@ -4,17 +4,26 @@ import {
 } from './normalized_graph.js';
 
 const MAX_SAFE_TOTAL = BigInt(Number.MAX_SAFE_INTEGER);
+const UNREADABLE_PROPERTY = Symbol('unreadable-property');
+
+export const BASE_DIJKSTRA_TIE_BREAK_CONTRACT = Object.freeze({
+  version: 'route-generation-tie-break-v1',
+  keys: Object.freeze([
+    Object.freeze({ key: 'objectiveCostUnits', order: 'ascending' }),
+    Object.freeze({ key: 'directedEdgeIdSequence', order: 'locale-independent-lexicographic' }),
+  ]),
+});
 
 /**
  * Find one deterministic minimum-objective path. Physical distance is carried
  * as a route fact and never participates in path ranking.
  *
- * Equal objective costs are resolved by fewer edges, then by the complete edge
- * ID sequence in stable code-unit order. This makes results independent of
- * input and adjacency order without inventing another product score.
+ * Equal objective costs follow BASE_DIJKSTRA_TIE_BREAK_CONTRACT: the complete
+ * directed-edge-ID sequence in stable code-unit order. This makes results
+ * independent of input and adjacency order without inventing another score.
  */
 export function findShortestPath(graphArtifactOrCompiledGraph, endpointRequest = {}) {
-  const safeEndpointRequest = isRecord(endpointRequest) ? endpointRequest : {};
+  const safeEndpointRequest = copyEndpointRequestFromDataProperties(endpointRequest);
   const compilation = compileNormalizedGraph(graphArtifactOrCompiledGraph);
   if (compilation.status !== 'ready') {
     return compilation;
@@ -30,10 +39,21 @@ export function findShortestPath(graphArtifactOrCompiledGraph, endpointRequest =
  * network access, persistence, or environment detection.
  */
 export function solveShortestRoute(request = {}) {
-  const safeRequest = isRecord(request) ? request : {};
-  return findShortestPath(safeRequest.graphArtifact, {
-    startNodeId: safeRequest.startNodeId,
-    endNodeId: safeRequest.endNodeId,
+  const graphInspectionIssues = [];
+  const graphArtifact = isRecord(request)
+    ? readOwnDataProperty(request, 'graphArtifact', '$.graphArtifact', graphInspectionIssues)
+    : undefined;
+  if (graphInspectionIssues.length > 0) {
+    return {
+      status: 'invalid_graph',
+      issues: graphInspectionIssues,
+    };
+  }
+
+  const endpointRequest = copyEndpointRequestFromDataProperties(request);
+  return findShortestPath(graphArtifact, {
+    startNodeId: endpointRequest.startNodeId,
+    endNodeId: endpointRequest.endNodeId,
   });
 }
 
@@ -91,6 +111,9 @@ function routeCompiledGraph(graph, { startNodeId, endNodeId }) {
     }
 
     for (const candidate of outgoingByNodeId.get(current.nodeId)) {
+      if (current.nodePath.includes(candidate.toNodeId)) {
+        continue;
+      }
       const next = {
         nodeId: candidate.toNodeId,
         objectiveCostUnits: current.objectiveCostUnits + BigInt(candidate.objectiveCostUnits),
@@ -159,23 +182,29 @@ function readyRoute(
 }
 
 function compareLabels(left, right) {
-  if (left.objectiveCostUnits < right.objectiveCostUnits) {
-    return -1;
+  for (const { key } of BASE_DIJKSTRA_TIE_BREAK_CONTRACT.keys) {
+    const difference = compareTieBreakKey(key, left, right);
+    if (difference !== 0) {
+      return difference;
+    }
   }
-  if (left.objectiveCostUnits > right.objectiveCostUnits) {
-    return 1;
-  }
+  return 0;
+}
 
-  const hopDifference = left.edgePath.length - right.edgePath.length;
-  if (hopDifference !== 0) {
-    return hopDifference;
+function compareTieBreakKey(key, left, right) {
+  if (key === 'objectiveCostUnits') {
+    if (left.objectiveCostUnits < right.objectiveCostUnits) {
+      return -1;
+    }
+    if (left.objectiveCostUnits > right.objectiveCostUnits) {
+      return 1;
+    }
+    return 0;
   }
-
-  const pathDifference = compareIdSequences(left.edgePath, right.edgePath);
-  if (pathDifference !== 0) {
-    return pathDifference;
+  if (key === 'directedEdgeIdSequence') {
+    return compareIdSequences(left.edgePath, right.edgePath);
   }
-  return compareStableIds(left.nodeId, right.nodeId);
+  throw new Error(`Unsupported tie-break key: ${key}`);
 }
 
 function compareIdSequences(left, right) {
@@ -190,7 +219,47 @@ function compareIdSequences(left, right) {
 }
 
 function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  try {
+    return !Array.isArray(value);
+  } catch {
+    return false;
+  }
+}
+
+function copyEndpointRequestFromDataProperties(endpointRequest) {
+  if (!isRecord(endpointRequest)) {
+    return { startNodeId: null, endNodeId: null };
+  }
+
+  const issues = [];
+  const startNodeId = readOwnDataProperty(endpointRequest, 'startNodeId', '$.startNodeId', issues);
+  const endNodeId = readOwnDataProperty(endpointRequest, 'endNodeId', '$.endNodeId', issues);
+  return {
+    startNodeId: startNodeId === UNREADABLE_PROPERTY ? null : startNodeId,
+    endNodeId: endNodeId === UNREADABLE_PROPERTY ? null : endNodeId,
+  };
+}
+
+function readOwnDataProperty(target, property, path, issues) {
+  let descriptor;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(target, property);
+  } catch {
+    issues.push({ code: 'property_inspection_failed', path });
+    return UNREADABLE_PROPERTY;
+  }
+
+  if (!descriptor) {
+    return undefined;
+  }
+  if (!Object.hasOwn(descriptor, 'value')) {
+    issues.push({ code: 'accessor_property_disallowed', path });
+    return UNREADABLE_PROPERTY;
+  }
+  return descriptor.value;
 }
 
 class MinHeap {

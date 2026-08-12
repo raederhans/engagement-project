@@ -1,4 +1,5 @@
 const NORMALIZED_GRAPH_VERSION = 1;
+const UNREADABLE_PROPERTY = Symbol('unreadable-property');
 
 /**
  * Compile an explicit directed graph artifact into the deterministic, plain-data
@@ -7,15 +8,21 @@ const NORMALIZED_GRAPH_VERSION = 1;
  * their owning layers.
  */
 export function compileNormalizedGraph(graphArtifact) {
-  const issues = validateGraphArtifact(graphArtifact);
+  const inspection = copyGraphArtifactFromDataProperties(graphArtifact);
+  if (inspection.issues.length > 0) {
+    return invalidGraph(inspection.issues);
+  }
+
+  const artifact = inspection.artifact;
+  const issues = validateGraphArtifact(artifact);
   if (issues.length > 0) {
     return invalidGraph(issues);
   }
 
-  const nodes = graphArtifact.nodes
+  const nodes = artifact.nodes
     .map(({ nodeId }) => ({ nodeId }))
     .sort((left, right) => compareStableIds(left.nodeId, right.nodeId));
-  const edges = graphArtifact.edges
+  const edges = artifact.edges
     .map((candidate) => ({
       edgeId: candidate.edgeId,
       fromNodeId: candidate.fromNodeId,
@@ -37,9 +44,9 @@ export function compileNormalizedGraph(graphArtifact) {
 
   const graph = {
     normalizedGraphVersion: NORMALIZED_GRAPH_VERSION,
-    schemaVersion: graphArtifact.schemaVersion,
-    graphId: graphArtifact.graphId,
-    mode: graphArtifact.mode,
+    schemaVersion: artifact.schemaVersion,
+    graphId: artifact.graphId,
+    mode: artifact.mode,
     directed: true,
     nodes,
     edges,
@@ -48,6 +55,95 @@ export function compileNormalizedGraph(graphArtifact) {
   };
 
   return deepFreeze({ status: 'ready', graph });
+}
+
+function copyGraphArtifactFromDataProperties(graphArtifact) {
+  if (!isRecord(graphArtifact)) {
+    return { artifact: graphArtifact, issues: [] };
+  }
+
+  const issues = [];
+  const rawNodes = readOwnDataProperty(graphArtifact, 'nodes', '$.nodes', issues);
+  const rawEdges = readOwnDataProperty(graphArtifact, 'edges', '$.edges', issues);
+  const artifact = {
+    schemaVersion: readOwnDataProperty(graphArtifact, 'schemaVersion', '$.schemaVersion', issues),
+    graphId: readOwnDataProperty(graphArtifact, 'graphId', '$.graphId', issues),
+    mode: readOwnDataProperty(graphArtifact, 'mode', '$.mode', issues),
+    directed: readOwnDataProperty(graphArtifact, 'directed', '$.directed', issues),
+    nodes: copyRecordArrayFromDataProperties(rawNodes, '$.nodes', ['nodeId'], issues),
+    edges: copyRecordArrayFromDataProperties(rawEdges, '$.edges', [
+      'edgeId',
+      'fromNodeId',
+      'toNodeId',
+      'distanceMm',
+      'objectiveCostUnits',
+    ], issues),
+  };
+
+  return { artifact, issues: sortIssues(issues) };
+}
+
+function copyRecordArrayFromDataProperties(value, path, properties, issues) {
+  if (!isArray(value)) {
+    return value;
+  }
+
+  const entries = readDenseArrayEntries(value, path, issues);
+  return entries.map((entry, index) => {
+    if (!isRecord(entry)) {
+      return entry;
+    }
+
+    const copy = Object.create(null);
+    for (const property of properties) {
+      Object.defineProperty(copy, property, {
+        configurable: true,
+        enumerable: true,
+        value: readOwnDataProperty(entry, property, `${path}[${index}].${property}`, issues),
+        writable: true,
+      });
+    }
+    return copy;
+  });
+}
+
+function readDenseArrayEntries(array, path, issues) {
+  const length = readOwnDataProperty(array, 'length', `${path}.length`, issues);
+  if (!Number.isSafeInteger(length) || length < 0) {
+    issues.push({ code: 'array_length_invalid', path: `${path}.length` });
+    return [];
+  }
+
+  const entries = [];
+  for (let index = 0; index < length; index += 1) {
+    const entryPath = `${path}[${index}]`;
+    const entry = readOwnDataProperty(array, String(index), entryPath, issues, true);
+    entries.push(entry);
+  }
+  return entries;
+}
+
+function readOwnDataProperty(target, property, path, issues, required = false) {
+  let descriptor;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(target, property);
+  } catch {
+    issues.push({ code: 'property_inspection_failed', path });
+    return UNREADABLE_PROPERTY;
+  }
+
+  if (!descriptor) {
+    if (required) {
+      issues.push({ code: 'array_entry_missing', path });
+      return UNREADABLE_PROPERTY;
+    }
+    return undefined;
+  }
+  if (!Object.hasOwn(descriptor, 'value')) {
+    issues.push({ code: 'accessor_property_disallowed', path });
+    return UNREADABLE_PROPERTY;
+  }
+  return descriptor.value;
 }
 
 /**
@@ -80,8 +176,8 @@ function validateGraphArtifact(graphArtifact) {
     issues.push({ code: 'directed_topology_required', path: '$.directed' });
   }
 
-  const nodes = Array.isArray(graphArtifact.nodes) ? graphArtifact.nodes : null;
-  const edges = Array.isArray(graphArtifact.edges) ? graphArtifact.edges : null;
+  const nodes = isArray(graphArtifact.nodes) ? graphArtifact.nodes : null;
+  const edges = isArray(graphArtifact.edges) ? graphArtifact.edges : null;
   if (!nodes) {
     issues.push({ code: 'graph_nodes_invalid', path: '$.nodes' });
   }
@@ -170,7 +266,15 @@ function isStableId(value) {
 }
 
 function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !isArray(value);
+}
+
+function isArray(value) {
+  try {
+    return Array.isArray(value);
+  } catch {
+    return false;
+  }
 }
 
 function sortIssues(issues) {

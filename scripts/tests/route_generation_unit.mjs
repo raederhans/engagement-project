@@ -7,6 +7,7 @@ import {
   loadNormalizedGraph,
 } from '../../src/route_generation/normalized_graph.js';
 import {
+  BASE_DIJKSTRA_TIE_BREAK_CONTRACT,
   findShortestPath,
   solveShortestRoute,
 } from '../../src/route_generation/base_dijkstra.js';
@@ -61,6 +62,17 @@ function assertRouteRecomputes(route, compiledGraph) {
 function issueCodes(result) {
   assert.equal(result.status, 'invalid_graph');
   return result.issues.map(({ code }) => code);
+}
+
+function defineThrowingGetter(target, property, onRead) {
+  Object.defineProperty(target, property, {
+    configurable: true,
+    enumerable: true,
+    get() {
+      onRead();
+      throw new Error(`getter ${String(property)} must not execute`);
+    },
+  });
 }
 
 test('compiler normalizes stable IDs, deterministic adjacency, and verifiable weak components', () => {
@@ -157,47 +169,58 @@ test('base Dijkstra returns the unique minimum-objective route with recomputable
   assertRouteRecomputes(route, compiled);
 });
 
-test('equal-objective routes prefer fewer hops before stable ID tie-breaking', () => {
-  const route = solveShortestRoute({
-    graphArtifact: graphArtifact({
-      nodes: ['a', 'b', 'd'],
-      edges: [
-        edge('a-first', 'a', 'b', 100, 2),
-        edge('a-second', 'b', 'd', 100, 2),
-        edge('z-direct', 'a', 'd', 500, 4),
-      ],
-    }),
-    startNodeId: 'a',
-    endNodeId: 'd',
+test('v1 tie-break contract is machine-readable and excludes raw hop count', () => {
+  assert.deepEqual(BASE_DIJKSTRA_TIE_BREAK_CONTRACT, {
+    version: 'route-generation-tie-break-v1',
+    keys: [
+      { key: 'objectiveCostUnits', order: 'ascending' },
+      { key: 'directedEdgeIdSequence', order: 'locale-independent-lexicographic' },
+    ],
   });
-
-  assert.deepEqual(route.edgePath, ['z-direct']);
-  assert.equal(route.objectiveCostUnits, 4);
-  assert.equal(route.distanceMm, 500);
+  assert.equal(Object.isFrozen(BASE_DIJKSTRA_TIE_BREAK_CONTRACT), true);
+  assert.equal(Object.isFrozen(BASE_DIJKSTRA_TIE_BREAK_CONTRACT.keys), true);
 });
 
-test('equal-objective equal-hop routes use stable edge-ID sequences regardless of input order', () => {
+test('v1 equal-cost canonical order selects two-edge a,b before one-edge z-direct', () => {
+  const route = solveShortestRoute({
+    graphArtifact: graphArtifact({
+      nodes: ['start', 'middle', 'end'],
+      edges: [
+        edge('z-direct', 'start', 'end', 50, 4),
+        edge('b', 'middle', 'end', 400, 2),
+        edge('a', 'start', 'middle', 400, 2),
+      ],
+    }),
+    startNodeId: 'start',
+    endNodeId: 'end',
+  });
+
+  assert.deepEqual(route.edgePath, ['a', 'b']);
+  assert.equal(route.objectiveCostUnits, 4);
+  assert.equal(route.distanceMm, 800);
+});
+
+test('equal-objective routes compare the full edge-ID sequence regardless of input order', () => {
   const edges = [
-    edge('b-2', 'b', 'd', 1, 2),
-    edge('a-1', 'a', 'c', 900, 2),
-    edge('b-1', 'a', 'b', 1, 2),
-    edge('a-2', 'c', 'd', 900, 2),
+    edge('b', 'middle', 'end', 1, 2),
+    edge('prefix', 'start', 'middle', 100, 2),
+    edge('a', 'middle', 'end', 900, 2),
   ];
   const first = solveShortestRoute({
-    graphArtifact: graphArtifact({ nodes: ['d', 'c', 'b', 'a'], edges }),
-    startNodeId: 'a',
-    endNodeId: 'd',
+    graphArtifact: graphArtifact({ nodes: ['end', 'middle', 'start'], edges }),
+    startNodeId: 'start',
+    endNodeId: 'end',
   });
   const second = solveShortestRoute({
-    graphArtifact: graphArtifact({ nodes: ['b', 'a', 'd', 'c'], edges: [...edges].reverse() }),
-    startNodeId: 'a',
-    endNodeId: 'd',
+    graphArtifact: graphArtifact({ nodes: ['middle', 'start', 'end'], edges: [...edges].reverse() }),
+    startNodeId: 'start',
+    endNodeId: 'end',
   });
 
   assert.deepEqual(first, second);
-  assert.deepEqual(first.edgePath, ['a-1', 'a-2']);
+  assert.deepEqual(first.edgePath, ['prefix', 'a']);
   assert.equal(first.objectiveCostUnits, 4);
-  assert.equal(first.distanceMm, 1_800);
+  assert.equal(first.distanceMm, 1_000);
 });
 
 test('physical distance never replaces objective cost as the Dijkstra weight', () => {
@@ -373,6 +396,71 @@ test('compiler rejects topology that is not explicitly directed', () => {
     startNodeId: 'a',
     endNodeId: 'b',
   }).status, 'invalid_graph');
+});
+
+test('compiler rejects root, array-entry, and nested accessors without executing getters', () => {
+  let getterCalls = 0;
+  const onRead = () => {
+    getterCalls += 1;
+  };
+
+  const rootAccessor = graphArtifact();
+  defineThrowingGetter(rootAccessor, 'nodes', onRead);
+
+  const arrayAccessor = graphArtifact();
+  defineThrowingGetter(arrayAccessor.nodes, '0', onRead);
+
+  const nestedAccessor = graphArtifact({
+    nodes: ['a', 'b'],
+    edges: [edge('ab', 'a', 'b', 100, 1)],
+  });
+  defineThrowingGetter(nestedAccessor.edges[0], 'objectiveCostUnits', onRead);
+
+  const inheritedAccessor = graphArtifact();
+  delete inheritedAccessor.nodes;
+  const inheritedPrototype = {};
+  defineThrowingGetter(inheritedPrototype, 'nodes', onRead);
+  Object.setPrototypeOf(inheritedAccessor, inheritedPrototype);
+
+  for (const artifact of [rootAccessor, arrayAccessor, nestedAccessor]) {
+    const result = compileNormalizedGraph(artifact);
+    assert.ok(issueCodes(result).includes('accessor_property_disallowed'));
+    assert.equal('graph' in result, false);
+  }
+  assert.ok(issueCodes(compileNormalizedGraph(inheritedAccessor)).includes('graph_nodes_invalid'));
+  assert.equal(getterCalls, 0);
+});
+
+test('exported solvers fail closed on request accessors without executing getters', () => {
+  let getterCalls = 0;
+  const onRead = () => {
+    getterCalls += 1;
+  };
+  const artifact = graphArtifact({
+    nodes: ['a', 'b'],
+    edges: [edge('ab', 'a', 'b', 100, 1)],
+  });
+
+  const graphAccessorRequest = {};
+  defineThrowingGetter(graphAccessorRequest, 'graphArtifact', onRead);
+  assert.equal(solveShortestRoute(graphAccessorRequest).status, 'invalid_graph');
+
+  const inheritedGraphRequest = Object.create(graphAccessorRequest);
+  assert.equal(solveShortestRoute(inheritedGraphRequest).status, 'invalid_graph');
+
+  const solverEndpointRequest = { graphArtifact: artifact, endNodeId: 'b' };
+  defineThrowingGetter(solverEndpointRequest, 'startNodeId', onRead);
+  const solverResult = solveShortestRoute(solverEndpointRequest);
+  assert.equal(solverResult.status, 'endpoint_unavailable');
+  assert.equal('edgePath' in solverResult, false);
+
+  const directEndpointRequest = { endNodeId: 'b' };
+  defineThrowingGetter(directEndpointRequest, 'startNodeId', onRead);
+  const directResult = findShortestPath(artifact, directEndpointRequest);
+  assert.equal(directResult.status, 'endpoint_unavailable');
+  assert.equal('edgePath' in directResult, false);
+
+  assert.equal(getterCalls, 0);
 });
 
 test('repeated compilation and route execution are byte-for-byte stable as data', () => {
