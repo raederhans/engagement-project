@@ -28,6 +28,9 @@ const SNAPSHOT_MAX_DEPTH = 64;
 const SNAPSHOT_MAX_NODES = 100_000;
 const ID_PATTERN = /^[a-z0-9](?:[a-z0-9._:-]{0,119})$/;
 const BLOCKED_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
+// Validation-only acceleration seam. WeakMap identity is the unforgeable
+// process-local brand; this is not an authenticity or authorization token.
+const S3_VALIDATION_ADMISSION_SESSIONS = new WeakMap();
 
 export const S3_SCENARIO_SCHEMA_VERSIONS = Object.freeze({
   configuration: 'engagement-route-s3-configuration/v1',
@@ -1671,6 +1674,26 @@ export function admitS3RunManifest(raw) {
   });
 }
 
+export function createS3ValidationAdmissionSession(rawRunManifest) {
+  const admittedRunManifest = admitS3RunManifest(rawRunManifest);
+  const session = Object.freeze({ admittedRunManifest });
+  S3_VALIDATION_ADMISSION_SESSIONS.set(session, Object.freeze({
+    admittedRunManifest,
+  }));
+  return session;
+}
+
+function validationAdmissionSessionState(session) {
+  let state;
+  try {
+    state = S3_VALIDATION_ADMISSION_SESSIONS.get(session);
+  } catch {
+    fail('S3 validation admission session is invalid');
+  }
+  if (!state) fail('S3 validation admission session is invalid');
+  return state;
+}
+
 function scenarioFor(run, denominatorKind, scenarioId, configurationId) {
   if (denominatorKind === 'main') {
     const pair = run.protocol.cohort.odPairs.find(({ odPairId }) => odPairId === scenarioId);
@@ -2560,6 +2583,13 @@ export function admitS3JoinedRunRecord(raw, runManifest) {
   return admitJoinedRunRecordWithRun(raw, admitS3RunManifest(runManifest));
 }
 
+export function admitS3JoinedRunRecordWithValidationSession(raw, session) {
+  return admitJoinedRunRecordWithRun(
+    raw,
+    validationAdmissionSessionState(session).admittedRunManifest,
+  );
+}
+
 function expectedMainKeys(run) {
   const keys = new Set();
   for (const pair of run.protocol.cohort.odPairs) {
@@ -2572,10 +2602,10 @@ function expectedConformanceKeys(run) {
   return new Set(run.protocol.cohort.conformanceProbes.map((probe) => recordKey(run.runId, 'conformance', probe.probeId, probe.configurationId, probe.profileId)));
 }
 
-export function admitS3RecordCollection(raw) {
+function admitRecordCollectionCore(raw, resolveRunManifest) {
   const value = exactObject(raw, 'S3RecordCollection', ['schemaVersion', 'runManifest', 'mainRecords', 'conformanceRecords']);
   exactVersion(value.schemaVersion, S3_SCENARIO_SCHEMA_VERSIONS.recordCollection, 'S3RecordCollection.schemaVersion');
-  const run = admitS3RunManifest(value.runManifest);
+  const run = resolveRunManifest(value.runManifest);
   const mainRecords = strictArray(value.mainRecords, 'S3RecordCollection.mainRecords', { max: 5_000 }).map((record) => admitJoinedRunRecordWithRun(record, run));
   const conformanceRecords = strictArray(value.conformanceRecords, 'S3RecordCollection.conformanceRecords', { max: run.expectedCounts.conformanceProbeEvaluations }).map((record) => admitJoinedRunRecordWithRun(record, run));
   if (mainRecords.some(({ denominatorKind }) => denominatorKind !== 'main')
@@ -2598,6 +2628,20 @@ export function admitS3RecordCollection(raw) {
     runManifest: run,
     mainRecords,
     conformanceRecords,
+  });
+}
+
+export function admitS3RecordCollection(raw) {
+  return admitRecordCollectionCore(raw, admitS3RunManifest);
+}
+
+export function admitS3RecordCollectionWithValidationSession(raw, session) {
+  const state = validationAdmissionSessionState(session);
+  return admitRecordCollectionCore(raw, (runManifest) => {
+    if (runManifest !== state.admittedRunManifest) {
+      fail('S3RecordCollection.runManifest drifted from the validation admission session');
+    }
+    return state.admittedRunManifest;
   });
 }
 
@@ -2737,10 +2781,10 @@ function assertClaims(emitted, protocol, collection, main, conformance, disclosu
   }
 }
 
-export function admitS3Report(raw) {
+function admitReportCore(raw, admitRecordCollection) {
   const value = exactObject(raw, 'S3Report', ['schemaVersion', 'reportId', 'recordCollection', 'runId', 'emittedClaimCodes', 'disclosures']);
   exactVersion(value.schemaVersion, S3_SCENARIO_SCHEMA_VERSIONS.report, 'S3Report.schemaVersion');
-  const collection = admitS3RecordCollection(value.recordCollection);
+  const collection = admitRecordCollection(value.recordCollection);
   const run = collection.runManifest;
   if (value.runId !== run.runId) fail('S3Report.runId drifted');
   const disclosuresValue = exactObject(value.disclosures, 'S3Report.disclosures', ['partialRun', 'stoppedRecords']);
@@ -2786,4 +2830,19 @@ export function admitS3Report(raw) {
       performanceInterpretation: 'diagnostic-only-no-performance-claim-eligible-in-v1',
     },
   });
+}
+
+export function admitS3Report(raw) {
+  return admitReportCore(raw, admitS3RecordCollection);
+}
+
+export function admitS3ReportWithValidationSession(raw, session) {
+  validationAdmissionSessionState(session);
+  return admitReportCore(
+    raw,
+    (recordCollection) => admitS3RecordCollectionWithValidationSession(
+      recordCollection,
+      session,
+    ),
+  );
 }

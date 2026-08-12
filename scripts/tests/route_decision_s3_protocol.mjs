@@ -21,15 +21,19 @@ import {
   admitS3ConfigurationGroup,
   admitS3IndependentOracleResult,
   admitS3JoinedRunRecord,
+  admitS3JoinedRunRecordWithValidationSession,
   admitS3ProductExecution,
   admitS3RecordCollection,
+  admitS3RecordCollectionWithValidationSession,
   admitS3Report,
+  admitS3ReportWithValidationSession,
   admitS3RunManifest,
   admitS3ScenarioCohort,
   admitS3ScenarioProtocol,
   admitS3SyntheticProfile,
   buildS3GraphContentIdentity,
   buildS3ScenarioOdPairs,
+  createS3ValidationAdmissionSession,
 } from '../../src/route_decision/contracts/scenario_cohort_v1.js';
 import {
   ROUTE_SEARCH_DECISION_EVALUATION_VERSION,
@@ -859,6 +863,191 @@ test('run binds complete policy, search template, capacity, execution, environme
   const performanceDrift = runManifest();
   performanceDrift.performanceProtocol.warmupRuns = 3;
   assert.throws(() => admitS3RunManifest(performanceDrift), /performanceProtocol.*drifted/);
+});
+
+test('validation-only admission session reuses one branded manifest snapshot across record, collection, and report', () => {
+  const rawRun = runManifest();
+  let rootInspectionCount = 0;
+  const { proxy: rawRunProxy, revoke } = Proxy.revocable(rawRun, {
+    get(target, key, receiver) {
+      rootInspectionCount += 1;
+      return Reflect.get(target, key, receiver);
+    },
+    getPrototypeOf(target) {
+      rootInspectionCount += 1;
+      return Reflect.getPrototypeOf(target);
+    },
+    ownKeys(target) {
+      rootInspectionCount += 1;
+      return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(target, key) {
+      rootInspectionCount += 1;
+      return Reflect.getOwnPropertyDescriptor(target, key);
+    },
+  });
+  const session = createS3ValidationAdmissionSession(rawRunProxy);
+  assert.ok(rootInspectionCount > 0);
+  assert.equal(Object.isFrozen(session), true);
+  assert.equal(Object.isFrozen(session.admittedRunManifest), true);
+  assert.deepEqual(session.admittedRunManifest, admitS3RunManifest(rawRun));
+
+  const rawRecord = joinedRecord(rawRun, 'main', 'od-0000', S3_CONFIGURATION_IDS[0]);
+  const sessionCollection = collection(session.admittedRunManifest, [rawRecord], []);
+  const sessionReportInput = report(
+    sessionCollection,
+    ['bounded-offline-validation'],
+  );
+  const legacyRecord = admitS3JoinedRunRecord(rawRecord, rawRun);
+  const legacyCollection = admitS3RecordCollection(collection(rawRun, [rawRecord], []));
+  const legacyReport = admitS3Report(report(
+    collection(rawRun, [rawRecord], []),
+    ['bounded-offline-validation'],
+  ));
+  const revokedRawCollection = collection(rawRunProxy, [rawRecord], []);
+  const revokedRawReport = report(revokedRawCollection);
+
+  const inspectionCountAtRevocation = rootInspectionCount;
+  revoke();
+  assert.throws(() => Reflect.ownKeys(rawRunProxy), TypeError);
+  assert.deepEqual(
+    admitS3JoinedRunRecordWithValidationSession(rawRecord, session),
+    legacyRecord,
+  );
+  assert.deepEqual(
+    admitS3RecordCollectionWithValidationSession(sessionCollection, session),
+    legacyCollection,
+  );
+  const sessionReport = admitS3ReportWithValidationSession(sessionReportInput, session);
+  assert.deepEqual(sessionReport, legacyReport);
+  assert.equal(sessionReport.disclosures.partialRun, true);
+  assert.equal(
+    sessionReport.mainCohortDenominators.recorded,
+    legacyReport.mainCohortDenominators.recorded,
+  );
+
+  assert.throws(
+    () => admitS3RecordCollectionWithValidationSession(revokedRawCollection, session),
+    /runManifest drifted from the validation admission session/,
+  );
+  assert.throws(
+    () => admitS3ReportWithValidationSession(revokedRawReport, session),
+    /runManifest drifted from the validation admission session/,
+  );
+  assert.equal(rootInspectionCount, inspectionCountAtRevocation);
+
+  const forgedSession = Object.freeze({
+    admittedRunManifest: session.admittedRunManifest,
+  });
+  assert.throws(
+    () => admitS3JoinedRunRecordWithValidationSession(rawRecord, forgedSession),
+    /validation admission session is invalid/,
+  );
+  assert.throws(
+    () => admitS3RecordCollectionWithValidationSession(sessionCollection, forgedSession),
+    /validation admission session is invalid/,
+  );
+  assert.throws(
+    () => admitS3ReportWithValidationSession(sessionReportInput, forgedSession),
+    /validation admission session is invalid/,
+  );
+
+  let fakeSessionGets = 0;
+  const hostileFakeSession = new Proxy({}, {
+    get() {
+      fakeSessionGets += 1;
+      throw new Error('session property read');
+    },
+  });
+  assert.throws(
+    () => admitS3JoinedRunRecordWithValidationSession(rawRecord, hostileFakeSession),
+    /validation admission session is invalid/,
+  );
+  assert.equal(fakeSessionGets, 0);
+
+  const mutableRaw = runManifest();
+  const sessionA = createS3ValidationAdmissionSession(mutableRaw);
+  mutableRaw.runId = 's3-session-b-run-v1';
+  const sessionB = createS3ValidationAdmissionSession(mutableRaw);
+  assert.notStrictEqual(sessionA.admittedRunManifest, sessionB.admittedRunManifest);
+  for (const [activeSession, crossSnapshot] of [
+    [sessionA, sessionB.admittedRunManifest],
+    [sessionB, sessionA.admittedRunManifest],
+  ]) {
+    assert.throws(
+      () => admitS3RecordCollectionWithValidationSession(
+        collection(crossSnapshot, [rawRecord], []),
+        activeSession,
+      ),
+      /runManifest drifted from the validation admission session/,
+    );
+    assert.throws(
+      () => admitS3ReportWithValidationSession(
+        report(collection(crossSnapshot, [rawRecord], [])),
+        activeSession,
+      ),
+      /runManifest drifted from the validation admission session/,
+    );
+  }
+
+  const mutationCases = [
+    ['runId', (manifest) => { manifest.runId = 's3-mutated-run-v1'; }],
+    ['adapter', (manifest) => {
+      manifest.executionIdentity.productAdapterVersion = 'mutated-adapter/v1';
+    }],
+    ['runtime', (manifest) => {
+      manifest.referenceEnvironment.runtime = 'mutated runtime';
+    }],
+    ['graph', (manifest) => {
+      manifest.graphScope.graphArtifact.edges[0].distanceMm += 1;
+    }],
+    ['protocol', (manifest) => {
+      manifest.protocol.historicalWrtRecovery = 'mutated-not-admissible';
+    }],
+  ];
+  for (const [mutationKind, mutate] of mutationCases) {
+    const mutableManifest = runManifest();
+    const mutationSession = createS3ValidationAdmissionSession(mutableManifest);
+    mutate(mutableManifest);
+    assert.throws(
+      () => admitS3RecordCollectionWithValidationSession(
+        collection(mutableManifest, [rawRecord], []),
+        mutationSession,
+      ),
+      /runManifest drifted from the validation admission session/,
+      `${mutationKind} mutation must not pass the old session collection admission`,
+    );
+    assert.throws(
+      () => admitS3ReportWithValidationSession(
+        report(collection(mutableManifest, [rawRecord], [])),
+        mutationSession,
+      ),
+      /runManifest drifted from the validation admission session/,
+      `${mutationKind} mutation must not pass the old session report admission`,
+    );
+  }
+
+  const tamperedRecord = structuredClone(rawRecord);
+  tamperedRecord.primaryExecution.decisionEvaluation.evaluation.reasonCode =
+    'fabricated-evaluation';
+  assert.throws(
+    () => admitS3JoinedRunRecordWithValidationSession(tamperedRecord, session),
+    /does not match/,
+  );
+  assert.throws(
+    () => admitS3RecordCollectionWithValidationSession(
+      collection(session.admittedRunManifest, [tamperedRecord], []),
+      session,
+    ),
+    /does not match/,
+  );
+  assert.throws(
+    () => admitS3ReportWithValidationSession(
+      report(collection(session.admittedRunManifest, [tamperedRecord], [])),
+      session,
+    ),
+    /does not match/,
+  );
 });
 
 test('oracle resource spec fixes expansion order, shared second-pass budget, and terminal precedence', () => {
