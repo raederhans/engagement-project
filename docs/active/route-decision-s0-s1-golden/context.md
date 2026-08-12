@@ -8,6 +8,9 @@
 - The integration owner created coordination branch
   `codex/route-decision-s0-s1-foundation`; only this task record belongs to the
   coordination baseline.
+- Coordination baseline commit is
+  `5bcd229e370e6fba02a334914d70a9a9602703ec`. All four execution tasks were
+  created as detached worktrees at that exact commit and confirmed active.
 - This batch is authorized for implementation and local tests, but not public
   publication or production-data admission.
 - The primary task owns Git integration, shared-file reconciliation, broad/live
@@ -28,6 +31,7 @@
 | 2026-08-12 | Keep candidate generation and decision evaluation one-way: graph/router emits candidate facts; evaluator never controls graph search. | Prevents a circular architecture and keeps later scenario validation independently reproducible. |
 | 2026-08-12 | Treat all new work as a production-isolated seam rather than refactoring the legacy graph demo in place. | Existing safety-weighted and mislabeled length semantics cannot leak into the new implementation. |
 | 2026-08-12 | User explicitly assigned supervision, orchestration, guidance, and research-task follow-up to the primary task. | Execution lanes do not self-integrate or reinterpret research boundaries; unresolved semantic questions escalate to the primary task. |
+| 2026-08-12 | Four Codex worktree tasks confirmed `active` from the exact coordination baseline. | The supervisor can now monitor with compact task snapshots and preserve independent delivery boundaries. |
 
 ## Provisional cross-lane contract
 
@@ -81,6 +85,15 @@ must stop before crossing ownership and request a handoff from the primary task.
 | Shared browser/build/full validation | Primary integration owner | To be assigned after lane integration | Not started |
 | Lane-local short Node tests | Each isolated lane | Lane-local `.tmp/` if needed; do not commit logs | Permitted when no shared port/server is used |
 
+## Active execution tasks
+
+| Lane | Task ID | Worktree | Start state |
+| --- | --- | --- | --- |
+| S0 contracts | `019ff3c1-04a0-7243-82e5-8322d0d21a56` | `C:/Users/raede/.codex/worktrees/2ae5/engagement_project` | Active; clean detached `5bcd229`; contract/repository-style inspection started |
+| S1-A evaluator | `019ff3c1-12cf-7901-ba2d-1fdd12b3c65c` | `C:/Users/raede/.codex/worktrees/1738/engagement_project` | Active; clean detached `5bcd229`; evaluator/test-style inspection started |
+| S1-C graph/router | `019ff3c2-a544-75e1-991a-ea34d20cf7ec` | `C:/Users/raede/.codex/worktrees/061d/engagement_project` | Active; exact baseline and ownership checks in progress |
+| Golden validation | `019ff3c2-98f4-74c0-97b9-71c7a8892439` | `C:/Users/raede/.codex/worktrees/81e9/engagement_project` | Active; clean detached `5bcd229`; harness/interface design started |
+
 ## Handoff
 
 - Each execution lane must return a focused commit and delivery package, not
@@ -97,5 +110,7 @@ must stop before crossing ownership and request a handoff from the primary task.
 
 ## Next step
 
-Create the four worktree tasks from this coordination baseline, record their task
-IDs/worktree paths in the registry, and confirm each has entered implementation.
+Monitor the four active tasks with compact task snapshots. Intervene for ownership
+crossings, contract drift, untruthful completion claims, or research questions;
+otherwise allow each independent lane to reach a focused ready-for-integration
+delivery.

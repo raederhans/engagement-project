@@ -2,8 +2,9 @@
 
 ## Current status
 
-`dispatching` — the shared orchestration and ownership contract is being frozen
-before four isolated implementation tasks are created.
+`in-progress` — all four isolated implementation tasks are active from the exact
+coordination baseline; the primary task is supervising progress and will own
+delivery review and integration.
 
 ## Checklist
 
@@ -13,12 +14,12 @@ before four isolated implementation tasks are created.
   records, and existing worktree registry.
 - [x] Define four non-overlapping execution lanes and provisional cross-lane
   object shapes.
-- [ ] Commit the coordination baseline.
-- [ ] Create and start the S0 contracts worktree task.
-- [ ] Create and start the S1-A evaluator worktree task.
-- [ ] Create and start the S1-C graph/router worktree task.
-- [ ] Create and start the Golden validation worktree task.
-- [ ] Record task IDs, branches/worktrees, ownership, and start status.
+- [x] Commit the coordination baseline as `5bcd229`.
+- [x] Create and start the S0 contracts worktree task.
+- [x] Create and start the S1-A evaluator worktree task.
+- [x] Create and start the S1-C graph/router worktree task.
+- [x] Create and start the Golden validation worktree task.
+- [x] Record task IDs, detached worktrees, ownership, and start status.
 - [ ] Monitor all four tasks, provide bounded guidance, and record any escalation
   to an original research task.
 - [ ] Review each ready-for-integration delivery package.
@@ -34,6 +35,7 @@ before four isolated implementation tasks are created.
 | `git rev-parse HEAD` | `1e9fecad2e42e8081a8fb3f6fee7a0ac175786c8`. |
 | `git worktree list --porcelain` | Existing unrelated Codex worktrees inventoried; none will be cleaned or repurposed. |
 | Active task and registry inspection | Existing project-native `docs/active/**` structure and `docs/active/_worktree_registry.md` identified and preserved. |
+| Four-task compact snapshot | All four tasks report `active`, exact baseline `5bcd229`, clean isolated worktrees, and acceptance of their exclusive ownership boundaries. |
 
 ## Open risks and remaining work
 
