@@ -1,0 +1,39 @@
+{
+  "schema": "route-graph-mode-profile/v1",
+  "profileId": "synthetic-walking-v1",
+  "sourceKind": "synthetic",
+  "mode": "walking",
+  "fields": {
+    "sourceEdgeId": "edge_id",
+    "fromNodeId": "from_node",
+    "toNodeId": "to_node",
+    "geometry": "coordinates",
+    "cost": "cost_integer",
+    "oneway": "oneway",
+    "access": "access",
+    "mode": "mode"
+  },
+  "oneway": {
+    "forward": ["yes"],
+    "reverse": ["-1"],
+    "bidirectional": ["no"],
+    "missing": "reject",
+    "unknown": "reject"
+  },
+  "access": {
+    "allowed": ["yes"],
+    "denied": ["no"],
+    "missing": "reject",
+    "unknown": "reject"
+  },
+  "modeValues": {
+    "allowed": ["walking"],
+    "missing": "reject",
+    "unknown": "reject"
+  },
+  "cost": {
+    "unit": "integer",
+    "minimum": 0,
+    "maximum": 10000
+  }
+}

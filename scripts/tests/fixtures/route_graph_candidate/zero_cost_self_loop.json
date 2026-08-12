@@ -1,0 +1,17 @@
+{
+  "schema": "route-graph-raw-candidate/v1",
+  "sourceId": "synthetic-pilot",
+  "sourceKind": "synthetic",
+  "features": [
+    {
+      "edge_id": "e-loop",
+      "from_node": "Z",
+      "to_node": "Z",
+      "coordinates": [[-75.0, 40.0], [-75.0, 40.0]],
+      "cost_integer": 0,
+      "oneway": "yes",
+      "access": "yes",
+      "mode": "walking"
+    }
+  ]
+}

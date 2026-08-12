@@ -1,0 +1,65 @@
+{
+  "schema": "route-graph-source-descriptor/v1",
+  "sourceId": "synthetic-pilot",
+  "sourceKind": "synthetic",
+  "owner": {
+    "name": "Repository synthetic fixture",
+    "canonicalUrl": "https://example.invalid/engagement-project/synthetic-route-fixture"
+  },
+  "transport": {
+    "endpoint": "https://example.invalid/engagement-project/synthetic-route-fixture.json",
+    "method": "GET"
+  },
+  "license": {
+    "name": "Project test fixture",
+    "url": "https://example.invalid/engagement-project/test-fixture-license",
+    "internalCandidateUse": "allowed",
+    "derivativeRedistribution": "prohibited"
+  },
+  "attribution": {
+    "required": false,
+    "text": null,
+    "url": null
+  },
+  "coverage": {
+    "requested": {
+      "status": "declared",
+      "bbox": [-75.1, 39.9, -74.8, 40.1],
+      "description": "Synthetic requested extent for validator tests only."
+    },
+    "acquired": {
+      "status": "validated",
+      "bbox": [-75.1, 39.9, -74.8, 40.1],
+      "description": "All records in the synthetic fixture were acquired."
+    },
+    "validated": {
+      "status": "validated",
+      "bbox": [-75.1, 39.9, -74.8, 40.1],
+      "description": "Synthetic geometry extent passed fixture validation."
+    },
+    "routing": {
+      "status": "validated",
+      "bbox": [-75.1, 39.9, -74.8, 40.1],
+      "description": "Synthetic routing coverage is valid only for contract tests."
+    }
+  },
+  "clocks": {
+    "sourceAsOf": null,
+    "retrievedAt": "2026-08-12T00:00:00.000Z",
+    "builtAt": "2026-08-12T00:01:00.000Z",
+    "observedAt": "2026-08-12T00:02:00.000Z"
+  },
+  "acquisition": {
+    "status": "complete",
+    "fallbackUsed": false,
+    "contentIdentity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 2048,
+    "recordCount": 4,
+    "contentType": "application/json",
+    "etag": null,
+    "lastModified": null
+  },
+  "limitations": [
+    "Synthetic fixture evidence cannot establish external source fitness or product readiness."
+  ]
+}

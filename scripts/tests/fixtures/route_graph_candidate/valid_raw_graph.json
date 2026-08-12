@@ -1,0 +1,47 @@
+{
+  "schema": "route-graph-raw-candidate/v1",
+  "sourceId": "synthetic-pilot",
+  "sourceKind": "synthetic",
+  "features": [
+    {
+      "edge_id": "e-de",
+      "from_node": "D",
+      "to_node": "E",
+      "coordinates": [[-74.97, 40.01], [-74.96, 40.01]],
+      "cost_integer": 5,
+      "oneway": "no",
+      "access": "yes",
+      "mode": "walking"
+    },
+    {
+      "edge_id": "e-ab",
+      "from_node": "A",
+      "to_node": "B",
+      "coordinates": [[-75.0, 40.0], [-74.99, 40.0]],
+      "cost_integer": 10,
+      "oneway": "no",
+      "access": "yes",
+      "mode": "walking"
+    },
+    {
+      "edge_id": "e-cd-denied",
+      "from_node": "C",
+      "to_node": "D",
+      "coordinates": [[-74.98, 40.0], [-74.97, 40.01]],
+      "cost_integer": 15,
+      "oneway": "yes",
+      "access": "no",
+      "mode": "walking"
+    },
+    {
+      "edge_id": "e-bc",
+      "from_node": "B",
+      "to_node": "C",
+      "coordinates": [[-74.99, 40.0], [-74.98, 40.0]],
+      "cost_integer": 20,
+      "oneway": "yes",
+      "access": "yes",
+      "mode": "walking"
+    }
+  ]
+}
