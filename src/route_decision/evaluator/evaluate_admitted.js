@@ -453,10 +453,47 @@ function mapPrivateResult(privateResult, admittedInput) {
     && item.outcome === 'unresolved' && unresolvedCandidateIds.has(item.candidateId));
   const status = privateResult.admittedCandidateIds.length > 0
     ? 'ranked-in-provided-set'
-    : rejectedCandidateIds.size > 0
-      ? 'no-eligible-candidate-in-provided-set'
-      : 'candidate-search-incomplete';
+    : unresolvedCandidateIds.size > 0
+      ? 'candidate-search-incomplete'
+      : rejectedCandidateIds.size > 0
+        ? 'no-eligible-candidate-in-provided-set'
+        : 'candidate-search-incomplete';
 
+  return {
+    status,
+    admittedCandidateIds: [...privateResult.admittedCandidateIds],
+    rankedCandidateIds: [...privateResult.rankedCandidateIds],
+    rejected,
+    unresolved,
+    trace: publicTrace,
+  };
+}
+
+/**
+ * Version-neutral evaluator core for already-admitted public policies and
+ * candidate facts. This is intentionally not exported by the public barrel;
+ * versioned adapters remain responsible for their own artifact admission and
+ * result envelope.
+ */
+export function evaluateAdmittedRouteCandidatesCore({ policy, candidates }) {
+  const privatePolicy = compilePrivatePolicy(policy);
+  const privateCandidates = candidates.map(
+    (candidate) => compilePrivateCandidate(candidate, policy),
+  );
+  const privateResult = evaluatePrivate({
+    policy: privatePolicy,
+    candidates: privateCandidates,
+  });
+  return mapPrivateResult(privateResult, { policy, candidates });
+}
+
+/**
+ * Re-admits exact S0 public contracts, compiles a version-specific private IR,
+ * evaluates it deterministically, and re-admits the mapped public result.
+ */
+export function evaluateAdmittedRouteDecision(input) {
+  const admittedInput = admitPublicEvaluationInput(input);
+  const evaluation = evaluateAdmittedRouteCandidatesCore(admittedInput);
   return admitDecisionResult({
     schemaVersion: ROUTE_DECISION_SCHEMA_VERSIONS.decisionResult,
     policyId: admittedInput.policy.policyId,
@@ -468,28 +505,6 @@ function mapPrivateResult(privateResult, admittedInput) {
       candidateCount: admittedInput.candidateSet.candidateCount,
       completeness: admittedInput.candidateSet.completeness,
     },
-    status,
-    admittedCandidateIds: [...privateResult.admittedCandidateIds],
-    rankedCandidateIds: [...privateResult.rankedCandidateIds],
-    rejected,
-    unresolved,
-    trace: publicTrace,
+    ...evaluation,
   });
-}
-
-/**
- * Re-admits exact S0 public contracts, compiles a version-specific private IR,
- * evaluates it deterministically, and re-admits the mapped public result.
- */
-export function evaluateAdmittedRouteDecision(input) {
-  const admittedInput = admitPublicEvaluationInput(input);
-  const privatePolicy = compilePrivatePolicy(admittedInput.policy);
-  const privateCandidates = admittedInput.candidates.map(
-    (candidate) => compilePrivateCandidate(candidate, admittedInput.policy),
-  );
-  const privateResult = evaluatePrivate({
-    policy: privatePolicy,
-    candidates: privateCandidates,
-  });
-  return mapPrivateResult(privateResult, admittedInput);
 }
