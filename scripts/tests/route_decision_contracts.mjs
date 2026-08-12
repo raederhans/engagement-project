@@ -8,6 +8,8 @@ import {
   FUNCTIONAL_NEED_TAGS,
   ROUTE_DECISION_SCHEMA_VERSIONS,
   ROUTE_OBSERVATION_STATES,
+  UNRESOLVED_OBSERVATION_STATES,
+  admitCandidateSet,
   admitDecisionPolicy,
   admitDecisionResult,
   admitGraphArtifact,
@@ -27,7 +29,7 @@ const VERSION = ROUTE_DECISION_SCHEMA_VERSIONS;
 function sourceObservation(overrides = {}) {
   return {
     schemaVersion: VERSION.sourceObservation,
-    observationTag: 'step-free',
+    factorId: 'step-free',
     state: 'observed',
     value: true,
     unit: 'boolean',
@@ -108,7 +110,7 @@ function routeCandidate(overrides = {}) {
     observations: {
       'step-free': sourceObservation(),
       'stairs-count': sourceObservation({
-        observationTag: 'stairs-count',
+        factorId: 'stairs-count',
         state: 'zero',
         value: 0,
         unit: 'count',
@@ -122,6 +124,39 @@ function routeCandidate(overrides = {}) {
   };
 }
 
+function candidateSet(overrides = {}) {
+  return {
+    schemaVersion: VERSION.candidateSet,
+    candidateSetId: 'candidate-set-1',
+    candidateSetRevision: 'revision-1',
+    requestId: 'request-1',
+    graphId: 'graph-fixture-1',
+    strategy: 'base-objective-only',
+    objectiveFactorId: 'objective-cost-units',
+    candidateIds: ['candidate-1'],
+    candidateCount: 1,
+    completeness: 'incomplete',
+    constraintAwareSearch: false,
+    limitations: [
+      'only-base-objective-candidate-generated',
+      'constraint-aware-alternative-search-not-performed',
+    ],
+    ...overrides,
+  };
+}
+
+function candidateSetReference(overrides = {}) {
+  return {
+    schemaVersion: VERSION.candidateSet,
+    candidateSetId: 'candidate-set-1',
+    candidateSetRevision: 'revision-1',
+    candidateIds: ['candidate-1'],
+    candidateCount: 1,
+    completeness: 'incomplete',
+    ...overrides,
+  };
+}
+
 function decisionPolicy(overrides = {}) {
   return {
     schemaVersion: VERSION.decisionPolicy,
@@ -129,27 +164,38 @@ function decisionPolicy(overrides = {}) {
     hardConstraints: [{
       constraintId: 'requires-step-free',
       needTag: 'require-capability',
-      observationTag: 'step-free',
+      factorId: 'step-free',
       operator: 'equals',
       expectedValue: true,
-      unresolvedStates: ['unknown', 'unavailable', 'partial', 'stale', 'invalid'],
+      unresolvedStates: ['unknown', 'unavailable', 'partial', 'stale', 'invalid', 'missing'],
     }],
     softPreferences: [
       {
         preferenceId: 'distance',
         needTag: 'minimize-distance',
+        factorId: 'distance-mm',
         operator: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
         weightBasisPoints: 7_500,
       },
       {
         preferenceId: 'objective-cost',
         needTag: 'minimize-objective-cost',
+        factorId: 'objective-cost-units',
         operator: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
         weightBasisPoints: 2_500,
       },
     ],
     weightBasisPointsTotal: 10_000,
-    tieBreak: ['objective-cost-units', 'distance-mm', 'candidate-id'],
+    tieBreak: [
+      { factorId: 'score-units', direction: 'descending' },
+      { factorId: 'objective-cost-units', direction: 'ascending' },
+      { factorId: 'distance-mm', direction: 'ascending' },
+      { factorId: 'candidate-id', direction: 'ascending' },
+    ],
     ...overrides,
   };
 }
@@ -157,7 +203,9 @@ function decisionPolicy(overrides = {}) {
 function decisionResult(overrides = {}) {
   return {
     schemaVersion: VERSION.decisionResult,
-    status: 'ranked',
+    policyId: 'distance-first-v1',
+    candidateSet: candidateSetReference(),
+    status: 'ranked-in-provided-set',
     admittedCandidateIds: ['candidate-1'],
     rankedCandidateIds: ['candidate-1'],
     rejected: [],
@@ -166,18 +214,76 @@ function decisionResult(overrides = {}) {
       {
         candidateId: 'candidate-1',
         stage: 'hard-constraint',
-        ruleId: 'requires-step-free',
-        outcome: 'pass',
+        constraintId: 'requires-step-free',
+        factorId: 'step-free',
         observationState: 'observed',
+        actualValue: true,
+        operator: 'equals',
+        expectedValue: true,
+        outcome: 'pass',
         reasonCode: 'hard-constraint-passed',
       },
       {
         candidateId: 'candidate-1',
-        stage: 'soft-ranking',
-        ruleId: 'distance',
+        stage: 'soft-preference',
+        preferenceId: 'distance',
+        factorId: 'distance-mm',
+        observationState: 'observed',
+        rawValue: 3_250,
+        unit: 'millimetres',
+        direction: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
+        rangeSpan: 10_000,
+        utilityNumerator: 67_500_000,
+        utilityBasisPoints: 6_750,
+        weightBasisPoints: 7_500,
+        weightedScoreUnits: 50_625_000,
         outcome: 'scored',
-        observationState: null,
         reasonCode: 'soft-preference-scored',
+      },
+      {
+        candidateId: 'candidate-1',
+        stage: 'soft-preference',
+        preferenceId: 'objective-cost',
+        factorId: 'objective-cost-units',
+        observationState: 'observed',
+        rawValue: 3_400,
+        unit: 'cost-units',
+        direction: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
+        rangeSpan: 10_000,
+        utilityNumerator: 66_000_000,
+        utilityBasisPoints: 6_600,
+        weightBasisPoints: 2_500,
+        weightedScoreUnits: 16_500_000,
+        outcome: 'scored',
+        reasonCode: 'soft-preference-scored',
+      },
+      {
+        candidateId: 'candidate-1',
+        stage: 'candidate-disposition',
+        outcome: 'admitted',
+        constraintIds: [],
+        preferenceIds: [],
+        totalScoreUnits: 67_125_000,
+        reasonCode: 'candidate-admitted',
+      },
+      {
+        candidateId: 'candidate-1',
+        stage: 'ranking',
+        outcome: 'ranked',
+        totalScoreUnits: 67_125_000,
+        rank: 1,
+        tieBreakValues: [
+          { factorId: 'score-units', direction: 'descending', value: 67_125_000 },
+          { factorId: 'objective-cost-units', direction: 'ascending', value: 3_400 },
+          { factorId: 'distance-mm', direction: 'ascending', value: 3_250 },
+          { factorId: 'candidate-id', direction: 'ascending', value: 'candidate-1' },
+        ],
+        decidingFactorId: null,
+        reasonCode: 'candidate-ranked',
       },
     ],
     ...overrides,
@@ -204,6 +310,9 @@ test('contract versions and allowlists are exact and immutable', () => {
   assert.deepEqual(FUNCTIONAL_NEED_TAGS, [
     'require-capability', 'minimize-distance', 'minimize-objective-cost',
   ]);
+  assert.deepEqual(UNRESOLVED_OBSERVATION_STATES, [
+    'unknown', 'unavailable', 'partial', 'stale', 'invalid', 'missing',
+  ]);
   assert.equal(Object.isFrozen(VERSION), true);
   assert.equal(Object.isFrozen(ROUTE_OBSERVATION_STATES), true);
   assert.equal(Object.isFrozen(FUNCTIONAL_NEED_TAGS), true);
@@ -215,6 +324,7 @@ test('every public contract rejects missing and future schema versions', () => {
     [admitGraphArtifact, graphArtifact()],
     [admitRouteRequest, routeRequest()],
     [admitRouteCandidateFacts, routeCandidate()],
+    [admitCandidateSet, candidateSet()],
     [admitSourceObservation, sourceObservation()],
     [admitTravelNeedCatalog, structuredClone(DEFAULT_TRAVEL_NEED_CATALOG)],
     [admitDecisionPolicy, decisionPolicy()],
@@ -308,7 +418,7 @@ test('RouteRequest is node-id based and rejects unknown versions, modes, fields,
 
 test('source observation states preserve observed zero, unknown, unavailable, partial, stale, and invalid', () => {
   const observedZero = admitSourceObservation(sourceObservation({
-    observationTag: 'stairs-count',
+    factorId: 'stairs-count',
     state: 'zero',
     value: 0,
     unit: 'count',
@@ -338,8 +448,12 @@ test('source observation states preserve observed zero, unknown, unavailable, pa
     /unknown must not carry a value/,
   );
   assert.throws(
-    () => admitSourceObservation(sourceObservation({ observationTag: 'safety-score' })),
-    /observationTag is unsupported/,
+    () => admitSourceObservation(sourceObservation({ factorId: 'safety-score' })),
+    /factorId is unsupported/,
+  );
+  assert.throws(
+    () => admitSourceObservation(sourceObservation({ state: 'missing' })),
+    /state is unsupported/,
   );
   assert.throws(
     () => admitSourceObservation(sourceObservation({ state: 'UNKNOWN' })),
@@ -364,6 +478,15 @@ test('TravelNeedCatalog is complete, task-oriented, and cannot be weakened or ex
 test('DecisionPolicy requires exact operators, unresolved hard states, and 10000 total basis points', () => {
   const admitted = admitDecisionPolicy(decisionPolicy());
   assert.equal(admitted.weightBasisPointsTotal, 10_000);
+  assert.deepEqual(admitted.softPreferences[0], {
+    preferenceId: 'distance',
+    needTag: 'minimize-distance',
+    factorId: 'distance-mm',
+    operator: 'minimize',
+    rangeMin: 0,
+    rangeMax: 10_000,
+    weightBasisPoints: 7_500,
+  });
   assert.equal(Object.isFrozen(admitted.hardConstraints[0].unresolvedStates), true);
 
   const wrongSum = decisionPolicy();
@@ -384,8 +507,47 @@ test('DecisionPolicy requires exact operators, unresolved hard states, and 10000
   assert.throws(() => admitDecisionPolicy(sensitiveTag), /needTag is unsupported/);
 
   const defaultPass = decisionPolicy();
-  defaultPass.hardConstraints[0].unresolvedStates = ['unavailable', 'partial', 'stale', 'invalid'];
+  defaultPass.hardConstraints[0].unresolvedStates = [
+    'unavailable', 'partial', 'stale', 'invalid', 'missing',
+  ];
   assert.throws(() => admitDecisionPolicy(defaultPass), /unresolvedStates must exactly preserve/);
+
+  const inferredFactor = decisionPolicy();
+  delete inferredFactor.softPreferences[0].factorId;
+  assert.throws(() => admitDecisionPolicy(inferredFactor), /missing: factorId/);
+
+  const wrongFactor = decisionPolicy();
+  wrongFactor.softPreferences[0].factorId = 'objective-cost-units';
+  assert.throws(() => admitDecisionPolicy(wrongFactor), /factorId is unsupported for minimize-distance/);
+
+  const invalidRange = decisionPolicy();
+  invalidRange.softPreferences[0].rangeMax = invalidRange.softPreferences[0].rangeMin;
+  assert.throws(() => admitDecisionPolicy(invalidRange), /normalization range must increase/);
+});
+
+test('CandidateSet freezes base-objective generation identity and incomplete-search metadata', () => {
+  const input = candidateSet();
+  const admitted = admitCandidateSet(input);
+  assert.deepEqual(admitted, input);
+  assert.equal(Object.isFrozen(admitted.candidateIds), true);
+  assert.equal(Object.isFrozen(admitted.limitations), true);
+
+  assert.throws(
+    () => admitCandidateSet(candidateSet({ completeness: 'complete' })),
+    /completeness must be incomplete/,
+  );
+  assert.throws(
+    () => admitCandidateSet(candidateSet({ constraintAwareSearch: true })),
+    /constraintAwareSearch must be false/,
+  );
+  assert.throws(
+    () => admitCandidateSet(candidateSet({ candidateCount: 2 })),
+    /candidateCount/,
+  );
+  assert.throws(
+    () => admitCandidateSet(candidateSet({ strategy: 'constraint-aware-k-shortest' })),
+    /strategy must be base-objective-only/,
+  );
 });
 
 test('RouteCandidateFacts preserves physical distance, objective cost, source states, and synthetic-only geometry', () => {
@@ -414,68 +576,191 @@ test('RouteCandidateFacts preserves physical distance, objective cost, source st
   assert.throws(() => admitRouteCandidateFacts(unknownObservation), /observation tag is unsupported/);
 });
 
-test('DecisionResult keeps admitted, rejected, and unresolved candidates disjoint', () => {
-  assert.deepEqual(admitDecisionResult(decisionResult()), decisionResult());
+test('DecisionResult round-trips policy, score contributions, rank, and actual tie-break values', () => {
+  const input = decisionResult();
+  const admitted = admitDecisionResult(input);
+  assert.deepEqual(admitted, input);
+  assert.equal(admitted.policyId, 'distance-first-v1');
+  assert.equal(admitted.candidateSet.completeness, 'incomplete');
+  assert.equal(admitted.trace[1].rawValue, 3_250);
+  assert.equal(admitted.trace[1].weightedScoreUnits, 50_625_000);
+  assert.equal(admitted.trace.at(-1).rank, 1);
+  assert.deepEqual(admitted.trace.at(-1).tieBreakValues, [
+    { factorId: 'score-units', direction: 'descending', value: 67_125_000 },
+    { factorId: 'objective-cost-units', direction: 'ascending', value: 3_400 },
+    { factorId: 'distance-mm', direction: 'ascending', value: 3_250 },
+    { factorId: 'candidate-id', direction: 'ascending', value: 'candidate-1' },
+  ]);
+  assert.equal(Object.isFrozen(admitted.candidateSet.candidateIds), true);
+  assert.equal(Object.isFrozen(admitted.trace.at(-1).tieBreakValues), true);
 
-  const rejectedOnly = decisionResult({
-    status: 'no-admitted-candidate',
-    admittedCandidateIds: [],
-    rankedCandidateIds: [],
-    rejected: [{
-      candidateId: 'candidate-2',
-      constraintId: 'requires-step-free',
-      reasonCode: 'hard-constraint-failed',
-    }],
-    trace: [{
-      candidateId: 'candidate-2',
-      stage: 'hard-constraint',
-      ruleId: 'requires-step-free',
-      outcome: 'reject',
-      observationState: 'observed',
-      reasonCode: 'hard-constraint-failed',
-    }],
+  const zero = decisionResult();
+  Object.assign(zero.trace[1], {
+    observationState: 'zero',
+    rawValue: 0,
+    utilityNumerator: 100_000_000,
+    utilityBasisPoints: 10_000,
+    weightedScoreUnits: 75_000_000,
   });
-  assert.equal(admitDecisionResult(rejectedOnly).status, 'no-admitted-candidate');
-
-  const overlap = decisionResult({
-    rejected: [{
-      candidateId: 'candidate-1',
-      constraintId: 'requires-step-free',
-      reasonCode: 'hard-constraint-failed',
-    }],
-  });
-  assert.throws(() => admitDecisionResult(overlap), /both admitted and rejected/);
-
-  const badRanking = decisionResult({ rankedCandidateIds: [] });
-  assert.throws(() => admitDecisionResult(badRanking), /rankedCandidateIds must contain every admitted candidate/);
+  zero.trace[3].totalScoreUnits = 91_500_000;
+  zero.trace[4].totalScoreUnits = 91_500_000;
+  zero.trace[4].tieBreakValues[0].value = 91_500_000;
+  zero.trace[4].tieBreakValues[2].value = 0;
+  assert.equal(admitDecisionResult(zero).trace[1].observationState, 'zero');
 });
 
-test('DecisionResult cannot represent an unknown hard constraint as a pass', () => {
-  const invalid = decisionResult();
-  invalid.trace[0].observationState = 'unknown';
-  assert.throws(() => admitDecisionResult(invalid), /unknown hard-constraint observation cannot pass/);
-
-  const unresolved = decisionResult({
-    status: 'unresolved',
+test('DecisionResult preserves hard rejection without implying complete constrained search', () => {
+  const rejection = {
+    candidateId: 'candidate-2',
+    stage: 'hard-constraint',
+    constraintId: 'requires-step-free',
+    factorId: 'step-free',
+    observationState: 'observed',
+    actualValue: false,
+    operator: 'equals',
+    expectedValue: true,
+    outcome: 'reject',
+    reasonCode: 'hard-constraint-failed',
+  };
+  const rejectedOnly = decisionResult({
+    candidateSet: candidateSetReference({
+      candidateIds: ['candidate-2'],
+      candidateCount: 1,
+    }),
+    status: 'no-eligible-candidate-in-provided-set',
     admittedCandidateIds: [],
     rankedCandidateIds: [],
-    unresolved: [{
-      candidateId: 'candidate-2',
-      constraintId: 'requires-step-free',
-      observationTag: 'step-free',
-      observationState: 'unknown',
-      reasonCode: 'hard-constraint-unresolved',
-    }],
-    trace: [{
-      candidateId: 'candidate-2',
-      stage: 'hard-constraint',
-      ruleId: 'requires-step-free',
-      outcome: 'unresolved',
-      observationState: 'unknown',
-      reasonCode: 'hard-constraint-unresolved',
-    }],
+    rejected: [structuredClone(rejection)],
+    trace: [
+      rejection,
+      {
+        candidateId: 'candidate-2',
+        stage: 'candidate-disposition',
+        outcome: 'rejected',
+        constraintIds: ['requires-step-free'],
+        preferenceIds: [],
+        totalScoreUnits: null,
+        reasonCode: 'candidate-hard-constraint-rejected',
+      },
+    ],
   });
-  assert.equal(admitDecisionResult(unresolved).status, 'unresolved');
+  assert.equal(
+    admitDecisionResult(rejectedOnly).status,
+    'no-eligible-candidate-in-provided-set',
+  );
+
+  for (const prohibitedStatus of [
+    'no-feasible-route',
+    'no-admitted-candidate',
+  ]) {
+    assert.throws(
+      () => admitDecisionResult({ ...rejectedOnly, status: prohibitedStatus }),
+      /status is unsupported/,
+    );
+  }
+});
+
+test('a missing candidate observation key remains missing and maps one-to-one to hard unresolved', () => {
+  const facts = routeCandidate();
+  delete facts.observations['step-free'];
+  const admittedFacts = admitRouteCandidateFacts(facts);
+  assert.equal(Object.hasOwn(admittedFacts.observations, 'step-free'), false);
+
+  const missing = {
+    candidateId: 'candidate-1',
+    stage: 'hard-constraint',
+    constraintId: 'requires-step-free',
+    factorId: 'step-free',
+    observationState: 'missing',
+    actualValue: null,
+    operator: 'equals',
+    expectedValue: true,
+    outcome: 'unresolved',
+    reasonCode: 'hard-constraint-missing-unresolved',
+  };
+  const unresolved = decisionResult({
+    status: 'candidate-search-incomplete',
+    admittedCandidateIds: [],
+    rankedCandidateIds: [],
+    unresolved: [structuredClone(missing)],
+    trace: [
+      missing,
+      {
+        candidateId: 'candidate-1',
+        stage: 'candidate-disposition',
+        outcome: 'unresolved',
+        constraintIds: ['requires-step-free'],
+        preferenceIds: [],
+        totalScoreUnits: null,
+        reasonCode: 'candidate-hard-constraint-unresolved',
+      },
+    ],
+  });
+  const admitted = admitDecisionResult(unresolved);
+  assert.equal(admitted.unresolved[0].observationState, 'missing');
+  assert.equal(admitted.unresolved[0].actualValue, null);
+
+  const invalidPass = decisionResult();
+  invalidPass.trace[0].observationState = 'unknown';
+  assert.throws(
+    () => admitDecisionResult(invalidPass),
+    /observationState must be observed for pass/,
+  );
+});
+
+test('DecisionResult expresses soft unresolved and rejects lossy or private trace identities', () => {
+  const hardPass = structuredClone(decisionResult().trace[0]);
+  const softUnresolved = {
+    candidateId: 'candidate-1',
+    stage: 'soft-preference',
+    preferenceId: 'distance',
+    factorId: 'distance-mm',
+    observationState: 'unavailable',
+    rawValue: null,
+    unit: 'millimetres',
+    direction: 'minimize',
+    rangeMin: 0,
+    rangeMax: 10_000,
+    rangeSpan: 10_000,
+    utilityNumerator: null,
+    utilityBasisPoints: null,
+    weightBasisPoints: 7_500,
+    weightedScoreUnits: null,
+    outcome: 'unresolved',
+    reasonCode: 'soft-preference-unavailable-unresolved',
+  };
+  const unresolved = decisionResult({
+    status: 'candidate-search-incomplete',
+    admittedCandidateIds: [],
+    rankedCandidateIds: [],
+    unresolved: [structuredClone(softUnresolved)],
+    trace: [
+      hardPass,
+      softUnresolved,
+      {
+        candidateId: 'candidate-1',
+        stage: 'candidate-disposition',
+        outcome: 'unresolved',
+        constraintIds: [],
+        preferenceIds: ['distance'],
+        totalScoreUnits: null,
+        reasonCode: 'candidate-soft-preference-unresolved',
+      },
+    ],
+  });
+  assert.equal(admitDecisionResult(unresolved).unresolved[0].preferenceId, 'distance');
+
+  const privateId = decisionResult();
+  privateId.trace[0].ruleId = 'private-rule-0';
+  assert.throws(() => admitDecisionResult(privateId), /unknown: ruleId/);
+
+  const missingActual = decisionResult();
+  delete missingActual.trace[0].actualValue;
+  assert.throws(() => admitDecisionResult(missingActual), /missing: actualValue/);
+
+  const wrongContribution = decisionResult();
+  wrongContribution.trace[1].weightedScoreUnits += 1;
+  assert.throws(() => admitDecisionResult(wrongContribution), /weightedScoreUnits is inconsistent/);
 });
 
 test('ScenarioRunManifest fixes reproducibility identities and integer case counts', () => {
@@ -538,6 +823,18 @@ test('validators reject prototype, accessor, symbol, and cyclic schema tricks wi
   symbolGraph[Symbol('hidden')] = true;
   assert.throws(() => admitGraphArtifact(symbolGraph), /symbol properties/);
 
+  const accessorResult = decisionResult();
+  let traceReads = 0;
+  Object.defineProperty(accessorResult.trace[0], 'stage', {
+    enumerable: true,
+    get() { traceReads += 1; return 'hard-constraint'; },
+  });
+  assert.throws(
+    () => admitDecisionResult(accessorResult),
+    /must contain data properties only/,
+  );
+  assert.equal(traceReads, 0);
+
   const cyclic = routeCandidate();
   cyclic.observations.self = cyclic;
   assert.throws(() => admitRouteCandidateFacts(cyclic), /observation tag is unsupported/);
@@ -556,4 +853,13 @@ test('failed validation and returned values never modify or retain caller-owned 
   candidate.geometry.coordinatesMm[0][0] = 999;
   assert.equal(admitted.observations['step-free'].value, true);
   assert.equal(admitted.geometry.coordinatesMm[0][0], 0);
+
+  const result = decisionResult();
+  const admittedResult = admitDecisionResult(result);
+  result.policyId = 'mutated-policy';
+  result.candidateSet.candidateIds[0] = 'mutated-candidate';
+  result.trace[1].rawValue = 9_999;
+  assert.equal(admittedResult.policyId, 'distance-first-v1');
+  assert.deepEqual(admittedResult.candidateSet.candidateIds, ['candidate-1']);
+  assert.equal(admittedResult.trace[1].rawValue, 3_250);
 });
