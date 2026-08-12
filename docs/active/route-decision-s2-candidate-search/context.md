@@ -6,8 +6,9 @@
   `785e2c4835133d51ea9b545dc482454ae995a1e8`.
 - The primary integration owner created coordination branch
   `codex/route-decision-s2-candidate-search`. The four S2 lanes, evaluation seam,
-  and audit repairs are now fast-forwarded onto local `main` through `d2e6335`;
-  remote push, CI/Pages, deployment, and publication remain separate.
+  and audit repairs were fast-forwarded onto local `main` through `d2e6335` and
+  released on remote `main@a2b9c0c`; repository CI/Pages passed while the S2
+  seam remains production-isolated and unpublished as a route capability.
 - Foundation CandidateSet v1 intentionally admits at most one
   `base-objective-only` candidate, requires `completeness: incomplete`, and
   requires `constraintAwareSearch: false`.
@@ -52,6 +53,7 @@
 | 2026-08-12 | Exact `0cd7ccc` pre-integration review and focused verification completed. | Code/spec/security review returned `ACCEPT`; architecture confirmed the code blocker closed and required central record synchronization. S2 92/92, foundation 107/107, full JavaScript lint, and diff checks pass. Full `npm run validate` at this exact revision remains unrun until main fast-forward. |
 | 2026-08-12 | Central record synchronization completed as `d2e6335`, and the accepted chain was fast-forwarded onto local `main`. | Final architecture verdict is `ACCEPT/CLEAR`; integration had no conflict, merge commit, force push, or worktree cleanup. |
 | 2026-08-12 | Exact local-main full validation, release/browser gates, and coverage reporting passed at `d2e6335`. | The revision is locally push-ready; exact pushed-SHA CI/Pages, public data admission, and production claims remain independent gates. |
+| 2026-08-12 | Remote release `a2b9c0c` passed GitHub run `31572576490`; Pages deployment `5864814044` verified the candidate was still the main tip and completed successfully. | Repository publication is verified, but no external route data, S2 route UI, safety/recommendation claim, or scientific validation is admitted. This follow-up is record-only. |
 
 ## Lane ownership
 
@@ -115,6 +117,5 @@ S2-0 public contract
 
 ## Next step
 
-Keep the four isolated worktrees for audit. Push the reviewed local `main`,
-require the exact pushed SHA to pass CI/Pages, and keep deployment/publication,
-external data admission, and stronger route-product claims separate.
+Keep the four isolated worktrees for audit. External data admission, a public
+S2 route product, and stronger route-product claims remain separate future work.

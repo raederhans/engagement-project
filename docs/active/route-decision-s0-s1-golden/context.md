@@ -35,6 +35,7 @@
 | 2026-08-12 | Final S0/S1/S2 audits closed descriptor safety, internal-failure truth, and independently auditable capacity/version gaps. | Code/spec/security and architecture reviewers both returned `ACCEPT` with no remaining P0/P1/P2 finding. |
 | 2026-08-12 | The accepted chain was fast-forwarded from `origin/main@1e9fecad` onto local `main` through `d2e6335`. | Integration used no merge commit, force push, conflict resolution, worktree cleanup, or protected-artifact mutation. |
 | 2026-08-12 | Exact-main `validate`, local `ci:release`, and `coverage:report` completed successfully. | Local code/build/browser evidence is current for `d2e6335`; remote pushed-SHA CI/Pages and any public-data/product claim remain separate. |
+| 2026-08-12 | Remote `main@a2b9c0c` completed GitHub run `31572576490` and Pages deployment `5864814044`. | Core, release, coverage, exact-tip deployment, and public HTTP availability passed; this follow-up changes records only and does not publish a route-decision UI or external route dataset. |
 
 ## Initial provisional cross-lane contract
 
@@ -138,12 +139,11 @@ must stop before crossing ownership and request a handoff from the primary task.
   lint, diff hygiene, exact-main `validate`, local `ci:release`, browser smoke,
   ACS browser flow, and the 35-pass/10-designed-skip Playwright matrix pass.
   Independent code/spec/security and architecture reviews both report `ACCEPT`.
-- Push, exact pushed-SHA CI/Pages, production data admission, Philadelphia
-  validity, real-route accessibility, safety, user research, and scientific
-  validation remain separate and are not claimed by this foundation.
+- Exact release `a2b9c0c` passed remote CI/Pages. Production data admission,
+  Philadelphia validity, real-route accessibility, safety, user research, and
+  scientific validation remain separate and are not claimed by this foundation.
 
 ## Next step
 
-Keep the isolated worktrees for audit. Push the reviewed local `main`, require
-the exact pushed SHA to pass CI/Pages, and keep production data admission as a
-later, separately reviewed step.
+Keep the isolated worktrees for audit and production data admission as a later,
+separately reviewed step. No worktree cleanup is required for this closeout.

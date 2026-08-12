@@ -7,8 +7,9 @@ the audit repairs are now fast-forwarded onto local `main` through tested code
 revision `d2e6335`. Fresh independent code/spec/security and architecture
 reviews both returned `ACCEPT` with no remaining P0/P1/P2 finding. Full
 repository validation and the local release gate pass at that exact revision.
-Remote push/CI/Pages are still separate pending gates, and no production route
-data is admitted.
+Remote `main`, exact-SHA CI, and Pages deployment were verified at release
+revision `a2b9c0c`; this record-only closeout follows that verified release and
+does not alter runtime code. No production route data is admitted.
 
 ## Checklist
 
@@ -56,11 +57,13 @@ data is admitted.
 | Exact-main repository gate | `npm run validate`: exit 0; full test chain, manifest build, public GeoJSON artifacts, and bundle policy pass. |
 | Exact-main release gate | `npm run ci:release`: exit 0; dependency audit, JS/CSS lint, full validation, browser smoke, ACS browser flow, and Playwright visual/accessibility matrix pass (35 passed, 10 designed skips). |
 | Coverage report | `npm run coverage:report`: 67/67 tests; line 53.06%, branch 73.34%, functions 56.40%. This is test coverage evidence, not scientific validation. |
+| Remote release | `main@a2b9c0c` pushed without force; GitHub run `31572576490` passed core, release, coverage, and exact-tip Pages deploy. Deployment `5864814044` reports `success`; the public entry returned HTTP 200. |
 
 ## Open risks and remaining work
 
-- The accepted chain is integrated on local `main`; remote push, exact pushed-SHA
-  CI/Pages, publication, and external production-data admission remain separate.
+- The accepted chain is integrated on local and remote `main`; exact release
+  `a2b9c0c` passed CI/Pages. External production-data admission and any public
+  route-decision capability remain separate.
 - No OSM/City/SEPTA/ArcGIS production data is admitted in this batch. Golden and
   synthetic evidence cannot be promoted into Philadelphia or real-user claims.
 - The foundation v1 route generator still emits at most one base-objective

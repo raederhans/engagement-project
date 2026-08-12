@@ -7,9 +7,11 @@ are fast-forwarded onto local `main` through `d2e6335`. Exact repaired code
 candidate `0cd7ccc` passes focused S2 92/92 and foundation 107/107; the record
 sync follows as `d2e6335`. Code/spec/security and architecture reviews both
 returned `ACCEPT` with no remaining P0/P1/P2 finding. Exact local-main full
-validation, release/browser gates, and coverage reporting pass. Push,
-exact-pushed-SHA CI/Pages, deployment/publication, and external production-data
-admission remain separate pending gates.
+validation, release/browser gates, and coverage reporting pass. Remote
+`main@a2b9c0c`, GitHub run `31572576490`, and Pages deployment `5864814044` are
+verified successful; this record-only closeout follows that release. The S2 seam
+remains production-isolated with no public route-decision UI or external
+production-data admission.
 
 ## Checklist
 
@@ -80,6 +82,7 @@ admission remain separate pending gates.
 | Exact local-main release gate | `npm run ci:release` at `main@d2e6335`: exit 0; dependency audit, JS/CSS lint, full validation, browser smoke, ACS browser flow, and Playwright visual/accessibility matrix pass (35 passed, 10 designed skips). |
 | Coverage report | `npm run coverage:report`: 67/67 tests; line 53.06%, branch 73.34%, functions 56.40%; retained as test-coverage evidence only. |
 | Local integration topology | `origin/main@1e9fecad` is an ancestor of `main@d2e6335`; integration was a clean fast-forward with no merge commit or conflict. |
+| Remote release | `main@a2b9c0c` pushed without force; GitHub core/release/coverage/deploy all passed. Deploy verified the candidate remained the main tip, deployment `5864814044` reports `success`, and the Pages entry returned HTTP 200. |
 
 ## Open risks and remaining work
 
@@ -92,8 +95,9 @@ admission remain separate pending gates.
   or scientific quality.
 - The repository UI/browser release matrix passed, but S2 itself remains a
   synthetic, production-isolated seam with no dedicated end-user route UI.
-  Large-city performance, public-data admission, push, exact pushed-SHA CI/Pages,
-  deployment, and publication remain unperformed at this record point.
+  Remote CI/Pages passed for the repository release, but large-city performance,
+  public-data admission, a public S2 route UI, and route-decision publication
+  remain unperformed.
 - The four isolated worktrees remain for audit. Cleanup is not authorized and is
   not required for this handoff.
 - `inputCandidateFacts` makes enrichment-envelope fields mutually auditable, but
