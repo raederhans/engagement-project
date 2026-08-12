@@ -10,6 +10,7 @@ const NON_KNOWN_OBSERVATION_STATES = new Set([
   'unavailable',
   'partial',
   'stale',
+  'invalid',
   'malformed',
   'unsupported',
   'missing',
@@ -57,8 +58,34 @@ function compareNumbers(left, right) {
 
 function isPlainRecord(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  try {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return false;
+    const ownKeys = Reflect.ownKeys(value);
+    if (ownKeys.some((key) => typeof key === 'symbol')) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    return ownKeys.every((key) => Object.hasOwn(descriptors[key], 'value'));
+  } catch {
+    return false;
+  }
+}
+
+function isDataArray(value) {
+  if (!Array.isArray(value)) return false;
+  try {
+    if (Object.getPrototypeOf(value) !== Array.prototype) return false;
+    const ownKeys = Reflect.ownKeys(value);
+    if (ownKeys.some((key) => typeof key === 'symbol')) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    for (let index = 0; index < value.length; index += 1) {
+      if (!Object.hasOwn(descriptors, String(index))
+        || !Object.hasOwn(descriptors[String(index)], 'value')) return false;
+    }
+    return ownKeys.every((key) => key === 'length'
+      || (/^(0|[1-9]\d*)$/.test(key) && Number(key) < value.length));
+  } catch {
+    return false;
+  }
 }
 
 function isSafeInteger(value) {
@@ -103,7 +130,7 @@ function validateUniqueRuleIds(rules) {
 }
 
 function validateTieBreak(tieBreak) {
-  if (!Array.isArray(tieBreak) || tieBreak.length < 2) {
+  if (!isDataArray(tieBreak) || tieBreak.length < 2) {
     return invalidPolicy('policy_tie_break_invalid');
   }
   const normalized = [];
@@ -132,8 +159,8 @@ function validatePolicy(policy) {
   if (!isPlainRecord(policy)
     || !isNonEmptyId(policy.schemaVersion)
     || !isNonEmptyId(policy.policyId)
-    || !Array.isArray(policy.hardConstraints)
-    || !Array.isArray(policy.softPreferences)) {
+    || !isDataArray(policy.hardConstraints)
+    || !isDataArray(policy.softPreferences)) {
     return invalidPolicy('policy_shape_invalid');
   }
   if (policy.weightBasisPointsTotal !== BASIS_POINTS_TOTAL) {
@@ -163,7 +190,7 @@ function validatePolicy(policy) {
     if (!isNonEmptyId(rule.factorId)
       || !SOFT_DIRECTIONS.has(rule.direction)
       || !isSafeInteger(rule.weightBasisPoints)
-      || rule.weightBasisPoints <= 0
+      || rule.weightBasisPoints < 0
       || !isSafeInteger(rule.rangeMin)
       || !isSafeInteger(rule.rangeMax)
       || Math.abs(rule.rangeMin) > MAX_SCORING_ABSOLUTE_VALUE
@@ -228,7 +255,7 @@ function validateCandidate(candidate) {
   return isPlainRecord(candidate)
     && isNonEmptyId(candidate.schemaVersion)
     && isNonEmptyId(candidate.candidateId)
-    && Array.isArray(candidate.edgeIds)
+    && isDataArray(candidate.edgeIds)
     && candidate.edgeIds.every(isNonEmptyId)
     && isSafeInteger(candidate.distanceMm)
     && candidate.distanceMm >= 0
@@ -447,7 +474,7 @@ export function evaluate(input = {}) {
       policyReview.details,
     );
   }
-  if (!Array.isArray(candidates)) {
+  if (!isDataArray(candidates)) {
     return emptyResult(
       'invalid_candidates',
       policyReview.value.policyId,

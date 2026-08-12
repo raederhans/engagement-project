@@ -1,2 +1,2 @@
-export { BASIS_POINTS_TOTAL, evaluate, evaluateRouteCandidates } from './evaluate.js';
+export { evaluateAdmittedRouteDecision } from './evaluate_admitted.js';
 export { explainDecisionTrace } from './explain.js';

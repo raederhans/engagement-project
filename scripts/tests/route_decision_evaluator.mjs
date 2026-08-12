@@ -3,11 +3,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ROUTE_DECISION_SCHEMA_VERSIONS,
+  admitCandidateSet,
+  admitDecisionPolicy,
+  admitDecisionResult,
+  admitRouteCandidateFacts,
+} from '../../src/route_decision/contracts/index.js';
+import * as evaluatorPublic from '../../src/route_decision/evaluator/index.js';
+import {
   BASIS_POINTS_TOTAL,
   evaluate,
   evaluateRouteCandidates,
+} from '../../src/route_decision/evaluator/evaluate.js';
+
+const {
+  evaluateAdmittedRouteDecision,
   explainDecisionTrace,
-} from '../../src/route_decision/evaluator/index.js';
+} = evaluatorPublic;
+const PUBLIC_VERSION = ROUTE_DECISION_SCHEMA_VERSIONS;
 
 function observation(value) {
   return { state: 'known', value };
@@ -45,6 +58,116 @@ function policy(overrides = {}) {
       { field: 'distanceMm', direction: 'asc' },
       { field: 'candidateId', direction: 'asc' },
     ],
+    ...overrides,
+  };
+}
+
+function publicObservation(factorId = 'step-free', state = 'observed', value = true) {
+  const unresolvedReason = {
+    unknown: 'not-observed',
+    unavailable: 'source-unavailable',
+    partial: 'coverage-partial',
+    stale: 'observation-stale',
+    invalid: 'source-invalid',
+  };
+  return {
+    schemaVersion: PUBLIC_VERSION.sourceObservation,
+    factorId,
+    state,
+    value: state === 'observed' ? value : null,
+    unit: 'boolean',
+    reasonCode: state === 'observed' ? null : unresolvedReason[state],
+    sourceId: 'synthetic-evaluator-test',
+  };
+}
+
+function publicCandidate(overrides = {}) {
+  return {
+    schemaVersion: PUBLIC_VERSION.routeCandidateFacts,
+    candidateId: 'candidate-1',
+    edgeIds: ['edge-1'],
+    distanceMm: 3_250,
+    objectiveCostUnits: 3_400,
+    observations: {
+      'step-free': publicObservation(),
+    },
+    provenance: {
+      graphId: 'graph-1',
+      dataClassification: 'synthetic',
+    },
+    ...overrides,
+  };
+}
+
+function publicCandidateSet(overrides = {}) {
+  return {
+    schemaVersion: PUBLIC_VERSION.candidateSet,
+    candidateSetId: 'candidate-set-1',
+    candidateSetRevision: 'revision-1',
+    requestId: 'request-1',
+    graphId: 'graph-1',
+    strategy: 'base-objective-only',
+    objectiveFactorId: 'objective-cost-units',
+    candidateIds: ['candidate-1'],
+    candidateCount: 1,
+    completeness: 'incomplete',
+    constraintAwareSearch: false,
+    limitations: [
+      'only-base-objective-candidate-generated',
+      'constraint-aware-alternative-search-not-performed',
+    ],
+    ...overrides,
+  };
+}
+
+function publicPolicy(overrides = {}) {
+  return {
+    schemaVersion: PUBLIC_VERSION.decisionPolicy,
+    policyId: 'distance-first-v1',
+    hardConstraints: [{
+      constraintId: 'requires-step-free',
+      needTag: 'require-capability',
+      factorId: 'step-free',
+      operator: 'equals',
+      expectedValue: true,
+      unresolvedStates: ['unknown', 'unavailable', 'partial', 'stale', 'invalid', 'missing'],
+    }],
+    softPreferences: [
+      {
+        preferenceId: 'distance',
+        needTag: 'minimize-distance',
+        factorId: 'distance-mm',
+        operator: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
+        weightBasisPoints: 7_500,
+      },
+      {
+        preferenceId: 'objective-cost',
+        needTag: 'minimize-objective-cost',
+        factorId: 'objective-cost-units',
+        operator: 'minimize',
+        rangeMin: 0,
+        rangeMax: 10_000,
+        weightBasisPoints: 2_500,
+      },
+    ],
+    weightBasisPointsTotal: 10_000,
+    tieBreak: [
+      { factorId: 'score-units', direction: 'descending' },
+      { factorId: 'objective-cost-units', direction: 'ascending' },
+      { factorId: 'distance-mm', direction: 'ascending' },
+      { factorId: 'candidate-id', direction: 'ascending' },
+    ],
+    ...overrides,
+  };
+}
+
+function publicInput(overrides = {}) {
+  return {
+    policy: publicPolicy(),
+    candidateSet: publicCandidateSet(),
+    candidates: [publicCandidate()],
     ...overrides,
   };
 }
@@ -526,4 +649,342 @@ test('candidate contract rejects malformed inputs and duplicate IDs before evalu
   });
   assert.equal(duplicate.status, 'invalid_candidates');
   assert.equal(duplicate.reasonCode, 'candidate_id_duplicate');
+});
+
+test('public barrel exposes only the admitted adapter and trace-only explanation', () => {
+  assert.deepEqual(Object.keys(evaluatorPublic).sort(), [
+    'evaluateAdmittedRouteDecision',
+    'explainDecisionTrace',
+  ]);
+  assert.equal(typeof evaluateAdmittedRouteDecision, 'function');
+});
+
+test('public adapter round-trips exact S0 contracts with lossless score and rank trace', () => {
+  const input = publicInput();
+  const result = evaluateAdmittedRouteDecision(input);
+
+  assert.deepEqual(admitDecisionResult(result), result);
+  assert.equal(result.status, 'ranked-in-provided-set');
+  assert.deepEqual(result.admittedCandidateIds, ['candidate-1']);
+  assert.deepEqual(result.rankedCandidateIds, ['candidate-1']);
+  assert.deepEqual(result.candidateSet, {
+    schemaVersion: PUBLIC_VERSION.candidateSet,
+    candidateSetId: 'candidate-set-1',
+    candidateSetRevision: 'revision-1',
+    candidateIds: ['candidate-1'],
+    candidateCount: 1,
+    completeness: 'incomplete',
+  });
+
+  const hard = result.trace.find(({ stage }) => stage === 'hard-constraint');
+  assert.deepEqual(hard, {
+    candidateId: 'candidate-1',
+    stage: 'hard-constraint',
+    constraintId: 'requires-step-free',
+    factorId: 'step-free',
+    observationState: 'observed',
+    actualValue: true,
+    operator: 'equals',
+    expectedValue: true,
+    outcome: 'pass',
+    reasonCode: 'hard-constraint-passed',
+  });
+  const soft = result.trace.filter(({ stage }) => stage === 'soft-preference');
+  assert.deepEqual(soft.map(({ preferenceId, rawValue, rangeMin, rangeMax, weightBasisPoints }) => ({
+    preferenceId,
+    rawValue,
+    rangeMin,
+    rangeMax,
+    weightBasisPoints,
+  })), [
+    {
+      preferenceId: 'distance',
+      rawValue: 3_250,
+      rangeMin: 0,
+      rangeMax: 10_000,
+      weightBasisPoints: 7_500,
+    },
+    {
+      preferenceId: 'objective-cost',
+      rawValue: 3_400,
+      rangeMin: 0,
+      rangeMax: 10_000,
+      weightBasisPoints: 2_500,
+    },
+  ]);
+  const recomputedScore = soft.reduce((sum, item) => sum + item.weightedScoreUnits, 0);
+  const disposition = result.trace.find(({ stage }) => stage === 'candidate-disposition');
+  const ranking = result.trace.find(({ stage }) => stage === 'ranking');
+  assert.equal(disposition.totalScoreUnits, recomputedScore);
+  assert.equal(ranking.totalScoreUnits, recomputedScore);
+  assert.deepEqual(ranking.tieBreakValues, [
+    { factorId: 'score-units', direction: 'descending', value: recomputedScore },
+    { factorId: 'objective-cost-units', direction: 'ascending', value: 3_400 },
+    { factorId: 'distance-mm', direction: 'ascending', value: 3_250 },
+    { factorId: 'candidate-id', direction: 'ascending', value: 'candidate-1' },
+  ]);
+  assert.equal(ranking.decidingFactorId, null);
+});
+
+test('public adapter accepts already-admitted S0 values and preserves public rule IDs', () => {
+  const raw = publicInput();
+  const admittedInput = {
+    policy: admitDecisionPolicy(raw.policy),
+    candidateSet: admitCandidateSet(raw.candidateSet),
+    candidates: raw.candidates.map((candidateValue) => admitRouteCandidateFacts(candidateValue)),
+  };
+  const result = evaluateAdmittedRouteDecision(admittedInput);
+
+  assert.equal(result.trace[0].constraintId, 'requires-step-free');
+  assert.deepEqual(
+    result.trace.filter(({ stage }) => stage === 'soft-preference')
+      .map(({ preferenceId }) => preferenceId),
+    ['distance', 'objective-cost'],
+  );
+});
+
+test('private typed rule IDs prevent public hard and soft ID collisions', () => {
+  const collidingPolicy = publicPolicy();
+  collidingPolicy.hardConstraints[0].constraintId = 'distance';
+  const result = evaluateAdmittedRouteDecision(publicInput({ policy: collidingPolicy }));
+
+  assert.equal(result.status, 'ranked-in-provided-set');
+  assert.equal(result.trace[0].constraintId, 'distance');
+  assert.equal(
+    result.trace.find(({ stage }) => stage === 'soft-preference').preferenceId,
+    'distance',
+  );
+});
+
+test('S0-admitted zero soft weight is retained without defaulting or renormalization', () => {
+  const zeroWeightPolicy = publicPolicy();
+  zeroWeightPolicy.softPreferences[0].weightBasisPoints = 0;
+  zeroWeightPolicy.softPreferences[1].weightBasisPoints = 10_000;
+  const result = evaluateAdmittedRouteDecision(publicInput({ policy: zeroWeightPolicy }));
+  const distance = result.trace.find(({ preferenceId }) => preferenceId === 'distance');
+  const objective = result.trace.find(({ preferenceId }) => preferenceId === 'objective-cost');
+
+  assert.equal(distance.weightBasisPoints, 0);
+  assert.equal(distance.weightedScoreUnits, 0);
+  assert.equal(objective.weightBasisPoints, 10_000);
+  assert.equal(
+    result.trace.find(({ stage }) => stage === 'ranking').totalScoreUnits,
+    objective.weightedScoreUnits,
+  );
+});
+
+test('public hard rejection uses the bounded provided-set status without claiming route infeasibility', () => {
+  const input = publicInput({
+    candidates: [publicCandidate({
+      observations: { 'step-free': publicObservation('step-free', 'observed', false) },
+    })],
+  });
+  const result = evaluateAdmittedRouteDecision(input);
+
+  assert.equal(result.status, 'no-eligible-candidate-in-provided-set');
+  assert.deepEqual(result.admittedCandidateIds, []);
+  assert.deepEqual(result.unresolved, []);
+  assert.equal(result.rejected[0].actualValue, false);
+  assert.equal(result.rejected[0].expectedValue, true);
+  assert.equal(result.rejected[0].outcome, 'reject');
+  assert.equal(JSON.stringify(result).includes('no-feasible-route'), false);
+  assert.equal(JSON.stringify(result).includes('no_feasible_route'), false);
+});
+
+test('public missing and non-known hard states stay distinct and produce candidate-search-incomplete', () => {
+  const states = ['missing', 'unknown', 'unavailable', 'partial', 'stale', 'invalid'];
+  for (const state of states) {
+    const observations = state === 'missing'
+      ? {}
+      : { 'step-free': publicObservation('step-free', state) };
+    const result = evaluateAdmittedRouteDecision(publicInput({
+      candidates: [publicCandidate({ observations })],
+    }));
+    assert.equal(result.status, 'candidate-search-incomplete', state);
+    assert.deepEqual(result.rejected, [], state);
+    assert.equal(result.unresolved.length, 1, state);
+    assert.equal(result.unresolved[0].observationState, state);
+    assert.equal(result.unresolved[0].actualValue, null);
+    assert.equal(result.unresolved[0].reasonCode, `hard-constraint-${state}-unresolved`);
+    assert.equal(
+      result.trace.some(({ stage }) => stage === 'soft-preference'),
+      false,
+      state,
+    );
+  }
+});
+
+test('public top-level zero is scored as observed zero rather than missing or unresolved', () => {
+  const result = evaluateAdmittedRouteDecision(publicInput({
+    candidates: [publicCandidate({ distanceMm: 0 })],
+  }));
+  const distanceTrace = result.trace.find(({ preferenceId }) => preferenceId === 'distance');
+
+  assert.equal(result.status, 'ranked-in-provided-set');
+  assert.equal(distanceTrace.observationState, 'zero');
+  assert.equal(distanceTrace.rawValue, 0);
+  assert.equal(distanceTrace.utilityBasisPoints, 10_000);
+  assert.equal(distanceTrace.weightedScoreUnits, 75_000_000);
+  assert.deepEqual(result.unresolved, []);
+});
+
+test('S0 schema drift and non-allowlist ranking or observation factors fail closed', () => {
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({
+      policy: publicPolicy({ schemaVersion: 'engagement-route-decision-policy/v2' }),
+    })),
+    /DecisionPolicy\.schemaVersion is unsupported/,
+  );
+
+  const violentObservation = publicCandidate();
+  violentObservation.observations.violent_incident_count = publicObservation();
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({ candidates: [violentObservation] })),
+    /observation tag is unsupported: violent_incident_count/,
+  );
+
+  const violentPolicy = publicPolicy();
+  violentPolicy.softPreferences[0] = {
+    ...violentPolicy.softPreferences[0],
+    factorId: 'violent-incident-count',
+  };
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({ policy: violentPolicy })),
+    /factorId is unsupported for minimize-distance/,
+  );
+});
+
+test('candidateSet identity, count, graph, and base-only contract are re-admitted and cross-checked', () => {
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({
+      candidateSet: publicCandidateSet({ candidateIds: ['candidate-2'] }),
+    })),
+    /candidateSet\.candidateIds must exactly match candidates in order/,
+  );
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({ candidates: [] })),
+    /candidateSet\.candidateCount must equal candidates length/,
+  );
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({
+      candidates: [publicCandidate({
+        provenance: { graphId: 'graph-2', dataClassification: 'synthetic' },
+      })],
+    })),
+    /candidate graphId must match candidateSet\.graphId/,
+  );
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({
+      candidateSet: publicCandidateSet({ strategy: 'constraint-aware-k-shortest' }),
+    })),
+    /strategy must be base-objective-only/,
+  );
+
+  const emptyResult = evaluateAdmittedRouteDecision(publicInput({
+    candidateSet: publicCandidateSet({ candidateIds: [], candidateCount: 0 }),
+    candidates: [],
+  }));
+  assert.equal(emptyResult.status, 'candidate-search-incomplete');
+  assert.equal(emptyResult.candidateSet.completeness, 'incomplete');
+  assert.deepEqual(emptyResult.trace, []);
+});
+
+test('public and raw entrypoints reject own and inherited accessors without invoking getters', () => {
+  let getterCalls = 0;
+  const accessorEnvelope = publicInput();
+  Object.defineProperty(accessorEnvelope, 'policy', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error('must not run');
+    },
+  });
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(accessorEnvelope),
+    /data properties only/,
+  );
+
+  const accessorCandidates = [];
+  Object.defineProperty(accessorCandidates, '0', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error('must not run');
+    },
+  });
+  accessorCandidates.length = 1;
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({ candidates: accessorCandidates })),
+    /data properties only/,
+  );
+
+  const accessorCandidate = publicCandidate();
+  Object.defineProperty(accessorCandidate, 'distanceMm', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error('must not run');
+    },
+  });
+  assert.throws(
+    () => evaluateAdmittedRouteDecision(publicInput({ candidates: [accessorCandidate] })),
+    /data properties only/,
+  );
+
+  const rawOwnAccessor = candidate('raw-accessor', { distance_mm: observation(1_000) });
+  Object.defineProperty(rawOwnAccessor, 'candidateId', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error('must not run');
+    },
+  });
+  assert.equal(
+    evaluate({ candidates: [rawOwnAccessor], policy: policy() }).status,
+    'invalid_candidates',
+  );
+
+  const inheritedAccessor = Object.create({
+    get candidateId() {
+      getterCalls += 1;
+      throw new Error('must not run');
+    },
+  });
+  assert.equal(
+    evaluate({ candidates: [inheritedAccessor], policy: policy() }).status,
+    'invalid_candidates',
+  );
+  assert.equal(getterCalls, 0);
+});
+
+test('copy-neutral explanation projects public trace reasons without evaluating rules', () => {
+  const result = evaluateAdmittedRouteDecision(publicInput());
+  const explanations = explainDecisionTrace(result.trace);
+
+  assert.equal(explanations.length, result.trace.length);
+  assert.equal(explanations[0].ruleId, 'requires-step-free');
+  assert.equal(explanations[0].reasonCode, 'hard-constraint-passed');
+  assert.equal(explanations[0].message, 'The observed value passed this hard constraint.');
+  assert.equal(
+    explanations.at(-1).message,
+    'The candidate received a deterministic rank.',
+  );
+});
+
+test('public adapter does not mutate or retain caller-owned policy, candidateSet, or candidates', () => {
+  const input = publicInput();
+  const before = structuredClone(input);
+  const result = evaluateAdmittedRouteDecision(input);
+
+  assert.deepEqual(input, before);
+  input.policy.policyId = 'caller-mutated-policy';
+  input.candidateSet.candidateSetId = 'caller-mutated-set';
+  input.candidates[0].distanceMm = 9_999;
+  assert.equal(result.policyId, 'distance-first-v1');
+  assert.equal(result.candidateSet.candidateSetId, 'candidate-set-1');
+  assert.equal(
+    result.trace.find(({ preferenceId }) => preferenceId === 'distance').rawValue,
+    3_250,
+  );
 });
