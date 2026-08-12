@@ -1,12 +1,20 @@
 import {
   S3_SCENARIO_SCHEMA_VERSIONS,
-  admitS3JoinedRunRecord,
+  admitS3JoinedRunRecordWithValidationSession,
+  admitS3RecordCollectionWithValidationSession,
   admitS3Report,
-  admitS3RunManifest,
+  admitS3ReportWithValidationSession,
+  createS3ValidationAdmissionSession,
 } from '../../src/route_decision/contracts/scenario_cohort_v1.js';
 
 import { evaluateIndependentRouteCase } from './route_s3_oracle.mjs';
 import { invokeRouteS3Product } from './route_s3_product_adapter.mjs';
+
+const ROUTE_S3_FORCED_ADMISSION_TEST_ERRORS = new WeakSet();
+
+export function isRouteS3ForcedAdmissionTestError(error) {
+  return Boolean(error && typeof error === 'object' && ROUTE_S3_FORCED_ADMISSION_TEST_ERRORS.has(error));
+}
 
 function recordKey(run, denominatorKind, scenarioId, configurationId, profileId) {
   return `${run.runId}:${denominatorKind}:${scenarioId}:${configurationId}:${profileId}`;
@@ -71,6 +79,21 @@ function notMeasured() {
   };
 }
 
+function assertExecutionSession(session) {
+  if (!session?.validationAdmissionSession?.admittedRunManifest) {
+    throw new TypeError('a Route S3 admitted execution session is required');
+  }
+  return session;
+}
+
+export function createRouteS3AdmittedExecutionSession({ runManifest }) {
+  const validationAdmissionSession = createS3ValidationAdmissionSession(runManifest);
+  return Object.freeze({
+    validationAdmissionSession,
+    run: validationAdmissionSession.admittedRunManifest,
+  });
+}
+
 function productExecutionEnvelope({
   run,
   scenario,
@@ -104,13 +127,14 @@ function productExecutionEnvelope({
   };
 }
 
-export function executeRouteS3JoinedRecord({
-  runManifest,
+export function executeRouteS3AdmittedRecord({
+  session,
   denominatorKind,
   scenarioId,
   configurationId,
+  forceAdmissionFailure = false,
 }) {
-  const run = admitS3RunManifest(runManifest);
+  const { run, validationAdmissionSession } = assertExecutionSession(session);
   const scenario = scenarioFor(run, denominatorKind, scenarioId, configurationId);
   const configuration = run.configurationExecutions.find((item) => item.configurationId === configurationId);
   const searchRequest = {
@@ -187,14 +211,26 @@ export function executeRouteS3JoinedRecord({
     oracleStatus: 'computed',
     expectedOutcome,
   };
-  const joinedRecord = admitS3JoinedRunRecord({
+  const joinedRecordCandidate = {
     schemaVersion: S3_SCENARIO_SCHEMA_VERSIONS.joinedRunRecord,
     recordKey: primaryExecution.recordKey,
     denominatorKind,
     primaryExecution,
     replayExecution,
     oracleResult,
-  }, run);
+  };
+  if (forceAdmissionFailure) joinedRecordCandidate.recordKey = 'forced-contract-invalid-record-key';
+  let joinedRecord;
+  try {
+    joinedRecord = admitS3JoinedRunRecordWithValidationSession(
+      joinedRecordCandidate,
+      validationAdmissionSession,
+    );
+  } catch (error) {
+    if (!forceAdmissionFailure) throw error;
+    ROUTE_S3_FORCED_ADMISSION_TEST_ERRORS.add(error);
+    throw error;
+  }
   return Object.freeze({
     joinedRecord,
     invocationSequence: Object.freeze(invocationSequence),
@@ -202,8 +238,23 @@ export function executeRouteS3JoinedRecord({
   });
 }
 
-export function buildRouteS3FocusedReport({ runManifest, mainRecords = [], conformanceRecords = [] }) {
-  const rawProductExecution = (execution) => ({
+export function executeRouteS3JoinedRecord({
+  runManifest,
+  denominatorKind,
+  scenarioId,
+  configurationId,
+}) {
+  const session = createRouteS3AdmittedExecutionSession({ runManifest });
+  return executeRouteS3AdmittedRecord({
+    session,
+    denominatorKind,
+    scenarioId,
+    configurationId,
+  });
+}
+
+function rawProductExecution(execution) {
+  return {
     schemaVersion: execution.schemaVersion,
     recordKey: execution.recordKey,
     denominatorKind: execution.denominatorKind,
@@ -223,15 +274,41 @@ export function buildRouteS3FocusedReport({ runManifest, mainRecords = [], confo
     searchResult: structuredClone(execution.searchResult),
     decisionEvaluation: structuredClone(execution.decisionEvaluation),
     measurement: structuredClone(execution.measurement),
-  });
-  const rawJoinedRecord = (record) => ({
+  };
+}
+
+function rawJoinedRecord(record) {
+  return {
     schemaVersion: record.schemaVersion,
     recordKey: record.recordKey,
     denominatorKind: record.denominatorKind,
     primaryExecution: rawProductExecution(record.primaryExecution),
     replayExecution: rawProductExecution(record.replayExecution),
     oracleResult: structuredClone(record.oracleResult),
-  });
+  };
+}
+
+export function admitRouteS3JoinedRecordBatch({
+  session,
+  mainRecordCandidates = [],
+  conformanceRecordCandidates = [],
+}) {
+  const { run, validationAdmissionSession } = assertExecutionSession(session);
+  return admitS3RecordCollectionWithValidationSession({
+    schemaVersion: S3_SCENARIO_SCHEMA_VERSIONS.recordCollection,
+    runManifest: run,
+    mainRecords: mainRecordCandidates.map(rawJoinedRecord),
+    conformanceRecords: conformanceRecordCandidates.map(rawJoinedRecord),
+  }, validationAdmissionSession);
+}
+
+function buildRouteS3Report({
+  validationAdmissionSession,
+  runManifest,
+  mainRecords,
+  conformanceRecords,
+  reportId,
+}) {
   const rawMainRecords = mainRecords.map(rawJoinedRecord);
   const rawConformanceRecords = conformanceRecords.map(rawJoinedRecord);
   const recordCollection = {
@@ -243,9 +320,9 @@ export function buildRouteS3FocusedReport({ runManifest, mainRecords = [], confo
   const stoppedRecords = rawMainRecords.filter(({ primaryExecution }) => (
     primaryExecution.searchResult?.status === 'stopped'
   )).length;
-  return admitS3Report({
+  const reportInput = {
     schemaVersion: S3_SCENARIO_SCHEMA_VERSIONS.report,
-    reportId: 's3-focused-micrograph-report-v1',
+    reportId,
     recordCollection,
     runId: runManifest.runId,
     emittedClaimCodes: [],
@@ -253,6 +330,29 @@ export function buildRouteS3FocusedReport({ runManifest, mainRecords = [], confo
       partialRun: rawMainRecords.length < 5_000,
       stoppedRecords,
     },
+  };
+  return validationAdmissionSession
+    ? admitS3ReportWithValidationSession(reportInput, validationAdmissionSession)
+    : admitS3Report(reportInput);
+}
+
+export function buildRouteS3FocusedReport({ runManifest, mainRecords = [], conformanceRecords = [] }) {
+  return buildRouteS3Report({
+    runManifest,
+    mainRecords,
+    conformanceRecords,
+    reportId: 's3-focused-micrograph-report-v1',
+  });
+}
+
+export function buildRouteS3ScaleReport({ session, mainRecords = [], conformanceRecords = [] }) {
+  const { run, validationAdmissionSession } = assertExecutionSession(session);
+  return buildRouteS3Report({
+    validationAdmissionSession,
+    runManifest: run,
+    mainRecords,
+    conformanceRecords,
+    reportId: 's3-scale-runner-report-v1',
   });
 }
 

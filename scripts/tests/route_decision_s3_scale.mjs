@@ -25,6 +25,17 @@ import {
 } from '../lib/route_s3_import_boundary.mjs';
 import { evaluateIndependentRouteCase } from '../lib/route_s3_oracle.mjs';
 import { invokeRouteS3Product } from '../lib/route_s3_product_adapter.mjs';
+import {
+  ROUTE_S3_SCALE_CHUNK_MAX_RECORDS,
+  ROUTE_S3_SCALE_RUNNER_VERSIONS,
+  combineRouteS3ScaleCheckpoints,
+  createRouteS3ScaleExecutionSession,
+  exportRouteS3AdmittedManifestCompanion,
+  getRouteS3ScaleWorklist,
+  resumeRouteS3MainChunks,
+  runRouteS3Conformance,
+  runRouteS3MainChunk,
+} from '../lib/route_s3_scale_runner.mjs';
 import { createRouteS3FocusedRunManifest } from './fixtures/route_decision_s3/protocol_fixture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -775,4 +786,535 @@ test('S3 admissions preserve two real invocations, denominator truth, and diagno
   assert.equal(focused.explanationItems.softPreference > 0, true);
   assert.equal(focused.explanationItems.candidateDisposition > 0, true);
   assert.equal(focused.explanationItems.ranking > 0, true);
+});
+
+let cachedScaleArtifacts;
+
+function scaleArtifacts() {
+  if (cachedScaleArtifacts) return cachedScaleArtifacts;
+  const runManifest = createRouteS3FocusedRunManifest();
+  const session = createRouteS3ScaleExecutionSession({ runManifest });
+  const first = runRouteS3MainChunk({ session, startIndex: 0, maxRecords: 1 });
+  const second = resumeRouteS3MainChunks({
+    session,
+    previousCheckpoint: first,
+    maxRecords: 1,
+  });
+  const conformance = runRouteS3Conformance({ session });
+  cachedScaleArtifacts = Object.freeze({ runManifest, session, first, second, conformance });
+  return cachedScaleArtifacts;
+}
+
+test('scale runner freezes the exact admitted 1,000 OD by five-configuration worklist', () => {
+  const { runManifest, session } = scaleArtifacts();
+  const worklist = getRouteS3ScaleWorklist(session);
+  const admittedConfigurationOrder = runManifest.configurationExecutions.map(({ configurationId }) => configurationId);
+  assert.equal(worklist.main.length, 5_000);
+  assert.equal(new Set(worklist.main.map(({ scenarioId }) => scenarioId)).size, 1_000);
+  assert.equal(new Set(worklist.main.map(({ recordKey: key }) => key)).size, 5_000);
+  for (let odIndex = 0; odIndex < 1_000; odIndex += 1) {
+    const slice = worklist.main.slice(odIndex * 5, (odIndex + 1) * 5);
+    assert.deepEqual(slice.map(({ configurationId }) => configurationId), admittedConfigurationOrder);
+    assert.deepEqual(
+      [...new Set(slice.map(({ scenarioId }) => scenarioId))],
+      [runManifest.protocol.cohort.odPairs[odIndex].odPairId],
+    );
+  }
+  assert.equal(worklist.conformance.length, 4);
+  assert.equal(worklist.conformance.every(({ denominatorKind }) => denominatorKind === 'conformance'), true);
+  assert.equal(worklist.main.some(({ recordKey: key }) => (
+    worklist.conformance.some(({ recordKey: probeKey }) => probeKey === key)
+  )), false);
+  assert.equal(worklist.identity.worklistIdentity.expectedRecords, 5_000);
+  assert.equal(Object.isFrozen(worklist), true);
+  assert.equal(Object.isFrozen(worklist.main), true);
+  assert.equal(Object.isFrozen(worklist.main[0]), true);
+});
+
+test('bounded main chunks execute prefix and middle ranges without implying a complete run', () => {
+  const { session, first } = scaleArtifacts();
+  const middle = runRouteS3MainChunk({ session, startIndex: 10, maxRecords: 2 });
+  assert.deepEqual(
+    {
+      startIndex: first.startIndex,
+      targetEndIndex: first.targetEndIndex,
+      endIndex: first.endIndex,
+      nextIndex: first.nextIndex,
+      expectedRecords: first.expectedRecords,
+      rangeStatus: first.rangeStatus,
+      mainComplete: first.mainComplete,
+      conformanceComplete: first.conformanceComplete,
+      evidenceComplete: first.evidenceComplete,
+      partialRun: first.partialRun,
+    },
+    {
+      startIndex: 0,
+      targetEndIndex: 1,
+      endIndex: 1,
+      nextIndex: 1,
+      expectedRecords: 5_000,
+      rangeStatus: 'complete',
+      mainComplete: false,
+      conformanceComplete: false,
+      evidenceComplete: false,
+      partialRun: true,
+    },
+  );
+  assert.equal(middle.startIndex, 10);
+  assert.equal(middle.endIndex, 12);
+  assert.deepEqual(middle.orderedRecordKeys, middle.joinedRecords.map(({ recordKey: key }) => key));
+  assert.equal(middle.joinedRecords.every(({ primaryExecution, replayExecution }) => (
+    primaryExecution.attemptState === 'terminal' && replayExecution.attemptState === 'terminal'
+  )), true);
+  assert.equal(middle.failureSource, null);
+  assert.equal(middle.faultInjectionUsed, false);
+  assert.deepEqual(middle.emittedClaimCodes, []);
+  assert.equal(middle.performance.measurementStatus, 'measurement-not-enabled');
+  assert.equal(middle.performance.performanceSamples, 0);
+  assert.match(middle.performance.interpretation, /diagnostic-only/u);
+  assert.throws(
+    () => runRouteS3MainChunk({
+      session,
+      startIndex: 0,
+      maxRecords: ROUTE_S3_SCALE_CHUNK_MAX_RECORDS + 1,
+    }),
+    /maxRecords is outside its integer bounds/u,
+  );
+});
+
+test('resume and combine require a continuous prefix and retain a partial no-claim report', () => {
+  const { session, first, second, conformance } = scaleArtifacts();
+  assert.equal(second.startIndex, first.nextIndex);
+  const combined = combineRouteS3ScaleCheckpoints({
+    session,
+    mainCheckpoints: [first, second],
+    conformanceCheckpoint: conformance,
+  });
+  assert.equal(combined.schemaVersion, ROUTE_S3_SCALE_RUNNER_VERSIONS.combinedCheckpoint);
+  assert.equal(combined.endIndex, 2);
+  assert.equal(combined.nextIndex, 2);
+  assert.equal(combined.expectedRecords, 5_000);
+  assert.equal(combined.mainComplete, false);
+  assert.equal(combined.conformanceComplete, true);
+  assert.equal(combined.evidenceComplete, false);
+  assert.equal(combined.partialRun, true);
+  assert.equal(combined.report.disclosures.partialRun, true);
+  assert.deepEqual(combined.report.emittedClaimCodes, []);
+  assert.equal(combined.report.mainCohortDenominators.recorded, 2);
+  assert.equal(combined.report.mainCohortDenominators.expected, 5_000);
+  assert.equal(combined.report.conformanceDenominators.recorded, 4);
+  assert.equal(combined.conformance.includedInMainCohort, false);
+  assert.equal(combined.summary.mainRecorded, 2);
+  assert.equal(combined.summary.conformanceRecorded, 4);
+  assert.equal(combined.summary.performanceSamples, 0);
+  assert.equal(combined.summary.performanceStatus, 'measurement-not-enabled');
+  assert.match(combined.summary.performanceInterpretation, /diagnostic-only/u);
+});
+
+test('checkpoint sequence validation rejects gap, overlap, duplicate, reorder, and tamper', () => {
+  const { session, first, second } = scaleArtifacts();
+  const distant = runRouteS3MainChunk({ session, startIndex: 10, maxRecords: 1 });
+  for (const checkpoints of [
+    [first, distant],
+    [first, first],
+    [second, first],
+  ]) {
+    assert.throws(
+      () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: checkpoints }),
+      /gap, overlap, or reorder|duplicate/u,
+    );
+  }
+  const tamperedRange = JSON.parse(JSON.stringify(first));
+  tamperedRange.nextIndex = 99;
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [tamperedRange] }),
+    /content digest mismatch/u,
+  );
+  const tamperedIdentity = JSON.parse(JSON.stringify(first));
+  tamperedIdentity.identity.runId = 'tampered-run';
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [tamperedIdentity] }),
+    /identity drifted/u,
+  );
+  const tamperedRecord = JSON.parse(JSON.stringify(first));
+  tamperedRecord.joinedRecords[0].primaryExecution.executionAttemptId = 'tampered-attempt';
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [tamperedRecord] }),
+    /content digest mismatch/u,
+  );
+
+  const reorderedObjectKeys = Object.fromEntries(Object.entries(JSON.parse(JSON.stringify(first))).reverse());
+  assert.equal(
+    combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [reorderedObjectKeys] }).endIndex,
+    1,
+  );
+  const twoRecords = runRouteS3MainChunk({ session, startIndex: 40, maxRecords: 2 });
+  const reorderedArray = JSON.parse(JSON.stringify(twoRecords));
+  reorderedArray.orderedRecordKeys.reverse();
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [reorderedArray] }),
+    /content digest mismatch/u,
+  );
+});
+
+test('checkpoint admission fails closed for Proxy and accessor inputs', () => {
+  const { session, first } = scaleArtifacts();
+  const proxy = new Proxy(first, {
+    ownKeys() {
+      throw new Error('proxy trap');
+    },
+  });
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [proxy] }),
+    /inspectable plain data/u,
+  );
+  const accessor = JSON.parse(JSON.stringify(first));
+  Object.defineProperty(accessor, 'nextIndex', {
+    enumerable: true,
+    get() {
+      throw new Error('getter must not execute');
+    },
+  });
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [accessor] }),
+    /must not be an accessor/u,
+  );
+});
+
+test('checkpoint hostile trees reject cycles, repeated references, depth, sparse arrays, and oversized arrays', () => {
+  const { session, first } = scaleArtifacts();
+  const cyclic = JSON.parse(JSON.stringify(first));
+  cyclic.identity.cycle = cyclic.identity;
+  const repeated = JSON.parse(JSON.stringify(first));
+  repeated.performance = repeated.identity;
+  const tooDeep = JSON.parse(JSON.stringify(first));
+  let cursor = tooDeep.identity;
+  for (let index = 0; index < 70; index += 1) {
+    cursor.nested = {};
+    cursor = cursor.nested;
+  }
+  const sparse = JSON.parse(JSON.stringify(first));
+  sparse.orderedRecordKeys = new Array(2);
+  sparse.orderedRecordKeys[0] = first.orderedRecordKeys[0];
+  const oversized = JSON.parse(JSON.stringify(first));
+  oversized.orderedRecordKeys = Array.from({ length: 10_001 }, () => 'oversized');
+  for (const [value, expected] of [
+    [cyclic, /cycle or repeated reference/u],
+    [repeated, /cycle or repeated reference/u],
+    [tooDeep, /depth limit/u],
+    [sparse, /must not be sparse/u],
+    [oversized, /array limit/u],
+  ]) {
+    assert.throws(
+      () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [value] }),
+      expected,
+    );
+  }
+});
+
+test('nested array Proxy admission performs zero direct gets and follows descriptor semantics', () => {
+  const { session, first } = scaleArtifacts();
+  let transparentGets = 0;
+  const transparent = JSON.parse(JSON.stringify(first));
+  transparent.orderedRecordKeys = new Proxy(transparent.orderedRecordKeys, {
+    get() {
+      transparentGets += 1;
+      throw new Error('array get trap must not run');
+    },
+  });
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [transparent] }),
+    /detached JSON-serializable data/u,
+  );
+  assert.equal(transparentGets, 0);
+
+  let rejectedGets = 0;
+  const descriptorRejected = JSON.parse(JSON.stringify(first));
+  descriptorRejected.orderedRecordKeys = new Proxy(descriptorRejected.orderedRecordKeys, {
+    get() {
+      rejectedGets += 1;
+      throw new Error('array get trap must not run');
+    },
+    getOwnPropertyDescriptor() {
+      throw new Error('controlled descriptor rejection');
+    },
+  });
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [descriptorRejected] }),
+    /length must be an inspectable data property/u,
+  );
+  assert.equal(rejectedGets, 0);
+});
+
+test('manifest companion and checkpoint identity bind the complete admitted execution environment', () => {
+  const { runManifest, session, first } = scaleArtifacts();
+  const companion = exportRouteS3AdmittedManifestCompanion(session);
+  assert.equal(companion.schemaVersion, ROUTE_S3_SCALE_RUNNER_VERSIONS.manifestCompanion);
+  assert.equal(companion.artifactKind, 'admitted-run-manifest-companion');
+  assert.deepEqual(companion.admittedRunManifest, session.harnessSession.run);
+  assert.equal(companion.identity.runManifestIdentity.executionIdentity.productAdapterVersion,
+    runManifest.executionIdentity.productAdapterVersion);
+  assert.deepEqual(companion.identity.runManifestIdentity.referenceEnvironment, runManifest.referenceEnvironment);
+  assert.equal(companion.contentDigest.canonicalization, 'route-s3-canonical-json-sorted-object-keys/v1');
+  assert.equal(companion.contentDigest.trustModel, 'content-identity-not-signature-or-authenticity');
+  assert.match(companion.persistenceSemantics, /no-filesystem-durability-or-atomicity/u);
+  assert.equal(Object.isFrozen(companion.admittedRunManifest), true);
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(companion)));
+
+  const drifts = [
+    ['executionIdentity', 'productAdapterVersion', 's3-product-adapter/v2'],
+    ['executionIdentity', 'solverAlgorithmVersion', 'bounded-loopless-search/v2'],
+    ['executionIdentity', 'fixtureVersion', 's3-micrograph-fixtures/v2'],
+    ['executionIdentity', 'canonicalSerializationVersion', 'canonical-json/v2'],
+    ['referenceEnvironment', 'runtime', 'Node drift'],
+    ['referenceEnvironment', 'os', 'drift-os'],
+    ['referenceEnvironment', 'architecture', 'drift-arch'],
+    ['referenceEnvironment', 'cpuClass', 'drift-cpu'],
+    ['referenceEnvironment', 'memoryBytes', runManifest.referenceEnvironment.memoryBytes + 1],
+  ];
+  for (const [section, field, replacement] of drifts) {
+    const driftedManifest = structuredClone(runManifest);
+    driftedManifest[section][field] = replacement;
+    const driftedSession = createRouteS3ScaleExecutionSession({ runManifest: driftedManifest });
+    assert.throws(
+      () => combineRouteS3ScaleCheckpoints({ session: driftedSession, mainCheckpoints: [first] }),
+      /identity drifted/u,
+      `${section}.${field}`,
+    );
+  }
+});
+
+test('runner creates one validation session and never rereads the revoked raw manifest', () => {
+  const revocableManifest = Proxy.revocable(createRouteS3FocusedRunManifest(), {});
+  const session = createRouteS3ScaleExecutionSession({ runManifest: revocableManifest.proxy });
+  const admittedRunManifest = session.harnessSession.validationAdmissionSession.admittedRunManifest;
+  assert.equal(session.harnessSession.run, admittedRunManifest);
+  revocableManifest.revoke();
+
+  const first = runRouteS3MainChunk({ session, startIndex: 0, maxRecords: 1 });
+  const second = resumeRouteS3MainChunks({ session, previousCheckpoint: first, maxRecords: 1 });
+  const conformance = runRouteS3Conformance({ session });
+  const companion = exportRouteS3AdmittedManifestCompanion(session);
+  const combined = combineRouteS3ScaleCheckpoints({
+    session,
+    mainCheckpoints: [
+      JSON.parse(JSON.stringify(first)),
+      JSON.parse(JSON.stringify(second)),
+    ],
+    conformanceCheckpoint: JSON.parse(JSON.stringify(conformance)),
+  });
+  assert.deepEqual(companion.admittedRunManifest, admittedRunManifest);
+  assert.deepEqual(combined.report.recordCollection.runManifest, admittedRunManifest);
+  assert.equal(combined.report.mainCohortDenominators.recorded, 2);
+  assert.equal(combined.report.conformanceDenominators.recorded, 4);
+});
+
+test('beforeRecord can stop execution but cannot substitute a joined record result', () => {
+  const { session, first } = scaleArtifacts();
+  const checkpoint = runRouteS3MainChunk({
+    session,
+    startIndex: 50,
+    maxRecords: 1,
+    beforeRecord() {
+      return first.joinedRecords[0];
+    },
+  });
+  assert.equal(checkpoint.endIndex, 51);
+  assert.notEqual(checkpoint.joinedRecords[0].recordKey, first.joinedRecords[0].recordKey);
+  assert.equal(checkpoint.joinedRecords[0].recordKey, getRouteS3ScaleWorklist(session).main[50].recordKey);
+});
+
+test('per-record admission failure stops before the next index in return and throw modes', () => {
+  const { session } = scaleArtifacts();
+  const returnInvocations = [];
+  const returned = runRouteS3MainChunk({
+    session,
+    startIndex: 60,
+    maxRecords: 4,
+    forceAdmissionFailureAtIndex: 62,
+    beforeRecord({ workItem }) {
+      returnInvocations.push(workItem.index);
+    },
+  });
+  assert.deepEqual(returnInvocations, [60, 61, 62]);
+  assert.equal(returned.rangeStatus, 'stopped-on-error');
+  assert.equal(returned.endIndex, 62);
+  assert.equal(returned.nextIndex, 62);
+  assert.equal(returned.joinedRecords.length, 2);
+  assert.equal(returned.error.failedIndex, 62);
+  assert.match(returned.error.message, /composite binding drifted/u);
+  assert.equal(returned.failureSource, 'forced-admission-test');
+  assert.equal(returned.faultInjectionUsed, true);
+  assert.equal(returned.error.failureSource, 'forced-admission-test');
+  assert.equal(returned.error.faultInjectionUsed, true);
+
+  const throwInvocations = [];
+  assert.throws(
+    () => runRouteS3MainChunk({
+      session,
+      startIndex: 70,
+      maxRecords: 4,
+      forceAdmissionFailureAtIndex: 72,
+      errorMode: 'throw-with-checkpoint',
+      beforeRecord({ workItem }) {
+        throwInvocations.push(workItem.index);
+      },
+    }),
+    (error) => {
+      assert.equal(error.name, 'RouteS3ChunkExecutionError');
+      assert.deepEqual(throwInvocations, [70, 71, 72]);
+      assert.equal(error.checkpoint.endIndex, 72);
+      assert.equal(error.checkpoint.nextIndex, 72);
+      assert.equal(error.checkpoint.joinedRecords.length, 2);
+      assert.equal(error.checkpoint.error.failedIndex, 72);
+      assert.equal(error.checkpoint.failureSource, 'forced-admission-test');
+      assert.equal(error.checkpoint.faultInjectionUsed, true);
+      assert.equal(error.checkpoint.error.failureSource, 'forced-admission-test');
+      assert.equal(error.checkpoint.error.faultInjectionUsed, true);
+      return true;
+    },
+  );
+});
+
+test('ordinary downstream execution errors are not mislabeled as fault injection', () => {
+  const { session } = scaleArtifacts();
+  const nativeStructuredClone = globalThis.structuredClone;
+  let checkpoint;
+  try {
+    globalThis.structuredClone = () => {
+      globalThis.structuredClone = nativeStructuredClone;
+      throw new Error('controlled downstream execution error');
+    };
+    checkpoint = runRouteS3MainChunk({ session, startIndex: 80, maxRecords: 1 });
+  } finally {
+    globalThis.structuredClone = nativeStructuredClone;
+  }
+  assert.equal(checkpoint.rangeStatus, 'stopped-on-error');
+  assert.equal(checkpoint.endIndex, 80);
+  assert.equal(checkpoint.nextIndex, 80);
+  assert.equal(checkpoint.failureSource, 'record-execution');
+  assert.equal(checkpoint.faultInjectionUsed, false);
+  assert.equal(checkpoint.error.failureSource, 'record-execution');
+  assert.equal(checkpoint.error.faultInjectionUsed, false);
+});
+
+test('mid-record failure checkpoints only the completed terminal prefix without retry or fallback', () => {
+  const { session } = scaleArtifacts();
+  const checkpoint = runRouteS3MainChunk({
+    session,
+    startIndex: 20,
+    maxRecords: 4,
+    beforeRecord({ workItem }) {
+      if (workItem.index === 22) {
+        const collision = new Error('controlled record failure');
+        collision.routeS3FailureSource = 'forced-admission-test';
+        collision.routeS3FaultInjectionUsed = true;
+        throw collision;
+      }
+    },
+  });
+  assert.equal(checkpoint.rangeStatus, 'stopped-on-error');
+  assert.equal(checkpoint.startIndex, 20);
+  assert.equal(checkpoint.endIndex, 22);
+  assert.equal(checkpoint.nextIndex, 22);
+  assert.equal(checkpoint.joinedRecords.length, 2);
+  assert.equal(checkpoint.joinedRecords.every(({ primaryExecution, replayExecution }) => (
+    primaryExecution.attemptState === 'terminal' && replayExecution.attemptState === 'terminal'
+  )), true);
+  assert.equal(checkpoint.error.failedIndex, 22);
+  assert.equal(checkpoint.error.retryAttempted, false);
+  assert.equal(checkpoint.error.fallbackAttempted, false);
+  assert.equal(checkpoint.failureSource, 'before-record-hook');
+  assert.equal(checkpoint.faultInjectionUsed, true);
+  assert.equal(checkpoint.error.failureSource, 'before-record-hook');
+  assert.equal(checkpoint.error.faultInjectionUsed, true);
+  assert.equal(checkpoint.mainComplete, false);
+  assert.equal(checkpoint.conformanceComplete, false);
+  assert.equal(checkpoint.evidenceComplete, false);
+  assert.equal(checkpoint.partialRun, true);
+  assert.deepEqual(checkpoint.emittedClaimCodes, []);
+  assert.throws(
+    () => resumeRouteS3MainChunks({ session, previousCheckpoint: checkpoint, maxRecords: 1 }),
+    /stopped run cannot resume/u,
+  );
+  const stoppedAtZero = runRouteS3MainChunk({
+    session,
+    startIndex: 0,
+    maxRecords: 2,
+    beforeRecord({ workItem }) {
+      if (workItem.index === 1) throw new Error('terminal stopped ledger');
+    },
+  });
+  const afterStopped = runRouteS3MainChunk({ session, startIndex: stoppedAtZero.nextIndex, maxRecords: 1 });
+  assert.throws(
+    () => combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [stoppedAtZero, afterStopped] }),
+    /digest chain drifted|continue after a stopped run boundary/u,
+  );
+  const stoppedCombined = combineRouteS3ScaleCheckpoints({ session, mainCheckpoints: [stoppedAtZero] });
+  assert.equal(stoppedCombined.stoppedProvenance.error.failedIndex, 1);
+  assert.equal(stoppedCombined.stoppedProvenance.failureSource, 'before-record-hook');
+  assert.equal(stoppedCombined.stoppedProvenance.faultInjectionUsed, true);
+  assert.equal(stoppedCombined.stoppedProvenance.error.failureSource, 'before-record-hook');
+  assert.equal(stoppedCombined.stoppedProvenance.error.faultInjectionUsed, true);
+  assert.equal(stoppedCombined.mainComplete, false);
+  assert.equal(stoppedCombined.evidenceComplete, false);
+
+  assert.throws(
+    () => runRouteS3MainChunk({
+      session,
+      startIndex: 30,
+      maxRecords: 3,
+      errorMode: 'throw-with-checkpoint',
+      beforeRecord({ workItem }) {
+        if (workItem.index === 32) throw new Error('controlled thrown boundary');
+      },
+    }),
+    (error) => {
+      assert.equal(error.name, 'RouteS3ChunkExecutionError');
+      assert.equal(error.checkpoint.endIndex, 32);
+      assert.equal(error.checkpoint.nextIndex, 32);
+      assert.equal(error.checkpoint.joinedRecords.length, 2);
+      assert.equal(error.checkpoint.error.retryAttempted, false);
+      assert.equal(error.checkpoint.failureSource, 'before-record-hook');
+      assert.equal(error.checkpoint.faultInjectionUsed, true);
+      return true;
+    },
+  );
+});
+
+test('conformance execution remains an exact separate four-record denominator', () => {
+  const { conformance } = scaleArtifacts();
+  assert.equal(conformance.checkpointKind, 'conformance-batch');
+  assert.equal(conformance.expectedRecords, 4);
+  assert.equal(conformance.startIndex, 0);
+  assert.equal(conformance.endIndex, 4);
+  assert.equal(conformance.mainComplete, false);
+  assert.equal(conformance.conformanceComplete, true);
+  assert.equal(conformance.evidenceComplete, false);
+  assert.equal(conformance.partialRun, true);
+  assert.equal(conformance.joinedRecords.length, 4);
+  assert.equal(conformance.joinedRecords.every(({ denominatorKind }) => denominatorKind === 'conformance'), true);
+  assert.equal(conformance.failureSource, null);
+  assert.equal(conformance.faultInjectionUsed, false);
+  assert.equal(conformance.performance.performanceSamples, 0);
+  assert.deepEqual(conformance.emittedClaimCodes, []);
+});
+
+test('checkpoint APIs return detached deep-frozen JSON data', () => {
+  const { first } = scaleArtifacts();
+  assert.equal(Object.isFrozen(first), true);
+  assert.equal(Object.isFrozen(first.identity), true);
+  assert.equal(Object.isFrozen(first.joinedRecords), true);
+  assert.equal(Object.isFrozen(first.joinedRecords[0]), true);
+  assert.equal(Object.isFrozen(first.joinedRecords[0].primaryExecution.searchResult), true);
+  assert.throws(() => {
+    first.nextIndex = 99;
+  }, TypeError);
+  const serialized = JSON.stringify(first);
+  const detached = JSON.parse(serialized);
+  assert.equal(detached.schemaVersion, ROUTE_S3_SCALE_RUNNER_VERSIONS.checkpoint);
+  detached.nextIndex = 99;
+  assert.equal(first.nextIndex, 1);
+  assert.equal(serialized.includes('measurement-not-enabled'), true);
+  assert.equal(serialized.includes('diagnostic-only-no-performance-claim-eligible-in-v1'), true);
 });
