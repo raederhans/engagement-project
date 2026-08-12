@@ -47,6 +47,9 @@
 | 2026-08-12 | Expansion budget did not bound generated frontier memory on a high-outdegree graph. | Product search now has a separate fixed frontier-state/edge-reference capacity and returns `search-capacity-exhausted` with `not-proven`; it is not reported as expansion-budget exhaustion or bounded completeness. |
 | 2026-08-12 | The S2 Golden oracle imported production request/observation admissions. | Oracle fixtures now use a local, clean-room admission implementation; production contract/search code remains reachable only through the thin product adapter and harness result admission. |
 | 2026-08-12 | Independent final review returned `ACCEPT` after the repairs, with one low-risk test-depth watch on the second capacity counter and partial-candidate stop. | Three dedicated regressions now cover frontier edge-reference capacity plus zero- and nonzero-candidate capacity terminals; the final focused S2 suite is 90/90 and no P0/P1/P2 blocker remains. |
+| 2026-08-12 | Pre-integration architecture review found that frontier capacity was still encoded as a budget outcome and omitted its active policy from the public artifact. | CandidateSet advances to v3 with independent `capacityPolicy` and `capacityOutcome`; SearchResult advances to v2, search enrichment to v3, and search evaluation to v2. Budget and capacity exhaustion are mutually exclusive and neither can claim bounded completeness. |
+| 2026-08-12 | Golden lacked an independent capacity denominator, and strict admissions still performed direct property reads after descriptor inspection. | Golden advances its manifest/case/ledger/oracle contracts, adds zero- and partial-candidate capacity fixtures, and reports 17 fixtures across eight denominators. Foundation and S2 admissions now snapshot data descriptors; post-admission compiler failures remain internal failures. Repaired as `0cd7ccc`. |
+| 2026-08-12 | Exact `0cd7ccc` pre-integration review and focused verification completed. | Code/spec/security review returned `ACCEPT`; architecture confirmed the code blocker closed and required central record synchronization. S2 92/92, foundation 107/107, full JavaScript lint, and diff checks pass. Full `npm run validate` at this exact revision remains unrun until main fast-forward. |
 
 ## Lane ownership
 
@@ -86,6 +89,7 @@ S2-0 public contract
 | Shared/full validation, build, browser, or dev server | Primary integration owner | Primary-owned temporary logs only | Repository validation/build completed; browser/dev-server lanes intentionally not started |
 | Exact-candidate `npm run validate` | Primary integration owner | `%TEMP%/engagement-s2-6b2d48d-validate.log` | Completed at code candidate `6b2d48d`, exit 0; full test chain, manifest build, and bundle policy pass |
 | Post-review repair validation | Primary integration owner | `%TEMP%/engagement-s2-000d85e-validate.log` | Focused S2 90/90, foundation 106/106, full JS lint and diff check pass; `npm run validate` completed at code candidate `000d85e`, exit 0 |
+| Pre-integration audit repair | Primary integration owner | No persistent log; command output captured in the integration task | Exact `0cd7ccc`: focused S2 92/92, foundation 107/107, full JS lint and diff check pass; exact full `npm run validate` intentionally pending the main fast-forward |
 
 ## Active execution tasks
 

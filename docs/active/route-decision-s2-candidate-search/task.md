@@ -4,14 +4,15 @@
 
 `ready-for-integration` — all four S2 lanes and the primary-owned C-to-A
 evaluation seam are integrated on coordination branch
-`codex/route-decision-s2-candidate-search`. Initial code candidate `6b2d48d`
-passed the complete repository validation; independent final review then found
-and drove repairs for cross-edge constraint precedence, provenance audit binding,
-Golden common-mode admission, and frontier capacity. Repaired code candidate
-`000d85e` passes focused S2 90/90, unchanged foundation 106/106, full
-JavaScript lint, diff checks, and the complete repository validation. The
-independent reviewer returned `ACCEPT` with no remaining P0/P1/P2 blocker; its
-last low-risk capacity-coverage watch was closed by dedicated regressions.
+`codex/route-decision-s2-candidate-search`. Earlier candidates `6b2d48d` and
+`000d85e` passed the complete repository validation; the pre-integration audit
+then found descriptor-read, internal-failure-classification, and public capacity
+contract gaps. Exact repaired candidate `0cd7ccc` passes focused S2 92/92,
+foundation 107/107, full JavaScript lint, and diff checks. Code/spec/security
+review returned `ACCEPT`; architecture review confirmed the code blocker closed
+and requested this exact-candidate record synchronization. Full repository
+validation has not yet been rerun at `0cd7ccc` and remains the post-integration
+main-branch gate.
 Nothing is merged to `main`, pushed, deployed, published, or admitted as
 external production data.
 
@@ -36,11 +37,13 @@ external production data.
 - [x] Release exact contract handoffs to S2-1, S2-2, and S2-3.
 - [x] Review, integrate, and verify S2-1 search and S2-2 enrichment.
 - [x] Review, integrate, and verify S2-3 Golden evidence.
-- [x] Add a provenance-preserving CandidateSet v2/SearchResult to evaluator
-  seam while keeping the public v1 evaluator behavior and barrel unchanged.
+- [x] Add a provenance-preserving CandidateSet v3/SearchResult v2 to evaluator
+  seam through search-enrichment v3 and evaluation v2 while keeping the public
+  foundation v1 evaluator behavior and barrel unchanged.
 - [x] Add a complete synthetic S2 pipeline test and one standard S2 test entry.
-- [x] Complete exact-candidate full validation; retain browser, large-cohort,
-  release, deployment, external-data, and publication gates as explicitly unrun.
+- [x] Complete full validation for earlier code candidates; retain exact
+  `0cd7ccc` full validation, browser, large-cohort, release, deployment,
+  external-data, and publication as explicitly separate gates.
 - [x] Receive and resolve the independent final code review.
 
 ## Validation evidence
@@ -63,30 +66,33 @@ external production data.
 | S2-1 constrained same-endpoint correction | Search focused suite expanded to 17/17; unresolved constrained zero-edge requests return no candidate and do not expand. Integrated as `db62cd0`. |
 | S2-2 enrichment verification | 19/19 focused tests; strict source receipt/identity, pre-search projection, post-search audit, getter-zero-call, detachment, and no hidden network/evaluator back-edge checks pass. |
 | S2-2 integration | Lane commits `f2a9285` and `51680a1`; integrated as `084098c` and `22e41a0`. |
-| S2-3 independent Golden verification | 13/13 product-versus-independent-oracle fixtures pass; seven denominators remain separate: conformance 13, primary 6, terminals 7, alternatives 6, constraints 4, budget 1, completeness 12. |
+| S2-3 independent Golden verification | 17/17 product-versus-independent-oracle fixtures pass; eight denominators remain separate: conformance 1, primary 7, terminals 11, alternatives 7, constraints 6, budget 1, capacity 2, completeness 16. |
 | S2-3 integration | Lane commit `02de320`; integrated as `8e9068a`. |
 | S2 evaluator seam | S2 and v1 evaluator suites 42/42; complete SearchResult/enrichment artifact is retained, zero-candidate evaluation is explicit, and provided-set decisions do not alter search completeness or termination. Integrated as `980d8a0`. |
 | Standard S2 entry | `npm run test:route-decision-s2`: 81/81; covers contracts, search, enrichment, evaluator seam, complete synthetic pipeline, and independent Golden. Added as `6b2d48d`. |
-| Foundation regression | `npm run test:route-decision-foundation`: 106/106; v1 contracts, evaluator, base search, and v1 Golden remain unchanged. |
+| Foundation regression | `npm run test:route-decision-foundation`: 107/107; v1 contracts, evaluator, base search, and v1 Golden remain unchanged; hostile Proxy admission adds zero-direct-get coverage. |
 | Static checks | Targeted ESLint and `git diff --check` pass for the final S2 code paths. |
 | Initial candidate repository validation | `npm run validate` at code candidate `6b2d48d`: exit 0; full repository test chain, Vite manifest build, public GeoJSON artifact build, and bundle policy pass. |
 | Full JavaScript lint | `npm run lint:js`: exit 0, zero warnings. |
-| Post-review focused S2 | `npm run test:route-decision-s2`: 90/90; includes cross-edge fail precedence, unresolved dead-branch completion, both frontier-capacity counters, partial-candidate capacity stop, enrichment v2 input-snapshot audit binding, clean-room Golden admissions, and 15 product/oracle fixtures. |
-| Post-review foundation and static checks | Foundation 106/106; full JavaScript lint and `git diff --check` pass. |
-| Independent final review | `ACCEPT`; no remaining P0/P1/P2 blocker. The only low-risk watch—direct edge-reference-capacity and partial-candidate-capacity coverage—was closed by three dedicated passing regressions. |
+| Pre-integration focused S2 | `npm run test:route-decision-s2`: 92/92; includes orthogonal budget/capacity admissions, version cascades, descriptor snapshots, compiler-failure truth, enrichment v3 binding, clean-room Golden admission, and 17 product/oracle fixtures. |
+| Pre-integration foundation and static checks | Foundation 107/107; full JavaScript lint and `git diff --check` pass. |
+| Pre-integration independent reviews | Exact `0cd7ccc` code/spec/security review: `ACCEPT`, 0 P0/P1/P2. Architecture review: code blocker closed; exact task/registry synchronization required before final verdict. |
 | Repaired code-candidate validation | `npm run validate` at `000d85e`: exit 0; full repository test chain, Vite manifest build, public GeoJSON artifact build, and bundle policy pass. Log: `%TEMP%/engagement-s2-000d85e-validate.log`. |
+| Exact candidate full-validation gate | Not run at `0cd7ccc`; the earlier `000d85e` pass is historical evidence only. Integration owner will run `npm run validate` on the fast-forwarded exact `main` before push. |
 
 ## Open risks and remaining work
 
 - The executable seam is intentionally synthetic-only. External source license,
   coverage, revision, and provenance have not been admitted; unavailable or
   incomplete evidence must continue to fail closed rather than become zero.
-- Search proves only completion within explicit graph and budget bounds. It does
+- Search proves only completion within explicit graph, budget, and versioned
+  capacity-policy bounds. It does
   not establish global route feasibility, city validity, accessibility, safety,
   or scientific quality.
 - No UI/browser journey, large-city performance cohort, public-data admission,
-  push, deployment, or publication has been performed. These remain separate
-  gates despite the exact-candidate repository validation passing.
+  push, deployment, or publication has been performed. Full repository
+  validation for exact candidate `0cd7ccc` is also pending the main fast-forward;
+  earlier candidate validation does not prove the current revision.
 - The four isolated worktrees remain for audit. Cleanup is not authorized and is
   not required for this handoff.
 - `inputCandidateFacts` makes enrichment-envelope fields mutually auditable, but
