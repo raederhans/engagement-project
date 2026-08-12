@@ -65,6 +65,8 @@ published, or loaded by runtime.
 - [x] Complete runner independent reviews and exact integrated validation, and
   record the truthful decision that the current result is not data-admission,
   product, performance, scientific, safety, or user evidence.
+- [x] Close the bounded S3 record as `195d0c8`, then create two isolated,
+  read-only S4 execution-preparation research tasks from that exact revision.
 
 ## Validation evidence
 
@@ -93,13 +95,25 @@ published, or loaded by runtime.
 | S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Accepted as `d33c27d`; validation-session seam integrated as `770eef9`; final seam protocol 32/32, code `APPROVE`, architecture `CLEAR`. |
 | S3-R Controlled Labels / Constraint Semantics | `019ff4f2-28e4-7783-90fa-0195838ea077` | `C:/Users/raede/.codex/worktrees/bc37/engagement_project` | Read-only research complete and accepted: strict closed vocabulary, non-known state separation, policy-content binding, honest product primitive mapping, and separate denominators. |
 | S3-1 Candidate Graph / Data Lifecycle | `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` | `C:/Users/raede/.codex/worktrees/4a9c/engagement_project` | Accepted private lifecycle integrated as `af7e1ac` plus `65b31d8`; candidate-only, never GraphArtifact/product/public input. |
-| S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Micrographs integrated as `17ddf85`; bounded runner integrated as `3e5269d` after code `APPROVE` and architecture merge `CLEAR`. Long 1,000 x 5 execution remains closed pending main-owned persistence/heap/disk preflight. |
+| S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Micrographs integrated as `17ddf85`; bounded runner integrated as `3e5269d` after code `APPROVE` and architecture merge `CLEAR`. The main-owned no-retry 1,000 x 5 execution and separate combine completed on `4d7a262`; final private evidence was closed as `195d0c8`. |
 
 The pre-existing route/data research task
 `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` remains the candidate-source and data
 lifecycle evidence lane. The pre-existing scenario task
 `019ff15a-333e-7733-a71e-a0797c8b9e5b` remains the cohort/configuration evidence
 lane. Neither may publish or production-admit route data.
+
+## Active S4 preparation research
+
+| Lane | Task ID | Worktree | Current state |
+| --- | --- | --- | --- |
+| External candidate graph admission / Philadelphia product boundary | `019ff676-27c8-77f1-9eae-0317ae536d86` | `C:/Users/raede/.codex/worktrees/2dc1/engagement_project` | Active, read-only, clean detached `195d0c8`; mapping existing contracts and official/upstream source, license, topology, clock, promotion, and publication gates without downloading or admitting graph data. |
+| Performance / explanation experience / second-city validation boundary | `019ff676-2f16-7d21-9faf-9cdb7732a3ff` | `C:/Users/raede/.codex/worktrees/5f45/engagement_project` | Active, read-only, clean detached `195d0c8`; separating preregistered engineering-performance, explanation/pilot-ethics, and second-city adapter evidence without running live tests or collecting user data. |
+
+Both S4 tasks return research packages only. They do not own repository writes,
+Git state, live processes, data acquisition/admission, product changes, or
+publication. The primary task remains the sole supervisor and integration/live
+owner.
 
 ## Open risks and remaining work
 
