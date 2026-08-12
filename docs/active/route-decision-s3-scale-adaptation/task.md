@@ -2,11 +2,14 @@
 
 ## Current status
 
-`starting` — S3 scope, three-lane ownership, claim boundaries, and dependency
-gates are frozen on coordination branch
+`in-progress` — S3 scope, supervised task ownership, claim boundaries, and
+dependency gates are frozen on coordination branch
 `codex/route-decision-s3-scale-adaptation` from exact released baseline
-`70f9727`. No S3 task has yet delivered code, no cohort has run, and no route
-graph data has been admitted, committed, published, or loaded by runtime.
+`70f9727`; the coordination baseline is committed as `290517b`. S3-0 is
+implementing the preregistration contract, S3-R is independently replacing the
+failed controlled-label research follow-up, and S3-2 remains read-only. No S3
+delivery has yet been accepted, no cohort has run, and no route graph data has
+been admitted, committed, published, or loaded by runtime.
 
 ## Checklist
 
@@ -18,12 +21,15 @@ graph data has been admitted, committed, published, or loaded by runtime.
   independent scale/Golden lanes.
 - [x] Freeze 1,000 unique synthetic OD x five configurations = 5,000 evaluations
   while preserving separate counts, denominators, and claim limits.
-- [ ] Commit the S3 coordination baseline.
-- [ ] Create three isolated S3 worktree tasks and record task/worktree IDs.
-- [ ] Receive exact ownership and dependency-gate acknowledgment from each task.
-- [ ] Send narrow S3 confirmation questions to the three original research tasks.
+- [x] Commit the S3 coordination baseline as `290517b`.
+- [x] Create three isolated S3 worktree tasks and record task/worktree IDs.
+- [x] Receive exact ownership and dependency-gate acknowledgment from each task.
+- [x] Send narrow S3 confirmation questions to the original scenario and
+  route/data research tasks; replace the unavailable controlled-label follow-up
+  with a new independent S3-R research task.
 - [ ] Review and integrate S3-0 protocol handoff.
-- [ ] Review S3-1 candidate graph/source lifecycle without production admission.
+- [ ] Review the existing route/data research handoff, then assign and review the
+  candidate graph/source lifecycle without production admission.
 - [ ] Release exact protocol/graph handoffs to S3-2 and supervise the 1,000 x 5
   implementation/run under single live-process ownership.
 - [ ] Complete independent final reviews, exact integrated validation, and a
@@ -43,11 +49,17 @@ graph data has been admitted, committed, published, or loaded by runtime.
 
 ## Active S3 tasks
 
-| Lane | Task ID | Worktree | Start state |
+| Lane | Task ID | Worktree | Current state |
 | --- | --- | --- | --- |
-| S3-0 Protocol / Preregistration | pending | pending | Will start from project default `main@70f9727`; implementation gate open only inside owned paths. |
-| S3-1 Candidate Graph / Data Lifecycle | pending | pending | Will start from project default `main@70f9727`; bounded network/source work allowed, production admission forbidden. |
-| S3-2 Independent Scale / Golden | pending | pending | Will start from project default `main@70f9727`; read-only preparation until exact S3-0/S3-1 handoff. |
+| S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Active from project default `main@70f9727`; implementation is limited to owned paths and controlled-label/profile assumptions remain pending S3-R review. |
+| S3-R Controlled Labels / Constraint Semantics | `019ff4f2-28e4-7783-90fa-0195838ea077` | `C:/Users/raede/.codex/worktrees/bc37/engagement_project` | Active replacement research; read-only, current-code-first, and does not inherit the failed task's conclusions as truth. |
+| S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Active from project default `main@70f9727`; read-only preparation until accepted S3-0, S3-R, and candidate graph/data handoffs. |
+
+The pre-existing route/data research task
+`019ff15a-c4f8-74a2-9321-a9fc8df76eb9` remains the candidate-source and data
+lifecycle evidence lane. The pre-existing scenario task
+`019ff15a-333e-7733-a71e-a0797c8b9e5b` remains the cohort/configuration evidence
+lane. Neither may publish or production-admit route data.
 
 ## Open risks and remaining work
 
@@ -58,6 +70,10 @@ graph data has been admitted, committed, published, or loaded by runtime.
 - No pilot route source has yet passed license, redistribution, attribution,
   coverage, mode, topology, schema, four-clock, semantic-diff, and receipt
   review. Network reachability cannot substitute for those gates.
+- The original controlled-label research task
+  `019ff15a-1e6e-72b0-b344-4acb680dec72` became unavailable for follow-up. Its
+  prior output is not discarded, but it cannot close any S3 gate until S3-R
+  independently reproduces the relevant result against current code.
 - The 1,000 x 5 run has not started. Its latency, memory, budget/capacity stops,
   eligible-candidate rate, and explanation consistency are unknown.
 - S3 does not authorize a public route UI, production graph, bundle or CI change,

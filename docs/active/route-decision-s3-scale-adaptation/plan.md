@@ -31,7 +31,10 @@ result into a safety, city-validity, user-research, or public routing claim.
   implemented reference path. Report determinism, terminal, constraint,
   alternative, completeness, budget, capacity, explanation, latency, and memory
   evidence in separate denominators.
-- Use three isolated worktree tasks. The primary task owns dependency handoffs,
+- Use three isolated worktree tasks in the current dispatch: S3-0 protocol,
+  S3-R replacement semantics research, and S3-2 independent Golden design.
+  Candidate graph implementation is assigned only after the existing route/data
+  research handoff is accepted. The primary task owns dependency handoffs,
   shared files, Git integration, long tests, final review, and claim boundaries.
 
 ## Sources of truth
@@ -45,7 +48,9 @@ result into a safety, city-validity, user-research, or public routing claim.
   adapters, tests, release workflow, source-health semantics, and bundle policy.
 - Original research tasks:
   - controlled functional-needs and deterministic constraints:
-    `019ff15a-1e6e-72b0-b344-4acb680dec72`;
+    `019ff15a-1e6e-72b0-b344-4acb680dec72` (historical input only after it became
+    unavailable for follow-up); replacement current-code audit:
+    `019ff4f2-28e4-7783-90fa-0195838ea077`;
   - scenario validation, explanation, and city adaptation:
     `019ff15a-333e-7733-a71e-a0797c8b9e5b`;
   - route generation, external sources, and data lifecycle:
@@ -58,10 +63,12 @@ result into a safety, city-validity, user-research, or public routing claim.
 - [ ] S3-0 Protocol / Preregistration: implement strict cohort, configuration,
   synthetic-profile, negative-probe, run-manifest, and report admissions plus
   focused tests. This lane freezes the S3 handoff consumed by the other lanes.
-- [ ] S3-1 Candidate Graph / Data Lifecycle: compare eligible official/upstream
-  pilot sources, implement candidate-only acquisition, receipt, schema/topology
-  audit, semantic diff, and synthetic validator fixtures. It may use network/API
-  requests but may not publish or runtime-admit the resulting artifact.
+- [ ] Candidate Graph / Data Lifecycle: first accept the existing route/data
+  research handoff, then assign an exact owner to compare eligible
+  official/upstream pilot sources and implement candidate-only acquisition,
+  receipt, schema/topology audit, semantic diff, and synthetic validator
+  fixtures. Bounded network/API requests are allowed; publication and runtime
+  admission are not.
 - [ ] S3-2 Independent Scale / Golden: begin with read-only preparation. After
   S3-0 and S3-1 handoffs, implement the deterministic 1,000 x 5 offline runner,
   thin product adapter, independent comparator, replay evidence, separate
@@ -126,9 +133,12 @@ result into a safety, city-validity, user-research, or public routing claim.
 
 ## Risks and constraints
 
-- S3-0 and S3-1 may proceed independently only inside their exclusive paths.
-  S3-2 remains read-only until the primary owner sends exact protocol and graph
-  handoffs; this is a correctness gate, not scheduling overhead.
+- S3-0 may implement only inside its exclusive paths while S3-R independently
+  audits controlled-label and constraint semantics. Candidate graph work waits
+  for the existing route/data research handoff and an exact owner assignment.
+  S3-2 remains read-only until the primary owner sends accepted protocol,
+  semantics, and graph handoffs; this is a correctness gate, not scheduling
+  overhead.
 - The current production route foundation is synthetic and production-isolated.
   Existing demo network/pathfinder files are not trusted topology, provenance,
   distance, cost, or Golden truth and must not be promoted by convenience.
