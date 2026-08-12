@@ -2,14 +2,16 @@
 
 ## Current status
 
-`in-progress` — S3 scope, supervised task ownership, claim boundaries, and
-dependency gates are frozen on coordination branch
+`in-progress / S3-0 rework` — S3 scope, supervised task ownership, claim
+boundaries, and dependency gates are frozen on coordination branch
 `codex/route-decision-s3-scale-adaptation` from exact released baseline
 `70f9727`; the coordination baseline is committed as `290517b`. S3-0 is
-implementing the preregistration contract, S3-R is independently replacing the
-failed controlled-label research follow-up, and S3-2 remains read-only. No S3
-delivery has yet been accepted, no cohort has run, and no route graph data has
-been admitted, committed, published, or loaded by runtime.
+reworking its preregistration contract after independent review returned
+`REQUEST CHANGES` / architectural `BLOCK`; S3-R's replacement semantic research
+is accepted; S3-1 candidate-only graph/data lifecycle implementation is active;
+and S3-2 remains read-only. No S3 code delivery has yet been accepted, no cohort
+has run, and no route graph data has been admitted, committed, published, or
+loaded by runtime.
 
 ## Checklist
 
@@ -27,9 +29,16 @@ been admitted, committed, published, or loaded by runtime.
 - [x] Send narrow S3 confirmation questions to the original scenario and
   route/data research tasks; replace the unavailable controlled-label follow-up
   with a new independent S3-R research task.
-- [ ] Review and integrate S3-0 protocol handoff.
-- [ ] Review the existing route/data research handoff, then assign and review the
-  candidate graph/source lifecycle without production admission.
+- [x] Review the initial S3-0 protocol handoff: focused 15/15, foundation
+  107/107, S2 92/92, targeted ESLint and diff-check passed, but independent
+  code/architecture reviews blocked integration and returned exact rework.
+- [x] Accept the S3-R semantic research handoff as current-code evidence.
+- [x] Review and accept the existing route/data research handoff, then assign
+  candidate-only graph/source lifecycle implementation without production
+  admission.
+- [ ] Review and integrate the revised S3-0 protocol handoff after all execution,
+  search, graph, partial-run, denominator, and claim blockers close.
+- [ ] Review and integrate the S3-1 candidate lifecycle handoff.
 - [ ] Release exact protocol/graph handoffs to S3-2 and supervise the 1,000 x 5
   implementation/run under single live-process ownership.
 - [ ] Complete independent final reviews, exact integrated validation, and a
@@ -51,8 +60,9 @@ been admitted, committed, published, or loaded by runtime.
 
 | Lane | Task ID | Worktree | Current state |
 | --- | --- | --- | --- |
-| S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Active from project default `main@70f9727`; implementation is limited to owned paths and controlled-label/profile assumptions remain pending S3-R review. |
-| S3-R Controlled Labels / Constraint Semantics | `019ff4f2-28e4-7783-90fa-0195838ea077` | `C:/Users/raede/.codex/worktrees/bc37/engagement_project` | Active replacement research; read-only, current-code-first, and does not inherit the failed task's conclusions as truth. |
+| S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Active rework from project default `main@70f9727`; S3-R semantics are accepted, and both independent review blocker sets must close before integration. |
+| S3-R Controlled Labels / Constraint Semantics | `019ff4f2-28e4-7783-90fa-0195838ea077` | `C:/Users/raede/.codex/worktrees/bc37/engagement_project` | Read-only research complete and accepted: strict closed vocabulary, non-known state separation, policy-content binding, honest product primitive mapping, and separate denominators. |
+| S3-1 Candidate Graph / Data Lifecycle | `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` | `C:/Users/raede/.codex/worktrees/4a9c/engagement_project` | Active implementation on historical baseline `1e9fecad`; independent owned paths only, candidate-external classification, no Git/public/runtime/product admission. |
 | S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Active from project default `main@70f9727`; read-only preparation until accepted S3-0, S3-R, and candidate graph/data handoffs. |
 
 The pre-existing route/data research task
@@ -76,6 +86,13 @@ lane. Neither may publish or production-admit route data.
   independently reproduces the relevant result against current code.
 - The 1,000 x 5 run has not started. Its latency, memory, budget/capacity stops,
   eligible-candidate rate, and explanation consistency are unknown.
+- Initial S3-0 review found six integration blockers: no admitted execution/
+  oracle/run records behind aggregate counters; no K/search-bound/request
+  binding or bidirectional policy/search constraint equality; time/penalty names
+  without corresponding product primitives; no source-receipt/graph-inventory/
+  clock binding; no truthful partial/stopped report or missing/false/zero split;
+  and claims not conditioned on admitted evidence. Passing focused tests only
+  proved the initial schema's internal consistency.
 - S3 does not authorize a public route UI, production graph, bundle or CI change,
   external routing service, address/OD transmission, safety recommendation, or
   scientific/user validation claim.

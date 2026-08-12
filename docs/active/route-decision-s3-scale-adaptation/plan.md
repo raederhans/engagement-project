@@ -31,11 +31,12 @@ result into a safety, city-validity, user-research, or public routing claim.
   implemented reference path. Report determinism, terminal, constraint,
   alternative, completeness, budget, capacity, explanation, latency, and memory
   evidence in separate denominators.
-- Use three isolated worktree tasks in the current dispatch: S3-0 protocol,
-  S3-R replacement semantics research, and S3-2 independent Golden design.
-  Candidate graph implementation is assigned only after the existing route/data
-  research handoff is accepted. The primary task owns dependency handoffs,
-  shared files, Git integration, long tests, final review, and claim boundaries.
+- Use isolated worktree tasks for S3-0 protocol, S3-R replacement semantics
+  research, S3-1 candidate graph/data lifecycle, and S3-2 independent Golden
+  design/implementation in gated sequence. S3-R and S3-2 began read-only, and
+  S3-1 started implementation only after its source/license/topology research
+  handoff was accepted. The primary task owns dependency handoffs, shared files,
+  Git integration, long tests, final review, and claim boundaries.
 
 ## Sources of truth
 
@@ -63,8 +64,8 @@ result into a safety, city-validity, user-research, or public routing claim.
 - [ ] S3-0 Protocol / Preregistration: implement strict cohort, configuration,
   synthetic-profile, negative-probe, run-manifest, and report admissions plus
   focused tests. This lane freezes the S3 handoff consumed by the other lanes.
-- [ ] Candidate Graph / Data Lifecycle: first accept the existing route/data
-  research handoff, then assign an exact owner to compare eligible
+- [ ] S3-1 Candidate Graph / Data Lifecycle: the existing route/data research
+  handoff is accepted; the assigned owner will compare eligible
   official/upstream pilot sources and implement candidate-only acquisition,
   receipt, schema/topology audit, semantic diff, and synthetic validator
   fixtures. Bounded network/API requests are allowed; publication and runtime
@@ -86,12 +87,16 @@ result into a safety, city-validity, user-research, or public routing claim.
   `configurationGroups=5`, and `scenarioConfigEvaluations=5000`; it cannot
   collapse these into “5,000 routes” or a user-success metric.
 - The five groups are explicitly researcher-defined S3 configurations, not a
-  reconstruction of unavailable historical WRT settings. At minimum they
-  separate distance-only, cost/time baseline where evidence exists,
-  factor-weighted, weighted-plus-penalties, and full constraint-aware behavior.
-- Profile A/B are machine-marked synthetic functional-need configurations.
+  reconstruction of unavailable historical WRT settings. Their names and
+  behavior must use only executable current primitives: objective-cost-only;
+  distance ranking over objective-generated candidates; equal-weight distance
+  plus objective cost; reweighted/range-capped distance plus objective cost;
+  and three-capability constraint-aware behavior. No group may claim a distinct
+  time or penalty primitive that the product contract does not expose.
+- Profile A/B are machine-marked non-behavioral synthetic cohort strata for the
+  first S3 run. They do not change policy, search, constraints, or evaluation.
   Profile labels cannot encode or imply sensitive identity, community quality,
-  risk, persona inference, or protected-trait proxies.
+  risk, persona inference, protected-trait proxies, or product behavior.
 - OD pairs come only from an admitted graph revision and fixed preregistered
   seed/strata. Invalid, disconnected, source-unavailable, and deliberate
   constraint-no-solution probes use a separate conformance denominator.
