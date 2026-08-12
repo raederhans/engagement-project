@@ -30,6 +30,10 @@
 | 2026-08-12 | External research/local acquisition is allowed; production admission and publication are not automatic. | Source/license evidence can advance without turning a candidate dataset into a shipped product claim. |
 | 2026-08-12 | Orchestration baseline committed as `cff3e6d`; all four task worktrees are clean detached checkouts of that exact revision. | Delivery diffs and research conclusions can be compared against one auditable base. |
 | 2026-08-12 | Narrow S2 follow-ups sent to all three original research tasks. | S2-0 receives evidence from prior research without making those tasks implementation owners. |
+| 2026-08-12 | All three research replies were reconciled into the S2-0 decision matrix. | K is a cap including primary; route identity is the complete ordered directed edge-ID sequence; only complete edge-local capability evidence may affect search; bounded completeness, constraint outcome, budget outcome, and termination remain separate. |
+| 2026-08-12 | Route research proposed a hop-count tie-break, conflicting with accepted v1 and K=1 base-solver parity. | Rejected for S2 v1; route-generation tie-break remains objective cost then full directed edge-ID sequence. A future product change requires a new version. |
+| 2026-08-12 | Primary review returned four narrow contract changes: bounded no-route naming, terminal exclusivity, canonical constraint order, and auditable expanded-state count. | S2-0 implemented all four and added regression coverage before integration. |
+| 2026-08-12 | S2-0 integrated as `065d824` after 18/18 S2 and 18/18 v1 contract tests plus targeted ESLint. | S2-1 and S2-2 implementation gates opened; S2-3 received contract context but still waits for stable search shape. |
 
 ## Lane ownership
 
@@ -72,10 +76,10 @@ S2-0 public contract
 
 | Lane | Task ID | Worktree | Start state |
 | --- | --- | --- | --- |
-| S2-0 Contract / Product Semantics | `019ff435-0c08-7323-902c-39d181428af1` | `C:/Users/raede/.codex/worktrees/d9bd/engagement_project` | Active; clean detached `cff3e6d`; v1 admission and S2 decision-matrix inspection underway |
-| S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Active; clean detached `cff3e6d`; read-only graph/search architecture mapping underway |
-| S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Active; clean detached `cff3e6d`; read-only source/provenance/admission mapping underway |
-| S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Active; clean detached `cff3e6d`; read-only v1 harness/denominator mapping underway |
+| S2-0 Contract / Product Semantics | `019ff435-0c08-7323-902c-39d181428af1` | `C:/Users/raede/.codex/worktrees/d9bd/engagement_project` | Completed; lane `22d685e`, integrated `065d824`; worktree clean |
+| S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Active at clean detached `065d824`; Phase B implementation authorized in owned paths |
+| S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Active at clean detached `065d824`; Phase B synthetic enrichment implementation authorized in owned paths |
+| S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Idle at clean detached `065d824`; contract handoff received, implementation still gated on S2-1 shape |
 
 ## Handoff
 
@@ -90,6 +94,6 @@ S2-0 public contract
 
 ## Next step
 
-Monitor the four tasks and original research replies. Review S2-0's decision
-matrix and executable contract first; integrate it before releasing
-implementation authority to S2-1, S2-2, or S2-3.
+Monitor S2-1 and S2-2 implementation. Review and integrate the search shape
+before releasing S2-3 implementation; enrichment may integrate independently if
+it remains a pure synthetic-first upstream seam.
