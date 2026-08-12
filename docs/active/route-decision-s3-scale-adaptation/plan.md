@@ -61,23 +61,23 @@ result into a safety, city-validity, user-research, or public routing claim.
 
 ## Stages
 
-- [ ] S3-0 Protocol / Preregistration: implement strict cohort, configuration,
+- [x] S3-0 Protocol / Preregistration: implement strict cohort, configuration,
   synthetic-profile, negative-probe, run-manifest, and report admissions plus
   focused tests. This lane freezes the S3 handoff consumed by the other lanes.
-- [ ] S3-1 Candidate Graph / Data Lifecycle: the existing route/data research
+- [x] S3-1 Candidate Graph / Data Lifecycle: the existing route/data research
   handoff is accepted; the assigned owner will compare eligible
   official/upstream pilot sources and implement candidate-only acquisition,
   receipt, schema/topology audit, semantic diff, and synthetic validator
   fixtures. Bounded network/API requests are allowed; publication and runtime
   admission are not.
-- [ ] S3-2 Independent Scale / Golden: begin with read-only preparation. After
+- [x] S3-2 Independent Scale / Golden: begin with read-only preparation. After
   S3-0 and S3-1 handoffs, implement the deterministic 1,000 x 5 offline runner,
   thin product adapter, independent comparator, replay evidence, separate
   denominators, and bounded performance reporting.
-- [ ] Integration owner: review S3-0 first, reconcile its graph/run identity with
+- [x] Integration owner: review S3-0 first, reconcile its graph/run identity with
   S3-1, then release an exact handoff to S3-2. Integrate one accepted lane at a
   time and add a single standard S3 test/report entry only after focused gates.
-- [ ] Supervisor: monitor the three tasks, return narrow semantic questions to
+- [x] Supervisor: monitor the three tasks, return narrow semantic questions to
   the original research tasks, block ownership crossings and claim inflation,
   and own all shared/full/browser/release validation and Git state.
 

@@ -2,7 +2,7 @@
 
 ## Current status
 
-`in-progress / S3 live-resource gate` — S3 scope, supervised task ownership, claim
+`complete / bounded synthetic S3 evidence` — S3 scope, supervised task ownership, claim
 boundaries, and dependency gates are frozen on coordination branch
 `codex/route-decision-s3-scale-adaptation` from exact released baseline
 `70f9727`; the coordination baseline is committed as `290517b`. S3-0 was accepted
@@ -14,8 +14,12 @@ and architecture `CLEAR`. The validation-session seam was integrated as
 `770eef9`, and the reviewed bounded scale runner was integrated as `3e5269d`
 after final code `APPROVE` with P0/P1/P2/WATCH all zero and architecture merge
 readiness `CLEAR`. The runner freezes the exact 5,000-item worklist and truthful
-checkpoint/stop/report semantics, but the 1,000 x 5 cohort has not run. No route
-graph data has been production-admitted, published, or loaded by runtime.
+checkpoint/stop/report semantics. The single admitted full attempt on exact
+revision `4d7a262` completed 5,000/5,000 scenario-config evaluations plus four
+separate conformance probes, with 5,000 replay matches, 5,000 independent-oracle
+matches, zero mismatches, and `evidenceComplete=true`. The artifacts remain
+private and untracked. No route graph data has been production-admitted,
+published, or loaded by runtime.
 
 ## Checklist
 
@@ -55,6 +59,9 @@ graph data has been production-admitted, published, or loaded by runtime.
   performance measurement; do not execute the full cohort from a worker task.
 - [x] Under single live-process ownership, decide whether the accepted S3-2
   implementation is ready for the separate 1,000 x 5 execution gate.
+- [x] Execute one admitted no-retry 1,000 x 5 attempt as 50 append-only max-100
+  chunks, run four separate conformance probes, combine in a separate process,
+  reload the persisted result, and preserve zero claim/performance truth.
 - [x] Complete runner independent reviews and exact integrated validation, and
   record the truthful decision that the current result is not data-admission,
   product, performance, scientific, safety, or user evidence.
@@ -75,6 +82,8 @@ graph data has been production-admitted, published, or loaded by runtime.
 | S3 validation-session seam | `770eef9`; one admitted RunManifest snapshot is reused across joined-record, collection, report, checkpoint reload, and final combine boundaries. Focused protocol 32/32 passed before integration. |
 | Bounded S3 scale runner integration | `3e5269d`; exact central-head runner 44/44, protocol 32/32, adjacent S2 92/92, targeted ESLint, Node syntax, and diff-check pass. Final code review `APPROVE` with P0/P1/P2/WATCH zero; architecture merge `CLEAR` and later live gate `WATCH`. No 5,000-run or performance evidence was produced. |
 | Main-owned max-100 persistence/resource preflight | Exact revision `6c251fa`; persisted and reloaded one admitted manifest, one 100-record checkpoint, and four conformance records in a fresh validation session. Foreground verifier exit 0; partial combined result was `100/5000`, `4/4`, `evidenceComplete=false`, zero faults/claims/performance samples. Operational artifact sizes and heap observations opened one separate no-retry 5,000-generation plus final-combine attempt; they are not performance evidence. |
+| Full S3 generation ledger | Exact revision `4d7a262`; 50 chained max-100 checkpoints generated and reloaded without retry/fallback, plus four conformance records. Foreground ledger verifier exit 0; 5,000 records, 50 continuous ranges/digests, zero fault flags, zero emitted claims, zero performance samples; append-only ledger 146,921,247 bytes. |
+| Full S3 combined evidence | Foreground persisted-artifact verifier exit 0. Final private artifact 146,816,275 bytes; protocol content digest `caa562bd18a2b9fc17c28b19a215660c417faf0fc343e78743a0dc427cc41ee0`; raw-file SHA-256 `8216E80C238B4625899B35EB3E3A7DE91E0E545E095C0EBED95E6AC26DC1A8E6`. Result: 5,000/5,000 main, 4/4 conformance, 5,000 replay matches, 5,000 oracle matches, zero mismatches, four conformance passes, no stopped records, `evidenceComplete=true`, zero emitted claims, zero performance samples. |
 | Repository guidance | Root and `docs/AGENTS.md`, task-record, worktree-integration, and Lore commit workflows read. |
 
 ## Active S3 tasks
@@ -105,14 +114,14 @@ lane. Neither may publish or production-admit route data.
   `019ff15a-1e6e-72b0-b344-4acb680dec72` became unavailable for follow-up. Its
   prior output is not discarded, but it cannot close any S3 gate until S3-R
   independently reproduces the relevant result against current code.
-- The 1,000 x 5 run has not started. Its latency, memory, budget/capacity stops,
-  eligible-candidate rate, and explanation consistency are unknown.
-- The bounded S3-2 runner and checkpoint contract are integrated, but only small
-  chunks and the four conformance probes have been executed. Full combine still
-  materializes several generations of the complete record graph and the durable
-  evidence set retains both append-only source chunks and a derived report.
-  A max-100 persistence/reload plus heap/disk preflight is required before the
-  main-owned 5,000 live gate can open.
+- The 1,000 x 5 synthetic engineering run completed, but latency and memory were
+  captured only as operational process-admission observations and are not S3
+  performance evidence. The run cannot support user, trip, route-demand,
+  safety, scientific, accessibility-outcome, or real-world transfer claims.
+- The bounded S3-2 runner, 50-chunk append-only ledger, and full combined report
+  completed locally. The durable evidence set intentionally retains both source
+  chunks and the derived report, and it is private/untracked with no filesystem
+  durability, atomicity, signature, or authenticity claim.
 - Initial S3-0 review found six integration blockers: no admitted execution/
   oracle/run records behind aggregate counters; no K/search-bound/request
   binding or bidirectional policy/search constraint equality; time/penalty names
