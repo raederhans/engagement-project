@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "directed-reverse-no-route",
+  "title": "A declared one-way edge cannot be traversed in reverse",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "directed-reverse-no-route-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "reverse-a" },
+        { "nodeId": "reverse-b" }
+      ],
+      "edges": [
+        { "edgeId": "reverse-a-b", "fromNodeId": "reverse-a", "toNodeId": "reverse-b", "distanceMm": 1250, "objectiveCostUnits": 9 }
+      ]
+    },
+    "request": { "originNodeId": "reverse-b", "destinationNodeId": "reverse-a" }
+  },
+  "expected": { "status": "no-route", "reasonCode": "no-directed-path" }
+}

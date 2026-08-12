@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "unique-shortest",
+  "title": "The minimum objective-cost path is unique and its distance remains an independent fact",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "unique-shortest-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "u-a" },
+        { "nodeId": "u-b" },
+        { "nodeId": "u-c" },
+        { "nodeId": "u-d" }
+      ],
+      "edges": [
+        { "edgeId": "u-ab", "fromNodeId": "u-a", "toNodeId": "u-b", "distanceMm": 100, "objectiveCostUnits": 2 },
+        { "edgeId": "u-bd", "fromNodeId": "u-b", "toNodeId": "u-d", "distanceMm": 100, "objectiveCostUnits": 2 },
+        { "edgeId": "u-ac", "fromNodeId": "u-a", "toNodeId": "u-c", "distanceMm": 50, "objectiveCostUnits": 3 },
+        { "edgeId": "u-cd", "fromNodeId": "u-c", "toNodeId": "u-d", "distanceMm": 50, "objectiveCostUnits": 3 }
+      ]
+    },
+    "request": { "originNodeId": "u-a", "destinationNodeId": "u-d" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": ["u-ab", "u-bd"],
+      "nodeIds": ["u-a", "u-b", "u-d"],
+      "distanceMm": 200,
+      "objectiveCostUnits": 4
+    },
+    "alternatives": {
+      "kind": "multiple-distinct",
+      "bestDistinct": {
+        "edgeIds": ["u-ac", "u-cd"],
+        "nodeIds": ["u-a", "u-c", "u-d"],
+        "distanceMm": 100,
+        "objectiveCostUnits": 6
+      }
+    }
+  }
+}

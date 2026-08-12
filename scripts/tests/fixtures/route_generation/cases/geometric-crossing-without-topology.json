@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "geometric-crossing-without-topology",
+  "title": "Crossing edge geometry does not create an undeclared topology node",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "geometric-crossing-without-topology-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "cross-west", "coordinates": [-1, 0] },
+        { "nodeId": "cross-east", "coordinates": [1, 0] },
+        { "nodeId": "cross-south", "coordinates": [0, -1] },
+        { "nodeId": "cross-north", "coordinates": [0, 1] }
+      ],
+      "edges": [
+        {
+          "edgeId": "cross-west-east",
+          "fromNodeId": "cross-west",
+          "toNodeId": "cross-east",
+          "distanceMm": 2000,
+          "objectiveCostUnits": 2,
+          "geometry": { "type": "LineString", "coordinates": [[-1, 0], [1, 0]] }
+        },
+        {
+          "edgeId": "cross-south-north",
+          "fromNodeId": "cross-south",
+          "toNodeId": "cross-north",
+          "distanceMm": 2000,
+          "objectiveCostUnits": 2,
+          "geometry": { "type": "LineString", "coordinates": [[0, -1], [0, 1]] }
+        }
+      ]
+    },
+    "request": { "originNodeId": "cross-west", "destinationNodeId": "cross-north" }
+  },
+  "expected": { "status": "no-route", "reasonCode": "no-directed-path" }
+}

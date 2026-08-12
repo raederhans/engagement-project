@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "equal-cost-tie",
+  "title": "Equal objective cost is resolved by the full edge-id sequence rather than distance or input order",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "equal-cost-tie-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "tie-a" },
+        { "nodeId": "tie-b" },
+        { "nodeId": "tie-c" },
+        { "nodeId": "tie-d" }
+      ],
+      "edges": [
+        { "edgeId": "tie-a-b", "fromNodeId": "tie-a", "toNodeId": "tie-b", "distanceMm": 1500, "objectiveCostUnits": 5 },
+        { "edgeId": "tie-b-d", "fromNodeId": "tie-b", "toNodeId": "tie-d", "distanceMm": 1500, "objectiveCostUnits": 5 },
+        { "edgeId": "tie-a-c", "fromNodeId": "tie-a", "toNodeId": "tie-c", "distanceMm": 1000, "objectiveCostUnits": 5 },
+        { "edgeId": "tie-c-d", "fromNodeId": "tie-c", "toNodeId": "tie-d", "distanceMm": 1000, "objectiveCostUnits": 5 }
+      ]
+    },
+    "request": { "originNodeId": "tie-a", "destinationNodeId": "tie-d" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": ["tie-a-b", "tie-b-d"],
+      "nodeIds": ["tie-a", "tie-b", "tie-d"],
+      "distanceMm": 3000,
+      "objectiveCostUnits": 10
+    },
+    "alternatives": {
+      "kind": "multiple-distinct",
+      "bestDistinct": {
+        "edgeIds": ["tie-a-c", "tie-c-d"],
+        "nodeIds": ["tie-a", "tie-c", "tie-d"],
+        "distanceMm": 2000,
+        "objectiveCostUnits": 10
+      }
+    }
+  }
+}

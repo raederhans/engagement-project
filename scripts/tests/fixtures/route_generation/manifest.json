@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "route-golden-manifest/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "oracleContractVersion": "reference-dijkstra/v1",
+  "tieBreak": [
+    "objectiveCostUnits",
+    "edgeIdsLexicographic"
+  ],
+  "cohorts": {
+    "reachable": [
+      { "caseId": "unique-shortest", "file": "cases/unique-shortest.json" },
+      { "caseId": "equal-cost-tie", "file": "cases/equal-cost-tie.json" },
+      { "caseId": "directed-forward", "file": "cases/directed-forward.json" },
+      { "caseId": "self-route", "file": "cases/self-route.json" },
+      { "caseId": "multiple-distinct-alternatives", "file": "cases/multiple-distinct-alternatives.json" },
+      { "caseId": "no-distinct-alternative", "file": "cases/no-distinct-alternative.json" }
+    ],
+    "terminal": [
+      { "caseId": "directed-reverse-no-route", "file": "cases/directed-reverse-no-route.json" },
+      { "caseId": "disconnected-components", "file": "cases/disconnected-components.json" },
+      { "caseId": "geometric-crossing-without-topology", "file": "cases/geometric-crossing-without-topology.json" },
+      { "caseId": "endpoint-unavailable", "file": "cases/endpoint-unavailable.json" }
+    ],
+    "conformance": [
+      { "caseId": "invalid-edge", "file": "cases/invalid-edge.json" }
+    ]
+  },
+  "expectedCounts": {
+    "reachable": 6,
+    "terminal": 4,
+    "conformance": 1,
+    "total": 11
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "endpoint-unavailable",
+  "title": "A missing destination remains distinct from a disconnected available destination",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "endpoint-unavailable-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "endpoint-a" },
+        { "nodeId": "endpoint-b" }
+      ],
+      "edges": [
+        { "edgeId": "endpoint-a-b", "fromNodeId": "endpoint-a", "toNodeId": "endpoint-b", "distanceMm": 1000, "objectiveCostUnits": 4 }
+      ]
+    },
+    "request": { "originNodeId": "endpoint-a", "destinationNodeId": "endpoint-missing" }
+  },
+  "expected": { "status": "endpoint-unavailable", "reasonCode": "destination-unavailable" }
+}

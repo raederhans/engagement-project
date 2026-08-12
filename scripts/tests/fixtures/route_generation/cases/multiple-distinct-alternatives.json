@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "multiple-distinct-alternatives",
+  "title": "The outcome records the best distinct route fact when multiple route candidates exist",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "multiple-distinct-alternatives-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "multi-a" },
+        { "nodeId": "multi-b" },
+        { "nodeId": "multi-c" },
+        { "nodeId": "multi-d" }
+      ],
+      "edges": [
+        { "edgeId": "multi-direct", "fromNodeId": "multi-a", "toNodeId": "multi-d", "distanceMm": 900, "objectiveCostUnits": 5 },
+        { "edgeId": "multi-a-b", "fromNodeId": "multi-a", "toNodeId": "multi-b", "distanceMm": 600, "objectiveCostUnits": 3 },
+        { "edgeId": "multi-b-d", "fromNodeId": "multi-b", "toNodeId": "multi-d", "distanceMm": 600, "objectiveCostUnits": 4 },
+        { "edgeId": "multi-a-c", "fromNodeId": "multi-a", "toNodeId": "multi-c", "distanceMm": 500, "objectiveCostUnits": 4 },
+        { "edgeId": "multi-c-d", "fromNodeId": "multi-c", "toNodeId": "multi-d", "distanceMm": 500, "objectiveCostUnits": 4 }
+      ]
+    },
+    "request": { "originNodeId": "multi-a", "destinationNodeId": "multi-d" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": ["multi-direct"],
+      "nodeIds": ["multi-a", "multi-d"],
+      "distanceMm": 900,
+      "objectiveCostUnits": 5
+    },
+    "alternatives": {
+      "kind": "multiple-distinct",
+      "bestDistinct": {
+        "edgeIds": ["multi-a-b", "multi-b-d"],
+        "nodeIds": ["multi-a", "multi-b", "multi-d"],
+        "distanceMm": 1200,
+        "objectiveCostUnits": 7
+      }
+    }
+  }
+}

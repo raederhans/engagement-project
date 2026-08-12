@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "directed-forward",
+  "title": "A directed edge is traversable in its declared direction",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "directed-forward-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "forward-a" },
+        { "nodeId": "forward-b" }
+      ],
+      "edges": [
+        { "edgeId": "forward-a-b", "fromNodeId": "forward-a", "toNodeId": "forward-b", "distanceMm": 1250, "objectiveCostUnits": 9 }
+      ]
+    },
+    "request": { "originNodeId": "forward-a", "destinationNodeId": "forward-b" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": ["forward-a-b"],
+      "nodeIds": ["forward-a", "forward-b"],
+      "distanceMm": 1250,
+      "objectiveCostUnits": 9
+    },
+    "alternatives": { "kind": "no-distinct-alternative", "bestDistinct": null }
+  }
+}

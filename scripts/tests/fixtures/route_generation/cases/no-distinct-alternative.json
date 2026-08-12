@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "no-distinct-alternative",
+  "title": "A single directed path reports that no distinct route fact exists",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "no-distinct-alternative-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "none-a" },
+        { "nodeId": "none-b" },
+        { "nodeId": "none-c" }
+      ],
+      "edges": [
+        { "edgeId": "none-a-b", "fromNodeId": "none-a", "toNodeId": "none-b", "distanceMm": 400, "objectiveCostUnits": 2 },
+        { "edgeId": "none-b-c", "fromNodeId": "none-b", "toNodeId": "none-c", "distanceMm": 500, "objectiveCostUnits": 3 }
+      ]
+    },
+    "request": { "originNodeId": "none-a", "destinationNodeId": "none-c" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": ["none-a-b", "none-b-c"],
+      "nodeIds": ["none-a", "none-b", "none-c"],
+      "distanceMm": 900,
+      "objectiveCostUnits": 5
+    },
+    "alternatives": { "kind": "no-distinct-alternative", "bestDistinct": null }
+  }
+}

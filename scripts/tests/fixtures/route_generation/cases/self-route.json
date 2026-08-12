@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "self-route",
+  "title": "A request from an available node to itself has a zero-edge terminal route",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "self-route-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "self-a" },
+        { "nodeId": "self-b" }
+      ],
+      "edges": [
+        { "edgeId": "self-a-b", "fromNodeId": "self-a", "toNodeId": "self-b", "distanceMm": 800, "objectiveCostUnits": 4 }
+      ]
+    },
+    "request": { "originNodeId": "self-a", "destinationNodeId": "self-a" }
+  },
+  "expected": {
+    "status": "ready",
+    "primary": {
+      "edgeIds": [],
+      "nodeIds": ["self-a"],
+      "distanceMm": 0,
+      "objectiveCostUnits": 0
+    },
+    "alternatives": { "kind": "no-distinct-alternative", "bestDistinct": null }
+  }
+}

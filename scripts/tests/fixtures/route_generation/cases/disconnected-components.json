@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "disconnected-components",
+  "title": "Available endpoints in separate topology components produce no route",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "disconnected-components-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "disc-a" },
+        { "nodeId": "disc-b" },
+        { "nodeId": "disc-c" },
+        { "nodeId": "disc-d" }
+      ],
+      "edges": [
+        { "edgeId": "disc-a-b", "fromNodeId": "disc-a", "toNodeId": "disc-b", "distanceMm": 700, "objectiveCostUnits": 4 },
+        { "edgeId": "disc-c-d", "fromNodeId": "disc-c", "toNodeId": "disc-d", "distanceMm": 900, "objectiveCostUnits": 6 }
+      ]
+    },
+    "request": { "originNodeId": "disc-a", "destinationNodeId": "disc-d" }
+  },
+  "expected": { "status": "no-route", "reasonCode": "no-directed-path" }
+}

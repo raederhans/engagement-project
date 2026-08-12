@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "route-golden-case/v1",
+  "fixtureSetVersion": "synthetic-route-generation/v1",
+  "caseId": "invalid-edge",
+  "title": "A negative edge objective cost is rejected as a declared conformance violation",
+  "declaredViolationCode": "edge-objective-cost-negative",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-synthetic-graph/v1",
+      "graphId": "invalid-edge-graph",
+      "directed": true,
+      "nodes": [
+        { "nodeId": "invalid-a" },
+        { "nodeId": "invalid-b" }
+      ],
+      "edges": [
+        { "edgeId": "invalid-a-b", "fromNodeId": "invalid-a", "toNodeId": "invalid-b", "distanceMm": 1000, "objectiveCostUnits": -1 }
+      ]
+    },
+    "request": { "originNodeId": "invalid-a", "destinationNodeId": "invalid-b" }
+  },
+  "expected": { "status": "invalid-input", "reasonCode": "edge-objective-cost-negative" }
+}
