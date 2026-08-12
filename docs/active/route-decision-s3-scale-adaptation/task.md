@@ -67,6 +67,10 @@ published, or loaded by runtime.
   product, performance, scientific, safety, or user evidence.
 - [x] Close the bounded S3 record as `195d0c8`, then create two isolated,
   read-only S4 execution-preparation research tasks from that exact revision.
+- [x] Receive and cross-review both S4 preparation packages, verify their
+  worktrees stayed clean, and freeze a shared staged recommendation without
+  inferring S4 implementation, data-acquisition, pilot, live-test, or release
+  authorization.
 
 ## Validation evidence
 
@@ -103,17 +107,45 @@ lifecycle evidence lane. The pre-existing scenario task
 `019ff15a-333e-7733-a71e-a0797c8b9e5b` remains the cohort/configuration evidence
 lane. Neither may publish or production-admit route data.
 
-## Active S4 preparation research
+## S4 preparation research outcomes
 
 | Lane | Task ID | Worktree | Current state |
 | --- | --- | --- | --- |
-| External candidate graph admission / Philadelphia product boundary | `019ff676-27c8-77f1-9eae-0317ae536d86` | `C:/Users/raede/.codex/worktrees/2dc1/engagement_project` | Active, read-only, clean detached `195d0c8`; mapping existing contracts and official/upstream source, license, topology, clock, promotion, and publication gates without downloading or admitting graph data. |
-| Performance / explanation experience / second-city validation boundary | `019ff676-2f16-7d21-9faf-9cdb7732a3ff` | `C:/Users/raede/.codex/worktrees/5f45/engagement_project` | Active, read-only, clean detached `195d0c8`; separating preregistered engineering-performance, explanation/pilot-ethics, and second-city adapter evidence without running live tests or collecting user data. |
+| External candidate graph admission / Philadelphia product boundary | `019ff676-27c8-77f1-9eae-0317ae536d86` | `C:/Users/raede/.codex/worktrees/2dc1/engagement_project` | Complete and accepted as read-only preparation evidence; clean detached `195d0c8`. It opens contract/preregistration research only, keeps City harness and every real internal/product/runtime/public/publish gate closed, treats TIGER as validator-only, and makes any future bounded private OSM candidate pilot conditional on a separate main-owned acquisition admission. |
+| Performance / explanation experience / second-city validation boundary | `019ff676-2f16-7d21-9faf-9cdb7732a3ff` | `C:/Users/raede/.codex/worktrees/5f45/engagement_project` | Complete and accepted as read-only preparation evidence; clean detached `195d0c8`. It recommends Explanation Contract first, freezes a new performance protocol before any eligible sample, keeps pilot recruitment closed, and limits NYC/OS Open Roads to desk mapping or negative adapter design rather than data admission or transfer claims. |
 
-Both S4 tasks return research packages only. They do not own repository writes,
+Both S4 tasks returned research packages only. They did not own repository writes,
 Git state, live processes, data acquisition/admission, product changes, or
 publication. The primary task remains the sole supervisor and integration/live
 owner.
+
+### Primary S4 preparation decision
+
+The two packages agree on a single staged recommendation:
+
+1. Freeze a new S4 preregistration and claim matrix that separately versions
+   explanation, performance, city-adapter, external-data admission, product
+   graph, and public-manifest identities.
+2. Make `route-decision-explanation/v1` plus an independent counterfactual
+   effect check the first code-shaped vertical slice; use synthetic evidence
+   only and do not infer decisive causes from nonzero score contributions.
+3. Freeze `route-s4-performance-protocol/v1`, its reference environment,
+   strata, denominators, failure policy, and thresholds before the first
+   gate-eligible sample. Node evidence precedes browser/Worker evidence, and
+   neither may inherit S3 operational timings or heap observations.
+4. Build a text-complete, map-optional explanation experience and prepare a
+   consent/data-minimization/retention/stop protocol, but do not recruit or
+   collect real addresses, route geometry, GPS, Diary, or identity data.
+5. Define `CityAdapter/v1` and explicitly adapter-shape Philadelphia before any
+   second-city data gate. NYC LION remains desk/schema evidence; OS Open Roads
+   remains a negative adapter pressure-test candidate. No city data was
+   downloaded or admitted.
+6. Keep the existing synthetic `GraphArtifact/v1`, S3 private candidate
+   artifacts, Crime Evidence Bundle, Source Health, runtime, bundle, public,
+   redistribution, publication, and release paths unchanged.
+
+This is an execution-preparation recommendation, not authorization to implement
+S4 or to acquire, admit, test live, recruit, publish, deploy, or promote data.
 
 ## Open risks and remaining work
 

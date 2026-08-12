@@ -46,6 +46,7 @@
 | 2026-08-12 | Complete the main-owned max-100 persistence/resource preflight on `6c251fa` and open one full live attempt. | A fresh-session verifier re-admitted persisted manifest, 100-record checkpoint, and four conformance records with exit 0; result stayed `100/5000`, `4/4`, `evidenceComplete=false`, zero faults/claims/performance samples. Source checkpoint was 2,903,735 bytes and partial combined artifact 4,442,599 bytes. With about 31.8 GiB free physical memory, a 4.05 GiB Node heap limit, and about 2.18 TB free disk, the owner admitted one no-retry attempt using 50 append-only max-100 chunks followed by a separate combine process. These observations are operational resource admission, not S3 performance evidence. |
 | 2026-08-12 | Complete the admitted S3 full generation and separate combine on exact revision `4d7a262`. | Generation produced and reloaded 50 continuous max-100 checkpoints plus four conformance records with no fault/retry/fallback; the ledger verifier exited 0. Combine produced and reloaded a 146,816,275-byte private artifact; a separate foreground verifier exited 0 with 5,000/5,000 main, 4/4 conformance, 5,000 replay matches, 5,000 oracle matches, zero mismatches, four conformance passes, no stopped records, `evidenceComplete=true`, zero emitted claims, and zero performance samples. This closes S3 bounded synthetic engineering evidence only. |
 | 2026-08-12 | Start two isolated read-only S4 execution-preparation research tasks from exact S3 closeout `195d0c8`. | Task `019ff676-27c8-77f1-9eae-0317ae536d86` owns external candidate-graph admission and Philadelphia product/publication boundaries; task `019ff676-2f16-7d21-9faf-9cdb7732a3ff` owns performance, explanation/pilot-ethics, and second-city validation boundaries. Both began on clean detached worktrees and have no write, live-process, data-acquisition, product-admission, or publication authority. |
+| 2026-08-12 | Accept both S4 preparation research packages and freeze their cross-lane order without opening S4 implementation. | Contract/preregistration comes first; the first code-shaped slice is an exact counterfactual explanation contract; performance thresholds and environment must be frozen before any eligible Node sample and before later browser/Worker evidence; text/map-optional and pilot materials remain preparation-only; CityAdapter precedes any NYC data admission; external graph, runtime, public, redistribution, publication, Source Health, pilot recruitment, live tests, and real-data acquisition remain closed pending separate authority and their own gates. |
 
 ## Lane ownership
 
@@ -108,7 +109,10 @@ Keep S3-1 private lifecycle evidence and all S3 run artifacts out of the product
 path. S3 bounded synthetic engineering evidence is complete. Any S4 work must
 start from a fresh preregistered scope and may not reinterpret these results as
 production data admission, performance evidence, user research, safety or
-scientific validation, or cross-city transferability. The two active S4
-preparation tasks identified above must first return separate evidence,
-inference, unknown, risk, and Go/No-Go packages; the primary owner will review
-their overlap and only then decide whether any implementation gate can open.
+scientific validation, or cross-city transferability. The two S4
+preparation tasks identified above returned and were accepted as separate
+evidence, inference, unknown, risk, and Go/No-Go packages. Their shared staged
+recommendation is recorded in `task.md`; it establishes readiness for a future
+S4 authorization decision but does not itself authorize implementation, data
+acquisition/admission, performance sampling, pilot recruitment, browser/Worker
+execution, publication, release, or deployment.
