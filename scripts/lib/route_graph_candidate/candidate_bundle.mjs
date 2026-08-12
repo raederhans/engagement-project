@@ -18,10 +18,13 @@ import {
   exactDataObject,
   fail,
   freezeData,
+  stringArray,
 } from './safe_data.mjs';
 import { compareRouteGraphCandidates } from './semantic_diff.mjs';
 
 export const ROUTE_GRAPH_CANDIDATE_BUNDLE_SCHEMA = 'route-graph-candidate-bundle/v3';
+export const CANDIDATE_BUNDLE_EVIDENCE_LIMITATION = 'Full baseline, comparison, and review JSON prove only recomputable bundle consistency; not historical order, cryptographic authenticity, or reviewer identity.';
+export const CANDIDATE_BUNDLE_TRUST_BOUNDARY = 'Comparison semantic fields are internally recomputed; review evidence is the only intentionally trusted caller input.';
 
 export function createCandidateBundle(value) {
   const request = exactDataObject(value, [
@@ -54,15 +57,27 @@ export function createCandidateBundle(value) {
       publishEligible: false,
       reasons,
     },
+    limitations: [
+      CANDIDATE_BUNDLE_EVIDENCE_LIMITATION,
+      CANDIDATE_BUNDLE_TRUST_BOUNDARY,
+    ],
   });
 }
 
 export function admitCandidateBundle(value) {
   const bundle = exactDataObject(value, [
-    'schema', 'dataClassification', 'baseline', 'graph', 'receipt', 'eligibility',
+    'schema', 'dataClassification', 'baseline', 'graph', 'receipt', 'eligibility', 'limitations',
   ], 'route graph candidate bundle');
   if (bundle.schema !== ROUTE_GRAPH_CANDIDATE_BUNDLE_SCHEMA) {
     fail('bundle-schema', 'route graph candidate bundle schema is unsupported');
+  }
+  const limitations = stringArray(bundle.limitations, 'bundle.limitations', { min: 2 });
+  const expectedLimitations = [
+    CANDIDATE_BUNDLE_EVIDENCE_LIMITATION,
+    CANDIDATE_BUNDLE_TRUST_BOUNDARY,
+  ];
+  if (canonicalStringify(limitations) !== canonicalStringify(expectedLimitations)) {
+    fail('bundle-evidence-limitation', 'candidate bundle must retain the exact evidence and trusted-input limitations');
   }
   const receipt = admitCandidateReceipt(bundle.receipt);
   const candidate = admitRouteGraphCandidateLifecycleEvidence({
@@ -124,5 +139,6 @@ export function admitCandidateBundle(value) {
     graph,
     receipt,
     eligibility,
+    limitations,
   }, 'admitted route graph candidate bundle');
 }

@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  CANDIDATE_BUNDLE_EVIDENCE_LIMITATION,
+  CANDIDATE_BUNDLE_TRUST_BOUNDARY,
   admitCandidateBundle,
   admitCandidateComparison,
   admitCandidateReceipt,
@@ -255,16 +257,31 @@ test('semantic comparison v1 is rejected rather than silently reinterpreted as v
   assert.throws(() => admitCandidateComparison(legacy), hasCode('comparison-schema'));
 });
 
-test('candidate receipt v1 is rejected rather than silently reinterpreted as v3', () => {
-  const receipt = structuredClone(admittedBundle().receipt);
-  receipt.schema = 'route-graph-candidate-receipt/v1';
-  assert.throws(() => admitCandidateReceipt(receipt), hasCode('receipt-schema'));
+test('candidate receipt legacy schemas v1 and v2 fail closed', () => {
+  for (const version of ['v1', 'v2']) {
+    const receipt = structuredClone(admittedBundle().receipt);
+    receipt.schema = `route-graph-candidate-receipt/${version}`;
+    assert.throws(() => admitCandidateReceipt(receipt), hasCode('receipt-schema'));
+  }
 });
 
-test('candidate bundle v1 is rejected rather than silently reinterpreted as v3', () => {
-  const bundle = structuredClone(admittedBundle());
-  bundle.schema = 'route-graph-candidate-bundle/v1';
-  assert.throws(() => admitCandidateBundle(bundle), hasCode('bundle-schema'));
+test('candidate bundle legacy schemas v1 and v2 fail closed', () => {
+  for (const version of ['v1', 'v2']) {
+    const bundle = structuredClone(admittedBundle());
+    bundle.schema = `route-graph-candidate-bundle/${version}`;
+    assert.throws(() => admitCandidateBundle(bundle), hasCode('bundle-schema'));
+  }
+});
+
+test('candidate bundle retains exact evidence and trusted-input limitations', () => {
+  const admitted = admittedBundle();
+  assert.deepEqual(admitted.limitations, [
+    CANDIDATE_BUNDLE_EVIDENCE_LIMITATION,
+    CANDIDATE_BUNDLE_TRUST_BOUNDARY,
+  ]);
+  const tampered = structuredClone(admitted);
+  tampered.limitations[0] = 'Bundle evidence is fully authentic.';
+  assert.throws(() => admitCandidateBundle(tampered), hasCode('bundle-evidence-limitation'));
 });
 
 test('standalone receipt admission recomputes and rejects candidateId tampering', () => {
