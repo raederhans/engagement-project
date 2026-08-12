@@ -53,18 +53,18 @@ API, or making safety, accessibility, user-research, or city-validity claims.
 
 ## Stages
 
-- [ ] S0 lane: versioned schemas, strict validation, functional-need allowlist,
+- [x] S0 lane: versioned schemas, strict validation, functional-need allowlist,
   source-state semantics, forbidden-claim/privacy contracts, and focused tests.
-- [ ] S1-A lane: deterministic pure evaluator, trace/reason codes, fixed-point
+- [x] S1-A lane: deterministic pure evaluator, trace/reason codes, fixed-point
   policy semantics, and focused truth-table/regression tests.
-- [ ] S1-C lane: isolated graph artifact/compiler core, directed base Dijkstra,
+- [x] S1-C lane: isolated graph artifact/compiler core, directed base Dijkstra,
   deterministic tie-breaking, truthful distance/cost fields, and focused tests.
-- [ ] Golden lane: checked-in synthetic fixtures, independent reference oracle,
+- [x] Golden lane: checked-in synthetic fixtures, independent reference oracle,
   manifest/terminal-outcome schema, fixture integrity tests, and an adapter seam
   for later production-solver comparison.
-- [ ] Integration owner: inspect delivery packages, calculate overlaps, integrate
+- [x] Integration owner: inspect delivery packages, calculate overlaps, integrate
   in dependency order, and run the exact integrated verification set.
-- [ ] Supervisor: use compact task snapshots to monitor all lanes; intervene only
+- [x] Supervisor: use compact task snapshots to monitor all lanes; intervene only
   for blockers, ownership crossings, contract drift, false completion claims, or
   evidence that requires a research-task clarification.
 

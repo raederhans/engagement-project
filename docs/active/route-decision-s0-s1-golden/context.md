@@ -33,11 +33,11 @@
 | 2026-08-12 | User explicitly assigned supervision, orchestration, guidance, and research-task follow-up to the primary task. | Execution lanes do not self-integrate or reinterpret research boundaries; unresolved semantic questions escalate to the primary task. |
 | 2026-08-12 | Four Codex worktree tasks confirmed `active` from the exact coordination baseline. | The supervisor can now monitor with compact task snapshots and preserve independent delivery boundaries. |
 
-## Provisional cross-lane contract
+## Initial provisional cross-lane contract
 
-The S0 lane owns final naming and strict validation. Until that delivery is
-integrated, S1-A, S1-C, and Golden use these minimum shapes without creating a
-second shared-schema module:
+This was the integration-start shape used to keep lane ownership separate. It is
+retained as historical coordination evidence and is superseded by the admitted
+S0 schemas plus the public adapters described in the final evidence section.
 
 ```text
 RouteCandidateFacts
@@ -82,35 +82,66 @@ must stop before crossing ownership and request a handoff from the primary task.
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Shared browser/build/full validation | Primary integration owner | To be assigned after lane integration | Not started |
+| Shared browser/build/full validation | Primary integration owner | None; no runtime/UI surface in this foundation | Not run; defer to any future main/release gate |
 | Lane-local short Node tests | Each isolated lane | Lane-local `.tmp/` if needed; do not commit logs | Permitted when no shared port/server is used |
 
-## Active execution tasks
+## Execution task history
 
-| Lane | Task ID | Worktree | Start state |
+| Lane | Task ID | Worktree | Final delivery state |
 | --- | --- | --- | --- |
-| S0 contracts | `019ff3c1-04a0-7243-82e5-8322d0d21a56` | `C:/Users/raede/.codex/worktrees/2ae5/engagement_project` | Active; clean detached `5bcd229`; contract/repository-style inspection started |
-| S1-A evaluator | `019ff3c1-12cf-7901-ba2d-1fdd12b3c65c` | `C:/Users/raede/.codex/worktrees/1738/engagement_project` | Active; clean detached `5bcd229`; evaluator/test-style inspection started |
-| S1-C graph/router | `019ff3c2-a544-75e1-991a-ea34d20cf7ec` | `C:/Users/raede/.codex/worktrees/061d/engagement_project` | Active; exact baseline and ownership checks in progress |
-| Golden validation | `019ff3c2-98f4-74c0-97b9-71c7a8892439` | `C:/Users/raede/.codex/worktrees/81e9/engagement_project` | Active; clean detached `5bcd229`; harness/interface design started |
+| S0 contracts | `019ff3c1-04a0-7243-82e5-8322d0d21a56` | `C:/Users/raede/.codex/worktrees/2ae5/engagement_project` | Delivered `75cfc6c`, follow-up `b127efb`; integrated as `819826e`, `f60d1ae` |
+| S1-A evaluator | `019ff3c1-12cf-7901-ba2d-1fdd12b3c65c` | `C:/Users/raede/.codex/worktrees/1738/engagement_project` | Delivered `777bc20`, adapter `4a5b324`; integrated as `cc5f9c2`, `dcde68f` |
+| S1-C graph/router | `019ff3c2-a544-75e1-991a-ea34d20cf7ec` | `C:/Users/raede/.codex/worktrees/061d/engagement_project` | Delivered `16cd45f`, `9bf50a8`, `9b478e6`; integrated as `202eab6`, `b2feaca`, `039867e` |
+| Golden validation | `019ff3c2-98f4-74c0-97b9-71c7a8892439` | `C:/Users/raede/.codex/worktrees/81e9/engagement_project` | Delivered `8c83324`, adapter `010e6af`; integrated as `c4682cc`, `f4e13ca` |
 
-## Handoff
+## Completed handoff
 
-- Each execution lane must return a focused commit and delivery package, not
-  integrate or push it.
-- Required package: exact base/HEAD, branch, changed files, diff summary, tests
-  with pass counts, unrun checks, semantic risks, same-path and shared-contract
-  overlap, and recommended integration order.
-- Recommended integration order is S0, then S1-C and S1-A after contract-adapter
-  review, then Golden; a final integration-only patch may wire standard package
-  scripts and reconcile imports.
-- Original research tasks remain evidence sources rather than implementation
-  owners. The supervisor may send them narrow follow-ups about unresolved
-  semantics, but must not treat a research reply as landed code or passed tests.
+- Each execution lane returned focused commits and a delivery package without
+  changing the coordination branch, shared index, remote, or public state.
+- The primary owner integrated S0, then S1-C, Golden, and S1-A, and applied only
+  the narrow adapters and contract corrections needed to close reproduced
+  cross-lane failures.
+- Original research replies were used only to confirm scope and product
+  boundaries; executable code plus integrated tests remain the acceptance
+  evidence.
+
+## Final integration and review evidence
+
+- Coordination HEAD reviewed: `dcde68f39ed653567469b5411430aed6c856561f`.
+- S0 landed first, followed by the S1-C graph/router, S1-A evaluator, Golden
+  oracle/harness, and narrow integration adapters. Lane source commits remain
+  separately auditable in their detached worktrees; only the primary owner
+  reconciled shared public seams.
+- Initial integration review correctly returned request-changes: S0 and S1-A
+  could not round-trip one another's objects, S0 requests did not match S1-C,
+  S1-C did not match the Golden harness, equal-cost tie-breaks disagreed, unsafe
+  accessors could execute, and a single route was at risk of being described as
+  an exhaustive feasibility result.
+- The three original research tasks were asked narrow follow-up questions. They
+  confirmed that explicit adapters are allowed, S0 remains the only public
+  contract truth, a single base candidate is acceptable only when marked
+  incomplete, and complete alternatives/constraint-aware search belongs to S2.
+  The scenario research had not frozen a v1 tie-break; integration therefore
+  froze `objectiveCostUnits`, then the full locale-independent directed edge-ID
+  sequence. Raw hop count is not part of v1.
+- Public evaluation now re-admits S0 policy/candidates, compiles a private
+  evaluator IR, and re-admits the public result. Public route generation maps S0
+  request names to the internal solver and emits an explicitly incomplete
+  `base-objective-only` CandidateSet with `constraintAwareSearch: false`.
+- Golden production comparison is explicitly `primary-only/v1`. It checks the
+  primary route and terminal outcomes, while alternatives are machine-marked
+  `not-evaluated`; it is not evidence of multi-route generation.
+- Fresh integrated verification: 106/106 focused tests pass; scoped ESLint and
+  diff hygiene pass. Independent code review reports APPROVE with zero findings;
+  independent architecture review reports ACCEPT with no foundation blocker.
+- Full repository validation, browser smoke, build, push, deployment, production
+  data admission, Philadelphia validity, accessibility, safety, and user
+  research remain unproven and are not claimed by this foundation.
 
 ## Next step
 
-Monitor the four active tasks with compact task snapshots. Intervene for ownership
-crossings, contract drift, untruthful completion claims, or research questions;
-otherwise allow each independent lane to reach a focused ready-for-integration
-delivery.
+Keep this record active as a ready-for-integration handoff until a separately
+authorized main-branch integration is selected. The next implementation batch
+should be S2 candidate generation: bounded multi-candidate enumeration and/or
+constraint-aware search with completeness semantics and Golden alternatives.
+Production data admission should remain a later, separately reviewed step.

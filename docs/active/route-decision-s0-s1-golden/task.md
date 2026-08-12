@@ -2,9 +2,10 @@
 
 ## Current status
 
-`in-progress` — all four isolated implementation tasks are active from the exact
-coordination baseline; the primary task is supervising progress and will own
-delivery review and integration.
+`ready-for-integration` — all four isolated implementation deliveries are
+integrated and independently reviewed on coordination branch
+`codex/route-decision-s0-s1-foundation`. The foundation is not on `main`, has
+not been pushed or deployed, and admits no production route data.
 
 ## Checklist
 
@@ -20,12 +21,12 @@ delivery review and integration.
 - [x] Create and start the S1-C graph/router worktree task.
 - [x] Create and start the Golden validation worktree task.
 - [x] Record task IDs, detached worktrees, ownership, and start status.
-- [ ] Monitor all four tasks, provide bounded guidance, and record any escalation
+- [x] Monitor all four tasks, provide bounded guidance, and record any escalation
   to an original research task.
-- [ ] Review each ready-for-integration delivery package.
-- [ ] Integrate in dependency order and run integrated targeted verification.
-- [ ] Decide whether broader validation and the next S2 data-admission batch are
-  ready to start.
+- [x] Review each ready-for-integration delivery package.
+- [x] Integrate in dependency order and run integrated targeted verification.
+- [x] Decide whether broader validation, the next S2 candidate-generation batch,
+  and later production-data admission are ready to start.
 
 ## Validation evidence
 
@@ -36,16 +37,22 @@ delivery review and integration.
 | `git worktree list --porcelain` | Existing unrelated Codex worktrees inventoried; none will be cleaned or repurposed. |
 | Active task and registry inspection | Existing project-native `docs/active/**` structure and `docs/active/_worktree_registry.md` identified and preserved. |
 | Four-task compact snapshot | All four tasks report `active`, exact baseline `5bcd229`, clean isolated worktrees, and acceptance of their exclusive ownership boundaries. |
+| Integrated foundation suite | `npm run test:route-decision-foundation`: 106 passed, 0 failed, 0 skipped. |
+| Scoped ESLint | All modified JavaScript and MJS foundation files pass. |
+| Diff hygiene | `git diff --check 5bcd229..dcde68f` passes; pre-existing untracked artifacts remain outside the diff. |
+| Independent code review | `APPROVE`; 0 critical, high, medium, or low findings on `dcde68f`. |
+| Independent architecture review | `ACCEPT`; no foundation blocker. Its documentation-state `WATCH` was resolved in this closeout record. |
+| Golden product comparison | 11/11 only through the explicit `primary-only/v1` adapter scope; alternative routes are machine-marked `not-evaluated`. |
 
 ## Open risks and remaining work
 
-- The existing registry contains historical statements that are not the current
-  Git topology; this task will append current scoped rows rather than rewriting
-  unrelated history.
-- Four lanes begin without one another's uncommitted files. The provisional
-  contract and exclusive ownership rules are therefore mandatory until S0 is
-  integrated.
+- The coordination branch remains separate from `main`; this record is a
+  ready-for-integration handoff, not a merge, push, publication, or release claim.
 - No OSM/City/SEPTA/ArcGIS production data is admitted in this batch. Golden and
   synthetic evidence cannot be promoted into Philadelphia or real-user claims.
-- Standard package aggregation, bundle checks, full validation, browser smoke,
-  commit integration, push, and deployment remain primary-owner work.
+- The current route generator emits at most one base-objective candidate. S2 must
+  add bounded multi-candidate and/or constraint-aware search before any stronger
+  feasibility, alternatives, or scenario-coverage claim is possible.
+- Full repository validation, browser smoke, build, push, and deployment were not
+  run. They are required only if this candidate is selected for main/release;
+  the foundation has no runtime UI or admitted public-data surface to browser-test.
