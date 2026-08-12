@@ -53,7 +53,7 @@ graph data has been production-admitted, published, or loaded by runtime.
 - [x] Implement and review a bounded scale runner with explicit ordering,
   checkpoint/stop semantics, truthful partial output, and explicitly disabled
   performance measurement; do not execute the full cohort from a worker task.
-- [ ] Under single live-process ownership, decide whether the accepted S3-2
+- [x] Under single live-process ownership, decide whether the accepted S3-2
   implementation is ready for the separate 1,000 x 5 execution gate.
 - [x] Complete runner independent reviews and exact integrated validation, and
   record the truthful decision that the current result is not data-admission,
@@ -74,6 +74,7 @@ graph data has been production-admitted, published, or loaded by runtime.
 | Final S3-2 micrograph integration | Lane `baefda3`, integrated as `17ddf85`; central exact-head S3-2 29/29, S3-0 31/31, S2 92/92, targeted ESLint/Node syntax/diff-check pass; independent code `ACCEPT` and architecture `CLEAR`. Evidence remains `1/5000` partial with four separate conformance records and no emitted claims. |
 | S3 validation-session seam | `770eef9`; one admitted RunManifest snapshot is reused across joined-record, collection, report, checkpoint reload, and final combine boundaries. Focused protocol 32/32 passed before integration. |
 | Bounded S3 scale runner integration | `3e5269d`; exact central-head runner 44/44, protocol 32/32, adjacent S2 92/92, targeted ESLint, Node syntax, and diff-check pass. Final code review `APPROVE` with P0/P1/P2/WATCH zero; architecture merge `CLEAR` and later live gate `WATCH`. No 5,000-run or performance evidence was produced. |
+| Main-owned max-100 persistence/resource preflight | Exact revision `6c251fa`; persisted and reloaded one admitted manifest, one 100-record checkpoint, and four conformance records in a fresh validation session. Foreground verifier exit 0; partial combined result was `100/5000`, `4/4`, `evidenceComplete=false`, zero faults/claims/performance samples. Operational artifact sizes and heap observations opened one separate no-retry 5,000-generation plus final-combine attempt; they are not performance evidence. |
 | Repository guidance | Root and `docs/AGENTS.md`, task-record, worktree-integration, and Lore commit workflows read. |
 
 ## Active S3 tasks
