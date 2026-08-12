@@ -2,10 +2,10 @@
 
 ## Current status
 
-`in-progress` — S2-0 has passed primary review and is integrated as `065d824`.
-S2-1 search and S2-2 synthetic enrichment now have implementation authority on
-that exact revision. S2-3 has the contract but remains read-only until the S2-1
-production result shape is stable.
+`in-progress` — S2-0 contract (`065d824`) and S2-1 bounded search (`4db3f06`)
+are integrated and verified. S2-2 synthetic enrichment is implementing against
+the contract. S2-3 has received the stable search interface and now has Golden
+implementation authority on exact revision `4db3f06`.
 
 ## Checklist
 
@@ -45,13 +45,15 @@ production result shape is stable.
 | Research reconciliation | All three replies incorporated. The only conflict—hop-count tie-break—was rejected to preserve v1 K=1 parity; v1 objective then full directed edge-ID order remains frozen. |
 | S2-0 lane verification | Revised contract 18/18, existing v1 contract 18/18, targeted ESLint and diff check pass. |
 | S2-0 integration | Lane commit `22d685e`; integrated coordination commit `065d824`. |
+| S2-1 lane verification | 16 focused search tests; 110/110 combined search/S2/v1 graph/contracts/evaluator; targeted ESLint and diff check pass. |
+| S2-1 integration | Lane commit `beb193a`; integrated coordination commit `4db3f06`. |
 
 ## Open risks and remaining work
 
 - The six S2 semantic questions are resolved in a strict, independent contract;
   Search and enrichment must still prove their implementation matches it.
-- S2-3 remains intentionally read-only until the S2-1 result shape and budget
-  counting unit are stable enough for an independent adapter.
+- S2-3 must compute expected outcomes independently and may use production code
+  only through a thin result-preserving adapter.
 - External data may be unusable because of license, coverage, schema, or
   provenance gaps. No task may invent or silently normalize unavailable facts.
 - Full validate, browser, build, push, and deployment are not part of the

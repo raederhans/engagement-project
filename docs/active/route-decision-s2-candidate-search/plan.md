@@ -51,7 +51,7 @@ v1 or creating safety, city-validity, accessibility, or publication claims.
 - [x] S2-0 Contract / Product Semantics: resolve the six open search questions,
   define versioned public schemas and fail-closed status semantics, and add
   focused admission tests.
-- [ ] S2-1 Search Algorithm: after the S2-0 handoff is integrated, implement
+- [x] S2-1 Search Algorithm: after the S2-0 handoff is integrated, implement
   deterministic bounded K-candidate and constraint-aware search with no evaluator
   back-edge.
 - [ ] S2-2 Observation / Data Admission: after the S2-0 handoff is integrated,
