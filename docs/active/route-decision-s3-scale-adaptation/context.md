@@ -40,6 +40,7 @@
 | 2026-08-12 | Integrate S3-1 private candidate lifecycle as `af7e1ac` plus `65b31d8`. | Full graph/baseline lifecycle evidence is reaudited and internally bound; receipt/product/publish promotion stays false, and this private evidence is not an S3 product graph. |
 | 2026-08-12 | Accept and integrate S3-0 as `d33c27d` after repeated adversarial repair and final code `ACCEPT` / architecture `CLEAR`. | Final central evidence is 31/31 focused and 77/77 adjacent plus ESLint/syntax; terminal/resource/context truth, candidateful unresolved, oracle evaluation, comparison, graph identity, replay and claim denominators are frozen. |
 | 2026-08-12 | Open only the S3-2 micrograph-first implementation gate. | S3-2 must provide a separate clean-room oracle, recursive dependency-boundary tests, differential fixtures and real primary/replay invocations before any 1,000 x 5 live gate opens. |
+| 2026-08-12 | Accept S3-2 lane `baefda3` and integrate it as `17ddf85` after final code `ACCEPT` and architecture `CLEAR`. | Exact central evidence is S3-2 29/29, S3-0 31/31, S2 92/92 plus targeted static checks. The admitted report is still `1/5000` partial with no claims; a scale runner and separate live-process gate remain required. |
 
 ## Lane ownership
 
@@ -62,10 +63,10 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 - S3-R is an accepted read-only semantic input. S3-0 and S3-1 are integrated;
   S3-1 remains candidate-only and may not model external data as the existing
   synthetic-only product GraphArtifact.
-- S3-2 may now implement against exact integrated `d33c27d`, beginning with
-  bounded micrographs and differential fixtures. It may not start the 1,000 x 5
-  run, publish data, or claim clean-room independence until its recursive import
-  boundary and real execution receipts pass review.
+- S3-2 micrograph evidence is integrated at `17ddf85`. The same task may now
+  implement a bounded scale runner against that exact central revision, but may
+  not start the 1,000 x 5 run. The primary owner retains exclusive live-run,
+  checkpoint, log, output, and performance-measurement ownership.
 - A source endpoint, research note, or candidate download does not open the
   S3-2 gate. The
   primary owner must first review license/provenance/topology and the exact
@@ -95,7 +96,9 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 
 ## Next step
 
-Move the clean S3-2 worktree to integrated `d33c27d`, send the exact S3-0/S3-R
-handoff, and implement the clean-room oracle plus thin product adapter on bounded
-micrographs. Keep S3-1 private lifecycle evidence out of the product path and
-keep the 1,000 x 5 execution gate closed until S3-2 passes independent review.
+Move the clean S3-2 worktree to exact integrated `17ddf85`, implement a bounded
+full-cohort runner with deterministic order and truthful checkpoint/stop/report
+semantics, and return it uncommitted for review. Keep S3-1 private lifecycle
+evidence out of the product path and keep the 1,000 x 5 execution gate closed
+until the runner itself passes review and the primary owner assigns live-process
+logs and outputs.
