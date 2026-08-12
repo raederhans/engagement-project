@@ -45,6 +45,7 @@ export const ROUTE_SEARCH_TERMINATIONS = Object.freeze([
   'no-eligible-route-in-bounded-scope',
   'unresolved-constraint-evidence',
   'search-budget-exhausted',
+  'search-capacity-exhausted',
 ]);
 
 export const ROUTE_SEARCH_DISTINCTNESS_VERSION = 'ordered-directed-edge-id-sequence/v1';
@@ -67,7 +68,7 @@ const CONSTRAINT_OUTCOME_SET = new Set([
   'unresolved-evidence',
   'not-evaluated',
 ]);
-const BUDGET_OUTCOME_SET = new Set(['within-budget', 'exhausted']);
+const BUDGET_OUTCOME_SET = new Set(['within-budget', 'exhausted', 'capacity-exhausted']);
 
 function fail(message) {
   throw new TypeError(`route candidate search contract: ${message}`);
@@ -469,7 +470,8 @@ export function admitCandidateSetV2(raw) {
     && completeness.routeSearch !== 'not-proven') {
     fail('CandidateSetV2 unproven no-eligible outcome requires incomplete search');
   }
-  if (budgetOutcome === 'exhausted' && completeness.routeSearch !== 'not-proven') {
+  if (['exhausted', 'capacity-exhausted'].includes(budgetOutcome)
+    && completeness.routeSearch !== 'not-proven') {
     fail('CandidateSetV2 exhausted budget cannot claim complete bounded search');
   }
   if (budgetOutcome === 'exhausted' && expandedStateCount !== bounds.maxExpandedStates) {
@@ -625,6 +627,13 @@ function assertTerminalConsistency(status, termination, request, candidateSet, c
       || (hasConstraints
         && constraintOutcome === 'no-eligible-route-in-bounded-scope-proven')) {
       fail('CandidateSearchResult search-budget terminal is inconsistent');
+    }
+  } else if (termination === 'search-capacity-exhausted') {
+    if (status !== 'stopped' || count >= requested || routeSearch !== 'not-proven'
+      || budgetOutcome !== 'capacity-exhausted'
+      || (hasConstraints
+        && constraintOutcome === 'no-eligible-route-in-bounded-scope-proven')) {
+      fail('CandidateSearchResult search-capacity terminal is inconsistent');
     }
   }
 }

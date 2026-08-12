@@ -37,7 +37,9 @@ const expectedCaseIds = [
   'self-route',
   'self-route-constrained-unresolved',
   'max-route-edge-count',
+  'bounded-failed-dead-branch',
   'known-false-alternative',
+  'known-false-after-unresolved',
   'unresolved-evidence',
   'bounded-no-route',
   'bounded-no-eligible',
@@ -58,12 +60,12 @@ test('S2 manifest versions one inventory and seven independent denominators', ()
   assert.deepEqual(manifest.expectedCounts, {
     conformance: 1,
     primary: 6,
-    terminals: 7,
+    terminals: 9,
     alternatives: 6,
-    constraints: 4,
+    constraints: 6,
     budget: 1,
-    completeness: 12,
-    totalCases: 13,
+    completeness: 14,
+    totalCases: 15,
   });
 });
 
@@ -163,9 +165,9 @@ test('production expanded-state unit exactly matches the independently recorded 
 test('production search matches all independent fixtures and denominators', async () => {
   const ledger = await productionLedger();
   assert.equal(ledger.schemaVersion, ROUTE_GOLDEN_S2_LEDGER_SCHEMA_VERSION);
-  assert.equal(ledger.entries.length, 13);
-  assert.equal(ledger.summary.terminalLedgerEntries, 13);
-  assert.equal(ledger.summary.passedCases, 13);
+  assert.equal(ledger.entries.length, 15);
+  assert.equal(ledger.summary.terminalLedgerEntries, 15);
+  assert.equal(ledger.summary.passedCases, 15);
   assert.equal(ledger.summary.failedCases, 0);
   assert.equal(ledger.entries.every(({ checks }) => (
     checks.fixtureIntegrity === 'pass'
@@ -228,7 +230,7 @@ test('fixture load failure becomes one ledger entry and later fixtures still run
       return JSON.parse(await readFile(url, 'utf8'));
     },
   });
-  assert.equal(ledger.entries.length, 13);
+  assert.equal(ledger.entries.length, 15);
   assert.deepEqual(ledgerEntry(ledger, 'invalid-requested-k').failureClasses, [
     'fixture-load-error',
   ]);

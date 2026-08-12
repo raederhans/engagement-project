@@ -16,7 +16,9 @@
     { "caseId": "self-route", "file": "cases/self-route.json" },
     { "caseId": "self-route-constrained-unresolved", "file": "cases/self-route-constrained-unresolved.json" },
     { "caseId": "max-route-edge-count", "file": "cases/max-route-edge-count.json" },
+    { "caseId": "bounded-failed-dead-branch", "file": "cases/bounded-failed-dead-branch.json" },
     { "caseId": "known-false-alternative", "file": "cases/known-false-alternative.json" },
+    { "caseId": "known-false-after-unresolved", "file": "cases/known-false-after-unresolved.json" },
     { "caseId": "unresolved-evidence", "file": "cases/unresolved-evidence.json" },
     { "caseId": "bounded-no-route", "file": "cases/bounded-no-route.json" },
     { "caseId": "bounded-no-eligible", "file": "cases/bounded-no-eligible.json" },
@@ -25,20 +27,20 @@
   "cohorts": {
     "conformance": ["invalid-requested-k"],
     "primary": ["k1-parity", "k-smaller-equal-cost-tie", "k-larger-than-available", "self-route", "known-false-alternative", "budget-exhaustion"],
-    "terminals": ["directed-reverse", "self-route-constrained-unresolved", "max-route-edge-count", "unresolved-evidence", "bounded-no-route", "bounded-no-eligible", "budget-exhaustion"],
+    "terminals": ["directed-reverse", "self-route-constrained-unresolved", "max-route-edge-count", "bounded-failed-dead-branch", "known-false-after-unresolved", "unresolved-evidence", "bounded-no-route", "bounded-no-eligible", "budget-exhaustion"],
     "alternatives": ["k1-parity", "k-smaller-equal-cost-tie", "k-larger-than-available", "self-route", "known-false-alternative", "budget-exhaustion"],
-    "constraints": ["known-false-alternative", "self-route-constrained-unresolved", "unresolved-evidence", "bounded-no-eligible"],
+    "constraints": ["known-false-alternative", "known-false-after-unresolved", "bounded-failed-dead-branch", "self-route-constrained-unresolved", "unresolved-evidence", "bounded-no-eligible"],
     "budget": ["budget-exhaustion"],
-    "completeness": ["k1-parity", "k-smaller-equal-cost-tie", "k-larger-than-available", "directed-reverse", "self-route", "self-route-constrained-unresolved", "max-route-edge-count", "known-false-alternative", "unresolved-evidence", "bounded-no-route", "bounded-no-eligible", "budget-exhaustion"]
+    "completeness": ["k1-parity", "k-smaller-equal-cost-tie", "k-larger-than-available", "directed-reverse", "self-route", "self-route-constrained-unresolved", "max-route-edge-count", "bounded-failed-dead-branch", "known-false-alternative", "known-false-after-unresolved", "unresolved-evidence", "bounded-no-route", "bounded-no-eligible", "budget-exhaustion"]
   },
   "expectedCounts": {
     "conformance": 1,
     "primary": 6,
-    "terminals": 7,
+    "terminals": 9,
     "alternatives": 6,
-    "constraints": 4,
+    "constraints": 6,
     "budget": 1,
-    "completeness": 12,
-    "totalCases": 13
+    "completeness": 14,
+    "totalCases": 15
   }
 }

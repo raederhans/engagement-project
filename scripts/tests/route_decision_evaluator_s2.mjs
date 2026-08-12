@@ -232,7 +232,7 @@ test('an admitted enrichment wrapper is preserved whole while only its search re
   const result = evaluate(policy(), enriched);
   assert.equal(
     result.candidateArtifact.schemaVersion,
-    'engagement-route-search-enrichment-result/v1',
+    'engagement-route-search-enrichment-result/v2',
   );
   assert.equal(result.candidateArtifact.sourceReceipt.sourceId, 'synthetic-s2-evaluator-source');
   assert.deepEqual(
@@ -344,6 +344,21 @@ test('zero-candidate terminals remain explicit not-evaluated search outcomes', (
     }),
     termination: 'search-budget-exhausted',
   });
+  const capacityRequest = request();
+  const capacity = searchResult({
+    status: 'stopped',
+    request: capacityRequest,
+    candidateFacts: [],
+    candidateSet: candidateSet(capacityRequest, [], {
+      expandedStateCount: 1,
+      completeness: {
+        routeSearch: 'not-proven',
+        scope: 'loopless-directed-routes-within-max-route-edge-count',
+      },
+      budgetOutcome: 'capacity-exhausted',
+    }),
+    termination: 'search-capacity-exhausted',
+  });
   const constrainedPolicy = policy({ hardConstraints: [policyConstraint()] });
   const cases = [
     [invalid, policy(), 'candidate-search-invalid-input'],
@@ -352,6 +367,7 @@ test('zero-candidate terminals remain explicit not-evaluated search outcomes', (
     [noEligible, constrainedPolicy, 'candidate-search-no-eligible-route-in-bounded-scope'],
     [unresolved, constrainedPolicy, 'candidate-search-unresolved-constraint-evidence'],
     [budget, policy(), 'candidate-search-budget-exhausted'],
+    [capacity, policy(), 'candidate-search-capacity-exhausted'],
   ];
   for (const [artifact, rawPolicy, reasonCode] of cases) {
     const result = evaluate(rawPolicy, artifact);
@@ -381,6 +397,31 @@ test('a budget-stopped partial candidate set remains evaluable and preserves sea
   assert.deepEqual(result.evaluation.decision.rankedCandidateIds, ['candidate-a']);
   assert.equal(result.candidateArtifact.status, 'stopped');
   assert.equal(result.candidateArtifact.candidateSet.budgetOutcome, 'exhausted');
+});
+
+test('a capacity-stopped partial candidate set remains evaluable without changing capacity truth', () => {
+  const rawRequest = request();
+  const facts = [candidate('candidate-a', 100, 2_000)];
+  const artifact = searchResult({
+    status: 'stopped',
+    request: rawRequest,
+    candidateFacts: facts,
+    candidateSet: candidateSet(rawRequest, facts, {
+      expandedStateCount: 2,
+      completeness: {
+        routeSearch: 'not-proven',
+        scope: 'loopless-directed-routes-within-max-route-edge-count',
+      },
+      budgetOutcome: 'capacity-exhausted',
+    }),
+    termination: 'search-capacity-exhausted',
+  });
+  const result = evaluate(policy(), artifact);
+
+  assert.equal(result.candidateArtifact.termination, 'search-capacity-exhausted');
+  assert.equal(result.candidateArtifact.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.evaluation.status, 'evaluated');
+  assert.deepEqual(result.evaluation.decision.rankedCandidateIds, ['candidate-a']);
 });
 
 test('provided-set elimination does not become a global route infeasibility claim', () => {

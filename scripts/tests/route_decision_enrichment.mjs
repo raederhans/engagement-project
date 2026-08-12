@@ -451,6 +451,81 @@ test('search enrichment result admission rejects search and audit identity drift
   );
 });
 
+test('both enrichment admissions bind every audit input source to the pre-enrichment snapshot', () => {
+  const emptySearch = searchResult();
+  const emptyBatch = enrichRouteCandidateFacts({
+    graphId: emptySearch.request.graphId,
+    candidateFacts: emptySearch.candidateFacts,
+    source: allTrueSource(),
+  });
+  const emptySearchEnvelope = enrichRouteCandidateSearchResult({
+    searchResult: emptySearch,
+    source: allTrueSource(),
+  });
+  for (const [result, admit] of [
+    [emptyBatch, admitRouteCandidateEnrichmentResult],
+    [emptySearchEnvelope, admitRouteCandidateSearchEnrichmentResult],
+  ]) {
+    for (const forgedSourceId of [
+      result.sourceReceipt.sourceId,
+      ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId,
+    ]) {
+      const tampered = structuredClone(result);
+      tampered.candidateAudits[0].factors[0].inputSourceId = forgedSourceId;
+      assert.throws(() => admit(tampered), /inputSourceId must match inputCandidateFacts/);
+    }
+  }
+
+  const constrainedSearch = searchResult({ hardConstraints: [searchConstraint('step-free')] });
+  const boundBatch = enrichRouteCandidateFacts({
+    graphId: constrainedSearch.request.graphId,
+    candidateFacts: constrainedSearch.candidateFacts,
+    source: allTrueSource(),
+  });
+  const boundSearchEnvelope = enrichRouteCandidateSearchResult({
+    searchResult: constrainedSearch,
+    source: allTrueSource(),
+  });
+  for (const [result, admit] of [
+    [boundBatch, admitRouteCandidateEnrichmentResult],
+    [boundSearchEnvelope, admitRouteCandidateSearchEnrichmentResult],
+  ]) {
+    const factorIndex = result.candidateAudits[0].factors
+      .findIndex(({ factorId }) => factorId === 'step-free');
+    for (const forgedSourceId of [
+      null,
+      ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId,
+    ]) {
+      const tampered = structuredClone(result);
+      tampered.candidateAudits[0].factors[factorIndex].inputSourceId = forgedSourceId;
+      assert.throws(() => admit(tampered), /inputSourceId must match inputCandidateFacts/);
+    }
+  }
+});
+
+test('pre-enrichment snapshots cannot drift route identity or observation source independently', () => {
+  const constrainedSearch = searchResult({ hardConstraints: [searchConstraint('step-free')] });
+  const baseline = enrichRouteCandidateSearchResult({
+    searchResult: constrainedSearch,
+    source: allTrueSource(),
+  });
+
+  const routeDrift = structuredClone(baseline);
+  routeDrift.inputCandidateFacts[0].distanceMm += 1;
+  assert.throws(
+    () => admitRouteCandidateSearchEnrichmentResult(routeDrift),
+    /preserve candidate route identity and provenance/,
+  );
+
+  const aggregateIdentityDrift = structuredClone(baseline);
+  aggregateIdentityDrift.inputCandidateFacts[0].observations['step-free'].sourceId =
+    ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId;
+  assert.throws(
+    () => admitRouteCandidateSearchEnrichmentResult(aggregateIdentityDrift),
+    /inputSourceId must match inputCandidateFacts/,
+  );
+});
+
 test('enrichment result admissions reject accessors without calls and return detached frozen copies', () => {
   const candidateInput = searchResult();
   const baseline = enrichRouteCandidateFacts({

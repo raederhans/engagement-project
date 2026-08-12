@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { solveShortestRoute } from '../../src/route_generation/base_dijkstra.js';
 import {
+  ROUTE_CANDIDATE_SEARCH_CAPACITY,
   ROUTE_CANDIDATE_SEARCH_EXPANDED_STATE_UNIT,
   searchRouteCandidates,
 } from '../../src/route_generation/candidate_search/index.js';
@@ -327,6 +328,45 @@ test('known failure dominates unresolved evidence on the same edge', () => {
   );
 });
 
+test('known failure later on a route dominates an unresolved prefix edge', () => {
+  const graph = graphArtifact();
+  const request = searchRequest({
+    requestedCandidateCount: 1,
+    hardConstraints: [searchConstraint()],
+  });
+  const evidence = {
+    'a-b': { 'step-free': sourceObservation('step-free', 'unknown') },
+    'b-d': { 'step-free': sourceObservation('step-free', 'observed', false) },
+  };
+  const result = searchRouteCandidates(graph, request, evidence);
+
+  assert.equal(result.termination, 'no-eligible-route-in-bounded-scope');
+  assert.equal(result.candidateSet.expandedStateCount, 4);
+  assert.equal(
+    result.candidateSet.constraintOutcome,
+    'no-eligible-route-in-bounded-scope-proven',
+  );
+});
+
+test('known failure on a prefix dominates an unresolved later edge on the route', () => {
+  const graph = graphArtifact();
+  const request = searchRequest({
+    requestedCandidateCount: 1,
+    hardConstraints: [searchConstraint()],
+  });
+  const evidence = {
+    'a-b': { 'step-free': sourceObservation('step-free', 'observed', false) },
+    'b-d': { 'step-free': sourceObservation('step-free', 'unknown') },
+  };
+  const result = searchRouteCandidates(graph, request, evidence);
+
+  assert.equal(result.termination, 'no-eligible-route-in-bounded-scope');
+  assert.equal(
+    result.candidateSet.constraintOutcome,
+    'no-eligible-route-in-bounded-scope-proven',
+  );
+});
+
 test('missing or unresolved complete edge evidence is excluded and reported', () => {
   const graph = graphArtifact();
   const request = searchRequest({
@@ -374,6 +414,32 @@ test('reaching K returns the finalized eligible prefix despite an unresolved dea
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
 });
 
+test('an unresolved dead branch does not prevent bounded completion for eligible routes', () => {
+  const graph = graphArtifact({
+    nodes: ['a', 'b', 'd', 'x'],
+    edges: [
+      edge('a-b', 'a', 'b', 10, 1),
+      edge('b-d', 'b', 'd', 10, 1),
+      edge('a-x', 'a', 'x', 10, 50),
+    ],
+  });
+  const request = searchRequest({
+    requestedCandidateCount: 2,
+    hardConstraints: [searchConstraint()],
+  });
+  const result = searchRouteCandidates(graph, request, {
+    'a-b': { 'step-free': sourceObservation('step-free') },
+    'b-d': { 'step-free': sourceObservation('step-free') },
+    'a-x': { 'step-free': sourceObservation('step-free', 'unknown') },
+  });
+
+  assert.equal(result.termination, 'bounded-search-space-exhausted');
+  assert.deepEqual(result.candidateFacts.map(({ edgeIds }) => edgeIds), [['a-b', 'b-d']]);
+  assert.equal(result.candidateSet.expandedStateCount, 3);
+  assert.equal(result.candidateSet.constraintOutcome, 'eligible-candidates-returned');
+  assert.equal(result.candidateSet.completeness.routeSearch, 'complete-within-bounds');
+});
+
 test('budget exhaustion returns only the finalized ordered candidate prefix', () => {
   const graph = graphArtifact({
     edges: [
@@ -393,6 +459,87 @@ test('budget exhaustion returns only the finalized ordered candidate prefix', ()
   assert.deepEqual(result.candidateFacts.map(({ edgeIds }) => edgeIds), [['direct']]);
   assert.equal(result.candidateSet.expandedStateCount, 1);
   assert.equal(result.candidateSet.budgetOutcome, 'exhausted');
+  assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
+});
+
+test('frontier capacity stops a high-outdegree expansion without claiming budget completion', () => {
+  const branchCount = ROUTE_CANDIDATE_SEARCH_CAPACITY.maxFrontierStates + 1;
+  const branchNodeIds = Array.from({ length: branchCount }, (_, index) => `x-${index}`);
+  const graph = graphArtifact({
+    nodes: ['a', 'd', ...branchNodeIds],
+    edges: branchNodeIds.map((nodeId, index) => edge(`fan-${index}`, 'a', nodeId, 1, 1)),
+  });
+  const result = searchRouteCandidates(graph, searchRequest({
+    requestedCandidateCount: 1,
+    bounds: { maxExpandedStates: 10, maxRouteEdgeCount: 2 },
+  }));
+
+  assert.equal(result.status, 'stopped');
+  assert.equal(result.termination, 'search-capacity-exhausted');
+  assert.equal(result.candidateSet.expandedStateCount, 1);
+  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
+  assert.equal(result.candidateSet.constraintOutcome, 'not-required');
+  assert.equal(Object.isFrozen(ROUTE_CANDIDATE_SEARCH_CAPACITY), true);
+});
+
+test('frontier edge-reference capacity bounds deep pending labels below the state-count cap', () => {
+  const chainNodeIds = Array.from({ length: 16 }, (_, index) => `c-${index}`);
+  const branchNodeIds = Array.from({ length: 4_000 }, (_, index) => `x-${index}`);
+  const chainEdges = chainNodeIds.map((nodeId, index) => edge(
+    `chain-${index}`,
+    index === 0 ? 'a' : chainNodeIds[index - 1],
+    nodeId,
+    1,
+    1,
+  ));
+  const graph = graphArtifact({
+    nodes: ['a', 'd', ...chainNodeIds, ...branchNodeIds],
+    edges: [
+      ...chainEdges,
+      ...branchNodeIds.map((nodeId, index) => edge(
+        `deep-fan-${index}`,
+        chainNodeIds.at(-1),
+        nodeId,
+        1,
+        1,
+      )),
+    ],
+  });
+  const result = searchRouteCandidates(graph, searchRequest({
+    requestedCandidateCount: 1,
+    bounds: { maxExpandedStates: 100, maxRouteEdgeCount: 20 },
+  }));
+
+  assert.equal(result.termination, 'search-capacity-exhausted');
+  assert.equal(result.candidateSet.expandedStateCount, 17);
+  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
+});
+
+test('capacity exhaustion preserves a finalized candidate as an incomplete ordered prefix', () => {
+  const branchNodeIds = Array.from(
+    { length: ROUTE_CANDIDATE_SEARCH_CAPACITY.maxFrontierStates + 1 },
+    (_, index) => `x-${index}`,
+  );
+  const graph = graphArtifact({
+    nodes: ['a', 'd', 'hub', ...branchNodeIds],
+    edges: [
+      edge('direct', 'a', 'd', 1, 0),
+      edge('to-hub', 'a', 'hub', 1, 1),
+      ...branchNodeIds.map((nodeId, index) => edge(`fan-${index}`, 'hub', nodeId, 1, 1)),
+    ],
+  });
+  const result = searchRouteCandidates(graph, searchRequest({
+    requestedCandidateCount: 2,
+    bounds: { maxExpandedStates: 10, maxRouteEdgeCount: 2 },
+  }));
+
+  assert.equal(result.status, 'stopped');
+  assert.equal(result.termination, 'search-capacity-exhausted');
+  assert.deepEqual(result.candidateFacts.map(({ edgeIds }) => edgeIds), [['direct']]);
+  assert.equal(result.candidateSet.expandedStateCount, 2);
+  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
 });
 

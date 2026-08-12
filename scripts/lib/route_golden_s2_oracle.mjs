@@ -1,8 +1,3 @@
-import { admitSourceObservation } from '../../src/route_decision/contracts/index.js';
-import {
-  admitRouteCandidateSearchRequest,
-} from '../../src/route_decision/contracts/candidate_search_v2.js';
-
 export const ROUTE_GOLDEN_S2_GRAPH_SCHEMA_VERSION = 'route-golden-s2-synthetic-graph/v1';
 export const ROUTE_GOLDEN_S2_ORACLE_CONTRACT_VERSION =
   'exhaustive-bounded-loopless-routes/v1';
@@ -16,6 +11,23 @@ const COMPLETENESS_SCOPE = 'loopless-directed-routes-within-max-route-edge-count
 const MAX_ORACLE_NODES = 12;
 const MAX_ORACLE_EDGES = 32;
 const MAX_ORACLE_ROUTES = 4_096;
+const REQUEST_SCHEMA_VERSION = 'engagement-route-candidate-search-request/v1';
+const SOURCE_OBSERVATION_SCHEMA_VERSION = 'engagement-route-source-observation/v1';
+const DISTINCTNESS_VERSION = 'ordered-directed-edge-id-sequence/v1';
+const TIE_BREAK_VERSION = 'route-candidate-search-tie-break/v1';
+const AGGREGATION_VERSION = 'every-directed-edge-fail-dominates-unresolved/v1';
+const UNRESOLVED_STATES = Object.freeze([
+  'unknown', 'unavailable', 'partial', 'stale', 'invalid', 'missing',
+]);
+const SEARCH_FACTORS = Object.freeze(['step-free', 'curb-ramp-present', 'paved-surface']);
+const SEARCH_FACTOR_ORDER = new Map(SEARCH_FACTORS.map((factorId, index) => [factorId, index]));
+const NON_OBSERVED_REASON = Object.freeze({
+  unknown: 'not-observed',
+  unavailable: 'source-unavailable',
+  partial: 'coverage-partial',
+  stale: 'observation-stale',
+  invalid: 'source-invalid',
+});
 
 export function solveS2GoldenReference(input = {}) {
   let admitted;
@@ -46,6 +58,10 @@ export function solveS2GoldenReference(input = {}) {
   const eligibleUniverse = universe
     .filter((route) => classifyRoute(route, context) === 'eligible')
     .sort(compareRoutes);
+  const unresolvedUniverse = universe
+    .filter((route) => classifyRoute(route, context) === 'unresolved');
+  const failedUniverse = universe
+    .filter((route) => classifyRoute(route, context) === 'failed');
   const budget = { expandedStateCount: 0 };
   const constrained = enumerateWithExpansionUnit(context, budget, true);
   assertOrderedPrefix(constrained.routes, eligibleUniverse);
@@ -63,23 +79,29 @@ export function solveS2GoldenReference(input = {}) {
       context,
       constrained.routes,
       budget.expandedStateCount,
-      constrained.unresolvedEvidenceEncountered
+      unresolvedUniverse.length > 0
         ? 'unresolved-constraint-evidence'
         : 'bounded-search-space-exhausted',
-      constrained.unresolvedEvidenceEncountered,
+      unresolvedUniverse.length > 0,
     );
   }
   if (request.hardConstraints.length === 0) {
     return searchedOutcome(context, [], budget.expandedStateCount,
       'no-directed-route-in-bounded-scope', false);
   }
-  if (constrained.unresolvedEvidenceEncountered) {
+  if (unresolvedUniverse.length > 0) {
     return searchedOutcome(context, [], budget.expandedStateCount,
       'unresolved-constraint-evidence', true);
   }
   if (!constrained.knownConstraintFailureEncountered) {
+    if (universe.length !== 0) {
+      throw new TypeError('oracle missed a bounded-route constraint classification');
+    }
     return searchedOutcome(context, [], budget.expandedStateCount,
       'no-directed-route-in-bounded-scope', false);
+  }
+  if (universe.length > 0 && failedUniverse.length !== universe.length) {
+    throw new TypeError('oracle bounded-route classification is inconsistent');
   }
 
   const topology = enumerateWithExpansionUnit(context, budget, false, 1);
@@ -91,7 +113,7 @@ export function solveS2GoldenReference(input = {}) {
     context,
     [],
     budget.expandedStateCount,
-    topology.routes.length > 0
+    universe.length > 0
       ? 'no-eligible-route-in-bounded-scope'
       : 'no-directed-route-in-bounded-scope',
     false,
@@ -110,10 +132,98 @@ function admitReferenceInput(input) {
     throw new TypeError('S2 Golden input keys are invalid');
   }
   const graph = admitSyntheticGraph(input.graph);
-  const request = admitRouteCandidateSearchRequest(input.request);
+  const request = admitReferenceRequest(input.request);
   if (request.graphId !== graph.graphId) throw new TypeError('graph/request mismatch');
   const evidence = admitEvidence(input.edgeObservationsByEdgeId, graph, request);
   return { graph, request, evidence };
+}
+
+function admitReferenceRequest(raw) {
+  if (!isPlainObject(raw) || !sameSequence(Object.keys(raw).sort(), [
+    'bounds', 'decisionPolicyId', 'destinationNodeId', 'graphId', 'hardConstraints', 'mode',
+    'objectiveFactorId', 'originNodeId', 'requestId', 'requestedCandidateCount',
+    'routeDistinctnessVersion', 'schemaVersion', 'tieBreakVersion',
+  ])) {
+    throw new TypeError('reference request keys are invalid');
+  }
+  if (raw.schemaVersion !== REQUEST_SCHEMA_VERSION || raw.mode !== 'walk'
+    || raw.objectiveFactorId !== 'objective-cost-units'
+    || raw.routeDistinctnessVersion !== DISTINCTNESS_VERSION
+    || raw.tieBreakVersion !== TIE_BREAK_VERSION
+    || ![raw.requestId, raw.graphId, raw.originNodeId, raw.destinationNodeId,
+      raw.decisionPolicyId].every(isId)
+    || !Number.isSafeInteger(raw.requestedCandidateCount)
+    || raw.requestedCandidateCount < 1 || raw.requestedCandidateCount > 16) {
+    throw new TypeError('reference request contract mismatch');
+  }
+  if (!isPlainObject(raw.bounds)
+    || !sameSequence(Object.keys(raw.bounds).sort(), ['maxExpandedStates', 'maxRouteEdgeCount'])
+    || !Number.isSafeInteger(raw.bounds.maxExpandedStates)
+    || raw.bounds.maxExpandedStates < 1 || raw.bounds.maxExpandedStates > 1_000_000
+    || !Number.isSafeInteger(raw.bounds.maxRouteEdgeCount)
+    || raw.bounds.maxRouteEdgeCount < 0 || raw.bounds.maxRouteEdgeCount > 100_000) {
+    throw new TypeError('reference request bounds are invalid');
+  }
+  if (!Array.isArray(raw.hardConstraints) || raw.hardConstraints.length > SEARCH_FACTORS.length) {
+    throw new TypeError('reference request constraints are invalid');
+  }
+  const hardConstraints = raw.hardConstraints.map(admitReferenceConstraint);
+  if (new Set(hardConstraints.map(({ constraintId }) => constraintId)).size
+      !== hardConstraints.length
+    || new Set(hardConstraints.map(({ factorId }) => factorId)).size
+      !== hardConstraints.length) {
+    throw new TypeError('reference request constraints must be unique');
+  }
+  hardConstraints.sort((left, right) => (
+    SEARCH_FACTOR_ORDER.get(left.factorId) - SEARCH_FACTOR_ORDER.get(right.factorId)
+  ));
+  return {
+    schemaVersion: REQUEST_SCHEMA_VERSION,
+    requestId: raw.requestId,
+    graphId: raw.graphId,
+    mode: 'walk',
+    originNodeId: raw.originNodeId,
+    destinationNodeId: raw.destinationNodeId,
+    decisionPolicyId: raw.decisionPolicyId,
+    objectiveFactorId: 'objective-cost-units',
+    requestedCandidateCount: raw.requestedCandidateCount,
+    routeDistinctnessVersion: DISTINCTNESS_VERSION,
+    tieBreakVersion: TIE_BREAK_VERSION,
+    bounds: { ...raw.bounds },
+    hardConstraints,
+  };
+}
+
+function admitReferenceConstraint(raw) {
+  if (!isPlainObject(raw) || !sameSequence(Object.keys(raw).sort(), [
+    'aggregationVersion', 'constraintId', 'edgeEvidenceRequirement', 'expectedValue',
+    'factorId', 'locality', 'operator', 'routeAggregation', 'unresolvedDisposition',
+    'unresolvedStates',
+  ])) {
+    throw new TypeError('reference constraint keys are invalid');
+  }
+  if (!isId(raw.constraintId) || !SEARCH_FACTOR_ORDER.has(raw.factorId)
+    || raw.locality !== 'edge-local' || raw.edgeEvidenceRequirement !== 'complete'
+    || raw.operator !== 'equals' || raw.expectedValue !== true
+    || raw.routeAggregation !== 'every-directed-edge'
+    || raw.aggregationVersion !== AGGREGATION_VERSION
+    || raw.unresolvedDisposition !== 'exclude-and-report'
+    || !Array.isArray(raw.unresolvedStates)
+    || !sameSequence(raw.unresolvedStates, UNRESOLVED_STATES)) {
+    throw new TypeError('reference constraint contract mismatch');
+  }
+  return {
+    constraintId: raw.constraintId,
+    factorId: raw.factorId,
+    locality: 'edge-local',
+    edgeEvidenceRequirement: 'complete',
+    operator: 'equals',
+    expectedValue: true,
+    routeAggregation: 'every-directed-edge',
+    aggregationVersion: AGGREGATION_VERSION,
+    unresolvedStates: [...UNRESOLVED_STATES],
+    unresolvedDisposition: 'exclude-and-report',
+  };
 }
 
 function admitSyntheticGraph(raw) {
@@ -174,13 +284,35 @@ function admitEvidence(raw, graph, request) {
     const byFactor = new Map();
     for (const factorId of Object.keys(raw[edgeId])) {
       if (!factorIds.has(factorId)) throw new TypeError('unused evidence factor');
-      const observation = admitSourceObservation(raw[edgeId][factorId]);
+      const observation = admitReferenceObservation(raw[edgeId][factorId]);
       if (observation.factorId !== factorId) throw new TypeError('evidence factor mismatch');
       byFactor.set(factorId, observation);
     }
     evidence.set(edgeId, byFactor);
   }
   return evidence;
+}
+
+function admitReferenceObservation(raw) {
+  if (!isPlainObject(raw) || !sameSequence(Object.keys(raw).sort(), [
+    'factorId', 'reasonCode', 'schemaVersion', 'sourceId', 'state', 'unit', 'value',
+  ])) {
+    throw new TypeError('reference observation keys are invalid');
+  }
+  if (raw.schemaVersion !== SOURCE_OBSERVATION_SCHEMA_VERSION
+    || !SEARCH_FACTOR_ORDER.has(raw.factorId) || raw.unit !== 'boolean'
+    || !isId(raw.sourceId)) {
+    throw new TypeError('reference observation contract mismatch');
+  }
+  if (raw.state === 'observed') {
+    if (typeof raw.value !== 'boolean' || raw.reasonCode !== null) {
+      throw new TypeError('reference observed capability is invalid');
+    }
+  } else if (!UNRESOLVED_STATES.slice(0, -1).includes(raw.state)
+    || raw.value !== null || raw.reasonCode !== NON_OBSERVED_REASON[raw.state]) {
+    throw new TypeError('reference unresolved capability is invalid');
+  }
+  return { ...raw };
 }
 
 function createContext(graph, request, evidence) {
@@ -220,10 +352,15 @@ function enumerateWithExpansionUnit(context, budget, applyConstraints, requested
     frontier.sort(compareLabels);
     const next = frontier.shift();
     if (next.nodeId === context.request.destinationNodeId) {
-      if (applyConstraints && next.edgeIds.length === 0
-        && context.request.hardConstraints.length > 0) {
-        unresolvedEvidenceEncountered = true;
-        continue;
+      if (applyConstraints) {
+        const disposition = classifyRoute(routeFacts(next), context);
+        if (disposition === 'failed') {
+          throw new TypeError('oracle reached a route whose known-false edge was not pruned');
+        }
+        if (disposition === 'unresolved') {
+          unresolvedEvidenceEncountered = true;
+          continue;
+        }
       }
       routes.push(routeFacts(next));
       if (routes.length === limit) {
@@ -244,10 +381,6 @@ function enumerateWithExpansionUnit(context, budget, applyConstraints, requested
         const disposition = classifyEdge(edge.edgeId, context);
         if (disposition === 'failed') {
           knownConstraintFailureEncountered = true;
-          continue;
-        }
-        if (disposition === 'unresolved') {
-          unresolvedEvidenceEncountered = true;
           continue;
         }
       }

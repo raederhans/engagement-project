@@ -21,6 +21,7 @@ const ZERO_CANDIDATE_REASON_BY_TERMINATION = Object.freeze({
   'no-eligible-route-in-bounded-scope': 'candidate-search-no-eligible-route-in-bounded-scope',
   'unresolved-constraint-evidence': 'candidate-search-unresolved-constraint-evidence',
   'search-budget-exhausted': 'candidate-search-budget-exhausted',
+  'search-capacity-exhausted': 'candidate-search-capacity-exhausted',
 });
 
 function fail(message) {

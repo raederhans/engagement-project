@@ -200,6 +200,7 @@ function terminalResult(termination) {
   const hasCandidate = [
     'bounded-search-space-exhausted',
     'search-budget-exhausted',
+    'search-capacity-exhausted',
   ].includes(termination);
   const candidates = hasCandidate
     ? [candidate('candidate-a', ['a-b', 'b-d'], 10)]
@@ -213,19 +214,25 @@ function terminalResult(termination) {
         : 'not-required';
   const candidateSet = candidateSetFor(request, candidates, {
     completeness: {
-      routeSearch: termination === 'search-budget-exhausted'
+      routeSearch: ['search-budget-exhausted', 'search-capacity-exhausted'].includes(termination)
         ? 'not-proven'
         : 'complete-within-bounds',
       scope: 'loopless-directed-routes-within-max-route-edge-count',
     },
     constraintOutcome,
-    budgetOutcome: termination === 'search-budget-exhausted' ? 'exhausted' : 'within-budget',
+    budgetOutcome: termination === 'search-budget-exhausted'
+      ? 'exhausted'
+      : termination === 'search-capacity-exhausted'
+        ? 'capacity-exhausted'
+        : 'within-budget',
     expandedStateCount: termination === 'search-budget-exhausted'
       ? request.bounds.maxExpandedStates
       : Math.floor(request.bounds.maxExpandedStates / 2),
   });
   return searchResult({
-    status: termination === 'search-budget-exhausted' ? 'stopped' : 'completed',
+    status: ['search-budget-exhausted', 'search-capacity-exhausted'].includes(termination)
+      ? 'stopped'
+      : 'completed',
     termination,
     request,
     candidateSet,
@@ -254,6 +261,7 @@ test('S2 versions and the six semantic decisions are exact, separate, and immuta
     'no-eligible-route-in-bounded-scope',
     'unresolved-constraint-evidence',
     'search-budget-exhausted',
+    'search-capacity-exhausted',
   ]);
   assert.equal(ROUTE_CANDIDATE_SEARCH_DECISIONS.requestedK.meaning,
     'maximum-requested-not-guaranteed');
@@ -686,6 +694,7 @@ test('terminal causes remain mechanically separate from process status', () => {
     'no-eligible-route-in-bounded-scope',
     'unresolved-constraint-evidence',
     'search-budget-exhausted',
+    'search-capacity-exhausted',
   ]) {
     const admitted = admitRouteCandidateSearchResult(terminalResult(termination));
     assert.equal(admitted.termination, termination);
@@ -693,6 +702,7 @@ test('terminal causes remain mechanically separate from process status', () => {
   assert.equal(terminalResult('no-eligible-route-in-bounded-scope').status, 'completed');
   assert.equal(terminalResult('unresolved-constraint-evidence').status, 'completed');
   assert.equal(terminalResult('search-budget-exhausted').status, 'stopped');
+  assert.equal(terminalResult('search-capacity-exhausted').status, 'stopped');
 
   const collapsed = terminalResult('search-budget-exhausted');
   collapsed.termination = 'no-eligible-route-in-bounded-scope';

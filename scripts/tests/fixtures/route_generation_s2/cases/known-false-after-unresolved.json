@@ -1,12 +1,12 @@
 {
   "schemaVersion": "route-golden-s2-case/v1",
   "fixtureSetVersion": "synthetic-route-generation-s2/v1",
-  "caseId": "unresolved-evidence",
-  "title": "Missing complete edge evidence excludes the route and remains unresolved",
+  "caseId": "known-false-after-unresolved",
+  "title": "A later known-false edge dominates unresolved evidence earlier on the route",
   "input": {
     "graph": {
       "schemaVersion": "route-golden-s2-synthetic-graph/v1",
-      "graphId": "unresolved-evidence-graph",
+      "graphId": "known-false-after-unresolved-graph",
       "directed": true,
       "nodes": [{ "nodeId": "a" }, { "nodeId": "b" }, { "nodeId": "d" }],
       "edges": [
@@ -16,8 +16,8 @@
     },
     "request": {
       "schemaVersion": "engagement-route-candidate-search-request/v1",
-      "requestId": "unresolved-evidence-request",
-      "graphId": "unresolved-evidence-graph",
+      "requestId": "known-false-after-unresolved-request",
+      "graphId": "known-false-after-unresolved-graph",
       "mode": "walk",
       "originNodeId": "a",
       "destinationNodeId": "d",
@@ -41,19 +41,20 @@
       }]
     },
     "edgeObservationsByEdgeId": {
-      "b-d": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": true, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } }
+      "a-b": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "unknown", "value": null, "unit": "boolean", "reasonCode": "not-observed", "sourceId": "synthetic-s2-golden" } },
+      "b-d": { "step-free": { "schemaVersion": "engagement-route-source-observation/v1", "factorId": "step-free", "state": "observed", "value": false, "unit": "boolean", "reasonCode": null, "sourceId": "synthetic-s2-golden" } }
     }
   },
   "expected": {
     "status": "completed",
-    "termination": "unresolved-constraint-evidence",
+    "termination": "no-eligible-route-in-bounded-scope",
     "routes": [],
     "search": {
       "requestedCandidateCount": 1,
       "candidateCount": 0,
-      "expandedStateCount": 2,
+      "expandedStateCount": 4,
       "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
-      "constraintOutcome": "unresolved-evidence",
+      "constraintOutcome": "no-eligible-route-in-bounded-scope-proven",
       "budgetOutcome": "within-budget"
     }
   }

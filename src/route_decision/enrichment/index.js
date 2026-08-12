@@ -49,8 +49,8 @@ export const ROUTE_ENRICHMENT_SCHEMA_VERSIONS = Object.freeze({
   sourceReceipt: 'engagement-route-enrichment-source-receipt/v1',
   sourceIdentityBinding: 'engagement-route-enrichment-source-identity-binding/v1',
   searchEvidence: 'engagement-route-search-evidence/v1',
-  candidateBatchResult: 'engagement-route-candidate-enrichment-result/v1',
-  searchResult: 'engagement-route-search-enrichment-result/v1',
+  candidateBatchResult: 'engagement-route-candidate-enrichment-result/v2',
+  searchResult: 'engagement-route-search-enrichment-result/v2',
 });
 
 export const ROUTE_ENRICHMENT_AGGREGATION_VERSION =
@@ -523,7 +523,11 @@ function candidateAudit(candidate, source, index) {
     provenance: { ...candidate.provenance },
     ...(candidate.geometry ? { geometry: structuredClone(candidate.geometry) } : {}),
   });
-  return { enrichedCandidate, audit: { candidateId: candidate.candidateId, factors } };
+  return {
+    inputCandidate: candidate,
+    enrichedCandidate,
+    audit: { candidateId: candidate.candidateId, factors },
+  };
 }
 
 function enrichCandidates(rawCandidates, graphId, source) {
@@ -614,7 +618,14 @@ function expectedAuditReason(state) {
   return UNRESOLVED_REASON_BY_STATE[state];
 }
 
-function admitCandidateAuditFactor(raw, auditIndex, factorIndex, candidate, receipt) {
+function admitCandidateAuditFactor(
+  raw,
+  auditIndex,
+  factorIndex,
+  inputCandidate,
+  candidate,
+  receipt,
+) {
   const label = `RouteCandidateEnrichmentResult.candidateAudits[${auditIndex}].factors[${factorIndex}]`;
   const value = exactObject(raw, label, [
     'factorId',
@@ -669,16 +680,25 @@ function admitCandidateAuditFactor(raw, auditIndex, factorIndex, candidate, rece
     fail(`${label} missing aggregate must remain omitted from candidate observations`);
   }
 
-  let inputSourceId = null;
-  if (value.inputSourceId !== null) {
-    inputSourceId = syntheticId(value.inputSourceId, `${label}.inputSourceId`);
+  const inputObservation = inputCandidate.observations[factorId];
+  if (inputObservation) {
     const aggregateInputAllowed = SEARCH_CAPABILITY_FACTOR_SET.has(factorId)
-      && aggregate.state === 'observed'
-      && aggregate.value === true
-      && inputSourceId === ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId;
-    if (inputSourceId !== receipt.sourceId && !aggregateInputAllowed) {
-      fail(`${label}.inputSourceId is not bound to the admitted source identity`);
+      && inputObservation.state === 'observed'
+      && inputObservation.value === true
+      && inputObservation.sourceId
+        === ROUTE_ENRICHMENT_SEARCH_AGGREGATE_SOURCE_IDENTITY.sourceId;
+    if (!publicObservation
+      || !sameObservationSemantics(inputObservation, publicObservation)
+      || (inputObservation.sourceId !== receipt.sourceId && !aggregateInputAllowed)) {
+      fail(`${label}.inputCandidateFacts observation conflicts with edge evidence`);
     }
+  }
+  const expectedInputSourceId = inputObservation?.sourceId ?? null;
+  const inputSourceId = value.inputSourceId === null
+    ? null
+    : syntheticId(value.inputSourceId, `${label}.inputSourceId`);
+  if (inputSourceId !== expectedInputSourceId) {
+    fail(`${label}.inputSourceId must match inputCandidateFacts`);
   }
   const outputSourceId = value.outputSourceId === null
     ? null
@@ -700,18 +720,19 @@ function admitCandidateAuditFactor(raw, auditIndex, factorIndex, candidate, rece
   };
 }
 
-function admitCandidateAudits(raw, candidates, receipt) {
+function admitCandidateAudits(raw, inputCandidates, candidates, receipt) {
   const rawAudits = strictArray(
     raw,
     'RouteCandidateEnrichmentResult.candidateAudits',
     { max: MAX_CANDIDATES },
   );
-  if (rawAudits.length !== candidates.length) {
+  if (rawAudits.length !== candidates.length || inputCandidates.length !== candidates.length) {
     fail('candidate audits must exactly match candidate count');
   }
   return rawAudits.map((rawAudit, auditIndex) => {
     const label = `RouteCandidateEnrichmentResult.candidateAudits[${auditIndex}]`;
     const value = exactObject(rawAudit, label, ['candidateId', 'factors']);
+    const inputCandidate = inputCandidates[auditIndex];
     const candidate = candidates[auditIndex];
     if (boundedId(value.candidateId, `${label}.candidateId`) !== candidate.candidateId) {
       fail(`${label}.candidateId must match candidate order`);
@@ -728,11 +749,47 @@ function admitCandidateAudits(raw, candidates, receipt) {
         factor,
         auditIndex,
         factorIndex,
+        inputCandidate,
         candidate,
         receipt,
       )),
     };
   });
+}
+
+function sameDataTree(left, right) {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right)
+      && left.length === right.length
+      && left.every((item, index) => sameDataTree(item, right[index]));
+  }
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key, index) => (
+      key === rightKeys[index] && sameDataTree(left[key], right[key])
+    ));
+}
+
+function assertCandidateTransformationBindings(inputCandidates, candidates) {
+  if (inputCandidates.length !== candidates.length) {
+    fail('inputCandidateFacts must exactly match enriched candidate count');
+  }
+  for (let index = 0; index < candidates.length; index += 1) {
+    const input = inputCandidates[index];
+    const output = candidates[index];
+    if (input.schemaVersion !== output.schemaVersion
+      || input.candidateId !== output.candidateId
+      || input.distanceMm !== output.distanceMm
+      || input.objectiveCostUnits !== output.objectiveCostUnits
+      || !sameDataTree(input.edgeIds, output.edgeIds)
+      || !sameDataTree(input.provenance, output.provenance)
+      || !sameDataTree(input.geometry ?? null, output.geometry ?? null)) {
+      fail('inputCandidateFacts must preserve candidate route identity and provenance');
+    }
+  }
 }
 
 function assertEnrichmentEnvelopeBindings(graphId, candidates, receipt) {
@@ -757,6 +814,7 @@ export function admitRouteCandidateEnrichmentResult(raw) {
     'schemaVersion',
     'aggregationVersion',
     'graphId',
+    'inputCandidateFacts',
     'candidateFacts',
     'sourceReceipt',
     'sourceIdentityBinding',
@@ -769,21 +827,32 @@ export function admitRouteCandidateEnrichmentResult(raw) {
     fail('RouteCandidateEnrichmentResult.aggregationVersion is unsupported');
   }
   const graphId = boundedId(value.graphId, 'RouteCandidateEnrichmentResult.graphId');
+  const inputCandidates = admitEnrichedCandidateFacts(
+    value.inputCandidateFacts,
+    'RouteCandidateEnrichmentResult.inputCandidateFacts',
+  );
   const candidates = admitEnrichedCandidateFacts(
     value.candidateFacts,
     'RouteCandidateEnrichmentResult.candidateFacts',
   );
+  assertCandidateTransformationBindings(inputCandidates, candidates);
   const receipt = admitEnvelopeReceipt(value.sourceReceipt);
   const identityBinding = admitSourceIdentityBinding(
     value.sourceIdentityBinding,
     receipt.sourceId,
   );
   assertEnrichmentEnvelopeBindings(graphId, candidates, receipt);
-  const candidateAudits = admitCandidateAudits(value.candidateAudits, candidates, receipt);
+  const candidateAudits = admitCandidateAudits(
+    value.candidateAudits,
+    inputCandidates,
+    candidates,
+    receipt,
+  );
   return deepFreeze({
     schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.candidateBatchResult,
     aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
     graphId,
+    inputCandidateFacts: inputCandidates,
     candidateFacts: candidates,
     sourceReceipt: receipt,
     sourceIdentityBinding: identityBinding,
@@ -795,6 +864,7 @@ export function admitRouteCandidateSearchEnrichmentResult(raw) {
   const value = exactObject(raw, 'RouteCandidateSearchEnrichmentResult', [
     'schemaVersion',
     'aggregationVersion',
+    'inputCandidateFacts',
     'searchResult',
     'sourceReceipt',
     'sourceIdentityBinding',
@@ -810,6 +880,11 @@ export function admitRouteCandidateSearchEnrichmentResult(raw) {
   if (!searchResult.request || !searchResult.candidateSet) {
     fail('RouteCandidateSearchEnrichmentResult must contain a searched result');
   }
+  const inputCandidates = admitEnrichedCandidateFacts(
+    value.inputCandidateFacts,
+    'RouteCandidateSearchEnrichmentResult.inputCandidateFacts',
+  );
+  assertCandidateTransformationBindings(inputCandidates, searchResult.candidateFacts);
   const receipt = admitEnvelopeReceipt(value.sourceReceipt);
   const identityBinding = admitSourceIdentityBinding(
     value.sourceIdentityBinding,
@@ -822,12 +897,14 @@ export function admitRouteCandidateSearchEnrichmentResult(raw) {
   );
   const candidateAudits = admitCandidateAudits(
     value.candidateAudits,
+    inputCandidates,
     searchResult.candidateFacts,
     receipt,
   );
   return deepFreeze({
     schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.searchResult,
     aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
+    inputCandidateFacts: inputCandidates,
     searchResult,
     sourceReceipt: receipt,
     sourceIdentityBinding: identityBinding,
@@ -848,6 +925,7 @@ export function enrichRouteCandidateFacts(raw) {
     schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.candidateBatchResult,
     aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
     graphId,
+    inputCandidateFacts: enriched.map(({ inputCandidate }) => inputCandidate),
     candidateFacts: enriched.map(({ enrichedCandidate }) => enrichedCandidate),
     sourceReceipt: structuredClone(source.receipt),
     sourceIdentityBinding: sourceIdentityBinding(source.sourceId),
@@ -878,6 +956,7 @@ export function enrichRouteCandidateSearchResult(raw) {
   return deepFreeze({
     schemaVersion: ROUTE_ENRICHMENT_SCHEMA_VERSIONS.searchResult,
     aggregationVersion: ROUTE_ENRICHMENT_AGGREGATION_VERSION,
+    inputCandidateFacts: enriched.map(({ inputCandidate }) => inputCandidate),
     searchResult: nextSearchResult,
     sourceReceipt: structuredClone(admittedSource.receipt),
     sourceIdentityBinding: sourceIdentityBinding(admittedSource.sourceId),

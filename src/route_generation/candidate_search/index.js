@@ -18,6 +18,12 @@ const MAX_SAFE_TOTAL = BigInt(Number.MAX_SAFE_INTEGER);
 const AGGREGATED_CAPABILITY_SOURCE_ID = 'synthetic-route-search-edge-aggregation';
 const COMPLETENESS_SCOPE = 'loopless-directed-routes-within-max-route-edge-count';
 
+export const ROUTE_CANDIDATE_SEARCH_CAPACITY = Object.freeze({
+  version: 'bounded-frontier-capacity/v1',
+  maxFrontierStates: 4_096,
+  maxFrontierEdgeReferences: 65_536,
+});
+
 /**
  * One expanded state is one non-destination loopless path label, below the
  * maxRouteEdgeCount bound, removed from a frontier and inspected for outgoing
@@ -112,6 +118,16 @@ export function searchRouteCandidates(
       unresolvedEvidenceEncountered: constrained.unresolvedEvidenceEncountered,
     });
   }
+  if (constrained.outcome === 'capacity-exhausted') {
+    return searchedResult({
+      graphArtifact,
+      request,
+      routes: constrained.routes,
+      expandedStateCount: budget.expandedStateCount,
+      termination: 'search-capacity-exhausted',
+      unresolvedEvidenceEncountered: constrained.unresolvedEvidenceEncountered,
+    });
+  }
 
   if (constrained.routes.length > 0) {
     return searchedResult({
@@ -172,6 +188,16 @@ export function searchRouteCandidates(
       routes: [],
       expandedStateCount: budget.expandedStateCount,
       termination: 'search-budget-exhausted',
+      unresolvedEvidenceEncountered: false,
+    });
+  }
+  if (topology.outcome === 'capacity-exhausted') {
+    return searchedResult({
+      graphArtifact,
+      request,
+      routes: [],
+      expandedStateCount: budget.expandedStateCount,
+      termination: 'search-capacity-exhausted',
       unresolvedEvidenceEncountered: false,
     });
   }
@@ -284,8 +310,10 @@ function enumerateRoutes(context, budget, applyConstraints, requestedCount = nul
     edgePath: [],
     distanceMm: 0n,
     objectiveCostUnits: 0n,
+    unresolvedConstraintEvidence: false,
   });
   const routes = [];
+  let frontierEdgeReferenceCount = 0;
   let unresolvedEvidenceEncountered = false;
   let knownConstraintFailureEncountered = false;
 
@@ -293,6 +321,11 @@ function enumerateRoutes(context, budget, applyConstraints, requestedCount = nul
     const next = frontier.peek();
     if (next.nodeId === request.destinationNodeId) {
       const finalized = frontier.pop();
+      frontierEdgeReferenceCount -= finalized.edgePath.length;
+      if (applyConstraints && finalized.unresolvedConstraintEvidence) {
+        unresolvedEvidenceEncountered = true;
+        continue;
+      }
       routes.push(finalized);
       if (routes.length === routeLimit) {
         return enumerationResult(
@@ -305,7 +338,8 @@ function enumerateRoutes(context, budget, applyConstraints, requestedCount = nul
       continue;
     }
     if (next.edgePath.length >= request.bounds.maxRouteEdgeCount) {
-      frontier.pop();
+      const bounded = frontier.pop();
+      frontierEdgeReferenceCount -= bounded.edgePath.length;
       continue;
     }
     if (budget.expandedStateCount >= request.bounds.maxExpandedStates) {
@@ -318,20 +352,23 @@ function enumerateRoutes(context, budget, applyConstraints, requestedCount = nul
     }
 
     const current = frontier.pop();
+    frontierEdgeReferenceCount -= current.edgePath.length;
     budget.expandedStateCount += 1;
     for (const edge of context.outgoingByNodeId.get(current.nodeId)) {
       if (current.nodePath.includes(edge.toNodeId)) continue;
 
+      let unresolvedConstraintEvidence = current.unresolvedConstraintEvidence;
       if (applyConstraints) {
         const constraintDisposition = classifyEdgeConstraints(edge.edgeId, context);
         if (constraintDisposition === 'failed') {
           knownConstraintFailureEncountered = true;
           continue;
         }
-        if (constraintDisposition === 'unresolved') {
-          unresolvedEvidenceEncountered = true;
-          continue;
-        }
+        // An unresolved edge excludes the route from the returned candidate
+        // set, but the rest of that bounded loopless route must still be
+        // inspected. A later known-false edge dominates unresolved evidence
+        // under the public every-edge aggregation contract.
+        unresolvedConstraintEvidence ||= constraintDisposition === 'unresolved';
       }
 
       const distanceMm = current.distanceMm + BigInt(edge.distanceMm);
@@ -344,13 +381,26 @@ function enumerateRoutes(context, budget, applyConstraints, requestedCount = nul
           knownConstraintFailureEncountered,
         );
       }
+      const nextEdgePathLength = current.edgePath.length + 1;
+      if (frontier.size >= ROUTE_CANDIDATE_SEARCH_CAPACITY.maxFrontierStates
+        || frontierEdgeReferenceCount + nextEdgePathLength
+          > ROUTE_CANDIDATE_SEARCH_CAPACITY.maxFrontierEdgeReferences) {
+        return enumerationResult(
+          'capacity-exhausted',
+          routes,
+          unresolvedEvidenceEncountered,
+          knownConstraintFailureEncountered,
+        );
+      }
       frontier.push({
         nodeId: edge.toNodeId,
         nodePath: [...current.nodePath, edge.toNodeId],
         edgePath: [...current.edgePath, edge.edgeId],
         distanceMm,
         objectiveCostUnits,
+        unresolvedConstraintEvidence,
       });
+      frontierEdgeReferenceCount += nextEdgePathLength;
     }
   }
 
@@ -408,6 +458,7 @@ function searchedResult({
     request,
   ));
   const budgetExhausted = termination === 'search-budget-exhausted';
+  const capacityExhausted = termination === 'search-capacity-exhausted';
   const completeWithinBounds = [
     'bounded-search-space-exhausted',
     'no-directed-route-in-bounded-scope',
@@ -442,11 +493,15 @@ function searchedResult({
       scope: COMPLETENESS_SCOPE,
     },
     constraintOutcome,
-    budgetOutcome: budgetExhausted ? 'exhausted' : 'within-budget',
+    budgetOutcome: budgetExhausted
+      ? 'exhausted'
+      : capacityExhausted
+        ? 'capacity-exhausted'
+        : 'within-budget',
   };
   return admitRouteCandidateSearchResult({
     schemaVersion: ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS.searchResult,
-    status: budgetExhausted ? 'stopped' : 'completed',
+    status: budgetExhausted || capacityExhausted ? 'stopped' : 'completed',
     termination,
     request,
     candidateSet,
