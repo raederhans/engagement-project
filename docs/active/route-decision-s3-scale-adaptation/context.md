@@ -41,6 +41,8 @@
 | 2026-08-12 | Accept and integrate S3-0 as `d33c27d` after repeated adversarial repair and final code `ACCEPT` / architecture `CLEAR`. | Final central evidence is 31/31 focused and 77/77 adjacent plus ESLint/syntax; terminal/resource/context truth, candidateful unresolved, oracle evaluation, comparison, graph identity, replay and claim denominators are frozen. |
 | 2026-08-12 | Open only the S3-2 micrograph-first implementation gate. | S3-2 must provide a separate clean-room oracle, recursive dependency-boundary tests, differential fixtures and real primary/replay invocations before any 1,000 x 5 live gate opens. |
 | 2026-08-12 | Accept S3-2 lane `baefda3` and integrate it as `17ddf85` after final code `ACCEPT` and architecture `CLEAR`. | Exact central evidence is S3-2 29/29, S3-0 31/31, S2 92/92 plus targeted static checks. The admitted report is still `1/5000` partial with no claims; a scale runner and separate live-process gate remain required. |
+| 2026-08-12 | Integrate the validation-session seam as `770eef9`. | Runner execution can admit the RunManifest once and reuse the same branded snapshot across record, collection, report, checkpoint reload, and final-combine validation. |
+| 2026-08-12 | Accept and integrate the bounded S3 scale runner as `3e5269d` after final code `APPROVE` and architecture merge `CLEAR`. | Exact central evidence is runner 44/44, protocol 32/32, adjacent S2 92/92 and targeted static checks. The 5,000 worklist/checkpoint semantics are implemented, but the live gate remains closed pending max-100 persistence/reload and full-combine heap/disk admission. |
 
 ## Lane ownership
 
@@ -63,10 +65,11 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 - S3-R is an accepted read-only semantic input. S3-0 and S3-1 are integrated;
   S3-1 remains candidate-only and may not model external data as the existing
   synthetic-only product GraphArtifact.
-- S3-2 micrograph evidence is integrated at `17ddf85`. The same task may now
-  implement a bounded scale runner against that exact central revision, but may
-  not start the 1,000 x 5 run. The primary owner retains exclusive live-run,
-  checkpoint, log, output, and performance-measurement ownership.
+- S3-2 micrograph evidence is integrated at `17ddf85`; the validation-session
+  seam and bounded runner are integrated at `770eef9` and `3e5269d`. Worker
+  implementation is closed. The primary owner retains exclusive 1,000 x 5
+  live-run, checkpoint, log, output, persistence, resource-admission, and any
+  separately preregistered performance-measurement ownership.
 - A source endpoint, research note, or candidate download does not open the
   S3-2 gate. The
   primary owner must first review license/provenance/topology and the exact
@@ -78,7 +81,7 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 | --- | --- | --- | --- |
 | Lane-local short unit/contract tests | Each S3 task inside its isolated worktree | No committed logs; task-local temporary output only | Allowed after owned changes |
 | Source downloads/API probes | Original route/data research task during research; later exact candidate-graph owner after handoff | Worktree-local ignored or OS temp path; never `public/data` | Allowed, bounded, candidate-only |
-| 1,000 x 5 cohort, large graph build, browser, full validate, release build, server, or shared cache/output | Primary integration owner | To be assigned before start | Not started; tasks must request handoff |
+| 1,000 x 5 cohort, large graph build, browser, full validate, release build, server, or shared cache/output | Primary integration owner | To be assigned before start | Not started; runner integrated, resource/persistence preflight pending |
 
 ## Handoff
 
@@ -96,9 +99,9 @@ accepted S3-1 candidate graph/data handoff ─────────┘
 
 ## Next step
 
-Move the clean S3-2 worktree to exact integrated `17ddf85`, implement a bounded
-full-cohort runner with deterministic order and truthful checkpoint/stop/report
-semantics, and return it uncommitted for review. Keep S3-1 private lifecycle
-evidence out of the product path and keep the 1,000 x 5 execution gate closed
-until the runner itself passes review and the primary owner assigns live-process
-logs and outputs.
+Keep S3-1 private lifecycle evidence out of the product path. Before starting
+the 1,000 x 5 gate, the primary owner must assign unique private manifest,
+checkpoint, log, and derived-report paths; persist and reload one max-100 chunk;
+measure operational heap/disk headroom without converting it into performance
+evidence; and confirm a recoverable final-combine strategy. Only then may the
+single live owner decide whether to execute the full cohort.

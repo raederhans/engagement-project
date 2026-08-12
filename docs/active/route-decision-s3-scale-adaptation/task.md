@@ -2,7 +2,7 @@
 
 ## Current status
 
-`in-progress / S3 scale-runner gate` — S3 scope, supervised task ownership, claim
+`in-progress / S3 live-resource gate` — S3 scope, supervised task ownership, claim
 boundaries, and dependency gates are frozen on coordination branch
 `codex/route-decision-s3-scale-adaptation` from exact released baseline
 `70f9727`; the coordination baseline is committed as `290517b`. S3-0 was accepted
@@ -10,10 +10,12 @@ and integrated as `d33c27d` after final independent code `ACCEPT` and architectu
 `CLEAR`; S3-1 private candidate lifecycle was integrated as `af7e1ac` plus
 `65b31d8`; S3-R's replacement semantic research is accepted; and the reviewed
 S3-2 micrograph implementation was integrated as `17ddf85` after code `ACCEPT`
-and architecture `CLEAR`. The current harness proves only one main record plus
-four conformance probes and preserves `1/5000` partial truth. The
-1,000 x 5 cohort has not run, and no route graph data has been production-admitted,
-published, or loaded by runtime.
+and architecture `CLEAR`. The validation-session seam was integrated as
+`770eef9`, and the reviewed bounded scale runner was integrated as `3e5269d`
+after final code `APPROVE` with P0/P1/P2/WATCH all zero and architecture merge
+readiness `CLEAR`. The runner freezes the exact 5,000-item worklist and truthful
+checkpoint/stop/report semantics, but the 1,000 x 5 cohort has not run. No route
+graph data has been production-admitted, published, or loaded by runtime.
 
 ## Checklist
 
@@ -48,14 +50,14 @@ published, or loaded by runtime.
   micrograph-first implementation; keep the 1,000 x 5 run closed.
 - [x] Review S3-2's clean-room oracle, recursive import-boundary proof,
   differential fixtures, real replay execution, and bounded report builder.
-- [ ] Implement and review a bounded scale runner with explicit ordering,
-  checkpoint/stop semantics, truthful partial output, and main-owned performance
-  measurement; do not execute the full cohort from a worker task.
+- [x] Implement and review a bounded scale runner with explicit ordering,
+  checkpoint/stop semantics, truthful partial output, and explicitly disabled
+  performance measurement; do not execute the full cohort from a worker task.
 - [ ] Under single live-process ownership, decide whether the accepted S3-2
   implementation is ready for the separate 1,000 x 5 execution gate.
-- [ ] Complete independent final reviews, exact integrated validation, and a
-  truthful decision on whether any result is ready for a later data-admission or
-  product phase.
+- [x] Complete runner independent reviews and exact integrated validation, and
+  record the truthful decision that the current result is not data-admission,
+  product, performance, scientific, safety, or user evidence.
 
 ## Validation evidence
 
@@ -70,16 +72,18 @@ published, or loaded by runtime.
 | Final S3-1 integration | Private candidate lifecycle integrated as `af7e1ac` and limitations/legacy-version tests as `65b31d8`; final focused evidence 55/55, with production/publish eligibility fixed false. |
 | Final S3-0 integration | `d33c27d`; central exact-byte focused 31/31, adjacent S2 77/77, targeted ESLint and Node syntax pass; independent code `ACCEPT`, architecture `CLEAR`, P0/P1/P2 zero. |
 | Final S3-2 micrograph integration | Lane `baefda3`, integrated as `17ddf85`; central exact-head S3-2 29/29, S3-0 31/31, S2 92/92, targeted ESLint/Node syntax/diff-check pass; independent code `ACCEPT` and architecture `CLEAR`. Evidence remains `1/5000` partial with four separate conformance records and no emitted claims. |
+| S3 validation-session seam | `770eef9`; one admitted RunManifest snapshot is reused across joined-record, collection, report, checkpoint reload, and final combine boundaries. Focused protocol 32/32 passed before integration. |
+| Bounded S3 scale runner integration | `3e5269d`; exact central-head runner 44/44, protocol 32/32, adjacent S2 92/92, targeted ESLint, Node syntax, and diff-check pass. Final code review `APPROVE` with P0/P1/P2/WATCH zero; architecture merge `CLEAR` and later live gate `WATCH`. No 5,000-run or performance evidence was produced. |
 | Repository guidance | Root and `docs/AGENTS.md`, task-record, worktree-integration, and Lore commit workflows read. |
 
 ## Active S3 tasks
 
 | Lane | Task ID | Worktree | Current state |
 | --- | --- | --- | --- |
-| S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Accepted and integrated as `d33c27d`; final 31/31 focused, 77/77 adjacent, code `ACCEPT`, architecture `CLEAR`. |
+| S3-0 Protocol / Preregistration | `019ff4ee-cfa6-7991-b5a3-206057e25f77` | `C:/Users/raede/.codex/worktrees/1242/engagement_project` | Accepted as `d33c27d`; validation-session seam integrated as `770eef9`; final seam protocol 32/32, code `APPROVE`, architecture `CLEAR`. |
 | S3-R Controlled Labels / Constraint Semantics | `019ff4f2-28e4-7783-90fa-0195838ea077` | `C:/Users/raede/.codex/worktrees/bc37/engagement_project` | Read-only research complete and accepted: strict closed vocabulary, non-known state separation, policy-content binding, honest product primitive mapping, and separate denominators. |
 | S3-1 Candidate Graph / Data Lifecycle | `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` | `C:/Users/raede/.codex/worktrees/4a9c/engagement_project` | Accepted private lifecycle integrated as `af7e1ac` plus `65b31d8`; candidate-only, never GraphArtifact/product/public input. |
-| S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Micrograph implementation accepted as lane `baefda3` and integrated as `17ddf85`; next gate is a reviewed scale runner. Long 1,000 x 5 execution remains closed and main-owned. |
+| S3-2 Independent Scale / Golden | `019ff4ee-dd08-7532-ab56-9458eee911a6` | `C:/Users/raede/.codex/worktrees/2ed6/engagement_project` | Micrographs integrated as `17ddf85`; bounded runner integrated as `3e5269d` after code `APPROVE` and architecture merge `CLEAR`. Long 1,000 x 5 execution remains closed pending main-owned persistence/heap/disk preflight. |
 
 The pre-existing route/data research task
 `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` remains the candidate-source and data
@@ -102,9 +106,12 @@ lane. Neither may publish or production-admit route data.
   independently reproduces the relevant result against current code.
 - The 1,000 x 5 run has not started. Its latency, memory, budget/capacity stops,
   eligible-candidate rate, and explanation consistency are unknown.
-- The accepted S3-2 harness has no full-cohort runner or checkpoint artifact;
-  its focused report intentionally records one main result out of 5,000. A
-  runner must be implemented and reviewed before the live gate can open.
+- The bounded S3-2 runner and checkpoint contract are integrated, but only small
+  chunks and the four conformance probes have been executed. Full combine still
+  materializes several generations of the complete record graph and the durable
+  evidence set retains both append-only source chunks and a derived report.
+  A max-100 persistence/reload plus heap/disk preflight is required before the
+  main-owned 5,000 live gate can open.
 - Initial S3-0 review found six integration blockers: no admitted execution/
   oracle/run records behind aggregate counters; no K/search-bound/request
   binding or bidirectional policy/search constraint equality; time/penalty names
