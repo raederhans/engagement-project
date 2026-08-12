@@ -28,6 +28,8 @@
 | 2026-08-12 | Keep v1 immutable and require a new versioned CandidateSet/search contract. | Prevents existing callers from interpreting multi-candidate or completeness states incorrectly. |
 | 2026-08-12 | Search, enrichment, evaluation, and Golden remain separate one-way responsibilities. | Avoids circular search/ranking and prevents production code from defining its own expected results. |
 | 2026-08-12 | External research/local acquisition is allowed; production admission and publication are not automatic. | Source/license evidence can advance without turning a candidate dataset into a shipped product claim. |
+| 2026-08-12 | Orchestration baseline committed as `cff3e6d`; all four task worktrees are clean detached checkouts of that exact revision. | Delivery diffs and research conclusions can be compared against one auditable base. |
+| 2026-08-12 | Narrow S2 follow-ups sent to all three original research tasks. | S2-0 receives evidence from prior research without making those tasks implementation owners. |
 
 ## Lane ownership
 
@@ -66,6 +68,15 @@ S2-0 public contract
 | Lane-local short Node tests | Each isolated task | No committed logs; lane-local temporary output only | Allowed after code changes within owned paths |
 | Shared/full validation, build, browser, or dev server | Primary integration owner | To be assigned only when needed | Not started |
 
+## Active execution tasks
+
+| Lane | Task ID | Worktree | Start state |
+| --- | --- | --- | --- |
+| S2-0 Contract / Product Semantics | `019ff435-0c08-7323-902c-39d181428af1` | `C:/Users/raede/.codex/worktrees/d9bd/engagement_project` | Active; clean detached `cff3e6d`; v1 admission and S2 decision-matrix inspection underway |
+| S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Active; clean detached `cff3e6d`; read-only graph/search architecture mapping underway |
+| S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Active; clean detached `cff3e6d`; read-only source/provenance/admission mapping underway |
+| S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Active; clean detached `cff3e6d`; read-only v1 harness/denominator mapping underway |
+
 ## Handoff
 
 - Execution tasks do not stage, commit, merge, push, clean worktrees, or modify
@@ -79,7 +90,6 @@ S2-0 public contract
 
 ## Next step
 
-Commit this orchestration baseline, create the four isolated tasks from that
-exact revision, register their IDs/worktrees, and send narrow S2 semantic
-follow-ups to the three original research tasks. Integrate S2-0 before releasing
-implementation authority to the dependent lanes.
+Monitor the four tasks and original research replies. Review S2-0's decision
+matrix and executable contract first; integrate it before releasing
+implementation authority to S2-1, S2-2, or S2-3.
