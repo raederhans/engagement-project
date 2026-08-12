@@ -253,6 +253,26 @@ test('same endpoint is the deterministic zero-edge primary without expanding sta
   assert.equal(result.candidateSet.expandedStateCount, 0);
 });
 
+test('constrained same-endpoint route does not infer capability truth from an empty edge set', () => {
+  const result = searchRouteCandidates(graphArtifact(), searchRequest({
+    originNodeId: 'a',
+    destinationNodeId: 'a',
+    requestedCandidateCount: 1,
+    bounds: { maxExpandedStates: 1, maxRouteEdgeCount: 0 },
+    hardConstraints: [searchConstraint()],
+  }));
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.termination, 'unresolved-constraint-evidence');
+  assert.deepEqual(result.candidateFacts, []);
+  assert.equal(result.candidateSet.candidateCount, 0);
+  assert.deepEqual(result.candidateSet.candidateIds, []);
+  assert.equal(result.candidateSet.expandedStateCount, 0);
+  assert.equal(result.candidateSet.constraintOutcome, 'unresolved-evidence');
+  assert.equal(result.candidateSet.completeness.routeSearch, 'complete-within-bounds');
+  assert.equal(result.candidateSet.budgetOutcome, 'within-budget');
+});
+
 test('known-false edge capability excludes the cheap path and returns an eligible alternative', () => {
   const graph = graphArtifact({
     nodes: ['a', 'b', 'd'],

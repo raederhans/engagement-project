@@ -71,6 +71,22 @@ export function searchRouteCandidates(
     });
   }
 
+  // An empty same-endpoint route has no directed edge evidence to aggregate.
+  // Without constraints it remains the deterministic zero-edge primary; with
+  // any admitted edge-local hard constraint, vacuous truth must not invent an
+  // observed capability. Fail closed without expanding the graph.
+  if (request.originNodeId === request.destinationNodeId
+    && request.hardConstraints.length > 0) {
+    return searchedResult({
+      graphArtifact,
+      request,
+      routes: [],
+      expandedStateCount: 0,
+      termination: 'unresolved-constraint-evidence',
+      unresolvedEvidenceEncountered: true,
+    });
+  }
+
   const searchContext = createSearchContext(graph, request, edgeObservationsByEdgeId);
   const budget = { expandedStateCount: 0 };
   const constrained = enumerateRoutes(searchContext, budget, true);
