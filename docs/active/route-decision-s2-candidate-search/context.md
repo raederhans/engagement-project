@@ -5,8 +5,9 @@
 - S2 starts from the accepted foundation revision
   `785e2c4835133d51ea9b545dc482454ae995a1e8`.
 - The primary integration owner created coordination branch
-  `codex/route-decision-s2-candidate-search`; no S2 product code exists at the
-  time of this record.
+  `codex/route-decision-s2-candidate-search`. The four S2 lanes and the
+  primary-owned evaluation/integration seam are now present on that branch;
+  they are not merged to `main`, pushed, deployed, or published.
 - Foundation CandidateSet v1 intentionally admits at most one
   `base-objective-only` candidate, requires `completeness: incomplete`, and
   requires `constraintAwareSearch: false`.
@@ -36,6 +37,16 @@
 | 2026-08-12 | S2-0 integrated as `065d824` after 18/18 S2 and 18/18 v1 contract tests plus targeted ESLint. | S2-1 and S2-2 implementation gates opened; S2-3 received contract context but still waits for stable search shape. |
 | 2026-08-12 | S2-1 implemented a deterministic bounded loopless directed-path enumerator with a machine-readable frontier-expansion unit. | K=1 matches base Dijkstra; only finalized ordered prefixes are returned; bounded no-route/no-eligible/unresolved/budget states remain distinct. |
 | 2026-08-12 | S2-1 integrated as `4db3f06` after 16 focused and 110 combined tests plus targeted ESLint. | S2-3 received the exact production entrypoint/result shape and its implementation gate opened. |
+| 2026-08-12 | Constrained same-endpoint search was corrected to fail closed when edge-local evidence is unresolved; unconstrained same-endpoint requests retain the zero-edge primary. | Prevents a zero-edge shortcut from silently bypassing an admitted hard constraint; correction integrated as `db62cd0`. |
+| 2026-08-12 | S2-2 added a synthetic-only, source-receipted enrichment projection plus strict pre-search and post-search admission envelopes. | Search sees only admitted edge evidence; receipts, source identities, candidate audits, non-known states, getter safety, and detachment remain mechanically enforced. Integrated as `084098c` and `22e41a0`. |
+| 2026-08-12 | S2-3 added an independent bounded DFS oracle, separate product adapter, 13 fixture comparisons, and seven non-combined denominators. | Product search does not define its own expected routes, and primary, terminal, alternative, constraint, budget, and completeness evidence cannot be inflated into one score. Integrated as `8e9068a`. |
+| 2026-08-12 | The public v1 evaluator remains unchanged while a separate S2 search-evaluation envelope consumes either an admitted raw SearchResult or the complete admitted enrichment artifact. | Search metadata and provenance are retained end to end; evaluation remains scoped to the provided candidate set and cannot create a global infeasibility claim. Integrated as `980d8a0`. |
+| 2026-08-12 | A synthetic evidence-to-search-to-enrichment-to-evaluation integration test and `test:route-decision-s2` standard entry were added. | The complete local S2 pipeline is now executable through the repository test chain without admitting external or production data. Integrated as `6b2d48d`. |
+| 2026-08-12 | Independent final review found cross-edge fail-precedence drift: an unresolved prefix was pruned before a later known-false edge could dominate. | Search now carries unresolved state to route finalization, known-false dominates across the complete bounded route, and the independent oracle derives terminal truth from exhaustive route classification. Two new Golden fixtures cover cross-edge precedence and a known-false branch cut by `maxRouteEdgeCount`. |
+| 2026-08-12 | Independent final review proved `candidateAudits[].inputSourceId` could be changed independently of the actual pre-enrichment observation. | Enrichment result schemas advance to v2 and retain admitted `inputCandidateFacts`; admissions bind route/provenance identity and every audit input source to that snapshot. This detects internal drift, not cryptographic artifact forgery. |
+| 2026-08-12 | Expansion budget did not bound generated frontier memory on a high-outdegree graph. | Product search now has a separate fixed frontier-state/edge-reference capacity and returns `search-capacity-exhausted` with `not-proven`; it is not reported as expansion-budget exhaustion or bounded completeness. |
+| 2026-08-12 | The S2 Golden oracle imported production request/observation admissions. | Oracle fixtures now use a local, clean-room admission implementation; production contract/search code remains reachable only through the thin product adapter and harness result admission. |
+| 2026-08-12 | Independent final review returned `ACCEPT` after the repairs, with one low-risk test-depth watch on the second capacity counter and partial-candidate stop. | Three dedicated regressions now cover frontier edge-reference capacity plus zero- and nonzero-candidate capacity terminals; the final focused S2 suite is 90/90 and no P0/P1/P2 blocker remains. |
 
 ## Lane ownership
 
@@ -72,7 +83,9 @@ S2-0 public contract
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
 | Lane-local short Node tests | Each isolated task | No committed logs; lane-local temporary output only | Allowed after code changes within owned paths |
-| Shared/full validation, build, browser, or dev server | Primary integration owner | To be assigned only when needed | Not started |
+| Shared/full validation, build, browser, or dev server | Primary integration owner | Primary-owned temporary logs only | Repository validation/build completed; browser/dev-server lanes intentionally not started |
+| Exact-candidate `npm run validate` | Primary integration owner | `%TEMP%/engagement-s2-6b2d48d-validate.log` | Completed at code candidate `6b2d48d`, exit 0; full test chain, manifest build, and bundle policy pass |
+| Post-review repair validation | Primary integration owner | `%TEMP%/engagement-s2-000d85e-validate.log` | Focused S2 90/90, foundation 106/106, full JS lint and diff check pass; `npm run validate` completed at code candidate `000d85e`, exit 0 |
 
 ## Active execution tasks
 
@@ -80,8 +93,8 @@ S2-0 public contract
 | --- | --- | --- | --- |
 | S2-0 Contract / Product Semantics | `019ff435-0c08-7323-902c-39d181428af1` | `C:/Users/raede/.codex/worktrees/d9bd/engagement_project` | Completed; lane `22d685e`, integrated `065d824`; worktree clean |
 | S2-1 Search Algorithm | `019ff435-175b-7e73-b19b-da2056160929` | `C:/Users/raede/.codex/worktrees/efc3/engagement_project` | Completed; lane `beb193a`, integrated `4db3f06`; worktree clean |
-| S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Active at clean detached `065d824`; Phase B synthetic enrichment implementation authorized in owned paths |
-| S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Active at clean detached `4db3f06`; S2 Golden implementation authorized in owned paths |
+| S2-2 Observation / Data Admission | `019ff435-334e-7080-bbe8-fbbc3a163d02` | `C:/Users/raede/.codex/worktrees/4823/engagement_project` | Completed; lane commits `f2a9285` and `51680a1`, integrated as `084098c` and `22e41a0`; worktree retained for audit |
+| S2-3 Golden / Independent Verification | `019ff435-579c-74f1-a81c-7b4ae1e44762` | `C:/Users/raede/.codex/worktrees/5c76/engagement_project` | Completed; lane commit `02de320`, integrated as `8e9068a`; worktree retained for audit |
 
 ## Handoff
 
@@ -96,6 +109,7 @@ S2-0 public contract
 
 ## Next step
 
-Monitor S2-2 and S2-3 implementation. Review enrichment's source-state boundary
-and Golden's independence before integration, then add one primary-owned standard
-S2 test entry and run the complete integrated suite.
+Keep the four isolated worktrees for audit and hand the coordination branch
+forward as `ready-for-integration`. Main-branch integration, push,
+browser/product-journey validation, deployment, external data admission, and
+publication remain separate owner decisions.

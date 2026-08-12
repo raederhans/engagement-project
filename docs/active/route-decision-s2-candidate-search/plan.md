@@ -54,16 +54,16 @@ v1 or creating safety, city-validity, accessibility, or publication claims.
 - [x] S2-1 Search Algorithm: after the S2-0 handoff is integrated, implement
   deterministic bounded K-candidate and constraint-aware search with no evaluator
   back-edge.
-- [ ] S2-2 Observation / Data Admission: after the S2-0 handoff is integrated,
+- [x] S2-2 Observation / Data Admission: after the S2-0 handoff is integrated,
   implement a source-auditable enrichment seam and synthetic adapters; separately
   report external source/license candidates without admitting them as production.
-- [ ] S2-3 Golden / Independent Verification: after S2-0 is integrated and the
+- [x] S2-3 Golden / Independent Verification: after S2-0 is integrated and the
   S2-1 result shape is stable, extend fixtures/oracle/harness with explicit
   full-alternative and constraint-search comparison scopes.
-- [ ] Integration owner: review and integrate S2-0 first, release the frozen
+- [x] Integration owner: review and integrate S2-0 first, release the frozen
   contract handoff to the three dependent tasks, then integrate S2-1, S2-2, and
   S2-3 with one standard S2 test entry.
-- [ ] Supervisor: monitor task state, return narrow semantic questions to the
+- [x] Supervisor: monitor task state, return narrow semantic questions to the
   original research tasks, prevent ownership crossings, and own final review,
   full validation, Git state, and claim boundaries.
 
