@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "route-golden-s2-case/v1",
-  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "schemaVersion": "route-golden-s2-case/v2",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v2",
   "caseId": "invalid-requested-k",
   "title": "An invalid requested K is rejected before search",
   "input": {

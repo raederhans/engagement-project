@@ -6,6 +6,7 @@ import {
 import {
   ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS,
   ROUTE_SEARCH_CONSTRAINT_AGGREGATION_VERSION,
+  ROUTE_SEARCH_CAPACITY_POLICY,
   admitRouteCandidateSearchRequest,
   admitRouteCandidateSearchResult,
 } from '../../route_decision/contracts/candidate_search_v2.js';
@@ -18,11 +19,7 @@ const MAX_SAFE_TOTAL = BigInt(Number.MAX_SAFE_INTEGER);
 const AGGREGATED_CAPABILITY_SOURCE_ID = 'synthetic-route-search-edge-aggregation';
 const COMPLETENESS_SCOPE = 'loopless-directed-routes-within-max-route-edge-count';
 
-export const ROUTE_CANDIDATE_SEARCH_CAPACITY = Object.freeze({
-  version: 'bounded-frontier-capacity/v1',
-  maxFrontierStates: 4_096,
-  maxFrontierEdgeReferences: 65_536,
-});
+export const ROUTE_CANDIDATE_SEARCH_CAPACITY = ROUTE_SEARCH_CAPACITY_POLICY;
 
 /**
  * One expanded state is one non-destination loopless path label, below the
@@ -52,18 +49,28 @@ export function searchRouteCandidates(
   rawSearchRequest,
   rawEdgeObservationsByEdgeId = {},
 ) {
-  let input;
+  let admittedInput;
   try {
-    input = admitSearchInput(
+    admittedInput = admitSearchInput(
       rawGraphArtifact,
       rawSearchRequest,
-      rawEdgeObservationsByEdgeId,
     );
   } catch {
     return invalidInputResult();
   }
 
-  const { graphArtifact, graph, request, edgeObservationsByEdgeId } = input;
+  const { graphArtifact, request } = admittedInput;
+  const graph = compileAdmittedSearchGraph(graphArtifact);
+  let edgeObservationsByEdgeId;
+  try {
+    edgeObservationsByEdgeId = admitEdgeObservations(
+      rawEdgeObservationsByEdgeId,
+      graph,
+      request,
+    );
+  } catch {
+    return invalidInputResult();
+  }
   const availableNodeIds = new Set(graph.nodes.map(({ nodeId }) => nodeId));
   if (!availableNodeIds.has(request.originNodeId)
     || !availableNodeIds.has(request.destinationNodeId)) {
@@ -213,27 +220,32 @@ export function searchRouteCandidates(
   });
 }
 
-function admitSearchInput(rawGraphArtifact, rawSearchRequest, rawEdgeObservationsByEdgeId) {
+function admitSearchInput(rawGraphArtifact, rawSearchRequest) {
   const graphArtifact = admitGraphArtifact(rawGraphArtifact);
   const request = admitRouteCandidateSearchRequest(rawSearchRequest);
   if (request.graphId !== graphArtifact.graphId || request.mode !== graphArtifact.mode) {
     throw new TypeError('candidate search graph/request identity mismatch');
   }
-  const compilation = compileNormalizedGraph(graphArtifact);
-  if (compilation.status !== 'ready') {
-    throw new TypeError('admitted graph cannot be normalized');
-  }
-  const edgeObservationsByEdgeId = admitEdgeObservations(
-    rawEdgeObservationsByEdgeId,
-    compilation.graph,
-    request,
-  );
   return {
     graphArtifact,
-    graph: compilation.graph,
     request,
-    edgeObservationsByEdgeId,
   };
+}
+
+/**
+ * Internal compilation boundary. This is intentionally not re-exported from a
+ * public barrel. Tests may inject a compiler to prove that post-admission
+ * implementation failures remain failures instead of becoming invalid-input.
+ */
+export function compileAdmittedSearchGraph(
+  graphArtifact,
+  compiler = compileNormalizedGraph,
+) {
+  const compilation = compiler(graphArtifact);
+  if (compilation.status !== 'ready') {
+    throw new Error('route candidate search invariant: admitted graph cannot be normalized');
+  }
+  return compilation.graph;
 }
 
 function admitEdgeObservations(raw, graph, request) {
@@ -493,11 +505,9 @@ function searchedResult({
       scope: COMPLETENESS_SCOPE,
     },
     constraintOutcome,
-    budgetOutcome: budgetExhausted
-      ? 'exhausted'
-      : capacityExhausted
-        ? 'capacity-exhausted'
-        : 'within-budget',
+    budgetOutcome: budgetExhausted ? 'exhausted' : 'within-budget',
+    capacityPolicy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+    capacityOutcome: capacityExhausted ? 'exhausted' : 'within-capacity',
   };
   return admitRouteCandidateSearchResult({
     schemaVersion: ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS.searchResult,

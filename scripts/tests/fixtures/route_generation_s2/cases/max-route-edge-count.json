@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "route-golden-s2-case/v1",
-  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "schemaVersion": "route-golden-s2-case/v2",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v2",
   "caseId": "max-route-edge-count",
   "title": "A route outside the edge-count bound is not a route in the proven scope",
   "input": {
@@ -41,7 +41,9 @@
       "expandedStateCount": 1,
       "completeness": { "routeSearch": "complete-within-bounds", "scope": "loopless-directed-routes-within-max-route-edge-count" },
       "constraintOutcome": "not-required",
-      "budgetOutcome": "within-budget"
+      "budgetOutcome": "within-budget",
+      "capacityPolicy": { "version": "bounded-frontier-capacity/v1", "maxFrontierStates": 4096, "maxFrontierEdgeReferences": 65536 },
+      "capacityOutcome": "within-capacity"
     }
   }
 }

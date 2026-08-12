@@ -154,42 +154,48 @@ function inspectPlainObject(value, label) {
       fail(`${label} must contain data properties only`);
     }
   }
-  return ownKeys;
+  return { ownKeys, descriptors };
 }
 
 function exactObject(value, label, requiredKeys, optionalKeys = []) {
-  const actualKeys = inspectPlainObject(value, label);
+  const { ownKeys, descriptors } = inspectPlainObject(value, label);
   const allowed = new Set([...requiredKeys, ...optionalKeys]);
-  const missing = requiredKeys.filter((key) => !Object.hasOwn(value, key));
-  const unknown = actualKeys.filter((key) => !allowed.has(key));
+  const missing = requiredKeys.filter((key) => !Object.hasOwn(descriptors, key));
+  const unknown = ownKeys.filter((key) => !allowed.has(key));
   if (missing.length || unknown.length) {
     fail(`${label} schema mismatch (missing: ${missing.join(',') || 'none'}; unknown: ${unknown.join(',') || 'none'})`);
   }
-  return value;
+  return Object.fromEntries(
+    ownKeys.map((key) => [key, descriptors[key].value]),
+  );
 }
 
 function strictArray(value, label, { min = 0, max } = {}) {
   if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
     fail(`${label} must be an array`);
   }
-  if (value.length < min || (max !== undefined && value.length > max)) {
-    fail(`${label} length is outside the supported range`);
-  }
   const ownKeys = Reflect.ownKeys(value);
   if (ownKeys.some((key) => typeof key === 'symbol')) {
     fail(`${label} must not contain symbol properties`);
   }
   const descriptors = Object.getOwnPropertyDescriptors(value);
-  for (let index = 0; index < value.length; index += 1) {
-    if (!Object.hasOwn(value, index)) fail(`${label} must not contain sparse entries`);
-    if (!Object.hasOwn(descriptors[String(index)], 'value')) {
+  const length = descriptors.length?.value;
+  if (!Number.isSafeInteger(length) || length < min || (max !== undefined && length > max)) {
+    fail(`${label} length is outside the supported range`);
+  }
+  const items = [];
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor) fail(`${label} must not contain sparse entries`);
+    if (!Object.hasOwn(descriptor, 'value')) {
       fail(`${label} must contain data properties only`);
     }
+    items.push(descriptor.value);
   }
   const extra = ownKeys.filter((key) => key !== 'length'
-    && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= value.length));
+    && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= length));
   if (extra.length) fail(`${label} contains unsupported properties`);
-  return value;
+  return items;
 }
 
 function exactSchemaVersion(value, expected, label) {
@@ -242,12 +248,12 @@ function uniqueStrings(value, label, {
 }
 
 function exactSequence(value, expected, label) {
-  strictArray(value, label, { max: expected.length });
-  if (value.length !== expected.length
-    || value.some((item, index) => item !== expected[index])) {
+  const sequence = strictArray(value, label, { max: expected.length });
+  if (sequence.length !== expected.length
+    || sequence.some((item, index) => item !== expected[index])) {
     fail(`${label} must exactly preserve ${expected.join(',')}`);
   }
-  return [...value];
+  return [...sequence];
 }
 
 function deepFreeze(value) {
@@ -521,7 +527,10 @@ function admitSyntheticGeometry(raw) {
 }
 
 function admitCandidateObservations(raw) {
-  const keys = inspectPlainObject(raw, 'RouteCandidateFacts.observations');
+  const { ownKeys: keys, descriptors } = inspectPlainObject(
+    raw,
+    'RouteCandidateFacts.observations',
+  );
   if (keys.length > ROUTE_OBSERVATION_TAGS.length) {
     fail('RouteCandidateFacts.observations contains too many tags');
   }
@@ -531,7 +540,7 @@ function admitCandidateObservations(raw) {
       fail(`RouteCandidateFacts observation tag is unsupported: ${tag}`);
     }
     const observation = admitSourceObservationAt(
-      raw[tag],
+      descriptors[tag].value,
       `RouteCandidateFacts.observations.${tag}`,
     );
     if (observation.factorId !== tag) {

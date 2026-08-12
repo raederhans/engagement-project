@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
+  ROUTE_GOLDEN_S2_CAPACITY_POLICY,
   ROUTE_GOLDEN_S2_EXPANDED_STATE_UNIT,
   ROUTE_GOLDEN_S2_GRAPH_SCHEMA_VERSION,
   ROUTE_GOLDEN_S2_ORACLE_CONTRACT_VERSION,
@@ -13,10 +14,10 @@ import {
   admitRouteCandidateSearchResult,
 } from '../../src/route_decision/contracts/candidate_search_v2.js';
 
-export const ROUTE_GOLDEN_S2_MANIFEST_SCHEMA_VERSION = 'route-golden-s2-manifest/v1';
-export const ROUTE_GOLDEN_S2_CASE_SCHEMA_VERSION = 'route-golden-s2-case/v1';
-export const ROUTE_GOLDEN_S2_FIXTURE_SET_VERSION = 'synthetic-route-generation-s2/v1';
-export const ROUTE_GOLDEN_S2_LEDGER_SCHEMA_VERSION = 'route-golden-s2-ledger/v1';
+export const ROUTE_GOLDEN_S2_MANIFEST_SCHEMA_VERSION = 'route-golden-s2-manifest/v2';
+export const ROUTE_GOLDEN_S2_CASE_SCHEMA_VERSION = 'route-golden-s2-case/v2';
+export const ROUTE_GOLDEN_S2_FIXTURE_SET_VERSION = 'synthetic-route-generation-s2/v2';
+export const ROUTE_GOLDEN_S2_LEDGER_SCHEMA_VERSION = 'route-golden-s2-ledger/v2';
 export const ROUTE_GOLDEN_S2_DENOMINATORS = Object.freeze([
   'conformance',
   'primary',
@@ -24,6 +25,7 @@ export const ROUTE_GOLDEN_S2_DENOMINATORS = Object.freeze([
   'alternatives',
   'constraints',
   'budget',
+  'capacity',
   'completeness',
 ]);
 export const DEFAULT_ROUTE_GOLDEN_S2_MANIFEST_URL = new URL(
@@ -353,6 +355,8 @@ function canonicalizeProductOutcome(result, graph) {
         completeness: { ...result.candidateSet.completeness },
         constraintOutcome: result.candidateSet.constraintOutcome,
         budgetOutcome: result.candidateSet.budgetOutcome,
+        capacityPolicy: { ...result.candidateSet.capacityPolicy },
+        capacityOutcome: result.candidateSet.capacityOutcome,
       } : null,
     },
     failureClasses: [...new Set(failureClasses)].sort(compareText),
@@ -406,6 +410,15 @@ function evaluateDenominator(name, actual, expected, expandedStateUnit) {
     return isDeepStrictEqual(expandedStateUnit, ROUTE_GOLDEN_S2_EXPANDED_STATE_UNIT)
       && actual.search?.expandedStateCount === expected.search?.expandedStateCount
       && actual.search?.budgetOutcome === expected.search?.budgetOutcome
+      && actual.status === expected.status
+      && actual.termination === expected.termination;
+  }
+  if (name === 'capacity') {
+    return isDeepStrictEqual(actual.search?.capacityPolicy, ROUTE_GOLDEN_S2_CAPACITY_POLICY)
+      && isDeepStrictEqual(actual.search?.capacityPolicy, expected.search?.capacityPolicy)
+      && actual.search?.capacityOutcome === expected.search?.capacityOutcome
+      && actual.search?.budgetOutcome === 'within-budget'
+      && actual.search?.expandedStateCount === expected.search?.expandedStateCount
       && actual.status === expected.status
       && actual.termination === expected.termination;
   }

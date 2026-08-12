@@ -50,7 +50,7 @@ export const ROUTE_ENRICHMENT_SCHEMA_VERSIONS = Object.freeze({
   sourceIdentityBinding: 'engagement-route-enrichment-source-identity-binding/v1',
   searchEvidence: 'engagement-route-search-evidence/v1',
   candidateBatchResult: 'engagement-route-candidate-enrichment-result/v2',
-  searchResult: 'engagement-route-search-enrichment-result/v2',
+  searchResult: 'engagement-route-search-enrichment-result/v3',
 });
 
 export const ROUTE_ENRICHMENT_AGGREGATION_VERSION =

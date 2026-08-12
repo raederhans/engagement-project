@@ -8,11 +8,11 @@ import {
 import { evaluateAdmittedRouteCandidatesCore } from './evaluate_admitted.js';
 
 export const ROUTE_SEARCH_DECISION_EVALUATION_VERSION =
-  'engagement-route-search-decision-evaluation/v1';
+  'engagement-route-search-decision-evaluation/v2';
 export const ROUTE_SEARCH_DECISION_VERSION = 'engagement-route-search-decision/v1';
 
 const DECISION_SCOPE = 'provided-candidate-set';
-const SEARCH_RESULT_VERSION = 'engagement-route-candidate-search-result/v1';
+const SEARCH_RESULT_VERSION = 'engagement-route-candidate-search-result/v2';
 const BLOCKED_PROPERTY_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
 const ZERO_CANDIDATE_REASON_BY_TERMINATION = Object.freeze({
   'invalid-input': 'candidate-search-invalid-input',

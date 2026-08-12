@@ -6,6 +6,7 @@ import { solveShortestRoute } from '../../src/route_generation/base_dijkstra.js'
 import {
   ROUTE_CANDIDATE_SEARCH_CAPACITY,
   ROUTE_CANDIDATE_SEARCH_EXPANDED_STATE_UNIT,
+  compileAdmittedSearchGraph,
   searchRouteCandidates,
 } from '../../src/route_generation/candidate_search/index.js';
 import { ROUTE_DECISION_SCHEMA_VERSIONS } from '../../src/route_decision/contracts/index.js';
@@ -272,6 +273,7 @@ test('constrained same-endpoint route does not infer capability truth from an em
   assert.equal(result.candidateSet.constraintOutcome, 'unresolved-evidence');
   assert.equal(result.candidateSet.completeness.routeSearch, 'complete-within-bounds');
   assert.equal(result.candidateSet.budgetOutcome, 'within-budget');
+  assert.equal(result.candidateSet.capacityOutcome, 'within-capacity');
 });
 
 test('known-false edge capability excludes the cheap path and returns an eligible alternative', () => {
@@ -459,6 +461,7 @@ test('budget exhaustion returns only the finalized ordered candidate prefix', ()
   assert.deepEqual(result.candidateFacts.map(({ edgeIds }) => edgeIds), [['direct']]);
   assert.equal(result.candidateSet.expandedStateCount, 1);
   assert.equal(result.candidateSet.budgetOutcome, 'exhausted');
+  assert.equal(result.candidateSet.capacityOutcome, 'within-capacity');
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
 });
 
@@ -477,7 +480,9 @@ test('frontier capacity stops a high-outdegree expansion without claiming budget
   assert.equal(result.status, 'stopped');
   assert.equal(result.termination, 'search-capacity-exhausted');
   assert.equal(result.candidateSet.expandedStateCount, 1);
-  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateSet.budgetOutcome, 'within-budget');
+  assert.equal(result.candidateSet.capacityOutcome, 'exhausted');
+  assert.deepEqual(result.candidateSet.capacityPolicy, ROUTE_CANDIDATE_SEARCH_CAPACITY);
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
   assert.equal(result.candidateSet.constraintOutcome, 'not-required');
   assert.equal(Object.isFrozen(ROUTE_CANDIDATE_SEARCH_CAPACITY), true);
@@ -513,7 +518,8 @@ test('frontier edge-reference capacity bounds deep pending labels below the stat
 
   assert.equal(result.termination, 'search-capacity-exhausted');
   assert.equal(result.candidateSet.expandedStateCount, 17);
-  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateSet.budgetOutcome, 'within-budget');
+  assert.equal(result.candidateSet.capacityOutcome, 'exhausted');
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
 });
 
@@ -539,7 +545,8 @@ test('capacity exhaustion preserves a finalized candidate as an incomplete order
   assert.equal(result.termination, 'search-capacity-exhausted');
   assert.deepEqual(result.candidateFacts.map(({ edgeIds }) => edgeIds), [['direct']]);
   assert.equal(result.candidateSet.expandedStateCount, 2);
-  assert.equal(result.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateSet.budgetOutcome, 'within-budget');
+  assert.equal(result.candidateSet.capacityOutcome, 'exhausted');
   assert.equal(result.candidateSet.completeness.routeSearch, 'not-proven');
 });
 
@@ -618,6 +625,20 @@ test('invalid accessors fail closed without executing getters', () => {
   assert.equal(requestResult.termination, 'invalid-input');
   assert.equal(evidenceResult.termination, 'invalid-input');
   assert.equal(getterCalls, 0);
+});
+
+test('post-admission graph compilation failures are never relabeled invalid-input', () => {
+  const graph = graphArtifact();
+  assert.throws(
+    () => compileAdmittedSearchGraph(graph, () => ({ status: 'invalid' })),
+    /admitted graph cannot be normalized/,
+  );
+
+  const internalFailure = new Error('synthetic compiler failure');
+  assert.throws(
+    () => compileAdmittedSearchGraph(graph, () => { throw internalFailure; }),
+    (error) => error === internalFailure,
+  );
 });
 
 test('input order, repeated runs, immutability, and caller ownership are stable', () => {

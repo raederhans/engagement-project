@@ -8,6 +8,9 @@ import {
   enrichRouteCandidateSearchResult,
 } from '../../src/route_decision/enrichment/index.js';
 import {
+  ROUTE_SEARCH_CAPACITY_POLICY,
+} from '../../src/route_decision/contracts/candidate_search_v2.js';
+import {
   ROUTE_SEARCH_DECISION_EVALUATION_VERSION,
   admitRouteSearchDecisionEvaluation,
   evaluateAdmittedRouteSearchDecision,
@@ -115,7 +118,7 @@ function request(overrides = {}) {
 
 function candidateSet(rawRequest, candidates, overrides = {}) {
   return {
-    schemaVersion: 'engagement-route-candidate-set/v2',
+    schemaVersion: 'engagement-route-candidate-set/v3',
     candidateSetId: 'set-s2',
     candidateSetRevision: 'revision-s2',
     requestId: rawRequest.requestId,
@@ -141,6 +144,8 @@ function candidateSet(rawRequest, candidates, overrides = {}) {
       ? 'eligible-candidates-returned'
       : 'not-required',
     budgetOutcome: 'within-budget',
+    capacityPolicy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+    capacityOutcome: 'within-capacity',
     ...overrides,
   };
 }
@@ -152,7 +157,7 @@ function searchResult(overrides = {}) {
     candidate('candidate-b', 200, 1_000),
   ];
   return {
-    schemaVersion: 'engagement-route-candidate-search-result/v1',
+    schemaVersion: 'engagement-route-candidate-search-result/v2',
     status: 'completed',
     termination: candidates.length === rawRequest.requestedCandidateCount
       ? 'requested-candidate-count-reached'
@@ -232,7 +237,7 @@ test('an admitted enrichment wrapper is preserved whole while only its search re
   const result = evaluate(policy(), enriched);
   assert.equal(
     result.candidateArtifact.schemaVersion,
-    'engagement-route-search-enrichment-result/v2',
+    'engagement-route-search-enrichment-result/v3',
   );
   assert.equal(result.candidateArtifact.sourceReceipt.sourceId, 'synthetic-s2-evaluator-source');
   assert.deepEqual(
@@ -243,7 +248,7 @@ test('an admitted enrichment wrapper is preserved whole while only its search re
   assert.equal(Object.isFrozen(result.candidateArtifact.candidateAudits), true);
 });
 
-test('the unchanged v1 adapter still rejects CandidateSet v2', () => {
+test('the unchanged v1 adapter still rejects CandidateSet v3', () => {
   const artifact = searchResult();
   assert.throws(() => evaluateAdmittedRouteDecision({
     policy: policy(),
@@ -278,7 +283,7 @@ test('policy identity and search hard constraints must exactly bind the decision
 
 test('zero-candidate terminals remain explicit not-evaluated search outcomes', () => {
   const invalid = {
-    schemaVersion: 'engagement-route-candidate-search-result/v1',
+    schemaVersion: 'engagement-route-candidate-search-result/v2',
     status: 'rejected',
     termination: 'invalid-input',
     request: null,
@@ -287,7 +292,7 @@ test('zero-candidate terminals remain explicit not-evaluated search outcomes', (
   };
   const endpointRequest = request();
   const endpoint = {
-    schemaVersion: 'engagement-route-candidate-search-result/v1',
+    schemaVersion: 'engagement-route-candidate-search-result/v2',
     status: 'not-started',
     termination: 'endpoint-unavailable',
     request: endpointRequest,
@@ -355,7 +360,8 @@ test('zero-candidate terminals remain explicit not-evaluated search outcomes', (
         routeSearch: 'not-proven',
         scope: 'loopless-directed-routes-within-max-route-edge-count',
       },
-      budgetOutcome: 'capacity-exhausted',
+      budgetOutcome: 'within-budget',
+      capacityOutcome: 'exhausted',
     }),
     termination: 'search-capacity-exhausted',
   });
@@ -412,14 +418,16 @@ test('a capacity-stopped partial candidate set remains evaluable without changin
         routeSearch: 'not-proven',
         scope: 'loopless-directed-routes-within-max-route-edge-count',
       },
-      budgetOutcome: 'capacity-exhausted',
+      budgetOutcome: 'within-budget',
+      capacityOutcome: 'exhausted',
     }),
     termination: 'search-capacity-exhausted',
   });
   const result = evaluate(policy(), artifact);
 
   assert.equal(result.candidateArtifact.termination, 'search-capacity-exhausted');
-  assert.equal(result.candidateArtifact.candidateSet.budgetOutcome, 'capacity-exhausted');
+  assert.equal(result.candidateArtifact.candidateSet.budgetOutcome, 'within-budget');
+  assert.equal(result.candidateArtifact.candidateSet.capacityOutcome, 'exhausted');
   assert.equal(result.evaluation.status, 'evaluated');
   assert.deepEqual(result.evaluation.decision.rankedCandidateIds, ['candidate-a']);
 });

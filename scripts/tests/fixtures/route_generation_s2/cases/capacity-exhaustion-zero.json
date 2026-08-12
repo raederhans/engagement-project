@@ -1,0 +1,536 @@
+{
+  "schemaVersion": "route-golden-s2-case/v2",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v2",
+  "caseId": "capacity-exhaustion-zero",
+  "title": "Frontier capacity stops the search independently of the expansion budget",
+  "input": {
+    "graph": {
+      "schemaVersion": "route-golden-s2-synthetic-graph/v1",
+      "graphId": "capacity-zero-graph",
+      "directed": true,
+      "nodes": [
+        {
+          "nodeId": "o"
+        },
+        {
+          "nodeId": "d"
+        },
+        {
+          "nodeId": "n0"
+        },
+        {
+          "nodeId": "n1"
+        },
+        {
+          "nodeId": "n2"
+        },
+        {
+          "nodeId": "n3"
+        },
+        {
+          "nodeId": "n4"
+        },
+        {
+          "nodeId": "n5"
+        },
+        {
+          "nodeId": "n6"
+        },
+        {
+          "nodeId": "n7"
+        }
+      ],
+      "edges": [
+        {
+          "edgeId": "o-n0",
+          "fromNodeId": "o",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n1",
+          "fromNodeId": "o",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n2",
+          "fromNodeId": "o",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n3",
+          "fromNodeId": "o",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n4",
+          "fromNodeId": "o",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n5",
+          "fromNodeId": "o",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n6",
+          "fromNodeId": "o",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "o-n7",
+          "fromNodeId": "o",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n1",
+          "fromNodeId": "n0",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n2",
+          "fromNodeId": "n0",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n3",
+          "fromNodeId": "n0",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n4",
+          "fromNodeId": "n0",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n5",
+          "fromNodeId": "n0",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n6",
+          "fromNodeId": "n0",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n0-n7",
+          "fromNodeId": "n0",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n0",
+          "fromNodeId": "n1",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n2",
+          "fromNodeId": "n1",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n3",
+          "fromNodeId": "n1",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n4",
+          "fromNodeId": "n1",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n5",
+          "fromNodeId": "n1",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n6",
+          "fromNodeId": "n1",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n1-n7",
+          "fromNodeId": "n1",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n0",
+          "fromNodeId": "n2",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n1",
+          "fromNodeId": "n2",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n3",
+          "fromNodeId": "n2",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n4",
+          "fromNodeId": "n2",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n5",
+          "fromNodeId": "n2",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n6",
+          "fromNodeId": "n2",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n2-n7",
+          "fromNodeId": "n2",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n0",
+          "fromNodeId": "n3",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n1",
+          "fromNodeId": "n3",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n2",
+          "fromNodeId": "n3",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n4",
+          "fromNodeId": "n3",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n5",
+          "fromNodeId": "n3",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n6",
+          "fromNodeId": "n3",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n3-n7",
+          "fromNodeId": "n3",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n0",
+          "fromNodeId": "n4",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n1",
+          "fromNodeId": "n4",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n2",
+          "fromNodeId": "n4",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n3",
+          "fromNodeId": "n4",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n5",
+          "fromNodeId": "n4",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n6",
+          "fromNodeId": "n4",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n4-n7",
+          "fromNodeId": "n4",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n0",
+          "fromNodeId": "n5",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n1",
+          "fromNodeId": "n5",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n2",
+          "fromNodeId": "n5",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n3",
+          "fromNodeId": "n5",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n4",
+          "fromNodeId": "n5",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n6",
+          "fromNodeId": "n5",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n5-n7",
+          "fromNodeId": "n5",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n0",
+          "fromNodeId": "n6",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n1",
+          "fromNodeId": "n6",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n2",
+          "fromNodeId": "n6",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n3",
+          "fromNodeId": "n6",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n4",
+          "fromNodeId": "n6",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n5",
+          "fromNodeId": "n6",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n6-n7",
+          "fromNodeId": "n6",
+          "toNodeId": "n7",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n0",
+          "fromNodeId": "n7",
+          "toNodeId": "n0",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n1",
+          "fromNodeId": "n7",
+          "toNodeId": "n1",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n2",
+          "fromNodeId": "n7",
+          "toNodeId": "n2",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n3",
+          "fromNodeId": "n7",
+          "toNodeId": "n3",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n4",
+          "fromNodeId": "n7",
+          "toNodeId": "n4",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n5",
+          "fromNodeId": "n7",
+          "toNodeId": "n5",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        },
+        {
+          "edgeId": "n7-n6",
+          "fromNodeId": "n7",
+          "toNodeId": "n6",
+          "distanceMm": 1,
+          "objectiveCostUnits": 1
+        }
+      ]
+    },
+    "request": {
+      "schemaVersion": "engagement-route-candidate-search-request/v1",
+      "requestId": "capacity-zero-request",
+      "graphId": "capacity-zero-graph",
+      "mode": "walk",
+      "originNodeId": "o",
+      "destinationNodeId": "d",
+      "decisionPolicyId": "golden-s2-policy",
+      "objectiveFactorId": "objective-cost-units",
+      "requestedCandidateCount": 1,
+      "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+      "tieBreakVersion": "route-candidate-search-tie-break/v1",
+      "bounds": {
+        "maxExpandedStates": 100000,
+        "maxRouteEdgeCount": 6
+      },
+      "hardConstraints": []
+    },
+    "edgeObservationsByEdgeId": {}
+  },
+  "expected": {
+    "status": "stopped",
+    "termination": "search-capacity-exhausted",
+    "routes": [],
+    "search": {
+      "requestedCandidateCount": 1,
+      "candidateCount": 0,
+      "expandedStateCount": 1207,
+      "completeness": {
+        "routeSearch": "not-proven",
+        "scope": "loopless-directed-routes-within-max-route-edge-count"
+      },
+      "constraintOutcome": "not-required",
+      "budgetOutcome": "within-budget",
+      "capacityPolicy": {
+        "version": "bounded-frontier-capacity/v1",
+        "maxFrontierStates": 4096,
+        "maxFrontierEdgeReferences": 65536
+      },
+      "capacityOutcome": "exhausted"
+    }
+  }
+}

@@ -1,15 +1,20 @@
 export const ROUTE_GOLDEN_S2_GRAPH_SCHEMA_VERSION = 'route-golden-s2-synthetic-graph/v1';
 export const ROUTE_GOLDEN_S2_ORACLE_CONTRACT_VERSION =
-  'exhaustive-bounded-loopless-routes/v1';
+  'exhaustive-bounded-loopless-routes/v2';
 export const ROUTE_GOLDEN_S2_EXPANDED_STATE_UNIT = Object.freeze({
   version: 'loopless-frontier-state-expansion/v1',
   includes: 'nonterminal-label-adjacency-inspection',
   sharedAcrossClassificationPasses: true,
 });
+export const ROUTE_GOLDEN_S2_CAPACITY_POLICY = Object.freeze({
+  version: 'bounded-frontier-capacity/v1',
+  maxFrontierStates: 4_096,
+  maxFrontierEdgeReferences: 65_536,
+});
 
 const COMPLETENESS_SCOPE = 'loopless-directed-routes-within-max-route-edge-count';
 const MAX_ORACLE_NODES = 12;
-const MAX_ORACLE_EDGES = 32;
+const MAX_ORACLE_EDGES = 80;
 const MAX_ORACLE_ROUTES = 4_096;
 const REQUEST_SCHEMA_VERSION = 'engagement-route-candidate-search-request/v1';
 const SOURCE_OBSERVATION_SCHEMA_VERSION = 'engagement-route-source-observation/v1';
@@ -74,6 +79,10 @@ export function solveS2GoldenReference(input = {}) {
     return searchedOutcome(context, constrained.routes, budget.expandedStateCount,
       'search-budget-exhausted', constrained.unresolvedEvidenceEncountered);
   }
+  if (constrained.outcome === 'capacity-exhausted') {
+    return searchedOutcome(context, constrained.routes, budget.expandedStateCount,
+      'search-capacity-exhausted', constrained.unresolvedEvidenceEncountered);
+  }
   if (constrained.routes.length > 0) {
     return searchedOutcome(
       context,
@@ -108,6 +117,10 @@ export function solveS2GoldenReference(input = {}) {
   if (topology.outcome === 'budget-exhausted') {
     return searchedOutcome(context, [], budget.expandedStateCount,
       'search-budget-exhausted', false);
+  }
+  if (topology.outcome === 'capacity-exhausted') {
+    return searchedOutcome(context, [], budget.expandedStateCount,
+      'search-capacity-exhausted', false);
   }
   return searchedOutcome(
     context,
@@ -345,12 +358,14 @@ function enumerateWithExpansionUnit(context, budget, applyConstraints, requested
   const limit = requestedCount ?? context.request.requestedCandidateCount;
   const frontier = [initialLabel(context.request.originNodeId)];
   const routes = [];
+  let frontierEdgeReferenceCount = 0;
   let unresolvedEvidenceEncountered = false;
   let knownConstraintFailureEncountered = false;
 
   while (frontier.length > 0) {
     frontier.sort(compareLabels);
     const next = frontier.shift();
+    frontierEdgeReferenceCount -= next.edgeIds.length;
     if (next.nodeId === context.request.destinationNodeId) {
       if (applyConstraints) {
         const disposition = classifyRoute(routeFacts(next), context);
@@ -384,7 +399,15 @@ function enumerateWithExpansionUnit(context, budget, applyConstraints, requested
           continue;
         }
       }
-      frontier.push(extendLabel(next, edge));
+      const extended = extendLabel(next, edge);
+      if (frontier.length >= ROUTE_GOLDEN_S2_CAPACITY_POLICY.maxFrontierStates
+        || frontierEdgeReferenceCount + extended.edgeIds.length
+          > ROUTE_GOLDEN_S2_CAPACITY_POLICY.maxFrontierEdgeReferences) {
+        return enumerationResult('capacity-exhausted', routes,
+          unresolvedEvidenceEncountered, knownConstraintFailureEncountered);
+      }
+      frontier.push(extended);
+      frontierEdgeReferenceCount += extended.edgeIds.length;
     }
   }
   return enumerationResult('frontier-exhausted', routes,
@@ -419,6 +442,7 @@ function classifyRoute(route, context) {
 function searchedOutcome(context, routes, expandedStateCount, termination,
   unresolvedEvidenceEncountered) {
   const budgetExhausted = termination === 'search-budget-exhausted';
+  const capacityExhausted = termination === 'search-capacity-exhausted';
   const complete = [
     'bounded-search-space-exhausted',
     'no-directed-route-in-bounded-scope',
@@ -426,7 +450,7 @@ function searchedOutcome(context, routes, expandedStateCount, termination,
     'unresolved-constraint-evidence',
   ].includes(termination);
   return freezeClone({
-    status: budgetExhausted ? 'stopped' : 'completed',
+    status: budgetExhausted || capacityExhausted ? 'stopped' : 'completed',
     termination,
     routes: routes.map((route) => ({
       ...route,
@@ -450,6 +474,8 @@ function searchedOutcome(context, routes, expandedStateCount, termination,
         unresolvedEvidenceEncountered,
       ),
       budgetOutcome: budgetExhausted ? 'exhausted' : 'within-budget',
+      capacityPolicy: { ...ROUTE_GOLDEN_S2_CAPACITY_POLICY },
+      capacityOutcome: capacityExhausted ? 'exhausted' : 'within-capacity',
     },
   });
 }

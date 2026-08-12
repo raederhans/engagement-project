@@ -17,7 +17,8 @@ import {
   ROUTE_SEARCH_TERMINATIONS,
   ROUTE_SEARCH_TIE_BREAK_VERSION,
   ROUTE_SEARCH_UNRESOLVED_EVIDENCE_STATES,
-  admitCandidateSetV2,
+  ROUTE_SEARCH_CAPACITY_POLICY,
+  admitCandidateSetV3,
   admitRouteCandidateSearchRequest,
   admitRouteCandidateSearchResult,
 } from '../../src/route_decision/contracts/candidate_search_v2.js';
@@ -149,6 +150,8 @@ function candidateSetFor(request, candidates, overrides = {}) {
       ? 'eligible-candidates-returned'
       : 'not-required',
     budgetOutcome: 'within-budget',
+    capacityPolicy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+    capacityOutcome: 'within-capacity',
     ...overrides,
   };
 }
@@ -222,9 +225,11 @@ function terminalResult(termination) {
     constraintOutcome,
     budgetOutcome: termination === 'search-budget-exhausted'
       ? 'exhausted'
-      : termination === 'search-capacity-exhausted'
-        ? 'capacity-exhausted'
-        : 'within-budget',
+      : 'within-budget',
+    capacityPolicy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+    capacityOutcome: termination === 'search-capacity-exhausted'
+      ? 'exhausted'
+      : 'within-capacity',
     expandedStateCount: termination === 'search-budget-exhausted'
       ? request.bounds.maxExpandedStates
       : Math.floor(request.bounds.maxExpandedStates / 2),
@@ -240,11 +245,11 @@ function terminalResult(termination) {
   });
 }
 
-test('S2 versions and the six semantic decisions are exact, separate, and immutable', () => {
+test('S2 versions and the seven semantic decisions are exact, separate, and immutable', () => {
   assert.deepEqual(S2_VERSION, {
     searchRequest: 'engagement-route-candidate-search-request/v1',
-    candidateSet: 'engagement-route-candidate-set/v2',
-    searchResult: 'engagement-route-candidate-search-result/v1',
+    candidateSet: 'engagement-route-candidate-set/v3',
+    searchResult: 'engagement-route-candidate-search-result/v2',
   });
   assert.deepEqual(ROUTE_SEARCH_ADMISSIBLE_FACTOR_IDS, [
     'step-free', 'curb-ramp-present', 'paved-surface',
@@ -278,6 +283,10 @@ test('S2 versions and the six semantic decisions are exact, separate, and immuta
   );
   assert.equal(ROUTE_CANDIDATE_SEARCH_DECISIONS.boundedCompleteness.budgetExhaustedIsComplete,
     false);
+  assert.deepEqual(ROUTE_CANDIDATE_SEARCH_DECISIONS.frontierCapacity.policy,
+    ROUTE_SEARCH_CAPACITY_POLICY);
+  assert.equal(ROUTE_CANDIDATE_SEARCH_DECISIONS.frontierCapacity.budgetOutcomeRemainsIndependent,
+    true);
   assert.deepEqual(ROUTE_CANDIDATE_SEARCH_DECISIONS.tieBreakVersioning.keys, [
     { key: 'objectiveCostUnits', order: 'ascending' },
     {
@@ -342,7 +351,7 @@ test('every S2 public contract rejects missing and future schema versions', () =
   const validResult = searchResult();
   const cases = [
     [admitRouteCandidateSearchRequest, validResult.request],
-    [admitCandidateSetV2, validResult.candidateSet],
+    [admitCandidateSetV3, validResult.candidateSet],
     [admitRouteCandidateSearchResult, validResult],
   ];
   for (const [validator, input] of cases) {
@@ -498,11 +507,11 @@ test('SearchResult binds CandidateSet constraint IDs to canonical factor order',
   );
 });
 
-test('CandidateSet v2 keeps requested and returned counts separate and binds bounded completeness', () => {
+test('CandidateSet v3 keeps requested and returned counts separate and binds bounded completeness', () => {
   const request = searchRequest({ requestedCandidateCount: 3 });
   const candidates = [candidate('candidate-a', ['a-b', 'b-d'], 10)];
   const input = candidateSetFor(request, candidates);
-  const admitted = admitCandidateSetV2(input);
+  const admitted = admitCandidateSetV3(input);
   assert.equal(admitted.requestedCandidateCount, 3);
   assert.equal(admitted.candidateCount, 1);
   assert.equal(admitted.expandedStateCount, 500);
@@ -510,11 +519,11 @@ test('CandidateSet v2 keeps requested and returned counts separate and binds bou
   assert.equal(Object.isFrozen(admitted.candidateIds), true);
 
   assert.throws(
-    () => admitCandidateSetV2({ ...input, candidateCount: 2 }),
+    () => admitCandidateSetV3({ ...input, candidateCount: 2 }),
     /candidateCount must equal candidateIds length/,
   );
   assert.throws(
-    () => admitCandidateSetV2({
+    () => admitCandidateSetV3({
       ...input,
       candidateIds: ['candidate-a', 'candidate-b', 'candidate-c', 'candidate-d'],
       candidateCount: 4,
@@ -522,18 +531,18 @@ test('CandidateSet v2 keeps requested and returned counts separate and binds bou
     /length is outside the supported range/,
   );
   assert.throws(
-    () => admitCandidateSetV2({
+    () => admitCandidateSetV3({
       ...input,
       constraintOutcome: 'eligible-candidates-returned',
     }),
     /must be not-required without search constraints/,
   );
   assert.throws(
-    () => admitCandidateSetV2({ ...input, expandedStateCount: 1_001 }),
+    () => admitCandidateSetV3({ ...input, expandedStateCount: 1_001 }),
     /expandedStateCount/,
   );
   assert.throws(
-    () => admitCandidateSetV2({
+    () => admitCandidateSetV3({
       ...input,
       budgetOutcome: 'exhausted',
       expandedStateCount: 999,
@@ -758,7 +767,7 @@ test('complete/no-route/no-eligible claims require their exact proof and evidenc
   budgetAsComplete.candidateSet.completeness.routeSearch = 'complete-within-bounds';
   assert.throws(
     () => admitRouteCandidateSearchResult(budgetAsComplete),
-    /exhausted budget cannot claim complete bounded search|search-budget terminal is inconsistent/,
+    /exhausted search resource cannot claim complete bounded search|search-budget terminal is inconsistent/,
   );
 
   const budgetMarkedAvailable = terminalResult('search-budget-exhausted');
@@ -773,6 +782,22 @@ test('complete/no-route/no-eligible claims require their exact proof and evidenc
   assert.throws(
     () => admitRouteCandidateSearchResult(budgetBelowDeclaredMaximum),
     /exhausted budget must reach maxExpandedStates/,
+  );
+
+  const capacityAsBudget = terminalResult('search-capacity-exhausted');
+  capacityAsBudget.candidateSet.budgetOutcome = 'exhausted';
+  capacityAsBudget.candidateSet.expandedStateCount =
+    capacityAsBudget.candidateSet.bounds.maxExpandedStates;
+  assert.throws(
+    () => admitRouteCandidateSearchResult(capacityAsBudget),
+    /budget and capacity exhaustion must remain exclusive|search-capacity terminal is inconsistent/,
+  );
+
+  const capacityPolicyDrift = terminalResult('search-capacity-exhausted');
+  capacityPolicyDrift.candidateSet.capacityPolicy.maxFrontierStates += 1;
+  assert.throws(
+    () => admitRouteCandidateSearchResult(capacityPolicyDrift),
+    /must match the frozen search capacity policy/,
   );
 
   const noEligibleUnproven = terminalResult('no-eligible-route-in-bounded-scope');
@@ -833,7 +858,7 @@ test('S2 admissions reject accessors, prototypes, symbols, sparse arrays, and fu
     get() { candidateSetReads += 1; return 'within-budget'; },
   });
   assert.throws(
-    () => admitCandidateSetV2(accessorCandidateSet),
+    () => admitCandidateSetV3(accessorCandidateSet),
     /must contain data properties only/,
   );
   assert.equal(candidateSetReads, 0);
@@ -890,6 +915,21 @@ test('S2 admissions reject accessors, prototypes, symbols, sparse arrays, and fu
     () => admitRouteCandidateSearchResult({ ...searchResult(), globalComplete: true }),
     /unknown: globalComplete/,
   );
+});
+
+test('S2 admission snapshots Proxy data descriptors without direct property reads', () => {
+  let directReads = 0;
+  const input = searchRequest({ requestedCandidateCount: 1 });
+  const proxy = new Proxy(input, {
+    get() {
+      directReads += 1;
+      throw new Error('direct property read');
+    },
+  });
+
+  const admitted = admitRouteCandidateSearchRequest(proxy);
+  assert.equal(admitted.requestedCandidateCount, 1);
+  assert.equal(directReads, 0);
 });
 
 test('admitted S2 values are detached, deeply frozen copies', () => {

@@ -840,6 +840,20 @@ test('validators reject prototype, accessor, symbol, and cyclic schema tricks wi
   assert.throws(() => admitRouteCandidateFacts(cyclic), /observation tag is unsupported/);
 });
 
+test('foundation admission snapshots Proxy data descriptors without direct property reads', () => {
+  let directReads = 0;
+  const input = routeRequest();
+  const proxy = new Proxy(input, {
+    get() {
+      directReads += 1;
+      throw new Error('direct property read');
+    },
+  });
+
+  assert.deepEqual(admitRouteRequest(proxy), input);
+  assert.equal(directReads, 0);
+});
+
 test('failed validation and returned values never modify or retain caller-owned objects', () => {
   const invalid = decisionPolicy();
   invalid.softPreferences[0].weightBasisPoints = 9_999;

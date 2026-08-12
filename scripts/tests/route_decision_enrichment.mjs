@@ -8,6 +8,7 @@ import {
 import {
   ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS,
   ROUTE_SEARCH_CONSTRAINT_AGGREGATION_VERSION,
+  ROUTE_SEARCH_CAPACITY_POLICY,
   ROUTE_SEARCH_DISTINCTNESS_VERSION,
   ROUTE_SEARCH_TIE_BREAK_VERSION,
   ROUTE_SEARCH_UNRESOLVED_EVIDENCE_STATES,
@@ -110,6 +111,8 @@ function searchResult({ hardConstraints = [] } = {}) {
       },
       constraintOutcome: hardConstraints.length ? 'eligible-candidates-returned' : 'not-required',
       budgetOutcome: 'within-budget',
+      capacityPolicy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+      capacityOutcome: 'within-capacity',
     },
     candidateFacts,
   };

@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "route-golden-s2-case/v1",
-  "fixtureSetVersion": "synthetic-route-generation-s2/v1",
+  "schemaVersion": "route-golden-s2-case/v2",
+  "fixtureSetVersion": "synthetic-route-generation-s2/v2",
   "caseId": "self-route",
   "title": "The same endpoint returns one zero-edge route without expansion",
   "input": {
@@ -38,7 +38,9 @@
       "expandedStateCount": 0,
       "completeness": { "routeSearch": "not-proven", "scope": "loopless-directed-routes-within-max-route-edge-count" },
       "constraintOutcome": "not-required",
-      "budgetOutcome": "within-budget"
+      "budgetOutcome": "within-budget",
+      "capacityPolicy": { "version": "bounded-frontier-capacity/v1", "maxFrontierStates": 4096, "maxFrontierEdgeReferences": 65536 },
+      "capacityOutcome": "within-capacity"
     }
   }
 }

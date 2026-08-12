@@ -10,8 +10,14 @@ const BLOCKED_PROPERTY_NAMES = new Set(['__proto__', 'constructor', 'prototype']
 
 export const ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS = Object.freeze({
   searchRequest: 'engagement-route-candidate-search-request/v1',
-  candidateSet: 'engagement-route-candidate-set/v2',
-  searchResult: 'engagement-route-candidate-search-result/v1',
+  candidateSet: 'engagement-route-candidate-set/v3',
+  searchResult: 'engagement-route-candidate-search-result/v2',
+});
+
+export const ROUTE_SEARCH_CAPACITY_POLICY = Object.freeze({
+  version: 'bounded-frontier-capacity/v1',
+  maxFrontierStates: 4_096,
+  maxFrontierEdgeReferences: 65_536,
 });
 
 export const ROUTE_SEARCH_UNRESOLVED_EVIDENCE_STATES = Object.freeze([
@@ -68,7 +74,8 @@ const CONSTRAINT_OUTCOME_SET = new Set([
   'unresolved-evidence',
   'not-evaluated',
 ]);
-const BUDGET_OUTCOME_SET = new Set(['within-budget', 'exhausted', 'capacity-exhausted']);
+const BUDGET_OUTCOME_SET = new Set(['within-budget', 'exhausted']);
+const CAPACITY_OUTCOME_SET = new Set(['within-capacity', 'exhausted']);
 
 function fail(message) {
   throw new TypeError(`route candidate search contract: ${message}`);
@@ -89,18 +96,20 @@ function inspectPlainObject(value, label) {
       fail(`${label} must contain data properties only`);
     }
   }
-  return ownKeys;
+  return { ownKeys, descriptors };
 }
 
 function exactObject(value, label, requiredKeys) {
-  const actualKeys = inspectPlainObject(value, label);
+  const { ownKeys, descriptors } = inspectPlainObject(value, label);
   const allowed = new Set(requiredKeys);
-  const missing = requiredKeys.filter((key) => !Object.hasOwn(value, key));
-  const unknown = actualKeys.filter((key) => !allowed.has(key));
+  const missing = requiredKeys.filter((key) => !Object.hasOwn(descriptors, key));
+  const unknown = ownKeys.filter((key) => !allowed.has(key));
   if (missing.length || unknown.length) {
     fail(`${label} schema mismatch (missing: ${missing.join(',') || 'none'}; unknown: ${unknown.join(',') || 'none'})`);
   }
-  return value;
+  return Object.fromEntries(
+    requiredKeys.map((key) => [key, descriptors[key].value]),
+  );
 }
 
 function strictArray(value, label, { min = 0, max } = {}) {
@@ -126,7 +135,7 @@ function strictArray(value, label, { min = 0, max } = {}) {
   const extra = ownKeys.filter((key) => key !== 'length'
     && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= length));
   if (extra.length) fail(`${label} contains unsupported properties`);
-  return value;
+  return Array.from({ length }, (_, index) => descriptors[String(index)].value);
 }
 
 function boundedId(value, label) {
@@ -202,6 +211,12 @@ export const ROUTE_CANDIDATE_SEARCH_DECISIONS = deepFreeze({
     scope: 'loopless-directed-routes-within-max-route-edge-count',
     requestedCountReachedIsComplete: false,
     budgetExhaustedIsComplete: false,
+    capacityExhaustedIsComplete: false,
+  },
+  frontierCapacity: {
+    policy: { ...ROUTE_SEARCH_CAPACITY_POLICY },
+    outcomeField: 'capacityOutcome',
+    budgetOutcomeRemainsIndependent: true,
   },
   terminalStatusSeparation: {
     statusField: 'status',
@@ -352,25 +367,40 @@ export function admitRouteCandidateSearchRequest(raw) {
 }
 
 function admitCompleteness(raw) {
-  const value = exactObject(raw, 'CandidateSetV2.completeness', [
+  const value = exactObject(raw, 'CandidateSetV3.completeness', [
     'routeSearch',
     'scope',
   ]);
   if (value.scope !== 'loopless-directed-routes-within-max-route-edge-count') {
-    fail('CandidateSetV2.completeness.scope is unsupported');
+    fail('CandidateSetV3.completeness.scope is unsupported');
   }
   return {
     routeSearch: exactEnum(
       value.routeSearch,
       ROUTE_SEARCH_COMPLETENESS_SET,
-      'CandidateSetV2.completeness.routeSearch',
+      'CandidateSetV3.completeness.routeSearch',
     ),
     scope: 'loopless-directed-routes-within-max-route-edge-count',
   };
 }
 
-export function admitCandidateSetV2(raw) {
-  const value = exactObject(raw, 'CandidateSetV2', [
+function admitCapacityPolicy(raw) {
+  const value = exactObject(raw, 'CandidateSetV3.capacityPolicy', [
+    'version',
+    'maxFrontierStates',
+    'maxFrontierEdgeReferences',
+  ]);
+  if (value.version !== ROUTE_SEARCH_CAPACITY_POLICY.version
+    || value.maxFrontierStates !== ROUTE_SEARCH_CAPACITY_POLICY.maxFrontierStates
+    || value.maxFrontierEdgeReferences
+      !== ROUTE_SEARCH_CAPACITY_POLICY.maxFrontierEdgeReferences) {
+    fail('CandidateSetV3.capacityPolicy must match the frozen search capacity policy');
+  }
+  return { ...ROUTE_SEARCH_CAPACITY_POLICY };
+}
+
+export function admitCandidateSetV3(raw) {
+  const value = exactObject(raw, 'CandidateSetV3', [
     'schemaVersion',
     'candidateSetId',
     'candidateSetRevision',
@@ -390,102 +420,116 @@ export function admitCandidateSetV2(raw) {
     'completeness',
     'constraintOutcome',
     'budgetOutcome',
+    'capacityPolicy',
+    'capacityOutcome',
   ]);
   if (value.schemaVersion !== ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS.candidateSet) {
-    fail('CandidateSetV2.schemaVersion is unsupported');
+    fail('CandidateSetV3.schemaVersion is unsupported');
   }
   if (value.strategy !== 'bounded-loopless-k-candidates') {
-    fail('CandidateSetV2.strategy must be bounded-loopless-k-candidates');
+    fail('CandidateSetV3.strategy must be bounded-loopless-k-candidates');
   }
   if (value.objectiveFactorId !== 'objective-cost-units') {
-    fail('CandidateSetV2.objectiveFactorId must be objective-cost-units');
+    fail('CandidateSetV3.objectiveFactorId must be objective-cost-units');
   }
   if (value.routeDistinctnessVersion !== ROUTE_SEARCH_DISTINCTNESS_VERSION) {
-    fail('CandidateSetV2.routeDistinctnessVersion is unsupported');
+    fail('CandidateSetV3.routeDistinctnessVersion is unsupported');
   }
   if (value.constraintAggregationVersion !== ROUTE_SEARCH_CONSTRAINT_AGGREGATION_VERSION) {
-    fail('CandidateSetV2.constraintAggregationVersion is unsupported');
+    fail('CandidateSetV3.constraintAggregationVersion is unsupported');
   }
   if (value.tieBreakVersion !== ROUTE_SEARCH_TIE_BREAK_VERSION) {
-    fail('CandidateSetV2.tieBreakVersion is unsupported');
+    fail('CandidateSetV3.tieBreakVersion is unsupported');
   }
   const requestedCandidateCount = safeInteger(
     value.requestedCandidateCount,
-    'CandidateSetV2.requestedCandidateCount',
+    'CandidateSetV3.requestedCandidateCount',
     { min: 1, max: MAX_REQUESTED_CANDIDATES },
   );
-  const candidateIds = uniqueIds(value.candidateIds, 'CandidateSetV2.candidateIds', {
+  const candidateIds = uniqueIds(value.candidateIds, 'CandidateSetV3.candidateIds', {
     max: requestedCandidateCount,
   });
-  const candidateCount = safeInteger(value.candidateCount, 'CandidateSetV2.candidateCount', {
+  const candidateCount = safeInteger(value.candidateCount, 'CandidateSetV3.candidateCount', {
     min: 0,
     max: requestedCandidateCount,
   });
   if (candidateCount !== candidateIds.length) {
-    fail('CandidateSetV2.candidateCount must equal candidateIds length');
+    fail('CandidateSetV3.candidateCount must equal candidateIds length');
   }
   const searchConstraintIds = uniqueIds(
     value.searchConstraintIds,
-    'CandidateSetV2.searchConstraintIds',
+    'CandidateSetV3.searchConstraintIds',
     { max: ROUTE_SEARCH_ADMISSIBLE_FACTOR_IDS.length },
   );
-  const bounds = admitSearchBounds(value.bounds, 'CandidateSetV2.bounds');
+  const bounds = admitSearchBounds(value.bounds, 'CandidateSetV3.bounds');
   const expandedStateCount = safeInteger(
     value.expandedStateCount,
-    'CandidateSetV2.expandedStateCount',
+    'CandidateSetV3.expandedStateCount',
     { min: 0, max: bounds.maxExpandedStates },
   );
   const completeness = admitCompleteness(value.completeness);
   const constraintOutcome = exactEnum(
     value.constraintOutcome,
     CONSTRAINT_OUTCOME_SET,
-    'CandidateSetV2.constraintOutcome',
+    'CandidateSetV3.constraintOutcome',
   );
   const budgetOutcome = exactEnum(
     value.budgetOutcome,
     BUDGET_OUTCOME_SET,
-    'CandidateSetV2.budgetOutcome',
+    'CandidateSetV3.budgetOutcome',
+  );
+  const capacityPolicy = admitCapacityPolicy(value.capacityPolicy);
+  const capacityOutcome = exactEnum(
+    value.capacityOutcome,
+    CAPACITY_OUTCOME_SET,
+    'CandidateSetV3.capacityOutcome',
   );
   if (searchConstraintIds.length === 0 && constraintOutcome !== 'not-required') {
-    fail('CandidateSetV2.constraintOutcome must be not-required without search constraints');
+    fail('CandidateSetV3.constraintOutcome must be not-required without search constraints');
   }
   if (searchConstraintIds.length > 0 && constraintOutcome === 'not-required') {
-    fail('CandidateSetV2.constraintOutcome cannot be not-required with search constraints');
+    fail('CandidateSetV3.constraintOutcome cannot be not-required with search constraints');
   }
   if (candidateCount > 0 && [
     'no-eligible-route-in-bounded-scope-proven',
     'no-eligible-route-not-proven',
     'not-evaluated',
   ].includes(constraintOutcome)) {
-    fail('CandidateSetV2.constraintOutcome is inconsistent with returned candidates');
+    fail('CandidateSetV3.constraintOutcome is inconsistent with returned candidates');
   }
   if (candidateCount === 0 && constraintOutcome === 'eligible-candidates-returned') {
-    fail('CandidateSetV2.constraintOutcome requires returned candidates');
+    fail('CandidateSetV3.constraintOutcome requires returned candidates');
   }
   if (constraintOutcome === 'no-eligible-route-in-bounded-scope-proven'
     && completeness.routeSearch !== 'complete-within-bounds') {
-    fail('CandidateSetV2 proven no-eligible outcome requires complete bounded search');
+    fail('CandidateSetV3 proven no-eligible outcome requires complete bounded search');
   }
   if (constraintOutcome === 'no-eligible-route-not-proven'
     && completeness.routeSearch !== 'not-proven') {
-    fail('CandidateSetV2 unproven no-eligible outcome requires incomplete search');
+    fail('CandidateSetV3 unproven no-eligible outcome requires incomplete search');
   }
-  if (['exhausted', 'capacity-exhausted'].includes(budgetOutcome)
+  if ((budgetOutcome === 'exhausted' || capacityOutcome === 'exhausted')
     && completeness.routeSearch !== 'not-proven') {
-    fail('CandidateSetV2 exhausted budget cannot claim complete bounded search');
+    fail('CandidateSetV3 exhausted search resource cannot claim complete bounded search');
   }
   if (budgetOutcome === 'exhausted' && expandedStateCount !== bounds.maxExpandedStates) {
-    fail('CandidateSetV2 exhausted budget must reach maxExpandedStates');
+    fail('CandidateSetV3 exhausted budget must reach maxExpandedStates');
+  }
+  if (budgetOutcome === 'exhausted' && capacityOutcome !== 'within-capacity') {
+    fail('CandidateSetV3 budget and capacity exhaustion must remain exclusive');
+  }
+  if (capacityOutcome === 'exhausted' && budgetOutcome !== 'within-budget') {
+    fail('CandidateSetV3 capacity and budget exhaustion must remain exclusive');
   }
   return deepFreeze({
     schemaVersion: ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS.candidateSet,
-    candidateSetId: boundedId(value.candidateSetId, 'CandidateSetV2.candidateSetId'),
+    candidateSetId: boundedId(value.candidateSetId, 'CandidateSetV3.candidateSetId'),
     candidateSetRevision: boundedId(
       value.candidateSetRevision,
-      'CandidateSetV2.candidateSetRevision',
+      'CandidateSetV3.candidateSetRevision',
     ),
-    requestId: boundedId(value.requestId, 'CandidateSetV2.requestId'),
-    graphId: boundedId(value.graphId, 'CandidateSetV2.graphId'),
+    requestId: boundedId(value.requestId, 'CandidateSetV3.requestId'),
+    graphId: boundedId(value.graphId, 'CandidateSetV3.graphId'),
     strategy: 'bounded-loopless-k-candidates',
     objectiveFactorId: 'objective-cost-units',
     requestedCandidateCount,
@@ -500,6 +544,8 @@ export function admitCandidateSetV2(raw) {
     completeness,
     constraintOutcome,
     budgetOutcome,
+    capacityPolicy,
+    capacityOutcome,
   });
 }
 
@@ -588,11 +634,13 @@ function assertTerminalConsistency(status, termination, request, candidateSet, c
   const routeSearch = candidateSet.completeness.routeSearch;
   const constraintOutcome = candidateSet.constraintOutcome;
   const budgetOutcome = candidateSet.budgetOutcome;
+  const capacityOutcome = candidateSet.capacityOutcome;
   const hasConstraints = candidateSet.searchConstraintIds.length > 0;
 
   if (termination === 'requested-candidate-count-reached') {
     if (status !== 'completed' || count !== requested || routeSearch !== 'not-proven'
       || budgetOutcome !== 'within-budget'
+      || capacityOutcome !== 'within-capacity'
       || (hasConstraints && constraintOutcome !== 'eligible-candidates-returned')) {
       fail('CandidateSearchResult requested-count terminal is inconsistent');
     }
@@ -600,37 +648,42 @@ function assertTerminalConsistency(status, termination, request, candidateSet, c
     if (status !== 'completed' || count === 0 || count >= requested
       || routeSearch !== 'complete-within-bounds'
       || budgetOutcome !== 'within-budget'
+      || capacityOutcome !== 'within-capacity'
       || (hasConstraints && constraintOutcome !== 'eligible-candidates-returned')) {
       fail('CandidateSearchResult bounded-search-space terminal is inconsistent');
     }
   } else if (termination === 'no-directed-route-in-bounded-scope') {
     if (status !== 'completed' || count !== 0 || routeSearch !== 'complete-within-bounds'
       || budgetOutcome !== 'within-budget'
+      || capacityOutcome !== 'within-capacity'
       || (hasConstraints && constraintOutcome !== 'not-evaluated')) {
       fail('CandidateSearchResult bounded no-directed-route terminal is inconsistent');
     }
   } else if (termination === 'no-eligible-route-in-bounded-scope') {
     if (status !== 'completed' || count !== 0 || routeSearch !== 'complete-within-bounds'
-      || budgetOutcome !== 'within-budget' || !hasConstraints
+      || budgetOutcome !== 'within-budget' || capacityOutcome !== 'within-capacity'
+      || !hasConstraints
       || constraintOutcome !== 'no-eligible-route-in-bounded-scope-proven') {
       fail('CandidateSearchResult no-eligible-route terminal is inconsistent');
     }
   } else if (termination === 'unresolved-constraint-evidence') {
     if (status !== 'completed' || count >= requested || routeSearch !== 'complete-within-bounds'
-      || budgetOutcome !== 'within-budget' || !hasConstraints
+      || budgetOutcome !== 'within-budget' || capacityOutcome !== 'within-capacity'
+      || !hasConstraints
       || constraintOutcome !== 'unresolved-evidence') {
       fail('CandidateSearchResult unresolved-constraint terminal is inconsistent');
     }
   } else if (termination === 'search-budget-exhausted') {
     if (status !== 'stopped' || count >= requested || routeSearch !== 'not-proven'
       || budgetOutcome !== 'exhausted'
+      || capacityOutcome !== 'within-capacity'
       || (hasConstraints
         && constraintOutcome === 'no-eligible-route-in-bounded-scope-proven')) {
       fail('CandidateSearchResult search-budget terminal is inconsistent');
     }
   } else if (termination === 'search-capacity-exhausted') {
     if (status !== 'stopped' || count >= requested || routeSearch !== 'not-proven'
-      || budgetOutcome !== 'capacity-exhausted'
+      || budgetOutcome !== 'within-budget' || capacityOutcome !== 'exhausted'
       || (hasConstraints
         && constraintOutcome === 'no-eligible-route-in-bounded-scope-proven')) {
       fail('CandidateSearchResult search-capacity terminal is inconsistent');
@@ -657,7 +710,7 @@ export function admitRouteCandidateSearchResult(raw) {
     'CandidateSearchResult.termination',
   );
   const request = value.request === null ? null : admitRouteCandidateSearchRequest(value.request);
-  const candidateSet = value.candidateSet === null ? null : admitCandidateSetV2(value.candidateSet);
+  const candidateSet = value.candidateSet === null ? null : admitCandidateSetV3(value.candidateSet);
   const candidateFacts = strictArray(
     value.candidateFacts,
     'CandidateSearchResult.candidateFacts',
