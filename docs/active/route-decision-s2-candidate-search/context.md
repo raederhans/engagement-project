@@ -5,9 +5,9 @@
 - S2 starts from the accepted foundation revision
   `785e2c4835133d51ea9b545dc482454ae995a1e8`.
 - The primary integration owner created coordination branch
-  `codex/route-decision-s2-candidate-search`. The four S2 lanes and the
-  primary-owned evaluation/integration seam are now present on that branch;
-  they are not merged to `main`, pushed, deployed, or published.
+  `codex/route-decision-s2-candidate-search`. The four S2 lanes, evaluation seam,
+  and audit repairs are now fast-forwarded onto local `main` through `d2e6335`;
+  remote push, CI/Pages, deployment, and publication remain separate.
 - Foundation CandidateSet v1 intentionally admits at most one
   `base-objective-only` candidate, requires `completeness: incomplete`, and
   requires `constraintAwareSearch: false`.
@@ -50,6 +50,8 @@
 | 2026-08-12 | Pre-integration architecture review found that frontier capacity was still encoded as a budget outcome and omitted its active policy from the public artifact. | CandidateSet advances to v3 with independent `capacityPolicy` and `capacityOutcome`; SearchResult advances to v2, search enrichment to v3, and search evaluation to v2. Budget and capacity exhaustion are mutually exclusive and neither can claim bounded completeness. |
 | 2026-08-12 | Golden lacked an independent capacity denominator, and strict admissions still performed direct property reads after descriptor inspection. | Golden advances its manifest/case/ledger/oracle contracts, adds zero- and partial-candidate capacity fixtures, and reports 17 fixtures across eight denominators. Foundation and S2 admissions now snapshot data descriptors; post-admission compiler failures remain internal failures. Repaired as `0cd7ccc`. |
 | 2026-08-12 | Exact `0cd7ccc` pre-integration review and focused verification completed. | Code/spec/security review returned `ACCEPT`; architecture confirmed the code blocker closed and required central record synchronization. S2 92/92, foundation 107/107, full JavaScript lint, and diff checks pass. Full `npm run validate` at this exact revision remains unrun until main fast-forward. |
+| 2026-08-12 | Central record synchronization completed as `d2e6335`, and the accepted chain was fast-forwarded onto local `main`. | Final architecture verdict is `ACCEPT/CLEAR`; integration had no conflict, merge commit, force push, or worktree cleanup. |
+| 2026-08-12 | Exact local-main full validation, release/browser gates, and coverage reporting passed at `d2e6335`. | The revision is locally push-ready; exact pushed-SHA CI/Pages, public data admission, and production claims remain independent gates. |
 
 ## Lane ownership
 
@@ -86,10 +88,10 @@ S2-0 public contract
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
 | Lane-local short Node tests | Each isolated task | No committed logs; lane-local temporary output only | Allowed after code changes within owned paths |
-| Shared/full validation, build, browser, or dev server | Primary integration owner | Primary-owned temporary logs only | Repository validation/build completed; browser/dev-server lanes intentionally not started |
+| Shared/full validation, build, browser, or dev server | Primary integration owner | Primary console evidence only | At `main@d2e6335`, `validate` and `ci:release` exit 0; browser smoke and Playwright 35 passed/10 designed skips |
 | Exact-candidate `npm run validate` | Primary integration owner | `%TEMP%/engagement-s2-6b2d48d-validate.log` | Completed at code candidate `6b2d48d`, exit 0; full test chain, manifest build, and bundle policy pass |
 | Post-review repair validation | Primary integration owner | `%TEMP%/engagement-s2-000d85e-validate.log` | Focused S2 90/90, foundation 106/106, full JS lint and diff check pass; `npm run validate` completed at code candidate `000d85e`, exit 0 |
-| Pre-integration audit repair | Primary integration owner | No persistent log; command output captured in the integration task | Exact `0cd7ccc`: focused S2 92/92, foundation 107/107, full JS lint and diff check pass; exact full `npm run validate` intentionally pending the main fast-forward |
+| Pre-integration audit repair | Primary integration owner | No persistent log; command output captured in the integration task | Exact code `0cd7ccc`: focused S2 92/92, foundation 107/107, full JS lint and diff check pass; final record `d2e6335` then passed exact local-main full/release/browser gates |
 
 ## Active execution tasks
 
@@ -113,7 +115,6 @@ S2-0 public contract
 
 ## Next step
 
-Keep the four isolated worktrees for audit and hand the coordination branch
-forward as `ready-for-integration`. Main-branch integration, push,
-browser/product-journey validation, deployment, external data admission, and
-publication remain separate owner decisions.
+Keep the four isolated worktrees for audit. Push the reviewed local `main`,
+require the exact pushed SHA to pass CI/Pages, and keep deployment/publication,
+external data admission, and stronger route-product claims separate.

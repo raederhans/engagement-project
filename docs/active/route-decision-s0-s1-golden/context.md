@@ -6,8 +6,8 @@
 - The primary checkout already contained untracked Playwright, log, and output
   artifacts. They are outside this task and remain untouched.
 - The integration owner created coordination branch
-  `codex/route-decision-s0-s1-foundation`; only this task record belongs to the
-  coordination baseline.
+  `codex/route-decision-s0-s1-foundation`; its accepted chain was later extended
+  by S2 and fast-forwarded onto local `main` through `d2e6335`.
 - Coordination baseline commit is
   `5bcd229e370e6fba02a334914d70a9a9602703ec`. All four execution tasks were
   created as detached worktrees at that exact commit and confirmed active.
@@ -32,6 +32,9 @@
 | 2026-08-12 | Treat all new work as a production-isolated seam rather than refactoring the legacy graph demo in place. | Existing safety-weighted and mislabeled length semantics cannot leak into the new implementation. |
 | 2026-08-12 | User explicitly assigned supervision, orchestration, guidance, and research-task follow-up to the primary task. | Execution lanes do not self-integrate or reinterpret research boundaries; unresolved semantic questions escalate to the primary task. |
 | 2026-08-12 | Four Codex worktree tasks confirmed `active` from the exact coordination baseline. | The supervisor can now monitor with compact task snapshots and preserve independent delivery boundaries. |
+| 2026-08-12 | Final S0/S1/S2 audits closed descriptor safety, internal-failure truth, and independently auditable capacity/version gaps. | Code/spec/security and architecture reviewers both returned `ACCEPT` with no remaining P0/P1/P2 finding. |
+| 2026-08-12 | The accepted chain was fast-forwarded from `origin/main@1e9fecad` onto local `main` through `d2e6335`. | Integration used no merge commit, force push, conflict resolution, worktree cleanup, or protected-artifact mutation. |
+| 2026-08-12 | Exact-main `validate`, local `ci:release`, and `coverage:report` completed successfully. | Local code/build/browser evidence is current for `d2e6335`; remote pushed-SHA CI/Pages and any public-data/product claim remain separate. |
 
 ## Initial provisional cross-lane contract
 
@@ -82,7 +85,7 @@ must stop before crossing ownership and request a handoff from the primary task.
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Shared browser/build/full validation | Primary integration owner | None; no runtime/UI surface in this foundation | Not run; defer to any future main/release gate |
+| Shared browser/build/full validation | Primary integration owner | Console evidence in the primary task; no committed logs | Completed at local `main@d2e6335`: full validate and release gate exit 0; Playwright 35 passed/10 designed skips |
 | Lane-local short Node tests | Each isolated lane | Lane-local `.tmp/` if needed; do not commit logs | Permitted when no shared port/server is used |
 
 ## Execution task history
@@ -131,17 +134,16 @@ must stop before crossing ownership and request a handoff from the primary task.
 - Golden production comparison is explicitly `primary-only/v1`. It checks the
   primary route and terminal outcomes, while alternatives are machine-marked
   `not-evaluated`; it is not evidence of multi-route generation.
-- Fresh integrated verification: 106/106 focused tests pass; scoped ESLint and
-  diff hygiene pass. Independent code review reports APPROVE with zero findings;
-  independent architecture review reports ACCEPT with no foundation blocker.
-- Full repository validation, browser smoke, build, push, deployment, production
-  data admission, Philadelphia validity, accessibility, safety, and user
-  research remain unproven and are not claimed by this foundation.
+- Fresh final verification: foundation 107/107 and S2 92/92 pass; full JS/CSS
+  lint, diff hygiene, exact-main `validate`, local `ci:release`, browser smoke,
+  ACS browser flow, and the 35-pass/10-designed-skip Playwright matrix pass.
+  Independent code/spec/security and architecture reviews both report `ACCEPT`.
+- Push, exact pushed-SHA CI/Pages, production data admission, Philadelphia
+  validity, real-route accessibility, safety, user research, and scientific
+  validation remain separate and are not claimed by this foundation.
 
 ## Next step
 
-Keep this record active as a ready-for-integration handoff until a separately
-authorized main-branch integration is selected. The next implementation batch
-should be S2 candidate generation: bounded multi-candidate enumeration and/or
-constraint-aware search with completeness semantics and Golden alternatives.
-Production data admission should remain a later, separately reviewed step.
+Keep the isolated worktrees for audit. Push the reviewed local `main`, require
+the exact pushed SHA to pass CI/Pages, and keep production data admission as a
+later, separately reviewed step.

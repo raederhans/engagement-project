@@ -2,19 +2,14 @@
 
 ## Current status
 
-`ready-for-integration` — all four S2 lanes and the primary-owned C-to-A
-evaluation seam are integrated on coordination branch
-`codex/route-decision-s2-candidate-search`. Earlier candidates `6b2d48d` and
-`000d85e` passed the complete repository validation; the pre-integration audit
-then found descriptor-read, internal-failure-classification, and public capacity
-contract gaps. Exact repaired candidate `0cd7ccc` passes focused S2 92/92,
-foundation 107/107, full JavaScript lint, and diff checks. Code/spec/security
-review returned `ACCEPT`; architecture review confirmed the code blocker closed
-and requested this exact-candidate record synchronization. Full repository
-validation has not yet been rerun at `0cd7ccc` and remains the post-integration
-main-branch gate.
-Nothing is merged to `main`, pushed, deployed, published, or admitted as
-external production data.
+`integrated` — all four S2 lanes, the C-to-A evaluation seam, and audit repairs
+are fast-forwarded onto local `main` through `d2e6335`. Exact repaired code
+candidate `0cd7ccc` passes focused S2 92/92 and foundation 107/107; the record
+sync follows as `d2e6335`. Code/spec/security and architecture reviews both
+returned `ACCEPT` with no remaining P0/P1/P2 finding. Exact local-main full
+validation, release/browser gates, and coverage reporting pass. Push,
+exact-pushed-SHA CI/Pages, deployment/publication, and external production-data
+admission remain separate pending gates.
 
 ## Checklist
 
@@ -41,10 +36,13 @@ external production data.
   seam through search-enrichment v3 and evaluation v2 while keeping the public
   foundation v1 evaluator behavior and barrel unchanged.
 - [x] Add a complete synthetic S2 pipeline test and one standard S2 test entry.
-- [x] Complete full validation for earlier code candidates; retain exact
-  `0cd7ccc` full validation, browser, large-cohort, release, deployment,
-  external-data, and publication as explicitly separate gates.
+- [x] Complete full validation for earlier code candidates; retain exact repaired
+  code review, local-main full/release/browser gates, large-cohort evaluation,
+  deployment, external-data admission, and publication as explicitly separate
+  evidence scopes.
 - [x] Receive and resolve the independent final code review.
+- [x] Fast-forward the accepted S0/S1/S2 chain onto local `main` and run
+  exact-main full/release/browser/coverage gates.
 
 ## Validation evidence
 
@@ -78,7 +76,10 @@ external production data.
 | Pre-integration foundation and static checks | Foundation 107/107; full JavaScript lint and `git diff --check` pass. |
 | Pre-integration independent reviews | Exact `0cd7ccc` code/spec/security review: `ACCEPT`, 0 P0/P1/P2. Architecture review: code blocker closed; exact task/registry synchronization required before final verdict. |
 | Repaired code-candidate validation | `npm run validate` at `000d85e`: exit 0; full repository test chain, Vite manifest build, public GeoJSON artifact build, and bundle policy pass. Log: `%TEMP%/engagement-s2-000d85e-validate.log`. |
-| Exact candidate full-validation gate | Not run at `0cd7ccc`; the earlier `000d85e` pass is historical evidence only. Integration owner will run `npm run validate` on the fast-forwarded exact `main` before push. |
+| Exact local-main full-validation gate | `npm run validate` at `main@d2e6335`: exit 0; full tests, manifest build, public GeoJSON artifacts, and bundle policy pass. |
+| Exact local-main release gate | `npm run ci:release` at `main@d2e6335`: exit 0; dependency audit, JS/CSS lint, full validation, browser smoke, ACS browser flow, and Playwright visual/accessibility matrix pass (35 passed, 10 designed skips). |
+| Coverage report | `npm run coverage:report`: 67/67 tests; line 53.06%, branch 73.34%, functions 56.40%; retained as test-coverage evidence only. |
+| Local integration topology | `origin/main@1e9fecad` is an ancestor of `main@d2e6335`; integration was a clean fast-forward with no merge commit or conflict. |
 
 ## Open risks and remaining work
 
@@ -89,10 +90,10 @@ external production data.
   capacity-policy bounds. It does
   not establish global route feasibility, city validity, accessibility, safety,
   or scientific quality.
-- No UI/browser journey, large-city performance cohort, public-data admission,
-  push, deployment, or publication has been performed. Full repository
-  validation for exact candidate `0cd7ccc` is also pending the main fast-forward;
-  earlier candidate validation does not prove the current revision.
+- The repository UI/browser release matrix passed, but S2 itself remains a
+  synthetic, production-isolated seam with no dedicated end-user route UI.
+  Large-city performance, public-data admission, push, exact pushed-SHA CI/Pages,
+  deployment, and publication remain unperformed at this record point.
 - The four isolated worktrees remain for audit. Cleanup is not authorized and is
   not required for this handoff.
 - `inputCandidateFacts` makes enrichment-envelope fields mutually auditable, but
