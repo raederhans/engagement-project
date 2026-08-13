@@ -45,6 +45,9 @@
 | 2026-08-13 | Validate S4-1 R3 on the central exact HEAD and stop before S4-2. | Focused `10/10`, foundation `107/107`, S2 `92/92`, targeted ESLint, four-file Node syntax, diff-check, and S0-S3/runtime/shared-surface audits passed. LSP was unavailable; no browser/runtime/public/full gate was run. |
 | 2026-08-13 | Complete the second serial unit, S4-2 R2, after explicit supervisory release. | Historical central `766641d` was tree-equivalent to committed source `f0f71008`; reviewed repair patch `d92ce822...` was committed as source `30c6fd52` and cherry-picked as central `23c4bacd`. All five S4-2 owned paths are byte-identical to the final source. |
 | 2026-08-13 | Validate S4-2 R2 on the central exact HEAD and stop before S4-3. | Focused `18/18`, S3 protocol/scale adjacent `76/76`, targeted ESLint, three-file Node syntax, diff-check, and S0-S3/runtime/shared-surface audits passed. S4-2 remains generic no-authority/no-decision instrumentation; LSP, cross-process authority, typed S4-3 binding, browser/Worker, and live performance gates were not run. |
+| 2026-08-13 | Audit the withdrawn S4-3 V1 identity before integrating V2. | Historical V1 was reproducibly accepted by the internal S2 search consumer and propagated its artifactVersion as CandidateSet revision. Exact searches found no persisted old input/output digest or artifact revision in tracked files, docs, logs, output, public, scripts, or source. The accepted path is therefore original-source V2 recomputation with no migration, digest alias, or receipt relabel. |
+| 2026-08-13 | Complete the third serial unit, S4-3 V2, after explicit supervisory release. | Historical central `3d16250` was tree-equivalent to committed source `93cc2a0b`; reviewed repair patch `17c6e36e...` was committed as source `6b76aa88` and cherry-picked as central `edf14706`. All five S4-3 owned paths are byte-identical to the final source. |
+| 2026-08-13 | Validate S4-3 V2 on the central exact HEAD and stop before S4-4. | Focused `11/11`, foundation/S2 adjacent `43/43`, original-source V2 identity/revision recomputation, permutation invariance, mutation sensitivity, V1 rejection, targeted ESLint, two-file Node syntax, three-fixture JSON parse, diff-check, and boundary audits passed. GraphArtifact remains v1; capability observations remain v1 and are not connected to S2 by a new adapter. LSP and browser/runtime/public/full gates were not run. |
 
 ## Live process ownership
 
@@ -60,5 +63,5 @@ any source worktree until the final combined compatibility result is known.
 
 ## Next step
 
-Report the completed S4-2 unit and stop. S4-3 and S4-4 remain frozen for later
-explicit serial units; do not modify, integrate, or clean them from this unit.
+Report the completed S4-3 unit and stop. S4-4 remains frozen for a later
+explicit serial unit; do not modify, integrate, or clean it from this unit.
