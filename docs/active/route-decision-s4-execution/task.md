@@ -44,8 +44,8 @@ public UI, release, publication, deployment, or scientific/safety claims.
   Performance is no-authority/no-decision, and External Graph is validation-only.
 - [x] Integrate S4-1 R3 as the first and only active integration unit, including
   both source commit `2049449` and its four-file reviewed repair diff.
-- [ ] Integrate S4-2 R2 only after S4-1 exact-head validation and a new explicit
-  integration step.
+- [x] Integrate S4-2 R2 as the second and only active integration unit after
+  S4-1 exact-head validation, preserving its no-authority/no-decision boundary.
 - [ ] Integrate S4-3 V2 by recomputing from original synthetic source; never
   relabel the old V1 receipt/revision.
 - [ ] Integrate S4-4 R2 only after S4-3 exact-head validation and a new explicit
@@ -59,7 +59,7 @@ public UI, release, publication, deployment, or scientific/safety claims.
 | Lane | Frozen reviewed delivery | Bounded verdict and constraint |
 | --- | --- | --- |
 | S4-1 Explanation R3 | `f669@20494490` plus 4 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `CLEAR`; Node/tooling-only. |
-| S4-2 Performance R2 | `adec@f0f71008` plus 3 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `WATCH`; no-authority/no-decision only. |
+| S4-2 Performance R2 | `adec@30c6fd52` over committed delivery `f0f71008` | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `WATCH`; no-authority/no-decision only. |
 | S4-3 CityAdapter V2 | `26c2@93cc2a0b` plus 4 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `CLEAR`; V2 adapter/profile/result/identity with `GraphArtifact/v1`. |
 | S4-4 External Graph R2 | `0596@d659b0bb` plus 2 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2/WATCH zero; architecture `CLEAR`; validation-only caller conformance. |
 
@@ -82,19 +82,20 @@ evidence.
 | Unit | Traceable source | Central commit | Fresh exact-head evidence |
 | --- | --- | --- | --- |
 | S4-1 Explanation R3 | `20494490` committed delivery + reviewed repair `83a404f0` | `4e82dcdc` | S4-1 focused `10/10`; foundation `107/107`; S2 `92/92`; targeted ESLint, four-file Node syntax, diff-check, source-tree identity, and scope audit pass. |
+| S4-2 Performance R2 | `f0f71008` committed delivery + reviewed repair `30c6fd52` | `23c4bacd` | S4-2 focused `18/18`; S3 protocol/scale adjacent `76/76`; targeted ESLint, three-file Node syntax, diff-check, source-tree identity, and scope audit pass. |
 
-The S4-1 final central path tree is byte-identical to source `83a404f0`. Relative
-to the pre-unit central revision, only the four integration-owned record files
-and four reviewed S4-1 repair files changed. Existing S0-S3 contracts,
-evaluators, candidate search, Source Health, package scripts, workflows,
-runtime, and shared public barrels are unchanged.
+The S4-1 and S4-2 final central path trees are byte-identical to their final
+sources. Relative to the S4-2 pre-unit central revision `4cbb27c1`, only the
+three reviewed S4-2 repair files changed before this record update. Existing
+S0-S3 contracts, evaluators, candidate search, Source Health, package scripts,
+workflows, runtime, and shared public barrels are unchanged.
 
 ## S4 task handoff state
 
 | Lane | Task identity | Worktree | Final state |
 | --- | --- | --- | --- |
 | S4-1 Explanation R3 | `019ff989-863b-7e92-980b-c27e46b7afa7` | `C:/Users/raede/.codex/worktrees/f669/engagement_project` | Integrated from complete source chain `20494490` -> `83a404f0` as central `4e82dcdc`; source retained clean and detached for audit. |
-| S4-2 Performance R2 | `019ff9ab-6964-7413-a142-c3d6d958e6d3` | `C:/Users/raede/.codex/worktrees/adec/engagement_project` | Frozen pending later serial integration; do not modify or clean. |
+| S4-2 Performance R2 | `019ff9ab-6964-7413-a142-c3d6d958e6d3` | `C:/Users/raede/.codex/worktrees/adec/engagement_project` | Integrated from complete source chain `f0f71008` -> `30c6fd52` as central `23c4bacd`; source retained clean and detached for audit. |
 | S4-3 CityAdapter V2 | `019ff989-ad0c-7bc1-99d2-b350cabc5716` | `C:/Users/raede/.codex/worktrees/26c2/engagement_project` | Frozen pending later serial integration and original-source V2 recomputation; do not modify or clean. |
 | S4-4 External Graph R2 | `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` | `C:/Users/raede/.codex/worktrees/0596/engagement_project` | Frozen pending later serial integration; do not modify or clean. |
 
