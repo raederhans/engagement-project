@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "engagement-philadelphia-synthetic-street-shape/v1",
+  "cityId": "philadelphia-pa-us",
+  "sourceId": "synthetic-os-open-roads-negative-shape",
+  "sourceVersion": "desk-fixture-v1",
+  "sourceProfileVersion": "philadelphia-synthetic-street-profile/v1",
+  "crs": "synthetic-philadelphia-mm-grid/v1",
+  "axisOrder": ["x", "y"],
+  "coordinateUnits": "millimetres",
+  "timezone": "America/New_York",
+  "modeTaxonomyVersion": "engagement-route-mode-taxonomy/v1",
+  "mode": "pedestrian",
+  "nodes": [
+    { "sourceNodeId": "a", "xMm": 0, "yMm": 0 },
+    { "sourceNodeId": "b", "xMm": 1, "yMm": 1 }
+  ],
+  "edges": [
+    {
+      "sourceEdgeId": "road-a",
+      "fromSourceNodeId": "a",
+      "toSourceNodeId": "b",
+      "distanceMm": 1,
+      "objectiveCostUnits": 1,
+      "capabilities": {
+        "stepFree": { "token": "unknown" },
+        "curbRamp": { "token": "unknown" },
+        "pavedSurface": { "token": "unknown" }
+      }
+    }
+  ]
+}

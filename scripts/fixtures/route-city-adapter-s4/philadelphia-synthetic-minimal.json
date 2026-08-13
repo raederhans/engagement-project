@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "engagement-philadelphia-synthetic-street-shape/v1",
+  "cityId": "philadelphia-pa-us",
+  "sourceId": "synthetic-philadelphia-minimal",
+  "sourceVersion": "fixture-v1",
+  "sourceProfileVersion": "philadelphia-synthetic-street-profile/v1",
+  "crs": "synthetic-philadelphia-mm-grid/v1",
+  "axisOrder": ["x", "y"],
+  "coordinateUnits": "millimetres",
+  "timezone": "America/New_York",
+  "modeTaxonomyVersion": "engagement-route-mode-taxonomy/v1",
+  "mode": "pedestrian",
+  "nodes": [
+    { "sourceNodeId": "node.dot", "xMm": 0, "yMm": 0 },
+    { "sourceNodeId": "node:colon", "xMm": 1000, "yMm": 0 },
+    { "sourceNodeId": "node_under", "xMm": 2000, "yMm": 0 },
+    { "sourceNodeId": "node-dash", "xMm": 3000, "yMm": 0 }
+  ],
+  "edges": [
+    {
+      "sourceEdgeId": "block-a",
+      "fromSourceNodeId": "node.dot",
+      "toSourceNodeId": "node:colon",
+      "direction": "both",
+      "distanceMm": 1000,
+      "objectiveCostUnits": 10,
+      "capabilities": {
+        "stepFree": { "token": "yes" },
+        "curbRamp": { "token": "unknown" },
+        "pavedSurface": { "token": "no" }
+      }
+    },
+    {
+      "sourceEdgeId": "block-b",
+      "fromSourceNodeId": "node:colon",
+      "toSourceNodeId": "node_under",
+      "direction": "forward",
+      "distanceMm": 1000,
+      "objectiveCostUnits": 12,
+      "capabilities": {
+        "stepFree": { "token": "unavailable" },
+        "curbRamp": { "token": "yes" },
+        "pavedSurface": { "token": "yes" }
+      }
+    }
+  ]
+}
