@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { types as utilTypes } from 'node:util';
 
 import { admitGraphArtifact } from '../../route_decision/contracts/index.js';
 
@@ -15,13 +16,15 @@ const CAPABILITY_STATES = new Set(['observed', 'unknown', 'unavailable']);
 const SOURCE_CAPABILITY_TOKENS = new Set(['yes', 'no', 'unknown', 'unavailable']);
 
 export const CITY_ADAPTER_SCHEMA_VERSIONS = Object.freeze({
-  cityAdapter: 'engagement-city-adapter/v1',
+  cityAdapter: 'engagement-city-adapter/v2',
   sourceGraph: 'engagement-philadelphia-synthetic-street-shape/v1',
-  adaptationResult: 'engagement-city-adaptation-result/v1',
+  adaptationResult: 'engagement-city-adaptation-result/v2',
   graphArtifact: 'engagement-route-graph/v1',
   capabilityObservation: 'engagement-city-capability-observation/v1',
-  contentIdentity: 'engagement-city-adapter-content-identity/v1',
+  contentIdentity: 'engagement-city-adapter-content-identity/v2',
 });
+
+const CITY_ADAPTER_IDENTITY_CANONICALIZATION = 'city-adapter-canonical-source-sets/v2';
 
 const PHILADELPHIA_LIMITATIONS = Object.freeze([
   'synthetic-field-shape-only',
@@ -35,8 +38,8 @@ const PHILADELPHIA_LIMITATIONS = Object.freeze([
 const PHILADELPHIA_ADAPTER_DEFINITION = {
   schemaVersion: CITY_ADAPTER_SCHEMA_VERSIONS.cityAdapter,
   cityId: 'philadelphia-pa-us',
-  adapterVersion: 'philadelphia-synthetic-city-adapter/v1',
-  sourceProfileVersion: 'philadelphia-synthetic-street-profile/v1',
+  adapterVersion: 'philadelphia-synthetic-city-adapter/v2',
+  sourceProfileVersion: 'philadelphia-synthetic-street-profile/v2',
   sourceSchemaVersion: CITY_ADAPTER_SCHEMA_VERSIONS.sourceGraph,
   outputSchemaVersion: CITY_ADAPTER_SCHEMA_VERSIONS.graphArtifact,
   spatialReference: {
@@ -112,7 +115,11 @@ function fail(message) {
 }
 
 function inspectPlainObject(value, label) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)
+  if (!value || typeof value !== 'object') {
+    fail(`${label} must be a plain object`);
+  }
+  if (utilTypes.isProxy(value)) fail(`${label} must not be a Proxy`);
+  if (Array.isArray(value)
     || Object.getPrototypeOf(value) !== Object.prototype) {
     fail(`${label} must be a plain object`);
   }
@@ -123,18 +130,18 @@ function inspectPlainObject(value, label) {
   const descriptors = Object.getOwnPropertyDescriptors(value);
   for (const key of keys) {
     if (BLOCKED_NAMES.has(key)) fail(`${label} contains a blocked property`);
-    if (!Object.hasOwn(descriptors[key], 'value')) {
-      fail(`${label} must contain data properties only`);
+    if (!Object.hasOwn(descriptors[key], 'value') || descriptors[key].enumerable !== true) {
+      fail(`${label} must contain enumerable own data properties only`);
     }
   }
   return { keys, descriptors };
 }
 
-function exactObject(value, label, requiredKeys) {
+function exactObject(value, label, requiredKeys, optionalKeys = []) {
   const { keys, descriptors } = inspectPlainObject(value, label);
-  const required = new Set(requiredKeys);
+  const allowed = new Set([...requiredKeys, ...optionalKeys]);
   const missing = requiredKeys.filter((key) => !Object.hasOwn(descriptors, key));
-  const unknown = keys.filter((key) => !required.has(key));
+  const unknown = keys.filter((key) => !allowed.has(key));
   if (missing.length || unknown.length) {
     fail(`${label} schema mismatch (missing: ${missing.join(',') || 'none'}; unknown: ${unknown.join(',') || 'none'})`);
   }
@@ -142,6 +149,8 @@ function exactObject(value, label, requiredKeys) {
 }
 
 function strictArray(value, label, { min = 0, max = MAX_ITEMS } = {}) {
+  if (!value || typeof value !== 'object') fail(`${label} must be an array`);
+  if (utilTypes.isProxy(value)) fail(`${label} must not be a Proxy`);
   if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
     fail(`${label} must be an array`);
   }
@@ -154,8 +163,8 @@ function strictArray(value, label, { min = 0, max = MAX_ITEMS } = {}) {
   const items = [];
   for (let index = 0; index < length; index += 1) {
     const descriptor = descriptors[String(index)];
-    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
-      fail(`${label} must be dense and contain data properties only`);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+      fail(`${label} must be dense and contain enumerable own data properties only`);
     }
     items.push(descriptor.value);
   }
@@ -202,7 +211,11 @@ function admitContentIdentity(raw, expectedProjection, label) {
     'digest',
   ]);
   exactString(value.schemaVersion, CITY_ADAPTER_SCHEMA_VERSIONS.contentIdentity, `${label}.schemaVersion`);
-  exactString(value.canonicalization, 'sorted-json-data-properties/v1', `${label}.canonicalization`);
+  exactString(
+    value.canonicalization,
+    CITY_ADAPTER_IDENTITY_CANONICALIZATION,
+    `${label}.canonicalization`,
+  );
   exactString(value.digestAlgorithm, 'sha256', `${label}.digestAlgorithm`);
   safeNonNegativeInteger(value.canonicalUtf8Bytes, `${label}.canonicalUtf8Bytes`);
   const expected = contentIdentity(expectedProjection);
@@ -331,7 +344,7 @@ function admitSourceGraph(raw, adapter) {
       xMm: safeNonNegativeInteger(node.xMm, `CityAdapter source graph.nodes[${index}].xMm`),
       yMm: safeNonNegativeInteger(node.yMm, `CityAdapter source graph.nodes[${index}].yMm`),
     };
-  });
+  }).sort((left, right) => compareCodeUnits(left.sourceNodeId, right.sourceNodeId));
 
   const edgeIds = new Set();
   const edges = strictArray(value.edges, 'CityAdapter source graph.edges').map((rawEdge, index) => {
@@ -375,7 +388,7 @@ function admitSourceGraph(raw, adapter) {
         pavedSurface: admitSourceCapability(capabilities.pavedSurface, `${label}.capabilities.pavedSurface`),
       },
     };
-  });
+  }).sort((left, right) => compareCodeUnits(left.sourceEdgeId, right.sourceEdgeId));
 
   return deepFreeze({
     schemaVersion: value.schemaVersion,
@@ -555,13 +568,17 @@ function buildExpectedAdaptationResult(sourceGraph, adapter) {
   };
 }
 
-export function admitCityAdaptationResult(raw, {
-  sourceGraph: rawSourceGraph,
-  adapter: rawAdapter = PHILADELPHIA_SYNTHETIC_CITY_ADAPTER,
-} = {}) {
-  if (rawSourceGraph === undefined) {
-    fail('CityAdaptationResult admission requires sourceGraph');
-  }
+export function admitCityAdaptationResult(raw, rawOptions) {
+  const options = exactObject(
+    rawOptions,
+    'CityAdaptationResult options',
+    ['sourceGraph'],
+    ['adapter'],
+  );
+  const rawSourceGraph = options.sourceGraph;
+  const rawAdapter = Object.hasOwn(options, 'adapter')
+    ? options.adapter
+    : PHILADELPHIA_SYNTHETIC_CITY_ADAPTER;
   const adapter = admitCityAdapter(rawAdapter);
   const sourceGraph = admitSourceGraph(rawSourceGraph, adapter);
   const rawResult = inspectAdaptationResult(raw);
@@ -592,7 +609,7 @@ function contentIdentity(value) {
   const canonical = canonicalStringify(value);
   return {
     schemaVersion: CITY_ADAPTER_SCHEMA_VERSIONS.contentIdentity,
-    canonicalization: 'sorted-json-data-properties/v1',
+    canonicalization: CITY_ADAPTER_IDENTITY_CANONICALIZATION,
     digestAlgorithm: 'sha256',
     canonicalUtf8Bytes: new TextEncoder().encode(canonical).length,
     digest: `sha256:${createHash('sha256').update(canonical, 'utf8').digest('hex')}`,
@@ -611,6 +628,7 @@ function snapshotData(value, label, seen = new WeakSet(), depth = 0) {
       || (typeof value === 'number' && Number.isFinite(value))) return value;
     fail(`${label} contains unsupported data`);
   }
+  if (utilTypes.isProxy(value)) fail(`${label} must not be a Proxy`);
   if (seen.has(value)) fail(`${label} must not contain cycles or aliases`);
   seen.add(value);
   let copy;

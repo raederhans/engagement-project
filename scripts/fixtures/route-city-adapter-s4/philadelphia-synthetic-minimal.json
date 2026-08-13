@@ -3,7 +3,7 @@
   "cityId": "philadelphia-pa-us",
   "sourceId": "synthetic-philadelphia-minimal",
   "sourceVersion": "fixture-v1",
-  "sourceProfileVersion": "philadelphia-synthetic-street-profile/v1",
+  "sourceProfileVersion": "philadelphia-synthetic-street-profile/v2",
   "crs": "synthetic-philadelphia-mm-grid/v1",
   "axisOrder": ["x", "y"],
   "coordinateUnits": "millimetres",
