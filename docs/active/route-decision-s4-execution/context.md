@@ -22,6 +22,8 @@
 | 2026-08-13 | The user explicitly authorized S4 execution after accepting both preparation packages. | Code implementation may begin, but dependency gates still separate real data, eligible performance, pilot, public/release, and deployment actions. |
 | 2026-08-13 | Start four worktree-isolated lanes for explanation, performance protocol, city adaptation, and external graph admission. | Each lane owns disjoint new paths, returns uncommitted work, and cannot change refs, index, package scripts, central records, existing public barrels, runtime, or shared outputs. |
 | 2026-08-13 | Keep the first implementation wave synthetic-only and contract-first. | The primary owner can review semantic truth before opening UI integration, eligible sampling, acquisition, or promotion paths. |
+| 2026-08-13 | Commit coordination baseline `f1330c4` and create four detached worktrees at that exact revision. | Explanation (`f669`) and CityAdapter (`26c2`) started immediately; Performance (`0596`) and External Graph Admission (`adec`) are queued with ready clean worktrees. |
+| 2026-08-13 | Explanation and CityAdapter reported their initial HEAD/status/ownership checks. | Both confirmed `f1330c4`, clean start, synthetic-only inputs, isolated new paths, no public barrel/runtime/data gate, and no Git authority. |
 
 ## Live process ownership
 
@@ -38,5 +40,6 @@ artifact. The primary owner reviews and integrates one lane at a time.
 
 ## Next step
 
-Create four isolated Codex worktree tasks from this exact branch baseline,
-record their task/worktree IDs, and obtain explicit ownership acknowledgments.
+Monitor the two active and two queued worktree tasks, obtain the remaining
+ownership acknowledgments, and review the first stable lane deliveries before
+opening any downstream integration or live gate.
