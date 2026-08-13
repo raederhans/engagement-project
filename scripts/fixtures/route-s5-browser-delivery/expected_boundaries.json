@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "engagement-route-decision-browser-boundary-fixture/v1",
+  "displayCompletenessScope": "browser-boundary-summary/v1",
+  "sourcePresentationRelationship": "source-fact-contract-only-not-full-s4-presentation-projection",
+  "requestedFactorStateDisclosure": "bound-graph-wide-not-terminal-cause",
+  "cityAdapterLimitations": [
+    "synthetic-field-shape-only",
+    "not-real-philadelphia-data",
+    "not-product-or-public-admitted",
+    "not-second-city-transferability-evidence",
+    "digest-proves-json-internal-consistency-only",
+    "digest-does-not-prove-source-history-authorization-or-transferability"
+  ],
+  "deliveryLimitations": [
+    "synthetic-evidence-only",
+    "not-real-philadelphia-data",
+    "not-product-or-public-admitted",
+    "not-second-city-transferability-evidence",
+    "unknown-unavailable-preserved-not-zero-or-false",
+    "not-source-authenticity",
+    "not-typed-recomputation",
+    "not-performance-authority",
+    "not-external-graph-authority",
+    "not-product-admission"
+  ],
+  "doesNotProve": [
+    "source-authenticity",
+    "typed-recomputation",
+    "performance-authority",
+    "external-graph-authority",
+    "product-admission"
+  ]
+}
