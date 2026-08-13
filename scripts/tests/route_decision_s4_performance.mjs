@@ -224,11 +224,113 @@ test('partial, stopped, failure, and summary self-authorship keep frozen denomin
   const failedSample = (await collect(failed, 1, { operations })).sample;
   assert.equal(failedSample.errorCode, 'synthetic-stage-failure');
   assert.equal('error' in failedSample, false);
+  assert.equal(failed.summarize([failedSample]).decision, 'no-decision-partial');
 
   const summary = partial.summarize([]);
   const forgedSummary = structuredClone(summary);
   forgedSummary.counts.plannedGateEligible = 0;
-  assert.throws(() => partial.admitSummary(forgedSummary, []), /not mechanically derived/);
+  assert.throws(() => partial.admitSummary(forgedSummary, []), /not minted by this session/);
+});
+
+test('summary authority is private to its session and exact sample collection order', async () => {
+  const session = sessionFor();
+  const first = (await collect(session, 1)).sample;
+  const second = (await collect(session, 2)).sample;
+  const samples = [first, second];
+  const summary = session.summarize(samples);
+  assert.equal(session.admitSummary(summary, samples), summary);
+
+  assert.throws(
+    () => session.admitSummary(structuredClone(summary), samples),
+    /not minted by this session/,
+  );
+  assert.throws(
+    () => session.admitSummary(JSON.parse(JSON.stringify(summary)), samples),
+    /not minted by this session/,
+  );
+  assert.throws(
+    () => session.admitSummary({ ...summary }, samples),
+    /not minted by this session/,
+  );
+  assert.throws(
+    () => session.admitSummary(summary, [second, first]),
+    /sample collection or order drifted/,
+  );
+  assert.throws(
+    () => session.admitSummary(summary, [first]),
+    /sample collection or order drifted/,
+  );
+
+  const other = sessionFor();
+  const otherFirst = (await collect(other, 1)).sample;
+  const otherSecond = (await collect(other, 2)).sample;
+  const otherSummary = other.summarize([otherFirst, otherSecond]);
+  assert.deepEqual(otherSummary, summary);
+  assert.throws(
+    () => session.admitSummary(otherSummary, samples),
+    /not minted by this session/,
+  );
+});
+
+test('caller-injected clock, memory, and stage failure cannot manufacture performance pass or fail', async () => {
+  const artifacts = syntheticArtifacts();
+  let clock = 0n;
+  const hostileCollector = createRouteS4StageInstrumentation({
+    clock: () => { clock += 1_000_000_000n; return clock; },
+    readMemory: () => ({ rss: 1_000_000_000, heapUsed: 1_000_000_000 }),
+    errorCodeFor: () => 'caller-authored-failure',
+  });
+  const gate = createRouteS4PerformanceSession({
+    attempt: syntheticAttempt('gate-eligible', artifacts), artifacts, collector: hostileCollector,
+  });
+  const samples = [];
+  for (let ordinal = 1; ordinal <= 30; ordinal += 1) {
+    samples.push((await collect(gate, ordinal)).sample);
+  }
+  const summary = gate.summarize(samples);
+  assert.equal(summary.strata.every((stratum) => (
+    stratum.totalP95Nanoseconds > stratum.thresholds.totalP95Nanoseconds
+  )), true);
+  assert.equal(summary.processAuthority, 'unverified');
+  assert.equal(summary.decision, 'no-decision-authority-unverified');
+  assert.notEqual(summary.decision, 'pass');
+  assert.notEqual(summary.decision, 'fail');
+
+  const failingGate = sessionFor('gate-eligible');
+  const failureSamples = [];
+  for (let ordinal = 1; ordinal <= 30; ordinal += 1) {
+    const operations = syntheticOperations();
+    if (ordinal === 1) operations['adapter-input'] = () => { throw new Error('caller-selected failure'); };
+    failureSamples.push((await collect(failingGate, ordinal, { operations })).sample);
+  }
+  const failureSummary = failingGate.summarize(failureSamples);
+  assert.equal(failureSummary.counts.failedGateEligible, 1);
+  assert.equal(failureSummary.decision, 'no-decision-collection-failure');
+  assert.notEqual(failureSummary.decision, 'fail');
+});
+
+test('sample arrays and memory probes reject accessors, hidden data, symbols, and non-plain containers', async () => {
+  const session = sessionFor();
+  const { sample } = await collect(session, 1);
+  let getterCalls = 0;
+  const hostileSamples = [];
+  Object.defineProperty(hostileSamples, '0', {
+    enumerable: true,
+    get() { getterCalls += 1; return sample; },
+  });
+  hostileSamples.length = 1;
+  assert.throws(() => session.summarize(hostileSamples), /enumerable data property/);
+  assert.equal(getterCalls, 0);
+
+  const hiddenMemory = createRouteS4StageInstrumentation({
+    clock: () => 1n,
+    readMemory: () => {
+      const value = { rss: 1, heapUsed: 1 };
+      Object.defineProperty(value, 'hidden', { value: 1 });
+      return value;
+    },
+  });
+  await assert.rejects(() => hiddenMemory.run(syntheticOperations()), /exact rss and heapUsed keys/);
 });
 
 test('instrumentation rechecks abort after awaited stage and after final stage, preserving completed boundary', async () => {
@@ -246,6 +348,37 @@ test('instrumentation rechecks abort after awaited stage and after final stage, 
   assert.equal('results' in result.evidence, false);
 });
 
+test('abort boundary rereads exact descriptors and fails closed on data-to-getter TOCTOU', async () => {
+  let getterCalls = 0;
+  const signal = { aborted: false };
+  const operations = syntheticOperations((stageId) => {
+    if (stageId === 'adapter-input') {
+      Object.defineProperty(signal, 'aborted', {
+        enumerable: true,
+        configurable: true,
+        get() { getterCalls += 1; return true; },
+      });
+    }
+  });
+  await assert.rejects(
+    () => deterministicCollector().run(operations, { signal }),
+    /enumerable own boolean data property/,
+  );
+  assert.equal(getterCalls, 0);
+
+  let proxyTraps = 0;
+  const proxiedSignal = new Proxy({ aborted: false }, {
+    get() { proxyTraps += 1; return false; },
+    ownKeys() { proxyTraps += 1; return ['aborted']; },
+    getOwnPropertyDescriptor() { proxyTraps += 1; return { enumerable: true, value: false }; },
+  });
+  await assert.rejects(
+    () => deterministicCollector().run(syntheticOperations(), { signal: proxiedSignal }),
+    /non-Proxy plain abort data/,
+  );
+  assert.equal(proxyTraps, 0);
+});
+
 test('instrumentation operation and memory probes are descriptor-safe and invoke no getter', async () => {
   let calls = 0;
   const operations = syntheticOperations();
@@ -260,7 +393,7 @@ test('instrumentation operation and memory probes are descriptor-safe and invoke
     clock: () => 1n,
     readMemory: () => new Proxy({ rss: 1, heapUsed: 1 }, {}),
   });
-  await assert.rejects(() => proxiedMemory.run(syntheticOperations()), /memory must be non-Proxy data/);
+  await assert.rejects(() => proxiedMemory.run(syntheticOperations()), /memory must be non-Proxy plain data/);
 });
 
 function sessionFor(mode = 'diagnostic-dry-run', artifacts = syntheticArtifacts()) {

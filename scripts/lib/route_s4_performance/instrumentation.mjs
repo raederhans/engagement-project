@@ -17,7 +17,6 @@ export function createRouteS4StageInstrumentation(input = Object.create(null)) {
     async run(stageOperations, runInput = Object.create(null)) {
       const signal = admitRunOptions(runInput);
       const operations = admitOperations(stageOperations);
-      admitSignal(signal);
       const baseline = memory(readMemory(), 'sample baseline');
       let peakRss = baseline.rss;
       let peakHeap = baseline.heapUsed;
@@ -25,7 +24,7 @@ export function createRouteS4StageInstrumentation(input = Object.create(null)) {
       const businessResults = Object.create(null);
 
       for (const stageId of ROUTE_S4_PERFORMANCE_PROTOCOL.stages) {
-        if (signal?.aborted) return finish('stopped', stopCode(signal), completedStageId());
+        if (readAbort(signal)) return finish('stopped', stopCode(), completedStageId());
         observeMemory();
         const started = time(clock(), `${stageId} start`);
         try {
@@ -34,16 +33,16 @@ export function createRouteS4StageInstrumentation(input = Object.create(null)) {
           const ended = time(clock(), `${stageId} end`);
           observeMemory();
           stages.push(stage(stageId, started, ended));
-          return signal?.aborted
-            ? finish('stopped', stopCode(signal), stageId)
+          return readAbort(signal)
+            ? finish('stopped', stopCode(), stageId)
             : finish('failure', boundedErrorCode(errorCodeFor(error, stageId)), stageId);
         }
         const ended = time(clock(), `${stageId} end`);
         observeMemory();
         stages.push(stage(stageId, started, ended));
-        if (signal?.aborted) return finish('stopped', stopCode(signal), stageId);
+        if (readAbort(signal)) return finish('stopped', stopCode(), stageId);
       }
-      if (signal?.aborted) return finish('stopped', stopCode(signal), completedStageId());
+      if (readAbort(signal)) return finish('stopped', stopCode(), completedStageId());
       return finish('success', null, completedStageId());
 
       function observeMemory() {
@@ -130,16 +129,29 @@ function descriptorOptions(value, allowed, requireAll, label) {
   return output;
 }
 
-function admitSignal(signal) {
-  if (signal === null) return;
-  if (!signal || typeof signal !== 'object' || utilTypes.isProxy(signal)) throw new TypeError('signal must be non-Proxy AbortSignal-like data');
+function readAbort(signal) {
+  if (signal === null) return false;
+  if (!signal || typeof signal !== 'object' || utilTypes.isProxy(signal)) {
+    throw new TypeError('signal must be non-Proxy plain abort data');
+  }
+  const prototype = Object.getPrototypeOf(signal);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('signal must have a plain prototype');
+  }
+  const keys = Reflect.ownKeys(signal);
+  if (keys.length !== 1 || keys[0] !== 'aborted') {
+    throw new TypeError('signal must have exact aborted key');
+  }
   const aborted = Object.getOwnPropertyDescriptor(signal, 'aborted');
-  if (!aborted || !('value' in aborted) || typeof aborted.value !== 'boolean') throw new TypeError('signal.aborted must be a boolean data property');
+  if (!aborted?.enumerable || !('value' in aborted) || typeof aborted.value !== 'boolean') {
+    throw new TypeError('signal.aborted must be an enumerable own boolean data property');
+  }
+  return aborted.value;
 }
 
 function stopCode() { return 'collection-aborted'; }
 function boundedErrorCode(value) { if (typeof value !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,127}$/u.test(value)) throw new TypeError('errorCodeFor returned an invalid code'); return value; }
 function stage(stageId, start, end) { if (end < start) throw new TypeError(`clock moved backwards during ${stageId}`); const duration = end - start; if (duration > BigInt(Number.MAX_SAFE_INTEGER)) throw new TypeError('duration exceeds safe integer'); return { stageId, durationNanoseconds: Number(duration) }; }
 function time(value, label) { if (typeof value !== 'bigint' || value < 0n) throw new TypeError(`${label} must be a non-negative bigint`); return value; }
-function memory(value, label) { if (!value || typeof value !== 'object' || utilTypes.isProxy(value)) throw new TypeError(`${label} memory must be non-Proxy data`); const descriptors = Object.getOwnPropertyDescriptors(value); const output = {}; for (const key of ['rss', 'heapUsed']) { const descriptor = descriptors[key]; if (!descriptor || !('value' in descriptor) || !Number.isSafeInteger(descriptor.value) || descriptor.value < 0) throw new TypeError(`${label}.${key} is invalid`); output[key] = descriptor.value; } return output; }
+function memory(value, label) { if (!value || typeof value !== 'object' || utilTypes.isProxy(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new TypeError(`${label} memory must be non-Proxy plain data`); const keys = Reflect.ownKeys(value); if (keys.some((key) => typeof key === 'symbol') || keys.sort().join('\0') !== ['heapUsed', 'rss'].join('\0')) throw new TypeError(`${label} memory must have exact rss and heapUsed keys`); const descriptors = Object.getOwnPropertyDescriptors(value); const output = {}; for (const key of ['rss', 'heapUsed']) { const descriptor = descriptors[key]; if (!descriptor.enumerable || !('value' in descriptor) || !Number.isSafeInteger(descriptor.value) || descriptor.value < 0) throw new TypeError(`${label}.${key} is invalid`); output[key] = descriptor.value; } return output; }
 function deepFreeze(value) { Object.freeze(value); for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) if ('value' in descriptor && descriptor.value && typeof descriptor.value === 'object') deepFreeze(descriptor.value); return value; }

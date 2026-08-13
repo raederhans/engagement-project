@@ -21,6 +21,7 @@ const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SNAPSHOT_LIMITS = Object.freeze({ maxDepth: 12, maxNodes: 10_000, maxKeys: 200, maxArray: 1_000 });
 const SESSION_STATE = new WeakMap();
 const SAMPLE_STATE = new WeakMap();
+const SUMMARY_STATE = new WeakMap();
 
 export const ROUTE_S4_PERFORMANCE_PROTOCOL = deepFreeze({
   schemaVersion: VERSIONS.protocol,
@@ -85,6 +86,8 @@ export const ROUTE_S4_PERFORMANCE_PROTOCOL = deepFreeze({
     everyStratumThresholdRequired: true,
     freshProcessAuthority: 'external-main-owned-authority-required-v1-cannot-self-attest',
     authorityUnverifiedDecision: 'no-decision-authority-unverified',
+    collectionFailureDecision: 'no-decision-collection-failure',
+    thresholdDecisionWithoutAuthority: 'no-decision-authority-unverified',
     noPostHocPolicy: 'thresholds-strata-order-exclusions-and-mode-cannot-change-after-session-creation',
   },
   exclusions: {
@@ -244,11 +247,10 @@ function mintSample(state, slot, startedAt, evidence) {
   });
 }
 
-function summarizeWithSession(session, sampleInputs) {
+function summarizeWithSession(session, sampleInputs, mintAuthority = true) {
   const state = requireSession(session);
-  if (!Array.isArray(sampleInputs) || utilTypes.isProxy(sampleInputs)) fail('samples must be a non-Proxy array');
-  if (sampleInputs.length > state.attempt.schedule.length) fail('samples exceed frozen schedule');
-  const samples = sampleInputs.map((sample) => {
+  const sampleReferences = exactDenseArrayData(sampleInputs, 'samples', state.attempt.schedule.length);
+  const samples = sampleReferences.map((sample) => {
     const brand = SAMPLE_STATE.get(sample);
     if (!brand || brand.session !== session || !state.minted.has(brand.ordinal)) fail('sample is not minted by this session');
     return sample;
@@ -281,20 +283,36 @@ function summarizeWithSession(session, sampleInputs) {
   counts.missingGateEligible = counts.plannedGateEligible - counts.observedGateEligible;
   counts.missingWarmup = counts.plannedWarmup - counts.observedWarmup;
   const strata = ROUTE_S4_PERFORMANCE_PROTOCOL.strata.map((stratum) => summarizeStratum(stratum, gateSamples));
-  return deepFreeze({
+  const summary = deepFreeze({
     schemaVersion: VERSIONS.summary, attemptId: state.attempt.attemptId,
     mode: state.attempt.mode, protocolVersion: VERSIONS.protocol, counts, strata,
     processAuthority: 'unverified',
     decision: decide(state.attempt.mode, counts, strata),
     claimScope: 'synthetic-engineering-performance-only',
   });
+  if (mintAuthority) {
+    SUMMARY_STATE.set(summary, {
+      session,
+      samples: Object.freeze([...samples]),
+    });
+  }
+  return summary;
 }
 
-function admitSummaryWithSession(session, rawSummary, samples) {
-  const summary = safeSnapshot(rawSummary, 'summary');
-  const derived = summarizeWithSession(session, samples);
+function admitSummaryWithSession(session, summary, sampleInputs) {
+  requireSession(session);
+  const authority = SUMMARY_STATE.get(summary);
+  if (!authority || authority.session !== session) {
+    fail('summary is not minted by this session');
+  }
+  const samples = exactDenseArrayData(sampleInputs, 'samples', authority.samples.length);
+  if (samples.length !== authority.samples.length
+    || samples.some((sample, index) => sample !== authority.samples[index])) {
+    fail('summary sample collection or order drifted');
+  }
+  const derived = summarizeWithSession(session, samples, false);
   if (canonical(summary) !== canonical(derived)) fail('summary is not mechanically derived');
-  return derived;
+  return summary;
 }
 
 function admitAttempt(input, bindings) {
@@ -422,11 +440,29 @@ function decide(mode, counts, strata) {
   if (mode === 'diagnostic-dry-run') return 'ineligible-diagnostic';
   if (counts.stoppedGateEligible || counts.stoppedWarmup) return 'no-decision-stopped';
   if (counts.missingGateEligible || counts.missingWarmup) return 'no-decision-partial';
-  if (counts.failedGateEligible || counts.failedWarmup) return 'fail';
-  const thresholdsPass = strata.every((stratum) => stratum.totalP95Nanoseconds <= stratum.thresholds.totalP95Nanoseconds
-    && stratum.maximumRssDeltaBytes <= stratum.thresholds.maximumRssDeltaBytes
-    && stratum.maximumHeapUsedDeltaBytes <= stratum.thresholds.maximumHeapUsedDeltaBytes);
-  return thresholdsPass ? 'no-decision-authority-unverified' : 'fail';
+  if (counts.failedGateEligible || counts.failedWarmup) return 'no-decision-collection-failure';
+  return 'no-decision-authority-unverified';
+}
+
+function exactDenseArrayData(value, label, maximumLength) {
+  if (!Array.isArray(value) || utilTypes.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype) {
+    fail(`${label} must be a non-Proxy plain array`);
+  }
+  if (value.length > maximumLength) fail(`${label} exceeds frozen schedule`);
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key === 'symbol')) fail(`${label} must not contain symbol keys`);
+  const dataKeys = keys.filter((key) => key !== 'length');
+  if (dataKeys.length !== value.length) fail(`${label} must be dense without hidden properties`);
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const output = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) {
+      fail(`${label}[${index}] must be an enumerable data property`);
+    }
+    output.push(descriptor.value);
+  }
+  return output;
 }
 
 function admitStages(stages, outcome) {
