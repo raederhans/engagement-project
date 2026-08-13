@@ -63,6 +63,8 @@
 | 2026-08-13 | Assign exact disjoint Wave 1 ownership. | S5-A owns only `src/route_decision/integration/**`, its one focused test, and `route-s5-integration` fixtures. S5-D owns only `scripts/lib/route_graph_authority/**`, its one focused test, and `route-graph-authority-s5` fixtures. S0-S4, records, refs/index, barrels, runtime, packages/workflows, live processes, and protected artifacts remain primary-owned. |
 | 2026-08-13 | Preserve the authority boundary while S5-D proceeds. | A state-machine prerequisite may be implemented, but absent a caller-unforgeable external root of trust every actual admission, promotion, materialization, publication, and Source Health transition remains unreachable. Self-authored JSON, hashes, policy, receipt, review, or in-process brands cannot close the WATCH. |
 | 2026-08-13 | Freeze delayed duplicate task `019ffb26-8416-75c3-b87c-384906dc2387` in `dd31`. | It duplicates the authoritative S5-D task in `d694` and received `DUPLICATE FREEZE`. Read-only verification found clean detached `0e8030f`, empty index, and no tracked or untracked delta. It is excluded from delivery and must not be modified, integrated, rolled back, or cleaned; if later bytes appear, record them without changing them. |
+| 2026-08-13 | Complete the first independent Stage 5 Wave 1 review cycle. | Architecture is `CLEAR` for both S5-A and S5-D. Independent code/spec/security is `REQUEST CHANGES` for both: S5-A has one P2 in array-length descriptor-mode validation; S5-D has one P2 covering descriptor mode on all three public roots and the `transitions` array's mutable/frozen form. Architecture clearance does not override these code review blockers. |
+| 2026-08-13 | Return both Wave 1 lanes to bounded author rework. | Neither lane may receive a source-final commit or central integration. S5-B and S5-C remain HOLD and uncreated. Each Wave 1 lane must produce a new stable freeze and pass fresh non-blocking code/spec/security and architecture reviews before the integration owner may consider it again. |
 
 ## Live process ownership
 
@@ -73,15 +75,19 @@
 ## Handoff
 
 Bounded S4 integration remains complete and retained for audit. Stage 5 Wave 1
-now has two clean detached author starts at `0e8030f`: S5-A in `8868` and S5-D
-in `d694`. Both authors stop at stable owned-path freeze without index/ref/
-commit authority. S5-B and S5-C are not started and have no active ownership.
+S5-A in `8868` and authoritative S5-D in `d694` are in bounded rework after
+their first code/spec/security reviews each returned one P2 and `REQUEST
+CHANGES`; both first architecture reviews are `CLEAR`. Neither author has
+index/ref/commit authority. S5-B and S5-C are not started and have no active
+ownership. Duplicate S5-D task `dd31` remains untouched and excluded.
 
 ## Next step
 
-Wait for stable S5-A and S5-D author handoffs. Review each through independent
-code/spec/security and architecture views. S5-A is the next central integration
-candidate only if both views are non-blocking and its owned scope is exact;
-after its exact-head central validation, and not before, create S5-B and S5-C
-from that new central revision. Do not implement for the authors, start live
-gates, or push/merge/release/deploy.
+Wait for new stable S5-A and S5-D freezes after the exact descriptor-mode
+repairs, then rerun independent code/spec/security and architecture reviews.
+Do not create a source-final commit or integrate either lane while any review
+remains blocking. S5-A becomes the next central integration candidate only if
+both fresh views are non-blocking and its owned scope is exact; after its
+exact-head central validation, and not before, create S5-B and S5-C from that
+new central revision. Do not implement for the authors, start live gates, or
+push/merge/release/deploy.

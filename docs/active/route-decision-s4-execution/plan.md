@@ -83,6 +83,17 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   and S5-C enter the integration queue only after their own stable freeze and
   two-view review; product decisions or conflicts are not guessed.
 
+### Current Wave 1 review gate
+
+- S5-A and S5-D each completed an initial architecture review with `CLEAR`.
+- Their initial independent code/spec/security reviews each returned `REQUEST
+  CHANGES` for one P2. S5-A must repair array-length descriptor-mode validation;
+  S5-D must repair descriptor-mode validation for all three public roots and the
+  `transitions` array's mutable/frozen form.
+- Both lanes remain in author-owned rework. No source-final commit, central
+  integration, or Wave 2 startup is allowed until each lane provides a new
+  stable freeze and both independent review views are freshly non-blocking.
+
 ## Acceptance criteria
 
 - Each new public or validation artifact has one exact versioned schema,
