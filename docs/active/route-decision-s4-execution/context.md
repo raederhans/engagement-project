@@ -14,6 +14,11 @@
   evidence exists.
 - The primary worktree has no tracked WIP. Pre-existing `.playwright-mcp/`,
   logs, Playwright output, and private S3 output are protected and unowned by S4.
+- Four accepted S4 commits are now integrated locally and serially on the S4
+  coordination branch: Explanation `34f5a8c`, CityAdapter `3d16250`,
+  Performance `766641d`, and External Graph Conformance `75e624f`.
+- No lane changed an existing public barrel, product runtime, UI, workflow,
+  package script, Source Health catalog, or Evidence Bundle path.
 
 ## Decisions and deviations
 
@@ -26,6 +31,11 @@
 | 2026-08-13 | Explanation and CityAdapter reported their initial HEAD/status/ownership checks. | Both confirmed `f1330c4`, clean start, synthetic-only inputs, isolated new paths, no public barrel/runtime/data gate, and no Git authority. |
 | 2026-08-13 | Audit the reported S4-2/S4-4 startup problem against live task and worktree state. | Both queued requests had resolved into active tasks, but the prior record had their worktree assignments reversed. Performance is task `019ff9ab-6964-7413-a142-c3d6d958e6d3` on `adec`; External Graph Admission is task `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` on `0596`. Both confirmed correct prompts and clean `f1330c4` before writing, so no code ownership collision occurred. |
 | 2026-08-13 | Receive the first Explanation and CityAdapter deliveries. | Both kept HEAD/index/refs unchanged, returned only owned untracked files and focused validation evidence, and remain unintegrated pending primary review. |
+| 2026-08-13 | Run independent code/spec/security and architecture reviews over all four frozen lanes. | Initial focused passes were insufficient: reviewers found explanation effect/count/identity/oracle gaps, performance self-authorship/getter/abort/order races, CityAdapter revision/result/ID-domain gaps, and graph-policy self-authorization. Every blocker was returned to its owning task and re-reviewed after repair. |
+| 2026-08-13 | Accept final frozen deliveries only after both review lanes returned `ACCEPT/CLEAR`. | Final review reported P0/P1/P2/WATCH zero and no cross-lane path, schema, import, or runtime conflict. Acceptance remains bounded to internal contract/infrastructure integration. |
+| 2026-08-13 | Integrate serially as Explanation `34f5a8c` -> CityAdapter `3d16250` -> Performance `766641d` -> External Graph Conformance `75e624f`. | Each commit is single-purpose and was followed by an exact-head focused/adjacent regression before the next cherry-pick. No conflict or protected-artifact change occurred. |
+| 2026-08-13 | Run a final combined central short regression and static closeout. | S4 four-lane plus S2 contracts/search/evaluator, S3 candidate lifecycle, and Source Health passed `166/166`; targeted ESLint, 17-file Node syntax, and diff-check passed. |
+| 2026-08-13 | Keep downstream activation closed. | S4-2 lacks fresh-process authority; S4-4 lacks trusted authority and actual admission/materialization; S4-3 remains synthetic-only; S4-1 remains bounded/non-causal. Real data, browser/Worker, runtime/public, pilot, release, and deploy require new explicit gates. |
 
 ## Live process ownership
 
@@ -35,13 +45,13 @@
 
 ## Handoff
 
-Workers must report exact starting and ending HEAD/status, owned files, focused
-commands/results, known gaps, and any overlap or prerequisite. They must not
-stage, commit, push, change refs/worktrees, touch central records, or clean any
-artifact. The primary owner reviews and integrates one lane at a time.
+All worker deliveries were reviewed and serially integrated by the primary
+owner. Detached source worktrees now hold the source delivery commits and are
+retained as audit/recovery evidence; no cleanup was requested or required.
 
 ## Next step
 
-Review the completed Explanation and CityAdapter deliveries while Performance
-and External Graph Admission continue, then inspect all four before opening any
-downstream integration or live gate.
+The bounded local S4 integration and record closeout are complete. Report the
+local branch and push status, retain detached source worktrees for audit, and do
+not open downstream live, data, public, release, or deployment gates without a
+new explicit authorization and their direct prerequisites.
