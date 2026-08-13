@@ -74,27 +74,31 @@
 | 2026-08-13 | Integrate only S5-D as Stage 5 serial unit 2. | Source `f443f96e` was cherry-picked with source trace over exact central `3ae5ae1` as code commit `7fb08552`. All seven source and central Git blobs are equal; no S5-B/S5-C or S0-S4/runtime/barrel/package/workflow path was included. |
 | 2026-08-13 | Validate S5-D on central exact code HEAD `7fb08552`. | S5-D focused passed `31/31`; S4-4 adjacent passed `17/17`; an independent hostile Proxy PoC rejected all three public roots with zero trap calls. Targeted ESLint, five-file Node syntax, two-fixture JSON parse, diff-check, seven-path source equality, and exact seven-path scope allowlist passed. |
 | 2026-08-13 | Preserve the S5-D authority boundary. | The delivery is named and admitted only as an **authority-unavailable prerequisite contract + synthetic state-machine simulator**. Production transitions stop at `authority-unavailable`; actual authority/admission/materialization/Source Health/publication stay false or unavailable, and the underlying S4 Source Health projection stays `unknown`, `not-observed`, and mutation-unauthorized. Simulator `finalState` remains synthetic-only and nonconsumable with `syntheticOnly: true`, `actualAdmission: false`, and `productConsumable: false`; no trusted authority or publication readiness is claimed. |
+| 2026-08-13 | Receive the first S5-B Wave 2 review verdict. | Independent code/spec/security reports one P1 and `REQUEST CHANGES`; architecture reports `BLOCK`. The browser parser can accept a newly self-hashed artifact whose terminal truth is unreachable, and `textComplete` can survive deletion of conditional limitations or arbitrary presentation prose. S5-B is review-blocked: no source-final or integration is allowed until a new freeze closes both roots and passes fresh reviews. |
+| 2026-08-13 | Preserve S5-C author isolation. | S5-C remains author in progress. This records update does not inspect or process its worktree, run its tests, begin review, form a source-final, or infer cross-process performance authority. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Long tests, full validate/build, browser/Worker, server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during Stage 5 Wave 1 authoring. Only short isolated owned-lane tests are permitted. |
+| Long tests, full validate/build, browser/Worker, server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during Stage 5 authoring. Only short isolated owned-lane tests are permitted. |
 
 ## Handoff
 
 Bounded S4 integration remains complete and retained for audit. S5-A R2 is
 source-final `4a583ad9` and centrally integrated as `77a255e2`. S5-D R2 is
 source-final `f443f96e` and centrally integrated as `7fb08552`; both units keep
-their bounded claim limits and source/central blob equality. Possible S5-B/S5-C
-author startup is outside this unit; their exact task/worktree mapping was not
-inspected and no Wave 2 delivery was integrated. Duplicate S5-D task `dd31`
-remains untouched and excluded.
+their bounded claim limits and source/central blob equality. S5-B is
+review-blocked pending repair and new independent review; S5-C remains author
+in progress. Their exact task/worktree mapping was not inspected in this
+records-only update and no Wave 2 delivery was integrated. Duplicate S5-D task
+`dd31` remains untouched and excluded.
 
 ## Next step
 
-Stop after S5-D record closeout. Do not inspect, modify, commit, or integrate
-S5-B/S5-C until a later explicit single-unit release names the delivery and
-exact central base. A real root of trust, actual product admission/runtime,
-browser delivery, performance authority, live gates, push, merge, release,
-publication, and deployment remain closed.
+Hold S5-B at author rework until a new stable freeze and both review views close
+the parser-truth and presentation-completeness blockers. Let S5-C continue only
+under its author ownership; do not preflight, review, source-final, or integrate
+it early. A real root of trust, actual product admission/runtime, browser
+delivery, performance authority, live gates, push, merge, release, publication,
+and deployment remain closed.

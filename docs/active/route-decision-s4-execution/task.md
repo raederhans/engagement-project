@@ -3,7 +3,7 @@
 ## Current status
 
 `in-progress / bounded S4 integration complete; Stage 5 Wave 1 S5-A and S5-D
-integrated, Wave 2 not integrated`
+integrated; S5-B review-blocked and S5-C authoring`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -94,6 +94,12 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Under the later explicit S5-D-only release, re-preflight the reviewed
   seven-path freeze, form source-final `f443f96e`, integrate it centrally as
   `7fb08552`, and preserve the authority-unavailable/actual-false boundary.
+- [x] Record the first S5-B Wave 2 review as code/spec/security `REQUEST
+  CHANGES` with one P1 and architecture `BLOCK`; prohibit source-final and
+  integration while browser truth and presentation completeness remain
+  caller-rewritable.
+- [x] Keep S5-C at author-in-progress without preflight, review, source-final,
+  integration, or any inferred performance-authority readiness.
 - [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
@@ -168,14 +174,14 @@ This evidence closes only the bounded integration-validation activity. By
 itself it did not close the four integration WATCH items or authorize a new
 seam; the later explicit Stage 5 authorization is recorded separately above.
 
-## Stage 5 Wave 1 control matrix
+## Stage 5 control matrix
 
 | Lane | Task and worktree | Exact ownership | Current state and acceptance gate |
 | --- | --- | --- | --- |
 | S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
 | S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `f443f96e` has parent `0e8030f` and exactly seven owned paths; integrated centrally as `7fb08552` over exact `3ae5ae1`, with all seven Git blobs equal. Central focused `31/31`, S4-4 adjacent `17/17`, three-root hostile, ESLint/syntax/JSON/diff/scope checks pass. This is only an authority-unavailable prerequisite contract plus synthetic state-machine simulator. |
-| S5-B Browser Serialized Delivery | Possible separate author startup outside this unit; exact task/worktree mapping not inspected here | To be admitted only from its recorded exact base after independent review | HOLD from integration. Cannot import Node-only S4-1/S4-3 modules into browser/runtime/public barrels. |
-| S5-C Cross-process Performance Runner / Authority Result | Possible separate author startup outside this unit; exact task/worktree mapping not inspected here | To be admitted only from its recorded exact base after independent review | HOLD from integration. Generic snapshots and in-process S4-2 sessions cannot self-author pass/fail. |
+| S5-B Browser Serialized Delivery | Active author/rework outside integration ownership; exact task/worktree mapping not inspected in this records-only update | To be admitted only from its recorded exact base after a new stable freeze and fresh independent reviews | `review-blocked`: code/spec/security P1 `REQUEST CHANGES`; architecture `BLOCK`. The parser currently accepts self-rehashed unreachable terminal truth and allows conditional limitations to be removed or arbitrary presentation prose to remain `textComplete`. No source-final or integration is permitted. |
+| S5-C Cross-process Performance Runner / Authority Result | Active authoring outside integration ownership; exact task/worktree mapping not inspected in this records-only update | To be admitted only from its recorded exact base after stable freeze and independent review | `author in progress`; no review, source-final, integration, or authority-result readiness is inferred. Generic snapshots and in-process S4-2 sessions still cannot self-author pass/fail. |
 
 ### S5-A integration truth
 

@@ -99,6 +99,14 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   or integrated here. G1 dependency order is satisfied by S5-A integration, but
   browser delivery and performance authority still require their own exact
   ownership, stable freeze, independent review, and serial central acceptance.
+- S5-B is currently review-blocked: code/spec/security is `REQUEST CHANGES`
+  with one P1 and architecture is `BLOCK`. A repaired freeze must prevent
+  caller-rehashed unreachable terminal truth and mechanically require all
+  conditional limitations and controlled presentation content before either
+  review can be repeated.
+- S5-C remains author in progress and is not eligible for early preflight,
+  review, source-final, or integration. Its unfinished state does not alter the
+  S4-2 no-authority/no-decision boundary.
 
 ## Acceptance criteria
 
