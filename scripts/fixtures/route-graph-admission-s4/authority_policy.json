@@ -1,0 +1,25 @@
+{
+  "schema": "caller-supplied-route-graph-review-policy/v1",
+  "policyId": "synthetic-s4-authority-policy",
+  "authorities": [
+    {
+      "authorityId": "synthetic-review-board",
+      "displayName": "Synthetic fixture review board",
+      "scopes": [
+        "baseline",
+        "semantic-review",
+        "product-approval",
+        "redistribution-review",
+        "public-approval",
+        "publication-review"
+      ]
+    }
+  ],
+  "baselineAllowlist": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "limitations": [
+    "SHA-256 identities in this JSON detect internal content drift only; they do not prove signer identity, acquisition history, review authenticity, or repository history.",
+    "Synthetic authority fixtures do not establish a real review authority."
+  ]
+}

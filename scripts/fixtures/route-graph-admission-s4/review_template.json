@@ -1,0 +1,12 @@
+{
+  "schema": "caller-supplied-route-graph-review-assertion/v1",
+  "reviewId": "synthetic-review-template",
+  "authorityId": "synthetic-review-board",
+  "scope": "semantic-review",
+  "decision": "approved",
+  "reviewedAt": "2026-08-13T01:00:00.000Z",
+  "evidenceRef": "https://example.invalid/synthetic-review/evidence",
+  "baselineIdentity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "currentGraphIdentity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "semanticDiffIdentity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

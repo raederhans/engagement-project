@@ -1,0 +1,9 @@
+{
+  "schema": "route-graph-promotion-intent/v1",
+  "redistributionRequested": true,
+  "publicAccessRequested": true,
+  "publicationRequested": true,
+  "attributionIncluded": true,
+  "attributionText": "Synthetic City route graph fixture",
+  "attributionUrl": "https://example.invalid/synthetic-city/attribution"
+}
