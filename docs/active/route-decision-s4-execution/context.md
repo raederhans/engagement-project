@@ -33,7 +33,7 @@
 | 2026-08-13 | Audit the reported S4-2/S4-4 startup problem against live task and worktree state. | Both queued requests had resolved into active tasks, but the prior record had their worktree assignments reversed. Performance is task `019ff9ab-6964-7413-a142-c3d6d958e6d3` on `adec`; External Graph Admission is task `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` on `0596`. Both confirmed correct prompts and clean `f1330c4` before writing, so no code ownership collision occurred. |
 | 2026-08-13 | Receive the first Explanation and CityAdapter deliveries. | Both kept HEAD/index/refs unchanged, returned only owned untracked files and focused validation evidence, and remain unintegrated pending primary review. |
 | 2026-08-13 | Run independent code/spec/security and architecture reviews over all four frozen lanes. | Initial focused passes were insufficient: reviewers found explanation effect/count/identity/oracle gaps, performance self-authorship/getter/abort/order races, CityAdapter revision/result/ID-domain gaps, and graph-policy self-authorization. Every blocker was returned to its owning task and re-reviewed after repair. |
-| 2026-08-13 | Accept final frozen deliveries only after both review lanes returned `ACCEPT/CLEAR`. | Final review reported P0/P1/P2/WATCH zero and no cross-lane path, schema, import, or runtime conflict. Acceptance remains bounded to internal contract/infrastructure integration. |
+| 2026-08-13 | Accept final frozen deliveries after bounded independent review. | Final bounded code severity is P0/P1/P2 zero. Per-lane architecture is S4-1 `CLEAR`, S4-2 `WATCH`, S4-3 `CLEAR`, and S4-4 `CLEAR`; combined compatibility remains `WATCH`. No direct cross-lane path, schema, import, or runtime conflict was found. Acceptance remains bounded to internal contract/infrastructure integration. |
 | 2026-08-13 | Integrate serially as Explanation `34f5a8c` -> CityAdapter `3d16250` -> Performance `766641d` -> External Graph Conformance `75e624f`. | Each commit is single-purpose and was followed by an exact-head focused/adjacent regression before the next cherry-pick. No conflict or protected-artifact change occurred. |
 | 2026-08-13 | Run a final combined central short regression and static closeout. | S4 four-lane plus S2 contracts/search/evaluator, S3 candidate lifecycle, and Source Health passed `166/166`; targeted ESLint, 17-file Node syntax, and diff-check passed. |
 | 2026-08-13 | Keep downstream activation closed. | S4-2 lacks fresh-process authority; S4-4 lacks trusted authority and actual admission/materialization; S4-3 remains synthetic-only; S4-1 remains bounded/non-causal. Real data, browser/Worker, runtime/public, pilot, release, and deploy require new explicit gates. |
@@ -50,6 +50,9 @@
 | 2026-08-13 | Validate S4-3 V2 on the central exact HEAD and stop before S4-4. | Focused `11/11`, foundation/S2 adjacent `43/43`, original-source V2 identity/revision recomputation, permutation invariance, mutation sensitivity, V1 rejection, targeted ESLint, two-file Node syntax, three-fixture JSON parse, diff-check, and boundary audits passed. GraphArtifact remains v1; capability observations remain v1 and are not connected to S2 by a new adapter. LSP and browser/runtime/public/full gates were not run. |
 | 2026-08-13 | Complete the fourth serial unit, S4-4 External Graph R2, after explicit supervisory release. | Historical central `75e624f` was tree-equivalent to committed source `d659b0bb`; reviewed repair patch `9556cd95...` was committed as source `49a981e3` and cherry-picked as central `b6404f60`. All seven S4-4 owned paths are byte-identical to the final source. |
 | 2026-08-13 | Validate S4-4 R2 on the central exact HEAD and stop before combined compatibility or cross-line seams. | Focused `17/17`, S3-1 candidate lifecycle adjacent `55/55`, caller-forgery/hard-false gates, Source Health unknown/null, candidate-relabel rejection, legacy API absence, deep-freeze/tamper/hostile root/review-array checks, targeted ESLint, four-file Node syntax, three-fixture JSON parse, diff-check, and boundary audits passed. LSP and authority/runtime/browser/public/catalog/publication/full gates were not run. |
+| 2026-08-13 | Run final combined integrated-HEAD validation on code revision `f9e5b14`. | S4 focused passed `56/56`; deduplicated foundation/S2/S3 adjacent entries passed `330/330`; targeted ESLint, 17-file Node syntax, six-fixture JSON parse, serial diff-check, 23-path source Git-blob equality, and 27-path scope allowlist passed. Raw source/central checkout hashes differ only because the source worktrees use LF and central uses CRLF. |
+| 2026-08-13 | Exercise the actual integrated synthetic chain without adding a seam. | CityAdapter/v2 -> GraphArtifact/v1 -> CandidateSet/v3 -> Evaluation/v2 -> Explanation/v1 preserved the exact artifact revision through CandidateSet and explanation identity, was invariant to source collection permutation, and changed all downstream revision identities after a source-content mutation. Capability observations were deliberately not connected to S2 because that versioned typed adapter remains WATCH work. |
+| 2026-08-13 | Close bounded integration records under the independent combined review verdict. | Code status remains `COMMENT` with P0/P1/P2 zero; per-lane architecture remains S4-1 `CLEAR`, S4-2 `WATCH`, S4-3 `CLEAR`, S4-4 `CLEAR`; combined compatibility remains `WATCH`. No merge-ready, runtime-ready, or formal-gate claim is made. |
 
 ## Live process ownership
 
@@ -59,12 +62,14 @@
 
 ## Handoff
 
-All four final repair diffs are frozen and reviewed in their detached source
-worktrees. The primary owner must process one lane at a time and must not clean
-any source worktree until the final combined compatibility result is known.
+All four final repair diffs are frozen, reviewed, serially integrated, and
+retained in their clean detached source worktrees. Final combined integrated-
+HEAD validation is recorded as bounded `COMMENT` / architecture `WATCH`; the
+source worktrees remain retained for audit and were not cleaned.
 
 ## Next step
 
-Report the completed S4-4 unit and stop. A later explicit integration-owner
-unit must run final combined compatibility before any cross-line seam, push,
-merge, release, publication, or deployment decision.
+Report the bounded four-line integration and combined validation closeout, then
+stop. A later explicitly authorized unit may address the four WATCH seams or
+make a separate push/merge decision; no cross-line seam, push, merge, release,
+publication, or deployment action is authorized by this closeout.

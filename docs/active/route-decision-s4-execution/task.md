@@ -2,13 +2,14 @@
 
 ## Current status
 
-`in-progress / four reviewed deliveries serially integrated; combined
-compatibility pending` — the first local integration (`34f5a8c`, `3d16250`,
+`bounded-complete / four reviewed deliveries serially integrated and final
+integrated-HEAD validation complete; combined verdict remains COMMENT/WATCH`
+— the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
-integration commits. Final four-lane review returned deterministic bounded
-`COMMENT` / architecture `WATCH`, P0/P1/P2 zero, and no direct
-path/export/schema conflict. Serial integration completion does not mean
+integration commits. Final combined validation on code HEAD `f9e5b14` returned
+deterministic bounded `COMMENT` / architecture `WATCH`, P0/P1/P2 zero, and no
+direct path/export/schema conflict. Validation completion does not mean
 merge-ready, runtime-ready, or formal gate passed.
 
 This integration authority is deliberately narrow. It does not open real-data admission,
@@ -53,7 +54,9 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Integrate S4-4 R2 as the fourth and only active integration unit after
   S4-3 exact-head validation, preserving validation-only caller conformance and
   hard-false actual-state gates.
-- [ ] Run final combined compatibility before adding any new cross-lane seam.
+- [x] Run final combined integrated-HEAD validation before any new cross-line
+  seam; record the bounded result as `COMMENT` / architecture `WATCH` rather
+  than treating missing seams as complete.
 - [x] Keep downstream UI, eligible performance, data, pilot, public, release,
   publication, and deployment gates closed pending their direct prerequisites.
 
@@ -95,6 +98,37 @@ S4-4 repair files changed before this record update. Existing S0-S3 and S4-1/2/3
 contracts, evaluators, candidate search, Source Health catalog/runtime, package
 scripts, workflows, runtime, and shared public barrels are unchanged.
 
+## Final combined integrated-HEAD evidence
+
+The final combined checks ran on central code HEAD `f9e5b14` before this record
+closeout. All four final sources remain Git-blob-identical to the central tree
+across `23/23` owned paths. The source working trees use LF while the central
+working tree uses CRLF, so raw checkout hashes differ without any Git content
+drift.
+
+- S4 focused: Explanation `10/10`, Performance `18/18`, CityAdapter `11/11`,
+  External Graph `17/17` (`56/56` total).
+- Deduplicated adjacent entries: foundation `107/107`, S2 `92/92`, S3
+  protocol/scale `76/76`, and S3-1 candidate lifecycle `55/55` (`330/330`
+  total; `386/386` including S4 focused).
+- Targeted ESLint and Node syntax passed for all 17 related JS/MJS files; all
+  six S4-3/S4-4 JSON fixtures parsed; serial diff-check passed.
+- The integrated synthetic chain ran as CityAdapter/v2 -> GraphArtifact/v1 ->
+  CandidateSet/v3 -> Evaluation/v2 -> Explanation/v1. Artifact revision
+  propagated exactly into CandidateSet and explanation identity; source
+  permutation was invariant and a source-content mutation changed the input,
+  output, artifact, CandidateSet, and explanation revision identities.
+- The baseline-to-HEAD scope contains only the 23 reviewed lane-owned paths and
+  four integration-owned records. S0-S3, runtime/public/shared barrels,
+  package files, and workflows remain unchanged.
+- Mechanical negatives retain Explanation `no-claim`, Performance
+  no-authority/no-decision with no typed CityAdapter binding, CityAdapter
+  synthetic/no-product/no-transferability, and External Graph hard-false
+  authority/admission/promotion/materialization with Source Health `unknown`.
+
+This evidence closes only the bounded integration-validation activity. It does
+not close the four integration WATCH items or authorize a new seam.
+
 ## S4 task handoff state
 
 | Lane | Task identity | Worktree | Final state |
@@ -125,6 +159,7 @@ scripts, workflows, runtime, and shared public barrels are unchanged.
   safety, or scientific claim.
 - S4-1 and S4-3 use Node builtins and cannot enter a browser/runtime/public barrel;
   a future browser path may consume only a versioned serialized wire delivery.
-- The branch contains the historical first integration and is now undergoing
-  serial re-integration. It has not been pushed, merged to `main`, released,
-  deployed, or exposed through public barrels/runtime.
+- The branch contains the historical first integration plus the completed final
+  serial re-integration and combined integrated-HEAD validation. It has not
+  been pushed, merged to `main`, released, deployed, or exposed through public
+  barrels/runtime.
