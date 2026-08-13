@@ -83,7 +83,7 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   and S5-C enter the integration queue only after their own stable freeze and
   two-view review; product decisions or conflicts are not guessed.
 
-### Current Stage 5 gate after S5-C diagnostic integration
+### Current Stage 5 gate after S5-B browser-boundary integration
 
 - S5-A and S5-D R2 reviews closed both earlier descriptor P2 findings. Each has
   code `COMMENT` with P0/P1/P2/WATCH zero and architecture `CLEAR`.
@@ -104,14 +104,15 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   pass/fail remains unestablished, and a pure classifier is not an authority
   result. S4-2 remains no-authority/no-decision and no runtime/public wiring was
   added.
-- S5-B R2 closes its original code and architecture blockers. Code/spec/security
-  is now `COMMENT` with P0/P1/P2 zero; architecture remains `WATCH`, so this is
-  not delivery acceptance and no source-final/integration is allowed.
-- S5-B R3 must give `displayModel` a versioned browser-boundary-summary
-  completeness scope and an exact renamed completeness flag rather than imply
-  full S4-1 presentation completeness. Requested-factor unresolved observations
-  derived by scanning the bound graph must be explicitly named and presented as
-  graph-wide state, never as a terminal-decisive explanation.
+- S5-B R3 is code/spec/security `COMMENT` with P0/P1/P2 zero and architecture
+  `CLEAR`; all earlier terminal/limitations/prose, code P1, completeness, and
+  graph-wide findings are closed. Complete source-final `f967a3a` was integrated
+  alone as central `3d65c86`, with exact four-blob equality and focused,
+  adjacent, 4,032-tuple, hostile, static, consumer, and scope validation.
+- S5-B completeness is exactly `browser-boundary-summary/v1`; its source
+  presentation relationship is not a full S4 projection, and graph-wide
+  requested-factor states are not terminal causes. No UI/runtime/public barrel
+  consumes the delivery yet.
 - S5-C formal enablement remains blocked on three future main-owned inputs: a
   unique cohort, an authoritative measured-reference, and a complete manifest
   covering the modules actually executed inside the timing window. The
@@ -148,6 +149,9 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
 - S5-B must be a versioned serialized data delivery whose browser consumer has
   no Node builtin or direct Node/tooling-module import. It cannot weaken S4-1
   no-claim language or turn S4-3 synthetic evidence into runtime/public data.
+  Its completeness claim is limited to the browser-boundary summary, and a
+  future UI must consume summary, claim boundary, and limitations atomically
+  under separately admitted delivery authority and a real browser/runtime gate.
 - S5-C diagnostic execution binds the typed S5-A artifact and runs in fresh
   child processes, but its admitted result is still no-decision and
   non-authoritative. A future formal path must separately admit main-owned

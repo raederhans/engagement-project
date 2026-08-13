@@ -85,6 +85,11 @@
 | 2026-08-13 | Integrate only S5-C as the next serial Stage 5 unit. | Source `b8858488` was cherry-picked with source trace over exact central `29b7622` as code commit `a0443491`. All seven source and central Git blobs are equal; no S5-B path, record file, runtime/public barrel, package, or workflow path entered the code commit. |
 | 2026-08-13 | Validate S5-C on central exact code HEAD `a0443491`. | S5-C focused passed `10/10`; S4-2 passed `18/18`; S5-A passed `23/23`. Independent hostile evidence rejected all six process-identity drifts, rejected `preventExtensions` and mixed descriptor arrays, accepted exact mutable/frozen modes, invoked getter/Proxy traps zero times, kept caller formal manifests at `authority-unavailable`, and kept diagnostic output `no-decision-not-executed` with `externalAuthorityProven: false`. Targeted ESLint, six-file Node syntax, JSON parse, diff-check, seven-blob equality, import/consumer scan, and scope audit passed. |
 | 2026-08-13 | Preserve the S5-C formal-authority boundary. | The integrated contract is diagnostic only. `formalAuthorityPrerequisites.installed` remains false; formal pass/fail is not established; the pure classifier is not an authority result. A future formal gate still requires a main-owned cohort, an authoritative measured-reference, and a complete manifest of the modules actually executed inside the timing window. S4-2 is not upgraded, and runtime/public wiring remains absent. |
+| 2026-08-13 | Accept the S5-B R3 independent reviews. | Code/spec/security is `COMMENT` with P0/P1/P2 zero and architecture is `CLEAR`. The original terminal/limitations/prose architecture BLOCK, code P1, and R2 completeness/graph-wide WATCH findings are closed. Acceptance remains limited to the serialized browser-boundary contract and does not open a UI/runtime gate. |
+| 2026-08-13 | Re-preflight and form the complete S5-B source-final. | Central exact start `ba4633e` was clean. Worktree `72c6` was detached exact `3ae5ae1`, tracked/index clean, with exactly four reviewed owned paths totalling 75,238 bytes and matching every R3 size/UTC-mtime freeze value. Integration-owner source-final `f967a3a` has exact parent `3ae5ae1`, exactly those four paths, and a clean source worktree. |
+| 2026-08-13 | Integrate only S5-B as the next serial Stage 5 unit. | Source `f967a3a` was cherry-picked with source trace over exact central `ba4633e` as code commit `3d65c86`. All four source and central Git blobs are equal; no record, UI/runtime/public barrel, package, workflow, S5-C, or other lane path entered the code commit. |
+| 2026-08-13 | Validate S5-B on central exact code HEAD `3d65c86`. | S5-B focused passed `16/16` and S5-A adjacent passed `23/23`. An independent full terminal enumeration checked 4,032 tuples and found exactly the independently expected 21 reachable states, with zero extra and zero missing. Re-signed legacy `textComplete`, requested-factor alias, wrong/missing scope, wrong/missing source relationship, and impossible terminal were rejected; primitive JSON Proxy traps remained zero; the browser module had zero import/Node/runtime dependency. ESLint, three-file Node syntax, JSON parse, diff-check, four-blob equality, consumer scan, and exact four-path scope passed. |
+| 2026-08-13 | Preserve the S5-B browser authority boundary. | Completeness is only `browser-boundary-summary/v1`; the source presentation relationship is not a full S4 projection, and graph-wide unresolved states are not terminal causes. Plain JSON/content digest proves internal consistency only, not source, typed, performance, external, or product authority. A future UI requires trusted delivery authority, atomic summary/claimBoundary/limitations consumption, and a real browser/runtime gate. |
 
 ## Live process ownership
 
@@ -94,23 +99,19 @@
 
 ## Handoff
 
-Bounded S4 integration remains complete and retained for audit. S5-A R2 and
-S5-D R2 remain integrated with their bounded claim limits. S5-C R2 is now
-source-final `b8858488` and centrally integrated as diagnostic-only code commit
-`a0443491`, with seven-blob equality and exact-head validation. It establishes
-no formal performance pass/fail or authority. S5-B R2 has code P0/P1/P2 zero
-and architecture `WATCH`; it remains held for one final minimal repair, an R3
-freeze, and fresh double review. Duplicate S5-D task `dd31` remains untouched
-and excluded.
+Bounded S4 integration remains complete and retained for audit. S5-A, S5-D,
+and diagnostic-only S5-C retain their accepted limits. S5-B R3 is source-final
+`f967a3a` and centrally integrated as `3d65c86`, with four-blob equality and
+exact-head validation. It establishes only a serialized browser-boundary
+summary contract, not trusted delivery or runtime readiness. Duplicate S5-D
+task `dd31` remains untouched and excluded.
 
 ## Next step
 
-Stop after the S5-C diagnostic integration unit. S5-B must replace broad
-`textComplete` semantics with an exact versioned browser-boundary-summary
-completeness scope and make graph-wide unresolved observations unmistakably
-non-terminal before R3 double review; it remains unintegrated. S5-C formal
-enablement remains blocked on main-owned cohort, authoritative measured
-reference, and complete timed transitive-module manifest prerequisites. A real
-root of trust, actual product admission/runtime, browser delivery, formal
-performance authority, live gates, push, merge, release, publication, and
-deployment remain closed.
+Stop after the S5-B serialized-boundary integration unit. Do not connect it to
+UI/runtime/public barrels without trusted delivery authority, atomic
+summary/claimBoundary/limitations consumption, and a real browser/runtime gate.
+S5-C formal enablement remains blocked on a main-owned cohort, authoritative
+measured reference, and complete timed transitive-module manifest. A real root
+of trust, actual product admission/runtime, formal performance authority, live
+gates, push, merge, release, publication, and deployment remain closed.

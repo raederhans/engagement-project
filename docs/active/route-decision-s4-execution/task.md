@@ -2,8 +2,9 @@
 
 ## Current status
 
-`in-progress / bounded S4 integration complete; Stage 5 S5-A, S5-D, and the
-diagnostic-only S5-C seam integrated; S5-B R2 architecture WATCH / R3 pending`
+`in-progress / bounded S4 integration complete; Stage 5 S5-A, S5-D, the
+diagnostic-only S5-C seam, and S5-B browser-boundary delivery integrated;
+downstream authority/runtime gates remain closed`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -86,7 +87,7 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Admit the S5-C diagnostic fresh-child seam only after its exact worktree,
   seven-path stable freeze, and independent R2 reviews were recorded; keep its
   formal authority factory unavailable and formal pass/fail unreachable.
-- [ ] Admit S5-B browser serialized delivery only after its final stable R3
+- [x] Admit S5-B browser serialized delivery only after its final stable R3
   freeze and fresh independent code/spec/security and architecture reviews.
 - [x] Freeze and independently review S5-D while preserving unreachable actual
   authority transitions in the absence of a caller-unforgeable root of trust.
@@ -116,7 +117,14 @@ public UI, release, publication, deployment, or scientific/safety claims.
   central code commit `a0443491`, prove seven-blob equality, and pass central
   focused `10/10`, S4-2 `18/18`, S5-A `23/23`, hostile, static, JSON, diff, and
   scope checks without running formal, browser, full, live, or real-data gates.
-- [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
+- [x] Record S5-B R3 as code/spec/security `COMMENT`, P0/P1/P2 zero, and
+  architecture `CLEAR`; close the earlier terminal/limitations/prose BLOCK,
+  code P1, and R2 completeness/graph-wide WATCH findings.
+- [x] Form four-path source-final `f967a3a`, integrate it alone as central code
+  commit `3d65c86`, prove four-blob equality, and pass S5-B focused `16/16`,
+  S5-A `23/23`, the 4,032-tuple terminal enumeration, hostile/static/JSON/diff/
+  consumer/scope checks without running a real browser or runtime gate.
+- [x] Integrate every accepted bounded Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
 
@@ -196,7 +204,7 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 | --- | --- | --- | --- |
 | S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
 | S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `f443f96e` has parent `0e8030f` and exactly seven owned paths; integrated centrally as `7fb08552` over exact `3ae5ae1`, with all seven Git blobs equal. Central focused `31/31`, S4-4 adjacent `17/17`, three-root hostile, ESLint/syntax/JSON/diff/scope checks pass. This is only an authority-unavailable prerequisite contract plus synthetic state-machine simulator. |
-| S5-B Browser Serialized Delivery | Author `C:/Users/raede/.codex/worktrees/72c6/engagement_project`; task identity, exact base, status, and owned paths were not inspected in this records-only update | Complete the last minimal repair, produce a new stable R3 freeze, and pass fresh independent code/spec/security plus architecture reviews | R2 code/spec/security `COMMENT`, P0/P1/P2 zero and old P1 closed; architecture old `BLOCK` closed but current status `WATCH`. `displayModel` completeness must be explicitly scoped to a versioned browser-boundary summary with an exact renamed flag; graph-wide requested-factor unresolved observations must be named and worded as graph-wide, never as terminal-decisive reasons. No source-final or integration is permitted. |
+| S5-B Browser Serialized Delivery | Author `C:/Users/raede/.codex/worktrees/72c6/engagement_project`; reviewed exact base `3ae5ae1`; four owned paths under `src/route_decision/browser_delivery/**`, its focused test, and boundary fixture | R3 code/spec/security `COMMENT`, P0/P1/P2 zero; architecture `CLEAR`; all prior terminal/limitations/prose, code P1, completeness, and graph-wide findings closed | Complete source-final `f967a3a` has exact parent `3ae5ae1` and four paths; integrated centrally as `3d65c86` over exact `ba4633e`, with all four blobs equal. Central focused `16/16`, S5-A `23/23`, independent 4,032-tuple enumeration with exactly 21 accepted/no extra/no missing, seven re-sign attacks, Proxy-zero-trap, zero-import, static/JSON/diff/consumer/scope checks pass. The delivery is complete only for `browser-boundary-summary/v1`; no UI/runtime/public consumer was added. |
 | S5-C Cross-process Performance Runner / Authority Result | Author `C:/Users/raede/.codex/worktrees/7979/engagement_project`; exact reviewed base `3ae5ae1`; seven owned paths under `scripts/lib/route_s5_performance_authority/**`, its focused test, and diagnostic fixture | R2 code/spec/security `COMMENT`, P0/P1/P2 zero; architecture `WATCH`; old code P1/P2 and four architecture blockers closed for the diagnostic-only surface | Complete source-final `b8858488` has exact parent `3ae5ae1` and seven paths; integrated centrally as `a0443491` over exact `29b7622`, with all seven blobs equal. Central focused `10/10`, S4-2 `18/18`, S5-A `23/23`, independent hostile and static/scope checks pass. Only the internal diagnostic fresh-child seam is admitted; formal prerequisites remain `installed: false`, the formal factory remains `authority-unavailable`, and no formal pass/fail authority exists. |
 
 ### S5-A integration truth
@@ -206,10 +214,25 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
   Every future consumer must inspect `incomplete`, route-search `completeness`,
   and `termination` together before interpreting a result.
 - The typed binding closes only the Node/tooling synthetic provenance and
-  capability-to-S2 mapping prerequisite. Browser serialized delivery and
-  cross-process performance authority remain `BLOCK`/HOLD; S5-A does not grant
-  performance, browser/Worker authenticity, runtime, public, safety, route
-  recommendation, external graph authority, release, or publication claims.
+  capability-to-S2 mapping prerequisite. S5-B's serialized boundary and S5-C's
+  diagnostic seam are now integrated, but trusted browser/UI delivery and
+  formal cross-process performance authority remain closed; S5-A grants no
+  runtime, public, safety, route-recommendation, external-authority, release, or
+  publication claim.
+
+### S5-B integration truth
+
+- Delivery completeness is exactly `browser-boundary-summary/v1`, covering the
+  serialized summary, claim boundary, and limitations. Its source presentation
+  relationship is `source-fact-contract-only-not-full-s4-presentation-projection`.
+- `requestedFactorStatesPresentInBoundGraph` is conservative graph-wide state
+  disclosure, not evidence that an unresolved factor caused the terminal.
+- Primitive JSON admission and content digest prove only internal consistency;
+  they do not establish source authenticity, typed recomputation, performance
+  authority, external-graph authority, or product admission.
+- A future UI still needs trusted delivery authority, atomic consumption of the
+  summary plus claim boundary plus limitations, and a real browser/runtime
+  gate. No UI, runtime, public barrel, package, or workflow was connected here.
 
 ### S5-D integration truth
 
@@ -288,8 +311,9 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 - S4-1 is a bounded, provided-set, non-causal explanation contract; it is not
   final product copy and makes no user-preference, accessibility-outcome,
   safety, or scientific claim.
-- S4-1 and S4-3 use Node builtins and cannot enter a browser/runtime/public barrel;
-  a future browser path may consume only a versioned serialized wire delivery.
+- S4-1 and S4-3 use Node builtins and cannot enter a browser/runtime/public
+  barrel. S5-B now supplies a versioned primitive-JSON boundary delivery, but
+  no trusted UI/runtime consumer or real browser gate exists yet.
 - The branch contains the historical first integration plus the completed final
   serial re-integration and combined integrated-HEAD validation. It has not
   been pushed, merged to `main`, released, deployed, or exposed through public
