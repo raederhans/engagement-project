@@ -14,9 +14,10 @@
   evidence exists.
 - The primary worktree has no tracked WIP. Pre-existing `.playwright-mcp/`,
   logs, Playwright output, and private S3 output are protected and unowned by S4.
-- Four accepted S4 commits are now integrated locally and serially on the S4
-  coordination branch: Explanation `34f5a8c`, CityAdapter `3d16250`,
-  Performance `766641d`, and External Graph Conformance `75e624f`.
+- The coordination branch contains a first local R1/V1 integration
+  (`34f5a8c`, `3d16250`, `766641d`, `75e624f`), but later independent review
+  produced final tracked repair diffs for all four lanes. Those historical
+  commits cannot stand in for the final R2/R3/V2 deliveries.
 - No lane changed an existing public barrel, product runtime, UI, workflow,
   package script, Source Health catalog, or Evidence Bundle path.
 
@@ -36,6 +37,10 @@
 | 2026-08-13 | Integrate serially as Explanation `34f5a8c` -> CityAdapter `3d16250` -> Performance `766641d` -> External Graph Conformance `75e624f`. | Each commit is single-purpose and was followed by an exact-head focused/adjacent regression before the next cherry-pick. No conflict or protected-artifact change occurred. |
 | 2026-08-13 | Run a final combined central short regression and static closeout. | S4 four-lane plus S2 contracts/search/evaluator, S3 candidate lifecycle, and Source Health passed `166/166`; targeted ESLint, 17-file Node syntax, and diff-check passed. |
 | 2026-08-13 | Keep downstream activation closed. | S4-2 lacks fresh-process authority; S4-4 lacks trusted authority and actual admission/materialization; S4-3 remains synthetic-only; S4-1 remains bounded/non-causal. Real data, browser/Worker, runtime/public, pilot, release, and deploy require new explicit gates. |
+| 2026-08-13 | Reopen the first integration after late review found that CityAdapter V1 identities depended on source collection order. | V1 had been admitted by an internal S2 consumer and used as `CandidateSetV3.candidateSetRevision`; no persisted old digest was found. The old internal admission is withdrawn. V2 must be recomputed from original synthetic source and cannot relabel a V1 receipt/revision. |
+| 2026-08-13 | Freeze final S4-1 R3, S4-2 R2, S4-3 V2, and S4-4 R2 deliveries and complete four-line compatibility review. | Deterministic bounded verdict is code `COMMENT` / architecture `WATCH`, P0/P1/P2 zero, no direct path/export/schema conflict. This permits serial integration by one owner but is not merge-ready, runtime-ready, or formal gate passed. |
+| 2026-08-13 | Preserve capability and authority seams. | S4-2 remains no-authority/no-decision; S4-4 remains validation-only; S4-1/S4-3 remain Node/tooling-only and outside browser/runtime/public barrels. Future typed adapters, cross-process authority, external actual admission, and serialized browser delivery are separate work. |
+| 2026-08-13 | Begin serial re-integration in frozen order S4-1 -> S4-2 -> S4-3 -> S4-4. | Only S4-1 may be processed now. Each unit must combine its committed lane delivery and reviewed repair diff, receive a traceable source identity, and pass central exact-head focused/adjacent and boundary checks before the next unit is considered. |
 
 ## Live process ownership
 
@@ -45,13 +50,12 @@
 
 ## Handoff
 
-All worker deliveries were reviewed and serially integrated by the primary
-owner. Detached source worktrees now hold the source delivery commits and are
-retained as audit/recovery evidence; no cleanup was requested or required.
+All four final repair diffs are frozen and reviewed in their detached source
+worktrees. The primary owner must process one lane at a time and must not clean
+any source worktree until the final combined compatibility result is known.
 
 ## Next step
 
-The bounded local S4 integration and record closeout are complete. Report the
-local branch and push status, retain detached source worktrees for audit, and do
-not open downstream live, data, public, release, or deployment gates without a
-new explicit authorization and their direct prerequisites.
+Verify and integrate only S4-1 R3 (`f669@20494490` plus its four tracked owned
+repairs), run its central exact-head tests and boundary audit, then stop and
+report. S4-2, S4-3, and S4-4 remain frozen for later explicit serial units.

@@ -2,14 +2,15 @@
 
 ## Current status
 
-`complete / bounded S4 contract wave integrated` — all four isolated lanes were
-independently reviewed, repaired until both code/spec/security and architecture
-reviewers returned `ACCEPT/CLEAR`, and then integrated serially on
-`codex/route-decision-s4-execution`. The integrated commits are Explanation
-`34f5a8c`, CityAdapter `3d16250`, Performance `766641d`, and External Graph
-Conformance `75e624f`.
+`in-progress / final reviewed deliveries entering serial re-integration` — the
+first local integration (`34f5a8c`, `3d16250`, `766641d`, `75e624f`) is retained
+as historical R1/V1 evidence but does not contain the final reviewed repair
+diffs. Final four-lane review returned deterministic bounded `COMMENT` /
+architecture `WATCH`, P0/P1/P2 zero, and no direct path/export/schema conflict.
+That verdict permits one integration owner to integrate one lane at a time; it
+does not mean merge-ready, runtime-ready, or formal gate passed.
 
-This completion is deliberately narrow. It does not open real-data admission,
+This integration authority is deliberately narrow. It does not open real-data admission,
 gate-eligible performance, browser/Worker evidence, trusted review authority,
 product graph materialization, Source Health catalog observation, pilot,
 public UI, release, publication, deployment, or scientific/safety claims.
@@ -35,45 +36,75 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Independently review and repair external graph handling until caller
   policy conformance could no longer become eligibility, admission, promotion,
   materialization, publication, or Source Health current.
-- [x] Integrate accepted lanes sequentially and run exact-head focused tests.
+- [x] Reopen the initial integration after late review identified order-sensitive
+  CityAdapter V1 identities and additional R2/R3 hardening in all four lanes.
+- [x] Freeze the final reviewed delivery matrix and cross-lane compatibility
+  verdict without modifying the four source worktrees.
+- [x] Update the integration record before re-integration: CityAdapter is V2,
+  Performance is no-authority/no-decision, and External Graph is validation-only.
+- [ ] Integrate S4-1 R3 as the first and only active integration unit, including
+  both source commit `2049449` and its four-file reviewed repair diff.
+- [ ] Integrate S4-2 R2 only after S4-1 exact-head validation and a new explicit
+  integration step.
+- [ ] Integrate S4-3 V2 by recomputing from original synthetic source; never
+  relabel the old V1 receipt/revision.
+- [ ] Integrate S4-4 R2 only after S4-3 exact-head validation and a new explicit
+  integration step.
+- [ ] Run final combined compatibility before adding any new cross-lane seam.
 - [x] Keep downstream UI, eligible performance, data, pilot, public, release,
   publication, and deployment gates closed pending their direct prerequisites.
 
-## Integration and validation evidence
+## Final reviewed delivery matrix
 
-| Stage | Central commit | Fresh exact-head evidence |
+| Lane | Frozen reviewed delivery | Bounded verdict and constraint |
 | --- | --- | --- |
-| S4-1 Explanation | `34f5a8c` | Explanation + S2/S3 adjacent `53/53` pass. |
-| S4-3 CityAdapter | `3d16250` | CityAdapter + GraphArtifact/S2 adjacent `70/70` pass. |
-| S4-2 Performance | `766641d` | Focused `14/14` pass, including single-active exact-slot concurrency rejection. |
-| S4-4 External Graph Conformance | `75e624f` | Focused plus candidate lifecycle and Source Health adjacent `80/80` pass. |
-| Final combined short regression | final central branch after record-only closeout | S4 four-lane, S2 contracts/search/evaluator, S3 candidate lifecycle, and Source Health `166/166` pass. |
-| Targeted static checks | integrated S4 JS/MJS | ESLint passed with zero warnings; `node --check` passed for all 17 integrated JS/MJS files; `git diff --check` passed. |
-| Independent code/spec/security review | final lane bytes | Four-lane `ACCEPT`; P0/P1/P2/WATCH all zero. |
-| Independent architecture review | final lane bytes | Four-lane `CLEAR` for bounded serial integration. |
-| Protected artifact audit | central worktree | Only pre-existing `.playwright-mcp/`, logs, and output remain untracked; none were staged or modified. |
+| S4-1 Explanation R3 | `f669@20494490` plus 4 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `CLEAR`; Node/tooling-only. |
+| S4-2 Performance R2 | `adec@f0f71008` plus 3 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `WATCH`; no-authority/no-decision only. |
+| S4-3 CityAdapter V2 | `26c2@93cc2a0b` plus 4 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2 zero; architecture `CLEAR`; V2 adapter/profile/result/identity with `GraphArtifact/v1`. |
+| S4-4 External Graph R2 | `0596@d659b0bb` plus 2 tracked owned modifications | Code `COMMENT` only for unavailable LSP, P0/P1/P2/WATCH zero; architecture `CLEAR`; validation-only caller conformance. |
+
+## Superseded first-integration evidence
+
+The first local commits and their `166/166` combined short regression remain
+valid evidence for those exact historical bytes only. They do not validate the
+final R2/R3/V2 repair diffs and must not be presented as current integration
+evidence.
+
+| Historical lane | Historical central commit | Status |
+| --- | --- | --- |
+| S4-1 Explanation R1 | `34f5a8c` | Superseded by reviewed S4-1 R3 repair diff. |
+| S4-3 CityAdapter V1 | `3d16250` | Internal admission withdrawn; superseded by V2 recomputation rule. |
+| S4-2 Performance R1 | `766641d` | Superseded by R2 no-authority/no-decision contract. |
+| S4-4 External Graph R1 | `75e624f` | Superseded by R2 validation-only contract. |
 
 ## S4 task handoff state
 
 | Lane | Task identity | Worktree | Final state |
 | --- | --- | --- | --- |
-| S4-1 Explanation Contract | `019ff989-863b-7e92-980b-c27e46b7afa7` | `C:/Users/raede/.codex/worktrees/f669/engagement_project` | Integrated as `34f5a8c`; source delivery commit `2049449`; retain for audit. |
-| S4-2 Performance Protocol | `019ff9ab-6964-7413-a142-c3d6d958e6d3` | `C:/Users/raede/.codex/worktrees/adec/engagement_project` | Integrated as `766641d`; source delivery commit `f0f7100`; retain for audit. |
-| S4-3 CityAdapter | `019ff989-ad0c-7bc1-99d2-b350cabc5716` | `C:/Users/raede/.codex/worktrees/26c2/engagement_project` | Integrated as `3d16250`; source delivery commit `93cc2a0`; retain for audit. |
-| S4-4 External Graph Conformance | `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` | `C:/Users/raede/.codex/worktrees/0596/engagement_project` | Integrated as `75e624f`; source delivery commit `d659b0b`; retain for audit. |
+| S4-1 Explanation R3 | `019ff989-863b-7e92-980b-c27e46b7afa7` | `C:/Users/raede/.codex/worktrees/f669/engagement_project` | First serial integration unit; source commit plus 4-file reviewed repair diff; do not clean. |
+| S4-2 Performance R2 | `019ff9ab-6964-7413-a142-c3d6d958e6d3` | `C:/Users/raede/.codex/worktrees/adec/engagement_project` | Frozen pending later serial integration; do not modify or clean. |
+| S4-3 CityAdapter V2 | `019ff989-ad0c-7bc1-99d2-b350cabc5716` | `C:/Users/raede/.codex/worktrees/26c2/engagement_project` | Frozen pending later serial integration and original-source V2 recomputation; do not modify or clean. |
+| S4-4 External Graph R2 | `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` | `C:/Users/raede/.codex/worktrees/0596/engagement_project` | Frozen pending later serial integration; do not modify or clean. |
 
 ## Remaining closed gates
 
 - S4-2 intentionally cannot emit a performance `pass` without a future
-  integration-owned fresh-process authority. Browser/Worker performance needs
-  a new protocol/version and separate denominator.
+  typed S4-3 V2 binding, integration-owned cross-process runner, and independent
+  authority result. Its generic snapshot hash is not a typed CityAdapter identity,
+  and the current summary cannot be upgraded in place to pass/fail.
 - S4-4 intentionally keeps every actual `eligible`, `authorityVerified`,
   `actualAdmission`, `promotionExecuted`, and `materializedArtifact` field
   false. Caller JSON can only establish internal conformance.
-- S4-3 is a Philadelphia synthetic field-shape adapter, not a real-data or
+- S4-3 V1 was admitted by an internal S2 consumer before the ordering defect was
+  identified. No persisted old digest was found, but V2 must be rebuilt from
+  original synthetic source and must reject V1 receipt/revision relabeling.
+- S4-3 remains a Philadelphia synthetic field-shape adapter, not a real-data or
   external-city adapter and not transferability evidence.
 - S4-1 is a bounded, provided-set, non-causal explanation contract; it is not
   final product copy and makes no user-preference, accessibility-outcome,
   safety, or scientific claim.
-- The branch is locally integrated. It has not been pushed, merged to `main`,
-  released, deployed, or exposed through public barrels/runtime.
+- S4-1 and S4-3 use Node builtins and cannot enter a browser/runtime/public barrel;
+  a future browser path may consume only a versioned serialized wire delivery.
+- The branch contains the historical first integration and is now undergoing
+  serial re-integration. It has not been pushed, merged to `main`, released,
+  deployed, or exposed through public barrels/runtime.
