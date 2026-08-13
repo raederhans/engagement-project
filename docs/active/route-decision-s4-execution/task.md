@@ -2,8 +2,8 @@
 
 ## Current status
 
-`bounded-complete / four reviewed deliveries serially integrated and final
-integrated-HEAD validation complete; combined verdict remains COMMENT/WATCH`
+`in-progress / bounded S4 integration complete; Stage 5 Wave 1 authoring opened
+for S5-A and S5-D only`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -12,7 +12,13 @@ deterministic bounded `COMMENT` / architecture `WATCH`, P0/P1/P2 zero, and no
 direct path/export/schema conflict. Validation completion does not mean
 merge-ready, runtime-ready, or formal gate passed.
 
-This integration authority is deliberately narrow. It does not open real-data admission,
+The user has now explicitly authorized implementation of the four retained
+integration WATCH prerequisites. That authorization opens the dependency-gated
+Stage 5 author/review/integration process; it does not itself make any WATCH
+complete or open browser, server, performance sampling, real-data, runtime,
+public, publication, release, or deployment gates.
+
+The bounded S4 evidence authority is deliberately narrow. It does not open real-data admission,
 gate-eligible performance, browser/Worker evidence, trusted review authority,
 product graph materialization, Source Health catalog observation, pilot,
 public UI, release, publication, deployment, or scientific/safety claims.
@@ -59,6 +65,24 @@ public UI, release, publication, deployment, or scientific/safety claims.
   than treating missing seams as complete.
 - [x] Keep downstream UI, eligible performance, data, pilot, public, release,
   publication, and deployment gates closed pending their direct prerequisites.
+- [x] Receive explicit authorization to implement the four retained integration
+  WATCH prerequisites under the same single integration owner.
+- [x] Preflight central `0e8030f` and the two Wave 1 author worktrees as clean,
+  detached exact-base starts with empty indexes and no source delta.
+- [x] Start Wave 1 authoring only for S5-A typed route integration binding and
+  S5-D external graph authority state-machine prerequisite.
+- [ ] Freeze S5-A, obtain independent code/spec/security and architecture
+  reviews with no blocker, form its source final, and integrate it as the first
+  Stage 5 central unit with exact-head focused/adjacent/static/source-equality/
+  scope validation.
+- [ ] Only after S5-A central integration, create S5-B browser serialized
+  delivery and S5-C cross-process performance runner/authority-result tasks from
+  that new exact central HEAD.
+- [ ] Freeze and independently review S5-D while preserving unreachable actual
+  authority transitions in the absence of a caller-unforgeable root of trust.
+- [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
+  infer an order or readiness before stable freeze, two-view review, and current
+  central compatibility evidence.
 
 ## Final reviewed delivery matrix
 
@@ -126,8 +150,39 @@ drift.
   synthetic/no-product/no-transferability, and External Graph hard-false
   authority/admission/promotion/materialization with Source Health `unknown`.
 
-This evidence closes only the bounded integration-validation activity. It does
-not close the four integration WATCH items or authorize a new seam.
+This evidence closes only the bounded integration-validation activity. By
+itself it did not close the four integration WATCH items or authorize a new
+seam; the later explicit Stage 5 authorization is recorded separately above.
+
+## Stage 5 Wave 1 control matrix
+
+| Lane | Task and worktree | Exact ownership | Current state and acceptance gate |
+| --- | --- | --- | --- |
+| S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | Clean detached startup at `0e8030f`; authoring/review may proceed. It must exact-bind CityAdapter/v2 -> GraphArtifact/v1 -> CandidateSet/v3 -> Evaluation/v2 -> Explanation/v1 and preserve capability observed true/false versus unknown/unavailable unresolved without aliases, guessed false, or zero. It is the mandatory G1 central integration before S5-B/S5-C may start. |
+| S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | Clean detached startup at `0e8030f`; authoring/review may proceed independently. It may define an authority-transition prerequisite, but without a caller-unforgeable root of trust all actual authority/admission/promotion/materialization/publication/Source Health transitions must remain unreachable and false. |
+| S5-B Browser Serialized Delivery | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; cannot import Node-only S4-1/S4-3 modules into browser/runtime/public barrels. |
+| S5-C Cross-process Performance Runner / Authority Result | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; generic snapshots and in-process S4-2 sessions cannot self-author pass/fail. |
+
+### Stage 5 author stop conditions
+
+- Authors cannot stage, commit, alter refs, update central records, integrate,
+  push, merge, clean worktrees, or touch another lane's ownership.
+- A writer stops at stable owned-path freeze and reports exact base/HEAD/status,
+  complete changed paths, focused evidence, limitations, and proposed handoff.
+- Any existing-file, public/shared barrel, runtime, package/workflow, browser,
+  server, real-data, protected-artifact, or product-result change is a scope
+  blocker and must be escalated rather than absorbed.
+- Integration does not begin until both independent review views report no
+  blocker and the integration owner verifies ownership, source bytes, and
+  accepted claim boundaries. Only the integration owner creates the traceable
+  source-final commit.
+- S5-B/S5-C startup before accepted S5-A central integration is a hard stop.
+- S5-D actual-state reachability without an external caller-unforgeable trusted
+  root is a hard stop; self-authored policy, JSON, hash, receipt, review, or
+  in-process brand cannot satisfy it.
+- Duplicate task `019ffb26-8416-75c3-b87c-384906dc2387` in `dd31` is frozen.
+  It has no delivery authority and must not be modified, integrated, rolled
+  back, or cleaned; authoritative S5-D ownership remains only in `d694`.
 
 ## S4 task handoff state
 

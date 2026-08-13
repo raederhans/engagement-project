@@ -20,6 +20,10 @@
   commits cannot stand in for the final R2/R3/V2 deliveries.
 - No lane changed an existing public barrel, product runtime, UI, workflow,
   package script, Source Health catalog, or Evidence Bundle path.
+- Final bounded S4 combined validation is recorded in `0e8030f`. The user has
+  since authorized a dependency-gated Stage 5 implementation of the four
+  retained WATCH prerequisites. This is new implementation authority, not a
+  retroactive readiness or release claim.
 
 ## Decisions and deviations
 
@@ -53,23 +57,31 @@
 | 2026-08-13 | Run final combined integrated-HEAD validation on code revision `f9e5b14`. | S4 focused passed `56/56`; deduplicated foundation/S2/S3 adjacent entries passed `330/330`; targeted ESLint, 17-file Node syntax, six-fixture JSON parse, serial diff-check, 23-path source Git-blob equality, and 27-path scope allowlist passed. Raw source/central checkout hashes differ only because the source worktrees use LF and central uses CRLF. |
 | 2026-08-13 | Exercise the actual integrated synthetic chain without adding a seam. | CityAdapter/v2 -> GraphArtifact/v1 -> CandidateSet/v3 -> Evaluation/v2 -> Explanation/v1 preserved the exact artifact revision through CandidateSet and explanation identity, was invariant to source collection permutation, and changed all downstream revision identities after a source-content mutation. Capability observations were deliberately not connected to S2 because that versioned typed adapter remains WATCH work. |
 | 2026-08-13 | Close bounded integration records under the independent combined review verdict. | Code status remains `COMMENT` with P0/P1/P2 zero; per-lane architecture remains S4-1 `CLEAR`, S4-2 `WATCH`, S4-3 `CLEAR`, S4-4 `CLEAR`; combined compatibility remains `WATCH`. No merge-ready, runtime-ready, or formal-gate claim is made. |
+| 2026-08-13 | Receive explicit authorization to implement all four retained integration WATCH prerequisites. | Stage 5 may proceed under the existing sole integration/task-record/Git owner, but runtime/browser/authority/real-data/publication gates remain closed until their direct versioned prerequisites are independently accepted. |
+| 2026-08-13 | Freeze Stage 5 dependency order. | Wave 1 may author S5-A typed route integration binding and S5-D external graph authority state-machine prerequisite in parallel. S5-A must pass two-view review and be integrated first; only then may S5-B browser serialized delivery and S5-C cross-process performance runner/authority result start from the new exact central HEAD. |
+| 2026-08-13 | Preflight Stage 5 Wave 1. | Central is `codex/route-decision-s4-execution@0e8030f` with clean tracked/index state. S5-A task `019ffb25-5344-7902-a047-dfd7253385f2` in `8868` and S5-D task `019ffb25-ad93-7fb2-896b-e33a6505a10f` in `d694` are both clean detached exact `0e8030f` starts with empty indexes and no source or worktree delta. |
+| 2026-08-13 | Assign exact disjoint Wave 1 ownership. | S5-A owns only `src/route_decision/integration/**`, its one focused test, and `route-s5-integration` fixtures. S5-D owns only `scripts/lib/route_graph_authority/**`, its one focused test, and `route-graph-authority-s5` fixtures. S0-S4, records, refs/index, barrels, runtime, packages/workflows, live processes, and protected artifacts remain primary-owned. |
+| 2026-08-13 | Preserve the authority boundary while S5-D proceeds. | A state-machine prerequisite may be implemented, but absent a caller-unforgeable external root of trust every actual admission, promotion, materialization, publication, and Source Health transition remains unreachable. Self-authored JSON, hashes, policy, receipt, review, or in-process brands cannot close the WATCH. |
+| 2026-08-13 | Freeze delayed duplicate task `019ffb26-8416-75c3-b87c-384906dc2387` in `dd31`. | It duplicates the authoritative S5-D task in `d694` and received `DUPLICATE FREEZE`. Read-only verification found clean detached `0e8030f`, empty index, and no tracked or untracked delta. It is excluded from delivery and must not be modified, integrated, rolled back, or cleaned; if later bytes appear, record them without changing them. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Long tests, full validate/build, browser/Worker, server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during the first implementation wave. |
+| Long tests, full validate/build, browser/Worker, server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during Stage 5 Wave 1 authoring. Only short isolated owned-lane tests are permitted. |
 
 ## Handoff
 
-All four final repair diffs are frozen, reviewed, serially integrated, and
-retained in their clean detached source worktrees. Final combined integrated-
-HEAD validation is recorded as bounded `COMMENT` / architecture `WATCH`; the
-source worktrees remain retained for audit and were not cleaned.
+Bounded S4 integration remains complete and retained for audit. Stage 5 Wave 1
+now has two clean detached author starts at `0e8030f`: S5-A in `8868` and S5-D
+in `d694`. Both authors stop at stable owned-path freeze without index/ref/
+commit authority. S5-B and S5-C are not started and have no active ownership.
 
 ## Next step
 
-Report the bounded four-line integration and combined validation closeout, then
-stop. A later explicitly authorized unit may address the four WATCH seams or
-make a separate push/merge decision; no cross-line seam, push, merge, release,
-publication, or deployment action is authorized by this closeout.
+Wait for stable S5-A and S5-D author handoffs. Review each through independent
+code/spec/security and architecture views. S5-A is the next central integration
+candidate only if both views are non-blocking and its owned scope is exact;
+after its exact-head central validation, and not before, create S5-B and S5-C
+from that new central revision. Do not implement for the authors, start live
+gates, or push/merge/release/deploy.

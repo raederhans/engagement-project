@@ -5,7 +5,9 @@
 Implement the first bounded S4 contract and infrastructure slices on top of the
 accepted S0-S3 synthetic foundation, in an order that keeps explanation,
 performance, city adaptation, and external-graph admission independently
-auditable and fail closed.
+auditable and fail closed. Stage 5 now addresses the four retained integration
+WATCH prerequisites through new versioned seams without opening runtime,
+public, real-data, or release gates.
 
 ## Scope
 
@@ -23,6 +25,13 @@ auditable and fail closed.
 - Review and integrate lane deliveries one at a time under the primary owner.
 - Open downstream UI, eligible performance sampling, data acquisition, pilot,
   or release gates only after their direct prerequisites pass review.
+- Run Stage 5 in two dependency-gated waves:
+  1. Wave 1 may author S5-A typed route integration binding and S5-D external
+     graph authority state-machine prerequisite in parallel.
+  2. Only after S5-A passes independent code/spec/security and architecture
+     review and is serially integrated on the central branch may S5-B browser
+     serialized delivery and S5-C cross-process performance runner/authority
+     result start from that new exact central HEAD.
 
 ## Sources of truth
 
@@ -45,10 +54,34 @@ auditable and fail closed.
   regressions, and complete bounded combined integrated-HEAD validation as
   `COMMENT` / architecture `WATCH` without starting shared or long-lived
   processes.
-- [ ] Stage 5: Address the four integration WATCH prerequisites and separately
-  decide which downstream S4 gates are technically ready. Eligible
+- [ ] Stage 5: Address the four integration WATCH prerequisites through the
+  dependency-gated waves below and separately decide which downstream S4 gates
+  are technically ready. Eligible
   Node/browser/Worker performance runs, real data, pilot, public UI, release,
   and deployment remain separate main-owned decisions.
+
+### Stage 5 dependency graph
+
+```text
+Wave 1 author/review:  S5-A typed route binding  ||  S5-D authority state machine
+                                 |
+                                 v
+Central gate G1:       S5-A independently accepted and integrated first
+                                 |
+                                 v
+Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance authority
+```
+
+- S5-D may finish and be independently reviewed while S5-A proceeds, but it
+  cannot make any actual authority transition reachable without a future
+  caller-unforgeable root of trust.
+- Only the integration owner may create source-final commits, change index or
+  refs, integrate a lane, or update central records. One lane is integrated at
+  a time; each exact central HEAD must pass its focused, adjacent, static,
+  source-equality, and scope checks before another lane is released.
+- No relative central integration order after S5-A is implied yet. S5-D, S5-B,
+  and S5-C enter the integration queue only after their own stable freeze and
+  two-view review; product decisions or conflicts are not guessed.
 
 ## Acceptance criteria
 
@@ -73,6 +106,22 @@ auditable and fail closed.
   unchanged unless an explicit reviewed versioned adapter is introduced.
 - Every accepted lane has fresh focused tests, targeted lint/syntax checks,
   ownership-clean status, and an independent review before central integration.
+- S5-A must mechanically bind CityAdapter/v2, GraphArtifact/v1, CandidateSet/v3,
+  Evaluation/v2, and Explanation/v1 identities. Its versioned capability
+  observation projection must preserve observed true/false and map unknown or
+  unavailable only to explicit unresolved S2 evidence; missing values, aliases,
+  false, and zero cannot be guessed.
+- S5-B must be a versioned serialized data delivery whose browser consumer has
+  no Node builtin or direct Node/tooling-module import. It cannot weaken S4-1
+  no-claim language or turn S4-3 synthetic evidence into runtime/public data.
+- S5-C must bind the typed S5-A artifact, run through an integration-owned
+  cross-process boundary, and produce a separately admitted authority result.
+  Generic snapshot identity or an in-process session cannot self-author a
+  performance pass/fail.
+- S5-D may define a versioned transition protocol and root-of-trust prerequisite,
+  but absent a caller-unforgeable trusted root every actual admission,
+  promotion, materialization, publication, and Source Health transition remains
+  mechanically unreachable and false.
 
 ## Non-goals
 
@@ -103,3 +152,13 @@ auditable and fail closed.
   wire artifact through a separately reviewed adapter.
 - Short isolated tests are allowed in worker worktrees; all shared/long live
   gates have a single primary owner and will be scheduled separately.
+- Wave 1 ownership is exact and disjoint. S5-A owns only
+  `src/route_decision/integration/**`,
+  `scripts/tests/route_decision_s5_integration_binding.mjs`, and
+  `scripts/fixtures/route-s5-integration/**`. S5-D owns only
+  `scripts/lib/route_graph_authority/**`,
+  `scripts/tests/route_graph_authority_s5.mjs`, and
+  `scripts/fixtures/route-graph-authority-s5/**`.
+- S5-B and S5-C have no active writer or owned paths in Wave 1. Browser/server,
+  full/long/live tests, real data, shared barrels, package files, workflows, and
+  protected untracked artifacts remain closed and primary-owned.
