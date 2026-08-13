@@ -99,11 +99,14 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   or integrated here. G1 dependency order is satisfied by S5-A integration, but
   browser delivery and performance authority still require their own exact
   ownership, stable freeze, independent review, and serial central acceptance.
-- S5-B is currently review-blocked: code/spec/security is `REQUEST CHANGES`
-  with one P1 and architecture is `BLOCK`. A repaired freeze must prevent
-  caller-rehashed unreachable terminal truth and mechanically require all
-  conditional limitations and controlled presentation content before either
-  review can be repeated.
+- S5-B R2 closes its original code and architecture blockers. Code/spec/security
+  is now `COMMENT` with P0/P1/P2 zero; architecture remains `WATCH`, so this is
+  not delivery acceptance and no source-final/integration is allowed.
+- S5-B R3 must give `displayModel` a versioned browser-boundary-summary
+  completeness scope and an exact renamed completeness flag rather than imply
+  full S4-1 presentation completeness. Requested-factor unresolved observations
+  derived by scanning the bound graph must be explicitly named and presented as
+  graph-wide state, never as a terminal-decisive explanation.
 - S5-C is currently review-blocked. Code/spec/security is `REQUEST CHANGES`
   with P1=1/P2=1: every process-identity field must exactly match the
   preregistered environment, and public options/reference arrays must reject

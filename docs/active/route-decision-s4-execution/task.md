@@ -3,7 +3,7 @@
 ## Current status
 
 `in-progress / bounded S4 integration complete; Stage 5 Wave 1 S5-A and S5-D
-integrated; S5-B and S5-C review-blocked`
+integrated; S5-B R2 architecture WATCH and S5-C review-blocked`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -98,6 +98,10 @@ public UI, release, publication, deployment, or scientific/safety claims.
   CHANGES` with one P1 and architecture `BLOCK`; prohibit source-final and
   integration while browser truth and presentation completeness remain
   caller-rewritable.
+- [x] Record S5-B R2: code/spec/security `COMMENT` with P0/P1/P2 zero and the
+  old P1 closed; architecture old `BLOCK` closed but current status `WATCH`.
+  Keep author `72c6` on the final bounded repair and require R3 double review
+  before any source-final/integration.
 - [x] Before its first review, keep S5-C at author-in-progress without early
   preflight, source-final, integration, or inferred performance-authority
   readiness.
@@ -184,7 +188,7 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 | --- | --- | --- | --- |
 | S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
 | S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `f443f96e` has parent `0e8030f` and exactly seven owned paths; integrated centrally as `7fb08552` over exact `3ae5ae1`, with all seven Git blobs equal. Central focused `31/31`, S4-4 adjacent `17/17`, three-root hostile, ESLint/syntax/JSON/diff/scope checks pass. This is only an authority-unavailable prerequisite contract plus synthetic state-machine simulator. |
-| S5-B Browser Serialized Delivery | Active author/rework outside integration ownership; exact task/worktree mapping not inspected in this records-only update | To be admitted only from its recorded exact base after a new stable freeze and fresh independent reviews | `review-blocked`: code/spec/security P1 `REQUEST CHANGES`; architecture `BLOCK`. The parser currently accepts self-rehashed unreachable terminal truth and allows conditional limitations to be removed or arbitrary presentation prose to remain `textComplete`. No source-final or integration is permitted. |
+| S5-B Browser Serialized Delivery | Author `C:/Users/raede/.codex/worktrees/72c6/engagement_project`; task identity, exact base, status, and owned paths were not inspected in this records-only update | Complete the last minimal repair, produce a new stable R3 freeze, and pass fresh independent code/spec/security plus architecture reviews | R2 code/spec/security `COMMENT`, P0/P1/P2 zero and old P1 closed; architecture old `BLOCK` closed but current status `WATCH`. `displayModel` completeness must be explicitly scoped to a versioned browser-boundary summary with an exact renamed flag; graph-wide requested-factor unresolved observations must be named and worded as graph-wide, never as terminal-decisive reasons. No source-final or integration is permitted. |
 | S5-C Cross-process Performance Runner / Authority Result | Author `C:/Users/raede/.codex/worktrees/7979/engagement_project`; task identity, exact base, status, and owned paths were not inspected in this records-only update | To be admitted only after combined repair, a new stable freeze, and fresh independent code/spec/security plus architecture reviews | `review-blocked`: code/spec/security `REQUEST CHANGES`, P1=1/P2=1; architecture `BLOCK`. Process identity is not exactly bound to the preregistered environment; public arrays accept invalid descriptor modes; warmup/cold semantics and formal cohort/reference/manifest authority are not closed. No source-final or integration is permitted. |
 
 ### S5-A integration truth
