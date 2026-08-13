@@ -83,7 +83,7 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   and S5-C enter the integration queue only after their own stable freeze and
   two-view review; product decisions or conflicts are not guessed.
 
-### Current Stage 5 gate after S5-D
+### Current Stage 5 gate after S5-C diagnostic integration
 
 - S5-A and S5-D R2 reviews closed both earlier descriptor P2 findings. Each has
   code `COMMENT` with P0/P1/P2/WATCH zero and architecture `CLEAR`.
@@ -95,10 +95,15 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   source-final and serial central integration. Its accepted surface is only an
   authority-unavailable prerequisite contract plus a synthetic state-machine
   simulator; no actual authority transition became reachable.
-- Possible S5-B/S5-C author work is outside this unit and has not been inspected
-  or integrated here. G1 dependency order is satisfied by S5-A integration, but
-  browser delivery and performance authority still require their own exact
-  ownership, stable freeze, independent review, and serial central acceptance.
+- S5-C R2 closed its original code P1/P2 and four architecture blockers for the
+  internal diagnostic fresh-child seam. Complete source-final `b8858488` was
+  integrated alone as central `a0443491`, with exact seven-blob equality and
+  focused/adjacent/hostile/static/scope validation.
+- This S5-C integration is not formal authority: prerequisites stay
+  `installed: false`, the formal factory stays `authority-unavailable`, formal
+  pass/fail remains unestablished, and a pure classifier is not an authority
+  result. S4-2 remains no-authority/no-decision and no runtime/public wiring was
+  added.
 - S5-B R2 closes its original code and architecture blockers. Code/spec/security
   is now `COMMENT` with P0/P1/P2 zero; architecture remains `WATCH`, so this is
   not delivery acceptance and no source-final/integration is allowed.
@@ -107,15 +112,10 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   full S4-1 presentation completeness. Requested-factor unresolved observations
   derived by scanning the bound graph must be explicitly named and presented as
   graph-wide state, never as a terminal-decisive explanation.
-- S5-C is currently review-blocked. Code/spec/security is `REQUEST CHANGES`
-  with P1=1/P2=1: every process-identity field must exactly match the
-  preregistered environment, and public options/reference arrays must reject
-  mixed descriptor modes and non-frozen nonextensible containers.
-- S5-C architecture is `BLOCK`: warmup failure must prevent pass; a cold sample
-  cannot execute the same complete run before its timed measurement; and the
-  formal cohort, measured-reference, and code manifest must come from a
-  main-owned exact authority rather than caller-authored metadata. Author `7979`
-  remains in combined rework; S4-2 stays no-authority/no-decision.
+- S5-C formal enablement remains blocked on three future main-owned inputs: a
+  unique cohort, an authoritative measured-reference, and a complete manifest
+  covering the modules actually executed inside the timing window. The
+  diagnostic seam cannot self-supply those prerequisites.
 
 ## Acceptance criteria
 
@@ -148,10 +148,12 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
 - S5-B must be a versioned serialized data delivery whose browser consumer has
   no Node builtin or direct Node/tooling-module import. It cannot weaken S4-1
   no-claim language or turn S4-3 synthetic evidence into runtime/public data.
-- S5-C must bind the typed S5-A artifact, run through an integration-owned
-  cross-process boundary, and produce a separately admitted authority result.
-  Generic snapshot identity or an in-process session cannot self-author a
-  performance pass/fail.
+- S5-C diagnostic execution binds the typed S5-A artifact and runs in fresh
+  child processes, but its admitted result is still no-decision and
+  non-authoritative. A future formal path must separately admit main-owned
+  cohort, measured-reference, and complete timed transitive-code-manifest
+  prerequisites; generic identity, an in-process session, or the pure
+  classifier cannot self-author performance pass/fail.
 - S5-D may define a versioned transition protocol and root-of-trust prerequisite,
   but absent a caller-unforgeable trusted root every actual admission,
   promotion, materialization, publication, and Source Health transition remains

@@ -80,6 +80,11 @@
 | 2026-08-13 | Return S5-C author `7979` to combined rework. | S5-C is review-blocked. No source-final or integration is permitted until a new stable freeze closes all code and architecture findings and receives fresh non-blocking reviews. This integration-owner update does not read or modify `7979`, run lane tests, inspect its exact base/status/paths, or process its delivery. S5-B remains in author rework under its existing block. |
 | 2026-08-13 | Receive the S5-B R2 review verdict. | Code/spec/security is `COMMENT` with P0/P1/P2 zero; the original P1 is closed. Architecture closes the original `BLOCK` but remains `WATCH`: `displayModel` contains only summary, claim boundary, and limitations while retaining the wider S4-1 presentation schema and a broad `textComplete` label; requested-factor unresolved states come from a bound-graph-wide scan and therefore cannot be described as terminal-decisive reasons. This is review progress, not delivery acceptance. |
 | 2026-08-13 | Return S5-B author `72c6` for the final minimal repair before R3. | The next freeze must introduce a versioned browser-boundary-summary completeness scope with an exactly renamed flag, and explicitly name/word graph-wide unresolved fields as graph-wide observations. S5-B remains ineligible for source-final/integration until fresh R3 code/spec/security and architecture reviews are non-blocking. This records update does not read or modify `72c6`, inspect its exact base/status/paths, or run lane tests. |
+| 2026-08-13 | Accept the S5-C R2 reviews for a diagnostic-only integration unit. | Code/spec/security is `COMMENT` with P0/P1/P2 zero and the old P1/P2 closed. Architecture is `WATCH` with the four prior blockers closed for the internal diagnostic fresh-child seam only. Formal prerequisites remain absent, the formal factory remains `authority-unavailable`, and no formal pass/fail authority is established. |
+| 2026-08-13 | Re-preflight and form the complete S5-C source-final. | Central exact start `29b7622` was clean. Worktree `7979` remained clean detached exact `3ae5ae1` with exactly seven reviewed owned paths totalling 95,228 bytes and matching the R2 per-file size/UTC-mtime freeze. Integration-owner source-final `b8858488` has exact parent `3ae5ae1`, exactly those seven paths, and a clean source worktree. |
+| 2026-08-13 | Integrate only S5-C as the next serial Stage 5 unit. | Source `b8858488` was cherry-picked with source trace over exact central `29b7622` as code commit `a0443491`. All seven source and central Git blobs are equal; no S5-B path, record file, runtime/public barrel, package, or workflow path entered the code commit. |
+| 2026-08-13 | Validate S5-C on central exact code HEAD `a0443491`. | S5-C focused passed `10/10`; S4-2 passed `18/18`; S5-A passed `23/23`. Independent hostile evidence rejected all six process-identity drifts, rejected `preventExtensions` and mixed descriptor arrays, accepted exact mutable/frozen modes, invoked getter/Proxy traps zero times, kept caller formal manifests at `authority-unavailable`, and kept diagnostic output `no-decision-not-executed` with `externalAuthorityProven: false`. Targeted ESLint, six-file Node syntax, JSON parse, diff-check, seven-blob equality, import/consumer scan, and scope audit passed. |
+| 2026-08-13 | Preserve the S5-C formal-authority boundary. | The integrated contract is diagnostic only. `formalAuthorityPrerequisites.installed` remains false; formal pass/fail is not established; the pure classifier is not an authority result. A future formal gate still requires a main-owned cohort, an authoritative measured-reference, and a complete manifest of the modules actually executed inside the timing window. S4-2 is not upgraded, and runtime/public wiring remains absent. |
 
 ## Live process ownership
 
@@ -89,26 +94,23 @@
 
 ## Handoff
 
-Bounded S4 integration remains complete and retained for audit. S5-A R2 is
-source-final `4a583ad9` and centrally integrated as `77a255e2`. S5-D R2 is
-source-final `f443f96e` and centrally integrated as `7fb08552`; both units keep
-their bounded claim limits and source/central blob equality. S5-B R2 has code
-P0/P1/P2 zero and architecture `WATCH`; it remains held for one final minimal
-repair, an R3 freeze, and fresh double review. S5-C remains review-blocked in
-combined rework. Author paths `72c6` and `7979` are recorded from supervisory
-handoffs, but their exact task/base/status/owned paths were not inspected in
-this records-only update. No Wave 2 delivery was integrated. Duplicate S5-D
-task `dd31` remains untouched and excluded.
+Bounded S4 integration remains complete and retained for audit. S5-A R2 and
+S5-D R2 remain integrated with their bounded claim limits. S5-C R2 is now
+source-final `b8858488` and centrally integrated as diagnostic-only code commit
+`a0443491`, with seven-blob equality and exact-head validation. It establishes
+no formal performance pass/fail or authority. S5-B R2 has code P0/P1/P2 zero
+and architecture `WATCH`; it remains held for one final minimal repair, an R3
+freeze, and fresh double review. Duplicate S5-D task `dd31` remains untouched
+and excluded.
 
 ## Next step
 
-Hold both Wave 2 lanes at author rework. S5-B must replace broad `textComplete`
-semantics with an exact versioned browser-boundary-summary completeness scope
-and make graph-wide unresolved observations unmistakably non-terminal before
-R3 double review. S5-C must close exact environment binding, descriptor
-admission, warmup/cold validity, failure gating, and main-owned
-cohort/reference/manifest authority blockers. Do not source-final or integrate
-either lane before a new freeze and fresh non-blocking double review. A real
-root of trust, actual product admission/runtime, browser delivery, performance
-authority, live gates, push, merge, release, publication, and deployment remain
-closed.
+Stop after the S5-C diagnostic integration unit. S5-B must replace broad
+`textComplete` semantics with an exact versioned browser-boundary-summary
+completeness scope and make graph-wide unresolved observations unmistakably
+non-terminal before R3 double review; it remains unintegrated. S5-C formal
+enablement remains blocked on main-owned cohort, authoritative measured
+reference, and complete timed transitive-module manifest prerequisites. A real
+root of trust, actual product admission/runtime, browser delivery, formal
+performance authority, live gates, push, merge, release, publication, and
+deployment remain closed.

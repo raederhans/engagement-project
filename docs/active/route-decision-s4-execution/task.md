@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / bounded S4 integration complete; Stage 5 Wave 1 S5-A and S5-D
-integrated; S5-B R2 architecture WATCH and S5-C review-blocked`
+`in-progress / bounded S4 integration complete; Stage 5 S5-A, S5-D, and the
+diagnostic-only S5-C seam integrated; S5-B R2 architecture WATCH / R3 pending`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -83,10 +83,11 @@ public UI, release, publication, deployment, or scientific/safety claims.
   reviews with no blocker, form its source final, and integrate it as the first
   Stage 5 central unit with exact-head focused/adjacent/static/source-equality/
   scope validation.
-- [ ] Admit any S5-B browser serialized delivery or S5-C cross-process
-  performance runner/authority-result delivery only after its exact task,
-  worktree, ownership, stable freeze, and independent reviews are recorded.
-  Neither lane is part of the S5-D integration unit.
+- [x] Admit the S5-C diagnostic fresh-child seam only after its exact worktree,
+  seven-path stable freeze, and independent R2 reviews were recorded; keep its
+  formal authority factory unavailable and formal pass/fail unreachable.
+- [ ] Admit S5-B browser serialized delivery only after its final stable R3
+  freeze and fresh independent code/spec/security and architecture reviews.
 - [x] Freeze and independently review S5-D while preserving unreachable actual
   authority transitions in the absence of a caller-unforgeable root of trust.
 - [x] Stop after the S5-A unit without creating S5-B/S5-C or forming/integrating
@@ -108,6 +109,13 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Record the first S5-C independent double review as code/spec/security
   `REQUEST CHANGES` with P1=1/P2=1 and architecture `BLOCK`; keep author `7979`
   in combined rework and prohibit source-final/integration.
+- [x] Record the S5-C R2 re-review as code/spec/security `COMMENT` with
+  P0/P1/P2 zero and architecture `WATCH`, with the old code and architecture
+  blockers closed only for the internal diagnostic seam.
+- [x] Form complete seven-path source-final `b8858488`, integrate it alone as
+  central code commit `a0443491`, prove seven-blob equality, and pass central
+  focused `10/10`, S4-2 `18/18`, S5-A `23/23`, hostile, static, JSON, diff, and
+  scope checks without running formal, browser, full, live, or real-data gates.
 - [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
@@ -189,7 +197,7 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 | S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
 | S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `f443f96e` has parent `0e8030f` and exactly seven owned paths; integrated centrally as `7fb08552` over exact `3ae5ae1`, with all seven Git blobs equal. Central focused `31/31`, S4-4 adjacent `17/17`, three-root hostile, ESLint/syntax/JSON/diff/scope checks pass. This is only an authority-unavailable prerequisite contract plus synthetic state-machine simulator. |
 | S5-B Browser Serialized Delivery | Author `C:/Users/raede/.codex/worktrees/72c6/engagement_project`; task identity, exact base, status, and owned paths were not inspected in this records-only update | Complete the last minimal repair, produce a new stable R3 freeze, and pass fresh independent code/spec/security plus architecture reviews | R2 code/spec/security `COMMENT`, P0/P1/P2 zero and old P1 closed; architecture old `BLOCK` closed but current status `WATCH`. `displayModel` completeness must be explicitly scoped to a versioned browser-boundary summary with an exact renamed flag; graph-wide requested-factor unresolved observations must be named and worded as graph-wide, never as terminal-decisive reasons. No source-final or integration is permitted. |
-| S5-C Cross-process Performance Runner / Authority Result | Author `C:/Users/raede/.codex/worktrees/7979/engagement_project`; task identity, exact base, status, and owned paths were not inspected in this records-only update | To be admitted only after combined repair, a new stable freeze, and fresh independent code/spec/security plus architecture reviews | `review-blocked`: code/spec/security `REQUEST CHANGES`, P1=1/P2=1; architecture `BLOCK`. Process identity is not exactly bound to the preregistered environment; public arrays accept invalid descriptor modes; warmup/cold semantics and formal cohort/reference/manifest authority are not closed. No source-final or integration is permitted. |
+| S5-C Cross-process Performance Runner / Authority Result | Author `C:/Users/raede/.codex/worktrees/7979/engagement_project`; exact reviewed base `3ae5ae1`; seven owned paths under `scripts/lib/route_s5_performance_authority/**`, its focused test, and diagnostic fixture | R2 code/spec/security `COMMENT`, P0/P1/P2 zero; architecture `WATCH`; old code P1/P2 and four architecture blockers closed for the diagnostic-only surface | Complete source-final `b8858488` has exact parent `3ae5ae1` and seven paths; integrated centrally as `a0443491` over exact `29b7622`, with all seven blobs equal. Central focused `10/10`, S4-2 `18/18`, S5-A `23/23`, independent hostile and static/scope checks pass. Only the internal diagnostic fresh-child seam is admitted; formal prerequisites remain `installed: false`, the formal factory remains `authority-unavailable`, and no formal pass/fail authority exists. |
 
 ### S5-A integration truth
 
@@ -218,6 +226,19 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 - S5-D does not implement a caller-unforgeable root of trust, trusted review
   authority, product graph admission, runtime integration, public delivery, or
   publication readiness.
+
+### S5-C integration truth
+
+- The integrated surface is only a `scripts/internal` diagnostic fresh-child
+  contract. Its result remains `no-decision-not-executed`, with
+  `externalAuthorityProven: false`; it does not upgrade S4-2 or authorize a
+  performance pass/fail.
+- Formal prerequisites remain mechanically `installed: false`, and the formal
+  factory remains `authority-unavailable`. A pure decision classifier is not an
+  authority result and cannot make the formal path reachable.
+- Enabling formal evidence still requires a main-owned unique cohort, an
+  authoritative measured-reference, and a complete manifest covering the
+  actual timed transitive module closure. No runtime/public wiring was added.
 
 ### Stage 5 author stop conditions
 
@@ -251,10 +272,9 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 
 ## Remaining closed gates
 
-- S4-2 intentionally cannot emit a performance `pass` without a future
-  typed S4-3 V2 binding, integration-owned cross-process runner, and independent
-  authority result. Its generic snapshot hash is not a typed CityAdapter identity,
-  and the current summary cannot be upgraded in place to pass/fail.
+- S4-2 intentionally remains no-authority/no-decision. S5-C adds a typed
+  diagnostic fresh-child seam but not a formal authority result; S4-2's generic
+  snapshot hash and existing summary cannot be upgraded in place to pass/fail.
 - S4-4 intentionally keeps every actual `eligible`, `authorityVerified`,
   `actualAdmission`, `promotionExecuted`, and `materializedArtifact` field
   false. Caller JSON can only establish internal conformance.
