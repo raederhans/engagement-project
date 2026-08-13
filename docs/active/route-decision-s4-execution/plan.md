@@ -104,9 +104,15 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   caller-rehashed unreachable terminal truth and mechanically require all
   conditional limitations and controlled presentation content before either
   review can be repeated.
-- S5-C remains author in progress and is not eligible for early preflight,
-  review, source-final, or integration. Its unfinished state does not alter the
-  S4-2 no-authority/no-decision boundary.
+- S5-C is currently review-blocked. Code/spec/security is `REQUEST CHANGES`
+  with P1=1/P2=1: every process-identity field must exactly match the
+  preregistered environment, and public options/reference arrays must reject
+  mixed descriptor modes and non-frozen nonextensible containers.
+- S5-C architecture is `BLOCK`: warmup failure must prevent pass; a cold sample
+  cannot execute the same complete run before its timed measurement; and the
+  formal cohort, measured-reference, and code manifest must come from a
+  main-owned exact authority rather than caller-authored metadata. Author `7979`
+  remains in combined rework; S4-2 stays no-authority/no-decision.
 
 ## Acceptance criteria
 

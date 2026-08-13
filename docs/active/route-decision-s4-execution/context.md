@@ -76,6 +76,8 @@
 | 2026-08-13 | Preserve the S5-D authority boundary. | The delivery is named and admitted only as an **authority-unavailable prerequisite contract + synthetic state-machine simulator**. Production transitions stop at `authority-unavailable`; actual authority/admission/materialization/Source Health/publication stay false or unavailable, and the underlying S4 Source Health projection stays `unknown`, `not-observed`, and mutation-unauthorized. Simulator `finalState` remains synthetic-only and nonconsumable with `syntheticOnly: true`, `actualAdmission: false`, and `productConsumable: false`; no trusted authority or publication readiness is claimed. |
 | 2026-08-13 | Receive the first S5-B Wave 2 review verdict. | Independent code/spec/security reports one P1 and `REQUEST CHANGES`; architecture reports `BLOCK`. The browser parser can accept a newly self-hashed artifact whose terminal truth is unreachable, and `textComplete` can survive deletion of conditional limitations or arbitrary presentation prose. S5-B is review-blocked: no source-final or integration is allowed until a new freeze closes both roots and passes fresh reviews. |
 | 2026-08-13 | Preserve S5-C author isolation. | S5-C remains author in progress. This records update does not inspect or process its worktree, run its tests, begin review, form a source-final, or infer cross-process performance authority. |
+| 2026-08-13 | Receive the first S5-C independent double-review verdict. | Code/spec/security reports `REQUEST CHANGES`, P1=1 and P2=1. The P1 is that `processIdentity.execPath`, `nodeVersion`, `v8Version`, `platform`, `release`, and `arch` are not bound field-by-field to the preregistered environment. The P2 is that public options/reference arrays accept mixed descriptors and non-frozen `preventExtensions` containers. Architecture reports `BLOCK`: warmup failures do not prevent pass; the claimed cold sample has already executed the same run in full before timing; and the formal cohort, measured-reference, and code manifest remain caller-authored or lack main-owned exact authority. |
+| 2026-08-13 | Return S5-C author `7979` to combined rework. | S5-C is review-blocked. No source-final or integration is permitted until a new stable freeze closes all code and architecture findings and receives fresh non-blocking reviews. This integration-owner update does not read or modify `7979`, run lane tests, inspect its exact base/status/paths, or process its delivery. S5-B remains in author rework under its existing block. |
 
 ## Live process ownership
 
@@ -88,17 +90,20 @@
 Bounded S4 integration remains complete and retained for audit. S5-A R2 is
 source-final `4a583ad9` and centrally integrated as `77a255e2`. S5-D R2 is
 source-final `f443f96e` and centrally integrated as `7fb08552`; both units keep
-their bounded claim limits and source/central blob equality. S5-B is
-review-blocked pending repair and new independent review; S5-C remains author
-in progress. Their exact task/worktree mapping was not inspected in this
-records-only update and no Wave 2 delivery was integrated. Duplicate S5-D task
-`dd31` remains untouched and excluded.
+their bounded claim limits and source/central blob equality. S5-B and S5-C are
+both review-blocked pending repair, new stable freezes, and fresh independent
+reviews. S5-C author path `7979` is recorded from the supervisory handoff, but
+its exact task/base/status/owned paths were not inspected in this records-only
+update. No Wave 2 delivery was integrated. Duplicate S5-D task `dd31` remains
+untouched and excluded.
 
 ## Next step
 
-Hold S5-B at author rework until a new stable freeze and both review views close
-the parser-truth and presentation-completeness blockers. Let S5-C continue only
-under its author ownership; do not preflight, review, source-final, or integrate
-it early. A real root of trust, actual product admission/runtime, browser
-delivery, performance authority, live gates, push, merge, release, publication,
-and deployment remain closed.
+Hold both Wave 2 lanes at author rework. S5-B must close parser-truth and
+presentation-completeness blockers. S5-C must close exact environment binding,
+descriptor admission, warmup/cold validity, failure gating, and main-owned
+cohort/reference/manifest authority blockers. Do not source-final or integrate
+either lane before a new freeze and fresh non-blocking double review. A real
+root of trust, actual product admission/runtime, browser delivery, performance
+authority, live gates, push, merge, release, publication, and deployment remain
+closed.
