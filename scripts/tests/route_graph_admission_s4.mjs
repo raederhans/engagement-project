@@ -6,7 +6,7 @@ import {
   INTERNAL_IDENTITY_LIMITATION,
   CALLER_SUPPLIED_REVIEW_ASSERTION_SCHEMA,
   evaluateRouteGraphEligibility,
-  inspectRouteGraphAdmissionEvidence,
+  inspectRouteGraphEligibilityEvidence,
   verifyRouteGraphEligibilityReport,
 } from '../lib/route_graph_admission/index.mjs';
 import {
@@ -84,7 +84,7 @@ test('semantic diff binds schema/source/license/coverage/clocks/mode/topology/ge
   changedRaw.features.find((feature) => feature.edge_id === 'e-bc').cost_integer += 1;
   currentLifecycle.normalization = normalizeRouteGraphCandidate(changedRaw, currentLifecycle.profile);
 
-  const inspected = inspectRouteGraphAdmissionEvidence({ baselineLifecycle, currentLifecycle });
+  const inspected = inspectRouteGraphEligibilityEvidence({ baselineLifecycle, currentLifecycle });
   assert.equal(inspected.semanticDiff.disposition, 'review-required');
   assert.ok(inspected.semanticDiff.changedAxes.includes('license-attribution-identity-drift'));
   assert.ok(inspected.semanticDiff.changedAxes.includes('coverage-identity-drift'));
@@ -155,7 +155,10 @@ test('caller baseline allowlist is separate from review assertions', () => {
 
 test('simultaneous caller forgery can only create caller-policy conformance, never eligibility or actual state', () => {
   const inputs = validInputs();
-  const inspected = inspectRouteGraphAdmissionEvidence(inputs);
+  const inspected = inspectRouteGraphEligibilityEvidence({
+    baselineLifecycle: inputs.baselineLifecycle,
+    currentLifecycle: inputs.currentLifecycle,
+  });
   inputs.callerSuppliedPolicy.policyId = 'caller-invented-policy';
   inputs.callerSuppliedPolicy.baselineAllowlist = [inspected.baseline.graph];
   inputs.callerSuppliedPolicy.authorities[0].authorityId = 'caller-invented-authority';
@@ -312,12 +315,173 @@ test('accessors, unknown fields and duplicate review scopes are rejected', () =>
   assert.throws(() => evaluateRouteGraphEligibility(duplicateInputs), hasCode('review-scope-duplicate'));
 });
 
+test('public root envelopes reject Proxy, getter, hidden, symbol and extra properties before reads', () => {
+  const roots = [
+    {
+      call: inspectRouteGraphEligibilityEvidence,
+      make: () => {
+        const inputs = validInputs();
+        return {
+          baselineLifecycle: inputs.baselineLifecycle,
+          currentLifecycle: inputs.currentLifecycle,
+        };
+      },
+    },
+    { call: evaluateRouteGraphEligibility, make: validInputs },
+  ];
+  for (const { call, make } of roots) {
+    let trapCalls = 0;
+    const proxy = new Proxy(make(), {
+      get() { trapCalls += 1; throw new Error('root get trap must not run'); },
+      getOwnPropertyDescriptor() { trapCalls += 1; throw new Error('root descriptor trap must not run'); },
+      getPrototypeOf() { trapCalls += 1; throw new Error('root prototype trap must not run'); },
+      ownKeys() { trapCalls += 1; throw new Error('root ownKeys trap must not run'); },
+    });
+    assert.throws(() => call(proxy), hasCode('proxy-object'));
+    assert.equal(trapCalls, 0);
+
+    let getterCalls = 0;
+    const accessor = make();
+    Object.defineProperty(accessor, 'baselineLifecycle', {
+      enumerable: true,
+      configurable: true,
+      get() { getterCalls += 1; return externalLifecycle(); },
+    });
+    assert.throws(() => call(accessor), hasCode('accessor-property'));
+    assert.equal(getterCalls, 0);
+
+    const hidden = make();
+    Object.defineProperty(hidden, 'hiddenConclusion', { enumerable: false, value: true });
+    assert.throws(() => call(hidden), hasCode('hidden-property'));
+
+    const symbolic = make();
+    symbolic[Symbol('conclusion')] = true;
+    assert.throws(() => call(symbolic), hasCode('symbol-property'));
+
+    const extra = make();
+    extra.actualAdmission = true;
+    assert.throws(() => call(extra), hasCode('schema-mismatch'));
+  }
+});
+
+test('reviewEvidence admits only a dense standard descriptor-safe array before iteration', () => {
+  let trapCalls = 0;
+  const proxyInputs = validInputs();
+  proxyInputs.reviewEvidence = new Proxy(proxyInputs.reviewEvidence, {
+    get() { trapCalls += 1; throw new Error('review array get trap must not run'); },
+    getOwnPropertyDescriptor() { trapCalls += 1; throw new Error('review array descriptor trap must not run'); },
+    getPrototypeOf() { trapCalls += 1; throw new Error('review array prototype trap must not run'); },
+    ownKeys() { trapCalls += 1; throw new Error('review array ownKeys trap must not run'); },
+  });
+  assert.throws(() => evaluateRouteGraphEligibility(proxyInputs), hasCode('review-array-proxy'));
+  assert.equal(trapCalls, 0);
+
+  let indexGetterCalls = 0;
+  const accessorInputs = validInputs();
+  Object.defineProperty(accessorInputs.reviewEvidence, '0', {
+    enumerable: true,
+    configurable: true,
+    get() { indexGetterCalls += 1; return structuredClone(reviewTemplateFixture); },
+  });
+  assert.throws(
+    () => evaluateRouteGraphEligibility(accessorInputs),
+    hasCode('review-array-index-descriptor'),
+  );
+  assert.equal(indexGetterCalls, 0);
+
+  const hiddenInputs = validInputs();
+  Object.defineProperty(hiddenInputs.reviewEvidence, 'hidden', { enumerable: false, value: true });
+  assert.throws(() => evaluateRouteGraphEligibility(hiddenInputs), hasCode('review-array-property'));
+
+  const symbolInputs = validInputs();
+  symbolInputs.reviewEvidence[Symbol('conclusion')] = true;
+  assert.throws(() => evaluateRouteGraphEligibility(symbolInputs), hasCode('review-array-property'));
+
+  const customInputs = validInputs();
+  customInputs.reviewEvidence.conclusion = true;
+  assert.throws(() => evaluateRouteGraphEligibility(customInputs), hasCode('review-array-property'));
+
+  const sparseInputs = validInputs();
+  delete sparseInputs.reviewEvidence[1];
+  assert.throws(
+    () => evaluateRouteGraphEligibility(sparseInputs),
+    hasCode('review-array-index-descriptor'),
+  );
+
+  const prototypeInputs = validInputs();
+  Object.setPrototypeOf(prototypeInputs.reviewEvidence, {});
+  assert.throws(() => evaluateRouteGraphEligibility(prototypeInputs), hasCode('review-array-prototype'));
+
+  const lengthInputs = validInputs();
+  Object.defineProperty(lengthInputs.reviewEvidence, 'length', { writable: false });
+  assert.throws(() => evaluateRouteGraphEligibility(lengthInputs), hasCode('review-array-length'));
+
+  let reviewProxyTrapCalls = 0;
+  const reviewProxyInputs = validInputs();
+  reviewProxyInputs.reviewEvidence[0] = new Proxy(reviewProxyInputs.reviewEvidence[0], {
+    get() { reviewProxyTrapCalls += 1; throw new Error('review object get trap must not run'); },
+    ownKeys() { reviewProxyTrapCalls += 1; throw new Error('review object ownKeys trap must not run'); },
+  });
+  assert.throws(() => evaluateRouteGraphEligibility(reviewProxyInputs), hasCode('review-object-proxy'));
+  assert.equal(reviewProxyTrapCalls, 0);
+
+  const first = evaluateRouteGraphEligibility(validInputs());
+  const second = evaluateRouteGraphEligibility(validInputs());
+  assert.deepEqual(second, first);
+  assert.equal(second.reportIdentity, first.reportIdentity);
+});
+
+test('Proxy, hidden, symbol and returned-value tampering stay fail closed and getter-safe', () => {
+  let getterCalls = 0;
+  const proxiedInputs = validInputs();
+  const policyTarget = structuredClone(proxiedInputs.callerSuppliedPolicy);
+  Object.defineProperty(policyTarget, 'policyId', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return 'forged-policy';
+    },
+  });
+  proxiedInputs.callerSuppliedPolicy = new Proxy(policyTarget, {
+    get() {
+      getterCalls += 1;
+      throw new Error('direct property read must not occur');
+    },
+  });
+  assert.throws(() => evaluateRouteGraphEligibility(proxiedInputs), hasCode('accessor-property'));
+  assert.equal(getterCalls, 0);
+
+  const hiddenInputs = validInputs();
+  Object.defineProperty(hiddenInputs.promotionIntent, 'hiddenConclusion', {
+    enumerable: false,
+    value: true,
+  });
+  assert.throws(() => evaluateRouteGraphEligibility(hiddenInputs), hasCode('hidden-property'));
+
+  const symbolInputs = validInputs();
+  symbolInputs.reviewEvidence[0][Symbol('conclusion')] = true;
+  assert.throws(() => evaluateRouteGraphEligibility(symbolInputs), hasCode('symbol-property'));
+
+  const inputs = validInputs();
+  const report = evaluateRouteGraphEligibility(inputs);
+  const originalPolicyIdentity = report.policyIdentity;
+  assert.equal(Object.isFrozen(report), true);
+  assert.equal(Object.isFrozen(report.identities.current.clocks), true);
+  assert.equal(Object.isFrozen(report.gates.productGraphEligibility.reasonCodes), true);
+  assert.throws(() => { report.gates.productGraphEligibility.eligible = true; }, TypeError);
+  assert.throws(() => { report.gates.sourceHealthProjection.projectedStatus = 'current'; }, TypeError);
+  inputs.callerSuppliedPolicy.policyId = 'mutated-after-evaluation';
+  assert.equal(report.policyIdentity, originalPolicyIdentity);
+  assert.equal(report.gates.productGraphEligibility.eligible, false);
+  assert.equal(report.gates.sourceHealthProjection.projectedStatus, 'unknown');
+});
+
 function validInputs() {
   return inputsFor(externalLifecycle(), externalLifecycle());
 }
 
 function inputsFor(baselineLifecycle, currentLifecycle) {
-  const inspected = inspectRouteGraphAdmissionEvidence({ baselineLifecycle, currentLifecycle });
+  const inspected = inspectRouteGraphEligibilityEvidence({ baselineLifecycle, currentLifecycle });
   const callerSuppliedPolicy = structuredClone(authorityPolicyFixture);
   callerSuppliedPolicy.baselineAllowlist = [inspected.baseline.graph];
   const reviewEvidence = [

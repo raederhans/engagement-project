@@ -1,14 +1,18 @@
+import { types as utilTypes } from 'node:util';
+
 import {
   admitRouteGraphCandidateLifecycle,
 } from '../route_graph_candidate/candidate_lifecycle.mjs';
 import {
   canonicalStringify,
+  cloneDescriptorSafe,
   contentIdentity,
   exactDataObject,
   fail,
   freezeData,
 } from '../route_graph_candidate/safe_data.mjs';
 import {
+  AUTHORITY_SCOPES,
   EXTERNAL_DATA_ELIGIBILITY_SCHEMA,
   GRAPH_SOURCE_HEALTH_PROJECTION_SCHEMA,
   INTERNAL_IDENTITY_LIMITATION,
@@ -30,9 +34,14 @@ const AXES = Object.freeze([
   'topology', 'geometry', 'content', 'audit',
 ]);
 
-export function inspectRouteGraphAdmissionEvidence({ baselineLifecycle, currentLifecycle }) {
-  const baseline = admitExternalLifecycle(baselineLifecycle, 'baseline');
-  const current = admitExternalLifecycle(currentLifecycle, 'current');
+export function inspectRouteGraphEligibilityEvidence(raw) {
+  const envelope = admitRootEnvelope(
+    raw,
+    ['baselineLifecycle', 'currentLifecycle'],
+    'route graph eligibility inspection input',
+  );
+  const baseline = admitExternalLifecycle(envelope.baselineLifecycle, 'baseline');
+  const current = admitExternalLifecycle(envelope.currentLifecycle, 'current');
   const baselineIdentities = identitiesFor(baseline);
   const currentIdentities = identitiesFor(current);
   const semanticDiff = semanticDiffFor(baselineIdentities, currentIdentities);
@@ -43,19 +52,19 @@ export function inspectRouteGraphAdmissionEvidence({ baselineLifecycle, currentL
   }, 'route graph eligibility evidence inspection');
 }
 
-export function evaluateRouteGraphEligibility({
-  baselineLifecycle,
-  currentLifecycle,
-  callerSuppliedPolicy,
-  reviewEvidence,
-  promotionIntent,
-}) {
-  const inspected = inspectRouteGraphAdmissionEvidence({ baselineLifecycle, currentLifecycle });
-  const policy = admitCallerSuppliedReviewPolicy(callerSuppliedPolicy);
-  if (!Array.isArray(reviewEvidence)) fail('review-evidence-array-required', 'reviewEvidence must be an array');
-  const reviews = reviewEvidence.map(admitCallerSuppliedReviewAssertion);
+export function evaluateRouteGraphEligibility(raw) {
+  const envelope = admitRootEnvelope(raw, [
+    'baselineLifecycle', 'currentLifecycle', 'callerSuppliedPolicy', 'reviewEvidence', 'promotionIntent',
+  ], 'route graph eligibility evaluation input');
+  const inspected = inspectRouteGraphEligibilityEvidence({
+    baselineLifecycle: envelope.baselineLifecycle,
+    currentLifecycle: envelope.currentLifecycle,
+  });
+  const policy = admitCallerSuppliedReviewPolicy(envelope.callerSuppliedPolicy);
+  const reviews = admitDenseReviewArray(envelope.reviewEvidence)
+    .map(admitCallerSuppliedReviewAssertion);
   assertUniqueReviewScopes(reviews);
-  const intent = admitPromotionIntent(promotionIntent);
+  const intent = admitPromotionIntent(envelope.promotionIntent);
   const policyIdentity = contentIdentity(policy);
   const evidenceIdentity = contentIdentity(inspected);
   const reviewSetIdentity = contentIdentity(reviews);
@@ -173,6 +182,78 @@ function admitExternalLifecycle(value, label) {
     fail('external-classification-required', `${label} lifecycle must retain candidate-external classification`);
   }
   return lifecycle;
+}
+
+function admitRootEnvelope(value, keys, label) {
+  if (utilTypes.isProxy(value)) fail('proxy-object', `${label} must not be a Proxy`);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail('object-required', `${label} must be a plain data object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    fail('object-prototype', `${label} must be a plain data object`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const actualKeys = [];
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== 'string') fail('symbol-property', `${label} must not contain symbol properties`);
+    const descriptor = descriptors[key];
+    if (!Object.hasOwn(descriptor, 'value')) fail('accessor-property', `${label}.${key} must be a data property`);
+    if (!descriptor.enumerable) fail('hidden-property', `${label}.${key} must be enumerable`);
+    actualKeys.push(key);
+  }
+  const missing = keys.filter((key) => !actualKeys.includes(key));
+  const unknown = actualKeys.filter((key) => !keys.includes(key));
+  if (missing.length || unknown.length) {
+    fail(
+      'schema-mismatch',
+      `${label} schema mismatch (missing: ${missing.join(',') || 'none'}; unknown: ${unknown.join(',') || 'none'})`,
+    );
+  }
+  return Object.freeze(Object.fromEntries(keys.map((key) => [key, descriptors[key].value])));
+}
+
+function admitDenseReviewArray(value) {
+  if (utilTypes.isProxy(value)) fail('review-array-proxy', 'reviewEvidence must not be a Proxy');
+  if (!Array.isArray(value)) fail('review-evidence-array-required', 'reviewEvidence must be an array');
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    fail('review-array-prototype', 'reviewEvidence must use the standard Array prototype');
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const lengthDescriptor = descriptors.length;
+  if (!lengthDescriptor
+    || !Object.hasOwn(lengthDescriptor, 'value')
+    || !Number.isSafeInteger(lengthDescriptor.value)
+    || lengthDescriptor.value < 0
+    || lengthDescriptor.value > AUTHORITY_SCOPES.length
+    || lengthDescriptor.writable !== true
+    || lengthDescriptor.enumerable !== false
+    || lengthDescriptor.configurable !== false) {
+    fail('review-array-length', 'reviewEvidence must have a standard bounded array length');
+  }
+  const allowedKeys = new Set(['length']);
+  for (let index = 0; index < lengthDescriptor.value; index += 1) allowedKeys.add(String(index));
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== 'string' || !allowedKeys.has(key)) {
+      fail('review-array-property', 'reviewEvidence must not contain custom, hidden, extra, or symbol properties');
+    }
+  }
+  const result = [];
+  for (let index = 0; index < lengthDescriptor.value; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor
+      || !Object.hasOwn(descriptor, 'value')
+      || descriptor.writable !== true
+      || descriptor.enumerable !== true
+      || descriptor.configurable !== true) {
+      fail('review-array-index-descriptor', 'reviewEvidence must contain dense standard data indexes');
+    }
+    if (utilTypes.isProxy(descriptor.value)) {
+      fail('review-object-proxy', `reviewEvidence[${index}] must not be a Proxy`);
+    }
+    result.push(cloneDescriptorSafe(descriptor.value, `reviewEvidence[${index}]`));
+  }
+  return Object.freeze(result);
 }
 
 function identitiesFor(lifecycle) {
