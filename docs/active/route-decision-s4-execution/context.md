@@ -22,8 +22,10 @@
 | 2026-08-13 | The user explicitly authorized S4 execution after accepting both preparation packages. | Code implementation may begin, but dependency gates still separate real data, eligible performance, pilot, public/release, and deployment actions. |
 | 2026-08-13 | Start four worktree-isolated lanes for explanation, performance protocol, city adaptation, and external graph admission. | Each lane owns disjoint new paths, returns uncommitted work, and cannot change refs, index, package scripts, central records, existing public barrels, runtime, or shared outputs. |
 | 2026-08-13 | Keep the first implementation wave synthetic-only and contract-first. | The primary owner can review semantic truth before opening UI integration, eligible sampling, acquisition, or promotion paths. |
-| 2026-08-13 | Commit coordination baseline `f1330c4` and create four detached worktrees at that exact revision. | Explanation (`f669`) and CityAdapter (`26c2`) started immediately; Performance (`0596`) and External Graph Admission (`adec`) are queued with ready clean worktrees. |
+| 2026-08-13 | Commit coordination baseline `f1330c4` and create four detached worktrees at that exact revision. | Explanation (`f669`) and CityAdapter (`26c2`) started immediately; the app created clean queued worktrees `0596` and `adec` for the remaining tasks. |
 | 2026-08-13 | Explanation and CityAdapter reported their initial HEAD/status/ownership checks. | Both confirmed `f1330c4`, clean start, synthetic-only inputs, isolated new paths, no public barrel/runtime/data gate, and no Git authority. |
+| 2026-08-13 | Audit the reported S4-2/S4-4 startup problem against live task and worktree state. | Both queued requests had resolved into active tasks, but the prior record had their worktree assignments reversed. Performance is task `019ff9ab-6964-7413-a142-c3d6d958e6d3` on `adec`; External Graph Admission is task `019ff9ab-5ed1-7c53-b7fd-7c007c9d54d1` on `0596`. Both confirmed correct prompts and clean `f1330c4` before writing, so no code ownership collision occurred. |
+| 2026-08-13 | Receive the first Explanation and CityAdapter deliveries. | Both kept HEAD/index/refs unchanged, returned only owned untracked files and focused validation evidence, and remain unintegrated pending primary review. |
 
 ## Live process ownership
 
@@ -40,6 +42,6 @@ artifact. The primary owner reviews and integrates one lane at a time.
 
 ## Next step
 
-Monitor the two active and two queued worktree tasks, obtain the remaining
-ownership acknowledgments, and review the first stable lane deliveries before
-opening any downstream integration or live gate.
+Review the completed Explanation and CityAdapter deliveries while Performance
+and External Graph Admission continue, then inspect all four before opening any
+downstream integration or live gate.
