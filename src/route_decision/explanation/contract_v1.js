@@ -1,3 +1,5 @@
+import { types as nodeTypes } from 'node:util';
+
 import {
   ROUTE_SEARCH_DECISION_EVALUATION_VERSION,
   admitRouteSearchDecisionEvaluation,
@@ -23,6 +25,17 @@ export const ROUTE_DECISION_EXPLANATION_EFFECT_KINDS = Object.freeze([
   'tie-break-decided-rank',
   'score-changed-only',
   'no-effect',
+]);
+export const ROUTE_DECISION_EXPLANATION_PROHIBITED_CLAIM_TAGS = Object.freeze([
+  'safe-route',
+  'safer-route',
+  'recommended-route',
+  'risk-prediction',
+  'accessibility-validated',
+  'city-validated',
+  'scientifically-validated',
+  'user-research-validated',
+  'production-validated',
 ]);
 
 export const ROUTE_DECISION_EXPLANATION_REASON_CODES = Object.freeze([
@@ -70,8 +83,46 @@ function fail(message) {
   throw new TypeError(`route decision explanation contract: ${message}`);
 }
 
+function rejectProxy(raw, label) {
+  if (raw && typeof raw === 'object' && nodeTypes.isProxy(raw)) {
+    fail(`${label} must not be a Proxy`);
+  }
+}
+
+function containerMode(raw, label) {
+  let extensible;
+  try {
+    extensible = Object.isExtensible(raw);
+  } catch {
+    fail(`${label} extensibility cannot be inspected safely`);
+  }
+  if (extensible === true) return 'mutable';
+  let frozen;
+  try {
+    frozen = Object.isFrozen(raw);
+  } catch {
+    fail(`${label} frozen state cannot be inspected safely`);
+  }
+  if (frozen === true) return 'frozen';
+  fail(`${label} must be either extensible mutable data or fully frozen data`);
+}
+
+function assertDescriptorMode(descriptor, mode, label) {
+  if (!Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+    fail(`${label} must be an enumerable data property`);
+  }
+  const expectedWritable = mode === 'mutable';
+  const expectedConfigurable = mode === 'mutable';
+  if (descriptor.writable !== expectedWritable
+    || descriptor.configurable !== expectedConfigurable) {
+    fail(`${label} does not match the ${mode} container mode`);
+  }
+}
+
 function inspectObject(raw, label) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(`${label} must be an object`);
+  rejectProxy(raw, label);
+  if (!raw || typeof raw !== 'object') fail(`${label} must be an object`);
+  const mode = containerMode(raw, label);
   let prototype;
   let descriptors;
   let ownKeys;
@@ -87,7 +138,7 @@ function inspectObject(raw, label) {
   }
   for (const key of ownKeys) {
     if (BLOCKED_KEYS.has(key)) fail(`${label}.${key} is prohibited`);
-    if (!Object.hasOwn(descriptors[key], 'value')) fail(`${label}.${key} must be a data property`);
+    assertDescriptorMode(descriptors[key], mode, `${label}.${key}`);
   }
   return { descriptors, ownKeys };
 }
@@ -101,7 +152,9 @@ function exactObject(raw, keys, label) {
 }
 
 function strictArray(raw, label) {
+  rejectProxy(raw, label);
   if (!Array.isArray(raw)) fail(`${label} must be an array`);
+  const mode = containerMode(raw, label);
   let prototype;
   let descriptors;
   let ownKeys;
@@ -116,13 +169,18 @@ function strictArray(raw, label) {
     fail(`${label} must be a standard array`);
   }
   const length = descriptors.length?.value;
-  if (!Number.isSafeInteger(length) || length < 0) fail(`${label} has an invalid length`);
+  const lengthDescriptor = descriptors.length;
+  if (!lengthDescriptor || !Object.hasOwn(lengthDescriptor, 'value')
+    || lengthDescriptor.enumerable !== false || lengthDescriptor.configurable !== false
+    || !Number.isSafeInteger(length) || length < 0) fail(`${label} has an invalid length descriptor`);
+  if (lengthDescriptor.writable !== (mode === 'mutable')) {
+    fail(`${label}.length does not match the ${mode} container mode`);
+  }
   const result = [];
   for (let index = 0; index < length; index += 1) {
     const descriptor = descriptors[String(index)];
-    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
-      fail(`${label}[${index}] must be a data property`);
-    }
+    if (!descriptor) fail(`${label} must be dense`);
+    assertDescriptorMode(descriptor, mode, `${label}[${index}]`);
     result.push(descriptor.value);
   }
   const extras = ownKeys.filter((key) => key !== 'length'
@@ -138,6 +196,7 @@ function cloneData(raw, label, depth = 0) {
     if (!Number.isSafeInteger(raw) || Object.is(raw, -0)) fail(`${label} contains an invalid number`);
     return raw;
   }
+  rejectProxy(raw, label);
   if (Array.isArray(raw)) {
     return strictArray(raw, label).map((item, index) => cloneData(
       item,
@@ -163,6 +222,7 @@ function canonicalContent(raw, label, depth = 0) {
     }
     return String(raw);
   }
+  rejectProxy(raw, label);
   if (Array.isArray(raw)) {
     return `[${strictArray(raw, label).map((item, index) => canonicalContent(
       item,
@@ -532,14 +592,18 @@ function buildHardConstraintFacts(admitted) {
 
 function buildSoftContributions(admitted, search) {
   const candidates = admittedCandidates(admitted, search);
-  return candidates.flatMap((candidate) => admitted.policy.softPreferences.map((preference) => ({
-    candidateId: candidate.candidateId,
-    preferenceId: preference.preferenceId,
-    factorId: preference.factorId,
-    weightBasisPoints: preference.weightBasisPoints,
-    ...weightedContribution(candidate, preference),
-    meaning: 'score-contribution-not-decisive-reason',
-  })));
+  return candidates.flatMap((candidate) => admitted.policy.softPreferences.map((preference) => {
+    const contribution = weightedContribution(candidate, preference);
+    return {
+      candidateId: candidate.candidateId,
+      preferenceId: preference.preferenceId,
+      factorId: preference.factorId,
+      evidenceState: contribution.rawValue === 0 ? 'zero' : 'observed',
+      weightBasisPoints: preference.weightBasisPoints,
+      ...contribution,
+      meaning: 'score-contribution-not-decisive-reason',
+    };
+  }));
 }
 
 function outcomeReason(admitted) {
@@ -609,13 +673,21 @@ function expectedExplanation(admitted) {
     primaryWhyEffects: counterfactualEffects
       .filter(({ effectKind }) => PRIMARY_WHY_EFFECT_KIND_SET.has(effectKind))
       .map(({ effectKind, ruleKind, ruleId }) => ({ effectKind, ruleKind, ruleId })),
+    claimBoundary: {
+      interpretation: 'no-claim-eligible-from-explanation-v1',
+      prohibitedClaimTags: [...ROUTE_DECISION_EXPLANATION_PROHIBITED_CLAIM_TAGS],
+    },
     limitations,
   };
 }
 
 export function buildRouteDecisionExplanation(input) {
   const value = exactObject(input, ['decisionEvaluation'], 'explanation build input');
-  const admitted = admitRouteSearchDecisionEvaluation(value.decisionEvaluation);
+  const detachedDecisionEvaluation = cloneData(
+    value.decisionEvaluation,
+    'explanation build input.decisionEvaluation',
+  );
+  const admitted = admitRouteSearchDecisionEvaluation(detachedDecisionEvaluation);
   if (admitted.schemaVersion !== ROUTE_SEARCH_DECISION_EVALUATION_VERSION) {
     fail('decision evaluation version is unsupported');
   }

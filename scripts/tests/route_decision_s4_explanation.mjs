@@ -10,6 +10,7 @@ import {
   ROUTE_DECISION_EXPLANATION_CANONICAL_CONTENT_VERSION,
   ROUTE_DECISION_EXPLANATION_LIMITATION_CODES,
   ROUTE_DECISION_EXPLANATION_PRESENTATION_VERSION,
+  ROUTE_DECISION_EXPLANATION_PROHIBITED_CLAIM_TAGS,
   ROUTE_DECISION_EXPLANATION_REASON_CODES,
   ROUTE_DECISION_EXPLANATION_VERSION,
   ROUTE_DECISION_EXPLANATION_SEARCH_VOCABULARY_VERSIONS,
@@ -36,6 +37,14 @@ function evaluate(rawPolicy = policy(), artifact = searchResult()) {
 
 function explain(rawPolicy = policy(), artifact = searchResult()) {
   return buildRouteDecisionExplanation({ decisionEvaluation: evaluate(rawPolicy, artifact) });
+}
+
+function reverseObjectKeyOrder(value) {
+  if (Array.isArray(value)) return value.map(reverseObjectKeyOrder);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value).reverse().map(([key, item]) => [key, reverseObjectKeyOrder(item)]),
+  );
 }
 
 function effectExpectationProjection(effects) {
@@ -212,6 +221,13 @@ test('counterfactual effects are independently reproducible and never promoted t
   assert.ok(artifact.explanation.softContributions.every(
     ({ meaning }) => meaning === 'score-contribution-not-decisive-reason',
   ));
+  assert.ok(artifact.explanation.softContributions.every(
+    ({ evidenceState }) => ['observed', 'zero'].includes(evidenceState),
+  ));
+  assert.deepEqual(artifact.explanation.claimBoundary, {
+    interpretation: 'no-claim-eligible-from-explanation-v1',
+    prohibitedClaimTags: [...ROUTE_DECISION_EXPLANATION_PROHIBITED_CLAIM_TAGS],
+  });
   assert.ok(artifact.explanation.reasons.every((code) => !code.includes('preference')));
   assert.ok(artifact.explanation.limitations.includes('counterfactual-effect-not-causal'));
   assert.ok(artifact.explanation.limitations.includes('no-user-preference-inference'));
@@ -431,7 +447,7 @@ test('admission is exact, detached, deeply frozen, getter-safe, and rejects tamp
   const getTrap = new Proxy(structuredClone(artifact), {
     get() { getterCalls += 1; throw new Error('must not call get trap'); },
   });
-  assert.deepEqual(admitRouteDecisionExplanation(getTrap), artifact);
+  assert.throws(() => admitRouteDecisionExplanation(getTrap), /must not be a Proxy/);
   assert.equal(getterCalls, 0);
 
   const polluted = structuredClone(artifact);
@@ -447,6 +463,189 @@ test('admission is exact, detached, deeply frozen, getter-safe, and rejects tamp
   rawEvaluation.policy.policyId = 'mutated';
   assert.equal(rebuilt.inputIdentity.policyId, 'policy-s4-explanation');
   assert.equal(Object.isFrozen(rebuilt.explanation.counterfactualEffects), true);
+
+  const reorderedEvaluation = reverseObjectKeyOrder(structuredClone(artifact.decisionEvaluation));
+  const reordered = buildRouteDecisionExplanation({ decisionEvaluation: reorderedEvaluation });
+  assert.equal(
+    reordered.inputIdentity.contentIdentities.admittedDecisionEvaluation,
+    artifact.inputIdentity.contentIdentities.admittedDecisionEvaluation,
+  );
+  assert.deepEqual(reordered, artifact);
+});
+
+test('all public roots and nested arrays reject hostile descriptors without invoking getters', () => {
+  const artifact = explain();
+  let getterCalls = 0;
+  const trapCounts = {
+    get: 0,
+    getPrototypeOf: 0,
+    ownKeys: 0,
+    getOwnPropertyDescriptor: 0,
+    isExtensible: 0,
+  };
+  const hostileProxy = (value) => new Proxy(value, {
+    get() { trapCounts.get += 1; throw new Error('direct get is forbidden'); },
+    getPrototypeOf() { trapCounts.getPrototypeOf += 1; throw new Error('prototype trap'); },
+    ownKeys() { trapCounts.ownKeys += 1; throw new Error('ownKeys trap'); },
+    getOwnPropertyDescriptor() {
+      trapCounts.getOwnPropertyDescriptor += 1;
+      throw new Error('descriptor trap');
+    },
+    isExtensible() { trapCounts.isExtensible += 1; throw new Error('extensible trap'); },
+  });
+  const assertZeroTraps = () => assert.deepEqual(trapCounts, {
+    get: 0,
+    getPrototypeOf: 0,
+    ownKeys: 0,
+    getOwnPropertyDescriptor: 0,
+    isExtensible: 0,
+  });
+
+  assert.throws(() => buildRouteDecisionExplanation(hostileProxy({
+    decisionEvaluation: artifact.decisionEvaluation,
+  })), /must not be a Proxy/);
+  assertZeroTraps();
+  assert.throws(
+    () => admitRouteDecisionExplanation(hostileProxy(structuredClone(artifact))),
+    /must not be a Proxy/,
+  );
+  assertZeroTraps();
+  assert.throws(
+    () => projectRouteDecisionExplanationPresentation(hostileProxy(structuredClone(artifact))),
+    /must not be a Proxy/,
+  );
+  assertZeroTraps();
+
+  const nestedPolicyProxy = structuredClone(artifact.decisionEvaluation);
+  nestedPolicyProxy.policy = hostileProxy(nestedPolicyProxy.policy);
+  assert.throws(() => buildRouteDecisionExplanation({
+    decisionEvaluation: nestedPolicyProxy,
+  }), /must not be a Proxy/);
+  assertZeroTraps();
+
+  const nestedDecisionArrayProxy = structuredClone(artifact.decisionEvaluation);
+  nestedDecisionArrayProxy.policy.softPreferences = hostileProxy(
+    nestedDecisionArrayProxy.policy.softPreferences,
+  );
+  assert.throws(() => buildRouteDecisionExplanation({
+    decisionEvaluation: nestedDecisionArrayProxy,
+  }), /must not be a Proxy/);
+  assertZeroTraps();
+
+  const nestedExplanationArrayProxy = structuredClone(artifact);
+  nestedExplanationArrayProxy.explanation.limitations = hostileProxy(
+    nestedExplanationArrayProxy.explanation.limitations,
+  );
+  assert.throws(
+    () => admitRouteDecisionExplanation(nestedExplanationArrayProxy),
+    /must not be a Proxy/,
+  );
+  assertZeroTraps();
+
+  const rootAccessor = {};
+  Object.defineProperty(rootAccessor, 'decisionEvaluation', {
+    enumerable: true,
+    get() { getterCalls += 1; return artifact.decisionEvaluation; },
+  });
+  assert.throws(() => buildRouteDecisionExplanation(rootAccessor), /data property/);
+  assert.equal(getterCalls, 0);
+
+  const hiddenRoot = { decisionEvaluation: artifact.decisionEvaluation };
+  Object.defineProperty(hiddenRoot, 'hidden', { value: true });
+  assert.throws(() => buildRouteDecisionExplanation(hiddenRoot), /enumerable/);
+  const symbolRoot = { decisionEvaluation: artifact.decisionEvaluation };
+  Object.defineProperty(symbolRoot, Symbol('hidden'), { value: true });
+  assert.throws(() => buildRouteDecisionExplanation(symbolRoot), /string-keyed/);
+  assert.throws(
+    () => buildRouteDecisionExplanation(Object.assign(Object.create(null), {
+      decisionEvaluation: artifact.decisionEvaluation,
+    })),
+    /plain string-keyed/,
+  );
+  assert.equal(getterCalls, 0);
+
+  const hiddenRequiredRoot = {};
+  Object.defineProperty(hiddenRequiredRoot, 'decisionEvaluation', {
+    enumerable: false,
+    writable: true,
+    configurable: true,
+    value: artifact.decisionEvaluation,
+  });
+  assert.throws(() => buildRouteDecisionExplanation(hiddenRequiredRoot), /enumerable/);
+
+  const hiddenIndex = structuredClone(artifact);
+  Object.defineProperty(hiddenIndex.explanation.limitations, '0', {
+    enumerable: false,
+    writable: true,
+    configurable: true,
+    value: hiddenIndex.explanation.limitations[0],
+  });
+  assert.throws(() => admitRouteDecisionExplanation(hiddenIndex), /enumerable/);
+
+  const readonlyIndex = structuredClone(artifact);
+  Object.defineProperty(readonlyIndex.explanation.limitations, '0', {
+    enumerable: true,
+    writable: false,
+    configurable: false,
+    value: readonlyIndex.explanation.limitations[0],
+  });
+  assert.throws(() => admitRouteDecisionExplanation(readonlyIndex), /mutable container mode/);
+
+  const readonlyLength = structuredClone(artifact);
+  Object.defineProperty(readonlyLength.explanation.limitations, 'length', { writable: false });
+  assert.throws(() => admitRouteDecisionExplanation(readonlyLength), /mutable container mode/);
+
+  const emptyReadonlyLength = structuredClone(artifact);
+  Object.defineProperty(emptyReadonlyLength.explanation.hardConstraintFacts, 'length', {
+    writable: false,
+  });
+  assert.equal(emptyReadonlyLength.explanation.hardConstraintFacts.length, 0);
+  assert.throws(
+    () => admitRouteDecisionExplanation(emptyReadonlyLength),
+    /mutable container mode/,
+  );
+
+  const readonlyRequiredRoot = {};
+  Object.defineProperty(readonlyRequiredRoot, 'decisionEvaluation', {
+    enumerable: true,
+    writable: false,
+    configurable: false,
+    value: artifact.decisionEvaluation,
+  });
+  assert.equal(Object.isExtensible(readonlyRequiredRoot), true);
+  assert.throws(
+    () => buildRouteDecisionExplanation(readonlyRequiredRoot),
+    /mutable container mode/,
+  );
+
+  const preventedRoot = { decisionEvaluation: artifact.decisionEvaluation };
+  Object.preventExtensions(preventedRoot);
+  assert.equal(Object.isFrozen(preventedRoot), false);
+  assert.throws(
+    () => buildRouteDecisionExplanation(preventedRoot),
+    /either extensible mutable data or fully frozen data/,
+  );
+
+  const preventedArray = structuredClone(artifact);
+  Object.preventExtensions(preventedArray.explanation.limitations);
+  assert.equal(Object.isFrozen(preventedArray.explanation.limitations), false);
+  assert.throws(
+    () => admitRouteDecisionExplanation(preventedArray),
+    /either extensible mutable data or fully frozen data/,
+  );
+
+  const preventedEmptyArray = structuredClone(artifact);
+  Object.preventExtensions(preventedEmptyArray.explanation.hardConstraintFacts);
+  assert.equal(preventedEmptyArray.explanation.hardConstraintFacts.length, 0);
+  assert.equal(Object.isFrozen(preventedEmptyArray.explanation.hardConstraintFacts), true);
+  assert.throws(
+    () => admitRouteDecisionExplanation(preventedEmptyArray),
+    /length does not match the frozen container mode/,
+  );
+
+  assert.deepEqual(admitRouteDecisionExplanation(structuredClone(artifact)), artifact);
+  assert.deepEqual(admitRouteDecisionExplanation(artifact), artifact);
+  assertZeroTraps();
 });
 
 test('presentation is pure, text-complete, map-optional, and carries every limitation', () => {
@@ -465,6 +664,9 @@ test('presentation is pure, text-complete, map-optional, and carries every limit
     first.sections.limitations.map(({ code }) => code),
     artifact.explanation.limitations,
   );
+  assert.deepEqual(first.sections.claimBoundary.map(({ code }) => code), [
+    'no-claim-eligible-from-explanation-v1',
+  ]);
   assert.ok(first.sections.counterfactualEffects.every(({ text }) => text.includes('mechanical')));
   assert.deepEqual(
     first.sections.primaryWhyEffects.map(({ code }) => code),
@@ -482,6 +684,17 @@ test('canonical vocabularies and import isolation stay frozen', async () => {
     'tie-break-decided-rank',
     'score-changed-only',
     'no-effect',
+  ]);
+  assert.deepEqual(ROUTE_DECISION_EXPLANATION_PROHIBITED_CLAIM_TAGS, [
+    'safe-route',
+    'safer-route',
+    'recommended-route',
+    'risk-prediction',
+    'accessibility-validated',
+    'city-validated',
+    'scientifically-validated',
+    'user-research-validated',
+    'production-validated',
   ]);
   const source = await readFile(
     new URL('../../src/route_decision/explanation/contract_v1.js', import.meta.url),

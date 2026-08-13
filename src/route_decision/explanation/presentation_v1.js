@@ -62,8 +62,12 @@ export function projectRouteDecisionExplanationPresentation(rawExplanation) {
   });
   const softContributions = explanation.softContributions.map((contribution) => line(
     'score-contribution-not-decisive-reason',
-    `Candidate ${contribution.candidateId}; soft preference ${contribution.preferenceId}; factor ${contribution.factorId}; raw value ${contribution.rawValue}; utility basis points ${contribution.utilityBasisPoints}; weight basis points ${contribution.weightBasisPoints}; weighted score units ${contribution.weightedScoreUnits}. This contribution is not a decisive reason.`,
+    `Candidate ${contribution.candidateId}; soft preference ${contribution.preferenceId}; factor ${contribution.factorId}; evidence ${contribution.evidenceState}; raw value ${contribution.rawValue}; utility basis points ${contribution.utilityBasisPoints}; weight basis points ${contribution.weightBasisPoints}; weighted score units ${contribution.weightedScoreUnits}. This contribution is not a decisive reason.`,
   ));
+  const claimBoundary = [line(
+    explanation.claimBoundary.interpretation,
+    `No claim is eligible from explanation v1. Prohibited claim tags: ${explanation.claimBoundary.prohibitedClaimTags.join(', ')}.`,
+  )];
   const limitations = explanation.limitations.map((code) => line(
     code,
     `Limitation: ${code}.`,
@@ -79,6 +83,7 @@ export function projectRouteDecisionExplanationPresentation(rawExplanation) {
       hardConstraints,
       softContributions,
       counterfactualEffects,
+      claimBoundary,
       limitations,
     },
     mapModel: null,
