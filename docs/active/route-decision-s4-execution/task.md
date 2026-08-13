@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / bounded S4 integration complete; Stage 5 Wave 1 changes
-requested for S5-A and S5-D`
+`in-progress / bounded S4 integration complete; S5-A integrated, S5-D and
+Wave 2 held`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -74,20 +74,22 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Complete the first independent review cycle: architecture is `CLEAR` for
   both Wave 1 lanes, while code/spec/security is `REQUEST CHANGES` with one P2
   in each lane.
-- [ ] S5-A must repair array-length descriptor-mode validation, refreeze, and
-  receive fresh non-blocking code/spec/security and architecture reviews.
-- [ ] S5-D must repair descriptor-mode validation for all three public roots and
-  the `transitions` array's mutable/frozen form, refreeze, and receive fresh
+- [x] S5-A repaired array-length descriptor-mode validation, refroze, and
+  received fresh non-blocking code/spec/security and architecture reviews.
+- [x] S5-D repaired descriptor-mode validation for all three public roots and
+  the `transitions` array's mutable/frozen form, refroze, and received fresh
   non-blocking code/spec/security and architecture reviews.
-- [ ] Freeze S5-A, obtain independent code/spec/security and architecture
+- [x] Freeze S5-A, obtain independent code/spec/security and architecture
   reviews with no blocker, form its source final, and integrate it as the first
   Stage 5 central unit with exact-head focused/adjacent/static/source-equality/
   scope validation.
-- [ ] Only after S5-A central integration, create S5-B browser serialized
-  delivery and S5-C cross-process performance runner/authority-result tasks from
-  that new exact central HEAD.
-- [ ] Freeze and independently review S5-D while preserving unreachable actual
+- [ ] Under a later explicit release, create S5-B browser serialized delivery
+  and S5-C cross-process performance runner/authority-result tasks from the new
+  exact central HEAD; do not start either during the S5-A unit.
+- [x] Freeze and independently review S5-D while preserving unreachable actual
   authority transitions in the absence of a caller-unforgeable root of trust.
+- [x] Stop after the S5-A unit without creating S5-B/S5-C or forming/integrating
+  an S5-D source-final.
 - [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
@@ -166,10 +168,22 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 
 | Lane | Task and worktree | Exact ownership | Current state and acceptance gate |
 | --- | --- | --- | --- |
-| S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | `changes requested / rework in progress`. First architecture review is `CLEAR`; first code/spec/security review is `REQUEST CHANGES` for one P2 in array-length descriptor-mode validation. No source-final or integration is permitted until a new stable freeze receives fresh non-blocking reviews. The lane remains the mandatory G1 central integration before S5-B/S5-C may start. |
-| S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | `changes requested / rework in progress`. First architecture review is `CLEAR`; first code/spec/security review is `REQUEST CHANGES` for one P2 covering descriptor mode on all three public roots and the `transitions` array's mutable/frozen form. No source-final or integration is permitted until a new stable freeze receives fresh non-blocking reviews; actual authority transitions remain unreachable without a caller-unforgeable root of trust. |
+| S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
+| S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Stable reviewed delivery remains uncommitted in its seven owned paths at detached `0e8030f`. Supervision holds source-final and integration; without a caller-unforgeable root of trust all actual authority transitions remain unreachable. |
 | S5-B Browser Serialized Delivery | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; cannot import Node-only S4-1/S4-3 modules into browser/runtime/public barrels. |
 | S5-C Cross-process Performance Runner / Authority Result | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; generic snapshots and in-process S4-2 sessions cannot self-author pass/fail. |
+
+### S5-A integration truth
+
+- `partial` is only a stopped/partial-execution description. It does not prove a
+  complete candidate universe or authorize a no-route/no-eligible conclusion.
+  Every future consumer must inspect `incomplete`, route-search `completeness`,
+  and `termination` together before interpreting a result.
+- The typed binding closes only the Node/tooling synthetic provenance and
+  capability-to-S2 mapping prerequisite. Browser serialized delivery and
+  cross-process performance authority remain `BLOCK`/HOLD; S5-A does not grant
+  performance, browser/Worker authenticity, runtime, public, safety, route
+  recommendation, external graph authority, release, or publication claims.
 
 ### Stage 5 author stop conditions
 

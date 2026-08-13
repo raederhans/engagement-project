@@ -83,16 +83,18 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   and S5-C enter the integration queue only after their own stable freeze and
   two-view review; product decisions or conflicts are not guessed.
 
-### Current Wave 1 review gate
+### Current Stage 5 gate after S5-A
 
-- S5-A and S5-D each completed an initial architecture review with `CLEAR`.
-- Their initial independent code/spec/security reviews each returned `REQUEST
-  CHANGES` for one P2. S5-A must repair array-length descriptor-mode validation;
-  S5-D must repair descriptor-mode validation for all three public roots and the
-  `transitions` array's mutable/frozen form.
-- Both lanes remain in author-owned rework. No source-final commit, central
-  integration, or Wave 2 startup is allowed until each lane provides a new
-  stable freeze and both independent review views are freshly non-blocking.
+- S5-A and S5-D R2 reviews closed both earlier descriptor P2 findings. Each has
+  code `COMMENT` with P0/P1/P2/WATCH zero and architecture `CLEAR`.
+- S5-A alone received a source-final and serial central integration. Its typed
+  Node/tooling seam is accepted at this bounded gate; stopped `partial` output
+  remains incomplete and future consumers must inspect `incomplete`, search
+  `completeness`, and `termination` together.
+- S5-D remains reviewed but uncommitted/unintegrated by supervisory hold. S5-B
+  and S5-C remain uncreated and blocked from this unit. G1 dependency order is
+  satisfied by S5-A integration, but browser delivery and performance authority
+  still require separately authorized, frozen, independently reviewed work.
 
 ## Acceptance criteria
 

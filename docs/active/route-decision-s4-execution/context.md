@@ -65,6 +65,11 @@
 | 2026-08-13 | Freeze delayed duplicate task `019ffb26-8416-75c3-b87c-384906dc2387` in `dd31`. | It duplicates the authoritative S5-D task in `d694` and received `DUPLICATE FREEZE`. Read-only verification found clean detached `0e8030f`, empty index, and no tracked or untracked delta. It is excluded from delivery and must not be modified, integrated, rolled back, or cleaned; if later bytes appear, record them without changing them. |
 | 2026-08-13 | Complete the first independent Stage 5 Wave 1 review cycle. | Architecture is `CLEAR` for both S5-A and S5-D. Independent code/spec/security is `REQUEST CHANGES` for both: S5-A has one P2 in array-length descriptor-mode validation; S5-D has one P2 covering descriptor mode on all three public roots and the `transitions` array's mutable/frozen form. Architecture clearance does not override these code review blockers. |
 | 2026-08-13 | Return both Wave 1 lanes to bounded author rework. | Neither lane may receive a source-final commit or central integration. S5-B and S5-C remain HOLD and uncreated. Each Wave 1 lane must produce a new stable freeze and pass fresh non-blocking code/spec/security and architecture reviews before the integration owner may consider it again. |
+| 2026-08-13 | Accept the Stage 5 Wave 1 R2 reviews. | S5-A and S5-D both returned code `COMMENT` with P0/P1/P2/WATCH zero and architecture `CLEAR`; both earlier descriptor P2 findings are closed. This review acceptance does not itself authorize either source-final or integration. |
+| 2026-08-13 | Re-preflight and form the complete S5-A source-final. | Central exact start `ed5dfe1` was clean. S5-A remained detached exact `0e8030f`, index/tracked clean, with exactly six owned paths whose sizes and UTC mtimes matched the R2 freeze. Integration-owner commit `4a583ad9` has exact parent `0e8030f`, exactly those six paths, and a clean source worktree. |
+| 2026-08-13 | Integrate only S5-A as Stage 5 serial unit 1. | Source `4a583ad9` was cherry-picked with source trace over exact central `ed5dfe1` as code commit `77a255e2`. All six source and central Git blobs are equal; no records were lost and no S5-D/B/C path was included. |
+| 2026-08-13 | Validate S5-A on central exact code HEAD `77a255e2`. | S5-A focused passed `23/23`; CityAdapter/S2/Explanation adjacent passed `21/21`; an independent hostile descriptor PoC rejected a readonly mutable-array length and rejected a Proxy with zero trap calls. Targeted ESLint, five-file Node syntax, fixture JSON parse, diff-check, six-path source equality, and exact six-path scope allowlist passed. No S0-S4, runtime/public/shared barrel, package, or workflow path changed. |
+| 2026-08-13 | Preserve partial and downstream-gate truth. | `partial` means only stopped/partial execution. A future consumer must inspect `incomplete`, route-search `completeness`, and `termination`; partial cannot prove a complete candidate universe or no-route/no-eligible. Browser serialized delivery and cross-process performance authority remain BLOCK/HOLD, and S5-A grants no runtime/public/safety/recommendation/external-authority claim. |
 
 ## Live process ownership
 
@@ -74,20 +79,16 @@
 
 ## Handoff
 
-Bounded S4 integration remains complete and retained for audit. Stage 5 Wave 1
-S5-A in `8868` and authoritative S5-D in `d694` are in bounded rework after
-their first code/spec/security reviews each returned one P2 and `REQUEST
-CHANGES`; both first architecture reviews are `CLEAR`. Neither author has
-index/ref/commit authority. S5-B and S5-C are not started and have no active
-ownership. Duplicate S5-D task `dd31` remains untouched and excluded.
+Bounded S4 integration remains complete and retained for audit. S5-A R2 is
+source-final `4a583ad9` and centrally integrated as `77a255e2`; source/central
+owned blobs and bounded validation pass. S5-D R2 is independently accepted but
+remains uncommitted and unintegrated under explicit hold. S5-B and S5-C are not
+started and have no active ownership. Duplicate S5-D task `dd31` remains
+untouched and excluded.
 
 ## Next step
 
-Wait for new stable S5-A and S5-D freezes after the exact descriptor-mode
-repairs, then rerun independent code/spec/security and architecture reviews.
-Do not create a source-final commit or integrate either lane while any review
-remains blocking. S5-A becomes the next central integration candidate only if
-both fresh views are non-blocking and its owned scope is exact; after its
-exact-head central validation, and not before, create S5-B and S5-C from that
-new central revision. Do not implement for the authors, start live gates, or
-push/merge/release/deploy.
+Stop after S5-A record closeout. Do not form or integrate S5-D source-final and
+do not create S5-B/S5-C until a later explicit supervisory release names the
+next single unit and its exact central base. Browser delivery, performance
+authority, live gates, push, merge, release, and deployment remain closed.
