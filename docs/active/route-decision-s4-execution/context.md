@@ -70,6 +70,10 @@
 | 2026-08-13 | Integrate only S5-A as Stage 5 serial unit 1. | Source `4a583ad9` was cherry-picked with source trace over exact central `ed5dfe1` as code commit `77a255e2`. All six source and central Git blobs are equal; no records were lost and no S5-D/B/C path was included. |
 | 2026-08-13 | Validate S5-A on central exact code HEAD `77a255e2`. | S5-A focused passed `23/23`; CityAdapter/S2/Explanation adjacent passed `21/21`; an independent hostile descriptor PoC rejected a readonly mutable-array length and rejected a Proxy with zero trap calls. Targeted ESLint, five-file Node syntax, fixture JSON parse, diff-check, six-path source equality, and exact six-path scope allowlist passed. No S0-S4, runtime/public/shared barrel, package, or workflow path changed. |
 | 2026-08-13 | Preserve partial and downstream-gate truth. | `partial` means only stopped/partial execution. A future consumer must inspect `incomplete`, route-search `completeness`, and `termination`; partial cannot prove a complete candidate universe or no-route/no-eligible. Browser serialized delivery and cross-process performance authority remain BLOCK/HOLD, and S5-A grants no runtime/public/safety/recommendation/external-authority claim. |
+| 2026-08-13 | Re-preflight and form the complete S5-D source-final under the later S5-D-only supervisory release. | Central exact start `3ae5ae1` was clean. Authoritative S5-D worktree `d694` remained detached exact `0e8030f`, index/tracked clean, with exactly seven reviewed owned paths and matching freeze sizes. Integration-owner commit `f443f96e` has exact parent `0e8030f`, exactly those seven paths, and a clean source worktree. |
+| 2026-08-13 | Integrate only S5-D as Stage 5 serial unit 2. | Source `f443f96e` was cherry-picked with source trace over exact central `3ae5ae1` as code commit `7fb08552`. All seven source and central Git blobs are equal; no S5-B/S5-C or S0-S4/runtime/barrel/package/workflow path was included. |
+| 2026-08-13 | Validate S5-D on central exact code HEAD `7fb08552`. | S5-D focused passed `31/31`; S4-4 adjacent passed `17/17`; an independent hostile Proxy PoC rejected all three public roots with zero trap calls. Targeted ESLint, five-file Node syntax, two-fixture JSON parse, diff-check, seven-path source equality, and exact seven-path scope allowlist passed. |
+| 2026-08-13 | Preserve the S5-D authority boundary. | The delivery is named and admitted only as an **authority-unavailable prerequisite contract + synthetic state-machine simulator**. Production transitions stop at `authority-unavailable`; actual authority/admission/materialization/Source Health/publication stay false or unavailable, and the underlying S4 Source Health projection stays `unknown`, `not-observed`, and mutation-unauthorized. Simulator `finalState` remains synthetic-only and nonconsumable with `syntheticOnly: true`, `actualAdmission: false`, and `productConsumable: false`; no trusted authority or publication readiness is claimed. |
 
 ## Live process ownership
 
@@ -80,15 +84,17 @@
 ## Handoff
 
 Bounded S4 integration remains complete and retained for audit. S5-A R2 is
-source-final `4a583ad9` and centrally integrated as `77a255e2`; source/central
-owned blobs and bounded validation pass. S5-D R2 is independently accepted but
-remains uncommitted and unintegrated under explicit hold. S5-B and S5-C are not
-started and have no active ownership. Duplicate S5-D task `dd31` remains
-untouched and excluded.
+source-final `4a583ad9` and centrally integrated as `77a255e2`. S5-D R2 is
+source-final `f443f96e` and centrally integrated as `7fb08552`; both units keep
+their bounded claim limits and source/central blob equality. Possible S5-B/S5-C
+author startup is outside this unit; their exact task/worktree mapping was not
+inspected and no Wave 2 delivery was integrated. Duplicate S5-D task `dd31`
+remains untouched and excluded.
 
 ## Next step
 
-Stop after S5-A record closeout. Do not form or integrate S5-D source-final and
-do not create S5-B/S5-C until a later explicit supervisory release names the
-next single unit and its exact central base. Browser delivery, performance
-authority, live gates, push, merge, release, and deployment remain closed.
+Stop after S5-D record closeout. Do not inspect, modify, commit, or integrate
+S5-B/S5-C until a later explicit single-unit release names the delivery and
+exact central base. A real root of trust, actual product admission/runtime,
+browser delivery, performance authority, live gates, push, merge, release,
+publication, and deployment remain closed.

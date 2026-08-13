@@ -83,18 +83,22 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   and S5-C enter the integration queue only after their own stable freeze and
   two-view review; product decisions or conflicts are not guessed.
 
-### Current Stage 5 gate after S5-A
+### Current Stage 5 gate after S5-D
 
 - S5-A and S5-D R2 reviews closed both earlier descriptor P2 findings. Each has
   code `COMMENT` with P0/P1/P2/WATCH zero and architecture `CLEAR`.
-- S5-A alone received a source-final and serial central integration. Its typed
+- S5-A received a source-final and serial central integration. Its typed
   Node/tooling seam is accepted at this bounded gate; stopped `partial` output
   remains incomplete and future consumers must inspect `incomplete`, search
   `completeness`, and `termination` together.
-- S5-D remains reviewed but uncommitted/unintegrated by supervisory hold. S5-B
-  and S5-C remain uncreated and blocked from this unit. G1 dependency order is
-  satisfied by S5-A integration, but browser delivery and performance authority
-  still require separately authorized, frozen, independently reviewed work.
+- Under a later explicit single-unit release, S5-D also received a complete
+  source-final and serial central integration. Its accepted surface is only an
+  authority-unavailable prerequisite contract plus a synthetic state-machine
+  simulator; no actual authority transition became reachable.
+- Possible S5-B/S5-C author work is outside this unit and has not been inspected
+  or integrated here. G1 dependency order is satisfied by S5-A integration, but
+  browser delivery and performance authority still require their own exact
+  ownership, stable freeze, independent review, and serial central acceptance.
 
 ## Acceptance criteria
 

@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / bounded S4 integration complete; S5-A integrated, S5-D and
-Wave 2 held`
+`in-progress / bounded S4 integration complete; Stage 5 Wave 1 S5-A and S5-D
+integrated, Wave 2 not integrated`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -83,13 +83,17 @@ public UI, release, publication, deployment, or scientific/safety claims.
   reviews with no blocker, form its source final, and integrate it as the first
   Stage 5 central unit with exact-head focused/adjacent/static/source-equality/
   scope validation.
-- [ ] Under a later explicit release, create S5-B browser serialized delivery
-  and S5-C cross-process performance runner/authority-result tasks from the new
-  exact central HEAD; do not start either during the S5-A unit.
+- [ ] Admit any S5-B browser serialized delivery or S5-C cross-process
+  performance runner/authority-result delivery only after its exact task,
+  worktree, ownership, stable freeze, and independent reviews are recorded.
+  Neither lane is part of the S5-D integration unit.
 - [x] Freeze and independently review S5-D while preserving unreachable actual
   authority transitions in the absence of a caller-unforgeable root of trust.
 - [x] Stop after the S5-A unit without creating S5-B/S5-C or forming/integrating
   an S5-D source-final.
+- [x] Under the later explicit S5-D-only release, re-preflight the reviewed
+  seven-path freeze, form source-final `f443f96e`, integrate it centrally as
+  `7fb08552`, and preserve the authority-unavailable/actual-false boundary.
 - [ ] Integrate every remaining accepted Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
@@ -169,9 +173,9 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
 | Lane | Task and worktree | Exact ownership | Current state and acceptance gate |
 | --- | --- | --- | --- |
 | S5-A Typed Route Integration Binding | Task `019ffb25-5344-7902-a047-dfd7253385f2`; `C:/Users/raede/.codex/worktrees/8868/engagement_project` | `src/route_decision/integration/**`; `scripts/tests/route_decision_s5_integration_binding.mjs`; `scripts/fixtures/route-s5-integration/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `4a583ad9` has parent `0e8030f` and exactly six owned paths; integrated centrally as `77a255e2` over exact `ed5dfe1`, with all six Git blobs equal. Central focused `23/23`, adjacent `21/21`, hostile/static/JSON/diff/scope checks pass. |
-| S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Stable reviewed delivery remains uncommitted in its seven owned paths at detached `0e8030f`. Supervision holds source-final and integration; without a caller-unforgeable root of trust all actual authority transitions remain unreachable. |
-| S5-B Browser Serialized Delivery | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; cannot import Node-only S4-1/S4-3 modules into browser/runtime/public barrels. |
-| S5-C Cross-process Performance Runner / Authority Result | Not created; no worktree or owned paths | To be frozen only after G1 | HOLD. Must start from the exact central HEAD produced by accepted S5-A integration; generic snapshots and in-process S4-2 sessions cannot self-author pass/fail. |
+| S5-D External Graph Authority State Machine | Task `019ffb25-ad93-7fb2-896b-e33a6505a10f`; `C:/Users/raede/.codex/worktrees/d694/engagement_project` | `scripts/lib/route_graph_authority/**`; `scripts/tests/route_graph_authority_s5.mjs`; `scripts/fixtures/route-graph-authority-s5/**` | R2 code `COMMENT`, P0/P1/P2/WATCH zero; architecture `CLEAR`; old descriptor P2 closed. Complete source-final `f443f96e` has parent `0e8030f` and exactly seven owned paths; integrated centrally as `7fb08552` over exact `3ae5ae1`, with all seven Git blobs equal. Central focused `31/31`, S4-4 adjacent `17/17`, three-root hostile, ESLint/syntax/JSON/diff/scope checks pass. This is only an authority-unavailable prerequisite contract plus synthetic state-machine simulator. |
+| S5-B Browser Serialized Delivery | Possible separate author startup outside this unit; exact task/worktree mapping not inspected here | To be admitted only from its recorded exact base after independent review | HOLD from integration. Cannot import Node-only S4-1/S4-3 modules into browser/runtime/public barrels. |
+| S5-C Cross-process Performance Runner / Authority Result | Possible separate author startup outside this unit; exact task/worktree mapping not inspected here | To be admitted only from its recorded exact base after independent review | HOLD from integration. Generic snapshots and in-process S4-2 sessions cannot self-author pass/fail. |
 
 ### S5-A integration truth
 
@@ -184,6 +188,22 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
   cross-process performance authority remain `BLOCK`/HOLD; S5-A does not grant
   performance, browser/Worker authenticity, runtime, public, safety, route
   recommendation, external graph authority, release, or publication claims.
+
+### S5-D integration truth
+
+- The integrated delivery is an **authority-unavailable prerequisite contract +
+  synthetic state-machine simulator**. Production prerequisite inspection stops
+  at `authority-unavailable`; every actual admission, product materialization,
+  Source Health authorization, redistribution, public-access, and publication
+  result remains false or unavailable, while the underlying S4 Source Health
+  projection stays `unknown`, `not-observed`, and mutation-unauthorized.
+- Simulator `finalState` is synthetic test evidence only and must always be
+  interpreted together with `syntheticOnly: true`, `actualAdmission: false`,
+  and `productConsumable: false`. It is not a trusted authority result and
+  cannot be relabelled into an actual record.
+- S5-D does not implement a caller-unforgeable root of trust, trusted review
+  authority, product graph admission, runtime integration, public delivery, or
+  publication readiness.
 
 ### Stage 5 author stop conditions
 
