@@ -41,6 +41,8 @@
 | 2026-08-13 | Freeze final S4-1 R3, S4-2 R2, S4-3 V2, and S4-4 R2 deliveries and complete four-line compatibility review. | Deterministic bounded verdict is code `COMMENT` / architecture `WATCH`, P0/P1/P2 zero, no direct path/export/schema conflict. This permits serial integration by one owner but is not merge-ready, runtime-ready, or formal gate passed. |
 | 2026-08-13 | Preserve capability and authority seams. | S4-2 remains no-authority/no-decision; S4-4 remains validation-only; S4-1/S4-3 remain Node/tooling-only and outside browser/runtime/public barrels. Future typed adapters, cross-process authority, external actual admission, and serialized browser delivery are separate work. |
 | 2026-08-13 | Begin serial re-integration in frozen order S4-1 -> S4-2 -> S4-3 -> S4-4. | Only S4-1 may be processed now. Each unit must combine its committed lane delivery and reviewed repair diff, receive a traceable source identity, and pass central exact-head focused/adjacent and boundary checks before the next unit is considered. |
+| 2026-08-13 | Complete the first serial unit, S4-1 R3. | The source committed delivery `20494490` was tree-equivalent to historical central `34f5a8c`; reviewed repair patch `2390ee09...` was committed as source `83a404f0` and cherry-picked as central `4e82dcdc`. Final S4-1 paths are byte-identical to source. |
+| 2026-08-13 | Validate S4-1 R3 on the central exact HEAD and stop before S4-2. | Focused `10/10`, foundation `107/107`, S2 `92/92`, targeted ESLint, four-file Node syntax, diff-check, and S0-S3/runtime/shared-surface audits passed. LSP was unavailable; no browser/runtime/public/full gate was run. |
 
 ## Live process ownership
 
@@ -56,6 +58,6 @@ any source worktree until the final combined compatibility result is known.
 
 ## Next step
 
-Verify and integrate only S4-1 R3 (`f669@20494490` plus its four tracked owned
-repairs), run its central exact-head tests and boundary audit, then stop and
-report. S4-2, S4-3, and S4-4 remain frozen for later explicit serial units.
+Report the completed S4-1 unit and stop. S4-2, S4-3, and S4-4 remain frozen for
+later explicit serial units; do not modify, integrate, or clean them from this
+unit.
