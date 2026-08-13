@@ -48,6 +48,8 @@
 | 2026-08-13 | Audit the withdrawn S4-3 V1 identity before integrating V2. | Historical V1 was reproducibly accepted by the internal S2 search consumer and propagated its artifactVersion as CandidateSet revision. Exact searches found no persisted old input/output digest or artifact revision in tracked files, docs, logs, output, public, scripts, or source. The accepted path is therefore original-source V2 recomputation with no migration, digest alias, or receipt relabel. |
 | 2026-08-13 | Complete the third serial unit, S4-3 V2, after explicit supervisory release. | Historical central `3d16250` was tree-equivalent to committed source `93cc2a0b`; reviewed repair patch `17c6e36e...` was committed as source `6b76aa88` and cherry-picked as central `edf14706`. All five S4-3 owned paths are byte-identical to the final source. |
 | 2026-08-13 | Validate S4-3 V2 on the central exact HEAD and stop before S4-4. | Focused `11/11`, foundation/S2 adjacent `43/43`, original-source V2 identity/revision recomputation, permutation invariance, mutation sensitivity, V1 rejection, targeted ESLint, two-file Node syntax, three-fixture JSON parse, diff-check, and boundary audits passed. GraphArtifact remains v1; capability observations remain v1 and are not connected to S2 by a new adapter. LSP and browser/runtime/public/full gates were not run. |
+| 2026-08-13 | Complete the fourth serial unit, S4-4 External Graph R2, after explicit supervisory release. | Historical central `75e624f` was tree-equivalent to committed source `d659b0bb`; reviewed repair patch `9556cd95...` was committed as source `49a981e3` and cherry-picked as central `b6404f60`. All seven S4-4 owned paths are byte-identical to the final source. |
+| 2026-08-13 | Validate S4-4 R2 on the central exact HEAD and stop before combined compatibility or cross-line seams. | Focused `17/17`, S3-1 candidate lifecycle adjacent `55/55`, caller-forgery/hard-false gates, Source Health unknown/null, candidate-relabel rejection, legacy API absence, deep-freeze/tamper/hostile root/review-array checks, targeted ESLint, four-file Node syntax, three-fixture JSON parse, diff-check, and boundary audits passed. LSP and authority/runtime/browser/public/catalog/publication/full gates were not run. |
 
 ## Live process ownership
 
@@ -63,5 +65,6 @@ any source worktree until the final combined compatibility result is known.
 
 ## Next step
 
-Report the completed S4-3 unit and stop. S4-4 remains frozen for a later
-explicit serial unit; do not modify, integrate, or clean it from this unit.
+Report the completed S4-4 unit and stop. A later explicit integration-owner
+unit must run final combined compatibility before any cross-line seam, push,
+merge, release, publication, or deployment decision.

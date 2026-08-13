@@ -41,7 +41,7 @@ auditable and fail closed.
 - [x] Stage 3: Independently review contract truth, compatibility, provenance,
   import boundaries, and test adequacy; final bounded verdict is `COMMENT` /
   architecture `WATCH`, with no P0/P1/P2 or direct path/schema/export conflict.
-- [ ] Stage 4: Integrate accepted lanes sequentially and run exact-head focused
+- [x] Stage 4: Integrate accepted lanes sequentially and run exact-head focused
   regressions without starting shared or long-lived processes.
 - [ ] Stage 5: Decide which downstream S4 gates are technically ready. Eligible
   Node/browser/Worker performance runs, real data, pilot, public UI, release,
