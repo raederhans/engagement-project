@@ -1,0 +1,16 @@
+{
+  "schema": "route-graph-authority-state-machine-fixture/v1",
+  "fixtureId": "synthetic-prerequisite-prefix-v1",
+  "dataClassification": "synthetic-state-machine-fixture",
+  "authorityKind": "synthetic-fixture",
+  "baselineIdentity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "currentGraphIdentity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "eligibilityReportIdentity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "transitions": [
+    "authority-reference-bound",
+    "authority-registry-bound",
+    "baseline-bound",
+    "current-graph-bound",
+    "eligibility-report-bound"
+  ]
+}

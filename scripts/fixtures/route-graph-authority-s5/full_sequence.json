@@ -1,0 +1,22 @@
+{
+  "schema": "route-graph-authority-state-machine-fixture/v1",
+  "fixtureId": "synthetic-full-sequence-v1",
+  "dataClassification": "synthetic-state-machine-fixture",
+  "authorityKind": "synthetic-fixture",
+  "baselineIdentity": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "currentGraphIdentity": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "eligibilityReportIdentity": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "transitions": [
+    "authority-reference-bound",
+    "authority-registry-bound",
+    "baseline-bound",
+    "current-graph-bound",
+    "eligibility-report-bound",
+    "actual-admitted",
+    "product-materialized",
+    "source-health-update-authorized",
+    "redistribution-authorized",
+    "public-access-authorized",
+    "publication-authorized"
+  ]
+}
