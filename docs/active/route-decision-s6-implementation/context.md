@@ -22,6 +22,7 @@
 | 2026-08-14 | Use three disjoint writers plus one read-only review conversation. | S6-A/B/C may write only new owned paths in parallel; S6-R owns no paths and gates source-final/integration. |
 | 2026-08-14 | Defer loader/Worker/lifecycle writing until compact-graph contract acceptance. | Prevents S6-B/S6 future-worker schema races while still allowing functional compiler and browser-boundary acceptance work to proceed independently. |
 | 2026-08-14 | Keep all Git, records, shared package/test entry, integration, and live-test authority in the primary task. | Writer conversations return uncommitted stable freezes and evidence; they cannot stage, commit, change refs, merge, push, or clean. |
+| 2026-08-14 | Commit coordination baseline `0ff0adc` and dispatch four project worktree conversations from that exact branch state. | S6-A is active in `f226` and S6-B in `cb8b`, both clean detached exact `0ff0adc` with empty indexes and accepted ownership. S6-C and S6-R have allocated worktrees but remain queued for local execution slots; their final thread/path mapping is deliberately not guessed. |
 
 ## Live process ownership
 
@@ -32,13 +33,15 @@
 
 ## Handoff
 
-Create four worktree conversations from the committed coordination baseline,
-record their exact identities, and require clean-start/ownership acknowledgement.
-S6-A/B/C may then author independently. S6-R prepares the review rubric and must
-wait for stable freeze identities before issuing code or compatibility verdicts.
+Four conversations have been dispatched from committed baseline `0ff0adc`.
+S6-A and S6-B passed preflight and are authoring only their owned paths. S6-C
+and S6-R remain queued behind current local execution slots; their client
+identities are recorded without guessing worktree ownership. S6-R must wait for
+stable freeze identities before issuing code or compatibility verdicts.
 
 ## Next step
 
-Commit this coordination baseline, create the four conversations, verify their
-worktree starts, and update the lane control matrix and registry. Do not release
-future loader/Worker/lifecycle writing or any external-authority gate.
+Wait for A/B stable freezes and for C/R app registration. On registration,
+verify exact `0ff0adc`, empty status/index, and ownership before releasing S6-C
+writing or S6-R review preparation. Do not release future loader/Worker/
+lifecycle writing or any external-authority gate.
