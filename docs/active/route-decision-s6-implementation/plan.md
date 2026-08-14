@@ -73,7 +73,7 @@ integrated on the exact central revision.
   compatibility review; return blocking findings to the exact owner.
 - [x] S6-3: Form traceable source-final commits and integrate accepted units one
   at a time with exact source equality and focused/adjacent validation.
-- [ ] S6-4: Add accepted suites to the standard regression entry, run central
+- [x] S6-4: Add accepted suites to the standard regression entry, run central
   validation, update records, merge/push only when all bounded gates pass.
 - [x] S6-5: Decide whether the later synthetic loader/Worker lifecycle wave has
   enough accepted prerequisites to begin. This decision does not open real data

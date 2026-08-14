@@ -2,8 +2,8 @@
 
 ## Current status
 
-`integration-complete / S6-A/B/C/D independently accepted and centrally
-integrated; standard and repository release gates pass; merge/push pending`
+`complete / bounded S6-A/B/C/D integrated and pushed as main@b4483d0;
+local and remote release gates plus exact-SHA CI/Pages deploy passed`
 
 ## Checklist
 
@@ -26,7 +26,7 @@ integrated; standard and repository release gates pass; merge/push pending`
   focused/adjacent validation.
 - [x] Decide and install the standard regression entry only after final accepted
   filenames and coverage are frozen.
-- [ ] Run final central validation under a single live-test owner, update remote
+- [x] Run final central validation under a single live-test owner, update remote
   truth, and merge/push only if every bounded gate passes.
 
 ## Lane control matrix

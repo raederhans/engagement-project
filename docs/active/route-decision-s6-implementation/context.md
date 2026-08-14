@@ -33,6 +33,8 @@
 | 2026-08-14 | Hold D after the first repair review exposed one remaining state-ownership P1. | A foreign private-branded stale response could clear another lifecycle's active request before complete request ownership verification. D reordered the gate and added cross-lifecycle and superseded-stale regressions; the final exact freeze passed S6-R `APPROVE/CLEAR` with P0/P1/P2 zero. |
 | 2026-08-14 | Integrate only D's final accepted freeze, then make all four S6 suites standard-gate reachable. | D source-final `3dbf99c` became central `975af7b` with 5/5 blob equality and central `88/88`. `test:route-decision-s6` was added in `53384a5`; all four focused suites pass `67/67`. |
 | 2026-08-14 | Run the standalone central validate and the repository-defined release gate under one primary live-test owner. | `npm run validate` exited 0. `npm run ci:release` exited 0 with zero dependency vulnerabilities, JS/CSS lint, a fresh core validate/build/bundle, browser smoke, ACS browser, and visual `35 passed / 10 designed skips`; browser console/page errors were zero. |
+| 2026-08-14 | Fast-forward local and remote `main` only after a fresh fetch proved no divergence. | Local and remote `main` were exact `9c4756f`; validated candidate `b4483d0` was 12 commits ahead and zero behind. The `--ff-only` merge and non-force push advanced both to `b4483d0` while preserving all protected untracked artifacts and audit worktrees. |
+| 2026-08-14 | Treat remote exact-SHA workflow completion as evidence separate from local validation. | GitHub Actions run `31771020430` for `b4483d0` passed coverage, Windows core, Ubuntu release, exact Pages artifact upload, and deploy job `94677538167`. This record-only closeout follows the verified product/test revision. |
 
 ## Live process ownership
 
@@ -41,19 +43,21 @@
 | Short isolated focused tests and targeted static checks | Exact S6-A or S6-D worktree owner | Per-thread command output only | Allowed only inside the owned worktree; no shared output directory. |
 | Central `npm run validate` at integrated S6 HEAD | Primary integration owner only | `logs/route-s6-closeout-validate-20260814.log` | Complete with exit 0: full standard tests, production manifest build, and bundle policy passed. Shared package cache and build/bundle outputs were serialized. |
 | Repository `npm run ci:release` at integrated S6 HEAD | Primary integration owner only | `logs/route-s6-closeout-ci-release-20260814.log` | Complete with exit 0: audit reported zero vulnerabilities; JS/CSS lint, fresh core validate/build/bundle, browser smoke, ACS browser, and visual `35 passed / 10 designed skips` all passed. The preview process exited with the gate. |
+| Remote main workflow `31771020430` for exact `b4483d0` | Primary integration owner only | `logs/route-s6-remote-ci-31771020430.log` | Complete with exit 0: coverage, Windows core, Ubuntu release, exact Pages candidate upload, and deploy job `94677538167` passed. |
 | Actual S6 Worker/browser transport, server, performance sampling, data acquisition | Unallocated | None | Remain closed; the repository release gate does not make the new S6 seams product-wired or prove actual Worker/structured-clone behavior. |
 
 ## Handoff
 
-All four bounded S6 units are independently accepted and centrally integrated.
-A is central `1e7057b`; B is `8d129e7`; C is `1740574`; D source-final
-`3dbf99c` is central `975af7b`. The standard S6 entry is committed in `53384a5`.
-Standalone validate and the repository release gate both exit 0. Protected
-pre-existing untracked artifacts remain outside the index; the two new S6 logs
-are also untracked validation evidence.
+All four bounded S6 units are independently accepted, integrated, validated,
+and pushed in exact product/test revision `b4483d0`. A is central `1e7057b`; B
+is `8d129e7`; C is `1740574`; D source-final `3dbf99c` is central `975af7b`;
+the standard entry is `53384a5`. Local validate/release gates and remote run
+`31771020430` pass. Protected pre-existing untracked artifacts remain outside
+the index; the three new S6 logs are also untracked validation evidence.
 
 ## Next step
 
-Verify exact local/remote `main`, candidate SHA, worktree ownership, clean
-tracked/index state, and ancestry. Fast-forward and push without history rewrite
-only if the remote has not moved; then record the exact remote truth.
+Retain the clean detached S6 source-final worktrees and protected untracked
+evidence for audit. Any future real graph authority, actual Worker transport,
+runtime/UI wiring, formal performance, or product claim requires a new explicit
+stage and cannot inherit authority from this bounded S6 closeout.
