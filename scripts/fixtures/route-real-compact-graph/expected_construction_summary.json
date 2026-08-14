@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "engagement-route-real-compact-graph-synthetic-construction-observation/v1",
+  "dataClassification": "synthetic-construction-only",
+  "fixtureInputDigest": "sha256:291df5eda337c8a11712eec7e320079d834129a939589da54c9ce31fc38f137a",
+  "observationDigest": "sha256:dd30f97972b7613e291da039ef4cdaabb1a6ae0ea4332649003ef6df1933ed59",
+  "candidateDigest": "sha256:7e7dd1c483b8119cf96e06d2a732fb44420196cd7f46d33e921fb621e9c2900f",
+  "topologyDigest": "sha256:ffd32ce7638687c504ecb7cd210537bf475d99fc183a3e6e3d488696e627286f",
+  "geometryDigest": "sha256:5af8d78b24ae39cb6ffae21b85dc7023debfcf02964f9f982ae3d8c146fef2b0",
+  "dependencyPlaceholderDigests": {
+    "source": "sha256:5de6bb7612f4307154be5eb5bef2557ede1918a565cef24174e0e465b99e0eaf",
+    "acquisition": "sha256:275ba2cdca30aeee6e826cac75ca41e50fd681fb6a138f6c51db29dc92548b88",
+    "profile": "sha256:b8388d7c0a49a0a012cb8caf97c9b536ff5abb6bfed392199723bbc40cbc686f",
+    "boundary": "sha256:011b76a54858ae572e944e169195d999d7a5e55a2756055fb2cdfa9e4eb242d7",
+    "tool": "sha256:48f0f8aad189d900908853658909144cb70b40a3fa743da40d3a2b4a7a68e7ac",
+    "build": "sha256:288895ba9877d1ddd3f7b8a2876154516b2b9abd002c8f2b989ee8e0bd2d45d8",
+    "authorization": "sha256:781b444e050c54185d2dd1b949ae3c80874a39ccada76639cac4b408f1ce0f52"
+  },
+  "counts": {
+    "physicalFeatureCount": 3,
+    "excludedAccessCount": 0,
+    "nodeCount": 5,
+    "directedEdgeCount": 4,
+    "weakComponentCount": 2,
+    "largestWeakComponentNodeCount": 3,
+    "selfLoopCount": 0,
+    "zeroCostEdgeCount": 0,
+    "geometryPointCount": 10,
+    "isolatedNodeCount": 0
+  },
+  "adjacency": {
+    "offsets": [0, 0, 1, 2, 3, 4],
+    "edgeIndexes": [0, 2, 3, 1]
+  },
+  "componentsByNodeIndex": [0, 0, 1, 1, 1],
+  "edgeCosts": [85000, 85000, 85000, 85000],
+  "costSemantics": "non-negative-safe-integer-millimetres",
+  "productionBridgeStatus": "dependency-contract-unavailable",
+  "productionAuthorityState": "authority-unavailable",
+  "sourceHealthCurrentClaimAllowed": false,
+  "sourceHealthCatalogMutationAuthorized": false,
+  "databaseLicenseRequirement": "ODbL-1.0",
+  "attributionText": "© OpenStreetMap contributors",
+  "materializationStatus": "synthetic-construction-only-not-materialized"
+}
