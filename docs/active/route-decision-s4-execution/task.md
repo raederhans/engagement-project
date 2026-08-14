@@ -2,9 +2,9 @@
 
 ## Current status
 
-`ready-for-main-integration / bounded S4 integration and all four Stage 5
-units complete; the standard regression chain now reaches the S3-S5 suites;
-downstream authority/runtime gates remain closed`
+`complete / bounded S4 integration and all four Stage 5 units merged and pushed
+to main; the standard regression chain reaches the S3-S5 suites; S6 execution
+is researched but not started; downstream authority/runtime gates remain closed`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
 R3/R2/V2 reviewed repair diffs now have traceable source commits and central
@@ -136,6 +136,9 @@ public UI, release, publication, deployment, or scientific/safety claims.
   `136/136`, full `npm run validate`, JS lint, CSS lint, and diff checks.
 - [x] Research a dependency-gated S6 execution plan without opening real-data,
   browser/runtime, formal-performance, external-authority, or publication work.
+- [x] Fast-forward the coordination branch into `main`, rerun the named S3-S5
+  aggregate `267/267`, push product/test closeout `73af43b`, and verify the
+  remote `refs/heads/main` identity without force or history rewrite.
 
 ## Final reviewed delivery matrix
 
@@ -324,9 +327,10 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
   barrel. S5-B now supplies a versioned primitive-JSON boundary delivery, but
   no trusted UI/runtime consumer or real browser gate exists yet.
 - The branch contains the historical first integration plus the completed final
-  serial re-integration and combined integrated-HEAD validation. Main integration
-  and push are the remaining Git closeout actions; no release, deployment, or
-  public barrel/runtime exposure is implied.
+  serial re-integration and combined integrated-HEAD validation. Product/test
+  closeout `73af43b` is fast-forwarded and pushed to `main`; the following
+  record-only commit does not alter those bytes. No release, deployment, CI/
+  Pages result, or public barrel/runtime exposure is implied.
 
 ## Stage 5 final exact-HEAD closeout (2026-08-14)
 

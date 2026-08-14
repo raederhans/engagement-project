@@ -136,10 +136,12 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
 
 ## Proposed Stage 6 research handoff (planning only)
 
-1. **S6-0 canonical freeze:** integrate and push the exact Stage 5 closeout,
-   freeze its claim matrix, and use that immutable revision as every S6 lane's
-   common input. No lane may reinterpret `unavailable`, `unknown`, `partial`, or
-   `no-decision-not-executed` as a positive or negative outcome.
+1. **S6-0 canonical freeze (closeout prerequisite complete):** Stage 5 product
+   and test bytes were fast-forwarded and pushed as `73af43b`; the following
+   record-only sync does not change them. Freeze the final remote `main` plus
+   this claim matrix as every S6 lane's common input. No lane may reinterpret
+   `unavailable`, `unknown`, `partial`, or `no-decision-not-executed` as a
+   positive or negative outcome.
 2. **S6-1 controlled functional-needs compiler:** build a tooling-only,
    synthetic-only compiler from non-identity functional-need selections to one
    versioned public compile artifact, then through existing `DecisionPolicy/v1`,

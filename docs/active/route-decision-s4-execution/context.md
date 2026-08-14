@@ -94,6 +94,7 @@
 | 2026-08-14 | Treat standard test reachability as a Stage 5 release blocker. | The old `npm test` chain reached none of the 14 S3-S5 suites. Add one named aggregate and call it from the standard chain so `validate`, `ci:core`, and `ci:release` cannot silently omit the integrated contracts. |
 | 2026-08-14 | Complete fresh closeout validation. | Direct S4/S5 passed `136/136`; named S3-S5 aggregate passed `267/267`; full `npm run validate`, JS lint, and CSS lint passed. No browser/Worker/server, formal performance, real-data, or deployment gate was run. |
 | 2026-08-14 | Accept the bounded S6 research handoff without starting S6 implementation. | Freeze the canonical S5 tip first; then stage a non-identity functional-needs compiler and a synthetic B-lite graph/loader/Worker seam. Actual graph admission, trusted browser delivery, formal performance, runtime/public promotion, pilot, and publication remain independently authorized gates. |
+| 2026-08-14 | Fast-forward the coordination branch into `main` and push the verified product/test closeout `73af43b`. | The merge was `--ff-only`; the named S3-S5 aggregate passed `267/267` again on `main`; `git ls-remote` returned exact `73af43b` for `refs/heads/main`. This proves Git revision synchronization only, not CI, Pages, deployment, browser, or runtime success. |
 
 ## Live process ownership
 
@@ -104,18 +105,18 @@
 
 ## Handoff
 
-Bounded S4 integration and all four bounded Stage 5 units are complete on the
-coordination branch and retained for audit. The final standard-regression gap is
-closed by the S3-S5 aggregate, and fresh closeout validation passes. S5-B still
-establishes only a serialized browser-boundary summary; S5-C remains diagnostic;
-S5-D remains authority-unavailable; and duplicate S5-D task `dd31` remains
-untouched and excluded.
+Bounded S4 integration and all four bounded Stage 5 units are complete,
+fast-forwarded to `main`, and pushed. Product/test closeout `73af43b` passed the
+named S3-S5 aggregate again after integration and was verified at the remote
+ref. S5-B still establishes only a serialized browser-boundary summary; S5-C
+remains diagnostic; S5-D remains authority-unavailable; and duplicate S5-D task
+`dd31` remains untouched and excluded.
 
 ## Next step
 
-Commit the package/record closeout as the final coordination unit, fast-forward
-`main`, push, and verify the remote revision. Preserve every source worktree and
-untracked artifact. After canonical S5 freeze, S6 may begin only with the
-tooling-only controlled compiler and synthetic B-lite work described in the
-plan. Trusted UI/runtime delivery, formal performance authority, real graph
-admission, pilot, publication, release, and deployment remain closed.
+Finish this record-only remote-truth sync and preserve every source worktree and
+untracked artifact. A future explicitly authorized S6 execution should start
+from the final remote `main` with the tooling-only controlled compiler and
+synthetic B-lite work described in the plan. Trusted UI/runtime delivery, formal
+performance authority, real graph admission, pilot, publication, release, and
+deployment remain closed.
