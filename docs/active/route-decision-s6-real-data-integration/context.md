@@ -51,6 +51,8 @@
 | 2026-08-14 | Reject RD-F's first exact freeze, then accept only the repaired bytes seen by both fresh review lanes. | The first aggregate `e2d6c673...8e7` left two P1 identity/byte closures and one P2 hostile-options boundary open. Repaired aggregate `7f9ac429...92fa5` passed `APPROVE/CLEAR`, became source-final `110ef1e`, and integrated as `490e364`; it remains synthetic-mechanics/unavailable/non-capability only. |
 | 2026-08-14 | Treat the Windows CRLF checkout failure as an integration invariant, not a parser relaxation. | Commit `696eedf` forces the one reviewed `.opl` fixture to LF. The first central run was honestly `242/243`; after the attribute repair A/B/C/D/E/F passed `257/257`, and the reviewed eleven Git blobs remained exact. |
 | 2026-08-14 | Dispatch RD-G as a separate source-only controller/tool-admission gate from exact baseline `da7b270`. | Worktree `rdg1` owns only new controller library/test/fixture paths. Its review must keep every positive registry and live primitive closed while proving fail-closed nonce/replay/crash/deadline, Windows path/reparse, exact argv and closed-file promotion contracts. |
+| 2026-08-15 | Accept only RD-G v7 after repeated lifecycle, clock, replay and store-lineage repairs, then integrate its exact source-only bytes. | Aggregate `1ff1187b...96d63f` over 16 files / 220,665 bytes passed independent `APPROVE/CLEAR`, became source-final `5c52de5`, and integrated as `1bd91c9`. Central RD-A-G adjacent `328/328` and full `npm run validate` pass. This closes RD-6A source contracts, not a native controller, positive tool install, live PBF, authority, current, runtime or publication gate. |
+| 2026-08-15 | Make LF checkout identity an explicit RD-G integration invariant. | The reviewed Git blobs are LF. Path-scoped `.gitattributes` entries prevent Windows checkout-only CRLF drift without weakening any parser or admission rule. |
 
 ## Live process ownership
 
@@ -99,6 +101,12 @@ Current supervised task mapping:
   Central A/B/C/D/E/F is `257/257` after LF invariant commit `696eedf`.
   The bridge remains synthetic mechanics and caller-claim-only evidence, never
   a real process observation or authority.
+- RD-G: worktree `rdg1`, clean detached source-final `5c52de5`; exact v7
+  aggregate `1ff1187b...96d63f` passed independent code/spec/security
+  `APPROVE` and architecture/claims `CLEAR`, then integrated as `1bd91c9`.
+  RD-G focused `84/84`, adjacent RD-A-G `328/328`, syntax/ESLint/fixtures and
+  full repository validation pass. All native registries/capabilities and
+  actual/current/runtime/publication claims remain unavailable or false.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -108,9 +116,11 @@ topology decision.
 
 ## Next step
 
-Define, implement, and independently review the trusted controller and exact
-installed-tool admission boundary as a new source-only gate. It must keep all
-registries unavailable and must not execute a tool or network request during
-implementation/review. A full-PBF live process may start only after that gate,
-an explicit single-owner release, and a fresh live preflight; authority
-installation, Source Health current, runtime and publication remain closed.
+Define, implement, and independently review the native Windows controller
+adapter: Job Object containment, handle-level reparse/no-follow checks, durable
+event-store commits, same-volume atomic no-replace promotion, post-promotion
+reopen/rehash, and positive exact curl/osmium observations. Source review must
+still execute no network or PBF command. A full-PBF live process may start only
+after that native gate, an explicit single-owner release, and a fresh live
+preflight; authority installation, Source Health current, runtime and
+publication remain closed.

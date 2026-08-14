@@ -196,11 +196,12 @@ must not start a full PBF live process before A/B integration and an explicit
 single-owner release. RD-Q reviews only stable exact freezes or completed
 private build evidence; a rubric review is not a delivery approval.
 
-After accepted RD-F, the next source-only dependency is a separately reviewed
-trusted controller and exact installed-tool admission boundary. Its
-implementation may define process/filesystem mechanics and persistent one-shot
-state, but it may not execute the tool, access the network, acquire a PBF, or
-install a positive private observation during source review.
+Accepted RD-G now supplies the reviewed source-only progressive plans,
+persistent event-store grammar, replay/clock checks, installed-tool caller-claim
+inspection and final evidence trace. It does not supply the native Windows
+process/filesystem/durable-store adapter or install a positive tool observation.
+Those native capabilities remain a separate reviewed prerequisite before any
+live release.
 
 ## Stages
 
@@ -220,9 +221,14 @@ install a positive private observation during source review.
   Health `current`, and public ODbL release remain closed.
 - [x] RD-6: Freeze and independently review the exact extractor and
   Philadelphia boundary/buffer/cross-state policy.
-- [ ] RD-6A: Implement and independently review the trusted controller and
-  exact installed-tool admission boundary without executing a live command or
-  installing positive authority.
+- [x] RD-6A: Implement and independently review RD-G's source-only progressive
+  controller/persistent-store/evidence grammar and exact installed-tool
+  caller-claim boundary without executing a live command or installing a
+  positive capability.
+- [ ] RD-6B: Implement and independently review the native Windows Job Object,
+  handle/reparse-safe filesystem, durable store, atomic promotion and positive
+  exact-tool observation adapter. Keep network/PBF execution closed during
+  source review.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.

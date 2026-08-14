@@ -2,11 +2,12 @@
 
 ## Current status
 
-`RD-A through RD-F exact reviewed source-only bytes are integrated through
-490e364, with the Windows OPL checkout invariant recorded by 696eedf / the
-trusted controller, exact installed-tool admission, full-PBF process, non-empty
-authority registry, actual admission, current, runtime, and publication gates
-remain closed`
+`RD-A through RD-G exact reviewed source-only bytes are integrated through
+1bd91c9; RD-G closes the progressive-plan, persistent-store, replay, exact-tool
+claim, and evidence-trace contracts only / the native Windows controller,
+positive installed-tool registry, full-PBF process, non-empty authority
+registry, actual admission, current, runtime, and publication gates remain
+closed`
 
 ## Checklist
 
@@ -87,18 +88,25 @@ remain closed`
   all eleven RD-F Git blobs identical to the reviewed aggregate.
 - [x] Freeze and review the exact extractor/tool and Philadelphia
   boundary/buffer/cross-state policy as the non-executable RD-E contract.
-- [ ] Implement and independently review a trusted controller plus exact
-  installed-tool admission boundary. This remains source-only and must not run
-  a network request, PBF command, or positive private-registry installation.
-- [ ] After RD-F and a separately reviewed trusted controller are accepted,
+- [x] Implement and independently review RD-G's source-only progressive
+  controller, persistent-store and exact installed-tool caller-claim admission
+  boundary. The accepted bytes run no network/PBF command and install no
+  positive private-registry capability.
+- [ ] Implement and independently review the native Windows process,
+  handle/reparse-safe filesystem, durable store and positive installed-tool
+  observation adapter. Do not release a live source process during source
+  review.
+- [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
   logs/evidence without committing payload bytes.
 - [ ] Admit the exact graph through RD-C, compile the separate RD-D compact
   artifact, and complete central compatibility validation.
-- [ ] Merge/push the accepted contract/build-control implementation while
-  leaving runtime, formal performance, pilot, and public release for separate
-  authorization.
+- [x] Integrate the accepted RD-A through RD-G source-only contract/build-control
+  implementation locally and pass the full standard validation while leaving
+  native runtime, formal performance, pilot, and public release closed.
+- [ ] Push the reviewed integration branch after the closeout record commit;
+  this checkbox must not be used as evidence of a main merge or deployment.
 
 ## Validation evidence
 
@@ -134,6 +142,9 @@ remain closed`
 | RD-F repaired review/integration | Aggregate `7f9ac429...92fa5` passed fresh code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero. Source-final `110ef1e` integrated as `490e364`; exact 11/11 blob aggregate remains unchanged. |
 | Windows OPL checkout repair | Initial central combined run exposed CRLF conversion of the strict LF-only OPL fixture: `242/243` passed. `.gitattributes` commit `696eedf` forces the exact fixture to LF without relaxing the parser; combined A/B/C/D/E/F then passed `257/257`, with syntax, ESLint, fixture parse, and blob identity gates green. |
 | RD-G dispatch | Isolated worktree `rdg1` starts clean detached at exact coordination baseline `da7b270`. The writer owns only new `route_real_graph_controller` library/test/fixture paths. Source review may model persistent one-shot state, exact installed-tool observation and future process/filesystem mechanics, but may not execute a command, access the network or PBF, write shared output/logs, install a positive registry, or change authority/current/runtime/publication state. |
+| RD-G repaired review/integration | Exact v7 aggregate `1ff1187b...96d63f` over 16 files / 220,665 raw bytes passed independent code/spec/security `APPROVE` and architecture/claims `CLEAR`, with P0/P1/P2 zero. Source-final `5c52de5` integrated centrally as `1bd91c9`; RD-G focused `84/84`, adjacent RD-A-G `328/328`, syntax `14/14`, targeted ESLint and two JSON fixtures pass. The accepted API remains caller-claim-only with every native capability/registry/actual/current/runtime/publication state unavailable or false. |
+| RD-G checkout invariant | `.gitattributes` forces the RD-G controller source/test/fixture paths to LF so future Windows worktrees reproduce the independently reviewed Git-blob bytes instead of checkout-only CRLF variants. |
+| Full integration validation | `npm run validate` completed with exit code 0 after RD-G integration, including the complete repository test chain, production `vite build --manifest`, GeoJSON artifact generation, visual baseline policy and `verify:bundle`. The build emitted only the existing advisory for a chunk above 500 kB; bundle policy passed. |
 
 ## Open risks and remaining work
 
@@ -145,9 +156,10 @@ remain closed`
 - No owner-controlled non-empty real authority registry entry exists; accepted
   RD-C source code still defaults to an empty private registry and
   `authority-unavailable`.
-- A versioned offline `OPL -> RD-B intermediate` synthetic mechanics and
-  caller-claim evidence contract now exists, but no trusted controller, exact
-  installed-tool admission, positive private observation, or executable
+- A versioned offline `OPL -> RD-B intermediate` mechanics contract and an
+  RD-G progressive source-only controller/evidence grammar now exist, but no
+  native controller adapter, exact positive installed-tool registry,
+  process-backed private observation, or executable
   `E build evidence -> RD-C authorization -> RD-D compact` chain exists.
 - No actual real `GraphArtifact`, compact graph, Source Health observation,
   browser runtime, performance result, or published artifact exists.
@@ -156,6 +168,6 @@ remain closed`
   RD-C is reviewed and integrated only as an empty-registry authority boundary;
   RD-F is reviewed and integrated only as an unavailable/non-capability bridge
   boundary.
-- Full-PBF download/extraction has no active owner. It stays closed until RD-F,
-  an independently reviewed trusted controller, exact tool admission, and an
-  explicit supervisor live release all exist.
+- Full-PBF download/extraction has no active owner. It stays closed until the
+  native Windows process/filesystem/durable-store adapter, positive exact tool
+  observations, and an explicit supervisor live release all exist.
