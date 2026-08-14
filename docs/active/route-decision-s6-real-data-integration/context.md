@@ -33,6 +33,8 @@
 | 2026-08-14 | Do not acquire the full 344 MB PBF or install extraction tooling in the first parallel wave. | First freezes source manifest, OSM semantics, authority, and compact contracts; a later owner-controlled wave decides tool and payload acquisition. |
 | 2026-08-14 | Use module-private installed authority rather than caller JSON, while keeping the default registry empty. | Allows code/spec work without fabricating an actual trusted admission before exact source and review evidence exist. |
 | 2026-08-14 | Keep package scripts, public barrels, Source Health catalog, runtime, CI, Git state, and release assets integration-owner-only. | Avoids red-path conflicts and prevents worker tasks from publishing or promoting data. |
+| 2026-08-14 | Commit the common research/ownership baseline before dispatch. | Commit `20b2be1` gives every task the same exact plan, evidence boundary, and owned paths. |
+| 2026-08-14 | Record queued clients separately from resolved thread identities. | Five detached worktrees exist at `20b2be1`, but the App has returned only client IDs so writer preflight and task-to-path mapping are not yet claimed. |
 
 ## Live process ownership
 
@@ -51,8 +53,20 @@ catalog/runtime/public/CI/shared outputs. RD-R reviews exact bytes and performs 
 writes. Only the primary integration owner may form source-final commits,
 integrate, run shared gates, push, or change publication state.
 
+Queued client identities, in RD-A/B/C/D/R order:
+
+- RD-A: `client-new-thread:2abaa320-1faa-4a5b-8f4f-6529a85529d2`
+- RD-B: `client-new-thread:61f6699a-19bf-4c80-b85a-faecd6109bc1`
+- RD-C: `client-new-thread:1b7b4511-985e-4c0c-921c-0ae0a3e02461`
+- RD-D: `client-new-thread:deb28685-7e31-4b07-af09-c918f488f41d`
+- RD-R: `client-new-thread:dcfae75b-6d6e-4620-9296-87568b24dd9a`
+
+The App has created detached exact-base worktrees `3e2f`, `4342`, `502c`,
+`53d1`, and `c219`. Do not assign those paths to tasks until the pending clients
+resolve to actual thread records.
+
 ## Next step
 
-Commit this coordination record, create RD-A/B/C/D and RD-R worktree tasks from
-the exact branch, record returned thread/worktree identities, and wait for each
-preflight/freeze without opening full acquisition or publication gates.
+Resolve the five queued clients to actual thread/worktree identities, record
+each writer's exact preflight, and wait for owned-path freezes without opening
+full acquisition or publication gates.

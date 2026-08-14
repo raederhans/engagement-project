@@ -2,8 +2,8 @@
 
 ## Current status
 
-`research complete / coordination baseline being committed / RD-A/B/C/D and
-RD-R not yet created`
+`research complete / coordination baseline 20b2be1 committed / RD-A/B/C/D and
+RD-R queued with five exact-base worktrees; final thread IDs pending`
 
 ## Checklist
 
@@ -16,10 +16,11 @@ RD-R not yet created`
   hidden/transitive extraction tooling in the first wave.
 - [x] Define five disjoint lanes, exact ownership, dependency order, acceptance
   criteria, and closed product/public claims.
-- [ ] Commit the coordination baseline on
+- [x] Commit coordination baseline `20b2be1` on
   `codex/route-decision-s6-real-data`.
-- [ ] Create RD-A/B/C/D implementation conversations and RD-R read-only review
-  conversation from that exact baseline.
+- [x] Queue RD-A/B/C/D implementation conversations and RD-R read-only review
+  conversation from exact baseline `20b2be1`; five detached worktrees exist at
+  that SHA.
 - [ ] Record thread/worktree identities and exact preflight SHAs.
 - [ ] Receive exact writer freezes and independent review verdicts.
 - [ ] Integrate only accepted units serially and run central validation.
@@ -35,6 +36,8 @@ RD-R not yet created`
 | Repo-local S5/S6 contract inspection | Existing compact compiler/runtime is synthetic-only; S5-D actual authority is unreachable; Source Health has no graph mutation seam. |
 | Official Geofabrik/OSMF/ODbL research | Dated Pennsylvania PBF is the bounded source candidate; public graph requires attribution/licence/rebuild availability; public APIs/tiles are not bulk/runtime backends. |
 | Tooling preflight | `osmium` and `ogr2ogr` missing; no direct OSM PBF parser dependency declared. |
+| Coordination commit | `20b2be152e4186eede9b28988b256b1c58306f53`; four docs-only paths, staged diff check passed. |
+| Queued worktree preflight | Worktrees `3e2f`, `4342`, `502c`, `53d1`, and `c219` all exist detached at exact `20b2be1`; task-to-path/thread mapping remains pending. |
 
 ## Open risks and remaining work
 
