@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / S6-B and S6-C reviewed, source-finalled, and centrally
-integrated; S6-A exact-owner repair and S6-D synthetic lifecycle authoring active`
+`in-progress / S6-A, S6-B, and S6-C independently accepted, source-finalled,
+and centrally integrated; S6-D repaired freeze under independent re-review`
 
 ## Checklist
 
@@ -33,11 +33,11 @@ integrated; S6-A exact-owner repair and S6-D synthetic lifecycle authoring activ
 
 | Lane | Conversation/worktree | Exact ownership | Start gate | Delivery gate |
 | --- | --- | --- | --- | --- |
-| S6-A | Thread `019ffe24-55d4-7590-af69-e3fe2720a30d`; `C:/Users/raede/.codex/worktrees/f226/engagement_project` | `src/route_decision/functional_needs/**`; one named focused test; `route-s6-functional-needs` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, focused/adjacent/static evidence, explicit non-identity/unresolved boundary |
+| S6-A | Thread `019ffe24-55d4-7590-af69-e3fe2720a30d`; `C:/Users/raede/.codex/worktrees/f226/engagement_project` | `src/route_decision/functional_needs/**`; one named focused test; `route-s6-functional-needs` fixtures | Clean detached source-final `7e1f534`; exact parent `0ff0adc` | S6-R `APPROVE/CLEAR`, no P0/P1/P2; integrated as central `1e7057b` with 3/3 blob equality, `72/72`, and key PoC `2/2` |
 | S6-B | Thread `019ffe24-5ee5-7ad2-ad48-e37c598d162f`; `C:/Users/raede/.codex/worktrees/cb8b/engagement_project` | `src/route_generation/compact_graph/**`; `scripts/lib/route_s6_compact_graph/**`; one named focused test; `route-s6-compact-graph` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, deterministic compiler evidence, browser-safe contract, synthetic-only manifest/claims |
 | S6-C | Thread `019ffe27-f6dc-72f2-ae30-d5dadb666f5b`; `C:/Users/raede/.codex/worktrees/221b/engagement_project` | `src/route_decision/browser_acceptance/**`; one named focused test; `route-s6-browser-acceptance` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, atomic summary/boundary/limitations admission, no UI/runtime/trusted-delivery claim |
-| S6-R | Thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a`; `C:/Users/raede/.codex/worktrees/f6e7/engagement_project` | Read-only; no owned paths | Clean detached exact `0ff0adc`; empty index/status; read-only boundary acknowledged; rubric prepared | Independent per-lane and combined verdict with blockers, confidence, and unrun gates |
-| S6-D | Thread `019ffe53-7ccd-7161-b7ce-83315f2fde67`; `C:/Users/raede/.codex/worktrees/ff0d/engagement_project` | `src/route_generation/compact_graph_runtime/**`; one named focused test; `route-s6-compact-graph-runtime` fixtures | Detached exact `1740574`, containing reviewed/integrated S6-B `8d129e7`; exact clean preflight still required | Synthetic-only primitive loader, versioned Worker protocol/reference handler, atomic in-memory current/previous/rollback lifecycle, stable freeze and focused evidence |
+| S6-R | Thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a`; `C:/Users/raede/.codex/worktrees/f6e7/engagement_project` | Read-only; no owned paths | Clean detached exact `0ff0adc`; empty index/status; read-only boundary acknowledged | A final `APPROVE/CLEAR`; repaired-D exact freeze under narrow re-review; all verdicts remain freeze-specific |
+| S6-D | Thread `019ffe53-7ccd-7161-b7ce-83315f2fde67`; `C:/Users/raede/.codex/worktrees/ff0d/engagement_project` | `src/route_generation/compact_graph_runtime/**`; one named focused test; `route-s6-compact-graph-runtime` fixtures | Detached exact `1740574`, containing reviewed/integrated S6-B `8d129e7`; empty index/tracked diff and exact five-file untracked freeze | Original 2 P1/5 P2 repaired in owned paths; writer and integration owner reproduced focused/adjacent `86/86`; independent re-review pending |
 
 ## Closed gates
 
