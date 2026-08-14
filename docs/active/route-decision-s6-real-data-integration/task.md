@@ -133,6 +133,7 @@ remain closed`
 | RD-F first review | Aggregate `e2d6c673...8e7` was `REQUEST CHANGES`: promotion slots 2/3 lacked independent byte binding, bridge/RD-B identities were not recomputed from exact OPL/metadata bytes, and a deep-import options Proxy executed a trap. The freeze was not integrated. |
 | RD-F repaired review/integration | Aggregate `7f9ac429...92fa5` passed fresh code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero. Source-final `110ef1e` integrated as `490e364`; exact 11/11 blob aggregate remains unchanged. |
 | Windows OPL checkout repair | Initial central combined run exposed CRLF conversion of the strict LF-only OPL fixture: `242/243` passed. `.gitattributes` commit `696eedf` forces the exact fixture to LF without relaxing the parser; combined A/B/C/D/E/F then passed `257/257`, with syntax, ESLint, fixture parse, and blob identity gates green. |
+| RD-G dispatch | Isolated worktree `rdg1` starts clean detached at exact coordination baseline `da7b270`. The writer owns only new `route_real_graph_controller` library/test/fixture paths. Source review may model persistent one-shot state, exact installed-tool observation and future process/filesystem mechanics, but may not execute a command, access the network or PBF, write shared output/logs, install a positive registry, or change authority/current/runtime/publication state. |
 
 ## Open risks and remaining work
 
