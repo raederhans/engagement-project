@@ -71,7 +71,7 @@ integrated on the exact central revision.
 - [x] S6-1: Receive stable S6-A/B/C owned-path freezes with focused evidence.
 - [x] S6-2: Complete independent code/spec/security and architecture/
   compatibility review; return blocking findings to the exact owner.
-- [ ] S6-3: Form traceable source-final commits and integrate accepted units one
+- [x] S6-3: Form traceable source-final commits and integrate accepted units one
   at a time with exact source equality and focused/adjacent validation.
 - [ ] S6-4: Add accepted suites to the standard regression entry, run central
   validation, update records, merge/push only when all bounded gates pass.

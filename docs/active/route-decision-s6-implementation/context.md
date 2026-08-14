@@ -30,26 +30,30 @@
 | 2026-08-14 | Release one fifth conversation for the synthetic Wave 2 seam after exact S6-B integration. | S6-D thread `019ffe53-7ccd-7161-b7ce-83315f2fde67` in `ff0d` starts from detached `1740574` and owns only new compact-graph runtime/test/fixture paths. Real data, network loading, actual Worker/browser, persistence, runtime/public wiring, performance, and publication remain closed. |
 | 2026-08-14 | Accept the repaired S6-A freeze only after a second exact independent review. | S6-R returned `APPROVE/CLEAR`, P0/P1/P2 zero and exact START/END freeze. Source-final `7e1f534` became central `1e7057b`; 3/3 blobs matched and the central relevant aggregate passed `72/72` with key PoC `2/2`. |
 | 2026-08-14 | Return S6-D's repaired five-file freeze to the same read-only gate rather than treating writer tests as acceptance. | The initial D review found two P1 and five P2. The exact owner repaired only its five paths; writer and integration owner reproduced the expanded `86/86` matrix. S6-R now decides whether the original BLOCK is closed for those exact bytes. |
+| 2026-08-14 | Hold D after the first repair review exposed one remaining state-ownership P1. | A foreign private-branded stale response could clear another lifecycle's active request before complete request ownership verification. D reordered the gate and added cross-lifecycle and superseded-stale regressions; the final exact freeze passed S6-R `APPROVE/CLEAR` with P0/P1/P2 zero. |
+| 2026-08-14 | Integrate only D's final accepted freeze, then make all four S6 suites standard-gate reachable. | D source-final `3dbf99c` became central `975af7b` with 5/5 blob equality and central `88/88`. `test:route-decision-s6` was added in `53384a5`; all four focused suites pass `67/67`. |
+| 2026-08-14 | Run the standalone central validate and the repository-defined release gate under one primary live-test owner. | `npm run validate` exited 0. `npm run ci:release` exited 0 with zero dependency vulnerabilities, JS/CSS lint, a fresh core validate/build/bundle, browser smoke, ACS browser, and visual `35 passed / 10 designed skips`; browser console/page errors were zero. |
 
 ## Live process ownership
 
 | Process | Owner | Log | State |
 | --- | --- | --- | --- |
 | Short isolated focused tests and targeted static checks | Exact S6-A or S6-D worktree owner | Per-thread command output only | Allowed only inside the owned worktree; no shared output directory. |
-| Full validate/build, browser/Worker/server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during authoring. A later central validation run requires a new single-owner allocation. |
+| Central `npm run validate` at integrated S6 HEAD | Primary integration owner only | `logs/route-s6-closeout-validate-20260814.log` | Complete with exit 0: full standard tests, production manifest build, and bundle policy passed. Shared package cache and build/bundle outputs were serialized. |
+| Repository `npm run ci:release` at integrated S6 HEAD | Primary integration owner only | `logs/route-s6-closeout-ci-release-20260814.log` | Complete with exit 0: audit reported zero vulnerabilities; JS/CSS lint, fresh core validate/build/bundle, browser smoke, ACS browser, and visual `35 passed / 10 designed skips` all passed. The preview process exited with the gate. |
+| Actual S6 Worker/browser transport, server, performance sampling, data acquisition | Unallocated | None | Remain closed; the repository release gate does not make the new S6 seams product-wired or prove actual Worker/structured-clone behavior. |
 
 ## Handoff
 
-S6-A's two repair rounds are independently accepted and centrally integrated as
-`1e7057b`, following the already integrated S6-B and S6-C units. S6-D's initial
-review BLOCK comprised two P1 and five P2 findings. The exact D owner returned a
-stable five-file repair freeze; writer and integration owner both reproduced the
-expanded `86/86` focused/adjacent matrix. That exact freeze is now with S6-R for
-the required independent closure verdict.
+All four bounded S6 units are independently accepted and centrally integrated.
+A is central `1e7057b`; B is `8d129e7`; C is `1740574`; D source-final
+`3dbf99c` is central `975af7b`. The standard S6 entry is committed in `53384a5`.
+Standalone validate and the repository release gate both exit 0. Protected
+pre-existing untracked artifacts remain outside the index; the two new S6 logs
+are also untracked validation evidence.
 
 ## Next step
 
-Receive S6-R's repaired-D closure verdict. If the exact freeze is accepted, form
-the D source-final, integrate it serially with exact blob equality and central
-focused/adjacent validation, then add the four accepted S6 suites to the standard
-entry. Full central validation remains single-owner work after that integration.
+Verify exact local/remote `main`, candidate SHA, worktree ownership, clean
+tracked/index state, and ancestry. Fast-forward and push without history rewrite
+only if the remote has not moved; then record the exact remote truth.

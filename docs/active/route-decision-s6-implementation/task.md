@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / S6-A, S6-B, and S6-C independently accepted, source-finalled,
-and centrally integrated; S6-D repaired freeze under independent re-review`
+`integration-complete / S6-A/B/C/D independently accepted and centrally
+integrated; standard and repository release gates pass; merge/push pending`
 
 ## Checklist
 
@@ -20,11 +20,11 @@ and centrally integrated; S6-D repaired freeze under independent re-review`
 - [x] Receive S6-B compact-graph contract/compiler freeze and focused evidence.
 - [x] Receive S6-C browser atomic-acceptance freeze and focused evidence.
 - [x] Receive S6-R independent review of all stable deliveries.
-- [ ] Resolve any blocking finding only in the owning writer conversation and
+- [x] Resolve any blocking finding only in the owning writer conversation and
   require a new stable freeze plus fresh review.
-- [ ] Integrate accepted lanes serially with exact source equality and central
+- [x] Integrate accepted lanes serially with exact source equality and central
   focused/adjacent validation.
-- [ ] Decide and install the standard regression entry only after final accepted
+- [x] Decide and install the standard regression entry only after final accepted
   filenames and coverage are frozen.
 - [ ] Run final central validation under a single live-test owner, update remote
   truth, and merge/push only if every bounded gate passes.
@@ -36,8 +36,8 @@ and centrally integrated; S6-D repaired freeze under independent re-review`
 | S6-A | Thread `019ffe24-55d4-7590-af69-e3fe2720a30d`; `C:/Users/raede/.codex/worktrees/f226/engagement_project` | `src/route_decision/functional_needs/**`; one named focused test; `route-s6-functional-needs` fixtures | Clean detached source-final `7e1f534`; exact parent `0ff0adc` | S6-R `APPROVE/CLEAR`, no P0/P1/P2; integrated as central `1e7057b` with 3/3 blob equality, `72/72`, and key PoC `2/2` |
 | S6-B | Thread `019ffe24-5ee5-7ad2-ad48-e37c598d162f`; `C:/Users/raede/.codex/worktrees/cb8b/engagement_project` | `src/route_generation/compact_graph/**`; `scripts/lib/route_s6_compact_graph/**`; one named focused test; `route-s6-compact-graph` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, deterministic compiler evidence, browser-safe contract, synthetic-only manifest/claims |
 | S6-C | Thread `019ffe27-f6dc-72f2-ae30-d5dadb666f5b`; `C:/Users/raede/.codex/worktrees/221b/engagement_project` | `src/route_decision/browser_acceptance/**`; one named focused test; `route-s6-browser-acceptance` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, atomic summary/boundary/limitations admission, no UI/runtime/trusted-delivery claim |
-| S6-R | Thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a`; `C:/Users/raede/.codex/worktrees/f6e7/engagement_project` | Read-only; no owned paths | Clean detached exact `0ff0adc`; empty index/status; read-only boundary acknowledged | A final `APPROVE/CLEAR`; repaired-D exact freeze under narrow re-review; all verdicts remain freeze-specific |
-| S6-D | Thread `019ffe53-7ccd-7161-b7ce-83315f2fde67`; `C:/Users/raede/.codex/worktrees/ff0d/engagement_project` | `src/route_generation/compact_graph_runtime/**`; one named focused test; `route-s6-compact-graph-runtime` fixtures | Detached exact `1740574`, containing reviewed/integrated S6-B `8d129e7`; empty index/tracked diff and exact five-file untracked freeze | Original 2 P1/5 P2 repaired in owned paths; writer and integration owner reproduced focused/adjacent `86/86`; independent re-review pending |
+| S6-R | Thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a`; `C:/Users/raede/.codex/worktrees/f6e7/engagement_project` | Read-only; no owned paths | Clean detached exact `0ff0adc`; zero writes throughout | A and D final `APPROVE/CLEAR`, P0/P1/P2 zero; B `COMMENT/WATCH`; C `COMMENT/CLEAR`; every verdict tied to exact START/END freezes |
+| S6-D | Thread `019ffe53-7ccd-7161-b7ce-83315f2fde67`; `C:/Users/raede/.codex/worktrees/ff0d/engagement_project` | `src/route_generation/compact_graph_runtime/**`; one named focused test; `route-s6-compact-graph-runtime` fixtures | Clean detached source-final `3dbf99c`; exact parent `1740574` | S6-R final `APPROVE/CLEAR`, no P0/P1/P2; integrated as central `975af7b` with 5/5 blob equality, D adjacent `88/88`, and all S6 focused `67/67` |
 
 ## Closed gates
 
