@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "engagement-route-decision-browser-acceptance-fixture/v1",
+  "acceptanceSchemaVersion": "engagement-route-decision-browser-acceptance/v1",
+  "atomicPresentationSchemaVersion": "engagement-route-decision-browser-atomic-presentation/v1",
+  "displayCompletenessScope": "browser-boundary-summary/v1",
+  "sourcePresentationRelationship": "source-fact-contract-only-not-full-s4-presentation-projection",
+  "atomicSections": [
+    "summary",
+    "claimBoundary",
+    "limitations"
+  ],
+  "sourceDeliveryDigestSemantics": "internal-consistency-only-not-source-authenticity-or-authority",
+  "graphWideUnresolvedStateSemantics": "observation-only-not-terminal-cause",
+  "doesNotProve": [
+    "source-authenticity",
+    "typed-recomputation",
+    "performance-authority",
+    "external-graph-authority",
+    "product-admission",
+    "actual-browser-or-ui-execution",
+    "loader-worker-or-server-lifecycle"
+  ]
+}
