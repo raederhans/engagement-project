@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "engagement-functional-needs-compile-request/v1",
+  "compilationId": "synthetic-functional-needs-fixture-v1",
+  "dataClassification": "synthetic",
+  "catalog": {
+    "schemaVersion": "engagement-travel-need-catalog/v1",
+    "catalogId": "core-functional-needs-v1",
+    "entries": [
+      {
+        "tag": "require-capability",
+        "kind": "hard-constraint",
+        "operator": "equals",
+        "valueUnit": "boolean"
+      },
+      {
+        "tag": "minimize-distance",
+        "kind": "soft-preference",
+        "operator": "minimize",
+        "valueUnit": "millimetres"
+      },
+      {
+        "tag": "minimize-objective-cost",
+        "kind": "soft-preference",
+        "operator": "minimize",
+        "valueUnit": "cost-units"
+      }
+    ]
+  },
+  "policyId": "synthetic-functional-needs-policy-v1",
+  "search": {
+    "requestId": "synthetic-functional-needs-search-v1",
+    "graphId": "synthetic-compact-graph-v1",
+    "mode": "walk",
+    "originNodeId": "origin-a",
+    "destinationNodeId": "destination-d",
+    "objectiveFactorId": "objective-cost-units",
+    "requestedCandidateCount": 5,
+    "routeDistinctnessVersion": "ordered-directed-edge-id-sequence/v1",
+    "tieBreakVersion": "route-candidate-search-tie-break/v1",
+    "bounds": {
+      "maxExpandedStates": 100000,
+      "maxRouteEdgeCount": 1024
+    }
+  },
+  "selections": [
+    {
+      "selectionId": "need-shorter-distance",
+      "needTag": "minimize-distance",
+      "resolution": "selected",
+      "rangeMin": 0,
+      "rangeMax": 100000000,
+      "weightBasisPoints": 6000
+    },
+    {
+      "selectionId": "need-step-free",
+      "needTag": "require-capability",
+      "resolution": "selected",
+      "factorId": "step-free",
+      "expectedValue": true
+    },
+    {
+      "selectionId": "need-lower-objective-cost",
+      "needTag": "minimize-objective-cost",
+      "resolution": "selected",
+      "rangeMin": 0,
+      "rangeMax": 100000000,
+      "weightBasisPoints": 4000
+    },
+    {
+      "selectionId": "need-curb-ramp",
+      "needTag": "require-capability",
+      "resolution": "selected",
+      "factorId": "curb-ramp-present",
+      "expectedValue": true
+    }
+  ]
+}
