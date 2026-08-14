@@ -1,0 +1,19 @@
+{
+  "schema": "route-real-graph-controller-unavailable-summary/v1",
+  "controllerStatus": "authority-unavailable",
+  "toolStatus": "tool-admission-unavailable",
+  "runtimeCapabilityStatus": "unavailable",
+  "sourceCoreImplemented": true,
+  "trustedControllerInstalled": false,
+  "installedToolAdmitted": false,
+  "commandsRunnable": false,
+  "actualAcquisition": false,
+  "actualExtraction": false,
+  "actualIntermediate": false,
+  "actualGraph": false,
+  "sourceHealthStatus": "unknown",
+  "sourceHealthObservationState": "not-observed",
+  "sourceHealthRecordCount": null,
+  "runtimeAuthorized": false,
+  "publicationAuthorized": false
+}
