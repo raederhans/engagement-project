@@ -1,0 +1,19 @@
+{
+  "schema": "route-real-graph-bridge-unavailable-expectation/v1",
+  "dataClassification": "synthetic-contract-expectation",
+  "bridge": {
+    "schema": "route-real-graph-osmium-opl-bridge-status/v1",
+    "status": "real-bridge-unavailable",
+    "registryState": "empty",
+    "trustedControllerImplemented": false,
+    "realOplMaterializationAuthorized": false
+  },
+  "evidence": {
+    "schema": "route-real-graph-trusted-build-evidence-status/v1",
+    "evidenceSchema": "TrustedBuildEvidence/v1",
+    "status": "trusted-build-evidence-unavailable",
+    "registryState": "empty",
+    "trustedControllerImplemented": false,
+    "commandsRunnable": false
+  }
+}
