@@ -114,9 +114,9 @@ remains diagnostic; S5-D remains authority-unavailable; and duplicate S5-D task
 
 ## Next step
 
-Finish this record-only remote-truth sync and preserve every source worktree and
-untracked artifact. A future explicitly authorized S6 execution should start
-from the final remote `main` with the tooling-only controlled compiler and
-synthetic B-lite work described in the plan. Trusted UI/runtime delivery, formal
-performance authority, real graph admission, pilot, publication, release, and
-deployment remain closed.
+No Stage 5 implementation or Git integration work remains. Preserve every source
+worktree and untracked artifact. A future explicitly authorized S6 execution
+should start from the final remote `main` with the tooling-only controlled
+compiler and synthetic B-lite work described in the plan. Trusted UI/runtime
+delivery, formal performance authority, real graph admission, pilot,
+publication, release, and deployment remain closed.
