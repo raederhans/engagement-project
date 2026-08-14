@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "engagement-route-s6-compact-graph-runtime-claim-boundary/v1",
+  "classification": "synthetic-only",
+  "eligibleClaims": [
+    "strict-primitive-json-bundle-admission-conformance",
+    "atomic-in-memory-snapshot-lifecycle-conformance",
+    "pure-reference-worker-protocol-conformance"
+  ],
+  "limitations": [
+    "synthetic-input-only",
+    "not-real-data-or-real-city-data",
+    "not-source-authenticity-or-external-authority",
+    "not-source-health-current",
+    "not-product-runtime-or-public-wiring",
+    "not-public-or-publishable",
+    "not-actual-browser-or-actual-worker-evidence",
+    "not-formal-performance-evidence",
+    "not-safety-or-safer-route-advice",
+    "not-accessibility-outcome-evidence",
+    "not-scientific-validity",
+    "identities-prove-internal-consistency-only",
+    "source-artifact-identity-is-not-semantic-topology-equivalence"
+  ]
+}
