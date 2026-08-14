@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / S6-A/B/C stable freezes independently identity-checked; S6-R
-running the read-only per-lane and combined review over those exact bytes`
+`in-progress / S6-B and S6-C reviewed, source-finalled, and centrally
+integrated; S6-A exact-owner repair and S6-D synthetic lifecycle authoring active`
 
 ## Checklist
 
@@ -19,7 +19,7 @@ running the read-only per-lane and combined review over those exact bytes`
 - [x] Receive S6-A functional-needs compiler freeze and focused evidence.
 - [x] Receive S6-B compact-graph contract/compiler freeze and focused evidence.
 - [x] Receive S6-C browser atomic-acceptance freeze and focused evidence.
-- [ ] Receive S6-R independent review of all stable deliveries.
+- [x] Receive S6-R independent review of all stable deliveries.
 - [ ] Resolve any blocking finding only in the owning writer conversation and
   require a new stable freeze plus fresh review.
 - [ ] Integrate accepted lanes serially with exact source equality and central
@@ -37,11 +37,14 @@ running the read-only per-lane and combined review over those exact bytes`
 | S6-B | Thread `019ffe24-5ee5-7ad2-ad48-e37c598d162f`; `C:/Users/raede/.codex/worktrees/cb8b/engagement_project` | `src/route_generation/compact_graph/**`; `scripts/lib/route_s6_compact_graph/**`; one named focused test; `route-s6-compact-graph` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, deterministic compiler evidence, browser-safe contract, synthetic-only manifest/claims |
 | S6-C | Thread `019ffe27-f6dc-72f2-ae30-d5dadb666f5b`; `C:/Users/raede/.codex/worktrees/221b/engagement_project` | `src/route_decision/browser_acceptance/**`; one named focused test; `route-s6-browser-acceptance` fixtures | Clean detached exact `0ff0adc`; empty index/status; ownership acknowledged | Stable owned-path freeze, atomic summary/boundary/limitations admission, no UI/runtime/trusted-delivery claim |
 | S6-R | Thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a`; `C:/Users/raede/.codex/worktrees/f6e7/engagement_project` | Read-only; no owned paths | Clean detached exact `0ff0adc`; empty index/status; read-only boundary acknowledged; rubric prepared | Independent per-lane and combined verdict with blockers, confidence, and unrun gates |
+| S6-D | Thread `019ffe53-7ccd-7161-b7ce-83315f2fde67`; `C:/Users/raede/.codex/worktrees/ff0d/engagement_project` | `src/route_generation/compact_graph_runtime/**`; one named focused test; `route-s6-compact-graph-runtime` fixtures | Detached exact `1740574`, containing reviewed/integrated S6-B `8d129e7`; exact clean preflight still required | Synthetic-only primitive loader, versioned Worker protocol/reference handler, atomic in-memory current/previous/rollback lifecycle, stable freeze and focused evidence |
 
 ## Closed gates
 
-- Future compact-graph lazy loader, Worker solver, and lifecycle writing remain
-  HOLD until S6-B is reviewed and centrally integrated.
+- Synthetic compact-graph loader/Worker-protocol/in-memory lifecycle writing is
+  released only to S6-D after reviewed S6-B was integrated as `8d129e7`.
+- Actual Worker/browser/server, network loading, persistence, runtime/public
+  wiring, real graph data, and production snapshot/current pointers remain HOLD.
 - Real data, external authority, Source Health current, formal performance,
   actual browser/runtime/UI, release, publication, and deployment remain closed.
 - `1,000 OD x 5` remains synthetic algorithmic/oracle evidence only; it is not
