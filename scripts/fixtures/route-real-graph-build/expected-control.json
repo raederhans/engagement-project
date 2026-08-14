@@ -1,0 +1,46 @@
+{
+  "schema": "route-real-graph-build-control-expectation/v2",
+  "dataClassification": "synthetic-contract-expectation",
+  "expected": {
+    "schema": "route-real-graph-build-control/v2",
+    "policyId": "philadelphia-pa-260813-osmium-opl-core-only/v2",
+    "policyIdentity": "sha256:7ff943808335ca5e01e4eba2bdd81c4c01037065466b51fd1dae1aa41150e08b",
+    "status": "authority-unavailable",
+    "authorityVerified": false,
+    "certificateChainValidated": false,
+    "supervisorAdmissionValidated": false,
+    "acquisitionReleaseValidated": false,
+    "observedPayloadReceiptValidated": false,
+    "extractionReleaseValidated": false,
+    "releaseCertificatesExecutable": false,
+    "trustedControllerImplemented": false,
+    "oneShotConsumptionCapabilityImplemented": false,
+    "commandsRunnable": false,
+    "actualAcquisition": false,
+    "actualExtraction": false,
+    "actualIntermediate": false,
+    "actualGraph": false,
+    "sourceHealthProjection": {
+      "status": "unknown",
+      "observationState": "not-observed",
+      "recordCount": null,
+      "catalogMutationAuthorized": false,
+      "runtimeMutationAuthorized": false
+    },
+    "reasonCodes": [
+      "supervisor-admission-missing",
+      "extractor-binary-unavailable",
+      "download-transport-unavailable",
+      "core-boundary-unavailable",
+      "buffer-boundary-unavailable",
+      "rd-b-exact-adapter-unavailable",
+      "acquisition-release-missing",
+      "observed-payload-receipt-missing",
+      "source-payload-unavailable",
+      "extraction-release-missing",
+      "trusted-controller-unavailable",
+      "opl-to-rd-b-bridge-unavailable",
+      "trusted-build-evidence-unavailable"
+    ]
+  }
+}
