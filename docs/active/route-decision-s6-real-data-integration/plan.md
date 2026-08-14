@@ -64,6 +64,11 @@ graph contract without relabelling any existing S6 synthetic artifact.
    preregistered unknowns and block product/public admission.
 6. Current `GraphArtifact/v1`, S6 compact-graph documents, and S6 runtime
    lifecycle remain synthetic-only and immutable in meaning.
+7. The user has now authorized a supervised continuation through three
+   priorities: close and integrate the contract wave, freeze the full-PBF tool
+   and Philadelphia boundary policy, and build/admit one exact real graph.
+   This authorization does not open runtime/UI, formal performance, pilot,
+   publication, deployment, credentials, or safety/accessibility claims.
 
 ## Work lanes and ownership
 
@@ -130,6 +135,29 @@ must reject synthetic S6 documents, unadmitted real candidates, stale/partial/
 unavailable evidence, and caller-relabelled identities. No network, loader,
 actual Worker, UI, package entry, or publication in this lane.
 
+### RD-E — extraction tooling, boundary policy, and real graph build owner
+
+Owned version-controlled paths only:
+
+- `scripts/lib/route_real_graph_build/**`
+- `scripts/tests/route_real_graph_build.mjs`
+- `scripts/fixtures/route-real-graph-build/**`
+
+RD-E first freezes an exact extractor/tool contract and a Philadelphia
+boundary/buffer/cross-New-Jersey policy. After independent review and an
+explicit supervisor follow-up, RD-E becomes the sole live-process owner for the
+dated PBF download, extraction, and exact intermediate graph build. Live bytes
+and logs stay outside Git under:
+
+- `output/route-real-graph-build-private/**`
+- `logs/route-real-graph-build-*.log`
+
+No package/binary installation, full download, extraction, retry, fallback, or
+interpretation of live status may begin before the supervisor records the exact
+tool/version/command, working directory, output/log paths, success/failure
+criteria, and stop conditions. RD-E may call the accepted RD-B adapter after it
+is integrated, but may not mint RD-C authority or an RD-D compact artifact.
+
 ### RD-R — independent review gate
 
 Read-only, no owned write paths. Review exact writer freezes for code/spec/
@@ -138,19 +166,35 @@ reclassification, no caller-mintable authority, ODbL/attribution truth, and no
 unapproved dependency/network/full-PBF acquisition. Return P0/P1/P2/WATCH and
 APPROVE/COMMENT/REQUEST CHANGES plus CLEAR/WATCH/BLOCK for exact SHAs/bytes.
 
+### RD-Q — independent cross-lane and ODbL review gate
+
+Read-only, no owned write paths. RD-Q reviews exact A/B/C/D/E freezes and the
+finished private build evidence. It verifies ownership, tool provenance,
+boundary/cross-state truth, no hidden parser or network fallback, ODbL and
+attribution metadata, caller-independent admission, exact source-to-build
+identity propagation, and the continued closure of runtime/performance/public
+claims.
+
 ## Dependency order
 
 ```text
-RD-A source manifest ─┐
-                     ├─> RD-C admission/root ─> RD-D real compact boundary
-RD-B OSM profile ────┘
-           all exact freezes ────────────────> RD-R review
+RD-A source manifest ─────┐
+RD-B OSM profile ─────────┼─> RD-C admission/root ─> RD-D real compact boundary
+RD-E tool/boundary/build ─┘
+
+A/B exact freeze ─> A/B review ─> serial A/B integration
+accepted A/B + E ─> private exact build ─> C admission ─> D compact artifact
+all exact freezes and build evidence ──────────────────> RD-Q review
 ```
 
 RD-A and RD-B may implement in parallel. RD-C may build and test the fail-closed
 contract in parallel but cannot produce an actual admitted entry before exact
 A/B evidence. RD-D may implement its versioned rejection/contract surface but
 cannot be accepted as a real compiled artifact before an accepted RD-C record.
+RD-E may implement its fail-closed tool/boundary/build surface in parallel, but
+must not start a full PBF live process before A/B integration and an explicit
+single-owner release. RD-Q reviews only stable exact freezes or completed
+private build evidence; a rubric review is not a delivery approval.
 
 ## Stages
 
@@ -162,9 +206,18 @@ cannot be accepted as a real compiled artifact before an accepted RD-C record.
   blocking findings only to the owning writer.
 - [ ] RD-4: Integrate accepted units serially with source-final blob equality
   and central focused/adjacent validation.
-- [ ] RD-5: Decide whether a separately authorized full-PBF acquisition,
-  extractor-tool admission, exact graph build, Source Health catalog entry,
-  runtime/Worker/browser, formal performance, and public ODbL release may open.
+- [x] RD-5: Open only a separately supervised full-PBF acquisition,
+  extractor-tool admission, exact graph build, and actual admission/Source
+  Health projection. Runtime/Worker/browser, formal performance, central Source
+  Health `current`, and public ODbL release remain closed.
+- [ ] RD-6: Freeze and independently review the exact extractor and
+  Philadelphia boundary/buffer/cross-state policy.
+- [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
+  compute local payload evidence, extract the exact intermediate graph, and
+  normalize it through the accepted RD-B adapter without fallback.
+- [ ] RD-8: Admit the exact reviewed real graph through RD-C, compile the
+  separate RD-D real compact artifact, run central validation, and keep
+  runtime/performance/publication closed.
 
 ## Acceptance criteria
 
@@ -195,6 +248,11 @@ cannot be accepted as a real compiled artifact before an accepted RD-C record.
   deployment.
 - Safety, safer-route, accessibility outcome, real-time, preference, causality,
   scientific validation, user study, or multi-city transfer claims.
+
+The first-wave restrictions above remain the historical boundary of baseline
+`20b2be1`. The newly authorized supervised continuation may acquire and process
+one full dated PBF only after RD-6 passes; it still may not commit the PBF,
+install an unreviewed tool, publish a graph, or open runtime/product claims.
 
 ## Risks and constraints
 

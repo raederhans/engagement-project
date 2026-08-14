@@ -35,12 +35,15 @@
 | 2026-08-14 | Keep package scripts, public barrels, Source Health catalog, runtime, CI, Git state, and release assets integration-owner-only. | Avoids red-path conflicts and prevents worker tasks from publishing or promoting data. |
 | 2026-08-14 | Commit the common research/ownership baseline before dispatch. | Commit `20b2be1` gives every task the same exact plan, evidence boundary, and owned paths. |
 | 2026-08-14 | Record queued clients separately from resolved thread identities. | Five detached worktrees exist at `20b2be1`, but the App has returned only client IDs so writer preflight and task-to-path mapping are not yet claimed. |
+| 2026-08-14 | Reconcile actual writer bytes instead of queued-client records. | RD-A resolved to `4342` and has seven untracked owned files with fresh `11/11`; RD-B resolved to `502c` and has six untracked owned files with fresh `19/19`. Both remain detached exact `20b2be1`, uncommitted, and independently unreviewed. RD-R resolved to clean read-only `53d1`; `3e2f` and `c219` remain clean/unassigned and do not prove C/D implementation. |
+| 2026-08-14 | User authorizes the first three remaining priorities under primary supervision. | Open coordination for A/B/C/D closure, exact tool/boundary selection, one private full-PBF download/extraction/build, and actual graph admission/real compact compilation. Runtime/UI, formal performance, pilot, public release, deployment, credentials, and claim expansion remain closed. |
+| 2026-08-14 | Add one single-owner RD-E build lane and a read-only RD-Q cross-lane gate. | RD-E owns only new build code/test/fixture paths plus the private live output/log locations; it cannot start a live acquisition until the supervisor records and releases the exact reviewed command. RD-Q owns no writes and cannot approve moving bytes or rubric-only state. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Full PBF download/extraction | Unallocated | None | Closed in first wave. |
+| Full PBF download/extraction and exact intermediate build | Future RD-E conversation only after explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Authorized in principle, not started; exact tool/command/boundary and stop criteria still pending review. |
 | Shared build/browser/Worker/performance validation | Integration owner only | None | Not started. |
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
 
@@ -67,6 +70,8 @@ resolve to actual thread records.
 
 ## Next step
 
-Resolve the five queued clients to actual thread/worktree identities, record
-each writer's exact preflight, and wait for owned-path freezes without opening
-full acquisition or publication gates.
+Commit this supervised continuation baseline, dispatch exact-base conversations
+for A/B review, RD-C, RD-D, RD-E, and RD-Q, then integrate only independently
+accepted freezes. A full-PBF live process may start only after A/B integration,
+RD-E tool/boundary review, and an explicit single-owner follow-up; publication
+and runtime remain closed.
