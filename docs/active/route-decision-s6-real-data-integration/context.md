@@ -48,6 +48,8 @@
 | 2026-08-14 | Accept RD-E only after both Windows path-boundary repairs close on the same exact bytes. | Manifest `ee0411a...f0c6` passed `APPROVE/CLEAR`, became source-final `1eb128d`, and integrated as `0f4d6e1`; it freezes non-executable acquisition/receipt/extraction records and keeps controller, commands, tool execution, PBF and actual build unavailable. |
 | 2026-08-14 | Dispatch RD-F only after accepted RD-B/RD-E interfaces exist. | Thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f` starts clean detached at `0f4d6e1` in `8a3c` and owns only new offline OPL bridge/build-evidence paths. This does not release a live process or permit a hidden parser/controller. |
 | 2026-08-14 | Accept RD-C only after the deep-import, label/readiness and pre-materialization budget blockers close on the same exact ten files. | Aggregate `b13b95aa...0ae2` passed `APPROVE/CLEAR`, became source-final `06b7bee`, and integrated as `6075b4e`; combined focused `242/242` passes. The installed registry remains empty, so actual authority, Source Health current and product/runtime/publication claims remain unavailable. |
+| 2026-08-14 | Reject RD-F's first exact freeze, then accept only the repaired bytes seen by both fresh review lanes. | The first aggregate `e2d6c673...8e7` left two P1 identity/byte closures and one P2 hostile-options boundary open. Repaired aggregate `7f9ac429...92fa5` passed `APPROVE/CLEAR`, became source-final `110ef1e`, and integrated as `490e364`; it remains synthetic-mechanics/unavailable/non-capability only. |
+| 2026-08-14 | Treat the Windows CRLF checkout failure as an integration invariant, not a parser relaxation. | Commit `696eedf` forces the one reviewed `.opl` fixture to LF. The first central run was honestly `242/243`; after the attribute repair A/B/C/D/E/F passed `257/257`, and the reviewed eleven Git blobs remained exact. |
 
 ## Live process ownership
 
@@ -91,10 +93,11 @@ Current supervised task mapping:
   ESLint, fixtures and twelve blob identities pass. This freezes only
   non-executable build-control records; no controller, PBF or actual build exists.
 - RD-F: thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f`, worktree `8a3c`,
-  clean detached exact base `0f4d6e1`; active writer for new
-  `scripts/lib/route_real_graph_bridge/**` plus owned test/fixtures only. It may
-  produce offline synthetic bridge mechanics and an unavailable evidence
-  contract, never a live process or authority.
+  clean detached source-final `110ef1e`; repaired aggregate
+  `7f9ac429...92fa5` passed `APPROVE/CLEAR` and integrated as `490e364`.
+  Central A/B/C/D/E/F is `257/257` after LF invariant commit `696eedf`.
+  The bridge remains synthetic mechanics and caller-claim-only evidence, never
+  a real process observation or authority.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -104,9 +107,9 @@ topology decision.
 
 ## Next step
 
-Finish RD-F's isolated offline bridge/evidence freeze and fresh dual review.
-Integrate only exact bytes accepted by both review lanes.
-A full-PBF live process may start only after accepted RD-F, a separately
-reviewed trusted controller, exact tool admission and an explicit single-owner
-release; authority installation, Source Health current, runtime and publication
-remain closed.
+Define, implement, and independently review the trusted controller and exact
+installed-tool admission boundary as a new source-only gate. It must keep all
+registries unavailable and must not execute a tool or network request during
+implementation/review. A full-PBF live process may start only after that gate,
+an explicit single-owner release, and a fresh live preflight; authority
+installation, Source Health current, runtime and publication remain closed.

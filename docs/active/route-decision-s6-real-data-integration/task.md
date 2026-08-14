@@ -2,10 +2,11 @@
 
 ## Current status
 
-`RD-A, RD-B, RD-C, and the closed-production RD-D and RD-E exact reviewed bytes
-are integrated through 6075b4e / RD-F is implementing only the bounded offline
-OPL bridge and build-evidence contract / full-PBF, non-empty authority registry,
-actual admission, current, runtime, and publication gates remain closed`
+`RD-A through RD-F exact reviewed source-only bytes are integrated through
+490e364, with the Windows OPL checkout invariant recorded by 696eedf / the
+trusted controller, exact installed-tool admission, full-PBF process, non-empty
+authority registry, actual admission, current, runtime, and publication gates
+remain closed`
 
 ## Checklist
 
@@ -75,10 +76,20 @@ actual admission, current, runtime, and publication gates remain closed`
   architecture `CLEAR`, form source-final `06b7bee`, integrate as `6075b4e`,
   verify 10/10 source-final-to-central Git blobs, and run combined A/B/C/D/E
   focused `242/242` plus C syntax/ESLint/fixture gates.
-- [ ] Receive RD-F's exact writer freeze and independent review verdicts.
-- [ ] Integrate only an accepted RD-F unit and run central validation.
+- [x] Receive RD-F's first freeze, reproduce two P1 evidence-binding gaps and
+  one P2 hostile-options gap, return them to the same writer, and reject the
+  superseded `e2d6c673...8e7` bytes.
+- [x] Accept the repaired RD-F aggregate `7f9ac429...92fa5` after independent
+  code/security `APPROVE` and architecture/claims `CLEAR`, form source-final
+  `110ef1e`, and integrate it centrally as `490e364`.
+- [x] Repair the Windows checkout-only OPL CRLF failure with exact LF attribute
+  commit `696eedf`; rerun combined A/B/C/D/E/F validation at `257/257` and keep
+  all eleven RD-F Git blobs identical to the reviewed aggregate.
 - [x] Freeze and review the exact extractor/tool and Philadelphia
   boundary/buffer/cross-state policy as the non-executable RD-E contract.
+- [ ] Implement and independently review a trusted controller plus exact
+  installed-tool admission boundary. This remains source-only and must not run
+  a network request, PBF command, or positive private-registry installation.
 - [ ] After RD-F and a separately reviewed trusted controller are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -119,6 +130,9 @@ actual admission, current, runtime, and publication gates remain closed`
 | Latest RD-E review/integration | Exact aggregate `ee0411a...f0c6` passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero; all shared absolute paths reject short-name aliases and drive-root system checks are case-insensitive/segment-aware. Source-final `1eb128d` integrated as `0f4d6e1`; combined A+B+D+E focused `90/90`, syntax `9/9`, ESLint, fixtures `3/3`, and twelve Git-blob identities pass. Controller, commands and actual build remain unavailable. |
 | Latest RD-A review/integration | Exact manifest `df4d01ea...a5bdf1` passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero with one non-blocking same-realm-brand WATCH. Source-final `410a029` integrated as `50fee85`; combined A+B+D focused `63/63`, syntax, ESLint, fixture and seven Git-blob identities pass. No PBF/network/source-authority/current claim. |
 | RD-F dispatch | Thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f`, worktree `8a3c`, clean detached exact base `0f4d6e1`. Owned new bridge/test/fixture paths only; no PBF, network, tool execution, controller, output/log or Git mutation is authorized. |
+| RD-F first review | Aggregate `e2d6c673...8e7` was `REQUEST CHANGES`: promotion slots 2/3 lacked independent byte binding, bridge/RD-B identities were not recomputed from exact OPL/metadata bytes, and a deep-import options Proxy executed a trap. The freeze was not integrated. |
+| RD-F repaired review/integration | Aggregate `7f9ac429...92fa5` passed fresh code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero. Source-final `110ef1e` integrated as `490e364`; exact 11/11 blob aggregate remains unchanged. |
+| Windows OPL checkout repair | Initial central combined run exposed CRLF conversion of the strict LF-only OPL fixture: `242/243` passed. `.gitattributes` commit `696eedf` forces the exact fixture to LF without relaxing the parser; combined A/B/C/D/E/F then passed `257/257`, with syntax, ESLint, fixture parse, and blob identity gates green. |
 
 ## Open risks and remaining work
 
@@ -130,16 +144,17 @@ actual admission, current, runtime, and publication gates remain closed`
 - No owner-controlled non-empty real authority registry entry exists; accepted
   RD-C source code still defaults to an empty private registry and
   `authority-unavailable`.
-- No versioned executable `OPL -> RD-B intermediate -> E build evidence ->
-  RD-C authorization -> RD-D compact` chain exists. RD-F is implementing the
-  offline OPL/evidence contract only; it cannot create process capability or an
-  admitted end-to-end path.
+- A versioned offline `OPL -> RD-B intermediate` synthetic mechanics and
+  caller-claim evidence contract now exists, but no trusted controller, exact
+  installed-tool admission, positive private observation, or executable
+  `E build evidence -> RD-C authorization -> RD-D compact` chain exists.
 - No actual real `GraphArtifact`, compact graph, Source Health observation,
   browser runtime, performance result, or published artifact exists.
 - RD-A, RD-B, the dependency-unavailable/synthetic-only RD-D boundary, and the
   non-executable RD-E build-control boundary are reviewed and integrated.
   RD-C is reviewed and integrated only as an empty-registry authority boundary;
-  RD-F remains an active writer candidate.
+  RD-F is reviewed and integrated only as an unavailable/non-capability bridge
+  boundary.
 - Full-PBF download/extraction has no active owner. It stays closed until RD-F,
   an independently reviewed trusted controller, exact tool admission, and an
   explicit supervisor live release all exist.

@@ -196,6 +196,12 @@ must not start a full PBF live process before A/B integration and an explicit
 single-owner release. RD-Q reviews only stable exact freezes or completed
 private build evidence; a rubric review is not a delivery approval.
 
+After accepted RD-F, the next source-only dependency is a separately reviewed
+trusted controller and exact installed-tool admission boundary. Its
+implementation may define process/filesystem mechanics and persistent one-shot
+state, but it may not execute the tool, access the network, acquire a PBF, or
+install a positive private observation during source review.
+
 ## Stages
 
 - [x] RD-0: Verify main/remote identity and protected worktree state.
@@ -204,16 +210,19 @@ private build evidence; a rubric review is not a delivery approval.
 - [x] RD-2: Dispatch the contract/build-control writers and read-only reviewers
   from committed baselines; recover A/B/C/E/Q after the App crash and recreate
   the missing RD-D at exact `45ca4c7`.
-- [ ] RD-3: Receive exact writer freezes and independent reviews; return
+- [x] RD-3: Receive exact writer freezes and independent reviews; return
   blocking findings only to the owning writer.
-- [ ] RD-4: Integrate accepted units serially with source-final blob equality
+- [x] RD-4: Integrate accepted units serially with source-final blob equality
   and central focused/adjacent validation.
 - [x] RD-5: Open only a separately supervised full-PBF acquisition,
   extractor-tool admission, exact graph build, and actual admission/Source
   Health projection. Runtime/Worker/browser, formal performance, central Source
   Health `current`, and public ODbL release remain closed.
-- [ ] RD-6: Freeze and independently review the exact extractor and
+- [x] RD-6: Freeze and independently review the exact extractor and
   Philadelphia boundary/buffer/cross-state policy.
+- [ ] RD-6A: Implement and independently review the trusted controller and
+  exact installed-tool admission boundary without executing a live command or
+  installing positive authority.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.
