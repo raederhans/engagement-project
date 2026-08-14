@@ -53,6 +53,7 @@
 | 2026-08-14 | Dispatch RD-G as a separate source-only controller/tool-admission gate from exact baseline `da7b270`. | Worktree `rdg1` owns only new controller library/test/fixture paths. Its review must keep every positive registry and live primitive closed while proving fail-closed nonce/replay/crash/deadline, Windows path/reparse, exact argv and closed-file promotion contracts. |
 | 2026-08-15 | Accept only RD-G v7 after repeated lifecycle, clock, replay and store-lineage repairs, then integrate its exact source-only bytes. | Aggregate `1ff1187b...96d63f` over 16 files / 220,665 bytes passed independent `APPROVE/CLEAR`, became source-final `5c52de5`, and integrated as `1bd91c9`. Central RD-A-G adjacent `328/328` and full `npm run validate` pass. This closes RD-6A source contracts, not a native controller, positive tool install, live PBF, authority, current, runtime or publication gate. |
 | 2026-08-15 | Make LF checkout identity an explicit RD-G integration invariant. | The reviewed Git blobs are LF. Path-scoped `.gitattributes` entries prevent Windows checkout-only CRLF drift without weakening any parser or admission rule. |
+| 2026-08-15 | Push the reviewed source-only integration on a new remote branch without changing main. | `origin/codex/route-decision-s6-real-data` was absent before a normal non-force push; `origin/main` remained `f300cfe`. The remote branch is reviewable but is not a main merge, deployment or live-data release. |
 
 ## Live process ownership
 

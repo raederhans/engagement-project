@@ -105,7 +105,7 @@ closed`
 - [x] Integrate the accepted RD-A through RD-G source-only contract/build-control
   implementation locally and pass the full standard validation while leaving
   native runtime, formal performance, pilot, and public release closed.
-- [ ] Push the reviewed integration branch after the closeout record commit;
+- [x] Push the reviewed integration branch after the closeout record commit;
   this checkbox must not be used as evidence of a main merge or deployment.
 
 ## Validation evidence
@@ -145,6 +145,7 @@ closed`
 | RD-G repaired review/integration | Exact v7 aggregate `1ff1187b...96d63f` over 16 files / 220,665 raw bytes passed independent code/spec/security `APPROVE` and architecture/claims `CLEAR`, with P0/P1/P2 zero. Source-final `5c52de5` integrated centrally as `1bd91c9`; RD-G focused `84/84`, adjacent RD-A-G `328/328`, syntax `14/14`, targeted ESLint and two JSON fixtures pass. The accepted API remains caller-claim-only with every native capability/registry/actual/current/runtime/publication state unavailable or false. |
 | RD-G checkout invariant | `.gitattributes` forces the RD-G controller source/test/fixture paths to LF so future Windows worktrees reproduce the independently reviewed Git-blob bytes instead of checkout-only CRLF variants. |
 | Full integration validation | `npm run validate` completed with exit code 0 after RD-G integration, including the complete repository test chain, production `vite build --manifest`, GeoJSON artifact generation, visual baseline policy and `verify:bundle`. The build emitted only the existing advisory for a chunk above 500 kB; bundle policy passed. |
+| Remote integration branch | A normal non-force push created `origin/codex/route-decision-s6-real-data` after confirming the target branch did not exist and `origin/main` remained `f300cfe`. This is a review branch only; it is not merged to main or deployed. |
 
 ## Open risks and remaining work
 
