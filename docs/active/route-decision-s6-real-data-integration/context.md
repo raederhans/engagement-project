@@ -40,6 +40,8 @@
 | 2026-08-14 | Add one single-owner RD-E build lane and a read-only RD-Q cross-lane gate. | RD-E owns only new build code/test/fixture paths plus the private live output/log locations; it cannot start a live acquisition until the supervisor records and releases the exact reviewed command. RD-Q owns no writes and cannot approve moving bytes or rubric-only state. |
 | 2026-08-14 | Recover stopped writer/reviewer tasks in place after an App crash and recreate only the missing RD-D task. | A/B/C/E/Q retain their existing worktrees and bytes; RD-D now runs in `6844@45ca4c7`. Clean `b5f8@45ca4c7` is an unassigned crash orphan and is preserved, not treated as implementation evidence. |
 | 2026-08-14 | Treat the first A/B exact-freeze review as a rejection, despite green focused tests. | RD-A must bound arrays before expansion and enforce descriptors; RD-B must repair hostile ingress, clipping geometry, complete result identity, and rounded geometry. Both need new freezes and fresh review. |
+| 2026-08-14 | Reject every A/B/C/D/E freeze after fresh exact-byte and dual-lane review. | Green focused tests did not cover resource-order, semantic recomputation, caller-current, cross-lane bridge, live-release path, or acquisition lifecycle blockers. No bytes advance to source-final or integration. |
+| 2026-08-14 | Keep the future OPL bridge/controller lane closed until B and E expose accepted stable interfaces. | Avoids creating a placeholder adapter against moving schemas. D must stop inventing costs; E must split acquisition/receipt/extraction authority before a separate bounded OPL-to-B/build-evidence lane is dispatched. |
 
 ## Live process ownership
 
@@ -61,15 +63,16 @@ integrate, run shared gates, push, or change publication state.
 Current supervised task mapping:
 
 - RD-A: thread `019ffebb-64d2-7143-a2e6-b88a62a58abb`, worktree `4342`,
-  detached `20b2be1`; active exact-review rework.
+  detached `20b2be1`; active second rework after `P1=3/BLOCK` review.
 - RD-B: thread `019ffebb-73db-7f52-a02d-494e0013b1fe`, worktree `502c`,
-  detached `20b2be1`; active exact-review rework.
+  detached `20b2be1`; active second rework after `P1=2/BLOCK` review.
 - RD-C: thread `019fff36-7a99-7332-a978-8d8f9ae23005`, worktree `00d0`,
-  detached `45ca4c7`; active authority writer preserving partial bytes.
+  detached `45ca4c7`; active rework after `P1=3/P2=1/BLOCK` review.
 - RD-D: thread `019fff4d-a816-7120-a9e2-d85841dbdb6d`, worktree `6844`,
-  detached `45ca4c7`; recreated active real-compact writer.
+  detached `45ca4c7`; active rework after code `P1=1` and architecture `BLOCK`.
 - RD-E: thread `019fff28-6e92-7cc0-9717-de612065fd8f`, worktree `1461`,
-  detached `45ca4c7`; active offline tool/boundary writer preserving partial bytes.
+  detached `45ca4c7`; active offline rework after code `P1=2` and architecture
+  `BLOCK`; live acquisition remains unreleased.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -79,8 +82,10 @@ topology decision.
 
 ## Next step
 
-Receive new stable A/B freezes and the first C/D/E freezes, route them through
-RD-Q plus lane-specific exact-byte review, then integrate only accepted units.
+Receive new stable A/B/C/D/E rework freezes, route them through lane-specific
+code/security and architecture review plus RD-Q, then integrate only accepted
+units. Once B/E are accepted, dispatch a separate bounded OPL-to-B and build-
+evidence/controller lane rather than inserting an ad-hoc parser into RD-E.
 A full-PBF live process may start only after A/B integration, RD-E tool/boundary
 review, and an explicit single-owner follow-up; publication and runtime remain
 closed.

@@ -2,9 +2,9 @@
 
 ## Current status
 
-`crash recovery complete / RD-A and RD-B are active on independently requested
-rework / RD-C, RD-D, and RD-E are active writers / RD-Q is the active read-only
-cross-lane gate / no writer freeze is accepted or integrated`
+`all five writer freezes independently rejected / RD-A through RD-E are in
+bounded rework / no source-final byte is accepted or integrated / full-PBF and
+all actual admission, current, runtime, and publication gates remain closed`
 
 ## Checklist
 
@@ -44,6 +44,16 @@ cross-lane gate / no writer freeze is accepted or integrated`
   bytes: A=`4342`, B=`502c`, C=`00d0`, E=`1461`, Q=`fedf`; recreate RD-D as
   thread `019fff4d-a816-7120-a9e2-d85841dbdb6d` in `6844`. Preserve clean
   orphan `b5f8` as unassigned crash evidence.
+- [x] Complete fresh exact-byte reviews for RD-A, RD-B, and RD-C. Final verdicts
+  are respectively `P1=3`, `P1=2`, and `P1=3/P2=1`; all are
+  `REQUEST CHANGES / BLOCK` and their writer freezes are superseded.
+- [x] Complete independent code/security plus architecture/claims reviews for
+  RD-D and RD-E. RD-D has one code P1 plus missing C-authorization/B-graph
+  bridges; RD-E has two code P1 plus circular release, boundary/path/lease, and
+  OPL-to-B/C dependency blockers. Both are `REQUEST CHANGES / BLOCK`.
+- [x] Return all five blocking verdicts to their original writers under the
+  same disjoint owned paths. Do not create a bridge/controller writer until
+  accepted B/E contracts provide a stable executable interface.
 - [ ] Receive exact writer freezes and independent review verdicts.
 - [ ] Integrate only accepted units serially and run central validation.
 - [ ] Freeze and review the exact extractor/tool and Philadelphia
@@ -75,6 +85,10 @@ cross-lane gate / no writer freeze is accepted or integrated`
 | Supervised continuation commit | `45ca4c7d3e409c3c05455bf7237fa78443f25c98`; opens contract/build-control work only and keeps live PBF/runtime/performance/publication closed. |
 | Independent A/B exact review | Thread `019fff28-692c-7ed0-8654-b4d4b808e8e7`; focused tests passed but hostile probes blocked both old freezes, so neither is source-final. |
 | Crash recovery snapshot | All six current tasks are active; A/B continue in place, C/E preserve partial owned files, D is recreated at exact `45ca4c7`, and Q remains read-only. |
+| A/B fresh re-review | A: focused `11/11` but three P1 resource/stream-bound blockers. B: focused `28/28` but two P1 raw-boundary/descriptor-budget blockers. Both `REQUEST CHANGES / BLOCK`; old freezes superseded. |
+| C exact review | Focused `68/68`, but full-rehash probes exposed caller-current circularity, graph semantic non-recomputation, and coordinated placeholder admission; `REQUEST CHANGES / BLOCK`. |
+| D independent dual review | Focused `10/10`; code P1 requires caller `current` before registry, and architecture found no exact RD-C authorization or RD-B one-cost bridge. `REQUEST CHANGES / BLOCK`. |
+| E independent dual review | Focused `14/14`; Proxy/depth/sparse ingress and arbitrary absolute release paths reproduced. Architecture also found acquisition-release circularity, admission/release byte drift, lease/deadline gaps, and no OPL-to-B/C adapter. `REQUEST CHANGES / BLOCK`. |
 
 ## Open risks and remaining work
 
@@ -82,9 +96,13 @@ cross-lane gate / no writer freeze is accepted or integrated`
 - Philadelphia boundary/buffer/cross-New-Jersey policy is not frozen.
 - No extraction tool has been selected or admitted.
 - No owner-controlled real authority registry entry exists.
+- No versioned executable `OPL -> RD-B intermediate -> E build evidence ->
+  RD-C authorization -> RD-D compact` chain exists; current contracts are
+  individually tested islands rather than an admitted end-to-end path.
 - No actual real `GraphArtifact`, compact graph, Source Health observation,
   browser runtime, performance result, or published artifact exists.
-- A/B old freezes are explicitly rejected and superseded; new passing writer
-  tests will still require a new stable freeze and independent review.
+- All A/B/C/D/E reviewed freezes are explicitly rejected and superseded; new
+  passing writer tests will still require stable freezes and independent
+  code/security plus architecture review.
 - Full-PBF download/extraction has no active owner until RD-E tool and boundary
   evidence is accepted and the supervisor explicitly releases the live gate.
