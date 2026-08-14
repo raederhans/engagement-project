@@ -90,28 +90,32 @@
 | 2026-08-13 | Integrate only S5-B as the next serial Stage 5 unit. | Source `f967a3a` was cherry-picked with source trace over exact central `ba4633e` as code commit `3d65c86`. All four source and central Git blobs are equal; no record, UI/runtime/public barrel, package, workflow, S5-C, or other lane path entered the code commit. |
 | 2026-08-13 | Validate S5-B on central exact code HEAD `3d65c86`. | S5-B focused passed `16/16` and S5-A adjacent passed `23/23`. An independent full terminal enumeration checked 4,032 tuples and found exactly the independently expected 21 reachable states, with zero extra and zero missing. Re-signed legacy `textComplete`, requested-factor alias, wrong/missing scope, wrong/missing source relationship, and impossible terminal were rejected; primitive JSON Proxy traps remained zero; the browser module had zero import/Node/runtime dependency. ESLint, three-file Node syntax, JSON parse, diff-check, four-blob equality, consumer scan, and exact four-path scope passed. |
 | 2026-08-13 | Preserve the S5-B browser authority boundary. | Completeness is only `browser-boundary-summary/v1`; the source presentation relationship is not a full S4 projection, and graph-wide unresolved states are not terminal causes. Plain JSON/content digest proves internal consistency only, not source, typed, performance, external, or product authority. A future UI requires trusted delivery authority, atomic summary/claimBoundary/limitations consumption, and a real browser/runtime gate. |
+| 2026-08-14 | Reconcile the original three-study plan, the total plan, and all four Stage 5 delivery records through bounded follow-up conversations. | All S5 lanes are integrated and mutually compatible at their recorded contract boundaries. The remaining closeout work is standard regression reachability plus central Git promotion; no new runtime or authority seam is required for Stage 5. |
+| 2026-08-14 | Treat standard test reachability as a Stage 5 release blocker. | The old `npm test` chain reached none of the 14 S3-S5 suites. Add one named aggregate and call it from the standard chain so `validate`, `ci:core`, and `ci:release` cannot silently omit the integrated contracts. |
+| 2026-08-14 | Complete fresh closeout validation. | Direct S4/S5 passed `136/136`; named S3-S5 aggregate passed `267/267`; full `npm run validate`, JS lint, and CSS lint passed. No browser/Worker/server, formal performance, real-data, or deployment gate was run. |
+| 2026-08-14 | Accept the bounded S6 research handoff without starting S6 implementation. | Freeze the canonical S5 tip first; then stage a non-identity functional-needs compiler and a synthetic B-lite graph/loader/Worker seam. Actual graph admission, trusted browser delivery, formal performance, runtime/public promotion, pilot, and publication remain independently authorized gates. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
 | Long tests, full validate/build, browser/Worker, server, performance sampling, data acquisition | Primary integration owner only | Not allocated | Closed during Stage 5 authoring. Only short isolated owned-lane tests are permitted. |
+| Stage 5 exact-HEAD closeout: `npm run validate`, JS/CSS lint, and scoped S4/S5 contract tests | `/root` primary integration owner | `logs/route-s5-closeout-validate-20260814.log` plus Codex command output | Completed: direct S4/S5 `136/136`, named S3-S5 `267/267`, full validate, JS lint, and CSS lint passed. The log remains untracked. No browser/Worker/server, eligible performance sampling, or data acquisition ran. |
 
 ## Handoff
 
-Bounded S4 integration remains complete and retained for audit. S5-A, S5-D,
-and diagnostic-only S5-C retain their accepted limits. S5-B R3 is source-final
-`f967a3a` and centrally integrated as `3d65c86`, with four-blob equality and
-exact-head validation. It establishes only a serialized browser-boundary
-summary contract, not trusted delivery or runtime readiness. Duplicate S5-D
-task `dd31` remains untouched and excluded.
+Bounded S4 integration and all four bounded Stage 5 units are complete on the
+coordination branch and retained for audit. The final standard-regression gap is
+closed by the S3-S5 aggregate, and fresh closeout validation passes. S5-B still
+establishes only a serialized browser-boundary summary; S5-C remains diagnostic;
+S5-D remains authority-unavailable; and duplicate S5-D task `dd31` remains
+untouched and excluded.
 
 ## Next step
 
-Stop after the S5-B serialized-boundary integration unit. Do not connect it to
-UI/runtime/public barrels without trusted delivery authority, atomic
-summary/claimBoundary/limitations consumption, and a real browser/runtime gate.
-S5-C formal enablement remains blocked on a main-owned cohort, authoritative
-measured reference, and complete timed transitive-module manifest. A real root
-of trust, actual product admission/runtime, formal performance authority, live
-gates, push, merge, release, publication, and deployment remain closed.
+Commit the package/record closeout as the final coordination unit, fast-forward
+`main`, push, and verify the remote revision. Preserve every source worktree and
+untracked artifact. After canonical S5 freeze, S6 may begin only with the
+tooling-only controlled compiler and synthetic B-lite work described in the
+plan. Trusted UI/runtime delivery, formal performance authority, real graph
+admission, pilot, publication, release, and deployment remain closed.

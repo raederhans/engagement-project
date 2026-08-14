@@ -2,8 +2,8 @@
 
 ## Current status
 
-`in-progress / bounded S4 integration complete; Stage 5 S5-A, S5-D, the
-diagnostic-only S5-C seam, and S5-B browser-boundary delivery integrated;
+`ready-for-main-integration / bounded S4 integration and all four Stage 5
+units complete; the standard regression chain now reaches the S3-S5 suites;
 downstream authority/runtime gates remain closed`
 — the first local integration (`34f5a8c`, `3d16250`,
 `766641d`, `75e624f`) is retained as historical R1/V1 evidence. All final
@@ -127,6 +127,15 @@ public UI, release, publication, deployment, or scientific/safety claims.
 - [x] Integrate every accepted bounded Stage 5 lane one at a time; do not
   infer an order or readiness before stable freeze, two-view review, and current
   central compatibility evidence.
+- [x] Run the final S5 combined review and exact-HEAD regression closeout; find
+  no cross-contract conflict and preserve every unavailable/unknown/partial/
+  no-decision boundary.
+- [x] Repair the standard regression reachability gap by adding the 14 S3-S5
+  suites to `npm test` through `test:route-decision-s3-s5`.
+- [x] Pass the named S3-S5 aggregate `267/267`, the direct S4/S5 closeout set
+  `136/136`, full `npm run validate`, JS lint, CSS lint, and diff checks.
+- [x] Research a dependency-gated S6 execution plan without opening real-data,
+  browser/runtime, formal-performance, external-authority, or publication work.
 
 ## Final reviewed delivery matrix
 
@@ -315,6 +324,38 @@ seam; the later explicit Stage 5 authorization is recorded separately above.
   barrel. S5-B now supplies a versioned primitive-JSON boundary delivery, but
   no trusted UI/runtime consumer or real browser gate exists yet.
 - The branch contains the historical first integration plus the completed final
-  serial re-integration and combined integrated-HEAD validation. It has not
-  been pushed, merged to `main`, released, deployed, or exposed through public
-  barrels/runtime.
+  serial re-integration and combined integrated-HEAD validation. Main integration
+  and push are the remaining Git closeout actions; no release, deployment, or
+  public barrel/runtime exposure is implied.
+
+## Stage 5 final exact-HEAD closeout (2026-08-14)
+
+- The four bounded units remain the accepted source of truth: S5-A typed route
+  binding, S5-D authority-unavailable state machine, S5-C diagnostic fresh-child
+  seam, and S5-B browser-boundary summary. A combined review found no direct
+  cross-contract conflict.
+- The fresh audit identified one release-control defect: the standard test chain
+  reached `0/14` S3-S5 suites. `package.json` now defines
+  `test:route-decision-s3-s5` and calls it from `npm test`, so `validate`,
+  `ci:core`, and `ci:release` inherit the regression coverage.
+- Fresh evidence on the closeout candidate: direct S4/S5 `136/136`; named S3-S5
+  aggregate `267/267`; full `npm run validate` passed including build, manifest,
+  and bundle policy; JS and CSS lint passed. The generated closeout log remains
+  untracked and outside the delivery commit.
+- Not run and not claimed: a real browser or Worker, server, formal eligible
+  performance, real graph/data admission, trusted delivery authority, pilot,
+  release, deployment, or public observation.
+
+## Stage 6 research handoff
+
+| Research line | Conversation | Accepted planning result |
+| --- | --- | --- |
+| Controlled functional-needs semantics | `019ff15a-1e6e-72b0-b344-4acb680dec72` | First delivery should be a non-identity, tooling-only, synthetic-only functional-needs compiler feeding existing DecisionPolicy/CandidateSearch/S2/S5-A contracts with a lossless mapping trace. |
+| Scenario, explanation, and city validation | `019ff15a-333e-7733-a71e-a0797c8b9e5b` | Freeze the S5 tip and claim matrix first. Treat 1,000 OD x 5 only as synthetic algorithmic/oracle evidence; explanation experience, formal performance, trusted browser delivery, real users, and second-city transferability remain separate gates. |
+| Route/data/runtime architecture | `019ff15a-c4f8-74a2-9321-a9fc8df76eb9` | Use synthetic B-lite first: deterministic compact graph compiler/loader, lazy browser/Worker seam, manifests, and rollback lifecycle. Real graph admission needs independent authority and license; static Pages browser delivery is public redistribution. |
+
+Recommended S6 order is S6-0 canonical freeze, S6-1 controlled compiler,
+S6-2 synthetic B-lite seam, S6-3 browser/explanation acceptance, then one
+explicitly authorized real-authority lane at a time. The research handoff is a
+plan, not implementation authority for real data, runtime, formal performance,
+pilot, publication, or deployment.

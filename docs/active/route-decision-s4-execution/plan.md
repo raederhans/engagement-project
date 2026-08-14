@@ -54,7 +54,7 @@ public, real-data, or release gates.
   regressions, and complete bounded combined integrated-HEAD validation as
   `COMMENT` / architecture `WATCH` without starting shared or long-lived
   processes.
-- [ ] Stage 5: Address the four integration WATCH prerequisites through the
+- [x] Stage 5: Address the four integration WATCH prerequisites through the
   dependency-gated waves below and separately decide which downstream S4 gates
   are technically ready. Eligible
   Node/browser/Worker performance runs, real data, pilot, public UI, release,
@@ -117,6 +117,56 @@ Wave 2 author/review:  S5-B browser wire  ||  S5-C cross-process performance aut
   unique cohort, an authoritative measured-reference, and a complete manifest
   covering the modules actually executed inside the timing window. The
   diagnostic seam cannot self-supply those prerequisites.
+
+### Final Stage 5 closeout (2026-08-14)
+
+- A fresh combined review found no direct S5-A/B/C/D path, export, schema, or
+  claim-boundary conflict. The remaining release blocker was test reachability:
+  the standard `npm test` / `npm run validate` / CI chain reached none of the 14
+  S3-S5 suites even though the one-off focused suites passed.
+- `test:route-decision-s3-s5` now owns that exact 14-suite set and is called by
+  the standard `test` aggregate. The named aggregate passed `267/267`; the
+  direct S4/S5 closeout set passed `136/136`; full `npm run validate`, JS lint,
+  and CSS lint passed on the closeout candidate.
+- This closes Stage 5 contract integration and continuous-regression coverage.
+  It does not establish a real browser/Worker result, formal performance
+  authority, trusted external-graph authority, real-data admission, runtime or
+  public wiring, pilot evidence, release, deployment, or scientific/safety
+  claim.
+
+## Proposed Stage 6 research handoff (planning only)
+
+1. **S6-0 canonical freeze:** integrate and push the exact Stage 5 closeout,
+   freeze its claim matrix, and use that immutable revision as every S6 lane's
+   common input. No lane may reinterpret `unavailable`, `unknown`, `partial`, or
+   `no-decision-not-executed` as a positive or negative outcome.
+2. **S6-1 controlled functional-needs compiler:** build a tooling-only,
+   synthetic-only compiler from non-identity functional-need selections to one
+   versioned public compile artifact, then through existing `DecisionPolicy/v1`,
+   `CandidateSearchRequest/v1`, S2 search, the S5-A typed run, and a traceable S6
+   result. Do not add personas, inferred identity, UI, backend, or safety/
+   accessibility-outcome claims.
+3. **S6-2 synthetic B-lite graph seam:** first freeze the compact directed-graph
+   schema and authority registry; then implement deterministic build-time
+   compiler, browser lazy loader, Worker solver seam, manifests, and
+   snapshot/current/rollback lifecycle using synthetic fixtures only. This may
+   prove conformance and failure behavior, not real-city readiness.
+4. **S6-3 explanation/browser acceptance:** define atomic consumption of the
+   S5-B summary, claim boundary, and limitations plus scenario/city conformance
+   fixtures. A real browser run remains a separate live gate; tooling-only
+   serialization does not prove product experience.
+5. **S6-G2 external authority gate:** actual graph acquisition, review,
+   admission, formal performance, or trusted browser delivery requires explicit
+   main-owned inputs and an independently controlled root of trust. On static
+   Pages, a real graph delivered to the browser is public redistribution, so
+   license and publication authority must be established before such a path is
+   designed as deployable.
+6. **Later execution order:** admit at most one real authority lane at a time:
+   candidate-only acquisition -> independent admission/root -> exact-graph
+   performance -> runtime/public promotion. Until G2 is satisfied, all actual
+   admission, Source Health current state, formal pass/fail, real-data runtime,
+   pilot, and publication work returns `authority-unavailable` rather than a
+   guessed fallback.
 
 ## Acceptance criteria
 
