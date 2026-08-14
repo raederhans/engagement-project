@@ -2,9 +2,10 @@
 
 ## Current status
 
-`all five writer freezes independently rejected / RD-A through RD-E are in
-bounded rework / no source-final byte is accepted or integrated / full-PBF and
-all actual admission, current, runtime, and publication gates remain closed`
+`RD-A, RD-B, RD-C, and the closed-production RD-D and RD-E exact reviewed bytes
+are integrated through 6075b4e / RD-F is implementing only the bounded offline
+OPL bridge and build-evidence contract / full-PBF, non-empty authority registry,
+actual admission, current, runtime, and publication gates remain closed`
 
 ## Checklist
 
@@ -54,13 +55,34 @@ all actual admission, current, runtime, and publication gates remain closed`
 - [x] Return all five blocking verdicts to their original writers under the
   same disjoint owned paths. Do not create a bridge/controller writer until
   accepted B/E contracts provide a stable executable interface.
-- [ ] Receive exact writer freezes and independent review verdicts.
-- [ ] Integrate only accepted units serially and run central validation.
-- [ ] Freeze and review the exact extractor/tool and Philadelphia
-  boundary/buffer/cross-state policy.
-- [ ] Assign RD-E as the sole live-process owner, acquire the dated PBF into the
-  private output directory, extract and normalize one exact real graph, and
-  preserve terminal logs/evidence without committing payload bytes.
+- [x] Accept RD-B exact manifest `750e8dc8...c22dcd`, form source-final
+  `c7388ea`, integrate it as `110007c`, verify committed Git-blob identity,
+  and rerun focused `32/32`, syntax, ESLint, and fixture gates centrally.
+- [x] Reconcile the RD-D review-object drift, obtain `APPROVE/CLEAR` on the
+  same exact seven files, form source-final `8fb9be2`, integrate as `86c54ca`,
+  and rerun D+B focused `45/45`, syntax, ESLint, fixtures, and blob identity.
+- [x] Accept RD-A exact manifest `df4d01ea...a5bdf1`, form source-final
+  `410a029`, integrate as `50fee85`, verify all seven committed blob identities,
+  and rerun the combined A+B+D focused `63/63` plus syntax/ESLint/fixture gates.
+- [x] Accept RD-E exact manifest `ee0411a...f0c6` only after both Windows path
+  blockers close, form source-final `1eb128d`, integrate as `0f4d6e1`, verify
+  all twelve committed blob identities, and rerun combined A+B+D+E focused
+  `90/90` plus syntax/ESLint/fixture gates.
+- [x] Dispatch RD-F from exact `0f4d6e1` in worktree `8a3c` to implement only a
+  bounded offline OPL-to-RD-B bridge and non-executable `TrustedBuildEvidence/v1`
+  contract. Keep controller, network, PBF, tool execution and live outputs closed.
+- [x] Accept RD-C exact ten-file manifest after code/security `APPROVE` and
+  architecture `CLEAR`, form source-final `06b7bee`, integrate as `6075b4e`,
+  verify 10/10 source-final-to-central Git blobs, and run combined A/B/C/D/E
+  focused `242/242` plus C syntax/ESLint/fixture gates.
+- [ ] Receive RD-F's exact writer freeze and independent review verdicts.
+- [ ] Integrate only an accepted RD-F unit and run central validation.
+- [x] Freeze and review the exact extractor/tool and Philadelphia
+  boundary/buffer/cross-state policy as the non-executable RD-E contract.
+- [ ] After RD-F and a separately reviewed trusted controller are accepted,
+  assign one live-process owner, acquire the dated PBF into the private output
+  directory, extract and normalize one exact real graph, and preserve terminal
+  logs/evidence without committing payload bytes.
 - [ ] Admit the exact graph through RD-C, compile the separate RD-D compact
   artifact, and complete central compatibility validation.
 - [ ] Merge/push the accepted contract/build-control implementation while
@@ -89,20 +111,35 @@ all actual admission, current, runtime, and publication gates remain closed`
 | C exact review | Focused `68/68`, but full-rehash probes exposed caller-current circularity, graph semantic non-recomputation, and coordinated placeholder admission; `REQUEST CHANGES / BLOCK`. |
 | D independent dual review | Focused `10/10`; code P1 requires caller `current` before registry, and architecture found no exact RD-C authorization or RD-B one-cost bridge. `REQUEST CHANGES / BLOCK`. |
 | E independent dual review | Focused `14/14`; Proxy/depth/sparse ingress and arbitrary absolute release paths reproduced. Architecture also found acquisition-release circularity, admission/release byte drift, lease/deadline gaps, and no OPL-to-B/C adapter. `REQUEST CHANGES / BLOCK`. |
+| RD-B third exact review | Manifest `750e8dc8...c22dcd`; code/security `APPROVE`, architecture `CLEAR`, P0/P1/P2 zero; source-final eligible for only the eight reviewed candidate-adapter files. |
+| RD-B source-final integration | Detached source-final `c7388ea`; integrated as `110007c`. Git-blob aggregate remains exact `750e8dc8...c22dcd`; central focused `32/32`, syntax `6/6`, ESLint, and fixtures `2/2` pass. |
+| Latest RD-A review | Primitive-JSON ingress closes the old P1, but caller-controlled `response.ok` can promote non-2xx status (`P1=1`) and successful HEAD with `Content-Length: 0` still projects `integrity.declaredBytes=0` (`P2=1`); `REQUEST CHANGES / BLOCK`. |
+| Latest RD-C review/integration | Exact ten-file freeze passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero, with only future non-empty-registry and real-capacity WATCH items. Source-final `06b7bee` integrated as `6075b4e`; source-final-to-central Git blobs `10/10` exact; combined A/B/C/D/E focused `242/242`, C syntax `8/8`, ESLint and fixtures `2/2` pass. Private registry remains empty and Source Health remains unavailable/not-observed. |
+| Latest RD-D review/integration | Review-object drift was detected and the stale architecture verdict discarded. The same current seven files then passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero; source-final `8fb9be2` integrated as `86c54ca`. Central D+B focused `45/45`, syntax, ESLint, fixtures, and exact Git-blob identities pass. This remains synthetic-mechanics-only with production B/C bridge unavailable. |
+| Latest RD-E review/integration | Exact aggregate `ee0411a...f0c6` passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero; all shared absolute paths reject short-name aliases and drive-root system checks are case-insensitive/segment-aware. Source-final `1eb128d` integrated as `0f4d6e1`; combined A+B+D+E focused `90/90`, syntax `9/9`, ESLint, fixtures `3/3`, and twelve Git-blob identities pass. Controller, commands and actual build remain unavailable. |
+| Latest RD-A review/integration | Exact manifest `df4d01ea...a5bdf1` passed code/security `APPROVE` and architecture `CLEAR`, P0/P1/P2 zero with one non-blocking same-realm-brand WATCH. Source-final `410a029` integrated as `50fee85`; combined A+B+D focused `63/63`, syntax, ESLint, fixture and seven Git-blob identities pass. No PBF/network/source-authority/current claim. |
+| RD-F dispatch | Thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f`, worktree `8a3c`, clean detached exact base `0f4d6e1`. Owned new bridge/test/fixture paths only; no PBF, network, tool execution, controller, output/log or Git mutation is authorized. |
 
 ## Open risks and remaining work
 
 - No full source payload has been acquired or hashed by this task.
-- Philadelphia boundary/buffer/cross-New-Jersey policy is not frozen.
-- No extraction tool has been selected or admitted.
-- No owner-controlled real authority registry entry exists.
+- Philadelphia boundary/buffer/cross-New-Jersey policy is reviewed and integrated
+  only as a non-executable RD-E contract; no real construction has run.
+- `osmium-tool 1.19.1` is recommendation-only; no package or binary has been
+  downloaded, installed, observed, or admitted.
+- No owner-controlled non-empty real authority registry entry exists; accepted
+  RD-C source code still defaults to an empty private registry and
+  `authority-unavailable`.
 - No versioned executable `OPL -> RD-B intermediate -> E build evidence ->
-  RD-C authorization -> RD-D compact` chain exists; current contracts are
-  individually tested islands rather than an admitted end-to-end path.
+  RD-C authorization -> RD-D compact` chain exists. RD-F is implementing the
+  offline OPL/evidence contract only; it cannot create process capability or an
+  admitted end-to-end path.
 - No actual real `GraphArtifact`, compact graph, Source Health observation,
   browser runtime, performance result, or published artifact exists.
-- All A/B/C/D/E reviewed freezes are explicitly rejected and superseded; new
-  passing writer tests will still require stable freezes and independent
-  code/security plus architecture review.
-- Full-PBF download/extraction has no active owner until RD-E tool and boundary
-  evidence is accepted and the supervisor explicitly releases the live gate.
+- RD-A, RD-B, the dependency-unavailable/synthetic-only RD-D boundary, and the
+  non-executable RD-E build-control boundary are reviewed and integrated.
+  RD-C is reviewed and integrated only as an empty-registry authority boundary;
+  RD-F remains an active writer candidate.
+- Full-PBF download/extraction has no active owner. It stays closed until RD-F,
+  an independently reviewed trusted controller, exact tool admission, and an
+  explicit supervisor live release all exist.

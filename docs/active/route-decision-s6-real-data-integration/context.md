@@ -42,12 +42,18 @@
 | 2026-08-14 | Treat the first A/B exact-freeze review as a rejection, despite green focused tests. | RD-A must bound arrays before expansion and enforce descriptors; RD-B must repair hostile ingress, clipping geometry, complete result identity, and rounded geometry. Both need new freezes and fresh review. |
 | 2026-08-14 | Reject every A/B/C/D/E freeze after fresh exact-byte and dual-lane review. | Green focused tests did not cover resource-order, semantic recomputation, caller-current, cross-lane bridge, live-release path, or acquisition lifecycle blockers. No bytes advance to source-final or integration. |
 | 2026-08-14 | Keep the future OPL bridge/controller lane closed until B and E expose accepted stable interfaces. | Avoids creating a placeholder adapter against moving schemas. D must stop inventing costs; E must split acquisition/receipt/extraction authority before a separate bounded OPL-to-B/build-evidence lane is dispatched. |
+| 2026-08-14 | Accept and integrate RD-B independently while the other real-data lanes remain blocked or under review. | Exact manifest `750e8dc8...c22dcd` passed code/security and architecture review, became source-final `c7388ea`, and integrated as `110007c`; this establishes only a candidate OSM walking adapter and does not open extraction, authority, GraphArtifact, runtime, or product claims. |
+| 2026-08-14 | Discard the stale RD-D architecture verdict after per-file review-object drift, then accept only the manifest seen by both independent lanes. | The reconciled seven files passed `APPROVE/CLEAR`, became source-final `8fb9be2`, and integrated as `86c54ca`; production RD-B/RD-C dependencies remain unavailable and the accepted surface proves only one allowlisted synthetic mechanics fixture. |
+| 2026-08-14 | Accept RD-A only after transport truth and null-projection blockers close on a fresh exact freeze. | Manifest `df4d01ea...a5bdf1` passed `APPROVE/CLEAR`, became source-final `410a029`, and integrated as `50fee85`; it establishes bounded candidate acquisition observation only and does not download PBF or establish source authority/current. |
+| 2026-08-14 | Accept RD-E only after both Windows path-boundary repairs close on the same exact bytes. | Manifest `ee0411a...f0c6` passed `APPROVE/CLEAR`, became source-final `1eb128d`, and integrated as `0f4d6e1`; it freezes non-executable acquisition/receipt/extraction records and keeps controller, commands, tool execution, PBF and actual build unavailable. |
+| 2026-08-14 | Dispatch RD-F only after accepted RD-B/RD-E interfaces exist. | Thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f` starts clean detached at `0f4d6e1` in `8a3c` and owns only new offline OPL bridge/build-evidence paths. This does not release a live process or permit a hidden parser/controller. |
+| 2026-08-14 | Accept RD-C only after the deep-import, label/readiness and pre-materialization budget blockers close on the same exact ten files. | Aggregate `b13b95aa...0ae2` passed `APPROVE/CLEAR`, became source-final `06b7bee`, and integrated as `6075b4e`; combined focused `242/242` passes. The installed registry remains empty, so actual authority, Source Health current and product/runtime/publication claims remain unavailable. |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| Full PBF download/extraction and exact intermediate build | Future RD-E conversation only after explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Authorized in principle, not started; exact tool/command/boundary and stop criteria still pending review. |
+| Full PBF download/extraction and exact intermediate build | Future single owner only after RD-F, controller, tool admission and explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Not released or started; no current task owns live process, network, PBF or private outputs. |
 | Shared build/browser/Worker/performance validation | Integration owner only | None | Not started. |
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
 
@@ -63,16 +69,32 @@ integrate, run shared gates, push, or change publication state.
 Current supervised task mapping:
 
 - RD-A: thread `019ffebb-64d2-7143-a2e6-b88a62a58abb`, worktree `4342`,
-  detached `20b2be1`; active second rework after `P1=3/BLOCK` review.
+  clean detached source-final `410a029`; exact seven-file bytes integrated as
+  `50fee85` after `APPROVE/CLEAR`. Combined A+B+D focused `63/63`, syntax,
+  ESLint, fixture and blob identities pass; no PBF or source authority exists.
 - RD-B: thread `019ffebb-73db-7f52-a02d-494e0013b1fe`, worktree `502c`,
-  detached `20b2be1`; active second rework after `P1=2/BLOCK` review.
+  source-final `c7388ea`; exact eight-file bytes integrated centrally as
+  `110007c` after `APPROVE/CLEAR` and central focused/static gates.
 - RD-C: thread `019fff36-7a99-7332-a978-8d8f9ae23005`, worktree `00d0`,
-  detached `45ca4c7`; active rework after `P1=3/P2=1/BLOCK` review.
+  clean detached source-final `06b7bee`; exact ten-file bytes integrated as
+  `6075b4e` after `APPROVE/CLEAR`. Source-final-to-central Git blobs `10/10`
+  match and combined A/B/C/D/E focused `242/242` passes. The private installed
+  registry remains empty; actual authority and Source Health current remain
+  unavailable.
 - RD-D: thread `019fff4d-a816-7120-a9e2-d85841dbdb6d`, worktree `6844`,
-  detached `45ca4c7`; active rework after code `P1=1` and architecture `BLOCK`.
+  clean detached source-final `8fb9be2`; exact seven-file bytes integrated as
+  `86c54ca` after same-manifest `APPROVE/CLEAR` and central `45/45` D+B gates.
+  Real compact compilation and every product/current claim remain closed.
 - RD-E: thread `019fff28-6e92-7cc0-9717-de612065fd8f`, worktree `1461`,
-  detached `45ca4c7`; active offline rework after code `P1=2` and architecture
-  `BLOCK`; live acquisition remains unreleased.
+  clean detached source-final `1eb128d`; exact twelve-file bytes integrated as
+  `0f4d6e1` after `APPROVE/CLEAR`. Combined A+B+D+E focused `90/90`, syntax,
+  ESLint, fixtures and twelve blob identities pass. This freezes only
+  non-executable build-control records; no controller, PBF or actual build exists.
+- RD-F: thread `019fffdb-aaf8-7093-ad14-8537d4e06f1f`, worktree `8a3c`,
+  clean detached exact base `0f4d6e1`; active writer for new
+  `scripts/lib/route_real_graph_bridge/**` plus owned test/fixtures only. It may
+  produce offline synthetic bridge mechanics and an unavailable evidence
+  contract, never a live process or authority.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -82,10 +104,9 @@ topology decision.
 
 ## Next step
 
-Receive new stable A/B/C/D/E rework freezes, route them through lane-specific
-code/security and architecture review plus RD-Q, then integrate only accepted
-units. Once B/E are accepted, dispatch a separate bounded OPL-to-B and build-
-evidence/controller lane rather than inserting an ad-hoc parser into RD-E.
-A full-PBF live process may start only after A/B integration, RD-E tool/boundary
-review, and an explicit single-owner follow-up; publication and runtime remain
-closed.
+Finish RD-F's isolated offline bridge/evidence freeze and fresh dual review.
+Integrate only exact bytes accepted by both review lanes.
+A full-PBF live process may start only after accepted RD-F, a separately
+reviewed trusted controller, exact tool admission and an explicit single-owner
+release; authority installation, Source Health current, runtime and publication
+remain closed.
