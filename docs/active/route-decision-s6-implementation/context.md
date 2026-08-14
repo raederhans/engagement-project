@@ -24,6 +24,7 @@
 | 2026-08-14 | Keep all Git, records, shared package/test entry, integration, and live-test authority in the primary task. | Writer conversations return uncommitted stable freezes and evidence; they cannot stage, commit, change refs, merge, push, or clean. |
 | 2026-08-14 | Commit coordination baseline `0ff0adc` and dispatch four project worktree conversations from that exact branch state. | S6-A is active in `f226` and S6-B in `cb8b`, both clean detached exact `0ff0adc` with empty indexes and accepted ownership. S6-C and S6-R have allocated worktrees but remain queued for local execution slots; their final thread/path mapping is deliberately not guessed. |
 | 2026-08-14 | Complete app registration and clean-start verification for the remaining two conversations. | S6-C thread `019ffe27-f6dc-72f2-ae30-d5dadb666f5b` is active in `221b`; S6-R thread `019ffe27-e6e6-7851-bd13-20a5a2c54d5a` is active read-only in `f6e7`. Both reported clean detached exact `0ff0adc`, empty indexes/status, and accepted their exact boundary before proceeding. |
+| 2026-08-14 | Accept A/B/C as stable writer freezes only after central identity verification and release their exact packets to S6-R. | All three remain detached at `0ff0adc` with parent `9c4756f`, empty indexes, and only authorized untracked owned paths. S6-R now owns the read-only per-lane and combined verdict; no source-final or integration authority has been released. |
 
 ## Live process ownership
 
@@ -34,13 +35,15 @@
 
 ## Handoff
 
-Four conversations are active from committed baseline `0ff0adc`. S6-A, S6-B,
-and S6-C passed preflight and are authoring only their disjoint owned paths.
-S6-R passed a zero-write preflight, prepared its rubric, and is waiting for
-stable freeze identities before issuing code or compatibility verdicts.
+S6-A, S6-B, and S6-C returned stable, uncommitted freezes from exact baseline
+`0ff0adc`. The primary owner independently rechecked every worktree HEAD/parent,
+empty index, complete porcelain status, and owned-file size/mtime identity, then
+released those exact packets to S6-R. S6-R is now running its zero-write code,
+architecture/compatibility, and combined review.
 
 ## Next step
 
-Wait for A/B/C stable freezes, independently verify their exact path/status/
-size/mtime evidence, then release those exact identities to S6-R. Do not release
-future loader/Worker/lifecycle writing or any external-authority gate.
+Wait for S6-R's independent verdict. Route any blocking finding only to the
+owning writer and require a new freeze/re-review; otherwise create source-final
+commits and integrate A, B, and C serially. Do not release future
+loader/Worker/lifecycle writing until S6-B is reviewed and centrally integrated.

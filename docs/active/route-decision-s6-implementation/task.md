@@ -2,9 +2,8 @@
 
 ## Current status
 
-`in-progress / four S6 conversations active from exact coordination baseline
-0ff0adc; three disjoint writers authoring and one read-only reviewer waiting for
-stable freezes`
+`in-progress / S6-A/B/C stable freezes independently identity-checked; S6-R
+running the read-only per-lane and combined review over those exact bytes`
 
 ## Checklist
 
@@ -17,9 +16,9 @@ stable freezes`
   baseline and record every final thread/worktree mapping.
 - [x] Receive every active task's exact clean detached `0ff0adc` preflight and
   ownership/read-only acknowledgement before implementation or review work.
-- [ ] Receive S6-A functional-needs compiler freeze and focused evidence.
-- [ ] Receive S6-B compact-graph contract/compiler freeze and focused evidence.
-- [ ] Receive S6-C browser atomic-acceptance freeze and focused evidence.
+- [x] Receive S6-A functional-needs compiler freeze and focused evidence.
+- [x] Receive S6-B compact-graph contract/compiler freeze and focused evidence.
+- [x] Receive S6-C browser atomic-acceptance freeze and focused evidence.
 - [ ] Receive S6-R independent review of all stable deliveries.
 - [ ] Resolve any blocking finding only in the owning writer conversation and
   require a new stable freeze plus fresh review.
