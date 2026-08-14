@@ -201,7 +201,9 @@ private build evidence; a rubric review is not a delivery approval.
 - [x] RD-0: Verify main/remote identity and protected worktree state.
 - [x] RD-1: Complete repo-local and official-source research; freeze source,
   licence, service-policy, and evidence boundaries.
-- [ ] RD-2: Dispatch RD-A/B/C/D plus read-only RD-R from one committed baseline.
+- [x] RD-2: Dispatch the contract/build-control writers and read-only reviewers
+  from committed baselines; recover A/B/C/E/Q after the App crash and recreate
+  the missing RD-D at exact `45ca4c7`.
 - [ ] RD-3: Receive exact writer freezes and independent reviews; return
   blocking findings only to the owning writer.
 - [ ] RD-4: Integrate accepted units serially with source-final blob equality

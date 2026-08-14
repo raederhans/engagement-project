@@ -2,9 +2,9 @@
 
 ## Current status
 
-`supervised continuation authorized / RD-A and RD-B writer candidates exist and
-pass focused tests but are uncommitted and independently unreviewed / RD-C,
-RD-D, tool-boundary-build, and cross-lane review dispatch pending`
+`crash recovery complete / RD-A and RD-B are active on independently requested
+rework / RD-C, RD-D, and RD-E are active writers / RD-Q is the active read-only
+cross-lane gate / no writer freeze is accepted or integrated`
 
 ## Checklist
 
@@ -35,9 +35,15 @@ RD-D, tool-boundary-build, and cross-lane review dispatch pending`
 - [x] Receive user authorization to complete three priorities: close the A/B/C/D
   contract wave, freeze and execute one full-PBF/tool/boundary build, and admit
   one exact real graph while keeping runtime/performance/publication closed.
-- [ ] Commit the supervised continuation baseline and dispatch five new exact-
-  base conversations for A/B review, RD-C, RD-D, RD-E build ownership, and RD-Q
-  independent cross-lane review.
+- [x] Commit supervised continuation baseline `45ca4c7` and dispatch exact-base
+  conversations for A/B review, RD-C, RD-D, RD-E build ownership, and RD-Q.
+- [x] Receive independent A/B exact-freeze review: both old freezes are
+  `REQUEST CHANGES`; RD-A has one P1 bounded-ingress blocker, while RD-B has
+  three P1 blockers in hostile ingress, clipping, and result identity.
+- [x] Recover all stopped tasks after the App crash without discarding partial
+  bytes: A=`4342`, B=`502c`, C=`00d0`, E=`1461`, Q=`fedf`; recreate RD-D as
+  thread `019fff4d-a816-7120-a9e2-d85841dbdb6d` in `6844`. Preserve clean
+  orphan `b5f8` as unassigned crash evidence.
 - [ ] Receive exact writer freezes and independent review verdicts.
 - [ ] Integrate only accepted units serially and run central validation.
 - [ ] Freeze and review the exact extractor/tool and Philadelphia
@@ -66,6 +72,9 @@ RD-D, tool-boundary-build, and cross-lane review dispatch pending`
 | Fresh RD-A candidate verification | Exact `4342@20b2be1`; seven untracked owned files; tracked/index clean; focused `11/11` passed. No commit or independent verdict. |
 | Fresh RD-B candidate verification | Exact `502c@20b2be1`; six untracked owned files; tracked/index clean; focused `19/19` passed. No commit or independent verdict. |
 | RD-R current verdict | Baseline rubric only; A/B exact bytes have not received per-lane review and C/D have no bytes to review. |
+| Supervised continuation commit | `45ca4c7d3e409c3c05455bf7237fa78443f25c98`; opens contract/build-control work only and keeps live PBF/runtime/performance/publication closed. |
+| Independent A/B exact review | Thread `019fff28-692c-7ed0-8654-b4d4b808e8e7`; focused tests passed but hostile probes blocked both old freezes, so neither is source-final. |
+| Crash recovery snapshot | All six current tasks are active; A/B continue in place, C/E preserve partial owned files, D is recreated at exact `45ca4c7`, and Q remains read-only. |
 
 ## Open risks and remaining work
 
@@ -75,7 +84,7 @@ RD-D, tool-boundary-build, and cross-lane review dispatch pending`
 - No owner-controlled real authority registry entry exists.
 - No actual real `GraphArtifact`, compact graph, Source Health observation,
   browser runtime, performance result, or published artifact exists.
-- A/B passing writer tests are not source-final, review, integration, or actual
-  graph-build evidence.
+- A/B old freezes are explicitly rejected and superseded; new passing writer
+  tests will still require a new stable freeze and independent review.
 - Full-PBF download/extraction has no active owner until RD-E tool and boundary
   evidence is accepted and the supervisor explicitly releases the live gate.

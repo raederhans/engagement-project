@@ -38,6 +38,8 @@
 | 2026-08-14 | Reconcile actual writer bytes instead of queued-client records. | RD-A resolved to `4342` and has seven untracked owned files with fresh `11/11`; RD-B resolved to `502c` and has six untracked owned files with fresh `19/19`. Both remain detached exact `20b2be1`, uncommitted, and independently unreviewed. RD-R resolved to clean read-only `53d1`; `3e2f` and `c219` remain clean/unassigned and do not prove C/D implementation. |
 | 2026-08-14 | User authorizes the first three remaining priorities under primary supervision. | Open coordination for A/B/C/D closure, exact tool/boundary selection, one private full-PBF download/extraction/build, and actual graph admission/real compact compilation. Runtime/UI, formal performance, pilot, public release, deployment, credentials, and claim expansion remain closed. |
 | 2026-08-14 | Add one single-owner RD-E build lane and a read-only RD-Q cross-lane gate. | RD-E owns only new build code/test/fixture paths plus the private live output/log locations; it cannot start a live acquisition until the supervisor records and releases the exact reviewed command. RD-Q owns no writes and cannot approve moving bytes or rubric-only state. |
+| 2026-08-14 | Recover stopped writer/reviewer tasks in place after an App crash and recreate only the missing RD-D task. | A/B/C/E/Q retain their existing worktrees and bytes; RD-D now runs in `6844@45ca4c7`. Clean `b5f8@45ca4c7` is an unassigned crash orphan and is preserved, not treated as implementation evidence. |
+| 2026-08-14 | Treat the first A/B exact-freeze review as a rejection, despite green focused tests. | RD-A must bound arrays before expansion and enforce descriptors; RD-B must repair hostile ingress, clipping geometry, complete result identity, and rounded geometry. Both need new freezes and fresh review. |
 
 ## Live process ownership
 
@@ -56,22 +58,29 @@ catalog/runtime/public/CI/shared outputs. RD-R reviews exact bytes and performs 
 writes. Only the primary integration owner may form source-final commits,
 integrate, run shared gates, push, or change publication state.
 
-Queued client identities, in RD-A/B/C/D/R order:
+Current supervised task mapping:
 
-- RD-A: `client-new-thread:2abaa320-1faa-4a5b-8f4f-6529a85529d2`
-- RD-B: `client-new-thread:61f6699a-19bf-4c80-b85a-faecd6109bc1`
-- RD-C: `client-new-thread:1b7b4511-985e-4c0c-921c-0ae0a3e02461`
-- RD-D: `client-new-thread:deb28685-7e31-4b07-af09-c918f488f41d`
-- RD-R: `client-new-thread:dcfae75b-6d6e-4620-9296-87568b24dd9a`
+- RD-A: thread `019ffebb-64d2-7143-a2e6-b88a62a58abb`, worktree `4342`,
+  detached `20b2be1`; active exact-review rework.
+- RD-B: thread `019ffebb-73db-7f52-a02d-494e0013b1fe`, worktree `502c`,
+  detached `20b2be1`; active exact-review rework.
+- RD-C: thread `019fff36-7a99-7332-a978-8d8f9ae23005`, worktree `00d0`,
+  detached `45ca4c7`; active authority writer preserving partial bytes.
+- RD-D: thread `019fff4d-a816-7120-a9e2-d85841dbdb6d`, worktree `6844`,
+  detached `45ca4c7`; recreated active real-compact writer.
+- RD-E: thread `019fff28-6e92-7cc0-9717-de612065fd8f`, worktree `1461`,
+  detached `45ca4c7`; active offline tool/boundary writer preserving partial bytes.
+- RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
+  detached `45ca4c7`; active read-only cross-lane gate.
 
-The App has created detached exact-base worktrees `3e2f`, `4342`, `502c`,
-`53d1`, and `c219`. Do not assign those paths to tasks until the pending clients
-resolve to actual thread records.
+`b5f8@45ca4c7` is a clean unassigned worktree left by the failed RD-D creation.
+It must not be reviewed, integrated, changed, or cleaned without a separate
+topology decision.
 
 ## Next step
 
-Commit this supervised continuation baseline, dispatch exact-base conversations
-for A/B review, RD-C, RD-D, RD-E, and RD-Q, then integrate only independently
-accepted freezes. A full-PBF live process may start only after A/B integration,
-RD-E tool/boundary review, and an explicit single-owner follow-up; publication
-and runtime remain closed.
+Receive new stable A/B freezes and the first C/D/E freezes, route them through
+RD-Q plus lane-specific exact-byte review, then integrate only accepted units.
+A full-PBF live process may start only after A/B integration, RD-E tool/boundary
+review, and an explicit single-owner follow-up; publication and runtime remain
+closed.
