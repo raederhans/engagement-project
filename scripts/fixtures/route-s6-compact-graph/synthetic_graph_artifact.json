@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "engagement-route-graph/v1",
+  "graphId": "synthetic-s6-compact-two-components",
+  "mode": "walk",
+  "directed": true,
+  "nodes": [
+    { "nodeId": "node-c" },
+    { "nodeId": "node-a" },
+    { "nodeId": "node-x" },
+    { "nodeId": "node-b" }
+  ],
+  "edges": [
+    {
+      "edgeId": "edge-z",
+      "fromNodeId": "node-b",
+      "toNodeId": "node-c",
+      "distanceMm": 0,
+      "objectiveCostUnits": 3
+    },
+    {
+      "edgeId": "edge-a",
+      "fromNodeId": "node-a",
+      "toNodeId": "node-b",
+      "distanceMm": 1000,
+      "objectiveCostUnits": 11
+    },
+    {
+      "edgeId": "edge-m",
+      "fromNodeId": "node-b",
+      "toNodeId": "node-a",
+      "distanceMm": 900,
+      "objectiveCostUnits": 9
+    }
+  ],
+  "components": {
+    "kind": "weakly-connected",
+    "count": 2,
+    "byNodeId": {
+      "node-x": 1,
+      "node-c": 0,
+      "node-a": 0,
+      "node-b": 0
+    }
+  },
+  "provenance": {
+    "dataClassification": "synthetic",
+    "sourceIds": ["synthetic-z-source", "synthetic-a-source"]
+  },
+  "receipt": {
+    "artifactVersion": "synthetic-s6-compact-fixture-v1"
+  }
+}
