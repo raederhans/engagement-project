@@ -60,6 +60,8 @@
 | 2026-08-15 | Continue through new user-visible repair tasks rather than internal producer lanes. | Adapter v2=`01a00398-5b86-7d43-a668-f24cfb4ba92a`; native prototype v2=`01a0039c-5efa-78e2-bbe1-240b59b2b599`; observation evidence v2 queued as `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd`. Each has exclusive owned paths; central integration, PBF, positive registry and publication remain closed. |
 | 2026-08-15 | Treat writer-v2 completion and actual acceptance as separate gates. | Adapter v2 produced an exact eight-file candidate with focused/adjacent checks green but still requires dual independent review. Native v2 produced repaired source bytes, but its live attempt failed before the relevant Win32 path and the final bytes remain unverified. Neither candidate is source-final or integrated. |
 | 2026-08-15 | Supersede the unmaterialized observation client with four actual user-visible supervision tasks. | Adapter code=`01a00475-8a26-7ac1-a52c-0d04240444be`; adapter architecture=`01a00475-9d86-7302-9286-743f4c0217fe`; native final-byte probe=`01a00476-3fa2-73b3-8479-a4257a460412`; observation retry=`01a00475-ccb8-7d50-a681-62bdecf9b66f`. The former queued client is recorded as unmaterialized, not as evidence or completion. |
+| 2026-08-15 | Reject adapter v2, accept native v2 only as exact-byte feasibility evidence, and keep observation v2 non-authoritative. | Adapter dual review reproduced a strict-deadline conflict and encoded-envelope budget mismatch on unchanged bytes, so v2 is not source-final. The native one-run test passed without drift but still proves no Job containment, full reparse safety or durability. The 253-file local observation package binds a recorded session, not a positive registry or global tool state. |
+| 2026-08-15 | Continue with three actual, disjoint user-visible tasks. | Adapter v3 writer=`01a00484-f63f-7783-b1e9-36828112d6c9`; observation evidence reviewer=`01a00485-45d9-78a0-a48a-67cdb1bc3b53`; Windows helper source candidate=`01a00488-bd0d-7780-94fd-55393080b855`. The earlier helper queued client that did not materialize is not counted as a task. No live build/network/PBF owner exists. |
 
 ## Live process ownership
 
@@ -68,8 +70,8 @@
 | Full PBF download/extraction and exact intermediate build | Future single owner only after RD-F, controller, tool admission and explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Not released or started; no current task owns live process, network, PBF or private outputs. |
 | Shared build/browser/Worker/performance validation | Integration owner only | None | Not started. |
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
-| Isolated Windows native final-byte probe | Task `01a00476-3fa2-73b3-8479-a4257a460412` | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | Unique owner of exactly one `node --test scripts/tests/route_real_graph_controller_windows_native_prototype.mjs` run from `rd6b-prototype`; zero retry and no source edits. It may report only observed feasibility. Curl/osmium/network/PBF, Job Object and production capability remain closed. |
-| Local helper/curl/osmium identity/version preflight | Task `01a00475-ccb8-7d50-a681-62bdecf9b66f` | Worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v2/**` | Unique owner of bounded local discovery/version/identity commands and raw transcripts. No URL, install/download, PBF, helper build, native prototype or positive registry. |
+| Isolated Windows native final-byte probe | Completed task `01a00476-3fa2-73b3-8479-a4257a460412` | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | One fixed run completed `1/1`, zero retry; private root restored to absent. No current live owner remains, and the result is feasibility-only. |
+| Local helper/curl/osmium identity/version preflight | Completed task `01a00475-ccb8-7d50-a681-62bdecf9b66f`; read-only reviewer `01a00485-45d9-78a0-a48a-67cdb1bc3b53` | Worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v2/**` | Recorded session complete; reviewer may only read/re-hash existing artifacts. No URL, install/download, PBF, helper build, native prototype or positive registry is active. |
 
 ## Handoff
 
@@ -123,8 +125,10 @@ Current supervised task mapping:
   `01a0039c-5efa-78e2-bbe1-240b59b2b599` produced exact aggregate
   `1afc39ba...c30a5`, but its live run failed before the relevant Win32 path and
   the repaired final bytes were not rerun. Task
-  `01a00476-3fa2-73b3-8479-a4257a460412` is the unique no-edit final-byte probe
-  owner. The result cannot establish production capability by itself.
+  `01a00476-3fa2-73b3-8479-a4257a460412` completed its unique one-run probe:
+  `1/1`, zero retry, no drift. The result cannot establish production capability
+  by itself. Source-only helper task `01a00488-bd0d-7780-94fd-55393080b855`
+  owns only new paths in isolated `99dd` and may not compile or execute a helper.
 - RD-6B source adapter: task `/root/rd6b_source_adapter`, worktree
   `rd6b-adapter`, clean detached `9bc56a0`. Owned new sibling source/test/
   fixture paths only; its eight-file candidate is complete and unintegrated.
@@ -133,19 +137,21 @@ Current supervised task mapping:
   architecture/claims respectively; both rejected v1. V2 task
   `01a00398-5b86-7d43-a668-f24cfb4ba92a` produced exact aggregate
   `5b87362a...be65e` over eight files / 72,371 raw bytes with focused `18/18`
-  and adjacent `84/84`. Fresh tasks `01a00475-8a26-7ac1-a52c-0d04240444be`
-  and `01a00475-9d86-7302-9286-743f4c0217fe` independently review the same
-  freeze; it is not source-final until both approve. No subprocess, network,
-  PBF, registry installation or accepted RD-G edits are authorized.
+  and adjacent `84/84`. Tasks `01a00475-8a26-7ac1-a52c-0d04240444be` and
+  `01a00475-9d86-7302-9286-743f4c0217fe` both rejected v2 on the same unchanged
+  freeze. V3 writer `01a00484-f63f-7783-b1e9-36828112d6c9` owns only the same
+  eight paths. No subprocess, network, PBF, registry installation or accepted
+  RD-G edits are authorized.
 - RD-6B positive observation: task `/root/rd6b_positive_observation`, worktree
   `rd6b-observation`, clean detached `9bc56a0`. Its bounded preflight is
   complete with tracked/index state unchanged; system curl remains an observed
   candidate and osmium is bounded-not-observed. Independent task
   `01a00380-b221-7c22-bdda-016d3087d077` accepted only the memo semantics and
   rejected positive admission. The evidence-v2 queued client never materialized;
-  replacement actual task `01a00475-ccb8-7d50-a681-62bdecf9b66f` may add only
-  raw private transcripts while preserving missing/unavailable/candidate/
-  admitted truth.
+  replacement task `01a00475-ccb8-7d50-a681-62bdecf9b66f` produced a bounded
+  253-file recorded-session package while preserving candidate/not-admitted
+  truth. Task `01a00485-45d9-78a0-a48a-67cdb1bc3b53` now performs read-only
+  evidence review; it cannot install a registry or re-execute tools.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -155,13 +161,13 @@ topology decision.
 
 ## Next step
 
-Supervise the adapter v2 dual review, native final-byte one-run probe and local
-tool observation retry as four separate user-visible tasks. If and only if both
-adapter reviews approve the same exact freeze, the integration owner may form a
-source-final commit with a path-scoped LF checkout invariant and run central
-checks. Prototype evidence and local tool observations remain separate from
-production capability and positive admission. A full-PBF live process may start
-only after independently accepted native capability and positive exact-tool
-admission gates, an explicit single-owner release, and a fresh live preflight;
-authority installation, Source Health current, runtime and publication remain
-closed.
+Supervise adapter v3 repair, observation-v2 independent review and the isolated
+Windows helper source candidate. A repaired adapter freeze requires fresh dual
+review before any partial source-final. Observation evidence may feed a later
+private admission packet only after review; it cannot create one. Helper source
+must remain non-runnable until an independently reviewed source freeze, admitted
+build host and separate single-owner build/reproducibility gate exist. A full-
+PBF live process may start only after independently accepted native capability
+and positive exact-tool admission gates, an explicit single-owner release, and
+a fresh live preflight; authority installation, Source Health current, runtime
+and publication remain closed.

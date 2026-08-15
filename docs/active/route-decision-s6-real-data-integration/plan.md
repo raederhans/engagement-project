@@ -238,25 +238,34 @@ live release.
     overstated junction rejection and atomicity. Prototype v2 produced a repaired
     three-file freeze, but its only live run failed before the relevant Win32 path
     and the final bytes received only static checks. A unique no-edit final-byte
-    probe owner (`01a00476-3fa2-73b3-8479-a4257a460412`) is active; unsupported
-    race, power-loss and Job-containment claims remain unavailable.
+    probe (`01a00476-3fa2-73b3-8479-a4257a460412`) then ran once and passed
+    `1/1` without freeze drift. This closes only the missing final-byte
+    feasibility observation: handle-relative rename was attempted but rejected
+    with Win32 `87`, and unsupported race, power-loss and Job-containment claims
+    remain unavailable. Source-only production-helper task
+    `01a00488-bd0d-7780-94fd-55393080b855` is active in isolated `99dd`; it may
+    not compile or run the helper.
   - [ ] RD-6B.1: Implement the strict source-only sibling protocol/adapter with
     an empty private registry and no native runner, then independently review an
     exact freeze. V1 failed both review lanes because caller-self-hashed request
     and unbound result envelopes cannot close the RD-G/native evidence chain;
-    adapter v2 now has an exact eight-file / 72,371-byte candidate freeze with
-    focused `18/18` and adjacent `84/84`. Fresh code/security task
-    `01a00475-8a26-7ac1-a52c-0d04240444be` and architecture/claims task
-    `01a00475-9d86-7302-9286-743f4c0217fe` are active; integration remains
-    closed until both approve the same exact bytes.
+    adapter v2's exact eight-file / 72,371-byte freeze passed focused `18/18`
+    and adjacent `84/84`, but both fresh reviews rejected it: deadline equality
+    violates accepted RD-G and the combined encoded result budget is not
+    mechanically self-consistent. V3 writer
+    `01a00484-f63f-7783-b1e9-36828112d6c9` owns only the same eight paths;
+    integration remains closed pending a new exact freeze and dual review.
   - [ ] RD-6B.2: Under one observation owner, inventory the exact local helper
     build host, curl and osmium candidates without installing or downloading;
     perform positive admission only in a later exact, private, reviewed freeze.
     The bounded preflight observed system curl as a candidate and did not
     observe osmium. Review accepts only a structured observation memo, not raw
     replayable or commit-bound evidence. The first evidence-v2 queued client never
-    materialized; replacement actual task `01a00475-ccb8-7d50-a681-62bdecf9b66f`
-    is the sole bounded local observation owner. No positive admission has
+    materialized; replacement task `01a00475-ccb8-7d50-a681-62bdecf9b66f`
+    produced a 253-file recorded-session package with exact transcript bindings.
+    Curl is observed-candidate/not-admitted, osmium remains bounded-not-observed,
+    and legacy build hosts are candidates only. Read-only independent review
+    `01a00485-45d9-78a0-a48a-67cdb1bc3b53` is active. No positive admission has
     occurred.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and

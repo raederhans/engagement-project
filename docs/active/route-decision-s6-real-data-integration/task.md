@@ -3,13 +3,13 @@
 ## Current status
 
 `RD-A through RD-G exact reviewed source-only bytes are integrated through
-1bd91c9; RD-6B adapter v2 has a complete candidate freeze under two fresh
-independent reviews, native v2 still lacks a successful final-byte live probe,
-and local tool evidence remains observation-only under a replacement evidence
-task; none is integrated or production-admitted / the native Windows
-controller, positive installed-tool registry, full-PBF process, non-empty
-authority registry, actual admission, current, runtime, and publication gates
-remain closed`
+1bd91c9; RD-6B adapter v2 failed fresh dual review and v3 repair is active,
+native v2 passed one exact-byte feasibility probe without proving production
+capability, and local tool evidence v2 is complete but observation-only under
+independent review; no RD-6B candidate is integrated or production-admitted /
+the native Windows controller, positive installed-tool registry, full-PBF
+process, non-empty authority registry, actual admission, current, runtime, and
+publication gates remain closed`
 
 ## Checklist
 
@@ -140,6 +140,25 @@ remain closed`
   `01a00475-9d86-7302-9286-743f4c0217fe`, native final-byte probe
   `01a00476-3fa2-73b3-8479-a4257a460412`, and local tool observation retry
   `01a00475-ccb8-7d50-a681-62bdecf9b66f`. Dispatch does not imply approval.
+- [x] Complete adapter v2 dual review on the unchanged eight-file aggregate.
+  Code/spec/security=`REQUEST CHANGES` (`P1=1/P2=1/WATCH=1`) and architecture/
+  claims=`BLOCK` (`P1=2/WATCH=3`). Deadline equality conflicts with accepted
+  RD-G, and the top-level result budget cannot carry the declared maximum
+  capture/escaped-observation combination; v2 is not source-final eligible.
+- [x] Complete the unique native v2 final-byte live probe exactly once with no
+  retry. TAP `1/1` passes and START/END aggregate remains
+  `1afc39ba...c30a5`; the result is feasibility-only because handle-relative
+  rename returned Win32 `87` and Job Object, full reparse safety, atomic
+  visibility and power-loss durability remain unproved/unavailable.
+- [x] Complete observation evidence v2 as one bounded recorded session: 124
+  invocations, 248 raw transcripts and 253 files with internal byte/digest
+  closure. Curl `8.21.0` is observed-candidate/not-admitted, osmium remains
+  bounded-not-observed, and legacy CSC/PowerShell are build-host candidates
+  only. This is not a positive registry or authority event.
+- [x] Dispatch actual user-visible next-wave tasks: adapter v3 repair
+  `01a00484-f63f-7783-b1e9-36828112d6c9`, observation evidence v2 independent
+  review `01a00485-45d9-78a0-a48a-67cdb1bc3b53`, and Windows helper source
+  candidate `01a00488-bd0d-7780-94fd-55393080b855`.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -200,6 +219,10 @@ remain closed`
 | RD-6B adapter v2 writer freeze | Exact eight-file worktree freeze at detached `9bc56a0`: 72,371 raw bytes, aggregate `5b87362a...be65e`; focused `18/18`, adjacent RD-G `84/84`, syntax `7/7`, targeted ESLint, fixture parse, diff check and hostile traps all pass. Registry and native/live/current/product/publication claims remain unavailable/false. Independent code and architecture reviews are still required. |
 | RD-6B native v2 writer freeze | Exact three-file worktree freeze at detached `9bc56a0`, aggregate `1afc39ba...c30a5`. The one live attempt failed before the relevant Win32 operation on `[uint32] 0xFFFF0000`; the repaired recorder bytes were not rerun. Static checks cannot replace the missing live evidence, so the freeze remains blocked. |
 | RD-6B v2 review/evidence supervision | Adapter code review `01a00475-8a26-7ac1-a52c-0d04240444be`, adapter architecture review `01a00475-9d86-7302-9286-743f4c0217fe`, native one-run final-byte probe `01a00476-3fa2-73b3-8479-a4257a460412`, and observation retry `01a00475-ccb8-7d50-a681-62bdecf9b66f` are actual user-visible tasks. The previous evidence-v2 queued client never became a task and is superseded, not counted as completed evidence. |
+| RD-6B adapter v2 final verdict | Exact aggregate remained `5b87362a...be65e`. Code/spec/security=`REQUEST CHANGES`, `P0=0/P1=1/P2=1/WATCH=1`; architecture/claims=`REQUEST CHANGES/BLOCK`, `P0=0/P1=2/P2=0/WATCH=3`. A successful/ordinary terminal at the exact deadline is wrongly accepted despite RD-G's strict-before rule, and a legal `2×1 MiB` capture plus escape-heavy 65,536-byte native observation exceeds the empirically sized top-level ingress cap. No source-final eligibility. |
+| RD-6B native v2 final-byte probe | Task `01a00476-3fa2-73b3-8479-a4257a460412` ran the fixed test once, zero retries: exit `0`, TAP `1/1`. START/END three-file aggregate `1afc39ba...c30a5`, tracked/index clean, private root restored to absent. Observed handle-relative attempt failed with Win32 `87`; junction tag, held-directory `32`, collision `183` and directory flush success are narrow feasibility observations only. |
+| RD-6B observation evidence v2 | Task `01a00475-ccb8-7d50-a681-62bdecf9b66f` produced one private recorded-session package: 124 invocations, 248 raw streams, 253 files, zero timeout and zero binary before/after identity mismatch. Curl System32/SysWOW64 `8.21.0` is observed-candidate/not-admitted; osmium has zero invocation and remains bounded-not-observed; legacy CSC `4.8.9221.0` and PowerShell hosts are candidates only. The first recorder parse failure is explicitly outside the successful-session manifest. |
+| RD-6B next-wave dispatch | Adapter v3 repair `01a00484-f63f-7783-b1e9-36828112d6c9` owns only the existing eight adapter paths; observation review `01a00485-45d9-78a0-a48a-67cdb1bc3b53` is read-only over the private evidence package; helper source candidate `01a00488-bd0d-7780-94fd-55393080b855` owns only new helper source/test/fixture paths in isolated `99dd`. No task owns a live helper build, positive registry, network or PBF process. |
 
 ## Open risks and remaining work
 
