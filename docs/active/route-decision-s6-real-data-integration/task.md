@@ -3,13 +3,14 @@
 ## Current status
 
 `RD-A through RD-G exact reviewed source-only bytes are integrated through
-1bd91c9; RD-6B adapter v2 failed fresh dual review and v3 repair is active,
-native v2 passed one exact-byte feasibility probe without proving production
-capability, and local tool evidence v2 is complete but observation-only under
-independent review; no RD-6B candidate is integrated or production-admitted /
-the native Windows controller, positive installed-tool registry, full-PBF
-process, non-empty authority registry, actual admission, current, runtime, and
-publication gates remain closed`
+1bd91c9; RD-6B adapter v3 failed fresh dual review and v4 repair is active, an
+uncompiled Windows-helper source freeze has been recovered to a stable worktree
+and is under fresh dual review, while local tool evidence v2 was rejected for
+supervisor/transcript binding gaps and a single-owner evidence-v3 reconstruction
+is queued; no RD-6B candidate is
+integrated or production-admitted / the native Windows controller, positive
+installed-tool registry, full-PBF process, non-empty authority registry, actual
+admission, current, runtime, and publication gates remain closed`
 
 ## Checklist
 
@@ -159,6 +160,39 @@ publication gates remain closed`
   `01a00484-f63f-7783-b1e9-36828112d6c9`, observation evidence v2 independent
   review `01a00485-45d9-78a0-a48a-67cdb1bc3b53`, and Windows helper source
   candidate `01a00488-bd0d-7780-94fd-55393080b855`.
+- [x] Receive the adapter-v3 writer freeze without integration: exact eight
+  owned files / 79,334 raw bytes, aggregate `2e858667...6e022`, focused `20/20`,
+  adjacent RD-G `84/84`, syntax/ESLint/fixture and hostile clock/budget checks
+  green. This remains a writer candidate pending two independent reviews.
+- [x] Receive the source-only Windows helper candidate without compiling or
+  running it: exact eleven owned files in isolated `99dd`, with source/static
+  focused `9/9` and adjacent RD-G `84/84`. All native/live/positive-registry
+  capabilities remain unavailable pending dual review and later build gates.
+- [x] Reject observation evidence v2 as an admission input after independent
+  review. Its 253 files remain useful supporting material, but missing complete
+  supervisor launch/attempt/argv/source-query binding and four unchecked final
+  streams make the package `REQUEST CHANGES`, not positive evidence.
+- [x] Dispatch the next review/evidence wave as five separate user-visible
+  tasks: adapter-v3 code review `01a00564-c8bc-7730-a7aa-63b9af008d98`, adapter
+  architecture review queued client
+  `client-new-thread:697c6fd2-fcba-48dd-952c-6a5bb3cff42a`, helper code review
+  `01a00565-10ee-7c53-923e-6a52aa0a21c3`, helper architecture review queued
+  client `client-new-thread:a1b42ddc-2926-41fa-9cdf-a7163d196060`, and the sole
+  evidence-v3 live owner queued client
+  `client-new-thread:9b07c3ad-ff96-41a5-9401-6ab8e07623d4`.
+- [x] Reject adapter v3 after a stable START/END freeze and independent
+  code/spec/security plus architecture evidence: `P0=0/P1=2/P2=2/WATCH=3`,
+  `REQUEST CHANGES/BLOCK`. The public error domain is split and the same `/v2`
+  status schema names incompatible fixture/API shapes; v3 is superseded and v4
+  repair is assigned back to writer `01a00484-f63f-7783-b1e9-36828112d6c9`.
+- [x] Recover the helper candidate after App worktree cleanup removed `99dd`.
+  Integration owner created stable clean detached
+  `rd6b-helper-source@cb1b27c`; the original writer replayed its 17 successful
+  patches and reproduced the same 11 files / 117,876 bytes / LF manifest, with
+  aggregate `1ab62bee...3c695` under a documented recipe and no foreign files.
+- [x] Restart helper code review `01a00565-10ee-7c53-923e-6a52aa0a21c3`
+  against the recovered stable freeze. Its first unavailable-object verdict is
+  retained only as history and is not a verdict on the restored source.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -223,6 +257,12 @@ publication gates remain closed`
 | RD-6B native v2 final-byte probe | Task `01a00476-3fa2-73b3-8479-a4257a460412` ran the fixed test once, zero retries: exit `0`, TAP `1/1`. START/END three-file aggregate `1afc39ba...c30a5`, tracked/index clean, private root restored to absent. Observed handle-relative attempt failed with Win32 `87`; junction tag, held-directory `32`, collision `183` and directory flush success are narrow feasibility observations only. |
 | RD-6B observation evidence v2 | Task `01a00475-ccb8-7d50-a681-62bdecf9b66f` produced one private recorded-session package: 124 invocations, 248 raw streams, 253 files, zero timeout and zero binary before/after identity mismatch. Curl System32/SysWOW64 `8.21.0` is observed-candidate/not-admitted; osmium has zero invocation and remains bounded-not-observed; legacy CSC `4.8.9221.0` and PowerShell hosts are candidates only. The first recorder parse failure is explicitly outside the successful-session manifest. |
 | RD-6B next-wave dispatch | Adapter v3 repair `01a00484-f63f-7783-b1e9-36828112d6c9` owns only the existing eight adapter paths; observation review `01a00485-45d9-78a0-a48a-67cdb1bc3b53` is read-only over the private evidence package; helper source candidate `01a00488-bd0d-7780-94fd-55393080b855` owns only new helper source/test/fixture paths in isolated `99dd`. No task owns a live helper build, positive registry, network or PBF process. |
+| RD-6B adapter-v3 writer freeze | Exact eight-file detached worktree freeze: 79,334 raw bytes, aggregate `2e858667...6e022`; focused `20/20`, adjacent RD-G `84/84`, syntax/ESLint/fixture and writer-side hostile clock/budget probes pass. Deadline terminals must be strictly before the deadline, paired `expired` is rejected, and the derived top-level budget carries the declared captures. This is not an independent verdict or integration. |
+| RD-6B helper source freeze | Exact eleven-file detached `99dd` candidate implements a bounded source protocol and Win32 helper source, but it is deliberately uncompiled and unrun. Source/static focused `9/9` and adjacent RD-G `84/84` pass; compiler, binary identity, installed observation and every live race/durability claim remain unproved. |
+| RD-6B observation-v2 review | Independent verdict `REQUEST CHANGES`, `P0=0/P1=3/P2=3/WATCH=5`. The stored files are internally consistent for the bounded session, but the final verifier omitted four streams, the failed first attempt and recorder outer launch are not bound, and logical command text/unbound repeated discovery queries are not exact OS execution evidence. No admission packet may consume v2 as cleared evidence. |
+| RD-6B adapter-v3 final verdict | Exact eight-file bytes remained unchanged, but code/spec/security and architecture synthesize to `REQUEST CHANGES/BLOCK`, `P0=0/P1=2/P2=2/WATCH=3`. P1: public APIs leak two error classes/taxonomies, and `/windows-source-status/v2` denotes incompatible fixture and actual shapes. P2: depth is off by one for empty containers and safety-sensitive regression coverage is incomplete. V4 repair is active; v3 is not source-final. |
+| RD-6B helper recovery | App cleanup removed the original uncommitted `99dd` worktree before review. A new stable detached `rd6b-helper-source@cb1b27c` was created by the integration owner; original writer `01a00488-bd0d-7780-94fd-55393080b855` replayed the exact successful patch history. The resulting 11 files / 117,876 bytes match the prior bytes/lines/LF handoff, have aggregate `1ab62bee...3c695` under an explicit recipe, and pass fresh source/static `9/9`, adjacent `84/84`, check/ESLint/fixture gates. This is recovery, not approval. |
+| RD-6B review/evidence-v3 dispatch | Adapter v3 review `01a00564-c8bc-7730-a7aa-63b9af008d98` is complete and blocking. Helper code review `01a00565-10ee-7c53-923e-6a52aa0a21c3` has restarted on the recovered freeze. Adapter architecture, helper architecture and evidence-v3 have queued client IDs recorded in the checklist and must materialize before completion can be claimed. Evidence-v3 is the only local observation live owner and may write only a new private session directory; no network/download/PBF/helper build or positive registry is authorized. |
 
 ## Open risks and remaining work
 

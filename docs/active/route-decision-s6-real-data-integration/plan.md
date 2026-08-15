@@ -243,8 +243,16 @@ live release.
     feasibility observation: handle-relative rename was attempted but rejected
     with Win32 `87`, and unsupported race, power-loss and Job-containment claims
     remain unavailable. Source-only production-helper task
-    `01a00488-bd0d-7780-94fd-55393080b855` is active in isolated `99dd`; it may
-    not compile or run the helper.
+    `01a00488-bd0d-7780-94fd-55393080b855` produced an exact eleven-file
+    uncompiled/unrun candidate. App cleanup removed its original `99dd` path
+    before review, so the integration owner created stable detached
+    `rd6b-helper-source@cb1b27c`; the original writer replayed its exact patch
+    history and recovered the same 11 files / 117,876 bytes with aggregate
+    `1ab62bee...3c695`. Independent code review
+    `01a00565-10ee-7c53-923e-6a52aa0a21c3` restarted on that freeze and
+    architecture review client
+    `client-new-thread:a1b42ddc-2926-41fa-9cdf-a7163d196060` is queued; no
+    helper build or positive capability may start before both clear.
   - [ ] RD-6B.1: Implement the strict source-only sibling protocol/adapter with
     an empty private registry and no native runner, then independently review an
     exact freeze. V1 failed both review lanes because caller-self-hashed request
@@ -253,8 +261,14 @@ live release.
     and adjacent `84/84`, but both fresh reviews rejected it: deadline equality
     violates accepted RD-G and the combined encoded result budget is not
     mechanically self-consistent. V3 writer
-    `01a00484-f63f-7783-b1e9-36828112d6c9` owns only the same eight paths;
-    integration remains closed pending a new exact freeze and dual review.
+    `01a00484-f63f-7783-b1e9-36828112d6c9` produced a repaired exact eight-file
+    / 79,334-byte freeze with aggregate `2e858667...6e022`. Review
+    `01a00564-c8bc-7730-a7aa-63b9af008d98` rejected v3 with two P1 contract
+    blockers and two P2 coverage/depth findings; v4 repair is active in the same
+    owned paths. Queued architecture client
+    `client-new-thread:697c6fd2-fcba-48dd-952c-6a5bb3cff42a` cannot be counted
+    as a completed verdict. Integration remains closed pending a new freeze and
+    fresh dual review.
   - [ ] RD-6B.2: Under one observation owner, inventory the exact local helper
     build host, curl and osmium candidates without installing or downloading;
     perform positive admission only in a later exact, private, reviewed freeze.
@@ -264,9 +278,12 @@ live release.
     materialized; replacement task `01a00475-ccb8-7d50-a681-62bdecf9b66f`
     produced a 253-file recorded-session package with exact transcript bindings.
     Curl is observed-candidate/not-admitted, osmium remains bounded-not-observed,
-    and legacy build hosts are candidates only. Read-only independent review
-    `01a00485-45d9-78a0-a48a-67cdb1bc3b53` is active. No positive admission has
-    occurred.
+    and legacy build hosts are candidates only. Independent review
+    `01a00485-45d9-78a0-a48a-67cdb1bc3b53` rejected v2 for incomplete final
+    stream coverage, missing outer supervisor/failed-attempt binding and
+    logical rather than exact OS argv. Sole live-owner evidence-v3 client
+    `client-new-thread:9b07c3ad-ff96-41a5-9401-6ab8e07623d4` is queued to write
+    only a new private session directory. No positive admission has occurred.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.
