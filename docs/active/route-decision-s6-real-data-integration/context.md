@@ -55,6 +55,9 @@
 | 2026-08-15 | Make LF checkout identity an explicit RD-G integration invariant. | The reviewed Git blobs are LF. Path-scoped `.gitattributes` entries prevent Windows checkout-only CRLF drift without weakening any parser or admission rule. |
 | 2026-08-15 | Push the reviewed source-only integration on a new remote branch without changing main. | `origin/codex/route-decision-s6-real-data` was absent before a normal non-force push; `origin/main` remained `f300cfe`. The remote branch is reviewable but is not a main merge, deployment or live-data release. |
 | 2026-08-15 | Dispatch RD-6B as three disjoint lanes rather than combining source, native proof and tool observation. | All lanes start clean detached at exact `9bc56a0`. `rd6b-prototype` owns only isolated Windows capability prototype paths; `rd6b-adapter` owns only the new source-only sibling/protocol paths; `rd6b-observation` is read-only tracked-tree and the sole owner of local version/identity preflight. No lane may install/download, access network/PBF, write shared output or change authority/current/runtime/publication state. |
+| 2026-08-15 | Treat the three RD-6B producer handoffs as candidates and move acceptance into four separate user-visible review tasks. | Adapter code/security=`01a00380-1d2e-7fb1-9fce-8e5e5acd8235`; adapter architecture/claims=`01a00380-4e48-7d01-b3e2-a9046e89a49a`; native prototype=`01a00380-7e75-7230-9a94-850f4dce7456`; positive observation/admission=`01a00380-b221-7c22-bdda-016d3087d077`. These tasks are read-only reviewers, not integration or release owners. |
+| 2026-08-15 | Reject both first RD-6B implementation freezes and keep the tool memo observation-only. | Adapter v1 is `REQUEST CHANGES/BLOCK`: fail-closed status is sound, but command-bearing requests are caller-self-hashed, results are not bound to admitted requests/native evidence, extraction phase and capability coverage drift, and capture/deep-import boundaries are incomplete. Native prototype v1 is feasibility-only with three P1 wording/mechanics findings. Curl remains observed-candidate; osmium is bounded-not-observed; no positive admission exists. |
+| 2026-08-15 | Continue through new user-visible repair tasks rather than internal producer lanes. | Adapter v2=`01a00398-5b86-7d43-a668-f24cfb4ba92a`; native prototype v2=`01a0039c-5efa-78e2-bbe1-240b59b2b599`; observation evidence v2 queued as `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd`. Each has exclusive owned paths; central integration, PBF, positive registry and publication remain closed. |
 
 ## Live process ownership
 
@@ -63,8 +66,8 @@
 | Full PBF download/extraction and exact intermediate build | Future single owner only after RD-F, controller, tool admission and explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Not released or started; no current task owns live process, network, PBF or private outputs. |
 | Shared build/browser/Worker/performance validation | Integration owner only | None | Not started. |
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
-| Isolated Windows native capability prototype | `/root/rd6b_native_prototype` only | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | Released only for local toy/helper processes and temporary directories; no curl/osmium/network/PBF or shared output. |
-| Local helper/curl/osmium identity/version preflight | `/root/rd6b_positive_observation` only | Worktree-local `output/route-real-graph-controller-windows-observation-private/**` | Released only for read-only fixed-binary inspection and version commands; no install/download/network/PBF and no positive registry mutation. |
+| Isolated Windows native capability prototype | V2 task `01a0039c-5efa-78e2-bbe1-240b59b2b599` | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | Exclusive owner of at most one v2 toy rerun. It may characterize handle-relative error and narrow observation wording only; curl/osmium/network/PBF, Job Object and production capability remain closed. |
+| Local helper/curl/osmium identity/version preflight | Evidence-v2 queued client `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd` after producer/reviewer completion | Worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v2/**` | May rerun only bounded local discovery/version/identity commands and record raw transcripts. No URL, install/download, PBF, helper build, native prototype or positive registry. |
 
 ## Handoff
 
@@ -113,16 +116,29 @@ Current supervised task mapping:
   actual/current/runtime/publication claims remain unavailable or false.
 - RD-6B prototype: task `/root/rd6b_native_prototype`, worktree
   `rd6b-prototype`, clean detached `9bc56a0`. Owned prototype source/test/
-  fixture paths only; its local toy processes have exclusive ownership and
-  cannot establish a positive production capability by themselves.
+  fixture paths only; the three-file candidate and private common-case evidence
+  are complete. Independent task `01a00380-7e75-7230-9a94-850f4dce7456`
+  reviewed the exact candidate as `REQUEST CHANGES`, feasibility-only. V2 task
+  `01a0039c-5efa-78e2-bbe1-240b59b2b599` now owns the same three paths and may
+  repair only the bounded prototype mechanics/wording. The evidence cannot
+  establish a positive production capability by itself.
 - RD-6B source adapter: task `/root/rd6b_source_adapter`, worktree
   `rd6b-adapter`, clean detached `9bc56a0`. Owned new sibling source/test/
-  fixture paths only; no subprocess, network, PBF, registry installation or
-  accepted RD-G edits are authorized.
+  fixture paths only; its eight-file candidate is complete and unintegrated.
+  Independent tasks `01a00380-1d2e-7fb1-9fce-8e5e5acd8235` and
+  `01a00380-4e48-7d01-b3e2-a9046e89a49a` review code/security and
+  architecture/claims respectively; both rejected v1. V2 task
+  `01a00398-5b86-7d43-a668-f24cfb4ba92a` now owns the same eight paths. No
+  subprocess, network, PBF, registry installation or accepted RD-G edits are
+  authorized.
 - RD-6B positive observation: task `/root/rd6b_positive_observation`, worktree
-  `rd6b-observation`, clean detached `9bc56a0`. Tracked tree is read-only; this
-  task alone may run bounded local identity/version checks and must preserve
-  missing/unavailable/candidate/admitted distinctions.
+  `rd6b-observation`, clean detached `9bc56a0`. Its bounded preflight is
+  complete with tracked/index state unchanged; system curl remains an observed
+  candidate and osmium is bounded-not-observed. Independent task
+  `01a00380-b221-7c22-bdda-016d3087d077` accepted only the memo semantics and
+  rejected positive admission. Evidence-v2 queued client
+  `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd` may add raw private
+  transcripts while preserving missing/unavailable/candidate/admitted truth.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -132,9 +148,11 @@ topology decision.
 
 ## Next step
 
-Supervise the three dispatched RD-6B lanes, accept only stable exact freezes,
-and keep prototype evidence, source implementation and local tool observations
-separate. A full-PBF live process may start only after independently accepted
-native capability and positive exact-tool admission gates, an explicit
-single-owner release, and a fresh live preflight; authority installation,
-Source Health current, runtime and publication remain closed.
+Supervise adapter v2, native prototype v2 and observation evidence v2 as three
+separate user-visible tasks. Re-review new exact source freezes before any
+integration, and keep prototype evidence and local tool observations separate
+from production capability and positive admission. A full-PBF live process may
+start only after independently accepted native capability and positive exact-
+tool admission gates, an explicit single-owner release, and a fresh live
+preflight; authority installation, Source Health current, runtime and
+publication remain closed.

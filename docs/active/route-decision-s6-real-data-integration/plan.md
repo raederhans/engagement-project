@@ -232,13 +232,23 @@ live release.
   - [ ] RD-6B.0: Prototype only the unresolved Windows capabilities in an
     isolated local directory: ancestor/target reparse resistance,
     same-volume atomic no-replace, file/parent durability and optional Job
-    containment. No curl/osmium/network/PBF.
+    containment. No curl/osmium/network/PBF. A three-file feasibility candidate
+    and one private common-case probe now exist. V1 review is `REQUEST CHANGES`
+    because handle-relative rename was not exercised and two observation fields
+    overstated junction rejection and atomicity. Prototype v2 repair is active;
+    unsupported race, power-loss and Job-containment claims remain unavailable.
   - [ ] RD-6B.1: Implement the strict source-only sibling protocol/adapter with
     an empty private registry and no native runner, then independently review an
-    exact freeze.
+    exact freeze. V1 failed both review lanes because caller-self-hashed request
+    and unbound result envelopes cannot close the RD-G/native evidence chain;
+    adapter v2 repair is active and integration remains closed.
   - [ ] RD-6B.2: Under one observation owner, inventory the exact local helper
     build host, curl and osmium candidates without installing or downloading;
     perform positive admission only in a later exact, private, reviewed freeze.
+    The bounded preflight observed system curl as a candidate and did not
+    observe osmium. Review accepts only a structured observation memo, not raw
+    replayable or commit-bound evidence; evidence v2 is queued and no admission
+    has occurred.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.

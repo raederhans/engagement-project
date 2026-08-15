@@ -3,11 +3,12 @@
 ## Current status
 
 `RD-A through RD-G exact reviewed source-only bytes are integrated through
-1bd91c9; RD-G closes the progressive-plan, persistent-store, replay, exact-tool
-claim, and evidence-trace contracts only / the native Windows controller,
-positive installed-tool registry, full-PBF process, non-empty authority
-registry, actual admission, current, runtime, and publication gates remain
-closed`
+1bd91c9; RD-6B's first source-adapter and native-feasibility freezes were
+independently rejected, local tool evidence remains observation-only, and three
+separate user-visible v2 tasks are active or queued; none is integrated or
+production-admitted / the native Windows controller, positive
+installed-tool registry, full-PBF process, non-empty authority registry, actual
+admission, current, runtime, and publication gates remain closed`
 
 ## Checklist
 
@@ -99,15 +100,30 @@ closed`
 - [x] Dispatch three disjoint RD-6B lanes from exact `9bc56a0`: an isolated
   Windows capability prototype, a source-only sibling adapter/protocol, and a
   single-owner positive helper/curl/osmium observation preflight.
-- [ ] Receive and review the native prototype's reparse/no-follow,
+- [x] Receive the three candidate handoffs without integrating them: the source
+  adapter has eight owned source/test/fixture files and an empty registry; the
+  native prototype has three owned spike/test/fixture files plus private local
+  evidence; the observation lane produced one private evidence summary with no
+  tracked-tree change or positive admission.
+- [x] Dispatch four independent user-visible review tasks for adapter
+  code/security, adapter architecture/claims, native prototype evidence, and
+  positive tool observation/admission. Only the integration owner may act on
+  their final verdicts.
+- [x] Receive and review the native prototype's reparse/no-follow,
   same-volume/no-replace, file flush, parent-directory durability and optional
-  Job Object evidence. Unsupported capabilities must remain unavailable.
-- [ ] Receive and independently review the source-only Windows adapter freeze;
-  it must keep its private registry empty and every native/live/actual claim
-  false until separate capability evidence exists.
-- [ ] Reconcile the positive observation preflight. Missing tools remain
-  unavailable; locally observed paths/hashes/versions remain candidates rather
-  than installed authority until a separate admission freeze.
+  Job Object evidence. The first freeze is retained as feasibility-only but is
+  `REQUEST CHANGES`, with three P1 overclaims/unexercised mechanics; every
+  production/native/live capability remains unavailable.
+- [x] Receive and independently review the source-only Windows adapter freeze.
+  Both code/security and architecture/claims reviews are `REQUEST CHANGES /
+  BLOCK`; the empty registry and false live claims are sound, but request/result
+  admission, phase, capability and capture closures are not source-final.
+- [x] Reconcile the positive observation preflight. Its memo is accepted only
+  as observation-only evidence: system curl is an observed candidate, osmium is
+  bounded-not-observed, and positive admission remains rejected.
+- [x] Dispatch separate user-visible repair tasks for adapter v2 and native
+  prototype v2, plus an observation-evidence-v2 task that preserves the old
+  memo and may collect only bounded, non-network raw transcripts.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -159,6 +175,12 @@ closed`
 | Full integration validation | `npm run validate` completed with exit code 0 after RD-G integration, including the complete repository test chain, production `vite build --manifest`, GeoJSON artifact generation, visual baseline policy and `verify:bundle`. The build emitted only the existing advisory for a chunk above 500 kB; bundle policy passed. |
 | Remote integration branch | A normal non-force push created `origin/codex/route-decision-s6-real-data` after confirming the target branch did not exist and `origin/main` remained `f300cfe`. This is a review branch only; it is not merged to main or deployed. |
 | RD-6B dispatch preflight | Central and remote review branch both equal `9bc56a0`; tracked tree and index are clean while protected untracked logs/output remain untouched. Three new detached worktrees start clean at that exact SHA: `rd6b-prototype`, `rd6b-adapter`, and `rd6b-observation`. |
+| RD-6B candidate handoff | Adapter: 8 owned untracked files, focused `7/7`, adjacent RD-G `84/84`, syntax/ESLint/fixture checks green, no process/network/PBF. Prototype: 3 owned untracked files, focused `1/1`, private toy evidence only; common-case no-replace/flush observations do not prove race closure, power-loss durability or Job containment. Observation: tracked/index clean; system curl is recorded only as an observed candidate and osmium was not observed in the bounded discovery surface; no positive registry was installed. |
+| RD-6B independent review tasks | Code review `01a00380-1d2e-7fb1-9fce-8e5e5acd8235`, architecture review `01a00380-4e48-7d01-b3e2-a9046e89a49a`, native prototype review `01a00380-7e75-7230-9a94-850f4dce7456`, and positive observation review `01a00380-b221-7c22-bdda-016d3087d077` run as separate user-visible tasks. Their dispatch is not an approval or integration event. |
+| RD-6B adapter v1 verdict | Code/security: `P0=0/P1=3/P2=2/WATCH=1`, `REQUEST CHANGES`. Architecture/claims: `P0=0/P1=2/P2=1/WATCH=2`, `BLOCK`. The false barrel-export finding was reproduced against the correct absolute candidate path and withdrawn. Real blockers are self-hashed caller command requests, wrong extraction phase, result/request/deadline/evidence non-binding, incomplete 7/10 capability coverage, incompatible capture envelope and deep-import hostile-object traps. Exact eight-file freeze is not source-final eligible. |
+| RD-6B native prototype v1 verdict | `P0=0/P1=3`, `REQUEST CHANGES`; the exact three-file candidate may be retained only as feasibility/prototype-observation material. Handle-relative rename was never exercised, a single junction detection was mislabeled as ancestor/target rejection, and success plus collision 183 was mislabeled as atomic no-replace. The single toy rerun passed `1/1`, but Job Object, race closure, crash/power-loss durability and production capability remain unavailable. |
+| RD-6B tool observation verdict | `PARTIAL`: the 10,280-byte untracked memo is internally consistent for `curl observed-candidate, not admitted` and `osmium bounded-not-observed`, but it is not a raw transcript, immutable manifest, replayable session or commit-bound evidence package. No positive registry/admission is permitted. |
+| RD-6B repair dispatch | Adapter v2 task `01a00398-5b86-7d43-a668-f24cfb4ba92a`; native prototype v2 task `01a0039c-5efa-78e2-bbe1-240b59b2b599`; observation evidence v2 queued client `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd`. These are separate user-visible tasks; only their owned candidate/private-evidence paths may change. |
 
 ## Open risks and remaining work
 
