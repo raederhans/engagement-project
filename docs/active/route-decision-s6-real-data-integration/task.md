@@ -3,11 +3,11 @@
 ## Current status
 
 `RD-A through RD-G exact reviewed source-only bytes are integrated through
-1bd91c9; RD-6B adapter v3 failed fresh dual review and v4 repair is active, an
-uncompiled Windows-helper source freeze has been recovered to a stable worktree
-and is under fresh dual review, while local tool evidence v2 was rejected for
-supervisor/transcript binding gaps and a single-owner evidence-v3 reconstruction
-is queued; no RD-6B candidate is
+1bd91c9; RD-6B adapter v4 is an unintegrated writer freeze under two actual
+independent reviews, the recovered uncompiled Windows-helper freeze was rejected
+with six P1 findings and is under a bounded v2 repair, while local tool evidence
+v2 was rejected and one actual single-owner evidence-v3 reconstruction is active;
+no RD-6B candidate is
 integrated or production-admitted / the native Windows controller, positive
 installed-tool registry, full-PBF process, non-empty authority registry, actual
 admission, current, runtime, and publication gates remain closed`
@@ -193,6 +193,24 @@ admission, current, runtime, and publication gates remain closed`
 - [x] Restart helper code review `01a00565-10ee-7c53-923e-6a52aa0a21c3`
   against the recovered stable freeze. Its first unavailable-object verdict is
   retained only as history and is not a verdict on the restored source.
+- [x] Receive the restored helper review on unchanged aggregate
+  `1ab62bee...3c695`: code/spec/security is `REQUEST CHANGES`, with six P1 and
+  one P2 finding; the independent architecture lane did not return, so the
+  exact source freeze is not source-only eligible even before any build gate.
+- [x] Receive adapter-v4 writer freeze without integration: exact eight owned
+  files / 89,207 raw bytes, aggregate `92fd9a99...f101f`, focused `22/22` and
+  adjacent RD-G `84/84` with syntax/ESLint/fixture gates green. This is writer
+  evidence only, not an independent approval.
+- [x] Replace all three earlier unmaterialized queued clients with five actual
+  user-visible long tasks: adapter-v4 code review
+  `01a00598-93cd-7e11-9476-7f81177ce11c`, adapter-v4 architecture review
+  `01a00598-c375-7683-b55e-8ccc1df39e6c`, helper-v2 repair
+  `01a005a1-82ad-7510-9612-828ef134c930`, evidence-v3 sole live owner
+  `01a00599-96db-7223-9fd3-bb7e1a2adf95`, and build/admission closure design
+  `01a005a1-f165-7a80-a1d5-2d075a42067e`.
+- [ ] Accept unchanged adapter-v4 bytes only after both actual review tasks
+  return `APPROVE/CLEAR`; accept helper-v2 only after a new exact freeze and
+  fresh dual review. Writer tests or source hashes alone cannot open either gate.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -243,6 +261,9 @@ admission, current, runtime, and publication gates remain closed`
 | RD-G checkout invariant | `.gitattributes` forces the RD-G controller source/test/fixture paths to LF so future Windows worktrees reproduce the independently reviewed Git-blob bytes instead of checkout-only CRLF variants. |
 | Full integration validation | `npm run validate` completed with exit code 0 after RD-G integration, including the complete repository test chain, production `vite build --manifest`, GeoJSON artifact generation, visual baseline policy and `verify:bundle`. The build emitted only the existing advisory for a chunk above 500 kB; bundle policy passed. |
 | Remote integration branch | A normal non-force push created `origin/codex/route-decision-s6-real-data` after confirming the target branch did not exist and `origin/main` remained `f300cfe`. This is a review branch only; it is not merged to main or deployed. |
+| RD-6B helper restored-source review | Exact `rd6b-helper-source@cb1b27c`, 11 files / 117,876 bytes / aggregate `1ab62bee...3c695`, START/END unchanged. Focused `9/9` and adjacent `84/84` pass, but six reproducible P1 findings plus one P2 grammar drift make the freeze `REQUEST CHANGES / NOT SOURCE-ONLY ELIGIBLE`; C++ was not compiled or run. |
+| RD-6B adapter v4 writer handoff | Exact `rd6b-adapter@9bc56a0`, 8 files / 89,207 bytes / aggregate `92fd9a99...f101f`; writer reports focused `22/22`, adjacent `84/84`, syntax, ESLint and fixture gates green. Two actual independent review tasks are active, so no source-final or integration claim exists. |
+| RD-6B long-wave dispatch | Five actual task IDs are recorded for adapter code, adapter architecture, helper repair, sole-owner evidence-v3 and build/admission design. All started active; the live owner is restricted to one private evidence-v3 directory and no network/install/PBF/helper-build action. |
 | RD-6B dispatch preflight | Central and remote review branch both equal `9bc56a0`; tracked tree and index are clean while protected untracked logs/output remain untouched. Three new detached worktrees start clean at that exact SHA: `rd6b-prototype`, `rd6b-adapter`, and `rd6b-observation`. |
 | RD-6B candidate handoff | Adapter: 8 owned untracked files, focused `7/7`, adjacent RD-G `84/84`, syntax/ESLint/fixture checks green, no process/network/PBF. Prototype: 3 owned untracked files, focused `1/1`, private toy evidence only; common-case no-replace/flush observations do not prove race closure, power-loss durability or Job containment. Observation: tracked/index clean; system curl is recorded only as an observed candidate and osmium was not observed in the bounded discovery surface; no positive registry was installed. |
 | RD-6B independent review tasks | Code review `01a00380-1d2e-7fb1-9fce-8e5e5acd8235`, architecture review `01a00380-4e48-7d01-b3e2-a9046e89a49a`, native prototype review `01a00380-7e75-7230-9a94-850f4dce7456`, and positive observation review `01a00380-b221-7c22-bdda-016d3087d077` run as separate user-visible tasks. Their dispatch is not an approval or integration event. |

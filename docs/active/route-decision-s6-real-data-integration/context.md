@@ -65,6 +65,9 @@
 | 2026-08-15 | Keep writer completion, evidence correction, independent review and integration as separate gates. | Adapter v3 is an eight-file source candidate and the Windows helper is an eleven-file uncompiled source candidate; neither is accepted. Observation v2 is retained only as a supporting annex after `REQUEST CHANGES`. Fresh adapter/helper code and architecture reviews are isolated, while one evidence-v3 owner alone may run bounded local observations in a new private session. |
 | 2026-08-15 | Treat missing review bytes as unavailable rather than reconstructing a verdict from history. | App cleanup removed the uncommitted `99dd` helper worktree before its reviewer could freeze it. The integration owner created stable `rd6b-helper-source@cb1b27c`; the original writer, not the reviewer, replayed the exact successful patch history and reproduced the same 11-file bytes/lines/LF manifest. Review restarted only after the recovered manifest existed. |
 | 2026-08-15 | Reject adapter v3 despite green deadline and capacity probes. | Its exact bytes pass the intended strict-deadline, paired-expired, hostile-ingress and maximum-capture gates, but the independent review still found two P1 public-contract blockers: split error domains and incompatible shapes sharing one `/v2` schema. V4 repair remains source-only; no capability or integration gate opens. |
+| 2026-08-15 | Reject the restored helper source freeze and repair it before any build attempt. | Aggregate `1ab62bee...3c695` is stable, but six P1 findings cover result truth loss, unbounded reader join, partial promotion, result-budget closure, deadline equality and impossible success combinations; one P2 covers JS/native grammar drift. The missing architecture verdict is an additional review gap. Helper-v2 writer `01a005a1-82ad-7510-9612-828ef134c930` owns only the same 11 paths and may not compile or run the helper. |
+| 2026-08-15 | Treat adapter v4 as a writer freeze and replace queued placeholders with actual review tasks. | The eight files / 89,207 bytes / aggregate `92fd9a99...f101f` remain unintegrated. Code review `01a00598-93cd-7e11-9476-7f81177ce11c` and architecture review `01a00598-c375-7683-b55e-8ccc1df39e6c` independently review the same object; both must clear unchanged bytes. |
+| 2026-08-15 | Start one actual evidence-v3 owner and one disjoint build/admission design task. | Live owner `01a00599-96db-7223-9fd3-bb7e1a2adf95` alone may write its fixed private session and run bounded local read-only tool observations. Design task `01a005a1-f165-7a80-a1d5-2d075a42067e` is read-only and cannot poll half-written evidence. Neither can install a registry, acquire PBF, build the helper or promote authority. |
 
 ## Live process ownership
 
@@ -75,7 +78,7 @@
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
 | Isolated Windows native final-byte probe | Completed task `01a00476-3fa2-73b3-8479-a4257a460412` | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | One fixed run completed `1/1`, zero retry; private root restored to absent. No current live owner remains, and the result is feasibility-only. |
 | Local helper/curl/osmium identity/version preflight | Completed task `01a00475-ccb8-7d50-a681-62bdecf9b66f`; read-only reviewer `01a00485-45d9-78a0-a48a-67cdb1bc3b53` | Worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v2/**` | Recorded session complete; reviewer may only read/re-hash existing artifacts. No URL, install/download, PBF, helper build, native prototype or positive registry is active. |
-| Local observation evidence-v3 reconstruction | Sole live owner queued as `client-new-thread:9b07c3ad-ff96-41a5-9401-6ab8e07623d4` | New worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v3/<UTC-session>-<nonce>/**`; all logs inside the same session | May run only bounded local version/help/signature/file-identity queries under an independent supervisor with per-command timeouts. It must preserve v2 unchanged and cannot use network, download/PBF, compile/run the helper, install tools or create a positive registry. |
+| Local observation evidence-v3 reconstruction | Sole live owner task `01a00599-96db-7223-9fd3-bb7e1a2adf95` | Worktree-local `output/route-real-graph-controller-windows-observation-private/evidence-v3/20260815-supervised-owner/**`; all logs inside the same session | Active. It may run only bounded local discovery/version/signature/file-identity queries. The first bootstrap script failed during PowerShell parsing before execution and created no evidence side effect; the owner recorded it and continued below the three-same-failure threshold. Network, install/download, PBF, osmium data processing, helper build/run and positive registry remain forbidden. |
 
 ## Handoff
 
@@ -135,7 +138,10 @@ Current supervised task mapping:
   recovered its same exact candidate to stable `rd6b-helper-source@cb1b27c`
   after `99dd` was removed. Code review
   `01a00565-10ee-7c53-923e-6a52aa0a21c3` restarted against aggregate
-  `1ab62bee...3c695`; it may not compile or execute a helper.
+  `1ab62bee...3c695`; review `01a00565-10ee-7c53-923e-6a52aa0a21c3`
+  rejected it with `P1=6/P2=1`, while its architecture lane was unavailable.
+  Long repair task `01a005a1-82ad-7510-9612-828ef134c930` now owns the same
+  eleven paths; it may not compile or execute a helper.
 - RD-6B source adapter: task `/root/rd6b_source_adapter`, worktree
   `rd6b-adapter`, clean detached `9bc56a0`. Owned new sibling source/test/
   fixture paths only; its eight-file candidate is complete and unintegrated.
@@ -148,9 +154,12 @@ Current supervised task mapping:
   `01a00475-9d86-7302-9286-743f4c0217fe` both rejected v2 on the same unchanged
   freeze. V3 exact bytes were then rejected by review
   `01a00564-c8bc-7730-a7aa-63b9af008d98` for two P1 and two P2 findings. Writer
-  `01a00484-f63f-7783-b1e9-36828112d6c9` now owns v4 repair only in the same
-  eight paths. No subprocess, network, PBF, registry installation or accepted
-  RD-G edits are authorized.
+  `01a00484-f63f-7783-b1e9-36828112d6c9` produced v4 exact aggregate
+  `92fd9a99...f101f` over eight files / 89,207 bytes. Actual reviews
+  `01a00598-93cd-7e11-9476-7f81177ce11c` and
+  `01a00598-c375-7683-b55e-8ccc1df39e6c` are active against those unchanged
+  bytes. No subprocess, network, PBF, registry installation or accepted RD-G
+  edits are authorized.
 - RD-6B positive observation: task `/root/rd6b_positive_observation`, worktree
   `rd6b-observation`, clean detached `9bc56a0`. Its bounded preflight is
   complete with tracked/index state unchanged; system curl remains an observed
@@ -160,7 +169,11 @@ Current supervised task mapping:
   replacement task `01a00475-ccb8-7d50-a681-62bdecf9b66f` produced a bounded
   253-file recorded-session package while preserving candidate/not-admitted
   truth. Task `01a00485-45d9-78a0-a48a-67cdb1bc3b53` now performs read-only
-  evidence review; it cannot install a registry or re-execute tools.
+  evidence review; it cannot install a registry or re-execute tools. Actual
+  evidence-v3 live owner `01a00599-96db-7223-9fd3-bb7e1a2adf95` is isolated to
+  its fixed private session. Build/admission closure task
+  `01a005a1-f165-7a80-a1d5-2d075a42067e` is read-only and cannot consume the
+  session until the owner marks it complete.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -170,10 +183,11 @@ topology decision.
 
 ## Next step
 
-Supervise adapter-v4 repair, the recovered Windows-helper source reviews and the
-single-owner evidence-v3 reconstruction. If and only if both reviews clear an
-unchanged source freeze, the integration owner may form a path-scoped partial
-source-final and rerun central gates. Evidence-v3 must receive a separate
+Supervise adapter-v4 dual review, Windows-helper v2 repair and the single-owner
+evidence-v3 reconstruction. If and only if both adapter reviews clear unchanged
+bytes, the integration owner may form a path-scoped adapter source-final and
+rerun central gates. Helper v2 requires a new exact freeze and two fresh reviews;
+its old rejection cannot be waived. Evidence-v3 must receive a separate
 independent evidence review before any private positive tool-admission packet is
 written. The helper must then pass an admitted build-host, exact reproducible
 build/artifact-identity review and a separately released native live probe;
