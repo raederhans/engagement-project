@@ -235,20 +235,29 @@ live release.
     containment. No curl/osmium/network/PBF. A three-file feasibility candidate
     and one private common-case probe now exist. V1 review is `REQUEST CHANGES`
     because handle-relative rename was not exercised and two observation fields
-    overstated junction rejection and atomicity. Prototype v2 repair is active;
-    unsupported race, power-loss and Job-containment claims remain unavailable.
+    overstated junction rejection and atomicity. Prototype v2 produced a repaired
+    three-file freeze, but its only live run failed before the relevant Win32 path
+    and the final bytes received only static checks. A unique no-edit final-byte
+    probe owner (`01a00476-3fa2-73b3-8479-a4257a460412`) is active; unsupported
+    race, power-loss and Job-containment claims remain unavailable.
   - [ ] RD-6B.1: Implement the strict source-only sibling protocol/adapter with
     an empty private registry and no native runner, then independently review an
     exact freeze. V1 failed both review lanes because caller-self-hashed request
     and unbound result envelopes cannot close the RD-G/native evidence chain;
-    adapter v2 repair is active and integration remains closed.
+    adapter v2 now has an exact eight-file / 72,371-byte candidate freeze with
+    focused `18/18` and adjacent `84/84`. Fresh code/security task
+    `01a00475-8a26-7ac1-a52c-0d04240444be` and architecture/claims task
+    `01a00475-9d86-7302-9286-743f4c0217fe` are active; integration remains
+    closed until both approve the same exact bytes.
   - [ ] RD-6B.2: Under one observation owner, inventory the exact local helper
     build host, curl and osmium candidates without installing or downloading;
     perform positive admission only in a later exact, private, reviewed freeze.
     The bounded preflight observed system curl as a candidate and did not
     observe osmium. Review accepts only a structured observation memo, not raw
-    replayable or commit-bound evidence; evidence v2 is queued and no admission
-    has occurred.
+    replayable or commit-bound evidence. The first evidence-v2 queued client never
+    materialized; replacement actual task `01a00475-ccb8-7d50-a681-62bdecf9b66f`
+    is the sole bounded local observation owner. No positive admission has
+    occurred.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.

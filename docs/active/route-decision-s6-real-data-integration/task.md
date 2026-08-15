@@ -3,12 +3,13 @@
 ## Current status
 
 `RD-A through RD-G exact reviewed source-only bytes are integrated through
-1bd91c9; RD-6B's first source-adapter and native-feasibility freezes were
-independently rejected, local tool evidence remains observation-only, and three
-separate user-visible v2 tasks are active or queued; none is integrated or
-production-admitted / the native Windows controller, positive
-installed-tool registry, full-PBF process, non-empty authority registry, actual
-admission, current, runtime, and publication gates remain closed`
+1bd91c9; RD-6B adapter v2 has a complete candidate freeze under two fresh
+independent reviews, native v2 still lacks a successful final-byte live probe,
+and local tool evidence remains observation-only under a replacement evidence
+task; none is integrated or production-admitted / the native Windows
+controller, positive installed-tool registry, full-PBF process, non-empty
+authority registry, actual admission, current, runtime, and publication gates
+remain closed`
 
 ## Checklist
 
@@ -124,6 +125,21 @@ admission, current, runtime, and publication gates remain closed`
 - [x] Dispatch separate user-visible repair tasks for adapter v2 and native
   prototype v2, plus an observation-evidence-v2 task that preserves the old
   memo and may collect only bounded, non-network raw transcripts.
+- [x] Receive the adapter v2 writer freeze: exactly eight owned files / 72,371
+  raw bytes, aggregate `5b87362a...be65e`, focused `18/18`, adjacent RD-G
+  `84/84`, syntax/ESLint/fixture and hostile-ingress checks green. This is a
+  candidate freeze, not an independent approval or integration event.
+- [x] Receive the native v2 repair freeze: exactly three owned files, aggregate
+  `1afc39ba...c30a5`. The only authorized live run failed before reaching the
+  relevant Win32 path because of a recorder conversion error; the subsequent
+  repair received only static checks, so the final bytes remain `BLOCK` pending
+  one fresh, no-edit live probe.
+- [x] Replace the evidence-v2 queued client that never materialized with four
+  actual user-visible tasks: adapter code review
+  `01a00475-8a26-7ac1-a52c-0d04240444be`, adapter architecture review
+  `01a00475-9d86-7302-9286-743f4c0217fe`, native final-byte probe
+  `01a00476-3fa2-73b3-8479-a4257a460412`, and local tool observation retry
+  `01a00475-ccb8-7d50-a681-62bdecf9b66f`. Dispatch does not imply approval.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -181,6 +197,9 @@ admission, current, runtime, and publication gates remain closed`
 | RD-6B native prototype v1 verdict | `P0=0/P1=3`, `REQUEST CHANGES`; the exact three-file candidate may be retained only as feasibility/prototype-observation material. Handle-relative rename was never exercised, a single junction detection was mislabeled as ancestor/target rejection, and success plus collision 183 was mislabeled as atomic no-replace. The single toy rerun passed `1/1`, but Job Object, race closure, crash/power-loss durability and production capability remain unavailable. |
 | RD-6B tool observation verdict | `PARTIAL`: the 10,280-byte untracked memo is internally consistent for `curl observed-candidate, not admitted` and `osmium bounded-not-observed`, but it is not a raw transcript, immutable manifest, replayable session or commit-bound evidence package. No positive registry/admission is permitted. |
 | RD-6B repair dispatch | Adapter v2 task `01a00398-5b86-7d43-a668-f24cfb4ba92a`; native prototype v2 task `01a0039c-5efa-78e2-bbe1-240b59b2b599`; observation evidence v2 queued client `client-new-thread:1790b75a-227c-4b82-8ff2-5aae096f45fd`. These are separate user-visible tasks; only their owned candidate/private-evidence paths may change. |
+| RD-6B adapter v2 writer freeze | Exact eight-file worktree freeze at detached `9bc56a0`: 72,371 raw bytes, aggregate `5b87362a...be65e`; focused `18/18`, adjacent RD-G `84/84`, syntax `7/7`, targeted ESLint, fixture parse, diff check and hostile traps all pass. Registry and native/live/current/product/publication claims remain unavailable/false. Independent code and architecture reviews are still required. |
+| RD-6B native v2 writer freeze | Exact three-file worktree freeze at detached `9bc56a0`, aggregate `1afc39ba...c30a5`. The one live attempt failed before the relevant Win32 operation on `[uint32] 0xFFFF0000`; the repaired recorder bytes were not rerun. Static checks cannot replace the missing live evidence, so the freeze remains blocked. |
+| RD-6B v2 review/evidence supervision | Adapter code review `01a00475-8a26-7ac1-a52c-0d04240444be`, adapter architecture review `01a00475-9d86-7302-9286-743f4c0217fe`, native one-run final-byte probe `01a00476-3fa2-73b3-8479-a4257a460412`, and observation retry `01a00475-ccb8-7d50-a681-62bdecf9b66f` are actual user-visible tasks. The previous evidence-v2 queued client never became a task and is superseded, not counted as completed evidence. |
 
 ## Open risks and remaining work
 
