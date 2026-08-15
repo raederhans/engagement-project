@@ -54,6 +54,7 @@
 | 2026-08-15 | Accept only RD-G v7 after repeated lifecycle, clock, replay and store-lineage repairs, then integrate its exact source-only bytes. | Aggregate `1ff1187b...96d63f` over 16 files / 220,665 bytes passed independent `APPROVE/CLEAR`, became source-final `5c52de5`, and integrated as `1bd91c9`. Central RD-A-G adjacent `328/328` and full `npm run validate` pass. This closes RD-6A source contracts, not a native controller, positive tool install, live PBF, authority, current, runtime or publication gate. |
 | 2026-08-15 | Make LF checkout identity an explicit RD-G integration invariant. | The reviewed Git blobs are LF. Path-scoped `.gitattributes` entries prevent Windows checkout-only CRLF drift without weakening any parser or admission rule. |
 | 2026-08-15 | Push the reviewed source-only integration on a new remote branch without changing main. | `origin/codex/route-decision-s6-real-data` was absent before a normal non-force push; `origin/main` remained `f300cfe`. The remote branch is reviewable but is not a main merge, deployment or live-data release. |
+| 2026-08-15 | Dispatch RD-6B as three disjoint lanes rather than combining source, native proof and tool observation. | All lanes start clean detached at exact `9bc56a0`. `rd6b-prototype` owns only isolated Windows capability prototype paths; `rd6b-adapter` owns only the new source-only sibling/protocol paths; `rd6b-observation` is read-only tracked-tree and the sole owner of local version/identity preflight. No lane may install/download, access network/PBF, write shared output or change authority/current/runtime/publication state. |
 
 ## Live process ownership
 
@@ -62,6 +63,8 @@
 | Full PBF download/extraction and exact intermediate build | Future single owner only after RD-F, controller, tool admission and explicit supervisor release | `logs/route-real-graph-build-*.log`; private bytes under `output/route-real-graph-build-private/**` | Not released or started; no current task owns live process, network, PBF or private outputs. |
 | Shared build/browser/Worker/performance validation | Integration owner only | None | Not started. |
 | External source observation | RD-A only, bounded HEAD/sidecar request | Per-thread output only | Allowed; no payload persistence. |
+| Isolated Windows native capability prototype | `/root/rd6b_native_prototype` only | Worktree-local `output/route-real-graph-controller-windows-native-private/**` | Released only for local toy/helper processes and temporary directories; no curl/osmium/network/PBF or shared output. |
+| Local helper/curl/osmium identity/version preflight | `/root/rd6b_positive_observation` only | Worktree-local `output/route-real-graph-controller-windows-observation-private/**` | Released only for read-only fixed-binary inspection and version commands; no install/download/network/PBF and no positive registry mutation. |
 
 ## Handoff
 
@@ -108,6 +111,18 @@ Current supervised task mapping:
   RD-G focused `84/84`, adjacent RD-A-G `328/328`, syntax/ESLint/fixtures and
   full repository validation pass. All native registries/capabilities and
   actual/current/runtime/publication claims remain unavailable or false.
+- RD-6B prototype: task `/root/rd6b_native_prototype`, worktree
+  `rd6b-prototype`, clean detached `9bc56a0`. Owned prototype source/test/
+  fixture paths only; its local toy processes have exclusive ownership and
+  cannot establish a positive production capability by themselves.
+- RD-6B source adapter: task `/root/rd6b_source_adapter`, worktree
+  `rd6b-adapter`, clean detached `9bc56a0`. Owned new sibling source/test/
+  fixture paths only; no subprocess, network, PBF, registry installation or
+  accepted RD-G edits are authorized.
+- RD-6B positive observation: task `/root/rd6b_positive_observation`, worktree
+  `rd6b-observation`, clean detached `9bc56a0`. Tracked tree is read-only; this
+  task alone may run bounded local identity/version checks and must preserve
+  missing/unavailable/candidate/admitted distinctions.
 - RD-Q: thread `019fff36-85e6-7410-a451-5d10b14a5169`, worktree `fedf`,
   detached `45ca4c7`; active read-only cross-lane gate.
 
@@ -117,11 +132,9 @@ topology decision.
 
 ## Next step
 
-Define, implement, and independently review the native Windows controller
-adapter: Job Object containment, handle-level reparse/no-follow checks, durable
-event-store commits, same-volume atomic no-replace promotion, post-promotion
-reopen/rehash, and positive exact curl/osmium observations. Source review must
-still execute no network or PBF command. A full-PBF live process may start only
-after that native gate, an explicit single-owner release, and a fresh live
-preflight; authority installation, Source Health current, runtime and
-publication remain closed.
+Supervise the three dispatched RD-6B lanes, accept only stable exact freezes,
+and keep prototype evidence, source implementation and local tool observations
+separate. A full-PBF live process may start only after independently accepted
+native capability and positive exact-tool admission gates, an explicit
+single-owner release, and a fresh live preflight; authority installation,
+Source Health current, runtime and publication remain closed.

@@ -96,6 +96,18 @@ closed`
   handle/reparse-safe filesystem, durable store and positive installed-tool
   observation adapter. Do not release a live source process during source
   review.
+- [x] Dispatch three disjoint RD-6B lanes from exact `9bc56a0`: an isolated
+  Windows capability prototype, a source-only sibling adapter/protocol, and a
+  single-owner positive helper/curl/osmium observation preflight.
+- [ ] Receive and review the native prototype's reparse/no-follow,
+  same-volume/no-replace, file flush, parent-directory durability and optional
+  Job Object evidence. Unsupported capabilities must remain unavailable.
+- [ ] Receive and independently review the source-only Windows adapter freeze;
+  it must keep its private registry empty and every native/live/actual claim
+  false until separate capability evidence exists.
+- [ ] Reconcile the positive observation preflight. Missing tools remain
+  unavailable; locally observed paths/hashes/versions remain candidates rather
+  than installed authority until a separate admission freeze.
 - [ ] After that native adapter and a fresh supervisor release are accepted,
   assign one live-process owner, acquire the dated PBF into the private output
   directory, extract and normalize one exact real graph, and preserve terminal
@@ -146,6 +158,7 @@ closed`
 | RD-G checkout invariant | `.gitattributes` forces the RD-G controller source/test/fixture paths to LF so future Windows worktrees reproduce the independently reviewed Git-blob bytes instead of checkout-only CRLF variants. |
 | Full integration validation | `npm run validate` completed with exit code 0 after RD-G integration, including the complete repository test chain, production `vite build --manifest`, GeoJSON artifact generation, visual baseline policy and `verify:bundle`. The build emitted only the existing advisory for a chunk above 500 kB; bundle policy passed. |
 | Remote integration branch | A normal non-force push created `origin/codex/route-decision-s6-real-data` after confirming the target branch did not exist and `origin/main` remained `f300cfe`. This is a review branch only; it is not merged to main or deployed. |
+| RD-6B dispatch preflight | Central and remote review branch both equal `9bc56a0`; tracked tree and index are clean while protected untracked logs/output remain untouched. Three new detached worktrees start clean at that exact SHA: `rd6b-prototype`, `rd6b-adapter`, and `rd6b-observation`. |
 
 ## Open risks and remaining work
 

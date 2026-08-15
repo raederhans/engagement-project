@@ -229,6 +229,16 @@ live release.
   handle/reparse-safe filesystem, durable store, atomic promotion and positive
   exact-tool observation adapter. Keep network/PBF execution closed during
   source review.
+  - [ ] RD-6B.0: Prototype only the unresolved Windows capabilities in an
+    isolated local directory: ancestor/target reparse resistance,
+    same-volume atomic no-replace, file/parent durability and optional Job
+    containment. No curl/osmium/network/PBF.
+  - [ ] RD-6B.1: Implement the strict source-only sibling protocol/adapter with
+    an empty private registry and no native runner, then independently review an
+    exact freeze.
+  - [ ] RD-6B.2: Under one observation owner, inventory the exact local helper
+    build host, curl and osmium candidates without installing or downloading;
+    perform positive admission only in a later exact, private, reviewed freeze.
 - [ ] RD-7: Under one recorded live-process owner, acquire the dated PBF,
   compute local payload evidence, extract the exact intermediate graph, and
   normalize it through the accepted RD-B adapter without fallback.
