@@ -38,6 +38,7 @@ browser evidence.
 | npm run test:phase1-handoff; npm run test:release-workflow; npm run lint:js; npm run lint:css | 0 | Current repair focused run: hardened per-M1-M4 handoff assertions, 9 release graph contracts, and both linters passed. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
 | npm run build:manifest; npm run verify:bundle | 0 | Current repair build passed unchanged ceilings. Home Compare controller is 32,205/11,369 raw/gzip, retaining 6,631 gzip bytes below the existing 18,000-byte ceiling; lazy results view is 3,520/1,460. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
 | npm run ci:release | 0 | Current composite release runner passed on implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5: audit, both linters, complete validate, bundle policy, release graph, general/ACS browsers, all three DFEV browser leaves, and visual-dist. |
+| Post-release task-owned preview cleanup and listener check | 0 | Audit attributed 127.0.0.1:4178 PID 24972 to this worktree's Vite preview command, stopped only that process, then verified no listeners on 4178, 4189, 4194, or 4198. |
 
 Rows through the old f7190f5c77432f0855e4575583f6e66ac906f50d composite are
 historical and must not be attributed to the current implementation. This task

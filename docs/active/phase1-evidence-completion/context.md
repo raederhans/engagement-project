@@ -74,3 +74,9 @@ cumulative evidence-record tip; this task cannot designate or self-approve it.
 Integration, remote CI, deployment, scheduled refresh, and online smoke remain
 deferred. The task-owned ports 4178, 4189, 4194, and 4198 are checked after
 the release run and must have no listeners before review.
+
+Post-release process audit found a task-owned Vite preview on 127.0.0.1:4178
+(PID 24972, command rooted in this worktree) after the composite returned.
+The live-test owner stopped only that preview PID, then rechecked 4178, 4189,
+4194, and 4198: no listeners remain. This is process cleanup, not worktree,
+branch, artifact, or user-WIP cleanup.
