@@ -5,10 +5,10 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | in progress | Freeze a new implementation tip after the final tracked Phase 1-0 repair. Historical `fe32f7`/`78db018` records do not validate the new tip. |
-| Focused and bundle verification | in progress | Run fresh focused handoff/release/visual contracts, lint, JSON, diff, and status at the new exact implementation tip before the one allowed composite run. |
-| Composite local release verification | pending | One task-owned `npm.cmd run ci:release` will run only after the new exact implementation tip is frozen and a new outer-supervisor / wrapper ignored receipt root is prepared. The outer freeze includes full untracked porcelain; wrapper and external-observed exits must agree. |
-| Cumulative evidence record | pending | Commit execution evidence only after the new composite release succeeds; then create one record-only cumulative tip without self-reference. |
+| Current implementation | complete | Frozen implementation tip is `4ea5bb353c529aff6cf5696a7635142273f90e8a`. Historical `fe32f7`/`78db018` records do not validate it. |
+| Focused and bundle verification | complete | Fresh exact-tip Phase 1 handoff, release/visual workflow, lint, JSON, diff, status, build and existing bundle-policy checks passed. |
+| Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Its fresh ignored root is `.dfev1/phase1-release-4ea5bb3-r2/`; all three exit layers and listener postcondition are zero/empty. |
+| Cumulative evidence record | in progress | This commit records execution evidence only. One subsequent record-only cumulative tip will resolve its own HEAD without self-reference. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -65,3 +65,18 @@ The rows above are historical execution notes. They do not constitute current
 execution evidence. The current task remains **blocked-for-admission**, with
 reviewed tip none, until a newly frozen implementation completes the planned
 three-layer receipt workflow.
+
+## Exact 4ea5bb3 execution evidence
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `npm.cmd run test:phase1-handoff` | 0 | Exact-tip handoff contracts: 10 passed; one Windows file-symlink case explicitly skipped with `EPERM`; live junction hostile case passed. |
+| `npm.cmd run test:release-workflow` | 0 | Exact-tip release, visual, workflow, listener, and CLI-failure contracts: 28/28 passed. |
+| `npm.cmd run lint:js`; package JSON parse; `git diff --check`; full porcelain | 0 | Lint and JSON parser passed; diff check and full porcelain were clean before the composite run. |
+| ignored wrapper self-test | 0 | `.dfev1/phase1-release-4ea5bb3-r2/selftest/`: parser, start marker, empty descendant/listener diff, receipt, and exit file passed without invoking release. |
+| `npm.cmd run ci:release` | 0 | One task-owned execution under observer → supervisor → wrapper at exact `4ea5bb3`; release completed audit, linters, validate, build/manifest/bundle policy, browser leaves, and visual-dist (**35 passed, 10 designed skips**). |
+| post-run observer/port audit | 0 | `.dfev1/phase1-release-4ea5bb3-r2/external-observed.json`: release, wrapper, outer observed, supervisor observed, and observer exits are all `0`; errors, new wrapper descendants, and baseline-subtracted listeners are empty; ports 4173/4178/4189/4194/4198 have no listener. |
+
+The current execution receipt is local and exact-tip-bound, but the candidate
+remains **ready-for-review / blocked-for-admission**. `reviewedTip` is **none**;
+this task has neither review nor integration authority.

@@ -21,7 +21,7 @@
 | Home Compare browser | This task; current worktree | port 4189; retained task-owned .dfev1/home-neighborhood-compare/m3-v1/browser output | npm run test:home-compare-browser; real Chromium and production dist | helper closes page/context/browser/server; the task-owned browser evidence output is retained, not a test-results directory |
 | Known Route browser | This task; current worktree | port 4194; no task-owned test-results directory | npm run test:known-route-evidence-browser; real Chromium and production dist | helper closes page/context/browser/server; no output directory is claimed |
 | Composite release gate | This task; current worktree | its child commands run serially; visual runner may use its own temporary preview | npm run ci:release, not an equivalent hand-assembled command list | run only after the direct three-suite browser evidence; verify ports after completion |
-| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-<frozen-tip>/` | `pwsh -NoProfile -ExecutionPolicy Bypass -File supervise-release.ps1`; outer freezes Git/status before synchronously starting `run-release.ps1`, which invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or second runner |
+| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-4ea5bb3-r2/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
 
 No persistent service is authorized. If the same hypothesis fails three times,
 stop rerunning it and diagnose. The helper failure-injection contract is the
@@ -34,15 +34,17 @@ gate, it runs the production Home Compare browser suite serially on port 4189;
 the task-owned retained output is `.dfev1/home-neighborhood-compare/m3-v1/browser`.
 No second browser, preview, or release runner may share that port/output.
 
-The next composite gate is governed by two ignored PowerShell files under its
-new exact-tip root. The outer supervisor freezes `HEAD`, local `main`, merge
-base, and `git status --porcelain=v1 --untracked-files=all` before it starts
-the wrapper and records an independent observed exit after it waits. The wrapper
-records the inner `npm.cmd run ci:release` exit, its declared exit, recursive
-descendants scoped to its own PID, and fail-closed target-listener snapshots.
-The outer scope is intentionally narrower than a machine-wide tree: wrapper
-termination plus baseline-subtracted target listeners. Both layers hash their
-own scripts, markers, receipts, logs, and exit materials after the run.
+The current composite gate is governed by three ignored PowerShell layers under
+its exact-tip root. The supervisor freezes `HEAD`, local `main`, merge base,
+and `git status --porcelain=v1 --untracked-files=all` before it starts the
+wrapper and records the wrapper's externally observed exit after it waits. The
+wrapper records the inner `npm.cmd run ci:release` exit, its declared exit,
+recursive descendants scoped to its own PID, and fail-closed target-listener
+snapshots. The independent observer waits for supervisor termination, records
+that observed exit, and hashes the supervisor streams plus all receipt/log
+materials after their handles close. The scope is intentionally narrower than a
+machine-wide tree: wrapper termination plus baseline-subtracted target
+listeners.
 
 ## Decisions and boundaries
 
@@ -84,9 +86,18 @@ handoff must use and validate only
 consent, and four-clock fields. Current M4 evidence remains unavailable rather
 than being backfilled or claimed.
 
-Cumulative evidence-record tip: historical only. Its exact SHA can be resolved
-from Git history, but it cannot make a later implementation admissible without
-a new exact-tip execution receipt.
+Current exact local execution evidence is bound to implementation tip
+`4ea5bb353c529aff6cf5696a7635142273f90e8a` in
+`.dfev1/phase1-release-4ea5bb3-r2/external-observed.json`. The supervisor froze
+local `main` and merge-base at `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`
+with a clean full porcelain. Inner release, wrapper-declared, outer observed,
+supervisor observed, and observer exits are all `0`; baseline-subtracted
+listeners and recursive wrapper descendants are empty after the run. This is
+local execution evidence only, not review or admission approval.
+
+Cumulative evidence-record tip: pending a documentation-only follow-up. Its
+exact SHA must be resolved from Git rather than self-written into this record;
+it cannot make the implementation admissible without independent re-review.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
