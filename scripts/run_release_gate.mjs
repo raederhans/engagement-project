@@ -24,7 +24,11 @@ export const RELEASE_AUDITED_PORTS = Object.freeze([4173, 4178, 4189, 4194, 4198
 function windowsListeningPids(port, run = execFileSync) {
   const output = run('netstat.exe', ['-ano', '-p', 'tcp'], { encoding: 'utf8', windowsHide: true });
   const expression = new RegExp(`^\\s*TCP\\s+[^\\s]*:${port}\\s+[^\\s]+\\s+LISTENING\\s+(\\d+)\\s*$`, 'gmi');
-  return new Set([...output.matchAll(expression)].map((match) => Number(match[1])));
+  const matches = [...output.matchAll(expression)].map((match) => Number(match[1]));
+  const listener = new RegExp(`^\\s*TCP\\s+[^\\s]*:${port}\\s+`, 'gmi');
+  const listenerLines = [...output.matchAll(listener)].length;
+  if (listenerLines !== matches.length || matches.some((pid) => !Number.isInteger(pid) || pid <= 0)) throw new Error(`Release listener ownership audit is unavailable for Windows port ${port}.`);
+  return new Set(matches);
 }
 
 function linuxListeningPids(port, run = execFileSync) {
@@ -33,9 +37,10 @@ function linuxListeningPids(port, run = execFileSync) {
   // task-owned listeners from listeners which predate this release run.
   const output = run('ss', ['-ltnpH'], { encoding: 'utf8', windowsHide: true });
   const address = new RegExp(`(?:^|\\s)[^\\s]*:${port}(?:\\s|$)`);
-  return new Set(output.split(/\r?\n/)
-    .filter((line) => address.test(line))
-    .flatMap((line) => [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1]))));
+  const listeners = output.split(/\r?\n/).filter((line) => address.test(line));
+  const pids = listeners.flatMap((line) => [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1])));
+  if (listeners.length && (!pids.length || pids.some((pid) => !Number.isInteger(pid) || pid <= 0))) throw new Error(`Release listener ownership audit is unavailable for Linux port ${port}.`);
+  return new Set(pids);
 }
 
 function listeningPids(platform, port, run) {

@@ -44,6 +44,12 @@ test('release port audit performs the same PID ownership check on Linux and fail
   assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'darwin', run: () => '' }), /unavailable/);
 });
 
+test('release port audit fails closed when a listener has no parseable PID or the query fails', () => {
+  assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'linux', run: () => 'LISTEN 0 511 127.0.0.1:4178 0.0.0.0:*\n' }), /unavailable/);
+  assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'win32', run: () => '  TCP    127.0.0.1:4178     0.0.0.0:0              LISTENING\n' }), /unavailable/);
+  assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'linux', run: () => { throw new Error('ss unavailable'); } }), /ss unavailable/);
+});
+
 test('release gate reports both a primary execution failure and an ownership-audit failure', async () => {
   const primary = new Error('child failed'); const cleanup = new Error('listener remained');
   await assert.rejects(runReleaseGate({

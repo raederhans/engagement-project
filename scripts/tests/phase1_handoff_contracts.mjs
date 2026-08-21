@@ -187,6 +187,26 @@ test('topological decisions are order independent and blocked status never repor
   for (const phase of Object.values(result.phases)) assert.equal(phase.decisions.admissionEligible, false);
 });
 
+test('phase and edge collections fail closed before Map construction on duplicate, missing, or unknown identifiers', async () => {
+  const { policy, observation } = await documents();
+  const hostile = [
+    ['duplicate policy phase', (p) => p.phases.push(structuredClone(p.phases[0]))],
+    ['missing policy phase', (p) => { p.phases = p.phases.filter(({ id }) => id !== 'M4'); }],
+    ['unknown observation phase', (_p, o) => { o.phases[0].phase = 'UNKNOWN'; }],
+    ['duplicate edge', (p) => p.edges.push(structuredClone(p.edges[0]))],
+    ['unknown edge endpoint', (p) => p.edges.push(['M1', 'UNKNOWN'])],
+  ];
+  for (const [name, mutate] of hostile) {
+    const candidatePolicy = structuredClone(policy); const candidateObservation = structuredClone(observation);
+    mutate(candidatePolicy, candidateObservation);
+    const result = await evaluateHandoff({ policy: candidatePolicy, observation: candidateObservation });
+    assert.equal(result.status, 'blocked', name);
+    assert.equal(result.decisions.admissionEligible, false, name);
+    assert.equal(result.decisions.deletionEligible, false, name);
+    for (const phase of Object.values(result.phases)) assert.equal(phase.decisions.admissionEligible, false, name);
+  }
+});
+
 test('glob expansion recognizes concrete owned paths and rejects writer/control-surface overlap', () => {
   assert.equal(pathMatches('src/home_compare/**', 'src/home_compare/controller.js'), true);
   assert.equal(pathMatches('scripts/lib/area_intelligence_*.mjs', 'scripts/lib/area_intelligence_receipt.mjs'), true);

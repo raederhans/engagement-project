@@ -102,6 +102,39 @@ const EXACT_PHASE_POLICY = Object.freeze({
   },
 });
 
+const REQUIRED_PHASE_IDS = Object.freeze(['M1', 'M2', 'M3', 'M4', '1D']);
+
+function collectionReasons(policy, observation) {
+  const reasons = [];
+  const requireExactlyOnce = (entries, key, label) => {
+    const values = Array.isArray(entries) ? entries.map((entry) => entry?.[key]) : [];
+    for (const id of REQUIRED_PHASE_IDS) if (values.filter((value) => value === id).length !== 1) reasons.push(`${label} ${id} is missing or duplicated`);
+    for (const value of values) if (!REQUIRED_PHASE_IDS.includes(value)) reasons.push(`${label} has unknown id ${String(value)}`);
+  };
+  requireExactlyOnce(policy?.phases, 'id', 'policy phase');
+  requireExactlyOnce(observation?.phases, 'phase', 'observation phase');
+  if (!Array.isArray(policy?.edges)) reasons.push('policy edges are not an array');
+  else {
+    const seen = new Set();
+    for (const edge of policy.edges) {
+      if (!Array.isArray(edge) || edge.length !== 2 || !REQUIRED_PHASE_IDS.includes(edge[0]) || !REQUIRED_PHASE_IDS.includes(edge[1])) reasons.push(`invalid policy edge ${JSON.stringify(edge)}`);
+      else {
+        const identity = `${edge[0]}->${edge[1]}`;
+        if (seen.has(identity)) reasons.push(`duplicate policy edge ${identity}`);
+        seen.add(identity);
+      }
+    }
+  }
+  return reasons;
+}
+
+function blockedStructureResult(reasons) {
+  const phases = Object.fromEntries(REQUIRED_PHASE_IDS.map((id) => [id, {
+    status: 'blocked', reasons: [...reasons], decisions: { preparationEligible: false, consumptionEligible: false, admissionEligible: false, deletionEligible: false },
+  }]));
+  return { status: 'blocked', reasons, phases, decisions: { preparationEligible: false, consumptionEligible: false, admissionEligible: false, deletionEligible: false } };
+}
+
 function sameList(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -182,6 +215,10 @@ export async function evaluateHandoff({
   readReceipt = readJson,
   resolveRef = resolveGitRef,
 } = {}) {
+  const structuralReasons = collectionReasons(policy, observation);
+  // Do not construct Maps or enter decision logic until canonical identifiers
+  // are proven unique. Map would otherwise silently retain the last duplicate.
+  if (structuralReasons.length) return blockedStructureResult(structuralReasons);
   const reasons = [];
   const policyReasons = [];
   if (policy.schema !== 'engagement-phase1-handoff-policy/v2') policyReasons.push('policy schema drift');
