@@ -63,50 +63,39 @@ No second browser, preview, or release runner may share that port/output.
 
 ## Handoff checkpoint
 
-Implementation tip: `fe32f7baeb1bbaf19b219012f5b89285b575311a`. It adds
-preserved primary nonzero errors for both composite runners, the visual
-nonzero-plus-close failure contract, closed Phase 1 policy fields, and distinct
-preparation/consumption/admission/deletion decisions. The M4 future receipt
-policy now requires `known-route-evidence-checkpoint/v1`, DQ, lineage, explicit
-consent, and four clocks; current M4 evidence remains unavailable rather than
-being backfilled or claimed. One task-owned `npm.cmd run ci:release` parent
-naturally exited 0; its self-contained receipt at
-`.dfev1/phase1-release-fe32f7/receipt.json` binds pre-run
-HEAD/main/merge-base/clean status, owner PID, timestamps, npm exit, process
-tree snapshots, and empty five-port LISTENING audits. It completed complete
-validation, unchanged-ceiling bundle policy, release-owned browser leaves, and
-visual-dist (35 passed, 10 designed skips). Earlier evidence is historical only
-and is not evidence for this implementation tip.
+The former `fe32f7baeb1bbaf19b219012f5b89285b575311a` release record is
+historical and superseded. It is retained only as partial local evidence of a
+past runner attempt, not as execution evidence for any later implementation
+tip. The existing `known-route-evidence-checkpoint/v1` is **preparation
+evidence only**; it cannot satisfy M4 admission. A future M4 admission/final
+handoff must use and validate only
+`engagement-known-route-evidence-handoff/v2` with its required DQ, lineage,
+consent, and four-clock fields. Current M4 evidence remains unavailable rather
+than being backfilled or claimed.
 
-Cumulative evidence-record tip: this strict record-only commit; its exact SHA
-must be resolved with `git rev-parse HEAD`. It records `fe32f7b`
-implementation-tip evidence without claiming to have re-run the composite
-after a documentation-only commit.
+Cumulative evidence-record tip: historical only. Its exact SHA can be resolved
+from Git history, but it cannot make a later implementation admissible without
+a new exact-tip execution receipt.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
 Integration, remote CI, deployment, scheduled refresh, and online smoke remain
-deferred. The task is ready-for-review but blocked-for-admission; the reviewed
-candidate tip remains none. The runtime receipt's final snapshot retains only
-the runner's Windows console host while it writes the receipt; after the parent
-returns, a separate audit finds no task-owned runner child and ports **4173,
-4178, 4189, 4194, and 4198** have no LISTENING socket. No process was manually
-stopped for this passing run.
+deferred. The task is blocked-for-admission and the reviewed candidate tip
+remains none. Historical process snapshots are not a proof of a complete
+process tree or of an externally observed wrapper exit.
 
-## 2026-08-22 exact implementation release receipt
+## Historical 2026-08-22 release receipt (partial; not current admission evidence)
 
 - Implementation tip: `78db018ddf8eb30335393347b2c897b834fccd79`; local
   main and merge-base: `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`.
-- The task-owned ignored receipt is
-  `.dfev1/phase1-release-78db018/receipt.json`; its separately readable
-  `.dfev1/phase1-release-78db018/exit.txt` is `0`. It records owner PID
-  60068, clean pre-status, 2026-08-21T20:45:23Z–20:52:27Z, command
-  `npm.cmd run ci:release`, `releaseExitCode=0`, `wrapperExitCode=0`, zero
-  wrapper errors, and existing stdout/stderr log paths.
-- Its pre/post task-child and five-port snapshots are all empty; baseline-
-  subtracted new child/listener arrays are empty. The independent post-run
-  audit also found no listener at 4173/4178/4189/4194/4198 and no release or
-  visual Node process. No process was killed for this passing run.
+- The ignored historical material is
+  `.dfev1/phase1-release-78db018/receipt.json` and `exit.txt`. It claims an
+  inner release and wrapper exit of `0`, but its pre-run freeze,
+  externally-observed supervisor exit, and complete descendant-tree scope are
+  not sufficient for a later exact-tip admission claim.
+- Historical child/listener snapshots are not reused as evidence that a new
+  run has no descendants or listeners. A new candidate requires a new ignored
+  root, explicit baseline subtraction, and an external supervisor observation.
 - A prior failed wrapper was stopped only after it was proven to be this task's
   child PID 44480 with no release children, no marker/receipt, and runaway
   memory/CPU. It is not credited as release evidence.

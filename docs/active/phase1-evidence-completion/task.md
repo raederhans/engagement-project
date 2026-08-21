@@ -5,10 +5,10 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | complete | Implementation tip `fe32f7baeb1bbaf19b219012f5b89285b575311a` preserves primary nonzero errors across both runners, adds the visual nonzero-plus-close contract, locks hostile handoff fixtures fail-closed, and separates preparation/consumption/admission/deletion decisions. |
-| Focused and bundle verification | complete | The `fe32f7b` implementation tip has focused handoff/release/visual lifecycle coverage and JS lint evidence; the composite below additionally covers complete validate, manifest build, and unchanged-ceiling bundle policy. |
-| Composite local release verification | complete | A single task-owned `npm.cmd run ci:release` parent exited **0** at `fe32f7baeb1bbaf19b219012f5b89285b575311a`; its self-contained receipt is `.dfev1/phase1-release-fe32f7/receipt.json`. The graph included validate, bundle policy, browser leaves, and visual-dist. |
-| Cumulative evidence record | complete | This strict documentation-only commit records the `fe32f7b` execution evidence. It does not claim a composite execution after its own documentation delta. |
+| Current implementation | in progress | Freeze a new implementation tip after the final tracked Phase 1-0 repair. Historical `fe32f7`/`78db018` records do not validate the new tip. |
+| Focused and bundle verification | in progress | Run fresh focused handoff/release/visual contracts, lint, JSON, diff, and status at the new exact implementation tip before the one allowed composite run. |
+| Composite local release verification | pending | One task-owned `npm.cmd run ci:release` will run only after the new exact implementation tip is frozen and a new three-layer ignored receipt root is prepared. |
+| Cumulative evidence record | pending | Commit execution evidence only after the new composite release succeeds; then create one record-only cumulative tip without self-reference. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -61,5 +61,7 @@ it does not self-approve, integrate, push, deploy, or clean worktrees/branches.
 | `npm.cmd run ci:release` | 0 | One wrapper-owned exact-tip composite, recorded in `.dfev1/phase1-release-78db018/receipt.json`; complete validate/bundle/browser graph plus visual-dist 35 passed / 10 designed skips. |
 | post-run process/port audit | 0 | Receipt and independent audit record no new task child/listener and no listener at 4173/4178/4189/4194/4198. |
 
-This implementation is ready for a strict documentation-only cumulative record;
-it remains **ready-for-review / blocked-for-admission**, with reviewed tip none.
+The rows above are historical execution notes. They do not constitute current
+execution evidence. The current task remains **blocked-for-admission**, with
+reviewed tip none, until a newly frozen implementation completes the planned
+three-layer receipt workflow.
