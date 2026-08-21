@@ -34,6 +34,7 @@ import {
 } from '../../src/home_compare/view.js';
 import { homeCompareResultsHtml } from '../../src/home_compare/results_view.js';
 import { createHomeCompareController } from '../../src/home_compare/controller.js';
+import { setLanguage } from '../../src/i18n/index.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registry = validateHomeCompareSourceRegistry(JSON.parse(
@@ -242,7 +243,7 @@ test('Home Compare discards a computed projection when a deferred results render
     assert.equal(controller.getState().busy, true, `${action} case remains pending on renderer import`);
     assert.equal(controller.getState().hasResult, false, `${action} case does not commit before renderer import`);
 
-    if (action === 'close') dialog.close();
+    if (action === 'close') host.querySelector('[data-home-close]').emit('click');
     else controller.destroy();
     assert.equal(controller.getState().hasResult, false, `${action} clears an in-flight projection`);
 
@@ -251,6 +252,81 @@ test('Home Compare discards a computed projection when a deferred results render
     assert.equal(controller.getState().hasResult, false, `${action} cannot leave stale results renderable`);
     assert.equal(controller.getState().busy, false, `${action} cannot leave the controller busy`);
   }
+});
+
+test('Home Compare synchronously cancels click and Escape before a queued native close event', async () => {
+  for (const action of ['click', 'escape']) {
+    const resultsView = deferred();
+    const { controller, dialog, host } = createControllerHarness({ loadResultsView: () => resultsView.promise });
+    setControllerAddresses(host);
+    const pending = controller.compare();
+    await nextTurn();
+    if (action === 'click') host.querySelector('[data-home-close]').emit('click');
+    else dialog.cancel();
+    assert.equal(controller.getState().busy, false, `${action} preflight cancels before close event`);
+    assert.equal(controller.getState().hasResult, false, `${action} clears renderable in-flight state synchronously`);
+    resultsView.resolve({ homeCompareResultsHtml: () => '<article>stale</article>' });
+    assert.deepEqual(await pending, { status: 'superseded' });
+    assert.equal(controller.getState().hasResult, false, `${action} cannot commit during queued close timing`);
+    await nextTurn();
+  }
+});
+
+test('Home Compare renderer execution failures stay results-unavailable and recover with a healthy retry', async () => {
+  const unhandled = [];
+  const observeUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', observeUnhandled);
+  try {
+    let attempt = 0;
+    const { controller, dialog, host } = createControllerHarness({
+      loadResultsView: () => {
+        attempt += 1;
+        if (attempt === 1) return { homeCompareResultsHtml: () => { throw new Error('initial renderer failure'); } };
+        if (attempt === 2) return {
+          homeCompareResultsHtml: (_projection, { locale }) => {
+            if (locale === 'zh-CN') throw new Error('language renderer failure');
+            return '<article>first healthy render</article>';
+          },
+        };
+        return { homeCompareResultsHtml: () => '<article>recovered renderer</article>' };
+      },
+    });
+    setControllerAddresses(host);
+    assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'results-unavailable' });
+    assert.equal(controller.getState().hasResult, false);
+    assert.equal(host.querySelector('[data-home-retry-results]').hidden, false);
+
+    host.querySelector('[data-home-retry-results]').emit('click');
+    await waitFor(() => controller.getState().hasResult);
+    assert.equal(host.querySelector('[data-home-results]').innerHTML, '<article>first healthy render</article>');
+    setLanguage('zh-CN');
+    assert.equal(controller.getState().status, 'results-unavailable');
+    assert.equal(controller.getState().hasResult, false, 'language re-render failure clears committed state');
+    assert.equal(host.querySelector('[data-home-retry-results]').hidden, false);
+    host.querySelector('[data-home-retry-results]').emit('click');
+    await waitFor(() => controller.getState().hasResult);
+    assert.equal(host.querySelector('[data-home-results]').innerHTML, '<article>recovered renderer</article>');
+    setLanguage('en');
+    await nextTurn();
+    assert.deepEqual(unhandled, []);
+    dialog.close();
+  } finally {
+    setLanguage('en');
+    process.removeListener('unhandledRejection', observeUnhandled);
+  }
+});
+
+test('Home Compare preserves completed results across an ordinary queued close and reopen', async () => {
+  const { controller, dialog, host } = createControllerHarness({
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>completed</article>' }),
+  });
+  setControllerAddresses(host);
+  await controller.compare();
+  dialog.close();
+  await nextTurn();
+  controller.open();
+  assert.equal(controller.getState().hasResult, true);
+  assert.equal(host.querySelector('[data-home-results]').innerHTML, '<article>completed</article>');
 });
 
 test('Home Compare observes lazy results-view rejection, keeps it separate from source unavailability, and retries explicitly', async () => {
@@ -716,6 +792,11 @@ class ControllerDialog extends ControllerElement {
   showModal() {}
 
   close() {
-    this.emit('close');
+    setImmediate(() => this.emit('close'));
+  }
+
+  cancel() {
+    this.emit('cancel');
+    this.close();
   }
 }

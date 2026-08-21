@@ -59,6 +59,8 @@ export function createHomeCompareController({
     status: 'idle',
     result: null,
     labels: [],
+    resultHtml: null,
+    resultLocale: null,
   };
   let returnFocus = null;
   let generation = 0;
@@ -106,7 +108,10 @@ export function createHomeCompareController({
     host.querySelector('[data-home-run]')?.addEventListener('click', () => { void compare(); });
     host.querySelector('[data-home-retry-results]')?.addEventListener('click', () => { void compare(); });
     host.querySelector('[data-home-share]')?.addEventListener('click', () => { void shareSettings(); });
-    host.querySelector('[data-home-close]')?.addEventListener('click', () => closeDialog(dialog));
+    host.querySelector('[data-home-close]')?.addEventListener('click', () => {
+      cancelInFlight();
+      closeDialog(dialog);
+    });
     const status = host.querySelector('[data-home-status]');
     if (status) status.textContent = statusText(copy);
     const retryResults = host.querySelector('[data-home-retry-results]');
@@ -116,19 +121,56 @@ export function createHomeCompareController({
     }
     const resultHost = host.querySelector('[data-home-results]');
     if (state.result && renderResults) {
-      resultHost.innerHTML = renderResults(state.result, { labels: state.labels, locale });
+      try {
+        const resultHtml = state.resultLocale === locale
+          ? state.resultHtml
+          : renderResults(state.result, { labels: state.labels, locale });
+        state.resultHtml = resultHtml;
+        state.resultLocale = locale;
+        resultHost.innerHTML = resultHtml;
+      } catch (error) {
+        setResultsUnavailable(error);
+        resultHost?.replaceChildren();
+        if (status) status.textContent = statusText(copy);
+        if (retryResults) retryResults.hidden = false;
+      }
     }
     dialog.setAttribute('aria-busy', String(state.busy));
   }
 
   function invalidateResult() {
     if (state.busy) return;
-    state.result = null;
-    state.labels = [];
+    clearResult();
     state.status = 'idle';
     host.querySelector('[data-home-results]')?.replaceChildren();
     const status = host.querySelector('[data-home-status]');
     if (status) status.textContent = getHomeCompareCopy(getLanguage()).idle;
+  }
+
+  function clearResult() {
+    state.result = null;
+    state.labels = [];
+    state.resultHtml = null;
+    state.resultLocale = null;
+  }
+
+  function setResultsUnavailable(error) {
+    renderResults = null;
+    clearResult();
+    state.busy = false;
+    state.status = errorStatus(createResultsViewUnavailableError(error));
+  }
+
+  function cancelInFlight({ renderAfter = true } = {}) {
+    if (!state.busy && !requestController) return false;
+    generation += 1;
+    requestController?.abort();
+    requestController = null;
+    state.busy = false;
+    clearResult();
+    if (state.status === 'loading') state.status = 'idle';
+    if (renderAfter) render();
+    return true;
   }
 
   function addAddress() {
@@ -175,8 +217,7 @@ export function createHomeCompareController({
     );
     state.busy = true;
     state.status = 'loading';
-    state.result = null;
-    state.labels = [];
+    clearResult();
     render();
     try {
       const [registry, areaIntelligence, identities] = await Promise.all([
@@ -204,13 +245,23 @@ export function createHomeCompareController({
       if (resultsViewError || typeof view?.homeCompareResultsHtml !== 'function') {
         throw createResultsViewUnavailableError(resultsViewError);
       }
+      let resultHtml;
+      try {
+        resultHtml = view.homeCompareResultsHtml(projection, { labels, locale: getLanguage() });
+      } catch (error) {
+        throw createResultsViewUnavailableError(error);
+      }
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
       // Commit only after all local work belongs to the active generation. This
       // prevents a closed/destroyed dialog from retaining an old projection.
       renderResults = view.homeCompareResultsHtml;
       state.result = projection;
       state.labels = labels;
+      state.resultHtml = resultHtml;
+      state.resultLocale = getLanguage();
       state.status = projection.status === 'available' ? 'available' : 'partial';
       state.busy = false;
+      if (requestController === activeRequestController) requestController = null;
       render();
       const resultHost = host.querySelector('[data-home-results]');
       resultHost?.focus?.({ preventScroll: true });
@@ -218,8 +269,12 @@ export function createHomeCompareController({
       return { status: projection.status, projection };
     } catch (error) {
       if (requestGeneration !== generation || activeRequestController.signal.aborted || error?.name === 'AbortError') return { status: 'superseded' };
-      state.busy = false;
-      state.status = errorStatus(error);
+      if (requestController === activeRequestController) requestController = null;
+      if (error?.code === 'RESULTS_VIEW_UNAVAILABLE') setResultsUnavailable(error);
+      else {
+        state.busy = false;
+        state.status = errorStatus(error);
+      }
       render();
       return { status: 'unavailable', reason: state.status };
     }
@@ -265,20 +320,15 @@ export function createHomeCompareController({
     return messages[state.status] || copy.idle;
   }
 
+  const onCancel = () => {
+    cancelInFlight();
+  };
   const onClose = () => {
-    const wasBusy = state.busy;
-    generation += 1;
-    requestController?.abort();
-    requestController = null;
-    state.busy = false;
-    if (wasBusy) {
-      state.result = null;
-      state.labels = [];
-    }
-    if (state.status === 'loading') state.status = 'idle';
+    cancelInFlight({ renderAfter: false });
     render();
     returnFocus?.focus?.();
   };
+  dialog.addEventListener('cancel', onCancel);
   dialog.addEventListener('close', onClose);
   const unsubscribeLanguage = onLanguageChange(render);
   render();
@@ -299,13 +349,9 @@ export function createHomeCompareController({
       weights: { ...state.weights },
     }),
     destroy() {
-      generation += 1;
-      requestController?.abort();
-      requestController = null;
-      state.busy = false;
-      state.result = null;
-      state.labels = [];
+      cancelInFlight({ renderAfter: false });
       unsubscribeLanguage();
+      dialog.removeEventListener('cancel', onCancel);
       dialog.removeEventListener('close', onClose);
       closeDialog(dialog);
       host.replaceChildren();

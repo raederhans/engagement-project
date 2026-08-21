@@ -19,6 +19,49 @@ test('browser-suite lifecycle closes preview and removes harness when Chromium l
   await assert.rejects(access(fixture.harnessPath));
 });
 
+test('browser-suite lifecycle rethrows an isolated primary failure unchanged after reverse cleanup', async () => {
+  const fixture = await lifecycleFixture();
+  const primary = new Error('primary body failure');
+  await assert.rejects(runBrowserSuite({
+    prepare: fixture.prepare,
+    createPreview: fixture.createPreview,
+    launchBrowser: fixture.launchBrowser,
+    cleanupArtifacts: fixture.cleanupArtifacts,
+    run: async () => { throw primary; },
+  }), (error) => error === primary);
+  assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'server.close', 'artifacts.cleanup']);
+});
+
+test('browser-suite lifecycle aggregates isolated cleanup failures after completing reverse cleanup', async () => {
+  const fixture = await lifecycleFixture({ serverClose: true, cleanupArtifacts: true });
+  await assert.rejects(runBrowserSuite({
+    prepare: fixture.prepare,
+    createPreview: fixture.createPreview,
+    launchBrowser: fixture.launchBrowser,
+    cleanupArtifacts: fixture.cleanupArtifacts,
+    run: async () => 'success',
+  }), (error) => error instanceof AggregateError
+    && error.errors.length === 2
+    && error.errors.every((item) => /injected cleanup/.test(item.message)));
+  assert.equal(fixture.calls.at(-1), 'artifacts.cleanup');
+});
+
+test('browser-suite lifecycle aggregates primary and all cleanup failures without skipping cleanup', async () => {
+  const fixture = await lifecycleFixture({ serverClose: true, cleanupArtifacts: true });
+  const primary = new Error('primary body failure');
+  await assert.rejects(runBrowserSuite({
+    prepare: fixture.prepare,
+    createPreview: fixture.createPreview,
+    launchBrowser: fixture.launchBrowser,
+    cleanupArtifacts: fixture.cleanupArtifacts,
+    run: async () => { throw primary; },
+  }), (error) => error instanceof AggregateError
+    && error.primaryError === primary
+    && error.cleanupErrors.length === 2
+    && error.errors[0] === primary);
+  assert.equal(fixture.calls.at(-1), 'artifacts.cleanup');
+});
+
 for (const [name, inject] of [
   ['context creation', { newContext: true }],
   ['route setup', { configureContext: true }],
@@ -76,7 +119,14 @@ async function lifecycleFixture(inject = {}) {
     },
     async createPreview() {
       calls.push('preview');
-      return { httpServer: { close(callback) { calls.push('server.close'); callback(); } } };
+      return {
+        httpServer: {
+          close(callback) {
+            calls.push('server.close');
+            callback(inject.serverClose ? new Error('injected cleanup server failure') : undefined);
+          },
+        },
+      };
     },
     async launchBrowser() { calls.push('browser.launch'); return browser; },
     async configureContext() {
@@ -90,6 +140,7 @@ async function lifecycleFixture(inject = {}) {
     async cleanupArtifacts() {
       calls.push('artifacts.cleanup');
       await rm(root, { recursive: true, force: true });
+      if (inject.cleanupArtifacts) throw new Error('injected cleanup artifact failure');
     },
   };
 }

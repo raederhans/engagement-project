@@ -28,16 +28,21 @@ export async function runBrowserSuite({
   let context = null;
   let page = null;
   let result;
+  let primaryError = null;
   const cleanupErrors = [];
   try {
-    await prepare?.();
-    server = await createPreview();
-    browser = await launchBrowser();
-    context = await createContext(browser);
-    await configureContext?.(context, { server, browser });
-    page = await context.newPage();
-    await configurePage?.(page, context, { server, browser });
-    result = await run({ server, browser, context, page });
+    try {
+      await prepare?.();
+      server = await createPreview();
+      browser = await launchBrowser();
+      context = await createContext(browser);
+      await configureContext?.(context, { server, browser });
+      page = await context.newPage();
+      await configurePage?.(page, context, { server, browser });
+      result = await run({ server, browser, context, page });
+    } catch (error) {
+      primaryError = error;
+    }
   } finally {
     for (const operation of [
       () => closeIfPresent(page),
@@ -53,6 +58,16 @@ export async function runBrowserSuite({
       }
     }
   }
+  if (primaryError && cleanupErrors.length) {
+    const error = new AggregateError(
+      [primaryError, ...cleanupErrors],
+      'Browser suite failed and cleanup failed.',
+    );
+    error.primaryError = primaryError;
+    error.cleanupErrors = cleanupErrors;
+    throw error;
+  }
+  if (primaryError) throw primaryError;
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Browser suite cleanup failed.');
   return result;
 }
