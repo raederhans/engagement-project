@@ -1,5 +1,5 @@
 import { HOME_COMPARE_DIMENSIONS, HOME_COMPARE_EVIDENCE_KEYS } from './contract.js';
-import { getHomeCompareCopy } from './view.js';
+import { escapeHtml, getHomeCompareCopy } from './view.js';
 
 export function homeCompareResultsHtml(projection, { labels = [], locale = 'en' } = {}) {
   const copy = getHomeCompareCopy(locale);
@@ -86,13 +86,4 @@ function statusLabel(status, copy) {
 
 function dimensionLabel(key, copy) {
   return copy[`dimension${key[0].toUpperCase()}${key.slice(1)}`] || key;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }

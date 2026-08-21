@@ -272,6 +272,55 @@ test('Home Compare synchronously cancels click and Escape before a queued native
   }
 });
 
+test('Home Compare freezes every request input and rejects busy edits before state changes', async () => {
+  const evidence = deferred();
+  const resolvedAddresses = [];
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    resolveAddress: async (address) => {
+      resolvedAddresses.push(address);
+      return { address };
+    },
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return evidence.promise;
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>snapshot</article>' }),
+  });
+  setControllerAddresses(host);
+  const destinations = host.querySelector('[data-home-destinations]');
+  destinations.value = 'Original destination';
+  destinations.emit('input');
+
+  const pending = controller.compare();
+  await waitFor(() => evidenceCalls === 2);
+  const [firstAddress, secondAddress] = [
+    host.querySelector('[data-home-address="0"]'),
+    host.querySelector('[data-home-address="1"]'),
+  ];
+  const propertyWeight = host.querySelectorAll('[data-home-weight]')
+    .find((input) => input.dataset.homeWeight === 'property');
+  assert.equal(firstAddress.disabled, true);
+  assert.equal(destinations.disabled, true);
+  assert.equal(propertyWeight.disabled, true);
+  assert.equal(host.querySelector('[data-home-add]').disabled, true);
+
+  firstAddress.value = '999 MUTATED ST';
+  firstAddress.emit('input');
+  destinations.value = 'Mutated destination';
+  destinations.emit('input');
+  propertyWeight.value = '100';
+  propertyWeight.emit('input');
+  assert.deepEqual(controller.getState().weights, defaultWeights, 'busy weight edit is rejected before state mutation');
+
+  evidence.resolve(controllerEvidenceResult(1));
+  const completed = await pending;
+  assert.deepEqual(resolvedAddresses, ['100 TEST ST', '200 TEST ST'], 'address resolution uses the immutable request snapshot');
+  assert.equal(completed.projection.sensitivity.normalizedWeights.property, 20, 'projection sensitivity uses the immutable request snapshot');
+  assert.equal(host.querySelector('[data-home-address="0"]').value, '100 TEST ST');
+  assert.equal(host.querySelector('[data-home-destinations]').value, 'Original destination');
+});
+
 test('Home Compare renderer execution failures stay results-unavailable and recover with a healthy retry', async () => {
   const unhandled = [];
   const observeUnhandled = (reason) => unhandled.push(reason);
@@ -652,6 +701,7 @@ function hasCode(code) {
 function createControllerHarness({
   loadResultsView,
   fetchEvidence = async () => controllerEvidenceResult(1),
+  resolveAddress = async (address) => ({ address }),
 } = {}) {
   const host = new ControllerHost();
   const dialog = new ControllerDialog(host);
@@ -660,7 +710,7 @@ function createControllerHarness({
     loadResultsView,
     loadRegistry: async () => registry,
     loadAreaIntelligence: async () => areaBoundary(),
-    resolveAddress: async (address) => ({ address }),
+    resolveAddress,
     fetchEvidence,
     locationRef: { href: 'https://example.test/' },
     historyRef: { replaceState() {} },
@@ -749,6 +799,7 @@ class ControllerElement {
 
 class ControllerHost extends ControllerElement {
   #elements = new Map();
+  #weights = HOME_COMPARE_DIMENSIONS.map((dimension) => new ControllerElement({ homeWeight: dimension }));
 
   constructor() {
     super();
@@ -765,7 +816,8 @@ class ControllerHost extends ControllerElement {
   }
 
   querySelectorAll(selector) {
-    if (selector === '[data-home-weight]' || selector === '[data-home-remove]') return [];
+    if (selector === '[data-home-weight]') return this.#weights;
+    if (selector === '[data-home-remove]') return [];
     return [];
   }
 

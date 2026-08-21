@@ -127,14 +127,14 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
     <div class="home-compare__address-row">
       <label for="home-compare-address-${index}">${escapeHtml(copy.address)} ${index + 1}</label>
       <div>
-        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-address-hint">
-        ${addressCount > 2 ? `<button class="button button--secondary" type="button" data-home-remove="${index}">${escapeHtml(copy.remove)}</button>` : ''}
+        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-address-hint" ${busy ? 'disabled' : ''}>
+        ${addressCount > 2 ? `<button class="button button--secondary" type="button" data-home-remove="${index}" ${busy ? 'disabled' : ''}>${escapeHtml(copy.remove)}</button>` : ''}
       </div>
     </div>`).join('');
   const weightControls = HOME_COMPARE_DIMENSIONS.map((dimension) => `
     <label>
       <span>${escapeHtml(dimensionLabel(dimension, copy))}: <output data-home-weight-output="${dimension}">${weights[dimension]}</output></span>
-      <input type="range" min="0" max="100" step="5" value="${weights[dimension]}" data-home-weight="${dimension}">
+      <input type="range" min="0" max="100" step="5" value="${weights[dimension]}" data-home-weight="${dimension}" ${busy ? 'disabled' : ''}>
     </label>`).join('');
   return `
     <div class="home-compare__surface">
@@ -146,9 +146,9 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
       <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}">
         <div class="home-compare__addresses">${addresses}</div>
         <p id="home-compare-address-hint" class="home-compare__hint">${escapeHtml(copy.addressHint)}</p>
-        <button class="button button--secondary" type="button" data-home-add ${addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
+        <button class="button button--secondary" type="button" data-home-add ${busy || addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
         <label for="home-compare-destinations">${escapeHtml(copy.commute)}</label>
-        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-commute-hint"></textarea>
+        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-commute-hint" ${busy ? 'disabled' : ''}></textarea>
         <p id="home-compare-commute-hint" class="home-compare__hint">${escapeHtml(copy.commuteHint)}</p>
         <fieldset class="home-compare__weights">
           <legend>${escapeHtml(copy.weights)}</legend>

@@ -82,27 +82,38 @@ export function createHomeCompareController({
       const input = host.querySelector(`[data-home-address="${index}"]`);
       if (!input) return;
       input.value = value;
+      input.disabled = state.busy;
       input.addEventListener('input', () => {
+        if (state.busy) return;
         state.addresses[index] = input.value;
         invalidateResult();
       });
     });
     const destinationInput = host.querySelector('[data-home-destinations]');
     destinationInput.value = state.destinations;
+    destinationInput.disabled = state.busy;
     destinationInput.addEventListener('input', () => {
+      if (state.busy) return;
       state.destinations = destinationInput.value;
       invalidateResult();
     });
     for (const input of host.querySelectorAll('[data-home-weight]')) {
+      input.disabled = state.busy;
       input.addEventListener('input', () => {
+        if (state.busy) return;
         state.weights[input.dataset.homeWeight] = Number(input.value);
         const output = host.querySelector(`[data-home-weight-output="${input.dataset.homeWeight}"]`);
         if (output) output.textContent = input.value;
         invalidateResult();
       });
     }
-    host.querySelector('[data-home-add]')?.addEventListener('click', addAddress);
+    const addButton = host.querySelector('[data-home-add]');
+    if (addButton) {
+      addButton.disabled = state.busy || state.addresses.length >= 4;
+      addButton.addEventListener('click', addAddress);
+    }
     for (const button of host.querySelectorAll('[data-home-remove]')) {
+      button.disabled = state.busy;
       button.addEventListener('click', () => removeAddress(Number(button.dataset.homeRemove)));
     }
     host.querySelector('[data-home-run]')?.addEventListener('click', () => { void compare(); });
@@ -191,14 +202,17 @@ export function createHomeCompareController({
 
   async function compare() {
     if (state.busy) return { status: 'busy' };
-    const addresses = state.addresses.map((value) => value.trim());
-    const destinations = state.destinations.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-    if (addresses.some((value) => value.length < 3 || value.length > 160)) {
+    const request = Object.freeze({
+      addresses: Object.freeze(state.addresses.map((value) => value.trim())),
+      destinations: Object.freeze(state.destinations.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)),
+      weights: Object.freeze({ ...state.weights }),
+    });
+    if (request.addresses.some((value) => value.length < 3 || value.length > 160)) {
       state.status = 'invalid-addresses';
       render();
       return { status: 'invalid' };
     }
-    if (destinations.length > 3 || destinations.some((value) => value.length > 160)) {
+    if (request.destinations.length > 3 || request.destinations.some((value) => value.length > 160)) {
       state.status = 'invalid-destinations';
       render();
       return { status: 'invalid' };
@@ -223,7 +237,7 @@ export function createHomeCompareController({
       const [registry, areaIntelligence, identities] = await Promise.all([
         loadRegistry({ signal: activeRequestController.signal }),
         loadAreaIntelligence({ signal: activeRequestController.signal }),
-        Promise.all(addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
+        Promise.all(request.addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
       ]);
       const results = await Promise.all(identities.map((identity) => fetchEvidence(identity, {
         signal: activeRequestController.signal,
@@ -237,7 +251,7 @@ export function createHomeCompareController({
         profiles,
         sources: await combineHomeCompareSources(registry, results),
         areaIntelligence,
-        sensitivity: buildWeightSensitivity(state.weights),
+        sensitivity: buildWeightSensitivity(request.weights),
       });
       const labels = results.map(({ privateLabel }) => privateLabel);
       const { view, error: resultsViewError } = await observedResultsView;

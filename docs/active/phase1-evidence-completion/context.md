@@ -30,10 +30,20 @@ the temporary harness.
 
 ## Decisions and boundaries
 
-- The Home Compare renderer import is observed at creation. Projection, labels,
-  and renderer stay local until the active generation/AbortSignal is checked;
-  close/destroy clears a pending result. A renderer/chunk failure becomes
-  results-unavailable, not source-unavailable, and explicit retry is covered.
+- The first Home Compare compare intent creates and observes the lazy renderer
+  import; it completes before result commit, not after a completed compare.
+  Projection, labels, rendered HTML, and renderer stay local until the active
+  generation/AbortSignal is checked. Synchronous close/cancel/destroy clears a
+  pending request before a queued native close event; a renderer/chunk failure
+  becomes results-unavailable, not source-unavailable, and explicit retry is
+  covered.
+- A compare request freezes addresses, destinations, and weights at its start.
+  Busy inputs are disabled and reject state writes, so source evidence and
+  projection sensitivity cannot mix different user edits.
+- Browser-suite teardown always attempts page, context, browser, preview, and
+  task-artifact cleanup in reverse order. A primary-only failure is rethrown
+  unchanged; cleanup-only failures aggregate; a primary plus cleanup failure
+  raises an auditable AggregateError retaining primaryError and cleanupErrors.
 - The repository-defined release graph has one release-runner owner for three
   exact leaf package mappings. The workflow/package contract audits all jobs
   and composites present in this repository; it intentionally does not claim
