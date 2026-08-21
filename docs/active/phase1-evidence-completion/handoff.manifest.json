@@ -5,10 +5,12 @@
   "authorityReceipts": {
     "review": {
       "schema": "engagement-phase1-independent-review/v1",
+      "pathTemplate": "authority/review/{phase}.json",
       "description": "An external reviewer receipt; a phase observation may only reference its path and expected identity."
     },
     "deletion": {
       "schema": "engagement-phase1-independent-deletion/v1",
+      "pathTemplate": "authority/deletion/{phase}.json",
       "description": "An external retention-authority receipt bound to an independently accepted 1D cumulative receipt."
     }
   },
@@ -61,6 +63,7 @@
         "authorizationReceipt": "1D cumulative retention authorization"
       },
       "receipt": {
+        "mode": "admission",
         "defaultPath": ".dfev1/crime/warehouse/manifest.json",
         "schema": "engagement-phl-crime-event-warehouse/v1",
         "requiredFields": [
@@ -129,6 +132,7 @@
         "authorizationReceipt": "1D cumulative retention authorization"
       },
       "receipt": {
+        "mode": "admission",
         "defaultPath": ".dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json",
         "schema": "ModelEvaluationReport/v1",
         "requiredFields": [
@@ -200,6 +204,7 @@
         "authorizationReceipt": "1D cumulative retention authorization"
       },
       "receipt": {
+        "mode": "admission",
         "defaultPath": ".dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json",
         "schema": "engagement-home-compare-source-smoke/v1",
         "requiredFields": [
@@ -298,7 +303,11 @@
           "clocks.sourceAsOf",
           "clocks.retrievedAt",
           "clocks.builtAt",
-          "clocks.observedAt"
+          "clocks.observedAt",
+          "governance.m2.identity",
+          "governance.m2.revision",
+          "governance.m2.reviewedTip",
+          "governance.m2.dqRechecked"
         ],
         "identityFields": [
           "warehouseIdentity",
@@ -389,6 +398,7 @@
         "authorizationReceipt": "1D cumulative retention authorization"
       },
       "receipt": {
+        "mode": "admission",
         "defaultPath": ".dfev1/phase1/cumulative-receipt.json",
         "schema": "engagement-phase1-cumulative-receipt/v1",
         "requiredFields": [
@@ -458,5 +468,12 @@
       "M4",
       "1D"
     ]
+  ],
+  "governanceEdges": [
+    {
+      "from": "M2",
+      "to": "M4",
+      "kind": "frozen-evaluation-recheck"
+    }
   ]
 }

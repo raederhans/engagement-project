@@ -40,10 +40,18 @@ function linuxListeningPids(port, run = execFileSync) {
   // task-owned listeners from listeners which predate this release run.
   const output = run('ss', ['-ltnpH'], { encoding: 'utf8', windowsHide: true });
   const address = new RegExp(`(?:^|\\s)[^\\s]*:${port}(?:\\s|$)`);
-  const listeners = output.split(/\r?\n/).filter((line) => address.test(line));
-  const pids = listeners.flatMap((line) => [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1])));
-  if (listeners.length && (!pids.length || pids.some((pid) => !Number.isInteger(pid) || pid <= 0))) throw new Error(`Release listener ownership audit is unavailable for Linux port ${port}.`);
-  return new Set(pids);
+  const listeners = output.split(/\r?\n/).filter((line) => /^\s*LISTEN\b/.test(line) && address.test(line));
+  const owned = new Set();
+  for (const line of listeners) {
+    // Each individual LISTEN record is an ownership claim.  A neighbouring
+    // IPv4 row with a PID cannot make an IPv6/permission-masked row auditable.
+    const pids = [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1]));
+    if (!pids.length || pids.some((pid) => !Number.isInteger(pid) || pid <= 0)) {
+      throw new Error(`Release listener ownership audit is unavailable for Linux port ${port}.`);
+    }
+    for (const pid of pids) owned.add(pid);
+  }
+  return owned;
 }
 
 function listeningPids(platform, port, run) {

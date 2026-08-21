@@ -48,6 +48,9 @@ test('release port audit fails closed when a listener has no parseable PID or th
   assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'linux', run: () => 'LISTEN 0 511 127.0.0.1:4178 0.0.0.0:*\n' }), /unavailable/);
   assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'win32', run: () => '  TCP    127.0.0.1:4178     0.0.0.0:0              LISTENING\n' }), /unavailable/);
   assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'linux', run: () => { throw new Error('ss unavailable'); } }), /ss unavailable/);
+  assert.throws(() => createReleasePortAudit({
+    ports: [4178], platform: 'linux', run: () => 'LISTEN 0 511 127.0.0.1:4178 0.0.0.0:* users:(("node",pid=101,fd=20))\nLISTEN 0 511 [::1]:4178 [::]:* users:(("node"))\n',
+  }), /unavailable/, 'a PID on one matching LISTEN line cannot bless another unowned line');
 });
 
 test('release port audit ignores Windows TIME_WAIT rows while retaining fail-closed LISTENING ownership', async () => {

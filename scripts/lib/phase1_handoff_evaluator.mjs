@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { lstat, realpath } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
@@ -23,9 +24,9 @@ function pathFlavor(value, platform) {
   return path;
 }
 
-function contained(flavor, root, candidate) {
+function contained(flavor, root, candidate, { allowEqual = false } = {}) {
   const relative = flavor.relative(root, candidate);
-  return relative !== '' && !flavor.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${flavor.sep}`);
+  return (allowEqual || relative !== '') && !flavor.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${flavor.sep}`);
 }
 
 function separatorStyle(value) {
@@ -39,13 +40,30 @@ function lexicalWithin(parent, candidate, separator) {
   return candidate.startsWith(`${normalizedParent}${separator}`);
 }
 
+function rejectUnsafeSegments(value, separator) {
+  const withoutDrive = value.replace(/^[A-Za-z]:[\\/]/, '').replace(/^[\\/]/, '');
+  const segments = withoutDrive.split(separator);
+  if (segments.some((segment) => segment === '.' || segment === '..' || segment === '')) {
+    throw new Error('authority path contains an ambiguous segment');
+  }
+}
+
+function ignoredRootLiteral(ignoredRoot) {
+  if (typeof ignoredRoot !== 'string' || !ignoredRoot.endsWith('/**')) throw new Error('ignored root is not an exact literal subtree');
+  const literal = ignoredRoot.slice(0, -3);
+  if (!literal || literal.startsWith('/') || literal.startsWith('\\') || literal.includes('\\') || literal.split('/').some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('ignored root is unsafe');
+  }
+  return literal;
+}
+
 export function createFilesystemAuthority({
   platform = process.platform,
   canonicalize = realpath,
   stat = lstat,
 } = {}) {
   return Object.freeze({
-    async receiptPath(worktree, evidenceRoot, receiptPath) {
+    async receiptPath(worktree, evidenceRoot, receiptPath, { ignoredRoot, defaultPath } = {}) {
       const flavor = pathFlavor(worktree, platform);
       const evidenceFlavor = pathFlavor(evidenceRoot, platform);
       const receiptFlavor = pathFlavor(receiptPath, platform);
@@ -59,21 +77,27 @@ export function createFilesystemAuthority({
         if (evidenceRoot.slice(0, 2) !== drive || receiptPath.slice(0, 2) !== drive) throw new Error('Windows drive or case drift');
       }
       const separator = styles.has('backslash') ? '\\' : '/';
+      rejectUnsafeSegments(worktree, separator);
+      rejectUnsafeSegments(evidenceRoot, separator);
+      rejectUnsafeSegments(receiptPath, separator);
       if (!lexicalWithin(worktree, evidenceRoot, separator) || !lexicalWithin(evidenceRoot, receiptPath, separator)) {
         throw new Error('receipt lexical path escapes worktree or evidence root');
       }
       const root = flavor.resolve(worktree);
       const evidence = flavor.resolve(evidenceRoot);
       const receipt = flavor.resolve(receiptPath);
-      if (!contained(flavor, root, evidence) || !contained(flavor, evidence, receipt)) throw new Error('receipt path escapes worktree or evidence root');
-      const [canonicalRoot, canonicalEvidence, canonicalReceipt, receiptStat] = await Promise.all([
-        canonicalize(root), canonicalize(evidence), canonicalize(receipt), stat(receipt),
+      const allowed = ignoredRoot ? flavor.resolve(root, ignoredRootLiteral(ignoredRoot)) : root;
+      if (!contained(flavor, root, evidence) || !contained(flavor, allowed, evidence, { allowEqual: true }) || !contained(flavor, evidence, receipt)) throw new Error('receipt path escapes exact ignored root');
+      if (defaultPath && receipt !== flavor.resolve(root, defaultPath)) throw new Error('receipt path is not the canonical policy receipt');
+      const [canonicalRoot, canonicalAllowed, canonicalEvidence, canonicalReceipt, receiptStat] = await Promise.all([
+        canonicalize(root), canonicalize(allowed), canonicalize(evidence), canonicalize(receipt), stat(receipt),
       ]);
       if (!receiptStat.isFile() || receiptStat.isSymbolicLink()) throw new Error('receipt is not a regular file');
       const canonicalFlavor = pathFlavor(canonicalRoot, platform);
       if (canonicalFlavor !== pathFlavor(canonicalEvidence, platform) || canonicalFlavor !== pathFlavor(canonicalReceipt, platform)
-        || !contained(canonicalFlavor, canonicalRoot, canonicalEvidence)
-        || !contained(canonicalFlavor, canonicalEvidence, canonicalReceipt)) throw new Error('receipt canonical path escapes worktree or evidence root');
+          || !contained(canonicalFlavor, canonicalRoot, canonicalAllowed, { allowEqual: true })
+          || !contained(canonicalFlavor, canonicalAllowed, canonicalEvidence, { allowEqual: true })
+          || !contained(canonicalFlavor, canonicalEvidence, canonicalReceipt)) throw new Error('receipt canonical path escapes worktree or evidence root');
       return canonicalReceipt;
     },
   });
@@ -157,7 +181,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     receipt: {
       mode: 'admission',
       schema: 'engagement-known-route-evidence-handoff/v2',
-      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt'],
+      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.reviewedTip', 'governance.m2.dqRechecked'],
       identityFields: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
       revisionFields: ['centerlineDataVersion', 'startedAt'],
       validatorCommand: 'npm run test:phase1-handoff',
@@ -177,10 +201,19 @@ const EXACT_PHASE_POLICY = Object.freeze({
 });
 
 const REQUIRED_PHASE_IDS = Object.freeze(['M1', 'M2', 'M3', 'M4', '1D']);
+// The graph is deliberately not inferred from the mutable manifest.  A policy
+// may describe this graph, but it cannot weaken, add to, or reverse it.
+const CANONICAL_DATA_EDGES = Object.freeze([
+  ['M1', 'M2'], ['M2', 'M3'], ['M1', 'M4'],
+  ['M1', '1D'], ['M2', '1D'], ['M3', '1D'], ['M4', '1D'],
+]);
+const CANONICAL_GOVERNANCE_EDGES = Object.freeze([
+  Object.freeze({ from: 'M2', to: 'M4', kind: 'frozen-evaluation-recheck' }),
+]);
 
 const AUTHORITY_RECEIPT_POLICY = Object.freeze({
-  review: Object.freeze({ schema: 'engagement-phase1-independent-review/v1' }),
-  deletion: Object.freeze({ schema: 'engagement-phase1-independent-deletion/v1' }),
+  review: Object.freeze({ schema: 'engagement-phase1-independent-review/v1', pathTemplate: 'authority/review/{phase}.json' }),
+  deletion: Object.freeze({ schema: 'engagement-phase1-independent-deletion/v1', pathTemplate: 'authority/deletion/{phase}.json' }),
 });
 
 function collectionReasons(policy, observation) {
@@ -192,18 +225,21 @@ function collectionReasons(policy, observation) {
   };
   requireExactlyOnce(policy?.phases, 'id', 'policy phase');
   requireExactlyOnce(observation?.phases, 'phase', 'observation phase');
-  if (!Array.isArray(policy?.edges)) reasons.push('policy edges are not an array');
-  else {
-    const seen = new Set();
-    for (const edge of policy.edges) {
-      if (!Array.isArray(edge) || edge.length !== 2 || !REQUIRED_PHASE_IDS.includes(edge[0]) || !REQUIRED_PHASE_IDS.includes(edge[1])) reasons.push(`invalid policy edge ${JSON.stringify(edge)}`);
-      else {
-        const identity = `${edge[0]}->${edge[1]}`;
-        if (seen.has(identity)) reasons.push(`duplicate policy edge ${identity}`);
-        seen.add(identity);
-      }
+  const validateExactEdges = (entries, expected, identity, label) => {
+    if (!Array.isArray(entries)) { reasons.push(`${label} are not an array`); return; }
+    const actual = new Set();
+    for (const entry of entries) {
+      const key = identity(entry);
+      if (!key) { reasons.push(`invalid ${label} ${JSON.stringify(entry)}`); continue; }
+      if (actual.has(key)) reasons.push(`duplicate ${label} ${key}`);
+      actual.add(key);
     }
-  }
+    const canonical = new Set(expected.map(identity));
+    for (const key of canonical) if (!actual.has(key)) reasons.push(`missing canonical ${label} ${key}`);
+    for (const key of actual) if (!canonical.has(key)) reasons.push(`noncanonical ${label} ${key}`);
+  };
+  validateExactEdges(policy?.edges, CANONICAL_DATA_EDGES, (edge) => Array.isArray(edge) && edge.length === 2 && REQUIRED_PHASE_IDS.includes(edge[0]) && REQUIRED_PHASE_IDS.includes(edge[1]) ? `${edge[0]}->${edge[1]}` : null, 'policy data edge');
+  validateExactEdges(policy?.governanceEdges, CANONICAL_GOVERNANCE_EDGES, (edge) => edge && REQUIRED_PHASE_IDS.includes(edge.from) && REQUIRED_PHASE_IDS.includes(edge.to) && typeof edge.kind === 'string' ? `${edge.from}->${edge.to}:${edge.kind}` : null, 'policy governance edge');
   return reasons;
 }
 
@@ -236,26 +272,28 @@ function exactPolicyReasons(policy) {
         : actual.retention?.[field] !== value) reasons.push(`${id}: policy retention ${field} drift`);
     }
     if (expected.receipt) for (const [field, value] of Object.entries(expected.receipt)) {
-      if (field === 'mode' && id !== 'M4') continue;
       if (Array.isArray(value)
         ? !sameList(actual.receipt?.[field], value)
         : actual.receipt?.[field] !== value) reasons.push(`${id}: policy receipt ${field} drift`);
     }
   }
   for (const [kind, expected] of Object.entries(AUTHORITY_RECEIPT_POLICY)) {
-    if (policy.authorityReceipts?.[kind]?.schema !== expected.schema) reasons.push(`${kind} authority receipt policy drift`);
+    if (policy.authorityReceipts?.[kind]?.schema !== expected.schema || policy.authorityReceipts?.[kind]?.pathTemplate !== expected.pathTemplate) reasons.push(`${kind} authority receipt policy drift`);
   }
   if (!sameList(policy.phase1_0_writable, PHASE1_0_WRITABLE)) reasons.push('Phase1-0 writable scope drift');
   return reasons;
 }
 
-export async function inspectGitRevision(worktree, reference, phaseBase) {
+export async function inspectGitRevision(worktree, reference, expectedBase) {
   const run = async (...args) => (await execFileAsync('git', ['-C', worktree, ...args], { windowsHide: true })).stdout.trim();
   const tip = await run('rev-parse', reference);
   const mergeBase = await run('merge-base', 'main', tip);
-  const base = await run('rev-parse', phaseBase || mergeBase);
+  // Candidate-path authority is always anchored at the trusted expected base,
+  // never at an observation-provided phaseBase that could hide an earlier
+  // forbidden change.
+  const base = await run('rev-parse', expectedBase || mergeBase);
   const changed = await run('diff', '--name-only', `${base}..${tip}`);
-  return { tip, mergeBase, phaseBase: base, changedPaths: changed ? changed.split(/\r?\n/) : [] };
+  return { tip, mergeBase, expectedBase: base, changedPaths: changed ? changed.split(/\r?\n/) : [] };
 }
 
 export async function isGitAncestor(worktree, ancestor, descendant) {
@@ -298,6 +336,10 @@ export async function evaluateHandoff({
   readReceipt = readJson,
   filesystemAuthority = realFilesystemAuthority,
   authorityReader = { async read(pathname) { return readJson(pathname); } },
+  // A JSON label is not a trust root.  Integration admission must supply a
+  // registry/signature-backed resolver which pins the authority receipt bytes
+  // and reviewer identity independently from the producer observation.
+  trustedAuthorityResolver = null,
   resolveRef = resolveGitRef,
 } = {}) {
   const structuralReasons = collectionReasons(policy, observation);
@@ -332,7 +374,7 @@ export async function evaluateHandoff({
       if (phase.owner !== phasePolicy.owner) phaseReasons.push('owner drift');
       if (phase.artifactOwner !== phasePolicy.owner) phaseReasons.push('artifact owner drift');
       if (!phasePolicy.ignoredOutputRoots.includes(phase.ignoredRoot)) phaseReasons.push('ignored root drift');
-      if (!evidenceRootWithin(phase.worktree, phase.evidenceRoot, phasePolicy.ignoredOutputRoots)) phaseReasons.push('evidence root exceeds ignored-output boundary');
+      if (!evidenceRootWithin(phase.worktree, phase.evidenceRoot, phasePolicy.ignoredOutputRoots)) phaseReasons.push('evidence root exceeds exact ignored-output boundary');
       if (!phase.retention?.duration || !phase.retention?.triggerEvent || !phase.retention?.decisionOwner
           || !Array.isArray(phase.retention?.deletePrerequisites)) phaseReasons.push('retention policy incomplete');
       for (const field of ['duration', 'triggerEvent', 'decisionOwner']) {
@@ -340,16 +382,16 @@ export async function evaluateHandoff({
       }
       if (!sameList(phase.retention?.deletePrerequisites, phasePolicy.retention.deletePrerequisites)) phaseReasons.push('retention delete-prerequisites drift');
       if (phase.retention?.authorizationReceipt != null) phaseReasons.push('embedded retention authorization is not an independent authority receipt');
-      if (phase.actualChangedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('actual changed path exceeds writable boundary');
       try {
         const actual = await inspectWorktree(phase.worktree);
         if (actual.main !== phase.expectedBase) phaseReasons.push('main topology drift');
         if (JSON.stringify(actual.status) !== JSON.stringify(phase.status.porcelain || [])) phaseReasons.push('worktree status drift');
-        const implementation = await inspectRevision(phase.worktree, phase.implementationTip, phase.phaseBase);
-        if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase || implementation.phaseBase !== phase.phaseBase) phaseReasons.push('implementation topology drift');
-        if (!await isAncestor(phase.worktree, phase.phaseBase, phase.exactTip)) phaseReasons.push('phase base is not an ancestor of exact tip');
+        const implementation = await inspectRevision(phase.worktree, phase.implementationTip, phase.expectedBase);
+        if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase || (implementation.expectedBase ?? implementation.phaseBase) !== phase.expectedBase) phaseReasons.push('implementation topology drift');
+        if (phase.phaseBase !== phase.expectedBase || phase.phaseBase !== phase.actualMergeBase) phaseReasons.push('phase base does not equal trusted candidate base');
         if (!await isAncestor(phase.worktree, phase.expectedBase, phase.exactTip)) phaseReasons.push('exact tip is not a descendant of expected base');
         if (JSON.stringify(implementation.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('implementation changed-path drift');
+        if (implementation.changedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('full candidate changed path exceeds writable boundary');
         if (actual.head !== phase.implementationTip) {
           if (!await isAncestor(phase.worktree, phase.implementationTip, actual.head)) phaseReasons.push('execution head is not an implementation descendant');
           else {
@@ -376,7 +418,10 @@ export async function evaluateHandoff({
           if (phase.receipt.schema !== phasePolicy.receipt.schema) throw new Error('observation schema drift');
           if (phase.receipt.validatorCommand !== phasePolicy.receipt.validatorCommand) throw new Error('validator command drift');
           if (phase.receipt.result !== 'pass') throw new Error('receipt result is not pass');
-          const canonicalReceiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, phase.receipt.actualPath);
+          const canonicalReceiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, phase.receipt.actualPath, {
+            ignoredRoot: phase.ignoredRoot,
+            defaultPath: phasePolicy.receipt.defaultPath,
+          });
           const receiptEvidence = validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], await readReceipt(canonicalReceiptPath), phase.receipt);
           phaseMeta.set(phaseId, { receiptEvidence });
           receiptEligible = canonicalReceiptMode(phaseId) === 'admission';
@@ -389,14 +434,19 @@ export async function evaluateHandoff({
       validateUpstreamReceiptIdentities(phase, phasePolicy, observations, phaseReasons);
       if (phaseId === 'M4') {
         const m2 = observations.get('M2');
+        const m2Evidence = phaseMeta.get('M2')?.receiptEvidence;
         const declaration = (phase.governanceReceiptIdentities || []).filter((entry) => entry?.phase === 'M2');
-        if (declaration.length !== 1 || !m2 || m2.state !== 'accepted' || m2.receipt?.availability !== 'available') phaseReasons.push('M2 governance receipt is unavailable or unrechecked');
+        if (declaration.length !== 1 || !m2 || m2.state !== 'accepted' || !m2Evidence) phaseReasons.push('M2 governance receipt is unavailable or unrechecked');
         else {
           const identity = { ...declaration[0] }; delete identity.phase;
-          if (!sameRecord(identity, m2.receipt.identity)) phaseReasons.push('M2 governance receipt identity drift');
+          if (!sameRecord(identity, m2Evidence.identity)
+            || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.identity, m2Evidence.identity)
+            || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.revision, m2Evidence.revision)
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.reviewedTip !== m2.reviewedTip
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.dqRechecked !== true) phaseReasons.push('M2 governance receipt identity drift');
           try {
             const m2Tip = m2.reviewedTip || m2.exactTip;
-            if (!await isAncestor(phase.worktree, m2Tip, phase.phaseBase)
+            if (!await isAncestor(phase.worktree, m2Tip, phase.expectedBase)
               || !await isAncestor(phase.worktree, m2Tip, phase.implementationTip)) phaseReasons.push('M2 governance tip is not an ancestor of M4 base and implementation');
           } catch { phaseReasons.push('M2 governance ancestry is not resolvable'); }
         }
@@ -410,7 +460,7 @@ export async function evaluateHandoff({
       }
       if (phase.state === 'accepted') {
         try {
-          await validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader });
+          await validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader, trustedAuthorityResolver });
         } catch (error) { phaseReasons.push(`independent review authority invalid: ${error.message}`); }
       }
       if (phase.state !== 'accepted') phaseReasons.push(`admission state is ${phase.state}`);
@@ -436,7 +486,7 @@ export async function evaluateHandoff({
     if (!upstream || !downstream || !targetMeta) continue;
     try {
       const upstreamTip = upstream.reviewedTip || upstream.exactTip;
-      if (!await isAncestor(downstream.worktree, upstreamTip, downstream.phaseBase)
+      if (!await isAncestor(downstream.worktree, upstreamTip, downstream.expectedBase)
         || !await isAncestor(downstream.worktree, upstreamTip, downstream.implementationTip)) targetMeta.phaseReasons.push(`${source} topology tip is not an ancestor of ${target} base and implementation`);
     } catch { targetMeta.phaseReasons.push(`${source} to ${target} topology ancestry is not resolvable`); }
   }
@@ -447,9 +497,24 @@ export async function evaluateHandoff({
   // M4 value at its top level and in lineage.
   const m1 = observations.get('M1');
   const m4Meta = phaseMeta.get('M4');
-  if (m4Meta?.receiptEvidence && m1?.receipt?.availability === 'available') {
-    if (m4Meta.receiptEvidence.identity.warehouseIdentity !== m1.receipt.identity?.current_snapshot_id) {
+  if (m4Meta?.receiptEvidence && phaseMeta.get('M1')?.receiptEvidence) {
+    if (m4Meta.receiptEvidence.identity.warehouseIdentity !== phaseMeta.get('M1').receiptEvidence.identity.current_snapshot_id) {
       m4Meta.phaseReasons.push('M1/M4 warehouse identity cross-binding drift');
+    }
+  }
+  const oneDMeta = phaseMeta.get('1D');
+  if (oneDMeta?.receiptEvidence) {
+    const bindings = oneDMeta.receiptEvidence.receipt.producerReceipts;
+    for (const id of REQUIRED_PHASE_IDS.slice(0, 4)) {
+      const actual = phaseMeta.get(id)?.receiptEvidence;
+      const observed = observations.get(id);
+      const binding = bindings?.filter((entry) => entry?.phase === id) || [];
+      if (binding.length !== 1 || !actual || !observed
+        || binding[0].schema !== actual.schema || !sameRecord(binding[0].identity, actual.identity)
+        || !sameRecord(binding[0].revision, actual.revision)
+        || binding[0].implementationTip !== observed.implementationTip
+        || binding[0].recordTip !== observed.recordTip || binding[0].reviewedTip !== observed.reviewedTip
+        || binding[0].dqRechecked !== true) oneDMeta.phaseReasons.push(`1D actual producer binding drift for ${id}`);
     }
   }
 
@@ -483,6 +548,7 @@ export async function evaluateHandoff({
         oneDResult: phaseResults['1D'],
         filesystemAuthority,
         authorityReader,
+        trustedAuthorityResolver,
       });
   }
 
@@ -530,10 +596,19 @@ export async function evaluateHandoff({
 
 export function validateReceipt(phaseId, policy, receipt, observationReceipt = {}) {
   const canonical = EXACT_PHASE_POLICY[phaseId] || policy;
+  if (!isPlainRecord(receipt)) throw new Error('receipt is not a plain object');
   if (canonical.receipt.schema && receipt.schema !== canonical.receipt.schema) throw new Error('schema drift');
-  for (const field of canonical.receipt.requiredFields) if (readPath(receipt, field) == null) throw new Error(`missing ${field}`);
+  for (const field of canonical.receipt.requiredFields) {
+    const value = readPath(receipt, field);
+    if (value == null || value === false || value === 0 || value === '') throw new Error(`missing or falsey ${field}`);
+  }
   const identity = Object.fromEntries(canonical.receipt.identityFields.map((field) => [field, readPath(receipt, field)]));
   const revision = Object.fromEntries(canonical.receipt.revisionFields.map((field) => [field, readPath(receipt, field)]));
+  for (const [field, value] of [...Object.entries(identity), ...Object.entries(revision)]) {
+    if (phaseId === 'M3' && field === 'observations.0.dq') continue;
+    if (phaseId === '1D' && field === 'producerReceipts') continue;
+    if (typeof value !== 'string' || !value.trim()) throw new Error(`identity or revision type drift ${field}`);
+  }
   if (JSON.stringify(identity) !== JSON.stringify(observationReceipt.identity)) throw new Error('identity drift');
   if (JSON.stringify(revision) !== JSON.stringify(observationReceipt.revision)) throw new Error('revision drift');
   for (const field of canonical.receipt.dataQualityFields || []) {
@@ -548,12 +623,14 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
   for (const field of canonical.receipt.clockFields || []) {
     if (!isExactTimestamp(readPath(receipt, field))) throw new Error(`clock drift ${field}`);
   }
+  validateVersionedDomain(phaseId, receipt, canonical.receipt);
   if (phaseId === 'M4') {
     const clocks = canonical.receipt.clockFields.map((field) => Date.parse(readPath(receipt, field)));
     if (clocks.some((value, index) => index && value < clocks[index - 1])) throw new Error('M4 clocks are out of order');
     if (!Number.isInteger(receipt.completedPartitions) || !Number.isInteger(receipt.partitionCount)
-      || receipt.completedPartitions < 0 || receipt.completedPartitions !== receipt.partitionCount) throw new Error('M4 partition completion drift');
-    if (!receipt.completion || typeof receipt.accumulator !== 'object') throw new Error('M4 completion or accumulator drift');
+      || receipt.partitionCount <= 0 || receipt.completedPartitions !== receipt.partitionCount) throw new Error('M4 partition completion drift');
+    if (!isPlainRecord(receipt.completion) || !['complete', 'completed'].includes(receipt.completion.state)
+      || !isPlainRecord(receipt.accumulator)) throw new Error('M4 completion or accumulator drift');
     if (receipt.warehouseIdentity !== receipt.lineage?.warehouseIdentity
       || receipt.routeIdentity !== receipt.lineage?.routeIdentity
       || receipt.catalogIdentity !== receipt.lineage?.catalogIdentity) throw new Error('M4 lineage identity drift');
@@ -561,10 +638,41 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
   if (phaseId === '1D') {
     if (!Array.isArray(receipt.producerReceipts) || receipt.producerReceipts.length !== 4
       || new Set(receipt.producerReceipts.map((entry) => entry?.phase)).size !== 4
-      || !REQUIRED_PHASE_IDS.slice(0, 4).every((id) => receipt.producerReceipts.some((entry) => entry?.phase === id && entry.identity && entry.revision))) throw new Error('1D producer receipt binding drift');
-    if (!Array.isArray(receipt.topology) || !Array.isArray(receipt.overlap) || typeof receipt.status !== 'object') throw new Error('1D cumulative receipt semantics drift');
+      || !REQUIRED_PHASE_IDS.slice(0, 4).every((id) => receipt.producerReceipts.some((entry) => entry?.phase === id && isPlainRecord(entry.identity) && isPlainRecord(entry.revision) && typeof entry.schema === 'string' && typeof entry.receiptDigest === 'string'))) throw new Error('1D producer receipt binding drift');
+    if (!Array.isArray(receipt.topology) || !sameEdgeSet(receipt.topology, CANONICAL_DATA_EDGES) || !Array.isArray(receipt.overlap) || !isPlainRecord(receipt.status)) throw new Error('1D cumulative receipt semantics drift');
   }
-  return { phaseId, identity, revision };
+  return { phaseId, schema: receipt.schema, identity, revision, receipt };
+}
+
+function isPlainRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function isDigest(value) {
+  return typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+}
+
+function sameEdgeSet(actual, expected) {
+  if (!Array.isArray(actual) || actual.length !== expected.length) return false;
+  const asKeys = (entries) => entries.map((edge) => Array.isArray(edge) && edge.length === 2 ? `${edge[0]}->${edge[1]}` : '').sort();
+  return sameList(asKeys(actual), asKeys(expected));
+}
+
+function validateVersionedDomain(phaseId, receipt) {
+  const digestFields = {
+    M1: ['current_snapshot_id'],
+    M2: ['protocol.sha256', 'data.mart_artifact_identity', 'data.source_vintage'],
+    M3: ['semanticIdentity'],
+    M4: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
+  }[phaseId] || [];
+  for (const field of digestFields) if (!isDigest(readPath(receipt, field))) throw new Error(`digest drift ${field}`);
+  if (phaseId === 'M1' && (!isPlainRecord(receipt.coverage) || !isPlainRecord(receipt.lineage_registry))) throw new Error('M1 coverage or lineage type drift');
+  if (phaseId === 'M2' && (!isPlainRecord(receipt.protocol) || !isPlainRecord(receipt.data?.coverage))) throw new Error('M2 protocol or coverage type drift');
+  if (phaseId === 'M3') {
+    if (!['pass', 'partial'].includes(receipt.status) || !Array.isArray(receipt.observations) || !isPlainRecord(receipt.observations[0])
+      || receipt.observations[0].dq !== true || !isPlainRecord(receipt.routing) || !isPlainRecord(receipt.privacy) || !isPlainRecord(receipt.limitations)) throw new Error('M3 source-smoke semantics drift');
+  }
+  if (phaseId === 'M4' && (!isPlainRecord(receipt.dataQuality) || !isPlainRecord(receipt.lineage) || !isPlainRecord(receipt.consent))) throw new Error('M4 DQ, lineage, or consent type drift');
 }
 
 function readPath(value, dotted) {
@@ -587,11 +695,20 @@ function isPreparationEligible(phase, policy, policyEligible) {
 }
 
 function evidenceRootWithin(worktree, evidenceRoot, patterns) {
-  const base = `${String(worktree || '').replaceAll('\\', '/').replace(/\/$/, '')}/`;
-  const candidate = String(evidenceRoot || '').replaceAll('\\', '/');
-  if (!candidate.startsWith(base)) return false;
-  const relative = candidate.slice(base.length);
-  return patterns.some((pattern) => pathMatches(pattern, relative) || pathMatches(pattern, `${relative}/`));
+  const rawWorktree = String(worktree || ''); const rawEvidence = String(evidenceRoot || '');
+  if (!rawWorktree || !rawEvidence || rawWorktree.includes('\0') || rawEvidence.includes('\0')) return false;
+  if ((rawWorktree.includes('/') && rawWorktree.includes('\\')) || (rawEvidence.includes('/') && rawEvidence.includes('\\'))) return false;
+  const style = rawWorktree.includes('\\') ? '\\' : '/';
+  if ((rawEvidence.includes('\\') ? '\\' : '/') !== style) return false;
+  const normalWorktree = rawWorktree.replace(/[\\/]+$/, '');
+  return patterns.some((pattern) => {
+    let literal;
+    try { literal = ignoredRootLiteral(pattern); } catch { return false; }
+    const expected = `${normalWorktree}${style}${literal.replaceAll('/', style)}`;
+    if (rawEvidence !== expected && !rawEvidence.startsWith(`${expected}${style}`)) return false;
+    const relative = rawEvidence.slice(normalWorktree.length + 1);
+    return !relative.split(style).some((segment) => !segment || segment === '.' || segment === '..');
+  });
 }
 
 function validateUpstreamReceiptIdentities(phase, policy, observations, reasons) {
@@ -612,18 +729,37 @@ function sameRecord(left, right) {
   return sameList(leftKeys, rightKeys) && leftKeys.every((key) => left[key] === right[key]);
 }
 
-async function readAuthorityReceipt(reference, phase, filesystemAuthority, authorityReader, kind) {
+function authorityDigest(payload) {
+  const bytes = Buffer.isBuffer(payload?.bytes) ? payload.bytes : Buffer.from(typeof payload?.bytes === 'string' ? payload.bytes : JSON.stringify(payload?.receipt ?? payload));
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function readAuthorityReceipt(reference, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, kind) {
   if (!reference || typeof reference !== 'object' || typeof reference.path !== 'string'
-    || typeof reference.schema !== 'string' || !reference.expectedIdentity
-    || !reference.expectedIssuer) throw new Error(`${kind} authority reference is incomplete`);
-  const receiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, reference.path);
-  const receipt = await authorityReader.read(receiptPath);
+    || typeof reference.schema !== 'string' || !reference.expectedIdentity) throw new Error(`${kind} authority reference is incomplete`);
+  const separator = phase.evidenceRoot.includes('\\') ? '\\' : '/';
+  const expectedRelative = AUTHORITY_RECEIPT_POLICY[kind].pathTemplate.replace('{phase}', phase.phase).replaceAll('/', separator);
+  const expectedPath = `${phase.evidenceRoot.replace(/[\\/]+$/, '')}${separator}${expectedRelative}`;
+  if (reference.path !== expectedPath) throw new Error(`${kind} authority path is not canonical`);
+  const receiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, reference.path, {
+    ignoredRoot: phase.ignoredRoot,
+  });
+  const payload = await authorityReader.read(receiptPath);
+  const receipt = payload?.receipt ?? payload;
   if (!receipt || typeof receipt !== 'object') throw new Error(`${kind} authority receipt is not an object`);
+  if (!trustedAuthorityResolver?.resolve) throw new Error(`${kind} authority has no independent trusted resolver`);
+  const trusted = await trustedAuthorityResolver.resolve({
+    kind, canonicalPath: receiptPath, digest: authorityDigest(payload), phase: phase.phase,
+    candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+  });
+  const candidate = { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip };
+  if (!trusted || trusted.trusted !== true || trusted.kind !== kind || trusted.phase !== phase.phase
+    || trusted.digest !== authorityDigest(payload) || !sameRecord(trusted.candidate, candidate)) throw new Error(`${kind} authority digest or candidate is not independently trusted`);
   if (receipt.schema !== reference.schema || receipt.schema !== AUTHORITY_RECEIPT_POLICY[kind].schema) throw new Error(`${kind} authority schema drift`);
   if (!sameRecord(receipt.identity, reference.expectedIdentity)) throw new Error(`${kind} authority identity drift`);
   const issuer = receipt.reviewer || receipt.issuer;
-  if (!sameRecord(issuer, reference.expectedIssuer)) throw new Error(`${kind} authority issuer drift`);
-  return receipt;
+  if (!sameRecord(issuer, trusted.issuer)) throw new Error(`${kind} authority issuer drift`);
+  return { receipt, trusted };
 }
 
 function isIndependentIssuer(issuer, phase) {
@@ -638,8 +774,8 @@ function isIndependentIssuer(issuer, phase) {
     && issuer.identity !== '1D integration/release owner');
 }
 
-async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader }) {
-  const receipt = await readAuthorityReceipt(phase.reviewAuthority, phase, filesystemAuthority, authorityReader, 'review');
+async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader, trustedAuthorityResolver }) {
+  const { receipt } = await readAuthorityReceipt(phase.reviewAuthority, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, 'review');
   if (!isIndependentIssuer(receipt.reviewer, phase)) throw new Error('review authority is not independent');
   if (receipt.phase !== phaseId || receipt.verdict !== 'approve') throw new Error('review verdict or phase drift');
   if (receipt.candidate?.implementationTip !== phase.implementationTip
@@ -647,10 +783,10 @@ async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, au
     || receipt.candidate?.cumulativeTip !== phase.reviewedTip) throw new Error('review candidate tip binding drift');
 }
 
-async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, filesystemAuthority, authorityReader }) {
+async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, filesystemAuthority, authorityReader, trustedAuthorityResolver }) {
   if (!phase || !oneD || oneDResult?.decisions?.admissionEligible !== true || oneD.state !== 'accepted') return false;
   try {
-    const receipt = await readAuthorityReceipt(phase.deletionAuthority, phase, filesystemAuthority, authorityReader, 'deletion');
+    const { receipt } = await readAuthorityReceipt(phase.deletionAuthority, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, 'deletion');
     if (!isIndependentIssuer(receipt.issuer, phase)) return false;
     if (receipt.decision?.taskId === phase.producerTask || receipt.decision?.taskId === phase.owner
       || receipt.decision?.taskId === '1D integration/release owner') return false;
