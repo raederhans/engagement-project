@@ -402,24 +402,24 @@ body {
   max-width: 100%;
 }
 
-.route-corridor :is([data-route-evidence], [data-hin-evidence]) {
+.route-corridor :is([data-route-evidence], [data-hin-evidence], [data-known-route-evidence-details]) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.route-corridor :is([data-route-evidence], [data-hin-evidence]) > div {
+.route-corridor :is([data-route-evidence], [data-hin-evidence], [data-known-route-evidence-details]) > div {
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
 }
 
-.route-corridor :is([data-route-evidence], [data-hin-evidence]) dt {
+.route-corridor :is([data-route-evidence], [data-hin-evidence], [data-known-route-evidence-details]) dt {
   font-size: 0.75rem;
   font-weight: 700;
 }
 
-.route-corridor :is([data-route-evidence], [data-hin-evidence]) dd {
+.route-corridor :is([data-route-evidence], [data-hin-evidence], [data-known-route-evidence-details]) dd {
   margin: var(--space-1) 0 0;
 }
 
@@ -437,7 +437,7 @@ body {
 }
 
 @media (max-width: 720px) {
-  .route-corridor :is([data-route-evidence], [data-hin-evidence]) {
+  .route-corridor :is([data-route-evidence], [data-hin-evidence], [data-known-route-evidence-details]) {
     grid-template-columns: 1fr;
   }
 

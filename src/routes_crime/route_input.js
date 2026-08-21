@@ -23,7 +23,10 @@ export function parseRouteGeoJsonText(text) {
 
   let value;
   try {
-    value = JSON.parse(text);
+    value = JSON.parse(text, (key, child) => {
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('blocked key');
+      return child;
+    });
   } catch {
     throw new Error('Imported route must be valid GeoJSON JSON.');
   }
@@ -68,6 +71,10 @@ function admittedRoute(source, coordinates) {
   if (Array.isArray(coordinates) && coordinates.length > ROUTE_CORRIDOR_INPUT_LIMITS.maxRouteVertices) {
     throw new Error('Route input exceeds the supported vertex limit.');
   }
+  if (Array.isArray(coordinates)
+    && coordinates.some((coordinate) => !Array.isArray(coordinate) || coordinate.length !== 2)) {
+    throw new Error('Route input coordinates must contain exactly longitude and latitude.');
+  }
   const routeInput = {
     inputKind: 'known-polyline',
     source,
@@ -83,6 +90,6 @@ function admittedRoute(source, coordinates) {
 
 function cloneCoordinates(value) {
   return Array.isArray(value)
-    ? value.map((coordinate) => Array.isArray(coordinate) ? coordinate.slice(0, 2) : coordinate)
+    ? value.map((coordinate) => Array.isArray(coordinate) ? [...coordinate] : coordinate)
     : value;
 }

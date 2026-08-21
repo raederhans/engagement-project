@@ -19,6 +19,7 @@ const routeCorridorRuntime = manifest['src/routes_crime/route_corridor_app_runti
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
+const knownRouteEvidenceUi = manifest['src/routes_crime/known_route_evidence_ui.js'];
 const acsMultitractLoader = manifest['src/acs_multitract/loader.js'];
 const acsMultitractController = manifest['src/acs_multitract/controller.js'];
 const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
@@ -115,6 +116,7 @@ assert.deepEqual(
     'src/routes_crime/route_corridor_crime_coordinator.js',
     'src/routes_crime/route_corridor_ui_controller.js',
     'src/routes_crime/hin_2025_ui.js',
+    'src/routes_crime/known_route_evidence_ui.js',
   ]),
   'Known Route runtime must own the nested data, HIN, and UI boundaries',
 );
@@ -126,6 +128,7 @@ assert.deepEqual(
   'Route corridor UI must not own additional data or health adapters',
 );
 assert.ok(hin2025Ui?.isDynamicEntry, 'Vite manifest must contain HIN 2025 UI/context as a nested lazy chunk');
+assert.ok(knownRouteEvidenceUi?.isDynamicEntry, 'Vite manifest must contain M4 Known Route evidence as its own nested lazy chunk');
 assert.ok(acsMultitractLoader?.isDynamicEntry, 'Vite manifest must keep the ACS multi-tract loader lazy');
 assert.deepEqual(
   new Set(acsMultitractLoader.dynamicImports || []),
@@ -208,6 +211,9 @@ const budgets = [
   // Text-first HIN context plus dependency-free local segment association and
   // the admitted lifecycle receipt/source-health adapter.
   ['HIN 2025 context', hin2025Ui, 20_000, 7_200],
+  // Loaded only after an admitted Known Route history request; owns strict
+  // centerline consent/match, separated evidence dimensions and segment detail.
+  ['Known Route evidence M4', knownRouteEvidenceUi, 36_500, 13_100],
   ['ACS multi-tract loader', acsMultitractLoader, 1_000, 600],
   ['ACS multi-tract controller', acsMultitractController, 22_000, 8_000],
   ['ACS multi-tract styles', acsMultitractStyles, 4_000, 1_200],

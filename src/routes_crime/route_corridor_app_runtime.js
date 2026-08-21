@@ -10,7 +10,7 @@ export async function loadRouteCorridorUiRuntime({
       return controller.initRouteCorridorUi({
         ...options,
         ...createRouteCorridorRuntimePorts({
-          mount: options.mount,
+          mount: options.host || options.mount,
           readCanonicalSnapshot,
           getMap,
           onSourceHealthObservation,
@@ -28,7 +28,9 @@ function createRouteCorridorRuntimePorts({
 }) {
   let requestModulePromise = null;
   let hinUiPromise = null;
+  let evidenceUiPromise = null;
   let hinGeneration = 0;
+  let evidenceGeneration = 0;
   const reviewHin = (routeInput) => {
     const requestGeneration = ++hinGeneration;
     const root = mount?.querySelector?.('[data-route-hin-context]');
@@ -46,6 +48,21 @@ function createRouteCorridorRuntimePorts({
   };
   return {
     map: createOptionalRouteMapPort(getMap),
+    prepareKnownRouteEvidence(options) {
+      const requestGeneration = ++evidenceGeneration;
+      const root = mount?.querySelector?.('[data-known-route-evidence]');
+      if (!root) return;
+      evidenceUiPromise ||= import('./known_route_evidence_ui.js')
+        .then((module) => module.initKnownRouteEvidenceUi({ root }));
+      void evidenceUiPromise
+        .then((ui) => (requestGeneration === evidenceGeneration ? ui.prepare(options) : null))
+        .catch(() => {
+          if (requestGeneration !== evidenceGeneration) return;
+          evidenceUiPromise = null;
+          root.dataset.knownRouteEvidenceStatus = 'unavailable';
+          root.textContent = 'Known Route evidence is unavailable; this is not a zero result.';
+        });
+    },
     async requestRouteCorridor(options) {
       reviewHin(options?.routeInput);
       requestModulePromise ||= import('./route_corridor_crime_coordinator.js');
@@ -54,7 +71,9 @@ function createRouteCorridorRuntimePorts({
     },
     clearRouteCorridor() {
       hinGeneration += 1;
+      evidenceGeneration += 1;
       void hinUiPromise?.then((ui) => ui.clear()).catch(() => {});
+      void evidenceUiPromise?.then((ui) => ui.clear()).catch(() => {});
       requestModulePromise?.then((module) => module.clear(), Boolean);
     },
   };

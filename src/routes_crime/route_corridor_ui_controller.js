@@ -203,6 +203,7 @@ export function initRouteCorridorUi({
   map,
   requestRouteCorridor,
   clearRouteCorridor = () => {},
+  prepareKnownRouteEvidence = () => {},
   readCanonicalSnapshot = () => ({}),
   readFile = readRouteGeoJsonFile,
 } = {}) {
@@ -385,6 +386,7 @@ export function initRouteCorridorUi({
     if (requestGeneration !== generation) return;
     controller = null;
     setStatus(result);
+    prepareKnownRouteEvidence({ routeInput, incidentResult: result });
   };
   const onBuffer = () => {
     generation += 1;
@@ -558,6 +560,7 @@ function surfaceHtml() {
     <p data-route-status role="status" aria-live="polite" aria-atomic="true"></p>
     <dl data-route-evidence></dl><ol class="incident-results__list" data-route-results></ol>
     <section class="route-corridor__hin" data-route-hin-context aria-live="polite"></section>
+    <section data-known-route-evidence></section>
     </div>
     <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button><button class="button button--secondary" data-route-close data-i18n="route.close" type="button">${t('route.close')}</button></footer>
   </section>`;
