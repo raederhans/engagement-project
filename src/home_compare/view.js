@@ -4,7 +4,7 @@ const COPY = Object.freeze({
   en: Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
-    intro: 'Enter full street addresses. Addresses, coordinates, parcel IDs, and commute destinations stay in this browser session and are excluded from shared settings.',
+    intro: 'Enter full street addresses. Addresses, coordinates, and parcel IDs are used ephemerally to query the listed official public sources; commute destinations remain in this session. None are retained in the comparison artifact or shared settings.',
     address: 'Home address',
     addressHint: 'A unique City geocoder match and exact OPA parcel join are required.',
     add: 'Add another home',
@@ -60,7 +60,7 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
-    intro: '请输入完整街道地址。地址、坐标、parcel ID 与通勤目的地只保留在本次浏览器会话中，不进入共享设置。',
+    intro: '请输入完整街道地址。地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源；通勤目的地只保留在本次会话中。这些内容都不会写入比较产物或共享设置。',
     address: '住宅地址',
     addressHint: '必须同时通过 City geocoder 唯一匹配与 OPA parcel 精确关联。',
     add: '添加住宅',

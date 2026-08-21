@@ -90,7 +90,7 @@ M2 的 frozen evaluation 结论保持 `not-promoted`：历史 PPD reported-incid
 
 - 当前 worktree detached；只允许本任务范围内的小型本地 commits，不 push、不移动 refs。
 - Source Health catalog 保持 `14,924/15,000` bytes（余 76 bytes）；final production bundle
-  的 non-VRE dist 为 `3,952,973/4,000,000`（余 47,027 bytes）。所有 ceiling 保持不变。
+  的 non-VRE dist 为 `3,953,132/4,000,000`（余 46,868 bytes）。所有 ceiling 保持不变。
 - 官方 portal/API 的可达性、HTTP 成功和 row count 不能证明 complete/current/authority；
   每个结论绑定 retrieval time、source vintage、revision identity、coverage 与限制。
 - 私人住宅地址和目的地只可在当前浏览器内存中处理，不得出现在 tracked artifacts、

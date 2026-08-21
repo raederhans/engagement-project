@@ -45,6 +45,8 @@ try {
   assert.equal(await dialog.evaluate((element) => element.matches(':modal')), true);
   assert.equal(await dialog.locator('[data-home-address="0"]').evaluate((element) => document.activeElement === element), true);
   assert.match(await dialog.locator('[data-home-status]').innerText(), /Invalid shared settings were rejected/i);
+  assert.match(await dialog.locator('#home-compare-description').innerText(), /used ephemerally to query the listed official public sources/i);
+  assert.match(await dialog.locator('#home-compare-description').innerText(), /commute destinations remain in this session/i);
   assert.equal(await dialog.locator('img, script').count(), 0, 'malicious share state must not create HTML elements');
 
   await fillAddresses(dialog, 2);
@@ -100,6 +102,8 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   await opener.click();
   await dialog.getByRole('heading', { name: '并排比较 2–4 个费城住宅' }).waitFor();
+  assert.match(await dialog.locator('#home-compare-description').innerText(), /地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源/);
+  assert.match(await dialog.locator('#home-compare-description').innerText(), /通勤目的地只保留在本次会话中/);
   assert.match(await dialog.innerText(), /预测继续不可用/);
   assert.match(await dialog.innerText(), /通勤时间与 isochrone 不可用/);
   assert.match(await dialog.innerText(), /不计算 safety score、不排名，也不推荐住宅/);

@@ -28,7 +28,7 @@
   manifest templates、machine-readable privacy-safe reports 与小型 serving artifact。
 - M3 feature commit 为 `86550a6c4aa6b9d96756bf02e75a3c2b9c228c55`；其 exact parent 是
   starting candidate `9e8ff7ea24b1237a7322a59de602603f2786df5f`。最终 cumulative candidate
-  是包含本记录的后续 docs commit；以交接时 `git rev-parse HEAD` 为准。
+  是包含本记录与 privacy disclosure regression 的后续 commit；以交接时 `git rev-parse HEAD` 为准。
 
 ## Decisions and deviations
 
@@ -41,6 +41,7 @@
 | 2026-08-21 | OPA assessment 最大 tax year 为 2027；L&I license 存在 `3200-12-31` sentinel。 | 前者标记 source-vintage review；后者从 source-as-of 计算排除并保留 DQ，不把未来日期称作 freshness。 |
 | 2026-08-21 | City public route service 不满足 travel-time/isochrone authority，且仓库无 admitted local routing engine。 | road/transit commute 均 unavailable；不使用直线距离或 synthetic graph。 |
 | 2026-08-21 | Final browser 首次复核发现 synthetic L&I fixture 仍返回旧 `open_count`，而生产合同已使用 `not_closed_count`。 | 同步 synthetic fixture 后 focused/browser/standard gates 全部重跑通过；没有放宽 production fail-closed 或 browser 断言。 |
+| 2026-08-21 | Final privacy disclosure audit 发现初版 intro 把临时官方 API 查询误写成完全 browser-only。 | 英中 UI 现明确地址/坐标/parcel 会临时查询列出的官方来源，目的地不发送，且所有私人输入均不进入 comparison artifact/share state；focused/browser assertions 锁定该边界。 |
 
 ## Live process ownership
 
@@ -48,9 +49,9 @@
 | --- | --- | --- | --- |
 | M3 official smoke | `/root` primary agent | bounded foreground command；output/checkpoint=`.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json` | completed; no process/port remains |
 | M3 locked dependency materialization | `/root` primary agent | `npm ci --no-audit --no-fund`; exact existing lockfile; cache/log under `.dfev1/home-neighborhood-compare/m3-v1/`; no package-lock edit | completed; no process remains |
-| M3 production build and bundle | `/root` primary agent | cwd=`d7da`; output=`dist`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/validate-final-exact.log`; success=exit 0 plus existing unchanged ceilings | completed; final non-VRE headroom 47,027 bytes |
-| M3 browser smoke | `/root` primary agent | unique port `4189`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/browser-smoke-final-after-review.log`; synthetic intercepted fixtures only; success=desktop/mobile, keyboard, zero console/page errors | completed against final production dist; port/browser cleaned |
-| M3 full validate | `/root` primary agent | cwd=`d7da`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/validate-final-exact.log`; no shared cache/output beyond repo-standard `dist` | completed exit 0; generated query logs moved into task-owned ignored logs; no process remains |
+| M3 production build and bundle | `/root` primary agent | cwd=`d7da`; output=`dist`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/validate-final-privacy-disclosure.log`; success=exit 0 plus existing unchanged ceilings | completed; final non-VRE headroom 46,868 bytes |
+| M3 browser smoke | `/root` primary agent | unique port `4189`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/browser-smoke-final-privacy-disclosure.log`; synthetic intercepted fixtures only; success=desktop/mobile, keyboard, truthful privacy disclosure, zero console/page errors | completed against final production dist; port/browser cleaned |
+| M3 full validate | `/root` primary agent | cwd=`d7da`; final task log=`.dfev1/home-neighborhood-compare/m3-v1/logs/validate-final-privacy-disclosure.log`; no shared cache/output beyond repo-standard `dist` | completed exit 0; generated query logs moved into task-owned ignored logs; no process remains |
 
 ## Handoff
 

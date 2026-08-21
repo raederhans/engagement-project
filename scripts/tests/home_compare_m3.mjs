@@ -186,6 +186,12 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
     });
     assert.equal((shell.match(/data-home-address=/g) || []).length, count);
     assert.match(shell, count === 3 ? /并排比较 2–4 个费城住宅/ : /Compare 2–4 Philadelphia homes/);
+    assert.match(shell, count === 3
+      ? /地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源/
+      : /used ephemerally to query the listed official public sources/);
+    assert.match(shell, count === 3
+      ? /通勤目的地只保留在本次会话中/
+      : /commute destinations remain in this session/);
   }
   const rendered = homeCompareResultsHtml(makeProjection(2), {
     labels: ['<img src=x onerror=alert(1)>', '<script>alert(2)</script>'],
