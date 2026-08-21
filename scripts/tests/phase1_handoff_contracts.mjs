@@ -89,6 +89,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       phase: upstream,
       ...fixture.phases.find((item) => item.phase === upstream).receipt.identity,
     }));
+    if (phase.phase === 'M4') phase.governanceReceiptIdentities = [{ phase: 'M2', ...fixture.phases.find((item) => item.phase === 'M2').receipt.identity }];
   }
   const inspect = async (worktree) => {
     const phase = fixture.phases.find((item) => item.worktree === worktree);
@@ -147,6 +148,8 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     ['evidence root outside precise ignored root', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').evidenceRoot = 'fixture/M3/.dfev1/not-home'; }, policy],
     ['missing upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').upstreamReceiptIdentities = []; }, policy],
     ['wrong upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').upstreamReceiptIdentities[0].current_snapshot_id = 'wrong'; }, policy],
+    ['missing M2 governance receipt', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').governanceReceiptIdentities = []; }, policy],
+    ['wrong M2 governance identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').governanceReceiptIdentities[0]['data.mart_artifact_identity'] = 'wrong'; }, policy],
     ['divergent ancestor assertion', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M2').ancestorResult = false; }, policy],
     ['M1 canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === 'M1').receipt.requiredFields = []; }, structuredClone(policy)],
     ['M2 canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === 'M2').receipt.schema = 'anything/v1'; }, structuredClone(policy)],

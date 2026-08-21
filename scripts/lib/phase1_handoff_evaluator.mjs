@@ -105,6 +105,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ignoredOutputRoots: ['.dfev1/known-route-evidence-v1/**'],
     ports: [4194],
     upstreamReceiptBindings: ['M1'],
+    governancePrerequisites: ['M2 frozen evaluation receipt recheck'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
     receipt: {
       mode: 'admission',
@@ -176,6 +177,7 @@ function exactPolicyReasons(policy) {
     if (!sameList(actual.ignoredOutputRoots, expected.ignoredOutputRoots)) reasons.push(`${id}: policy ignored-output boundary drift`);
     if (!sameList(actual.ports, expected.ports)) reasons.push(`${id}: policy port boundary drift`);
     if (!sameList(actual.upstreamReceiptBindings, expected.upstreamReceiptBindings)) reasons.push(`${id}: policy upstream binding drift`);
+    if (!sameList(actual.governancePrerequisites || [], expected.governancePrerequisites || [])) reasons.push(`${id}: policy governance prerequisite drift`);
     for (const [field, value] of Object.entries(expected.retention)) {
       if (Array.isArray(value)
         ? !sameList(actual.retention?.[field], value)
@@ -330,6 +332,18 @@ export async function evaluateHandoff({
         phaseReasons.push('receipt unavailable');
       }
       validateUpstreamReceiptIdentities(phase, phasePolicy, observations, phaseReasons);
+      if (phaseId === 'M4') {
+        const m2 = observations.get('M2');
+        const declaration = (phase.governanceReceiptIdentities || []).filter((entry) => entry?.phase === 'M2');
+        if (declaration.length !== 1 || !m2 || m2.state !== 'accepted' || m2.receipt?.availability !== 'available') phaseReasons.push('M2 governance receipt is unavailable or unrechecked');
+        else {
+          const identity = { ...declaration[0] }; delete identity.phase;
+          if (!sameRecord(identity, m2.receipt.identity)) phaseReasons.push('M2 governance receipt identity drift');
+          try {
+            if (!await isAncestor(m2.worktree, m2.reviewedTip || m2.exactTip, phase.phaseBase)) phaseReasons.push('M2 governance tip is not an ancestor of M4 phase base');
+          } catch { phaseReasons.push('M2 governance ancestry is not resolvable'); }
+        }
+      }
       if (phase.state === 'accepted' && !phase.reviewedTip) phaseReasons.push('accepted observation has no reviewed tip');
       if (phase.state === 'accepted' && !phase.recordTip) phaseReasons.push('accepted observation has no record tip');
       if (phase.state === 'accepted' && phase.recordTip !== phase.reviewedTip) phaseReasons.push('accepted record/review tip drift');
