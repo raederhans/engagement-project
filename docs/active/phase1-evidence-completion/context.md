@@ -47,7 +47,9 @@ the temporary harness.
 
 ## Handoff checkpoint
 
-Status is repairing. After fresh focused, serial browser, bundle, full
-ci:release, validate, port-cleanliness, and a new Lore commit, update the
-exact cumulative SHA here and request independent re-review. Integration,
+Validated implementation candidate: b4934b47e9ac35d6917ebc34b41a38afef2f92ab.
+It completed fresh focused checks, serial real-browser evidence, unchanged
+bundle policy, and the full npm run ci:release composite with no remaining
+listener on 4178, 4189, 4194, or 4198. The cumulative handoff is now
+ready-for-integration and independent re-review is requested. Integration,
 remote CI, deployment, scheduled refresh, and online smoke remain deferred.

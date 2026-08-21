@@ -9,8 +9,8 @@
 | Browser lifecycle repair | implemented; focused recheck pending | Shared helper and deterministic preview/Chromium/context/route/page failure-injection contracts are implemented; all three suites use it. |
 | Release graph and Phase 1 binding | implemented; focused recheck pending | Exact leaves/composite graph and executable Phase 1 handoff contracts are implemented. |
 | Handoff matrix and actual resources | implemented; final record pending | Plan records M1-M4/1D paths, receipts, ownership and serial order; context records 4198, 4189, 4194 and only real task outputs. |
-| Serial local verification | release/aggregate pending | Focused contracts, build/bundle, and the three direct browser suites are green; full npm run ci:release and npm run validate remain. |
-| Independent review | pending new candidate | This task cannot self-approve. Request independent code/architecture review only after the new exact cumulative Lore commit. |
+| Serial local verification | complete | Focused contracts, real serial browsers, unchanged-ceiling bundle, complete npm run validate, and composite npm run ci:release passed on b4934b47e9ac35d6917ebc34b41a38afef2f92ab. |
+| Independent review | requested | This task cannot self-approve. Main supervising task must perform independent code/architecture re-review of the exact cumulative candidate. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
 ## Local verification ledger
@@ -32,7 +32,9 @@ browser evidence.
 | npm run test:area-intelligence-browser | 0 | Real production-dist Chromium suite passed promoted/no-promotion and responsive paths with zero console/page errors; port 4198 and its dist harness were released. |
 | npm run test:home-compare-browser | 1 then repaired, then 0 | First browser run exposed close clearing a completed result; cleanup released 4189. The narrow in-flight-only fix passed 16 focused contracts, rebuilt bundle policy, then passed the real 2/3/4 profile, bilingual, privacy, partial/unavailable and mobile suite with zero console/page errors; 4189 released. |
 | npm run test:known-route-evidence-browser | 0 | Real production-dist Chromium suite passed consent/privacy/fail-closed/mobile paths with zero console/page errors; port 4194 released and no test-results directory was created. |
+| npm run ci:release | 0 | Full composite release runner passed on b4934b47e9ac35d6917ebc34b41a38afef2f92ab: audit, both linters, complete npm run validate (including Phase 1 handoff/lifecycle contracts, manifest and bundle policy), general/ACS browsers, all three DFEV browser leaves, and visual-dist. |
+| Post-run listener check | 0 | No listener remained on 4178, 4189, 4194, or 4198. |
 
 The pre-repair candidate's validation ledger is superseded and must not be used
-as evidence for this repair. No browser or composite release run has yet been
-claimed for the repaired code.
+as evidence for this repair. This task stops at ready-for-integration and does
+not self-approve, integrate, push, deploy, or clean worktrees/branches.
