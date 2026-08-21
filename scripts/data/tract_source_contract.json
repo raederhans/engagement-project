@@ -7,6 +7,7 @@
   "county_fips": "101",
   "expected_current_vintage": 2025,
   "expected_geoid_count": 408,
+  "geography_definition": "2020-census-tracts",
   "required_fields": [
     "STATE",
     "COUNTY",

@@ -1,0 +1,220 @@
+{
+  "fixture_schema": "engagement-phl-crime-synthetic-revision-fixture/v1",
+  "synthetic": true,
+  "serving_eligible": false,
+  "description": "Small invented rows for revision, crosswalk, spatial, ACS, and transaction tests. No row is official or observed data.",
+  "scope": {
+    "start": "2026-08-01",
+    "end_exclusive": "2026-09-01"
+  },
+  "corridor_registry": {
+    "schema": "engagement-route-corridor-registry/v1",
+    "registry_id": "synthetic-corridors-v1",
+    "corridors": [
+      {
+        "id": "synthetic-east-west",
+        "buffer_m": 250,
+        "temporal_start": "2026-08-01",
+        "temporal_end_exclusive": "2026-09-01",
+        "route": {
+          "inputKind": "known-polyline",
+          "source": "imported-route",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-75.18, 39.95], [-75.14, 39.95]]
+          }
+        }
+      }
+    ]
+  },
+  "vintages": [
+    {
+      "retrieved_at": "2026-08-15T12:00:00.000Z",
+      "source_as_of": "2026-08-13T12:00:00.000Z",
+      "rows": [
+        {
+          "cartodb_id": 101,
+          "objectid": 1001,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-10T10:00:00.000Z",
+          "dispatch_date": "2026-08-10",
+          "dispatch_time": "06:00:00",
+          "hour": 6,
+          "dc_key": 202609000101,
+          "location_block": "100 BLOCK SYNTHETIC ST",
+          "ucr_general": "600",
+          "text_general_code": "Thefts",
+          "point_x": -75.16,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 102,
+          "objectid": 1002,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-11T11:00:00.000Z",
+          "dispatch_date": "2026-08-11",
+          "dispatch_time": "07:00:00",
+          "hour": 7,
+          "dc_key": 202609000102,
+          "location_block": "200 BLOCK SYNTHETIC ST",
+          "ucr_general": "600",
+          "text_general_code": "Thefts",
+          "point_x": -75.17,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 103,
+          "objectid": 1003,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-12T12:00:00.000Z",
+          "dispatch_date": "2026-08-12",
+          "dispatch_time": "08:00:00",
+          "hour": 8,
+          "dc_key": 202609000103,
+          "location_block": "300 BLOCK SYNTHETIC ST",
+          "ucr_general": "1400",
+          "text_general_code": "Vandalism/Criminal Mischief",
+          "point_x": -75.18,
+          "point_y": 39.96
+        },
+        {
+          "cartodb_id": 104,
+          "objectid": 1004,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-13T12:00:00.000Z",
+          "dispatch_date": "2026-08-13",
+          "dispatch_time": "08:00:00",
+          "hour": 8,
+          "dc_key": 202609000104,
+          "location_block": "400 BLOCK SYNTHETIC ST",
+          "ucr_general": "800",
+          "text_general_code": "Other Assaults",
+          "point_x": -75.15,
+          "point_y": 39.94
+        },
+        {
+          "cartodb_id": 105,
+          "objectid": 1005,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-13T09:00:00.000Z",
+          "dispatch_date": "2026-08-13",
+          "dispatch_time": "05:00:00",
+          "hour": 5,
+          "dc_key": 202609000105,
+          "location_block": "500 BLOCK SYNTHETIC ST",
+          "ucr_general": "9999",
+          "text_general_code": "Synthetic Unknown Label",
+          "point_x": -75.16,
+          "point_y": 39.95
+        }
+      ]
+    },
+    {
+      "retrieved_at": "2026-08-16T12:00:00.000Z",
+      "source_as_of": "2026-08-14T12:00:00.000Z",
+      "rows": [
+        {
+          "cartodb_id": 101,
+          "objectid": 1001,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-10T10:00:00.000Z",
+          "dispatch_date": "2026-08-10",
+          "dispatch_time": "06:00:00",
+          "hour": 6,
+          "dc_key": 202609000101,
+          "location_block": "100 BLOCK SYNTHETIC ST",
+          "ucr_general": "600",
+          "text_general_code": "Thefts",
+          "point_x": -75.16,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 102,
+          "objectid": 1002,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-11T11:00:00.000Z",
+          "dispatch_date": "2026-08-11",
+          "dispatch_time": "07:00:00",
+          "hour": 7,
+          "dc_key": 202609000102,
+          "location_block": "200 BLOCK SYNTHETIC ST",
+          "ucr_general": "300",
+          "text_general_code": "Robbery No Firearm",
+          "point_x": -75.17,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 103,
+          "objectid": 1003,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-12T12:00:00.000Z",
+          "dispatch_date": "2026-08-12",
+          "dispatch_time": "08:00:00",
+          "hour": 8,
+          "dc_key": 202609000103,
+          "location_block": "350 BLOCK SYNTHETIC ST",
+          "ucr_general": "1400",
+          "text_general_code": "Vandalism/Criminal Mischief",
+          "point_x": -75.181,
+          "point_y": 39.961
+        },
+        {
+          "cartodb_id": 105,
+          "objectid": 1005,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-13T09:00:00.000Z",
+          "dispatch_date": "2026-08-13",
+          "dispatch_time": "05:00:00",
+          "hour": 5,
+          "dc_key": 202609000105,
+          "location_block": "500 BLOCK SYNTHETIC ST",
+          "ucr_general": "9999",
+          "text_general_code": "Synthetic Unknown Label",
+          "point_x": -75.16,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 106,
+          "objectid": 1006,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-09T09:00:00.000Z",
+          "dispatch_date": "2026-08-09",
+          "dispatch_time": "05:00:00",
+          "hour": 5,
+          "dc_key": 202609000106,
+          "location_block": "600 BLOCK SYNTHETIC ST",
+          "ucr_general": "600",
+          "text_general_code": "Thefts",
+          "point_x": -75.16,
+          "point_y": 39.95
+        },
+        {
+          "cartodb_id": 107,
+          "objectid": 1007,
+          "dc_dist": "9",
+          "psa": "1",
+          "dispatch_date_time": "2026-08-14T12:00:00.000Z",
+          "dispatch_date": "2026-08-14",
+          "dispatch_time": "08:00:00",
+          "hour": 8,
+          "dc_key": 202609000107,
+          "location_block": "700 BLOCK SYNTHETIC ST",
+          "ucr_general": "800",
+          "text_general_code": "Other Assaults",
+          "point_x": -75.15,
+          "point_y": 39.94
+        }
+      ]
+    }
+  ]
+}

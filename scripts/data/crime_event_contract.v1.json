@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "event_schema": "engagement-phl-crime-event/v1",
+  "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
+  "snapshot_manifest_schema": "engagement-phl-crime-source-snapshot/v1",
+  "quality_report_schema": "engagement-phl-crime-data-quality/v1",
+  "lineage_registry_schema": "engagement-phl-crime-lineage/v1",
+  "default_partition_count": 64,
+  "canonical_event_required_fields": [
+    "schema",
+    "source_record_id",
+    "source_ids",
+    "raw_category",
+    "normalized_category",
+    "event_at",
+    "generalized_location",
+    "coordinate",
+    "spatial",
+    "acs",
+    "source_vintage",
+    "first_seen_at",
+    "last_seen_at",
+    "row_hash",
+    "lifecycle",
+    "lineage"
+  ],
+  "crosswalk": {
+    "path": "src/data/crime_taxonomy.v1.json",
+    "version_field": "taxonomy_version",
+    "raw_label_field": "text_general_code",
+    "raw_ucr_field": "ucr_general",
+    "unknown_policy": "fail-closed-null-normalized-category"
+  },
+  "spatial": {
+    "coordinate_reference_system": "EPSG:4326",
+    "city_bbox": [-75.35, 39.8, -74.9, 40.2],
+    "source_precision": "hundred-block-generalized",
+    "tract": {
+      "source_path": "public/data/tracts_phl.geojson",
+      "source_registry_path": "scripts/data/tract_source_contract.json",
+      "geography_definition": "2020-census-tracts",
+      "ambiguous_boundary_policy": "fail-closed"
+    },
+    "fixed_grid": {
+      "scheme": "epsg3857-square-grid-v1",
+      "projected_cell_size_m": 500,
+      "meaning": "Deterministic projected grid index; not a claim of 500 metre ground distance everywhere."
+    },
+    "route_corridor": {
+      "registry_optional": true,
+      "positive_relation": "reported-point-near-route",
+      "unavailable_registry_status": "unavailable",
+      "exact_occurrence_claim": false
+    }
+  },
+  "acs": {
+    "snapshot_path": "src/data/acs_tracts_2024_pa101.json",
+    "schema": "engagement-acs-tract-population/v1",
+    "dataset": "American Community Survey 5-Year Detailed Table B01003",
+    "vintage": "2024",
+    "period": "2020-2024",
+    "geography_definition": "2020-census-tracts",
+    "estimate_variable": "B01003_001E",
+    "moe90_variable": "B01003_001M",
+    "estimate_and_moe_are_distinct": true,
+    "geoid_set_must_match_tract_source": true,
+    "temporal_compatibility": "event-year-within-acs-period-only",
+    "out_of_period_status": "incompatible-vintage"
+  },
+  "lifecycle_states": [
+    "active",
+    "removal-candidate"
+  ],
+  "revision_types": [
+    "added",
+    "late-arriving",
+    "modified",
+    "reclassified",
+    "unchanged",
+    "reappeared",
+    "transformation-updated",
+    "removal-candidate"
+  ],
+  "data_statuses": [
+    "available",
+    "zero",
+    "partial",
+    "stale",
+    "unavailable"
+  ],
+  "artifact_policy": {
+    "raw_and_canonical_git_policy": "ignored-only",
+    "synthetic_fixture_runtime_policy": "never-admitted-as-official",
+    "identity_hash_purpose": "source snapshot and artifact byte identity only",
+    "model_input_requires_lineage_registry": true,
+    "serving_projection_status": "contract-only-not-published"
+  }
+}
