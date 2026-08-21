@@ -52,7 +52,7 @@
     "test:route-decision-s6": "node --test scripts/tests/route_decision_s6_functional_needs.mjs scripts/tests/route_generation_s6_compact_graph.mjs scripts/tests/route_decision_s6_browser_acceptance.mjs scripts/tests/route_generation_s6_compact_graph_runtime.mjs",
     "test:hin-2025": "node --test scripts/tests/hin_2025_snapshot.mjs scripts/tests/hin_2025_context.mjs scripts/tests/hin_2025_ui.mjs",
     "test:runtime-data-policy": "node --test scripts/tests/runtime_data_policy.mjs",
-    "test:data-pipeline": "node --test scripts/tests/data_pipeline_contracts.mjs",
+    "test:data-pipeline": "node --test scripts/tests/data_pipeline_contracts.mjs scripts/tests/tract_crime_lifecycle.mjs",
     "test:data-automation": "node --test scripts/tests/data_automation_contracts.mjs scripts/tests/source_candidate_audit.mjs",
     "test:data-contract": "npm run data:check && npm run test:data-sources && npm run test:runtime-data-policy && npm run test:data-pipeline && npm run test:data-automation",
     "test:product-integrity": "node --test scripts/tests/product_integrity_contracts.mjs",

@@ -50,42 +50,11 @@ jobs:
         id: changes
         shell: bash
         run: |
-          tract_changed=false
-          snapshot_changed=false
-          if ! git diff --quiet -- public/data/tracts_phl.geojson; then
-            tract_changed=true
-          fi
-          if ! git diff --quiet -- public/data/tract_crime_counts_last12m.json; then
-            if ! node --input-type=module <<'NODE'
-          import { execFileSync } from 'node:child_process';
-          import { readFileSync } from 'node:fs';
-
-          const artifact = 'public/data/tract_crime_counts_last12m.json';
-          const previous = JSON.parse(execFileSync('git', ['show', `HEAD:${artifact}`], { encoding: 'utf8' }));
-          const current = JSON.parse(readFileSync(artifact, 'utf8'));
-          delete previous.meta.generated_at;
-          delete current.meta.generated_at;
-
-          function canonicalize(value) {
-            if (Array.isArray(value)) return value.map(canonicalize);
-            if (value && typeof value === 'object') {
-              return Object.fromEntries(
-                Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]),
-              );
-            }
-            return value;
-          }
-
-          if (JSON.stringify(canonicalize(previous)) !== JSON.stringify(canonicalize(current))) {
-            process.exitCode = 1;
-          }
-          NODE
-            then
-              snapshot_changed=true
-            fi
-          fi
-          if [[ "$tract_changed" == false && "$snapshot_changed" == false ]]; then
-            git restore -- public/data/tracts_phl.geojson public/data/tract_crime_counts_last12m.json
+          if git diff --quiet -- \
+            public/data/tracts_phl.geojson \
+            public/data/tract_crime_counts_last12m.json \
+            src/source_health/tract_crime_bundled_receipt.json \
+            src/source_health/tract_crime_bundled_receipt.generated.js; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -101,11 +70,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add -- public/data/tracts_phl.geojson public/data/tract_crime_counts_last12m.json
+          git add -- \
+            public/data/tracts_phl.geojson \
+            public/data/tract_crime_counts_last12m.json \
+            src/source_health/tract_crime_bundled_receipt.json \
+            src/source_health/tract_crime_bundled_receipt.generated.js
           git commit -m "Refresh published tract data"
           git push origin "$branch"
           gh pr create \
             --base main \
             --head "$branch" \
             --title "Refresh published tract data" \
-            --body "Automated weekly refresh of the published Philadelphia tract boundary and crime snapshot. Generated files were rebuilt and the full validation suite passed. Review and merge manually; this workflow never pushes directly to main."
+            --body "Automated weekly refresh of the published Philadelphia tract boundary plus the validated tract snapshot/Source Health receipt pair. Generated files were rebuilt and the full validation suite passed. Review and merge manually; this workflow never pushes directly to main."

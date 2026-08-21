@@ -127,16 +127,18 @@ test('Crime coverage uses semantic dates and fails unavailable on malformed cove
 });
 
 test('official URLs and bundled receipt versions match committed fixtures', async () => {
-  const [acsText, vreText, hinReceiptText, tractText] = await Promise.all([
+  const [acsText, vreText, hinReceiptText, tractText, tractReceiptText] = await Promise.all([
     readFile(new URL('../../src/data/acs_tracts_2024_pa101.json', import.meta.url), 'utf8'),
     readFile(new URL('../../src/data/acs_vre_b01003_2024_pa101.json', import.meta.url), 'utf8'),
     readFile(new URL('../../public/data/hin_2025.receipt.json', import.meta.url), 'utf8'),
     readFile(new URL('../../public/data/tract_crime_counts_last12m.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/source_health/tract_crime_bundled_receipt.json', import.meta.url), 'utf8'),
   ]);
   const acs = JSON.parse(acsText);
   const vre = JSON.parse(vreText);
   const hin = JSON.parse(hinReceiptText);
   const tract = JSON.parse(tractText);
+  const tractReceipt = JSON.parse(tractReceiptText);
   assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.acsPopulation, {
     sourceId: 'acs-tract-population',
     sourceAsOf: `${acs.manifest.vintage}-12-31`,
@@ -173,16 +175,22 @@ test('official URLs and bundled receipt versions match committed fixtures', asyn
     temporalEnd: '2023-12-31',
   });
   assert.deepEqual(BUNDLED_SOURCE_RECEIPTS.tractCrime, {
-    sourceId: 'tract-crime-snapshot',
-    sourceAsOf: tract.meta.coverage_date,
-    retrievedAt: null,
-    builtAt: tract.meta.generated_at,
-    version: `tract crime snapshot schema v${tract.meta.schema_version}`,
-    identity: `coverage:${tract.meta.start}:${tract.meta.end}:${tract.meta.row_count}`,
-    recordCount: tract.meta.row_count,
-    temporalStart: tract.meta.start,
-    temporalEnd: tract.meta.end,
+    sourceId: tractReceipt.source.sourceId,
+    sourceAsOf: tractReceipt.clocks.sourceAsOf,
+    retrievedAt: tractReceipt.clocks.retrievedAt,
+    builtAt: tractReceipt.clocks.builtAt,
+    version: tractReceipt.artifact.version,
+    identity: tractReceipt.artifact.identity,
+    recordCount: tractReceipt.artifact.recordCount,
+    temporalStart: tractReceipt.coverage.temporalStart,
+    temporalEnd: tractReceipt.coverage.temporalEnd,
   });
+  assert.equal(tractReceipt.clocks.sourceAsOf, tract.meta.coverage_date);
+  assert.equal(tractReceipt.clocks.builtAt, tract.meta.generated_at);
+  assert.equal(tractReceipt.clocks.observedAt, null);
+  assert.equal(tractReceipt.failClosed.recordCount, null);
+  assert.equal(tractReceipt.failClosed.unavailableIsZero, false);
+  assert.equal(tractReceipt.failClosed.unknownIsCurrent, false);
   assert.equal(SOURCE_HEALTH_CATALOG.length, 10);
   assert.deepEqual(
     SOURCE_HEALTH_CATALOG

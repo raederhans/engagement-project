@@ -10,12 +10,25 @@ import {
   createTractCrimeSnapshot,
   normalizeCoverageDate,
   prepareTracts,
-  writeJsonAtomic,
+  validateTractCrimeSnapshot,
 } from './lib/tract_crime_snapshot.mjs';
+import {
+  compareTractCrimeSemanticSnapshots,
+  createTractCrimeReceipt,
+  validateTractCrimeBundledReceiptModule,
+  validateTractCrimeReceipt,
+  validateTractSourceRegistry,
+  writeTractCrimeLifecycleAtomic,
+} from './lib/tract_crime_receipt.mjs';
 
 const DEFAULT_CARTO_URL = 'https://phl.carto.com/api/v2/sql';
 const DEFAULT_TRACT_FILE = path.join('public', 'data', 'tracts_phl.geojson');
 const DEFAULT_OUTPUT_FILE = path.join('public', 'data', 'tract_crime_counts_last12m.json');
+const DEFAULT_RECEIPT_FILE = path.join('src', 'source_health', 'tract_crime_bundled_receipt.json');
+const DEFAULT_BUNDLED_RECEIPT_FILE = path.join(
+  'src', 'source_health', 'tract_crime_bundled_receipt.generated.js',
+);
+const DEFAULT_REGISTRY_FILE = path.join('scripts', 'data', 'tract_source_contract.json');
 const COVERAGE_SQL = `SELECT MAX(dispatch_date_time)::date AS max_dt
 FROM incidents_part1_part2`;
 
@@ -27,6 +40,7 @@ export async function runPrecompute(argv = process.argv.slice(2), dependencies =
   }
 
   const readFile = dependencies.readFile || fs.readFile;
+  const fileSystem = dependencies.fileSystem || fs;
   const now = dependencies.now || (() => new Date());
   const cartoUrl = options.cartoUrl || DEFAULT_CARTO_URL;
   const requestRows = dependencies.requestRows
@@ -34,6 +48,9 @@ export async function runPrecompute(argv = process.argv.slice(2), dependencies =
 
   const tractGeoJson = JSON.parse(await readFile(options.tractFile, 'utf8'));
   const tracts = prepareTracts(tractGeoJson);
+  const registry = validateTractSourceRegistry(dependencies.registry || JSON.parse(
+    await fileSystem.readFile(options.registryFile, 'utf8'),
+  ));
   const coverageDate = options.asOf || await fetchCoverageDate(requestRows);
   const window = createSnapshotWindow(coverageDate);
   console.log(
@@ -54,16 +71,55 @@ export async function runPrecompute(argv = process.argv.slice(2), dependencies =
     },
   });
 
+  const retrievedAt = now().toISOString();
+  const builtAt = now().toISOString();
   const snapshot = createTractCrimeSnapshot({
     tracts,
     counts,
     coverageDate,
-    generatedAt: now().toISOString(),
+    generatedAt: builtAt,
     sourceUrl: cartoUrl,
     tractSource: normalizePath(options.tractFile),
   });
-  await writeJsonAtomic(options.outputFile, snapshot, { space: 0 });
-  console.log(`[tract-crime] Wrote ${options.outputFile} with ${snapshot.rows.length} complete rows.`);
+  validateTractCrimeSnapshot(snapshot, tracts);
+  const receipt = createTractCrimeReceipt({ snapshot, tracts, retrievedAt, registry });
+  validateTractCrimeReceipt(receipt, { snapshot, tracts, registry });
+  const existing = await readExistingLifecycle(
+    options.outputFile,
+    options.receiptFile,
+    options.bundledReceiptFile,
+    fileSystem,
+  );
+  if (existing) {
+    validateTractCrimeSnapshot(existing.snapshot, tracts);
+    validateTractCrimeReceipt(existing.receipt, {
+      snapshot: existing.snapshot,
+      tracts,
+      registry,
+    });
+    validateTractCrimeBundledReceiptModule(existing.bundledReceipt, existing.receipt, {
+      snapshot: existing.snapshot,
+      tracts,
+      registry,
+    });
+    if (compareTractCrimeSemanticSnapshots(existing.snapshot, snapshot, tracts)) {
+      console.log('[tract-crime] No semantic source change; existing snapshot and receipt left untouched.');
+      return existing.snapshot;
+    }
+  }
+  await writeTractCrimeLifecycleAtomic({
+    snapshotDestination: options.outputFile,
+    receiptDestination: options.receiptFile,
+    bundledReceiptDestination: options.bundledReceiptFile,
+    snapshot,
+    receipt,
+    tracts,
+    registry,
+    fileSystem,
+  });
+  console.log(
+    `[tract-crime] Wrote validated ${snapshot.rows.length}-row snapshot and Source Health receipt.`,
+  );
   return snapshot;
 }
 
@@ -111,6 +167,9 @@ function parseArguments(argv) {
     concurrency: 3,
     tractFile: DEFAULT_TRACT_FILE,
     outputFile: DEFAULT_OUTPUT_FILE,
+    receiptFile: DEFAULT_RECEIPT_FILE,
+    bundledReceiptFile: DEFAULT_BUNDLED_RECEIPT_FILE,
+    registryFile: DEFAULT_REGISTRY_FILE,
     help: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -127,6 +186,9 @@ function parseArguments(argv) {
     else if (name === '--concurrency') options.concurrency = Number(value);
     else if (name === '--tracts') options.tractFile = value;
     else if (name === '--output') options.outputFile = value;
+    else if (name === '--receipt') options.receiptFile = value;
+    else if (name === '--bundled-receipt') options.bundledReceiptFile = value;
+    else if (name === '--registry') options.registryFile = value;
     else throw new Error(`Unknown argument: ${name}`);
   }
   if (!Number.isInteger(options.concurrency) || options.concurrency < 1 || options.concurrency > 10) {
@@ -146,6 +208,9 @@ Options:
   --concurrency N      Concurrent tract queries, 1-10 (default: 3)
   --tracts PATH        Tract GeoJSON input (default: ${DEFAULT_TRACT_FILE})
   --output PATH        Snapshot output (default: ${DEFAULT_OUTPUT_FILE})
+  --receipt PATH       Source Health receipt output (default: ${DEFAULT_RECEIPT_FILE})
+  --bundled-receipt PATH  Runtime receipt module (default: ${DEFAULT_BUNDLED_RECEIPT_FILE})
+  --registry PATH      Source registry (default: ${DEFAULT_REGISTRY_FILE})
   --carto URL          CARTO SQL endpoint (default: ${DEFAULT_CARTO_URL})
   --help               Show this help`;
 }
@@ -156,6 +221,36 @@ function normalizePath(value) {
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function readExistingLifecycle(snapshotFile, receiptFile, bundledReceiptFile, fileSystem) {
+  const [snapshot, receipt, bundledReceipt] = await Promise.all([
+    readJsonIfPresent(snapshotFile, fileSystem),
+    readJsonIfPresent(receiptFile, fileSystem),
+    readTextIfPresent(bundledReceiptFile, fileSystem),
+  ]);
+  if (new Set([snapshot, receipt, bundledReceipt].map(Boolean)).size !== 1) {
+    throw new Error('Existing tract crime lifecycle is incomplete; all generated artifacts must be repaired together.');
+  }
+  return snapshot ? { snapshot, receipt, bundledReceipt } : null;
+}
+
+async function readJsonIfPresent(file, fileSystem) {
+  try {
+    return JSON.parse(await fileSystem.readFile(file, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function readTextIfPresent(file, fileSystem) {
+  try {
+    return await fileSystem.readFile(file, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 function isDirectInvocation() {

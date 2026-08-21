@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -143,13 +143,13 @@ test('refresh and source-audit workflows preserve review and permission boundari
   ]);
   assert.match(
     refresh,
-    /if \[\[ "\$tract_changed" == false && "\$snapshot_changed" == false \]\]; then[\s\S]*git restore -- public\/data\/tracts_phl\.geojson public\/data\/tract_crime_counts_last12m\.json[\s\S]*changed=false/,
+    /git diff --quiet --[\s\S]*public\/data\/tracts_phl\.geojson[\s\S]*public\/data\/tract_crime_counts_last12m\.json[\s\S]*src\/source_health\/tract_crime_bundled_receipt\.json[\s\S]*src\/source_health\/tract_crime_bundled_receipt\.generated\.js[\s\S]*changed=false/,
   );
   assert.match(
     refresh,
-    /git diff --quiet -- public\/data\/tract_crime_counts_last12m\.json[\s\S]*execFileSync\('git', \['show', `HEAD:\$\{artifact\}`\][\s\S]*delete previous\.meta\.generated_at;[\s\S]*delete current\.meta\.generated_at;[\s\S]*function canonicalize[\s\S]*JSON\.stringify\(canonicalize\(previous\)\) !== JSON\.stringify\(canonicalize\(current\)\)[\s\S]*snapshot_changed=true/,
+    /git add --[\s\S]*public\/data\/tracts_phl\.geojson[\s\S]*public\/data\/tract_crime_counts_last12m\.json[\s\S]*src\/source_health\/tract_crime_bundled_receipt\.json[\s\S]*src\/source_health\/tract_crime_bundled_receipt\.generated\.js/,
   );
-  assert.doesNotMatch(refresh, /ignore-matching-lines/);
+  assert.doesNotMatch(refresh, /delete previous\.meta\.generated_at|canonicalize\(previous\)|ignore-matching-lines/);
 
   assert.match(audit, /cron:\s*['"]41 7 2 1,4,7,10 \*['"]/);
   assert.match(audit, /contents:\s*read/);
@@ -157,88 +157,6 @@ test('refresh and source-audit workflows preserve review and permission boundari
   assert.match(audit, /audit_tract_source\.mjs/);
   assert.match(audit, /gh issue (?:create|comment)/);
   assert.match(audit, /actions\/checkout@[0-9a-f]{40}/);
-});
-
-test('workflow semantic comparison ignores generated_at only', async (t) => {
-  const refresh = await readFile(
-    new URL('../../.github/workflows/refresh-tract-data.yml', import.meta.url),
-    'utf8',
-  );
-  const embedded = /node --input-type=module <<'NODE'\r?\n([\s\S]*?)\r?\n\s{10}NODE/.exec(refresh)?.[1];
-  assert.ok(embedded, 'workflow must retain an executable semantic snapshot comparison');
-  const comparisonScript = embedded.replace(/^ {10}/gm, '');
-
-  const directory = await mkdtemp(path.join(tmpdir(), 'engagement-semantic-diff-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const artifactDirectory = path.join(directory, 'public', 'data');
-  const artifact = path.join(artifactDirectory, 'tract_crime_counts_last12m.json');
-  await mkdir(artifactDirectory, { recursive: true });
-  const baseline = {
-    meta: {
-      generated_at: '2026-08-03T00:00:00.000Z',
-      coverage_date: '2026-08-02',
-      provenance: { dataset: 'incidents_part1_part2', owner: 'City of Philadelphia' },
-    },
-    rows: [
-      { geoid: '42101000100', total: 1 },
-      { geoid: '42101000200', total: 2 },
-    ],
-  };
-  await writeFile(artifact, JSON.stringify(baseline));
-  await execFileAsync('git', ['init'], { cwd: directory });
-  await execFileAsync('git', ['add', '--', 'public/data/tract_crime_counts_last12m.json'], { cwd: directory });
-  await execFileAsync('git', [
-    '-c', 'user.name=contract-test',
-    '-c', 'user.email=contract@example.test',
-    'commit', '-m', 'baseline',
-  ], { cwd: directory });
-
-  await writeFile(artifact, JSON.stringify({
-    ...baseline,
-    meta: { ...baseline.meta, generated_at: '2026-08-10T00:00:00.000Z' },
-  }));
-  await execFileAsync(process.execPath, ['--input-type=module', '--eval', comparisonScript], {
-    cwd: directory,
-  });
-
-  await writeFile(artifact, JSON.stringify({
-    rows: [
-      { total: 1, geoid: '42101000100' },
-      { total: 2, geoid: '42101000200' },
-    ],
-    meta: {
-      provenance: { owner: 'City of Philadelphia', dataset: 'incidents_part1_part2' },
-      coverage_date: '2026-08-02',
-      generated_at: '2026-08-10T00:00:00.000Z',
-    },
-  }, null, 2));
-  await execFileAsync(process.execPath, ['--input-type=module', '--eval', comparisonScript], {
-    cwd: directory,
-  });
-
-  await writeFile(artifact, JSON.stringify({
-    ...baseline,
-    meta: { ...baseline.meta, generated_at: '2026-08-10T00:00:00.000Z' },
-    rows: [...baseline.rows].reverse(),
-  }));
-  await assert.rejects(
-    execFileAsync(process.execPath, ['--input-type=module', '--eval', comparisonScript], {
-      cwd: directory,
-    }),
-    ({ code }) => code === 1,
-  );
-
-  await writeFile(artifact, JSON.stringify({
-    ...baseline,
-    meta: { ...baseline.meta, generated_at: '2026-08-10T00:00:00.000Z' },
-    rows: [{ geoid: '42101000100', total: 9 }, baseline.rows[1]],
-  }));
-  await assert.rejects(
-    execFileAsync(process.execPath, ['--input-type=module', '--eval', comparisonScript], {
-      cwd: directory,
-    }),
-    ({ code }) => code === 1,
-  );
 });
 
 function assertOrdered(value, markers) {

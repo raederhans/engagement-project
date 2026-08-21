@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "registry_schema": "engagement-tract-crime-source-registry/v1",
   "service_url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer",
   "current_layer_id": 0,
   "state_fips": "42",
@@ -14,5 +15,124 @@
     "NAME",
     "AREALAND",
     "AREAWATER"
+  ],
+  "claim_vocabulary": {
+    "allowed": [
+      "reported incidents",
+      "historical evidence",
+      "modeled exposure"
+    ],
+    "forbidden": [
+      "absolute safety",
+      "victim probability",
+      "safest route"
+    ]
+  },
+  "sources": [
+    {
+      "id": "philadelphia-reported-crime",
+      "role": "upstream-reported-incidents",
+      "data_semantics": "Historical reported incident records; not a complete account of harm, a victim probability, a live alert, or absolute safety evidence.",
+      "canonical_url": "https://opendataphilly.org/datasets/crime-incidents/",
+      "coverage": {
+        "geography": "Philadelphia",
+        "temporal_start": "2006-01-01",
+        "temporal_end": null
+      },
+      "license": {
+        "label": "City of Philadelphia terms of use",
+        "terms_url": "https://www.phila.gov/terms-of-use/"
+      },
+      "retrieval": {
+        "mode": "build-time CARTO SQL queries over incidents_part1_part2",
+        "clock": "receipt.clocks.retrievedAt",
+        "meaning": "Completion time of the upstream aggregate retrieval; not sourceAsOf, build completion, runtime observation, completeness, or authority."
+      },
+      "build": {
+        "mode": "not-applicable-to-upstream-source",
+        "clock": null,
+        "meaning": "The upstream dataset is queried, not built by this repository."
+      },
+      "freshness": {
+        "clock": "receipt.clocks.sourceAsOf",
+        "stale_after_days": 7,
+        "status_if_missing": "unavailable"
+      },
+      "fail_closed": {
+        "status": "unavailable",
+        "record_count": null,
+        "reason": "Transport, coverage, schema, or aggregate validation failure cannot be interpreted as zero reported incidents."
+      }
+    },
+    {
+      "id": "census-tract-boundaries",
+      "role": "build-input-statistical-boundaries",
+      "data_semantics": "Census statistical boundaries used to aggregate historical reported incidents; boundaries do not contain incident, victim probability, or safety facts.",
+      "canonical_url": "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+      "coverage": {
+        "geography": "Philadelphia County, Pennsylvania (state 42, county 101)",
+        "temporal_start": null,
+        "temporal_end": null
+      },
+      "license": {
+        "label": "U.S. Census Bureau public-use terms",
+        "terms_url": "https://www.census.gov/about/policies/citation.html"
+      },
+      "retrieval": {
+        "mode": "build-time validated public GeoJSON endpoint selection",
+        "clock": null,
+        "meaning": "The legacy bundled boundary artifact has no admitted retrieval clock; successful HTTP transport does not establish a geography vintage."
+      },
+      "build": {
+        "mode": "normalized bundled GeoJSON input",
+        "clock": null,
+        "meaning": "The legacy boundary artifact has no admitted build clock; audit vintage and snapshot build time remain separate."
+      },
+      "freshness": {
+        "clock": null,
+        "stale_after_days": null,
+        "status_if_missing": "unknown"
+      },
+      "fail_closed": {
+        "status": "unavailable",
+        "record_count": null,
+        "reason": "Missing, duplicate, invalid, or drifted GEOIDs prevent tract snapshot publication rather than producing zero coverage."
+      }
+    },
+    {
+      "id": "tract-crime-snapshot",
+      "role": "derived-historical-aggregate",
+      "data_semantics": "Derived historical evidence containing per-tract counts of reported incidents. It is not live, complete, an official City publication, a victim probability, absolute safety, or a safest-route signal; modeled exposure is reserved for explicitly modeled downstream calculations.",
+      "canonical_url": "https://github.com/raederhans/engagement-project/blob/main/public/data/tract_crime_counts_last12m.json",
+      "coverage": {
+        "geography": "408 Philadelphia census tracts",
+        "temporal_start": null,
+        "temporal_end": null
+      },
+      "license": {
+        "label": "Derived artifact; upstream City terms apply",
+        "terms_url": "https://opendataphilly.org/datasets/crime-incidents/"
+      },
+      "retrieval": {
+        "mode": "completion of validated build-time upstream aggregate retrieval",
+        "clock": "receipt.clocks.retrievedAt",
+        "meaning": "When all upstream tract aggregate responses completed; not the latest incident date, artifact build time, runtime observation, completeness, or authority."
+      },
+      "build": {
+        "mode": "deterministic per-tract aggregation and validated snapshot/receipt publication",
+        "clock": "snapshot.meta.generated_at",
+        "meaning": "When the validated snapshot candidate was built; not sourceAsOf, retrieval completion, or runtime observation."
+      },
+      "freshness": {
+        "clock": "receipt.clocks.sourceAsOf",
+        "stale_after_days": 7,
+        "status_if_missing": "unavailable"
+      },
+      "fail_closed": {
+        "status": "unavailable",
+        "record_count": null,
+        "reason": "Missing or invalid snapshot/receipt evidence is unavailable, never an observed zero or current source."
+      }
+    }
   ]
 }

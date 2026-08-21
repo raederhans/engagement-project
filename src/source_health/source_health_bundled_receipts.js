@@ -1,3 +1,5 @@
+import { TRACT_CRIME_BUNDLED_RECEIPT } from './tract_crime_bundled_receipt.generated.js';
+
 /** Small, audited receipts keep the lazy source-health chunk independent of large data files. */
 export const BUNDLED_SOURCE_RECEIPTS = Object.freeze({
   acsPopulation: Object.freeze({
@@ -35,15 +37,5 @@ export const BUNDLED_SOURCE_RECEIPTS = Object.freeze({
     temporalStart: '2019-01-01',
     temporalEnd: '2023-12-31',
   }),
-  tractCrime: Object.freeze({
-    sourceId: 'tract-crime-snapshot',
-    sourceAsOf: '2026-07-30',
-    retrievedAt: null,
-    builtAt: '2026-07-31T03:30:49.163Z',
-    version: 'tract crime snapshot schema v2',
-    identity: 'coverage:2025-08-01:2026-08-01:408',
-    recordCount: 408,
-    temporalStart: '2025-08-01',
-    temporalEnd: '2026-08-01',
-  }),
+  tractCrime: TRACT_CRIME_BUNDLED_RECEIPT,
 });
