@@ -95,7 +95,12 @@ export async function runReleaseGate({
         ? await execute(process.execPath, args.slice(1), environment)
         : await execute(process.execPath, [npmExecPath, ...args], environment);
       if (code !== 0) {
-        nonzeroStepError = createNonzeroStepError(args, code);
+        nonzeroStepError = createNonzeroStepError(
+          process.execPath,
+          args[0] === 'node' ? args.slice(1) : [npmExecPath, ...args],
+          args,
+          code,
+        );
         break;
       }
     }
@@ -125,12 +130,21 @@ export async function runReleaseGate({
   return code;
 }
 
-export function createNonzeroStepError(step, exitCode) {
+export function createNonzeroStepError(command, args, step, exitCode) {
   const error = new Error(`Release step ${step.join(' ')} exited with code ${exitCode}.`);
   error.code = 'RELEASE_STEP_NONZERO';
+  error.command = command;
+  error.args = [...args];
   error.step = [...step];
   error.exitCode = exitCode;
   return error;
+}
+
+export function formatReleaseFailure(error) {
+  if (error instanceof AggregateError) return [error.message, ...error.errors.map(formatReleaseFailure)].join('\n');
+  if (!(error instanceof Error)) return String(error);
+  const details = [error.code, error.command, Array.isArray(error.args) ? error.args.join(' ') : null, Array.isArray(error.step) ? error.step.join(' ') : error.step, error.exitCode].filter((value) => value != null);
+  return details.length ? `${error.message}\n${details.join(' | ')}` : error.message;
 }
 
 const isMain = process.argv[1]
@@ -140,7 +154,7 @@ if (isMain) {
   try {
     process.exitCode = await runReleaseGate();
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    console.error(formatReleaseFailure(error));
     process.exitCode = 1;
   }
 }
