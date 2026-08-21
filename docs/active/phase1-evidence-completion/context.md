@@ -57,9 +57,20 @@ the temporary harness.
 
 ## Handoff checkpoint
 
-Validated implementation candidate: f7190f5c77432f0855e4575583f6e66ac906f50d.
-It completed fresh focused checks, serial real-browser evidence, unchanged
-bundle policy, and the full npm run ci:release composite with no remaining
-listener on 4178, 4189, 4194, or 4198. The cumulative handoff is now
-ready-for-integration and independent re-review is requested. Integration,
-remote CI, deployment, scheduled refresh, and online smoke remain deferred.
+Implementation tip: 7e0c5929d34140c995c8180a3804d14a1c2635c5. It contains the
+current control-flow, snapshot, lazy-renderer, lifecycle, and handoff-contract
+implementation. Its fresh `npm run ci:release` exited 0, including complete
+validation, unchanged-ceiling bundle policy, and the release-owned browser
+leaves. The earlier f7190f5c77432f0855e4575583f6e66ac906f50d evidence is
+historical only and is not evidence for this implementation tip.
+
+Cumulative evidence-record tip: this record-only commit; its exact SHA is the
+clean detached `HEAD` that an independent reviewer must resolve with
+`git rev-parse HEAD`. It records the implementation-tip evidence without
+claiming to have re-run the composite after a documentation-only commit.
+
+Reviewed candidate tip: none. Independent re-review is requested for the
+cumulative evidence-record tip; this task cannot designate or self-approve it.
+Integration, remote CI, deployment, scheduled refresh, and online smoke remain
+deferred. The task-owned ports 4178, 4189, 4194, and 4198 are checked after
+the release run and must have no listeners before review.

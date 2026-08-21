@@ -4,13 +4,12 @@
 
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
-| Base, ownership, and unique record | complete | Detached repair starts at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Home Compare renderer race/rejection repair | implemented; focused recheck pending | Local request controller, delayed commit, close/destroy regression, observed import rejection, results-unavailable, and explicit retry are implemented. |
-| Browser lifecycle repair | implemented; focused recheck pending | Shared helper and deterministic preview/Chromium/context/route/page failure-injection contracts are implemented; all three suites use it. |
-| Release graph and Phase 1 binding | implemented; focused recheck pending | Exact leaves/composite graph and executable Phase 1 handoff contracts are implemented. |
-| Handoff matrix and actual resources | implemented; final record pending | Plan records M1-M4/1D paths, receipts, ownership and serial order; context records 4198, 4189, 4194 and only real task outputs. |
-| Serial local verification | complete | Focused contracts, real serial browsers, unchanged-ceiling bundle, complete npm run validate, and composite npm run ci:release passed on f7190f5c77432f0855e4575583f6e66ac906f50d. |
-| Independent review | requested | This task cannot self-approve. Main supervising task must perform independent code/architecture re-review of the exact cumulative candidate. |
+| Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
+| Current implementation | complete | Implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5 fixes queued-close cancellation, renderer execution failure, double-failure cleanup aggregation, immutable request snapshots, shared escaping, and the M3/M4 matrix contract. |
+| Focused and bundle verification | complete | The current implementation content passed Home Compare 20/20, browser lifecycle 8/8, Phase 1 handoff 1/1, release workflow 9/9, JS/CSS lint, manifest build, and unchanged-ceiling bundle policy. |
+| Composite local release verification | complete | `npm run ci:release` exited 0 on implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5; this is the only current full-release evidence. |
+| Cumulative evidence record | complete | This record-only commit is the cumulative evidence-record tip. It does not claim a new composite execution after its documentation-only delta. |
+| Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
 ## Local verification ledger
@@ -34,7 +33,13 @@ browser evidence.
 | npm run test:known-route-evidence-browser | 0 | Real production-dist Chromium suite passed consent/privacy/fail-closed/mobile paths with zero console/page errors; port 4194 released and no test-results directory was created. |
 | npm run ci:release | 0 | Full composite release runner passed on f7190f5c77432f0855e4575583f6e66ac906f50d: audit, both linters, complete npm run validate (including Phase 1 handoff/lifecycle contracts, manifest and bundle policy), general/ACS browsers, all three DFEV browser leaves, and visual-dist. |
 | Post-run listener check | 0 | No listener remained on 4178, 4189, 4194, or 4198. |
+| npm run test:home-compare | 0 | Current repair focused run: 20/20, including queued native-close click/Escape timing, destroy, renderer execution/re-render/retry, and immutable addresses/destinations/weights while busy. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
+| npm run test:browser-lifecycle | 0 | Current repair focused run: 8/8, including primary-only rethrow, cleanup-only aggregation, and primary-plus-all-cleanup AggregateError with reverse cleanup. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
+| npm run test:phase1-handoff; npm run test:release-workflow; npm run lint:js; npm run lint:css | 0 | Current repair focused run: hardened per-M1-M4 handoff assertions, 9 release graph contracts, and both linters passed. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
+| npm run build:manifest; npm run verify:bundle | 0 | Current repair build passed unchanged ceilings. Home Compare controller is 32,205/11,369 raw/gzip, retaining 6,631 gzip bytes below the existing 18,000-byte ceiling; lazy results view is 3,520/1,460. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
+| npm run ci:release | 0 | Current composite release runner passed on implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5: audit, both linters, complete validate, bundle policy, release graph, general/ACS browsers, all three DFEV browser leaves, and visual-dist. |
 
-The pre-repair candidate's validation ledger is superseded and must not be used
-as evidence for this repair. This task stops at ready-for-integration and does
-not self-approve, integrate, push, deploy, or clean worktrees/branches.
+Rows through the old f7190f5c77432f0855e4575583f6e66ac906f50d composite are
+historical and must not be attributed to the current implementation. This task
+stops at ready-for-integration and does not self-approve, integrate, push,
+deploy, or clean worktrees/branches.
