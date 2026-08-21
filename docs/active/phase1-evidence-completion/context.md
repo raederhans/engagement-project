@@ -21,6 +21,7 @@
 | Home Compare browser | This task; current worktree | port 4189; retained task-owned .dfev1/home-neighborhood-compare/m3-v1/browser output | npm run test:home-compare-browser; real Chromium and production dist | helper closes page/context/browser/server; the task-owned browser evidence output is retained, not a test-results directory |
 | Known Route browser | This task; current worktree | port 4194; no task-owned test-results directory | npm run test:known-route-evidence-browser; real Chromium and production dist | helper closes page/context/browser/server; no output directory is claimed |
 | Composite release gate | This task; current worktree | its child commands run serially; visual runner may use its own temporary preview | npm run ci:release, not an equivalent hand-assembled command list | run only after the direct three-suite browser evidence; verify ports after completion |
+| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-<frozen-tip>/` | `pwsh -NoProfile -ExecutionPolicy Bypass -File supervise-release.ps1`; outer freezes Git/status before synchronously starting `run-release.ps1`, which invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or second runner |
 
 No persistent service is authorized. If the same hypothesis fails three times,
 stop rerunning it and diagnose. The helper failure-injection contract is the
@@ -32,6 +33,16 @@ Current repair execution owner: this e4c5 task alone. Before the next composite
 gate, it runs the production Home Compare browser suite serially on port 4189;
 the task-owned retained output is `.dfev1/home-neighborhood-compare/m3-v1/browser`.
 No second browser, preview, or release runner may share that port/output.
+
+The next composite gate is governed by two ignored PowerShell files under its
+new exact-tip root. The outer supervisor freezes `HEAD`, local `main`, merge
+base, and `git status --porcelain=v1 --untracked-files=all` before it starts
+the wrapper and records an independent observed exit after it waits. The wrapper
+records the inner `npm.cmd run ci:release` exit, its declared exit, recursive
+descendants scoped to its own PID, and fail-closed target-listener snapshots.
+The outer scope is intentionally narrower than a machine-wide tree: wrapper
+termination plus baseline-subtracted target listeners. Both layers hash their
+own scripts, markers, receipts, logs, and exit materials after the run.
 
 ## Decisions and boundaries
 

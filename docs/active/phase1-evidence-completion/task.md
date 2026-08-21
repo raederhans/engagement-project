@@ -7,7 +7,7 @@
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
 | Current implementation | in progress | Freeze a new implementation tip after the final tracked Phase 1-0 repair. Historical `fe32f7`/`78db018` records do not validate the new tip. |
 | Focused and bundle verification | in progress | Run fresh focused handoff/release/visual contracts, lint, JSON, diff, and status at the new exact implementation tip before the one allowed composite run. |
-| Composite local release verification | pending | One task-owned `npm.cmd run ci:release` will run only after the new exact implementation tip is frozen and a new three-layer ignored receipt root is prepared. |
+| Composite local release verification | pending | One task-owned `npm.cmd run ci:release` will run only after the new exact implementation tip is frozen and a new outer-supervisor / wrapper ignored receipt root is prepared. The outer freeze includes full untracked porcelain; wrapper and external-observed exits must agree. |
 | Cumulative evidence record | pending | Commit execution evidence only after the new composite release succeeds; then create one record-only cumulative tip without self-reference. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
