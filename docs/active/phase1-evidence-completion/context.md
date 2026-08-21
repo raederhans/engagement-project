@@ -58,26 +58,25 @@ the temporary harness.
 
 ## Handoff checkpoint
 
-Implementation tip: 7e0c5929d34140c995c8180a3804d14a1c2635c5. It contains the
-current control-flow, snapshot, lazy-renderer, lifecycle, and handoff-contract
-implementation. Its fresh `npm run ci:release` exited 0, including complete
-validation, unchanged-ceiling bundle policy, and the release-owned browser
-leaves. The earlier f7190f5c77432f0855e4575583f6e66ac906f50d evidence is
-historical only and is not evidence for this implementation tip.
+Implementation tip: b156178e9c0263e2d111c4e43a9eeec0bdad3c0d. It contains
+the current control-flow, snapshot, lazy-renderer, lifecycle, structured
+handoff, and preview-owner implementation. A single task-owned
+`npm.cmd run ci:release` parent recorded its natural exit as 0 in
+`.dfev1/phase1-release-b156-observation-attempt2/exit-code.txt`; it completed
+complete validation, unchanged-ceiling bundle policy, release-owned browser
+leaves, and visual-dist. Earlier f719 and 7e0c evidence is historical only and
+is not evidence for this implementation tip.
 
-Cumulative evidence-record tip: this record-only commit; its exact SHA is the
-clean detached `HEAD` that an independent reviewer must resolve with
-`git rev-parse HEAD`. It records the implementation-tip evidence without
-claiming to have re-run the composite after a documentation-only commit.
+Cumulative evidence-record tip: this strict record-only commit; its exact SHA
+must be resolved with `git rev-parse HEAD`. It records the b156
+implementation-tip evidence without claiming to have re-run the composite
+after a documentation-only commit.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
 Integration, remote CI, deployment, scheduled refresh, and online smoke remain
-deferred. The task-owned ports 4178, 4189, 4194, and 4198 are checked after
-the release run and must have no listeners before review.
-
-Post-release process audit found a task-owned Vite preview on 127.0.0.1:4178
-(PID 24972, command rooted in this worktree) after the composite returned.
-The live-test owner stopped only that preview PID, then rechecked 4178, 4189,
-4194, and 4198: no listeners remain. This is process cleanup, not worktree,
-branch, artifact, or user-WIP cleanup.
+deferred. The task is ready-for-review but blocked-for-admission; the reviewed
+candidate tip remains none. After the recorded b156 release exit, the
+task-owned process tree had naturally exited and ports **4173, 4178, 4189,
+4194, and 4198** had no listeners. No process was manually stopped for this
+passing run.
