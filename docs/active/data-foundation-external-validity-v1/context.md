@@ -2,6 +2,21 @@
 
 ## Current truth
 
+- 2026-08-21 M2 开始时，本 worktree 为
+  `C:/Users/raede/.codex/worktrees/fed9/engagement_project`，detached、clean，exact
+  `HEAD=a86b4fb02d3c06c3a7904b1674f3eae1b16a5929`。本任务只拥有 `fed9`。
+- `a86b4fb` 累积 M0/M1 local candidate commits 和 handoff records；这些不是 main、
+  remote CI、push、runtime 或部署事实。M2 不移动 refs 或修改其他 worktree。
+- 唯一获授权的 M2 data dependency 是只读 root
+  `C:/Users/raede/.codex/worktrees/c180/engagement_project/.dfev1/crime/full-2026-08-21-v2`。
+  初始 gate 观测 21/21 scopes、3,583,548 canonical/active rows、64 partitions、
+  8,631,014,134 canonical bytes、`serving_eligible:false`。
+- 上游 exact small-manifest SHA-256 identities 为 warehouse manifest
+  `152c994ee721dfd9803c07bd36f6439abd5274e11ad1323c76879cade93ceb40`、checkpoint
+  `3c3d0a75d7426900b3243dff4a9c36772d58ca2d10d1b3840303d8e94ff1d687`、lineage
+  `596e69ad1be44866343841fecbc3b8221c8d6a2cb7fada398cf84504cf56da41`；只用于 exact
+  input identity gate，不是数据或模型正确性证据。
+
 - 2026-08-21 M1 开始时，本 worktree 为
   `C:/Users/raede/.codex/worktrees/c180/engagement_project`，detached、clean，
   exact `HEAD=c027266d40409bac24b85891260a4cad37890333`。
@@ -47,6 +62,8 @@
 | 2026-08-21 | M1 默认只运行 bounded official smoke；真实全量 backfill 必须先完成 source/license/storage/checkpoint gate。 | 在 gate 前优先交付可重建 pipeline、synthetic revision coverage 和 honest partial evidence，禁止把小切片写成完整仓库。 |
 | 2026-08-21 | 第一轮 full backfill 在完成 2006–2008 三个 annual scopes 后由 owner 停止；代码把 2024 ACS value availability 与事件期 temporal compatibility 混在一起。 | 该轮是 abandoned partial，不能作为回填证据。先增加 `incompatible-vintage` fail-closed 状态，再从新的 ignored root 重跑，不复用旧 canonical warehouse。 |
 | 2026-08-21 | R1 的精确任务目录已验证在本 worktree 下，但递归删除被本地安全策略拒绝。 | 不绕过安全策略；R1 继续作为 ignored、invalidated 的 task-owned partial 保留，R2 使用全新的 root，任何验收统计均排除 R1。 |
+| 2026-08-21 | 用户以 `a86b4fb` 串行启动 M2，并只读授权 M1 R2 root。 | M0/M1 状态不升级；M2 所有 staging/cache/model/log/checkpoint 只写 `fed9` 的 task-owned ignored root。 |
+| 2026-08-21 | M2 评估协议在任何模型 fit/performance 读取前冻结。 | rolling folds、spatial block holdout、metrics、slice 和 promotion gate 后续只能因可复现契约错误而显式版本升级，不能按结果调参。 |
 
 ## Live process ownership
 
@@ -61,6 +78,22 @@
 | M1 full backfill exact-command idempotence rerun R4 | DFEV1 M1 primary owner in task `01a022d3-9041-7be2-a3e2-620cd283f603` | same R2 root/checkpoint; stdout `logs/dfev1-m1-full-backfill-v2-rerun2.log.tmp`; stderr `logs/dfev1-m1-full-backfill-v2-rerun2.err.tmp` | PID `61096` completed: 21 source and 21 warehouse vintages idempotent, zero stderr; source/canonical/warehouse/checkpoint bytes and mtimes stayed fixed. No process remains. |
 | M1 clean lockfile install | DFEV1 M1 primary owner in task `01a022d3-9041-7be2-a3e2-620cd283f603` | worktree-only ignored `node_modules`; stdout `logs/dfev1-m1-npm-ci.log.tmp`; stderr `logs/dfev1-m1-npm-ci.err.tmp` | PID `73648` completed exit 0: 395 packages installed, 396 audited, 0 vulnerabilities; package/lockfile stayed unchanged. No process remains. |
 | M1 project standard `npm run validate` | DFEV1 M1 primary owner in task `01a022d3-9041-7be2-a3e2-620cd283f603` | ignored `dist`; stdout `logs/dfev1-m1-validate.log.tmp`; stderr `logs/dfev1-m1-validate.err.tmp` | PID `20260` completed through bundle policy PASS; a same-owner foreground rerun then captured exact exit 0. Source Health catalog remained 14,924/15,000 bytes; only the existing Vite chunk-size warning was emitted. No process remains. |
+| M2 full Area Intelligence mart build | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run data:build:area-intelligence -- --source=C:/Users/raede/.codex/worktrees/c180/engagement_project/.dfev1/crime/full-2026-08-21-v2 --output=.dfev1/area-intelligence/m2-baseline`; stdout `logs/dfev1-m2-mart-build.log.tmp`; stderr `logs/dfev1-m2-mart-build.err.tmp`; exit `logs/dfev1-m2-mart-build.exit.tmp` | PID `42368` completed exit 0 at `2026-08-21T07:47:17Z`; no process remains. The streaming build read 3,583,548 rows, emitted 1,610,440 sparse unit-week rows for 408 tracts and 2,352 fixed-grid cells in 123.187 s with peak RSS 228,126,720 bytes. Task-owned output is 1,545,960,398 bytes. Exact upstream inventory stayed unchanged. |
+| M2 mart exact-command idempotence rerun | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | same source/output command and checkpoint; stdout `logs/dfev1-m2-mart-rerun.log.tmp`; stderr `logs/dfev1-m2-mart-rerun.err.tmp`; exit `logs/dfev1-m2-mart-rerun.exit.tmp` | Completed exit 0 in 0.740 s with `status:idempotent` and the same artifact identity. All 64 published part sizes/mtimes still match the manifest; manifest and checkpoint mtimes remained at their original full-build completion instants. No process remains. |
+| M2 full frozen-protocol evaluation | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run data:evaluate:area-intelligence -- --mart=.dfev1/area-intelligence/m2-baseline --output=.dfev1/area-intelligence/m2-baseline/evaluation`; stdout `logs/dfev1-m2-evaluation.log.tmp`; stderr `logs/dfev1-m2-evaluation.err.tmp`; exit `logs/dfev1-m2-evaluation.exit.tmp` | Hidden owner wrapper PID `7192` completed exit 0 in 115.679 s with peak RSS 114,475,008 bytes; no process remains. All four frozen folds, both unit types, and both spatial slices produced finite metrics. Result is honest `not-promoted`: NB aggregate MAE gain was 15.07%, but every primary interval slice over-covered outside 85–95% and predefined category slices regressed; Poisson was numerically finite but unstable on tract slices and lost 1,117.39% aggregate MAE. Historical-only serving is required. |
+| M2 evaluation exact-command idempotence rerun | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | same mart/output command; stdout `logs/dfev1-m2-evaluation-rerun.log.tmp`; stderr `logs/dfev1-m2-evaluation-rerun.err.tmp`; exit `logs/dfev1-m2-evaluation-rerun.exit.tmp` | Completed exit 0 in 0.011 s with `status:idempotent`, the same `not-promoted` decision, 7/7 valid artifact identities and unchanged original manifest/checkpoint mtimes. No process remains. |
+| M2 clean lockfile install | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm ci`; stdout `logs/dfev1-m2-npm-ci.log.tmp`; stderr `logs/dfev1-m2-npm-ci.err.tmp`; exit `logs/dfev1-m2-npm-ci.exit.tmp` | Completed exit 0: 395 packages installed, 396 audited, 0 vulnerabilities; only ignored `node_modules` was written and package/lock tracked state stayed unchanged. No process remains. |
+| M2 focused data-pipeline test | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run test:data-pipeline`; stdout `logs/dfev1-m2-focused-tests.log.tmp`; stderr `logs/dfev1-m2-focused-tests.err.tmp`; exit `logs/dfev1-m2-focused-tests.exit.tmp` | Completed exit 0, 42/42 including 8 M2 cases plus all reachable M0/M1 contracts; temporary synthetic fixtures were cleaned. Targeted M2 ESLint also exited 0 with zero warnings. No process remains. |
+| M2 first project standard validation/build/bundle | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run validate`; stdout `logs/dfev1-m2-validate.log.tmp`; stderr `logs/dfev1-m2-validate.err.tmp`; exit `logs/dfev1-m2-validate.exit.tmp` | Hidden owner wrapper PID `62324` completed exit 1. All standard tests and production build passed; Source Health stayed 14,924/15,000 bytes. Bundle policy correctly rejected Charts at 240,540 bytes against its unchanged 233,791-byte ceiling because the new view was statically bundled. The narrow repair moves Area Intelligence to its own fail-closed dynamic lazy chunk; no ceiling is raised. No process remains. |
+| M2 first targeted production build/bundle repair check | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run build:manifest && npm run verify:bundle`; stdout `logs/dfev1-m2-bundle-repair.log.tmp`; stderr `logs/dfev1-m2-bundle-repair.err.tmp`; exit `logs/dfev1-m2-bundle-repair.exit.tmp` | Completed exit 1. The view moved into a separate 6,310-byte lazy chunk, but defensive loader wrappers left Charts at 235,043 bytes, 1,252 over the unchanged ceiling. Review found no product logic dependency on a cached wrapper; the second narrow repair uses direct cached-by-runtime dynamic imports plus explicit in-card load failure text. |
+| M2 second targeted production build/bundle repair check | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | same build/bundle commands; stdout `logs/dfev1-m2-bundle-repair-r2.log.tmp`; stderr `logs/dfev1-m2-bundle-repair-r2.err.tmp`; exit `logs/dfev1-m2-bundle-repair-r2.exit.tmp` | Completed exit 1 at Charts 235,168 bytes. Manifest inspection showed the new view still imported Charts because Area Intelligence messages were appended to the pre-existing residential `crime_safety` catalog that Charts owns. The third repair separates those messages into an Area Intelligence-only i18n module, removing the reverse chunk dependency without deleting copy or changing budgets. |
+| M2 third targeted production build/bundle repair check | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | same build/bundle commands; stdout `logs/dfev1-m2-bundle-repair-r3.log.tmp`; stderr `logs/dfev1-m2-bundle-repair-r3.err.tmp`; exit `logs/dfev1-m2-bundle-repair-r3.exit.tmp` | Completed exit 1 only at the aggregate dist ceiling: Charts passed at 233,100/233,791 and the view became an independent 8,259-byte chunk, while aggregate dist was 4,000,373/4,000,000. Final narrow repair reuses the existing residential card shell and emits a compact validated serving projection without audit-only fields; reports retain full audit/lineage. |
+| M2 fourth targeted production build/bundle repair check | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | same build/bundle commands; stdout `logs/dfev1-m2-bundle-repair-r4.log.tmp`; stderr `logs/dfev1-m2-bundle-repair-r4.err.tmp`; exit `logs/dfev1-m2-bundle-repair-r4.exit.tmp` | Completed exit 0. Area Intelligence is an independent 8,259-byte lazy chunk; Charts passed 233,101/233,791, Source Health catalog stayed 14,924/15,000, and aggregate dist passed at 3,999,860/4,000,000 excluding the separately admitted ACS VRE artifact. No ceiling changed. |
+| M2 first real-browser promoted/no-promotion smoke | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run test:area-intelligence-browser`; stdout `logs/dfev1-m2-browser.log.tmp`; stderr `logs/dfev1-m2-browser.err.tmp`; exit `logs/dfev1-m2-browser.exit.tmp` | Completed exit 1 at harness API readiness timeout. Review showed the production optimizer correctly tree-shook test-only presentation exports; the harness imported those absent names. It never reached a product-state assertion. Port `4198`, Chromium, Vite and the temporary harness were all removed. |
+| M2 real-browser promoted/no-promotion smoke R2 | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run test:area-intelligence-browser`; stdout `logs/dfev1-m2-browser-r2.log.tmp`; stderr `logs/dfev1-m2-browser-r2.err.tmp`; exit `logs/dfev1-m2-browser-r2.exit.tmp` | Completed exit 0. Production lazy chunk rendered explicit no-promotion and synthetic promoted states, 90% interval/uncertainty copy, 3-column desktop and 1-column mobile layouts, with zero console/page errors. Port `4198`, Chromium, Vite and temporary harness were removed. Synthetic promoted input proves rendering only, not model promotion. |
+| M2 second project standard validation/build/bundle | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run validate`; stdout `logs/dfev1-m2-validate-r2.log.tmp`; stderr `logs/dfev1-m2-validate-r2.err.tmp`; exit `logs/dfev1-m2-validate-r2.exit.tmp` | Hidden owner wrapper PID `70160` completed exit 1 at i18n contract before build/bundle. The new lazy message catalog was not imported by the test's explicit catalog list, so static HTML keys appeared missing even though runtime/browser rendering worked. Repair adds the lazy catalog and view to the existing i18n contract surfaces; it does not move messages into the main bundle. No process remains. |
+| M2 focused i18n repair test | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `node --test scripts/tests/i18n_contracts.mjs`; stdout `logs/dfev1-m2-i18n.log.tmp`; stderr `logs/dfev1-m2-i18n.err.tmp`; exit `logs/dfev1-m2-i18n.exit.tmp` | Completed exit 0, 11/11; both catalogs contain every declared key and Area Intelligence is an explicit localized reader-visible surface. Targeted syntax/ESLint also passed. No process remains. |
+| M2 final project standard validation/build/bundle R3 | DFEV1 M2 primary owner in task `01a0232d-314a-7660-b4fb-f797e53c3fdf` | command `npm run validate`; stdout `logs/dfev1-m2-validate-r3.log.tmp`; stderr `logs/dfev1-m2-validate-r3.err.tmp`; exit `logs/dfev1-m2-validate-r3.exit.tmp` | Hidden owner wrapper PID `37136` completed exit 0. Complete standard tests, production manifest build and bundle policy passed. Charts 233,101/233,791, Source Health catalog 14,924/15,000, aggregate dist 3,999,860/4,000,000 excluding the separately admitted ACS VRE source artifact. No process remains. |
 
 ## M1 first-party source and smoke evidence
 
@@ -99,10 +132,11 @@
 
 ## Handoff
 
-本任务是从 M0 candidate 串行前进的 M1 独立本地交付。结束时只可标记
-`verified ready-for-integration`、`honest partial with explicit blocked gates`、
-`evidence-backed no-op` 或真正 `blocked`；本地证据不代表 main、remote CI、PR、
-定时 refresh、持续更新、runtime、部署或科学有效性。
+本任务是从累积 M0/M1 candidate 串行前进的 M2 独立本地交付，结束状态为
+`honest no-promotion ready-for-integration`。实现 commit
+`5bcd52e0f741f702bc22991756cf48e46e54a227` 与随后同 worktree 的记录收口 commit
+共同构成候选；均为 detached local commits。本地证据不代表 main、remote CI、PR、
+定时 refresh、持续训练、runtime、部署、未来表现、科学有效性或用户决策质量。
 
 ## M1 reproducible runbook
 
@@ -116,9 +150,21 @@
   `.dfev1/`. Synthetic fixtures require an explicit library-only test admission and the official
   CLIs reject them. A local warehouse manifest always remains `serving_eligible: false`.
 
+## M2 reproducible runbook
+
+- Exact mart build/resume: `npm run data:build:area-intelligence -- --source=<authorized-M1-root> --output=.dfev1/area-intelligence/m2-baseline`.
+- Frozen evaluation/resume: `npm run data:evaluate:area-intelligence -- --mart=.dfev1/area-intelligence/m2-baseline --output=.dfev1/area-intelligence/m2-baseline/evaluation`.
+- Publish only validated small artifacts: `npm run data:publish:area-intelligence`.
+- Focused gates: `npm run test:data-pipeline`, targeted ESLint and
+  `npm run test:area-intelligence-browser` after a production build.
+- Standard gate: `npm run validate`. Exact build/evaluation command reruns must return
+  `idempotent` and preserve completed artifact bytes/mtimes.
+- Full mart/model state/checkpoints/logs stay under ignored `.dfev1/` and `logs/`; tracked
+  reports contain no event-level coordinates, generalized locations, addresses or source IDs.
+
 ## Next step
 
-Integration owner 从最终 exact detached HEAD 审查 M1 三个本地 commits，并在目标
-integration worktree 重新核对 package/data/source-health 热点与标准 gate。M2 starting
-commit 是本 handoff 的最终 HEAD；M2 仍不得由本任务启动。不得把本地 full backfill
-扩大为 remote CI、scheduled refresh、持续更新、runtime、部署或科学有效性。
+Integration owner 从最终 exact detached HEAD 审查累积 M0/M1/M2 本地 commits，并在目标
+integration worktree 重新核对 package、Charts、i18n、data、reports 与 bundle/Source Health
+热点，重跑聚焦、browser 与标准 gate。不得把本地 no-promotion candidate 扩大为 remote
+CI、scheduled refresh、持续训练、runtime、部署、未来表现或科学有效性。

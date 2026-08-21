@@ -2,10 +2,11 @@
 
 ## Current status
 
-`verified ready-for-integration` — M1 已从 exact starting candidate
-`c027266d40409bac24b85891260a4cad37890333` 在 `c180` 完成代码、官方 smoke、完整
-本地回填、幂等复跑、聚焦/标准 gate 和本地 Lore commits。M0 与 M1 都只是 detached
-本地候选，未合并、未 push、未上线；M2 deferred。
+`honest no-promotion ready-for-integration` — M2 从 exact starting candidate
+`a86b4fb02d3c06c3a7904b1674f3eae1b16a5929` 在 `fed9` 串行完成。M0/M1 仍是 verified
+local candidates，未合并、未 push、未 remote CI、未部署。完整 frozen evaluation 的
+结论是 `not-promoted`：产品候选只展示历史 reported-incident evidence，forecast 明确
+`unavailable`，没有零预测或隐藏 fallback。
 
 ## Milestone 0 delivered-candidate checklist
 
@@ -36,6 +37,21 @@
 - [x] 运行 bounded official smoke 并记录 source vintage、schema/count、时间/坐标覆盖与 DQ。
 - [x] 运行聚焦、data contract、lint/static 与 `npm run validate`（若标准入口触达）。
 - [x] 调用 `write-lore-commits` 审查范围并创建本 worktree 本地 commits；更新最终 handoff。
+
+## Milestone 2 checklist
+
+- [x] 核对 `fed9` exact HEAD/status、适用 AGENTS、唯一三件套与三项用户指定 skills。
+- [x] 只读核验获授权 M1 root 的 21/21 scopes、3,583,548 rows、64 partitions、
+  manifest/checkpoint/lineage identities 与 `serving_eligible:false`。
+- [x] 在读取任何 M2 performance 前冻结 rolling folds、spatial holdout、metrics、
+  category/data-volume slices、interval 与 promotion/no-promotion gates。
+- [x] 实现 streaming/resumable/idempotent tract-week 与 fixed-grid-week marts。
+- [x] 实现时间泄漏防护、seasonal/4/13-week/Poisson/NB baseline 与数值稳定测试。
+- [x] 输出 evaluation report、model card、lineage summary、residual map、bias/error audit。
+- [x] 输出 fail-closed serving artifact 并最小接线 Area Intelligence 双语 UI。
+- [x] 在真实完整 M1 warehouse 运行 mart build、backtest 和 exact-input idempotence rerun。
+- [x] 运行聚焦、lint/static、production build、bundle、browser smoke 与 `npm run validate`。
+- [x] 调用 `write-lore-commits` 审查范围并创建本 worktree 小型本地 commits；收口记录。
 
 ## Milestone 0 validation evidence
 
@@ -75,14 +91,36 @@
 | `npm run validate` | fresh exact exit 0; full data contracts/test suite, production manifest build and bundle policy PASS. Source Health catalog stayed 14,924/15,000 bytes. |
 | Local Lore code commits | `bcbdb6f1bb71b90ce83187ecb10cc41587959dc0` and `d7dcca41997e34cfd2464432a8973d5cdc8b9c0d`; detached, not pushed/integrated. |
 
+## Milestone 2 validation evidence
+
+| Command or check | Result |
+| --- | --- |
+| `git rev-parse HEAD` / `git status --short --branch` | exact `a86b4fb02d3c06c3a7904b1674f3eae1b16a5929`; detached and initially clean. |
+| Upstream warehouse gate | manifest/checkpoint/lineage show 21/21 scopes, 3,583,548 canonical/active rows, 64 partitions, `[2006-01-01, 2026-08-22)`, `serving_eligible:false`; canonical bytes total 8,631,014,134. |
+| Frozen protocol | `scripts/data/area_intelligence_evaluation_protocol.v1.json` was authored before any M2 model fit or performance output. |
+| Full mart build | exit 0; streamed all 3,583,548 canonical rows into 1,610,440 sparse weekly rows across 408 admitted tracts and 2,352 admitted fixed-grid cells. It excluded exactly 549,594 ambiguous plus 64,129 unmapped tract rows and 56,420 grid-unavailable rows. Runtime 123.187 s, peak RSS 228,126,720 bytes, task-owned output 1,545,960,398 bytes. Artifact identity is input/output byte identity only, not model correctness. |
+| Mart exact-command rerun | exit 0 in 0.740 s with `status:idempotent`; identical artifact identity, 64/64 part sizes and mtimes unchanged, and original manifest/checkpoint mtimes preserved. |
+| Full frozen evaluation | exit 0; four temporal folds × tract/fixed-grid × heldout/non-heldout, 545,851 primary observations per model, 80 primary rows, 240 category rows, 240 volume rows and 60 temporally compatible ACS population audit rows. Runtime 115.679 s, peak RSS 114,475,008 bytes. |
+| Promotion decision | honest `not-promoted`. NB aggregate MAE 1.2198 and 15.07% gain over seasonal, but all 16 primary interval slices were above the frozen 95% upper bound and predefined category slices regressed. Poisson aggregate MAE 17.4851 and -1,117.39% gain, with severe tract instability. No forecast is served. |
+| Evaluation exact-command rerun | exit 0 in 0.011 s with `status:idempotent`; same no-promotion decision, 7/7 artifact hashes valid, original manifest/checkpoint mtimes unchanged. |
+| Safe artifact publication | local publisher validated ignored evaluation identities and produced six tracked, non-event-level artifacts. Serving contract says historical evidence `available`, forecast `unavailable`, `predictions:[]`, explicit model-baseline failure; local-path/privacy-field scan PASS. |
+| Focused tests and lint | `npm run test:data-pipeline` exit 0, 42/42 including 8 M2 leakage/holdout/model/interval/promotion/serving/resume tests; targeted M2 ESLint exit 0, zero warnings. |
+| First standard validation | exit 1 only at bundle policy after all tests/build passed: static Area Intelligence import made Charts 240,540 bytes vs unchanged 233,791-byte ceiling. Source Health remained 14,924/15,000. Repair uses its own dynamic fail-closed lazy chunk; no budget increase. |
+| Targeted build/bundle repair | final targeted check exit 0: independent 8,259-byte Area Intelligence lazy chunk; Charts 233,101/233,791, Source Health catalog 14,924/15,000, aggregate dist 3,999,860/4,000,000 excluding the admitted ACS VRE artifact. No ceiling changed. |
+| Real browser smoke | R2 exit 0 against production lazy chunk: explicit no-promotion and synthetic promoted states, interval/uncertainty copy, desktop/mobile responsive layout, zero console/page errors, clean port/process/harness teardown. Synthetic promoted input is rendering evidence only. |
+| Final `npm run validate` | fresh exit 0; complete standard tests, production manifest build and bundle policy PASS. Charts 233,101/233,791, Source Health catalog 14,924/15,000, aggregate dist 3,999,860/4,000,000 excluding admitted ACS VRE. |
+| Final upstream read-only recheck | warehouse manifest `152c994e...b40`, checkpoint `3c3d0a75...687`, and lineage `596e69ad...a41` remained exact with their original mtimes after all M2 reads. |
+| Local Lore implementation commit | `5bcd52e0f741f702bc22991756cf48e46e54a227`; detached, local-only, not pushed or integrated. |
+
 ## Open risks and remaining work
 
 - 已运行真实 CARTO smoke 与完整本地事件 backfill，但没有 source-owned不可变快照或
   upstream completeness guarantee；因此不把本次 count equality 扩大为永久完整/权威。
-- 未创建 PR，未运行 remote CI、scheduled workflow、browser smoke、部署或产品上线。
+- 未创建 PR，未运行 remote CI、scheduled workflow、持续训练、部署或产品上线；本地
+  production-chunk browser smoke 已运行，但不等于部署后的 runtime smoke。
 - `origin/main` 未实时 fetch；最终只能报告本地 refs 与未验证远端状态。
-- Bundle policy 已通过但 Source Health catalog 仅余 76 raw bytes 余量；集成后的并行
-  Source Health 变更可能需要在不提高 ceiling 的前提下重新瘦身并重跑 gate。
+- Bundle policy 已通过，但 Source Health catalog 仅余 76 raw bytes、aggregate dist 仅余
+  140 bytes；集成后的并行变更必须在不提高 ceiling 的前提下重新审查并重跑 gate。
 - 当前只读检查没有发现与当前主 worktree branch 或已枚举 worktree committed HEAD
   的精确路径重叠；未读取其他 worktree 的未归属 WIP，因此集成 owner 仍须重查。
 - Full DQ 中 549,594 tract joins 因边界关系而 ambiguous、64,129 unmapped；没有官方
@@ -91,5 +129,10 @@
   contract 保留 `objectid`/`dc_key` 诊断并要求未来 refresh 监控 identity churn。
 - R1 invalidated task-owned partial 仍在 ignored `.dfev1/crime/full-2026-08-21`；精确
   递归删除被本地安全策略拒绝，未绕过。它不进入任何验收统计或提交。
-- M2、synthetic route 扩展与 framework/bundle-ceiling 调整明确 deferred；本地 warehouse
-  `serving_eligible: false`，不是 runtime、scheduled refresh、部署或科学有效性。
+- M2 frozen backtest 已完成并明确 `not-promoted`。NB 虽有 15.07% aggregate MAE gain，
+  但 16/16 primary interval slices 过度覆盖且预定义类别切片退化；Poisson tract slices
+  严重不稳定。不得从 aggregate 指标择优 promotion 或事后改 gate。
+- ACS race、income、poverty 均 unavailable，故相应差异未被测量而不是已排除；population
+  E/M 只在 compatible 期间用于误差审计，禁止变成产品排名权重。
+- M1 warehouse 仍为 `serving_eligible:false`；本地 mart/model/test 不等于 scheduled
+  refresh、持续训练、部署、未来表现、科学有效性或用户决策质量。

@@ -2,13 +2,14 @@
 
 ## Goal
 
-串行推进 Data Foundation and External Validity v1。Milestone 0 已在本地候选
-`c027266d40409bac24b85891260a4cad37890333` 交付，但尚未集成、推送或上线；
-当前只执行 Milestone 1：建立可重建、事件级、revision-aware 的 Philadelphia
-reported crime warehouse、可复用空间映射、ACS estimate/MOE enrichment、lineage
-与机器可检查的数据质量报告。Milestone 2 继续 deferred。
+串行推进 Data Foundation and External Validity v1。Milestone 0 与 Milestone 1 已累积在
+本地候选 `a86b4fb02d3c06c3a7904b1674f3eae1b16a5929`，但尚未集成、推送或上线；
+当前只执行 Milestone 2：建立 tract-week 与 fixed-grid-week Area Intelligence marts，
+冻结并运行外部有效性协议，比较 seasonal naive、4/13-week moving average、Poisson
+与 negative-binomial baselines，并以 fail-closed serving contract 最小接线历史趋势和
+promotion/no-promotion 状态。
 
-用户对 M0 和当前 M1 的委派原文是范围与验收权威；本文件只保存可恢复的执行
+用户对 M0、M1 和当前 M2 的委派原文是范围与验收权威；本文件只保存可恢复的执行
 基线，不把本地候选扩大成 main、remote、runtime、部署或科学有效性事实。
 
 ## Scope
@@ -28,13 +29,27 @@ reported crime warehouse、可复用空间映射、ACS estimate/MOE enrichment�
   坐标、label、join coverage、freshness 与 revision lifecycle 的机器可检查 DQ 报告。
 - 只提交代码、schema、registry/crosswalk、安全 synthetic fixtures 与小型 manifests/
   reports/artifact contracts；raw/canonical 大文件和潜在敏感事件数据留在 ignored 目录。
+- 从获授权的 exact M1 local candidate 流式构建 sparse weekly marts；tract ambiguous/
+  unmapped 与 grid unavailable 行保持排除，禁止空间强制分配。
+- 在模型表现可见前冻结时间 folds、spatial block holdout、类别/数据量切片、指标和
+  promotion gate；目标只表达空间单元周度 PPD reported incident count。
+- 比较 seasonal naive、4/13-week moving average、Poisson 与 negative-binomial
+  baselines，输出 prediction interval、deviance、coverage、相对增益和残差审计。
+- ACS E/M 只在 temporal-compatible 时进入背景/误差审计；race、income、poverty
+  当前无 admitted 数据时保持 unavailable，且任何人口变量都不进入 safety ranking。
+- 产品历史趋势不依赖模型 promotion；forecast 仅在预定义 gate 通过且 serving
+  contract 完整时显示，no-promotion/invalid contract 明确显示 unavailable。
 
 ## Sources of truth
 
-- 当前用户委派的 M1 目标、实现边界、验收和最终交付格式，以及此前 M0 委派。
-- Exact starting candidate `c027266d40409bac24b85891260a4cad37890333`
-  的代码、测试、workflow 和数据产物；`f300cfe` 是其本地 `origin/main` 基线，
-  `c9955d2` 与 `c027266d` 是未集成/未推送的 M0 本地提交。
+- 当前用户委派的 M2 目标、实现边界、验收和最终交付格式，以及此前 M0/M1 委派。
+- Exact starting candidate `a86b4fb02d3c06c3a7904b1674f3eae1b16a5929`
+  的代码、测试、workflow 和 M0/M1 local candidate records；本地 `origin/main`
+  未 fetch，且 M0/M1 均未集成、未推送、未部署。
+- 获授权的只读 M1 data root
+  `C:/Users/raede/.codex/worktrees/c180/engagement_project/.dfev1/crime/full-2026-08-21-v2`
+  及其 exact warehouse manifest、backfill checkpoint、lineage registry 和 64 canonical
+  partitions；它不是 product runtime 或持续更新 source。
 - `docs/AGENTS.md` 与 `manage-task-records` 约束。
 - 当前数据脚本、source contracts、source/serving adapters、route-corridor contracts、
   ACS aggregation contracts 与项目标准入口。
@@ -59,7 +74,16 @@ reported crime warehouse、可复用空间映射、ACS estimate/MOE enrichment�
 - [x] Stage 1D: 实现 lineage manifests、机器可检查 DQ report 与 serving artifact contract。
 - [x] Stage 1E: 用 synthetic revision fixtures、官方 bounded smoke、聚焦/标准 gate 验证，
   审查 diff 后创建本地 Lore commits 并收口记录。
-- [ ] Milestone 2: deferred；不得在 M1 中开始模型训练、预测 UI 或 route recommendation。
+- [x] Stage 2A: 核验 exact Git/上游身份与现有契约，原地激活 M2，并在查看表现前冻结
+  评估协议、admission、lineage、ignored output 和 promotion/no-promotion contract。
+- [x] Stage 2B: 实现可恢复、语义幂等的 tract-week 与 fixed-grid-week streaming marts。
+- [x] Stage 2C: 实现 seasonal naive、4/13-week moving average、Poisson/NB baselines，
+  rolling temporal folds、spatial block holdout、interval 与残差/切片审计。
+- [x] Stage 2D: 输出机器可检查 ModelEvaluationReport、model card、lineage summary、
+  residual map、bias/error audit 与 fail-closed serving artifact。
+- [x] Stage 2E: 完成最小 Area Intelligence UI 接线与 promoted/no-promotion contract tests。
+- [x] Stage 2F: 在完整 M1 warehouse 上运行 mart/backtest、幂等复跑、聚焦/标准/browser
+  gates，审查隐私与 diff 后创建本地 Lore commits 并收口记录。
 
 ## Milestone 0 acceptance baseline (must not regress)
 
@@ -95,9 +119,30 @@ reported crime warehouse、可复用空间映射、ACS estimate/MOE enrichment�
 - 聚焦测试、数据契约、lint/static checks 和标准入口通过；若进入标准入口，
   `npm run validate` 必须 fresh exit 0 或明确记录真实阻塞。
 
+## Milestone 2 acceptance criteria
+
+- 上游 gate 必须绑定 exact M1 manifest/checkpoint/lineage identity、21/21 scopes、
+  3,583,548 active rows 和 64 partitions；任一不匹配都在 mart/training 前 fail closed。
+- mart build 流式读取 canonical JSONL，以任务专属 ignored staging/checkpoint/output
+  恢复；同输入复跑保留已发布 mart/manifest bytes 与 mtimes。
+- tract 只接纳 `mapped`，grid 只接纳 `mapped`；549,594 ambiguous tract rows 与所有
+  unavailable/unmapped 行只进入 exclusion audit，绝不进入相应 unit count。
+- 评估协议在表现可见前冻结；每个 baseline 使用相同 rolling folds、spatial block
+  holdout、类别/数据量切片与 target week，且所有 feature 都只读取 prediction origin
+  之前的数据。
+- 报告至少包含 MAE、Poisson/NB deviance、90% prediction interval coverage、相对
+  seasonal naive 增益、类别/空间/数据量错误、残差空间分布和 over/under-estimation。
+- promotion 只在预定义的多个时间窗口与 spatial holdout 都稳定超过 seasonal naive、
+  interval coverage 合格且数值诊断有限时成立；否则产出 honest no-promotion。
+- 所有 prediction 带 interval、trained-through、model version、generated-at、source
+  vintage 和限制；禁止 safety score、victim probability、safest area/route。
+- 真实完整 M1 warehouse 的 mart/backtest、聚焦 tests、标准 `npm run validate`、bundle
+  gate 与必要 browser smoke 有 fresh evidence；无法运行的 gate 明确列为缺口。
+
 ## Non-goals
 
-- M2 模型训练、预测 UI、Home Compare、route recommendation 或 route runtime/public 接线。
+- Home Compare、route recommendation、route runtime/public 接线、单一 safety score，
+  或超出最小 Area Intelligence status/forecast card 的 UI 重写。
 - 提高 bundle ceiling、引入依赖、增加 mock production data、改变外部数据 authority。
 - 在未确认官方来源、许可、存储/空间预算与 checkpoint 恢复前执行真实全量 backfill。
 - Push、PR、merge/rebase/cherry-pick、main 更新、其他 worktree 或拓扑操作、部署。
@@ -119,3 +164,7 @@ reported crime warehouse、可复用空间映射、ACS estimate/MOE enrichment�
   方法、coverage 和 unavailable/ambiguous 状态。
 - 全量事件 backfill 可能长耗时和占用显著磁盘；启动前必须按
   `orchestrate-live-tests` 记录唯一 owner、ignored output/checkpoint/log 和停止恢复方式。
+- M2 只读上游位于另一个 worktree；任何写入、mtime 变化或 identity drift 都是训练前
+  阻塞，不得自动修复或从缩小样本继续。
+- 统计 baseline 与本地回测只能支持 bounded historical modeling evidence；它们不证明
+  因果、个人风险、未来稳定性、科学有效性、产品决策质量或部署状态。
