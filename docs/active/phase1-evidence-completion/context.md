@@ -99,7 +99,7 @@ local execution evidence only, not review or admission approval.
 
 Cumulative candidate: the documentation-only record tip is intentionally
 resolved by `git rev-parse HEAD`, rather than self-written into this record.
-Its parent is the execution-evidence record for implementation `b68b4ef`; it
+Its parent is execution-evidence record `5513d7d248e429e0d7957fb37d4996c41f73051b` for implementation `b68b4ef`; it
 cannot make the implementation admissible without independent re-review.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
