@@ -136,3 +136,12 @@ local candidates，未合并、未 push、未 remote CI、未部署。完整 fro
   E/M 只在 compatible 期间用于误差审计，禁止变成产品排名权重。
 - M1 warehouse 仍为 `serving_eligible:false`；本地 mart/model/test 不等于 scheduled
   refresh、持续训练、部署、未来表现、科学有效性或用户决策质量。
+
+## Integration closeout
+
+- Final cumulative candidate: `d1630d0f6c44f7ff0908e4a1792d7020c10a7f82`.
+- Integration: local `main` was strictly fast-forwarded from `f300cfe2658375add6542b86c20267c63c56ec4a`; `origin/main` was not changed.
+- Review: independent code review ended at `COMMENT` and architecture review at `WATCH`, both with zero blockers after the privacy, path-confinement, authority-recomputation, complexity-bound, and visual-baseline repairs.
+- Exact-tip verification: JavaScript/CSS lint, full `npm run validate`, and the Area Intelligence, Home Compare, and Known Route browser suites all passed with zero console/page errors.
+- Product truth: M0-M2 are complete only at the local evidence boundary. Historical evidence is available; the frozen forecast remains `not-promoted`/`unavailable`; the M1 warehouse remains `serving_eligible:false`.
+- Deferred gates: no push, remote CI, scheduled refresh, continuous training, deployment, or production/runtime liveness proof was run.

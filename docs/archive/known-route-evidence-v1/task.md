@@ -59,3 +59,11 @@ crash and accessibility remain unavailable. This is not citywide or routing auth
   than zero; no cross-dimension score or route winner exists.
 - The official/public-landmark smoke proves only this bounded chain. Remote CI, deployment, user
   research, citywide external validity and M5 remain explicitly unrun/outside this task.
+
+## Integration closeout
+
+- Final cumulative candidate: `d1630d0f6c44f7ff0908e4a1792d7020c10a7f82`; local `main` was strictly fast-forwarded and `origin/main` was not changed.
+- Independent final review had zero blockers. Map matching is now fail-closed at explicit per-feature, aggregate-coordinate, and segment-comparison limits, and its top-two selection no longer sorts the complete candidate set.
+- Exact-tip `npm run validate` and `npm run test:known-route-evidence-browser` passed; valid/off-network paths, additive evidence, partial/unavailable states, route-free URL/storage, bilingual and responsive behavior, and zero browser errors were verified.
+- Product truth: Known Route Evidence is integrated only as a bounded evidence tool. City centerlines are reference geometry; HIN is partial; raw crash and accessibility/route-legality authority remain unavailable. There is no route winner or combined safety score.
+- Deferred gates: no push, remote CI, deployment, citywide external-validity proof, user research, or M5 route-alternative generation was run.

@@ -51,3 +51,11 @@ privacy disclosure regression，以交接时 HEAD 为准。
 - 官方来源均只能声称 bounded `partial`；assessment 出现 2027 tax year，L&I 存在未来
   sentinel date；routing 仍 unavailable，不能声明 commute time/isochrone。
 - 未 fetch 远端；remote/CI/deploy/user research 明确不在本任务权限和本地验证范围。
+
+## Integration closeout
+
+- Final cumulative candidate: `d1630d0f6c44f7ff0908e4a1792d7020c10a7f82`; local `main` was strictly fast-forwarded and `origin/main` was not changed.
+- Independent final review had zero blockers. The share controller now strips unrelated query parameters and fragments, and the browser regression proves that only schema, weights, and dimensions are shared.
+- Exact-tip `npm run validate` and `npm run test:home-compare-browser` passed; English/Chinese, 2-4 profiles, partial/unavailable sources, no-promoted forecast, unavailable commute, responsive layout, and zero browser errors were verified.
+- Product truth: Home and Neighborhood Compare is integrated, but its official-source coverage remains bounded `partial`/`unavailable`; commute/routing remains `unavailable`, not zero.
+- Deferred gates: no push, remote CI, deployment, live scheduled refresh, citywide external-validity claim, or user research was run.
