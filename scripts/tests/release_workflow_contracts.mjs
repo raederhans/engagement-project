@@ -145,7 +145,7 @@ test('release and CI mechanically require exactly one mapped invocation of each 
     ['run', 'test:area-intelligence-browser'],
     ['run', 'test:home-compare-browser'],
     ['run', 'test:known-route-evidence-browser'],
-    ['run', 'test:visual-experience:dist'],
+    ['node', 'scripts/run_visual_experience_dist.mjs'],
   ]);
   for (const [script, command] of Object.entries(expectedLeafScripts)) {
     assert.equal(packageJson.scripts[script], command, `${script} must retain its exact browser file mapping`);

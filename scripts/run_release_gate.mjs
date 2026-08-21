@@ -15,7 +15,7 @@ export const RELEASE_STEPS = Object.freeze([
   ['run', 'test:area-intelligence-browser'],
   ['run', 'test:home-compare-browser'],
   ['run', 'test:known-route-evidence-browser'],
-  ['run', 'test:visual-experience:dist'],
+  ['node', 'scripts/run_visual_experience_dist.mjs'],
 ]);
 
 export function createReleaseEnvironment(environment = process.env) {
@@ -26,15 +26,15 @@ export function createReleaseEnvironment(environment = process.env) {
   };
 }
 
-function runNpm(npmExecPath, args, environment) {
+function runCommand(command, args, environment) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [npmExecPath, ...args], {
+    const child = spawn(command, args, {
       env: environment,
       stdio: 'inherit',
     });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
-      if (signal) reject(new Error(`npm ${args.join(' ')} stopped by signal ${signal}`));
+      if (signal) reject(new Error(`${command} ${args.join(' ')} stopped by signal ${signal}`));
       else resolve(code ?? 1);
     });
   });
@@ -48,7 +48,9 @@ async function runReleaseGate() {
   }
 
   for (const args of RELEASE_STEPS) {
-    const code = await runNpm(npmExecPath, args, environment);
+    const code = args[0] === 'node'
+      ? await runCommand(process.execPath, args.slice(1), environment)
+      : await runCommand(process.execPath, [npmExecPath, ...args], environment);
     if (code !== 0) return code;
   }
   return 0;
