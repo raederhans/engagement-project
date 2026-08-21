@@ -88,12 +88,16 @@ export async function runReleaseGate({
 
   let code = 1;
   let bodyError;
+  let nonzeroStepError;
   try {
     for (const args of RELEASE_STEPS) {
       code = args[0] === 'node'
         ? await execute(process.execPath, args.slice(1), environment)
         : await execute(process.execPath, [npmExecPath, ...args], environment);
-      if (code !== 0) break;
+      if (code !== 0) {
+        nonzeroStepError = createNonzeroStepError(args, code);
+        break;
+      }
     }
   } catch (error) {
     bodyError = error;
@@ -109,15 +113,24 @@ export async function runReleaseGate({
       cleanupErrors.push(error);
     }
   }
-  if (bodyError && cleanupErrors.length) {
-    const error = new AggregateError([bodyError, ...cleanupErrors], 'Release gate failed and postcondition failed.');
-    error.primaryError = bodyError;
+  const primaryError = bodyError || nonzeroStepError;
+  if (primaryError && cleanupErrors.length) {
+    const error = new AggregateError([primaryError, ...cleanupErrors], 'Release gate failed and postcondition failed.');
+    error.primaryError = primaryError;
     error.cleanupErrors = cleanupErrors;
     throw error;
   }
   if (bodyError) throw bodyError;
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Release gate postcondition failed.');
   return code;
+}
+
+export function createNonzeroStepError(step, exitCode) {
+  const error = new Error(`Release step ${step.join(' ')} exited with code ${exitCode}.`);
+  error.code = 'RELEASE_STEP_NONZERO';
+  error.step = [...step];
+  error.exitCode = exitCode;
+  return error;
 }
 
 const isMain = process.argv[1]

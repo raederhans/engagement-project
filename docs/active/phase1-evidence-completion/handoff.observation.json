@@ -21,18 +21,14 @@
       },
       "actualChangedPaths": [],
       "receipt": {
-        "availability": "available",
-        "actualPath": "C:/Users/raede/.codex/worktrees/c180/engagement_project/.dfev1/crime/full-2026-08-21-v2/warehouse/manifest.json",
-        "schema": "engagement-phl-crime-event-warehouse/v1",
-        "identity": {
-          "current_snapshot_id": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759"
-        },
-        "revision": {
-          "updated_at": "2026-08-21T06:57:18.130Z",
-          "latest_revision_report": "revisions/f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759.json"
-        },
+        "availability": "unavailable",
+        "actualPath": null,
+        "schema": null,
+        "identity": null,
+        "revision": null,
         "validatorCommand": "npm run test:phase1-handoff",
-        "result": "pass"
+        "result": "rebuild-required",
+        "reason": "The recorded c180 worktree and its ignored .dfev1/crime evidence root are absent; regenerate and independently validate a new M1 receipt before admission."
       },
       "upstreamReceiptIdentities": [],
       "artifactOwner": "M1 frozen warehouse task",
@@ -51,7 +47,8 @@
       "implementationTip": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
       "recordTip": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
       "reviewedTip": null,
-      "state": "pending-review"
+      "state": "pending-review",
+      "evidenceAvailability": "unavailable-rebuild-required"
     },
     {
       "phase": "M2",

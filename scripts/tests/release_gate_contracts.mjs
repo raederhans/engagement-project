@@ -46,6 +46,26 @@ test('release gate reports both a primary execution failure and an ownership-aud
   });
 });
 
+test('release gate preserves a nonzero step and all cleanup failures', async () => {
+  const cleanupA = new Error('listener remained'); const cleanupB = new Error('postcondition failed');
+  const started = [];
+  await assert.rejects(runReleaseGate({
+    environment: { npm_execpath: 'npm-cli.js' },
+    execute: async (_command, args) => { started.push(args.at(-1)); return 23; },
+    taskOwnershipAudit: { async verify() { throw cleanupA; } },
+    postcondition: async () => { throw cleanupB; },
+  }), (error) => {
+    assert.ok(error instanceof AggregateError);
+    assert.equal(error.primaryError.code, 'RELEASE_STEP_NONZERO');
+    assert.deepEqual(error.primaryError.step, RELEASE_STEPS[0]);
+    assert.equal(error.primaryError.exitCode, 23);
+    assert.deepEqual(error.cleanupErrors, [cleanupA, cleanupB]);
+    assert.deepEqual(error.errors, [error.primaryError, cleanupA, cleanupB]);
+    return true;
+  });
+  assert.deepEqual(started, ['--audit-level=high'], 'a nonzero first step prevents N+1 from starting');
+});
+
 test('runCommand preserves child spawn and signal failures', async () => {
   await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'error') queueMicrotask(() => listener(new Error('spawn failure'))); } }) }), /spawn failure/);
   await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'exit') queueMicrotask(() => listener(null, 'SIGTERM')); } }) }), /SIGTERM/);

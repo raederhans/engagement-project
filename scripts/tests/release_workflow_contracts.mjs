@@ -114,6 +114,10 @@ test('JavaScript lint targets only live source surfaces after Diary server remov
 test('local release gate injects the same feature flags as GitHub release CI', async () => {
   const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
   assert.equal(packageJson.scripts['ci:release'], 'node scripts/run_release_gate.mjs');
+  assert.equal(
+    packageJson.scripts['test:release-workflow'],
+    'node --test scripts/tests/release_workflow_contracts.mjs scripts/tests/release_gate_contracts.mjs scripts/tests/run_visual_experience_dist_contracts.mjs',
+  );
 
   const { createReleaseEnvironment } = await import(releaseRunnerUrl);
   assert.deepEqual(createReleaseEnvironment({

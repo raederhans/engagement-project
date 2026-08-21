@@ -18,3 +18,20 @@ test('visual runner reports an isolated preview-close failure', async () => {
   const cleanup = new Error('preview close failure');
   await assert.rejects(runVisualExperienceDist({ createPreview: async () => ({ close: async () => { throw cleanup; } }), run: async () => 0 }), (error) => error instanceof AggregateError && error.errors[0] === cleanup);
 });
+
+test('visual runner preserves a nonzero Playwright step and preview-close failure together', async () => {
+  const cleanup = new Error('preview close failure');
+  await assert.rejects(
+    runVisualExperienceDist({
+      createPreview: async () => ({ close: async () => { throw cleanup; } }),
+      run: async () => 9,
+    }),
+    (error) => error instanceof AggregateError
+      && error.primaryError?.code === 'VISUAL_PLAYWRIGHT_NONZERO'
+      && error.primaryError?.command === process.execPath
+      && error.primaryError?.step === 'playwright test --config=playwright.config.mjs'
+      && error.primaryError?.exitCode === 9
+      && error.cleanupErrors?.[0] === cleanup
+      && error.errors?.[0] === error.primaryError,
+  );
+});

@@ -25,11 +25,13 @@ export async function runVisualExperienceDist({ createPreview = preview, run = r
   let server = null;
   let didPrimaryFail = false;
   let primaryError;
+  let nonzeroRunError;
   let code = 1;
   const cleanupErrors = [];
   try {
     server = await createPreview({ preview: { ...VISUAL_PREVIEW, strictPort: true } });
     code = await run();
+    if (code !== 0) nonzeroRunError = createVisualNonzeroError(code);
   } catch (error) {
     didPrimaryFail = true;
     primaryError = error;
@@ -39,15 +41,25 @@ export async function runVisualExperienceDist({ createPreview = preview, run = r
       catch (error) { cleanupErrors.push(error); }
     }
   }
-  if (didPrimaryFail && cleanupErrors.length) {
-    const error = new AggregateError([primaryError, ...cleanupErrors], 'Visual runner failed and preview cleanup failed.');
-    error.primaryError = primaryError;
+  const primaryFailure = didPrimaryFail ? primaryError : nonzeroRunError;
+  if (primaryFailure && cleanupErrors.length) {
+    const error = new AggregateError([primaryFailure, ...cleanupErrors], 'Visual runner failed and preview cleanup failed.');
+    error.primaryError = primaryFailure;
     error.cleanupErrors = cleanupErrors;
     throw error;
   }
   if (didPrimaryFail) throw primaryError;
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Visual preview cleanup failed.');
   return code;
+}
+
+export function createVisualNonzeroError(exitCode) {
+  const error = new Error(`Visual Playwright step exited with code ${exitCode}.`);
+  error.code = 'VISUAL_PLAYWRIGHT_NONZERO';
+  error.step = 'playwright test --config=playwright.config.mjs';
+  error.command = process.execPath;
+  error.exitCode = exitCode;
+  return error;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
