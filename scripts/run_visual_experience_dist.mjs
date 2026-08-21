@@ -9,12 +9,6 @@ const host = '127.0.0.1';
 const port = 4178;
 const baseUrl = `http://${host}:${port}/`;
 
-function closeServer(server) {
-  return new Promise((resolve, reject) => {
-    server.httpServer.close((error) => (error ? reject(error) : resolve()));
-  });
-}
-
 function runPlaywright() {
   const cli = fileURLToPath(new URL('../node_modules/@playwright/test/cli.js', import.meta.url));
   return new Promise((resolve, reject) => {
@@ -35,5 +29,5 @@ const server = await preview({ preview: { host, port, strictPort: true } });
 try {
   process.exitCode = await runPlaywright();
 } finally {
-  await closeServer(server);
+  await server.close();
 }
