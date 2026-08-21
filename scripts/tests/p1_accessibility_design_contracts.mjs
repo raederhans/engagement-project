@@ -383,6 +383,6 @@ test('all user-visible asynchronous status surfaces are live regions', () => {
 test('visual experience checks always rebuild the production bundle before previewing it', () => {
   assert.match(
     packageJson.scripts['test:visual-experience'],
-    /^npm run build && playwright test --config=playwright\.config\.mjs$/,
+    /^npm run build && node scripts\/run_visual_experience_dist\.mjs$/,
   );
 });

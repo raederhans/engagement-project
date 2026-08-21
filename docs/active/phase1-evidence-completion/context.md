@@ -30,8 +30,9 @@ the temporary harness.
 
 ## Decisions and boundaries
 
-- The first Home Compare compare intent creates and observes the lazy renderer
-  import; it completes before result commit, not after a completed compare.
+- The first valid Home Compare compare intent/query-time creates and observes
+  the lazy renderer import; it completes before result commit, not after a
+  completed compare.
   Projection, labels, rendered HTML, and renderer stay local until the active
   generation/AbortSignal is checked. Synchronous close/cancel/destroy clears a
   pending request before a queued native close event; a renderer/chunk failure

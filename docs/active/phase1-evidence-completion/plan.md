@@ -59,11 +59,11 @@ fails. It does not claim strict instantaneous atomic visibility across files.
 ## Required serial topology
 
 M0 lifecycle baseline → M1 frozen warehouse → M2 mart/evaluation → M3/M4
-preparation → M4 final publication/receipt after M3 → 1D integration/release.
-M3 and M4 preparation may run in parallel only when they share neither writable
-paths nor live outputs; M4 final publication and final receipt wait for the
-validated M3 receipt. This is not a claim that M3 and M4 final publication can
-run in parallel.
+preparation and final producer receipts → 1D integration/release.
+M3 and M4 may run in parallel only when they share neither writable paths nor
+live outputs. M4 has no product dependency on M3; the 1D cumulative receipt,
+not M4, binds M3 and M4 after both producer receipts have passed their own
+exact-tip gates.
 
 Before each arrow, the receiving owner records the producer exact tip, Git
 topology, worktree status, writable-path overlap, and validates the producer
