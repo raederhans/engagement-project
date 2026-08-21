@@ -26,6 +26,7 @@ const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
 const homeCompareLoader = manifest['src/home_compare/loader.js'];
 const homeCompareController = manifest['src/home_compare/controller.js'];
 const homeCompareSourceRegistry = manifest['src/home_compare/source_registry.js'];
+const homeCompareResultsView = manifest['src/home_compare/results_view.js'];
 const homeCompareStyles = { file: homeCompareController?.css?.[0] };
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
@@ -150,10 +151,11 @@ assert.deepEqual(
 assert.ok(homeCompareController?.isDynamicEntry, 'Vite manifest must contain the Home Compare controller as a nested lazy chunk');
 assert.deepEqual(
   new Set(homeCompareController.dynamicImports || []),
-  new Set(['src/home_compare/source_registry.js']),
-  'Home Compare must keep full runtime registry admission behind its owned query-time boundary',
+  new Set(['src/home_compare/results_view.js', 'src/home_compare/source_registry.js']),
+  'Home Compare must keep runtime registry admission and result-only rendering behind explicit query-time boundaries',
 );
 assert.ok(homeCompareSourceRegistry?.isDynamicEntry, 'Vite manifest must contain the Home Compare registry validator as a lazy chunk');
+assert.ok(homeCompareResultsView?.isDynamicEntry, 'Vite manifest must keep Home Compare result rendering behind the first completed compare');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -223,6 +225,7 @@ const budgets = [
   ['Home Compare loader', homeCompareLoader, 1_100, 650],
   ['Home Compare controller', homeCompareController, 54_000, 18_000],
   ['Home Compare source registry', homeCompareSourceRegistry, 6_000, 2_000],
+  ['Home Compare results', homeCompareResultsView, 12_000, 4_000],
   ['Home Compare styles', homeCompareStyles, 4_500, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],

@@ -31,8 +31,8 @@ import {
 } from '../lib/home_compare_source_smoke.mjs';
 import {
   homeCompareProductHtml,
-  homeCompareResultsHtml,
 } from '../../src/home_compare/view.js';
+import { homeCompareResultsHtml } from '../../src/home_compare/results_view.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registry = validateHomeCompareSourceRegistry(JSON.parse(

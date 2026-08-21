@@ -125,3 +125,31 @@ test('local release gate injects the same feature flags as GitHub release CI', a
     VITE_TRACT_CRIME_SNAPSHOT: '1',
   });
 });
+
+test('release and CI mechanically require the three DFEV browser suites once each', async () => {
+  const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
+  const workflow = await readFile(ciUrl, 'utf8');
+  const { RELEASE_STEPS } = await import(releaseRunnerUrl);
+  assert.deepEqual(RELEASE_STEPS, [
+    ['audit', '--audit-level=high'],
+    ['run', 'lint:js'],
+    ['run', 'lint:css'],
+    ['run', 'ci:core'],
+    ['run', 'test:browser-smoke'],
+    ['run', 'test:acs-multitract-browser'],
+    ['run', 'test:area-intelligence-browser'],
+    ['run', 'test:home-compare-browser'],
+    ['run', 'test:known-route-evidence-browser'],
+    ['run', 'test:visual-experience:dist'],
+  ]);
+  for (const script of [
+    'test:area-intelligence-browser',
+    'test:home-compare-browser',
+    'test:known-route-evidence-browser',
+  ]) {
+    assert.match(packageJson.scripts[script], /^node scripts\/tests\/.+_browser\.mjs$/);
+  }
+  const release = jobBlock(workflow, 'release');
+  assert.match(release, /npx playwright install --with-deps chromium/);
+  assert.equal((release.match(/npm run ci:release/g) || []).length, 1);
+});

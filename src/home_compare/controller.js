@@ -18,7 +18,6 @@ import {
 import {
   getHomeCompareCopy,
   homeCompareProductHtml,
-  homeCompareResultsHtml,
 } from './view.js';
 
 const DEFAULT_WEIGHTS = Object.freeze({
@@ -65,6 +64,7 @@ export function createHomeCompareController({
   let returnFocus = null;
   let generation = 0;
   let requestController = null;
+  let renderResults = null;
 
   applyShareStateFromUrl();
 
@@ -110,7 +110,9 @@ export function createHomeCompareController({
     const status = host.querySelector('[data-home-status]');
     if (status) status.textContent = statusText(copy);
     const resultHost = host.querySelector('[data-home-results]');
-    if (state.result) resultHost.innerHTML = homeCompareResultsHtml(state.result, { labels: state.labels, locale });
+    if (state.result && renderResults) {
+      resultHost.innerHTML = renderResults(state.result, { labels: state.labels, locale });
+    }
     dialog.setAttribute('aria-busy', String(state.busy));
   }
 
@@ -157,6 +159,9 @@ export function createHomeCompareController({
     const requestGeneration = ++generation;
     requestController?.abort();
     requestController = new AbortController();
+    // Results contain profile cards and localized formatting that are not needed
+    // to open/configure Home Compare. Load them with the first explicit compare.
+    const resultsView = import('./results_view.js');
     state.busy = true;
     state.status = 'loading';
     state.result = null;
@@ -183,6 +188,8 @@ export function createHomeCompareController({
         sensitivity: buildWeightSensitivity(state.weights),
       });
       state.labels = results.map(({ privateLabel }) => privateLabel);
+      ({ homeCompareResultsHtml: renderResults } = await resultsView);
+      if (requestGeneration !== generation || requestController.signal.aborted) return { status: 'superseded' };
       state.status = state.result.status === 'available' ? 'available' : 'partial';
       state.busy = false;
       render();

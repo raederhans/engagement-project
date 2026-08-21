@@ -5,13 +5,16 @@ import path from 'node:path';
 
 import { sanitizeNpmEnvironment } from './run_npm_audit.mjs';
 
-const RELEASE_STEPS = Object.freeze([
+export const RELEASE_STEPS = Object.freeze([
   ['audit', '--audit-level=high'],
   ['run', 'lint:js'],
   ['run', 'lint:css'],
   ['run', 'ci:core'],
   ['run', 'test:browser-smoke'],
   ['run', 'test:acs-multitract-browser'],
+  ['run', 'test:area-intelligence-browser'],
+  ['run', 'test:home-compare-browser'],
+  ['run', 'test:known-route-evidence-browser'],
   ['run', 'test:visual-experience:dist'],
 ]);
 
