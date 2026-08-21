@@ -115,7 +115,7 @@
       "owner": "M3 Home Compare task",
       "worktree": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project",
       "evidenceRoot": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project/.dfev1/home-neighborhood-compare/m3-v1",
-      "exactTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "exactTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
@@ -182,7 +182,7 @@
         ],
         "authorizationReceipt": null
       },
-      "implementationTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "implementationTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "recordTip": null,
       "reviewedTip": null,
       "state": "pending-review"
@@ -193,7 +193,7 @@
       "owner": "M4 Known Route task",
       "worktree": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project",
       "evidenceRoot": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project/.dfev1/known-route-evidence-v1",
-      "exactTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "exactTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
@@ -264,7 +264,7 @@
         ],
         "authorizationReceipt": null
       },
-      "implementationTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "implementationTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "recordTip": null,
       "reviewedTip": null,
       "state": "pending-review"
@@ -275,7 +275,7 @@
       "owner": "1D integration/release owner",
       "worktree": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project",
       "evidenceRoot": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project/.dfev1/phase1",
-      "exactTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "exactTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
@@ -348,7 +348,7 @@
         ],
         "authorizationReceipt": null
       },
-      "implementationTip": "deec3ff46f21ac3dff1ebcc33d58651195341253",
+      "implementationTip": "a2f652f80868bdda4f0b9d7223b1441a5b377bf7",
       "recordTip": null,
       "reviewedTip": null,
       "state": "pending-review"
