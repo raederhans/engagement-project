@@ -5,10 +5,11 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | complete | Frozen implementation tip is `4ea5bb353c529aff6cf5696a7635142273f90e8a`. Historical `fe32f7`/`78db018` records do not validate it. |
+| Current implementation | complete | Frozen implementation tip is `b68b4ef60c0190b54b63dcec286f4def31ad45e5`. Historical `fe32f7`/`78db018`/`4ea5bb3` records do not validate it. |
 | Focused and bundle verification | complete | Fresh exact-tip Phase 1 handoff, release/visual workflow, lint, JSON, diff, status, build and existing bundle-policy checks passed. |
-| Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Its fresh ignored root is `.dfev1/phase1-release-4ea5bb3-r2/`; all three exit layers and listener postcondition are zero/empty. |
-| Cumulative evidence record | complete / pending independent review | This documentation-only record tip is resolved by `git rev-parse HEAD` without self-reference; its parent is the execution-evidence record for `4ea5bb3`. |
+| Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Fresh root `.dfev1/phase1-release-b68b4ef-r3/` has observer/wrapper/outer exit 0, empty wrapper errors, no new descendants, and no new audited listener. |
+| Execution evidence record | complete / pending independent review | The final observer receipt is `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `7131ef97321594bb3230396d0ac2a9ceec8b412d0d51bccd4d006f2e6d6c1b61`. |
+| Cumulative evidence record | pending independent review | A record-only cumulative tip follows this execution record; it must not self-write its own SHA. `reviewedTip` remains null. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -32,6 +33,7 @@ browser evidence.
 | npm run test:home-compare-browser | 1 then repaired, then 0 | First browser run exposed close clearing a completed result; cleanup released 4189. The narrow in-flight-only fix passed 16 focused contracts, rebuilt bundle policy, then passed the real 2/3/4 profile, bilingual, privacy, partial/unavailable and mobile suite with zero console/page errors; 4189 released. |
 | npm run test:known-route-evidence-browser | 0 | Real production-dist Chromium suite passed consent/privacy/fail-closed/mobile paths with zero console/page errors; port 4194 released and no test-results directory was created. |
 | npm run ci:release | 0 | Full composite release runner passed on f7190f5c77432f0855e4575583f6e66ac906f50d: audit, both linters, complete npm run validate (including Phase 1 handoff/lifecycle contracts, manifest and bundle policy), general/ACS browsers, all three DFEV browser leaves, and visual-dist. |
+| observer-supervised `npm.cmd run ci:release` | 0 | Fresh frozen-tip `b68b4ef` run: release/wrapper/outer/observer exits all 0; pre-status clean, 4173/4178/4189/4194/4198 had no pre/post/new listener, and wrapper baseline-subtracted descendants were empty. Raw receipt/log material is retained at `.dfev1/phase1-release-b68b4ef-r3/`. |
 | Post-run listener check | 0 | No listener remained on 4178, 4189, 4194, or 4198. |
 | npm run test:home-compare | 0 | Current repair focused run: 20/20, including queued native-close click/Escape timing, destroy, renderer execution/re-render/retry, and immutable addresses/destinations/weights while busy. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
 | npm run test:browser-lifecycle | 0 | Current repair focused run: 8/8, including primary-only rethrow, cleanup-only aggregation, and primary-plus-all-cleanup AggregateError with reverse cleanup. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
