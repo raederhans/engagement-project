@@ -32,6 +32,9 @@ coverage/
 # Local source candidate audit output
 .source-audit/
 
+# DFEV1 event-level raw, canonical, checkpoints, logs, and model-input artifacts
+.dfev1/
+
 # Browser test output
 playwright-report/
 test-results/

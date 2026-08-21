@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "registry_schema": "engagement-phl-crime-event-source/v1",
+  "dataset_id": "philadelphia-reported-crime",
+  "provider": "Philadelphia Police Department",
+  "official_catalog_url": "https://opendataphilly.org/datasets/crime-incidents/",
+  "official_visualization_url": "https://data.phila.gov/visualizations/crime-incidents/",
+  "api_url": "https://phl.carto.com/api/v2/sql",
+  "source_table": "incidents_part1_part2",
+  "coverage": {
+    "declared_start": "2006-01-01",
+    "declared_end": null,
+    "geography": "Philadelphia"
+  },
+  "license": {
+    "label": "City of Philadelphia terms of use",
+    "terms_url": "https://www.phila.gov/terms-of-use/",
+    "catalog_notice": "City data is provided as-is without a representation of accuracy; upstream terms remain authoritative."
+  },
+  "source_semantics": {
+    "record_grain": "reported_record",
+    "preliminary": true,
+    "revision_policy": "Records may be reclassified after further investigation; acquisition must not assume append-only behavior.",
+    "location_precision": "Generalized to the hundred block by the source",
+    "city_bbox": [-75.35, 39.8, -74.9, 40.2],
+    "positive_spatial_relation": "reported-point-near-route",
+    "forbidden_inferences": [
+      "exact sidewalk location",
+      "exact street-segment occurrence",
+      "absolute safety",
+      "victim probability",
+      "safest route"
+    ]
+  },
+  "source_identifier": {
+    "field": "cartodb_id",
+    "type": "integer",
+    "scope": "unique within the exposed CARTO table at acquisition time",
+    "stability_limit": "The official catalog does not promise permanence across table rebuilds; preserve objectid and dc_key for revision and suspected-duplicate diagnostics."
+  },
+  "selected_fields": [
+    "cartodb_id",
+    "objectid",
+    "dc_dist",
+    "psa",
+    "dispatch_date_time",
+    "dispatch_date",
+    "dispatch_time",
+    "hour",
+    "dc_key",
+    "location_block",
+    "ucr_general",
+    "text_general_code",
+    "point_x",
+    "point_y"
+  ],
+  "expected_query_schema": {
+    "cartodb_id": "number",
+    "objectid": "number",
+    "dc_dist": "string",
+    "psa": "string",
+    "dispatch_date_time": "date",
+    "dispatch_date": "string",
+    "dispatch_time": "string",
+    "hour": "number",
+    "dc_key": "number",
+    "location_block": "string",
+    "ucr_general": "string",
+    "text_general_code": "string",
+    "point_x": "number",
+    "point_y": "number"
+  },
+  "acquisition": {
+    "half_open_time_scope": true,
+    "keyset_order": "cartodb_id ASC",
+    "default_page_size": 50000,
+    "default_partition_count": 64,
+    "incremental_overlap_days": 45,
+    "checkpoint_required": true,
+    "count_before_after_required": true,
+    "default_output_root": ".dfev1/crime"
+  },
+  "freshness": {
+    "source_clock": "manifest.source_as_of",
+    "stale_after_days": 7,
+    "status_if_missing": "unavailable"
+  },
+  "transport_verification": {
+    "verified_at": "2026-08-21T05:44:13.000Z",
+    "observed_min_event_date": "2006-01-01",
+    "observed_max_event_date": "2026-08-20",
+    "observed_row_count": 3583549,
+    "observed_unique_cartodb_ids": 3583549,
+    "observed_unique_dc_keys": 3583309,
+    "meaning": "Bounded live API evidence only; it does not establish continuing freshness, completeness, authority, or future schema stability."
+  },
+  "fail_closed": {
+    "schema_drift": "unavailable",
+    "transport_failure": "unavailable",
+    "count_mismatch": "partial",
+    "unknown_offense_label": "unknown-label",
+    "invalid_or_ambiguous_spatial_join": "unmapped",
+    "missing_complete_scope_row": "removal-candidate",
+    "unavailable_is_zero": false,
+    "partial_is_current": false,
+    "stale_is_current": false
+  }
+}
