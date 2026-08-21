@@ -207,6 +207,7 @@ export function createHomeCompareController({
       });
       const url = new URL(locationRef.href);
       url.search = '';
+      url.hash = '';
       url.searchParams.set('hc', encoded);
       historyRef?.replaceState?.({}, '', url);
       if (typeof clipboard?.writeText !== 'function') throw new TypeError('Clipboard is unavailable.');

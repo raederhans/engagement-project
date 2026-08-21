@@ -91,12 +91,14 @@ try {
     url.searchParams.set('b', '-75.1720,39.9490');
     url.searchParams.set('labelA', 'SYNTHETIC PRIVATE ADDRESS A');
     url.searchParams.set('labelB', 'SYNTHETIC PRIVATE ADDRESS B');
+    url.hash = 'SYNTHETIC PRIVATE ADDRESS FRAGMENT';
     history.replaceState({}, '', url);
   });
   await dialog.locator('[data-home-share]').click();
   await page.waitForFunction(() => document.querySelector('[data-home-status]')?.textContent?.includes('Privacy-safe'));
   const sharedUrl = new URL(page.url());
   assert.deepEqual([...sharedUrl.searchParams.keys()], ['hc']);
+  assert.equal(sharedUrl.hash, '');
   const shared = sharedUrl.searchParams.get('hc');
   const sharedValue = JSON.parse(shared);
   assert.deepEqual(Object.keys(sharedValue).sort(), ['dimensions', 'schema', 'weights']);
