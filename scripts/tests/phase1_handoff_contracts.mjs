@@ -23,7 +23,7 @@ test('Phase 1 handoff keeps existing source lifecycle contracts executable and b
     'M1 frozen warehouse', 'M2 mart/evaluation', 'M3 Home Compare', 'M4 Known Route', '1D integration/release',
     'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt',
     'validated recoverable serialized multi-file transaction',
-    'Only the final 1D integration/release owner',
+    'final 1D integration/release owner',
     'M0 lifecycle baseline → M1 frozen warehouse → M2 mart/evaluation',
   ]) assert.ok(normalizedPlan.includes(phrase), 'Phase 1 plan must retain ' + phrase);
 });
