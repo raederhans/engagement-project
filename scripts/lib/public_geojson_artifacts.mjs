@@ -6,19 +6,34 @@ export const DEFAULT_PUBLISHED_GEOJSON = Object.freeze([
   'data/tracts_phl.geojson',
   'data/police_districts.geojson',
 ]);
+export const DEFAULT_PUBLISHED_PROPERTY_ALLOWLISTS = Object.freeze({
+  'data/tracts_phl.geojson': Object.freeze(['GEOID']),
+  'data/police_districts.geojson': Object.freeze(['DIST_NUMC']),
+});
 
-export function compactFeatureCollectionCoordinates(collection, { precision = 6 } = {}) {
+export function compactFeatureCollectionCoordinates(collection, {
+  precision = 6,
+  propertyAllowlist = null,
+} = {}) {
   if (collection?.type !== 'FeatureCollection' || !Array.isArray(collection.features)) {
     throw new Error('Published GeoJSON must be a FeatureCollection.');
   }
   if (!Number.isInteger(precision) || precision < 0 || precision > 15) {
     throw new Error('GeoJSON coordinate precision must be an integer from 0 to 15.');
   }
+  if (propertyAllowlist !== null && (!Array.isArray(propertyAllowlist)
+    || propertyAllowlist.some((key) => typeof key !== 'string' || !key))) {
+    throw new Error('GeoJSON property allowlist must be null or an array of field names.');
+  }
+  const allowed = propertyAllowlist === null ? null : new Set(propertyAllowlist);
 
   return {
     ...collection,
     features: collection.features.map((feature) => ({
       ...feature,
+      properties: allowed === null ? feature.properties : Object.fromEntries(
+        Object.entries(feature.properties || {}).filter(([key]) => allowed.has(key)),
+      ),
       geometry: compactGeometry(feature.geometry, precision),
     })),
   };
@@ -27,7 +42,8 @@ export function compactFeatureCollectionCoordinates(collection, { precision = 6 
 export async function compactPublishedGeoJson({
   distDir = path.resolve('dist'),
   artifacts = DEFAULT_PUBLISHED_GEOJSON,
-  precision = 6,
+  precision = 5,
+  propertyAllowlists = DEFAULT_PUBLISHED_PROPERTY_ALLOWLISTS,
 } = {}) {
   const root = path.resolve(distDir);
   const results = [];
@@ -39,11 +55,15 @@ export async function compactPublishedGeoJson({
     }
     const source = await readFile(target, 'utf8');
     const parsed = JSON.parse(source);
-    const compacted = compactFeatureCollectionCoordinates(parsed, { precision });
+    const normalizedPath = relativePath.replaceAll('\\', '/');
+    const compacted = compactFeatureCollectionCoordinates(parsed, {
+      precision,
+      propertyAllowlist: propertyAllowlists[normalizedPath] || null,
+    });
     const output = JSON.stringify(compacted);
     await writeFile(target, output);
     results.push({
-      relativePath: relativePath.replaceAll('\\', '/'),
+      relativePath: normalizedPath,
       featureCount: compacted.features.length,
       beforeBytes: Buffer.byteLength(source),
       afterBytes: Buffer.byteLength(output),

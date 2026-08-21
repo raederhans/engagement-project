@@ -312,6 +312,24 @@ test('published GeoJSON compaction writes only declared dist artifacts', async (
   assert.equal(JSON.parse(await readFile(destination, 'utf8')).features.length, 2);
 });
 
+test('published GeoJSON compaction can prune unused fallback properties without mutating geometry', () => {
+  const source = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { GEOID: '42101000100', NAME: 'unused', ALAND: 42 },
+      geometry: { type: 'Point', coordinates: [-75.123456789, 39.987654321] },
+    }],
+  };
+  const compacted = compactFeatureCollectionCoordinates(source, {
+    precision: 6,
+    propertyAllowlist: ['GEOID'],
+  });
+  assert.deepEqual(compacted.features[0].properties, { GEOID: '42101000100' });
+  assert.deepEqual(compacted.features[0].geometry.coordinates, [-75.123457, 39.987654]);
+  assert.deepEqual(source.features[0].properties, { GEOID: '42101000100', NAME: 'unused', ALAND: 42 });
+});
+
 test('atomic JSON writing can keep large published GeoJSON compact', async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'engagement-geojson-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

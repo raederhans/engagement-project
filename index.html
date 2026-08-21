@@ -151,6 +151,12 @@
         <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
       </section>
 
+      <section class="home-compare-entry" data-home-compare-entry aria-label="Home and neighborhood comparison／住宅与社区比较">
+        <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog">Compare homes／比较住宅</button>
+        <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
+        <button class="button button--secondary" type="button" data-home-compare-retry hidden>Retry／重试</button>
+      </section>
+
       <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
         <div class="result-meta__bar">
           <span data-result-meta-status role="status" aria-live="polite">Map result unavailable</span>
@@ -499,6 +505,9 @@
     <aside id="route-corridor-shell" class="route-corridor-shell" data-route-corridor-host aria-labelledby="route-corridor-title" hidden inert></aside>
     <dialog id="acs-multitract-dialog" class="acs-multitract-dialog" data-acs-multitract-dialog aria-labelledby="acs-multitract-title" aria-describedby="acs-multitract-description">
       <div data-acs-multitract-host></div>
+    </dialog>
+    <dialog id="home-compare-dialog" class="home-compare-dialog" data-home-compare-dialog aria-labelledby="home-compare-title" aria-describedby="home-compare-description">
+      <div data-home-compare-host></div>
     </dialog>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/ui/sheet_controller.js"></script>

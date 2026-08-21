@@ -1,0 +1,245 @@
+.home-compare-dialog {
+  box-sizing: border-box;
+  width: min(1180px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-overlay);
+}
+
+.home-compare-dialog::backdrop {
+  background: rgb(16 32 51 / 60%);
+}
+
+.home-compare__surface {
+  padding: clamp(18px, 4vw, 34px);
+}
+
+.home-compare__header,
+.home-compare__workflow,
+.home-compare__results,
+.home-compare__profile,
+.home-compare__metrics,
+.home-compare__sensitivity {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.home-compare__header > *,
+.home-compare__workflow > *,
+.home-compare__profile header > *,
+.home-compare__sensitivity > * {
+  margin-block: 0;
+}
+
+.home-compare__eyebrow {
+  color: var(--brand-strong);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-compare__workflow,
+.home-compare__results {
+  margin-block-start: var(--space-5);
+}
+
+.home-compare__addresses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.home-compare__address-row,
+.home-compare__weights label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.home-compare__address-row > label,
+.home-compare__workflow > label,
+.home-compare__weights legend {
+  font-weight: 750;
+}
+
+.home-compare__address-row > div {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.home-compare__address-row input,
+.home-compare__workflow textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.home-compare__workflow textarea {
+  resize: vertical;
+}
+
+.home-compare__address-row input:focus-visible,
+.home-compare__workflow textarea:focus-visible,
+.home-compare__results:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.home-compare__hint,
+.home-compare__status,
+.home-compare__result-status {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.home-compare__weights {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.home-compare__weights > p {
+  margin-block: var(--space-1) var(--space-3);
+  color: var(--ink-muted);
+}
+
+.home-compare__weights > div {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+
+.home-compare__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.home-compare__boundary-grid,
+.home-compare__profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.home-compare__boundary-grid article,
+.home-compare__sensitivity,
+.home-compare__profile {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+
+.home-compare__boundary-grid h4,
+.home-compare__boundary-grid p {
+  margin-block: 0 var(--space-2);
+}
+
+.home-compare__sensitivity ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.home-compare__profile-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+
+.home-compare__profile header {
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--border);
+}
+
+.home-compare__badge {
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.home-compare__metric {
+  border-block-end: 1px solid var(--border);
+}
+
+.home-compare__metric summary {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  cursor: pointer;
+}
+
+.home-compare__metric summary strong {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.home-compare__metric dl {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: 0 var(--space-3);
+}
+
+.home-compare__metric dl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.home-compare__metric dt {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.home-compare__metric dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.home-compare__metric a {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .home-compare-dialog {
+    width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+  }
+
+  .home-compare__surface {
+    padding: var(--space-4);
+  }
+
+  .home-compare__addresses,
+  .home-compare__boundary-grid,
+  .home-compare__weights > div {
+    grid-template-columns: 1fr;
+  }
+
+  .home-compare__address-row > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .home-compare__actions .button {
+    width: 100%;
+  }
+}

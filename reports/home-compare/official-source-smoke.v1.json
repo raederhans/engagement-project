@@ -1,0 +1,116 @@
+{
+  "schema": "engagement-home-compare-official-smoke-report/v1",
+  "retrieved_at": "2026-08-21T12:02:37.076Z",
+  "scope": "bounded schema, aggregate count, and source-vintage observations; no address or source record query",
+  "status": "partial",
+  "semantic_identity": "sha256:e12612443cc0011c7c750cbad51ce6529fab31bd98516598b338f8b215b2f201",
+  "exact_rerun": {
+    "status": "idempotent",
+    "output_mtime_unchanged": true
+  },
+  "sources": [
+    {
+      "source_id": "citygeo-address-locator",
+      "status": "partial",
+      "row_count": null,
+      "source_as_of": null,
+      "revision": null,
+      "dq": ["candidate-response-does-not-contain-parcel-identity"]
+    },
+    {
+      "source_id": "opa-current-property",
+      "status": "partial",
+      "row_count": 583680,
+      "source_as_of": "2026-08-19T16:36:42.000Z",
+      "revision": null,
+      "dq": ["source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "opa-assessment-history",
+      "status": "partial",
+      "row_count": 7478949,
+      "source_as_of": null,
+      "revision": null,
+      "dq": ["published-tax-year-ahead-of-retrieval-requires-vintage-review", "max-published-assessment-tax-year-2027", "source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "real-estate-transfers",
+      "status": "partial",
+      "row_count": 5135164,
+      "source_as_of": "2026-07-02T00:19:46.000Z",
+      "revision": null,
+      "dq": ["source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "philly311-requests",
+      "status": "partial",
+      "row_count": 5907321,
+      "source_as_of": "2026-08-21T08:34:22.000Z",
+      "revision": null,
+      "dq": ["source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "li-property-history",
+      "status": "partial",
+      "row_count": 4544513,
+      "source_as_of": "2026-08-20T22:13:14.000Z",
+      "revision": null,
+      "dq": ["composite-three-table-observation", "future-sentinel-dates-excluded-from-source-as-of", "source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "vacant-property-indicators",
+      "status": "partial",
+      "row_count": 8975,
+      "source_as_of": "2026-08-17T06:14:16.207Z",
+      "revision": "arcgis-last-edit:1786947256207",
+      "dq": []
+    },
+    {
+      "source_id": "philadelphia-reported-crime",
+      "status": "partial",
+      "row_count": 3583549,
+      "source_as_of": "2026-08-20T03:47:00.000Z",
+      "revision": null,
+      "dq": ["source-owned-revision-unavailable"]
+    },
+    {
+      "source_id": "vision-zero-hin-2025",
+      "status": "partial",
+      "row_count": 162,
+      "source_as_of": "2025-12-10T17:29:32.369Z",
+      "revision": "arcgis-last-edit:1765387772369",
+      "dq": []
+    }
+  ],
+  "public_landmark_runtime_smoke": {
+    "executed_at": "2026-08-21T11:39:41.298Z",
+    "fixture_class": "public-civic-landmark-only",
+    "retained_identity": false,
+    "address_admission": "available",
+    "profile_status": "available",
+    "evidence_status": {
+      "property": "available",
+      "assessments": "available",
+      "transfers": "available-with-admitted-zero-records",
+      "service_requests": "available",
+      "li_history": "available",
+      "vacancy": "available-with-source-date-unavailable",
+      "reported_incidents": "available",
+      "hin_context": "available"
+    },
+    "limitation": "One public landmark proves only that the admitted runtime path completed. It is not a representative sample, citywide join-coverage estimate, external-validity result, private-address test, or product authority."
+  },
+  "routing": {
+    "road": "unavailable",
+    "transit": "unavailable",
+    "travel_times": [],
+    "isochrones": [],
+    "forbidden_substitutes": ["straight-line distance", "synthetic graph", "unvalidated route geometry", "caller-claimed travel time"]
+  },
+  "limitations": [
+    "A successful transport, schema match, row count, or source-declared cadence does not prove completeness, currentness, accuracy, or product authority.",
+    "The 2027 assessment tax year requires source-vintage review rather than being called current by retrieval time.",
+    "L&I source-as-of excludes future sentinel values observed in public license dates.",
+    "No user address, normalized address, coordinate, parcel identifier, commute destination, event row, owner, transaction party, case/document identifier, or source record identifier is retained."
+  ]
+}

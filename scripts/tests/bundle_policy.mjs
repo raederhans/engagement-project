@@ -22,6 +22,10 @@ const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
 const acsMultitractLoader = manifest['src/acs_multitract/loader.js'];
 const acsMultitractController = manifest['src/acs_multitract/controller.js'];
 const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
+const homeCompareLoader = manifest['src/home_compare/loader.js'];
+const homeCompareController = manifest['src/home_compare/controller.js'];
+const homeCompareSourceRegistry = manifest['src/home_compare/source_registry.js'];
+const homeCompareStyles = { file: homeCompareController?.css?.[0] };
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -59,6 +63,7 @@ assert.deepEqual(
     'src/routes_crime/list_mode_controller.js',
     'src/routes_crime/route_corridor_app_loader.js',
     'src/acs_multitract/loader.js',
+    'src/home_compare/loader.js',
     'src/source_health/source_health_controller.js',
   ]),
   'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle v2, ACS multi-tract, Source Health, and their translations behind direct lazy boundaries',
@@ -133,6 +138,19 @@ assert.equal(
   1,
   'ACS multi-tract controller must own exactly one admitted VRE source artifact',
 );
+assert.ok(homeCompareLoader?.isDynamicEntry, 'Vite manifest must keep Home Compare behind a direct user-intent lazy boundary');
+assert.deepEqual(
+  new Set(homeCompareLoader.dynamicImports || []),
+  new Set(['src/home_compare/controller.js']),
+  'Home Compare loader must keep its data, contracts, UI, and styles behind a nested lazy boundary',
+);
+assert.ok(homeCompareController?.isDynamicEntry, 'Vite manifest must contain the Home Compare controller as a nested lazy chunk');
+assert.deepEqual(
+  new Set(homeCompareController.dynamicImports || []),
+  new Set(['src/home_compare/source_registry.js']),
+  'Home Compare must keep full runtime registry admission behind its owned query-time boundary',
+);
+assert.ok(homeCompareSourceRegistry?.isDynamicEntry, 'Vite manifest must contain the Home Compare registry validator as a lazy chunk');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -193,6 +211,13 @@ const budgets = [
   ['ACS multi-tract loader', acsMultitractLoader, 1_000, 600],
   ['ACS multi-tract controller', acsMultitractController, 22_000, 8_000],
   ['ACS multi-tract styles', acsMultitractStyles, 4_000, 1_200],
+  // Opened only by explicit Home Compare intent. The nested controller owns
+  // official aggregate queries, strict serving/share contracts, bilingual UI,
+  // and fail-closed address/parcel admission without changing the Entry ceiling.
+  ['Home Compare loader', homeCompareLoader, 1_100, 650],
+  ['Home Compare controller', homeCompareController, 54_000, 18_000],
+  ['Home Compare source registry', homeCompareSourceRegistry, 6_000, 2_000],
+  ['Home Compare styles', homeCompareStyles, 4_500, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
@@ -260,6 +285,23 @@ for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;
   assert.ok(size <= 280_000, `${relative(hinArtifact)} must stay <= 280000 bytes; received ${size}`);
+}
+
+const publishedFallbackFields = new Map([
+  ['data/tracts_phl.geojson', ['GEOID']],
+  ['data/police_districts.geojson', ['DIST_NUMC']],
+]);
+for (const [relativePath, allowedFields] of publishedFallbackFields) {
+  const artifact = JSON.parse(await readFile(path.join(distDir, relativePath), 'utf8'));
+  assert.ok(Array.isArray(artifact.features) && artifact.features.length > 0, `${relativePath} must retain published features`);
+  for (const feature of artifact.features) {
+    assert.deepEqual(
+      Object.keys(feature.properties || {}).sort(),
+      [...allowedFields].sort(),
+      `${relativePath} must publish only runtime-consumed fallback properties`,
+    );
+    assert.ok(['Polygon', 'MultiPolygon'].includes(feature.geometry?.type), `${relativePath} must retain boundary geometry`);
+  }
 }
 
 const forbiddenRoadFiles = new Set([

@@ -1,0 +1,208 @@
+{
+  "schema": "engagement-home-compare-source-registry/v1",
+  "verified_at": "2026-08-21T11:05:13.281Z",
+  "publisher": "City of Philadelphia unless a source entry says otherwise",
+  "terms": {
+    "label": "City of Philadelphia terms of use",
+    "url": "https://www.phila.gov/terms-of-use/",
+    "limitation": "City data is provided as-is; successful transport, a declared update cadence, or a row count does not prove accuracy, completeness, currentness, or product authority."
+  },
+  "privacy": {
+    "runtime_only_fields": [
+      "input_address",
+      "normalized_address",
+      "coordinates",
+      "parcel_identifier",
+      "commute_destination"
+    ],
+    "forbidden_tracked_or_shareable_fields": [
+      "address",
+      "coordinates",
+      "source_record_id",
+      "owner",
+      "grantor",
+      "grantee",
+      "case_identifier",
+      "document_identifier"
+    ]
+  },
+  "sources": [
+    {
+      "id": "citygeo-address-locator",
+      "role": "ephemeral-address-resolution",
+      "provider": "City of Philadelphia CityGeo",
+      "canonical_url": "https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Address_Locator/GeocodeServer",
+      "transport": "arcgis-geocode-server",
+      "dataset": "Address_Locator",
+      "expected_fields": ["Score", "Match_addr", "House", "ZIP", "GEOCODE_LAT", "GEOCODE_LON", "GEOCODE_TYPE", "Addr_type", "Ref_ID"],
+      "selected_fields": ["Score", "Match_addr", "House", "ZIP", "GEOCODE_TYPE", "Addr_type", "Ref_ID"],
+      "revision_policy": "The service exposes no source-owned immutable revision in candidate responses; capture retrieval time and field contract, then require a separate OPA parcel join.",
+      "coverage": "Philadelphia address and intersection candidates",
+      "update_cadence": "not declared in the admitted service contract",
+      "accuracy_limitations": [
+        "The service minimum candidate and match scores are not a property identity guarantee.",
+        "The locator does not return an OPA account or parcel polygon.",
+        "Low-score, multiple, missing-coordinate, non-address, or geographically inconsistent results fail closed."
+      ]
+    },
+    {
+      "id": "opa-current-property",
+      "role": "property-and-current-assessment",
+      "provider": "Philadelphia Office of Property Assessment",
+      "canonical_url": "https://data.phila.gov/visualizations/property-assessments/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "opa_properties_public",
+      "expected_fields": ["assessment_date", "market_value", "market_value_date", "parcel_number", "pin", "location", "sale_date", "sale_price", "recording_date", "total_livable_area", "number_of_bedrooms", "number_of_bathrooms", "year_built", "zoning", "the_geom"],
+      "selected_fields": ["assessment_date", "market_value", "market_value_date", "parcel_number", "sale_date", "sale_price", "recording_date", "total_livable_area", "number_of_bedrooms", "number_of_bathrooms", "year_built", "zoning"],
+      "revision_policy": "No immutable CARTO table revision is exposed; bind each retrieval to schema fingerprint, row count, retrieval clock, and selected row source dates.",
+      "coverage": "Philadelphia OPA property records",
+      "update_cadence": "current public property snapshot; exact cadence not admitted here",
+      "accuracy_limitations": [
+        "A current public record is not complete property history or an appraisal guarantee.",
+        "Owner and mailing fields are excluded from the product projection.",
+        "Address-to-parcel joins must be unique and geographically consistent."
+      ]
+    },
+    {
+      "id": "opa-assessment-history",
+      "role": "annual-assessment-history",
+      "provider": "Philadelphia Office of Property Assessment",
+      "canonical_url": "https://opendataphilly.org/datasets/philadelphia-properties-and-assessment-history/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "assessments",
+      "expected_fields": ["parcel_number", "year", "market_value", "taxable_land", "taxable_building", "exempt_land", "exempt_building"],
+      "selected_fields": ["year", "market_value", "taxable_land", "taxable_building", "exempt_land", "exempt_building"],
+      "revision_policy": "Capture schema fingerprint, row count, retrieval time, and maximum published year; nightly replacement is not append-only authority.",
+      "coverage": "Annual public OPA assessment history",
+      "update_cadence": "nightly, source-declared",
+      "accuracy_limitations": [
+        "The source warns that open files may not yet reflect data used for the most recent tax year.",
+        "Assessment values are public records, not a prediction of sale price or suitability."
+      ]
+    },
+    {
+      "id": "real-estate-transfers",
+      "role": "recorded-transfer-history",
+      "provider": "City of Philadelphia Department of Records",
+      "canonical_url": "https://data.phila.gov/visualizations/real-estate-transfers/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "rtt_summary",
+      "expected_fields": ["document_type", "display_date", "recording_date", "document_date", "adjusted_total_consideration", "opa_account_num", "matched_regmap", "discrepancy", "property_count"],
+      "selected_fields": ["document_type", "display_date", "recording_date", "document_date", "adjusted_total_consideration", "matched_regmap", "discrepancy", "property_count"],
+      "revision_policy": "Capture schema fingerprint, row count, retrieval time, and maximum recording date; records may be revised and are not assumed append-only.",
+      "coverage": "Public transfer-tax document summaries since 1999-12-06",
+      "update_cadence": "not declared in the admitted API contract",
+      "accuracy_limitations": [
+        "Transfer consideration is not a property appraisal or a comparable-sales recommendation.",
+        "Document identifiers, street addresses, grantors, and grantees are excluded."
+      ]
+    },
+    {
+      "id": "philly311-requests",
+      "role": "nearby-service-request-history",
+      "provider": "Philly311",
+      "canonical_url": "https://data.phila.gov/visualizations/311-requests/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "public_cases_fc",
+      "expected_fields": ["status", "service_name", "agency_responsible", "requested_datetime", "updated_datetime", "closed_datetime", "lat", "lon", "the_geom"],
+      "selected_fields": ["status", "service_name", "requested_datetime", "updated_datetime", "closed_datetime"],
+      "revision_policy": "Capture query window, radius, schema fingerprint, aggregate row count, retrieval time, and maximum updated timestamp.",
+      "coverage": "Public service requests since 2014-12-08; product queries use a disclosed local radius and time window",
+      "update_cadence": "continuously updated service-request system; exact source revision unavailable",
+      "accuracy_limitations": [
+        "A request is not verification that the reported condition existed, persisted, or was resolved.",
+        "Request IDs, addresses, and coordinates are excluded from serving and shareable output."
+      ]
+    },
+    {
+      "id": "li-property-history",
+      "role": "property-regulatory-history",
+      "provider": "Philadelphia Department of Licenses and Inspections",
+      "canonical_url": "https://opendataphilly.org/datasets/licenses-and-inspections-property-history/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "violations|business_licenses|case_investigations",
+      "expected_fields": ["opa_account_num", "parcel_id_num", "violationdate", "violationstatus", "licensetype", "licensestatus", "investigationcompleted", "investigationstatus"],
+      "selected_fields": ["violationdate", "violationstatus", "licensetype", "licensestatus", "investigationcompleted", "investigationstatus"],
+      "revision_policy": "Capture per-table schema fingerprint, row count, retrieval time, and maximum activity date; join coverage is reported separately.",
+      "coverage": "Public L&I property history; exact record start varies by table",
+      "update_cadence": "daily, source-declared",
+      "accuracy_limitations": [
+        "Some license records lack an associated address or parcel; missing joins are partial, not zero.",
+        "Investigations and violations are administrative records, not a current property-condition guarantee.",
+        "Case, license, address, owner, and record identifiers are excluded."
+      ]
+    },
+    {
+      "id": "vacant-property-indicators",
+      "role": "modeled-vacancy-context",
+      "provider": "City of Philadelphia",
+      "canonical_url": "https://opendataphilly.org/datasets/vacant-property-indicators/",
+      "api_url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/Vacant_Indicators_Bldg/FeatureServer/0",
+      "transport": "arcgis-feature-service",
+      "dataset": "Vacant_Indicators_Bldg/0",
+      "expected_fields": ["opa_id", "lniaddresskey", "build_rank", "date_update"],
+      "selected_fields": ["build_rank", "date_update"],
+      "revision_policy": "Bind to ArcGIS lastEditDate, schema fingerprint, feature count, and retrieval time.",
+      "coverage": "Buildings whose administrative-data vacancy rank is above the source threshold",
+      "update_cadence": "source layer last edited 2026-08-17T06:14:16.207Z at verification",
+      "accuracy_limitations": [
+        "The dataset identifies buildings likely to be vacant; it is a model, not field confirmation.",
+        "No matching feature means not listed by this model at this revision, not confirmed occupied."
+      ]
+    },
+    {
+      "id": "philadelphia-reported-crime",
+      "role": "nearby-reported-incident-history",
+      "provider": "Philadelphia Police Department via OpenDataPhilly and CARTO",
+      "canonical_url": "https://data.phila.gov/visualizations/crime-incidents/",
+      "api_url": "https://phl.carto.com/api/v2/sql",
+      "transport": "carto-sql",
+      "dataset": "incidents_part1_part2",
+      "expected_fields": ["dispatch_date_time", "text_general_code", "point_x", "point_y"],
+      "selected_fields": ["dispatch_date_time", "text_general_code"],
+      "revision_policy": "Use the admitted M1 revision-aware warehouse coverage and aggregate query contract; the live table exposes no immutable source revision and may later reclassify preliminary records.",
+      "coverage": "PPD Part I and Part II reported incidents from 2006 to present; M3 uses a disclosed historical time window and radius",
+      "update_cadence": "daily, source-declared",
+      "accuracy_limitations": [
+        "Records are preliminary, can be reclassified, and expose generalized hundred-block locations rather than exact incident locations.",
+        "Reported incidents are incomplete historical evidence, not a complete account of harm, victim probability, absolute safety, a forecast, or a safest-neighborhood ranking.",
+        "M3 retains only an aggregate count and disclosed coverage; event rows, coordinates, and source record identifiers are excluded."
+      ]
+    },
+    {
+      "id": "vision-zero-hin-2025",
+      "role": "nearby-crash-derived-road-context",
+      "provider": "Philadelphia Vision Zero",
+      "canonical_url": "https://opendataphilly.org/datasets/vision-zero-high-injury-network/",
+      "api_url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/high_injury_network_2025/FeatureServer/0",
+      "transport": "arcgis-feature-service",
+      "dataset": "high_injury_network_2025/0",
+      "expected_fields": ["objectid", "stname", "length_ft"],
+      "selected_fields": ["stname", "length_ft"],
+      "revision_policy": "Bind to the 2025 network vintage, ArcGIS lastEditDate, schema fingerprint, feature count, query radius, and retrieval time.",
+      "coverage": "2025 Philadelphia High Injury Network street features derived from PennDOT crash analysis",
+      "update_cadence": "network vintage 2025; source layer last edited 2025-12-10T17:29:32.369Z at verification",
+      "accuracy_limitations": [
+        "HIN is road-network historical crash context, not an address-level risk or safety conclusion.",
+        "Feature proximity cannot be converted into victim probability, safest-neighborhood ranking, or route recommendation."
+      ]
+    }
+  ],
+  "routing": {
+    "status": "unavailable",
+    "road": {
+      "status": "unavailable",
+      "reason": "The public City route service has no traffic or Service Area capability and returned an implausible travel-time result in a bounded public-landmark smoke."
+    },
+    "transit": {
+      "status": "unavailable",
+      "reason": "SEPTA publishes licensed GTFS and operational APIs, but no admitted door-to-door routing authority or validated local routing engine is installed."
+    },
+    "forbidden_substitutes": ["straight-line distance", "synthetic graph", "unvalidated route geometry", "caller-claimed travel time"]
+  }
+}

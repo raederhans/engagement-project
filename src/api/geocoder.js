@@ -1,6 +1,40 @@
 import { fetchJson } from '../utils/http.js';
 
 const PHILADELPHIA_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Philly_Composite_Locator/GeocodeServer/findAddressCandidates';
+const PHILADELPHIA_PROPERTY_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Address_Locator/GeocodeServer/findAddressCandidates';
+
+/**
+ * Resolve raw City address candidates for Home Compare without browser/session
+ * caching. The caller must still apply score, ambiguity, geography, and OPA
+ * parcel admission; a geocoder candidate is not property identity.
+ */
+export async function findPhiladelphiaPropertyAddressCandidates(address, {
+  request = fetchJson,
+  signal,
+} = {}) {
+  const query = String(address || '').trim();
+  if (query.length < 3 || query.length > 160) {
+    throw new Error('Enter a bounded Philadelphia street address.');
+  }
+  const params = new URLSearchParams({
+    Street: query,
+    f: 'json',
+    outSR: '4326',
+    maxLocations: '5',
+    outFields: '*',
+  });
+  const response = await request(`${PHILADELPHIA_PROPERTY_GEOCODER}?${params}`, {
+    cacheTTL: 0,
+    retries: 1,
+    timeoutMs: 8000,
+    signal,
+  });
+  if (!response || typeof response !== 'object' || Array.isArray(response)
+    || !Array.isArray(response.candidates)) {
+    throw new Error('The City address response is unavailable.');
+  }
+  return response;
+}
 
 export async function geocodePhiladelphiaAddress(address, {
   request = fetchJson,

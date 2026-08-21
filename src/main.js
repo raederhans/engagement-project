@@ -119,6 +119,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let routeCorridorLoaderPromise = null;
   let acsMultitractLoader = null;
   let acsMultitractLoaderPromise = null;
+  let homeCompareLoader = null;
+  let homeCompareLoaderPromise = null;
 
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
@@ -298,6 +300,58 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
   acsMultitractOpen?.addEventListener('click', onAcsMultitractIntent);
   acsMultitractRetry?.addEventListener('click', onAcsMultitractIntent);
+
+  const homeCompareDialog = document.querySelector('[data-home-compare-dialog]');
+  const homeCompareOpen = document.querySelector('[data-home-compare-open]');
+  const homeCompareRetry = document.querySelector('[data-home-compare-retry]');
+  const homeCompareStatus = document.querySelector('[data-home-compare-loader-status]');
+  const showHomeCompareLoadFailure = (error) => {
+    if (homeCompareStatus) {
+      homeCompareStatus.hidden = false;
+      homeCompareStatus.textContent = 'Home comparison could not load／住宅比较无法加载';
+    }
+    if (homeCompareRetry) homeCompareRetry.hidden = false;
+    console.warn('Home Compare is unavailable:', error);
+  };
+  const ensureHomeCompareLoader = async () => {
+    if (homeCompareLoader) return homeCompareLoader;
+    if (!homeCompareLoaderPromise) {
+      if (homeCompareStatus) {
+        homeCompareStatus.hidden = false;
+        homeCompareStatus.textContent = 'Loading home comparison／正在加载住宅比较…';
+      }
+      if (homeCompareRetry) homeCompareRetry.hidden = true;
+      homeCompareLoaderPromise = import('./home_compare/loader.js')
+        .then((module) => module.createHomeCompareLoader({
+          dialog: homeCompareDialog,
+          opener: homeCompareOpen,
+        }))
+        .then((owner) => {
+          homeCompareLoader = owner;
+          return owner;
+        })
+        .catch((error) => {
+          homeCompareLoaderPromise = null;
+          throw error;
+        });
+    }
+    return homeCompareLoaderPromise;
+  };
+  const onHomeCompareIntent = () => {
+    if (homeCompareStatus) {
+      homeCompareStatus.hidden = false;
+      homeCompareStatus.textContent = 'Loading home comparison／正在加载住宅比较…';
+    }
+    if (homeCompareRetry) homeCompareRetry.hidden = true;
+    void ensureHomeCompareLoader()
+      .then(async (owner) => {
+        await owner.open();
+        if (homeCompareStatus) homeCompareStatus.hidden = true;
+      })
+      .catch(showHomeCompareLoadFailure);
+  };
+  homeCompareOpen?.addEventListener('click', onHomeCompareIntent);
+  homeCompareRetry?.addEventListener('click', onHomeCompareIntent);
 
   async function ensureListController() {
     if (listController) return listController;
