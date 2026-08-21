@@ -92,3 +92,21 @@ the runner's Windows console host while it writes the receipt; after the parent
 returns, a separate audit finds no task-owned runner child and ports **4173,
 4178, 4189, 4194, and 4198** have no LISTENING socket. No process was manually
 stopped for this passing run.
+
+## 2026-08-22 exact implementation release receipt
+
+- Implementation tip: `78db018ddf8eb30335393347b2c897b834fccd79`; local
+  main and merge-base: `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`.
+- The task-owned ignored receipt is
+  `.dfev1/phase1-release-78db018/receipt.json`; its separately readable
+  `.dfev1/phase1-release-78db018/exit.txt` is `0`. It records owner PID
+  60068, clean pre-status, 2026-08-21T20:45:23Z–20:52:27Z, command
+  `npm.cmd run ci:release`, `releaseExitCode=0`, `wrapperExitCode=0`, zero
+  wrapper errors, and existing stdout/stderr log paths.
+- Its pre/post task-child and five-port snapshots are all empty; baseline-
+  subtracted new child/listener arrays are empty. The independent post-run
+  audit also found no listener at 4173/4178/4189/4194/4198 and no release or
+  visual Node process. No process was killed for this passing run.
+- A prior failed wrapper was stopped only after it was proven to be this task's
+  child PID 44480 with no release children, no marker/receipt, and runaway
+  memory/CPU. It is not credited as release evidence.

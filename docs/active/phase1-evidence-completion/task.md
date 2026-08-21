@@ -50,3 +50,16 @@ Rows through old f7190f5c77432f0855e4575583f6e66ac906f50d, 7e0c5929d34140c995c81
 are historical and must not be attributed to fe32f7b. This task is
 **ready-for-review / blocked-for-admission**: reviewed candidate tip is **none**;
 it does not self-approve, integrate, push, deploy, or clean worktrees/branches.
+
+## Current exact execution evidence
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `npm.cmd run test:phase1-handoff` | 0 | `78db018` focused evaluator 5/5, including hostile policy/root/upstream/ancestor and topological-decision checks. |
+| `npm.cmd run test:release-workflow` | 0 | `78db018` release/visual workflow contracts 22/22, including Linux PID audit and structured primary-plus-cleanup formatting. |
+| `npm.cmd run lint:js` | 0 | `78db018` JS lint clean. |
+| `npm.cmd run ci:release` | 0 | One wrapper-owned exact-tip composite, recorded in `.dfev1/phase1-release-78db018/receipt.json`; complete validate/bundle/browser graph plus visual-dist 35 passed / 10 designed skips. |
+| post-run process/port audit | 0 | Receipt and independent audit record no new task child/listener and no listener at 4173/4178/4189/4194/4198. |
+
+This implementation is ready for a strict documentation-only cumulative record;
+it remains **ready-for-review / blocked-for-admission**, with reviewed tip none.
