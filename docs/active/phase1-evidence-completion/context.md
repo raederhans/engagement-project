@@ -63,20 +63,23 @@ No second browser, preview, or release runner may share that port/output.
 
 ## Handoff checkpoint
 
-Implementation tip: `a2f652f80868bdda4f0b9d7223b1441a5b377bf7`. It contains
-the current control-flow, snapshot, lazy-renderer retry entry, owning-preview
-lifecycle, release listener audit, and producer-aligned structured handoff
-implementation. One task-owned `npm.cmd run ci:release` parent naturally
-exited 0; its self-contained receipt at
-`.dfev1/phase1-release-a2f652/receipt.json` binds pre-run
-HEAD/main/merge-base/clean status, owner PID, timestamps, exit, process tree,
-and post-run five-port audit. It completed complete validation,
-unchanged-ceiling bundle policy, release-owned browser leaves, and visual-dist.
-Earlier f719, 7e0c, and b156 evidence is historical only and is not evidence
-for this implementation tip.
+Implementation tip: `fe32f7baeb1bbaf19b219012f5b89285b575311a`. It adds
+preserved primary nonzero errors for both composite runners, the visual
+nonzero-plus-close failure contract, closed Phase 1 policy fields, and distinct
+preparation/consumption/admission/deletion decisions. The M4 future receipt
+policy now requires `known-route-evidence-checkpoint/v1`, DQ, lineage, explicit
+consent, and four clocks; current M4 evidence remains unavailable rather than
+being backfilled or claimed. One task-owned `npm.cmd run ci:release` parent
+naturally exited 0; its self-contained receipt at
+`.dfev1/phase1-release-fe32f7/receipt.json` binds pre-run
+HEAD/main/merge-base/clean status, owner PID, timestamps, npm exit, process
+tree snapshots, and empty five-port LISTENING audits. It completed complete
+validation, unchanged-ceiling bundle policy, release-owned browser leaves, and
+visual-dist (35 passed, 10 designed skips). Earlier evidence is historical only
+and is not evidence for this implementation tip.
 
 Cumulative evidence-record tip: this strict record-only commit; its exact SHA
-must be resolved with `git rev-parse HEAD`. It records `a2f652`
+must be resolved with `git rev-parse HEAD`. It records `fe32f7b`
 implementation-tip evidence without claiming to have re-run the composite
 after a documentation-only commit.
 
@@ -84,7 +87,8 @@ Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
 Integration, remote CI, deployment, scheduled refresh, and online smoke remain
 deferred. The task is ready-for-review but blocked-for-admission; the reviewed
-candidate tip remains none. After the recorded `a2f652` release exit, the
-task-owned process tree had naturally exited and ports **4173, 4178, 4189,
-4194, and 4198** had no listeners. No process was manually stopped for this
-passing run.
+candidate tip remains none. The runtime receipt's final snapshot retains only
+the runner's Windows console host while it writes the receipt; after the parent
+returns, a separate audit finds no task-owned runner child and ports **4173,
+4178, 4189, 4194, and 4198** have no LISTENING socket. No process was manually
+stopped for this passing run.

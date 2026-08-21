@@ -5,10 +5,10 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | complete | Implementation tip `a2f652f80868bdda4f0b9d7223b1441a5b377bf7` adds the real producer-aligned handoff evaluator, fail-closed release listener audit, owning `PreviewServer` lifecycle, and production native-dialog/chunk-retry coverage. |
-| Focused and bundle verification | complete | The `a2f652` implementation tip has focused Home Compare, lifecycle, visual, handoff, release-workflow, JS/CSS lint, manifest build, and unchanged-ceiling bundle-policy evidence. |
-| Composite local release verification | complete | A single task-owned `npm.cmd run ci:release` parent exited **0** at `a2f652f80868bdda4f0b9d7223b1441a5b377bf7`; its self-contained receipt is `.dfev1/phase1-release-a2f652/receipt.json`. The graph included validate, bundle policy, browser leaves, and visual-dist. |
-| Cumulative evidence record | complete | This strict documentation-only commit records the `a2f652` execution evidence. It does not claim a composite execution after its own documentation delta. |
+| Current implementation | complete | Implementation tip `fe32f7baeb1bbaf19b219012f5b89285b575311a` preserves primary nonzero errors across both runners, adds the visual nonzero-plus-close contract, locks hostile handoff fixtures fail-closed, and separates preparation/consumption/admission/deletion decisions. |
+| Focused and bundle verification | complete | The `fe32f7b` implementation tip has focused handoff/release/visual lifecycle coverage and JS lint evidence; the composite below additionally covers complete validate, manifest build, and unchanged-ceiling bundle policy. |
+| Composite local release verification | complete | A single task-owned `npm.cmd run ci:release` parent exited **0** at `fe32f7baeb1bbaf19b219012f5b89285b575311a`; its self-contained receipt is `.dfev1/phase1-release-fe32f7/receipt.json`. The graph included validate, bundle policy, browser leaves, and visual-dist. |
+| Cumulative evidence record | complete | This strict documentation-only commit records the `fe32f7b` execution evidence. It does not claim a composite execution after its own documentation delta. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -43,8 +43,10 @@ browser evidence.
 | npm run lint:js; npm run lint:css; npm run build:manifest; npm run verify:bundle | 0 | Fresh `a2f652` static/build evidence. Existing ceilings unchanged; Home Compare controller is 32,414 / 11,424 raw/gzip, retaining 6,576 gzip bytes below the 18,000-byte ceiling. |
 | npm run test:area-intelligence-browser; npm run test:home-compare-browser; npm run test:known-route-evidence-browser | 0 | One task-owned serial production-dist Chromium parent: Area 4198, Home 4189, Known Route 4194. Home includes fresh-page hashed-chunk 503 → results-unavailable → Vite-built retry recovery, plus delayed real chunk Close/Escape stale-commit prevention and focus return. |
 | npm.cmd run ci:release | 0 | One natural parent run at **a2f652f80868bdda4f0b9d7223b1441a5b377bf7**. Receipt records pre-run HEAD/main/merge-base/clean status, owner PID, timestamps, exit 0, process-tree snapshots, and empty listener audits at 4173/4178/4189/4194/4198; visual-dist finished 35 passed / 10 designed skips. |
+| npm run test:phase1-handoff; npm run test:release-workflow; npm run lint:js | 0 | Fresh `fe32f7b` focused evidence: handoff 4/4 (legal fixture accepted; hostile artifact owner, writable/forbidden/port/upstream/retention/authorization/review drifts blocked; no future deletion authorization needed for retained producer evidence); release workflow 19/19 including release and visual nonzero-plus-cleanup aggregation; JS lint clean. |
+| npm.cmd run ci:release | 0 | One natural task-owned parent at **fe32f7baeb1bbaf19b219012f5b89285b575311a**, receipt `.dfev1/phase1-release-fe32f7/receipt.json`: pre/post HEAD/main/merge-base and full status clean, npm exit 0, all five audited ports have no LISTENING socket, and visual-dist finished 35 passed / 10 designed skips. |
 
 Rows through old f7190f5c77432f0855e4575583f6e66ac906f50d, 7e0c5929d34140c995c8180a3804d14a1c2635c5, and b156
-are historical and must not be attributed to a2f652. This task is
+are historical and must not be attributed to fe32f7b. This task is
 **ready-for-review / blocked-for-admission**: reviewed candidate tip is **none**;
 it does not self-approve, integrate, push, deploy, or clean worktrees/branches.
