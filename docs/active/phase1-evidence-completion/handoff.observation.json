@@ -2,7 +2,7 @@
   "schema": "engagement-phase1-handoff-observation/v1",
   "policySchema": "engagement-phase1-handoff-policy/v2",
   "kind": "concrete-handoff-observation",
-  "observedAt": "2026-08-21T19:41:18.812989Z",
+  "observedAt": "2026-08-21T20:52:27.000000Z",
   "phases": [
     {
       "phase": "M1",
@@ -152,7 +152,7 @@
         "authorizationReceipt": null
       },
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
+      "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
       "state": "pending-review"
     },
@@ -200,7 +200,7 @@
         "authorizationReceipt": null
       },
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
+      "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
       "state": "pending-review"
     },
@@ -210,7 +210,7 @@
       "owner": "1D integration/release owner",
       "worktree": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project",
       "evidenceRoot": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project/.dfev1/phase1",
-      "exactTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
+      "exactTip": "78db018ddf8eb30335393347b2c897b834fccd79",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "phaseBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
@@ -284,8 +284,8 @@
         ],
         "authorizationReceipt": null
       },
-      "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
+      "implementationTip": "78db018ddf8eb30335393347b2c897b834fccd79",
+      "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
       "state": "pending-review"
     }
