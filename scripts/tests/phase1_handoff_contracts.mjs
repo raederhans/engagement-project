@@ -76,6 +76,8 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     phase.receipt = { availability: 'available', actualPath: phase.phase, schema: definition.receipt.schema, identity: {}, revision: {}, validatorCommand: definition.receipt.validatorCommand, result: 'pass' };
     const receipt = {};
     for (const field of definition.receipt.requiredFields) setPath(receipt, field, fixtureReceiptValue(phase.phase, field));
+    if (phase.phase === 'M4') { receipt.completedPartitions = 2; receipt.partitionCount = 2; receipt.completion = { state: 'complete' }; receipt.accumulator = {}; receipt.lineage.warehouseIdentity = receipt.warehouseIdentity; receipt.lineage.routeIdentity = receipt.routeIdentity; receipt.lineage.catalogIdentity = receipt.catalogIdentity; }
+    if (phase.phase === '1D') { receipt.producerReceipts = ['M1', 'M2', 'M3', 'M4'].map((id) => ({ phase: id, identity: { id }, revision: { id } })); receipt.topology = []; receipt.overlap = []; receipt.status = {}; }
     if (definition.receipt.schema) receipt.schema = definition.receipt.schema;
     for (const field of definition.receipt.identityFields) phase.receipt.identity[field] = getPath(receipt, field);
     for (const field of definition.receipt.revisionFields) phase.receipt.revision[field] = getPath(receipt, field);
@@ -102,6 +104,8 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     isAncestor: async () => true,
     changedBetween: async () => [],
     readReceipt: async (key) => receipts.get(key),
+    filesystemAuthority: { async receiptPath(_worktree, _evidenceRoot, receiptPath) { return receiptPath; } },
+    reviewAuthority: { async validate({ recordTip, reviewedTip }) { assert.equal(recordTip, reviewedTip); } },
     resolveRef,
   };
   const accepted = await evaluateHandoff({ policy, observation: fixture, ...fixtureOptions });
@@ -205,6 +209,19 @@ test('phase and edge collections fail closed before Map construction on duplicat
     assert.equal(result.decisions.deletionEligible, false, name);
     for (const phase of Object.values(result.phases)) assert.equal(phase.decisions.admissionEligible, false, name);
   }
+});
+
+test('receipt authority cannot be bypassed by an injected reader', async () => {
+  const { policy, observation } = await documents();
+  const candidate = structuredClone(observation);
+  const phase = candidate.phases.find(({ phase: id }) => id === 'M1');
+  phase.receipt.availability = 'available'; phase.receipt.actualPath = '../escape.json'; phase.receipt.schema = policy.phases[0].receipt.schema; phase.receipt.result = 'pass';
+  let readerCalled = false;
+  const result = await evaluateHandoff({ policy, observation: candidate, filesystemAuthority: { async receiptPath() { throw new Error('receipt path escapes evidence root'); } }, readReceipt: async () => { readerCalled = true; return {}; } });
+  assert.equal(readerCalled, false);
+  assert.equal(result.decisions.admissionEligible, false);
+  assert.equal(result.decisions.deletionEligible, false);
+  assert.equal(result.phases.M1.decisions.admissionEligible, false);
 });
 
 test('glob expansion recognizes concrete owned paths and rejects writer/control-surface overlap', () => {
