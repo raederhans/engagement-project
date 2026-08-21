@@ -439,6 +439,52 @@
   height: var(--control-target);
 }
 
+.area-intelligence__heading > p:last-child,
+.area-intelligence__historical,
+.area-intelligence__limits,
+.area-intelligence__status {
+  margin: 5px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.area-intelligence__status {
+  font-weight: 700;
+}
+
+.area-intelligence__status--unavailable {
+  color: #92400e;
+}
+
+.area-intelligence__forecast {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.area-intelligence__forecast > div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(129, 154, 176, 0.35);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.area-intelligence__forecast dt {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.area-intelligence__forecast dd {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .residential-stability {
   margin: 0 0 14px;
   padding: 14px;
@@ -537,6 +583,7 @@
 }
 
 @media (max-width: 460px) {
+  .area-intelligence__forecast,
   .residential-stability__metrics {
     grid-template-columns: 1fr;
   }

@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "schema": "engagement-area-intelligence-evaluation-protocol/v1",
+  "frozen_at": "2026-08-21T07:24:12.967Z",
+  "frozen_before_model_performance": true,
+  "target": {
+    "grain": "spatial-unit-week",
+    "measure": "PPD reported incident count",
+    "week_definition": "UTC Monday 00:00 inclusive to next Monday exclusive",
+    "forecast_horizon_weeks": 1,
+    "exclude_incomplete_source_week": true,
+    "forbidden_claims": [
+      "individual victim probability",
+      "absolute safety",
+      "safety score",
+      "safest area",
+      "safest route",
+      "causal effect"
+    ]
+  },
+  "exact_input_gate": {
+    "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
+    "warehouse_manifest_sha256": "152c994ee721dfd9803c07bd36f6439abd5274e11ad1323c76879cade93ceb40",
+    "backfill_checkpoint_sha256": "3c3d0a75d7426900b3243dff4a9c36772d58ca2d10d1b3840303d8e94ff1d687",
+    "lineage_registry_sha256": "596e69ad1be44866343841fecbc3b8221c8d6a2cb7fada398cf84504cf56da41",
+    "scope_start": "2006-01-01",
+    "scope_end_exclusive": "2026-08-22",
+    "completed_scope_count": 21,
+    "canonical_row_count": 3583548,
+    "active_row_count": 3583548,
+    "partition_count": 64,
+    "source_snapshot_count": 21,
+    "serving_eligible": false
+  },
+  "admission": {
+    "event_lifecycle": "active-only",
+    "event_time": "valid-required",
+    "category": "mapped-versioned-crosswalk-required",
+    "tract": "spatial.tract.status=mapped-only",
+    "fixed_grid": "spatial.grid.status=mapped-only",
+    "ambiguous_or_unavailable": "exclude-and-audit-never-force-assign",
+    "acs": {
+      "allowed_statuses": ["available", "unavailable", "incompatible-vintage"],
+      "model_feature_use": "none-in-v1-baselines",
+      "audit_use": "population-estimate-and-moe-only-when-temporally-compatible",
+      "race_income_poverty": "unavailable"
+    }
+  },
+  "marts": {
+    "unit_types": ["tract", "fixed-grid"],
+    "sparse_week_rows": true,
+    "zero_fill_stage": "evaluation-only-within-each-admitted-unit-coverage",
+    "categories": {
+      "primary": "all-reported-incidents",
+      "tract_audit": ["person", "property", "vehicle", "financial", "public_order", "other"]
+    },
+    "lineage_required": [
+      "source_snapshot_ids",
+      "warehouse_manifest_identity",
+      "crosswalk_version",
+      "tract_boundary_id",
+      "grid_scheme",
+      "acs_snapshot_id",
+      "source_time_coverage"
+    ]
+  },
+  "rolling_folds": [
+    {
+      "id": "fold-2019",
+      "train_start": "2016-01-04",
+      "train_end_exclusive": "2019-01-07",
+      "test_start": "2019-01-07",
+      "test_end_exclusive": "2020-01-06"
+    },
+    {
+      "id": "fold-2021",
+      "train_start": "2018-01-08",
+      "train_end_exclusive": "2021-01-04",
+      "test_start": "2021-01-04",
+      "test_end_exclusive": "2022-01-03"
+    },
+    {
+      "id": "fold-2023",
+      "train_start": "2020-01-06",
+      "train_end_exclusive": "2023-01-02",
+      "test_start": "2023-01-02",
+      "test_end_exclusive": "2024-01-01"
+    },
+    {
+      "id": "fold-2025-2026",
+      "train_start": "2022-08-22",
+      "train_end_exclusive": "2025-08-18",
+      "test_start": "2025-08-18",
+      "test_end_exclusive": "2026-08-17"
+    }
+  ],
+  "spatial_holdout": {
+    "block_definition": {
+      "fixed-grid": "contiguous 4-by-4 source grid cells",
+      "tract": "tract representative point assigned to the same 2km projected block scheme"
+    },
+    "assignment": "sha256(block_id) unsigned-prefix modulo 5",
+    "holdout_remainder": 0,
+    "training_policy": "Poisson and negative-binomial fits exclude held-out blocks",
+    "report_slices": ["temporal-non-heldout", "spatial-heldout"]
+  },
+  "models": [
+    { "id": "seasonal-naive-52w", "kind": "seasonal-naive", "lag_weeks": 52 },
+    { "id": "moving-average-4w", "kind": "moving-average", "window_weeks": 4 },
+    { "id": "moving-average-13w", "kind": "moving-average", "window_weeks": 13 },
+    {
+      "id": "poisson-log-link-v1",
+      "kind": "poisson",
+      "features": ["intercept", "log1p-lag52", "log1p-ma4", "log1p-ma13", "week-sin", "week-cos"],
+      "coefficient_fit": "deterministic-clipped-IRLS",
+      "max_iterations": 6,
+      "coefficient_abs_limit": 12
+    },
+    {
+      "id": "negative-binomial-log-link-v1",
+      "kind": "negative-binomial-nb2",
+      "features": ["intercept", "log1p-lag52", "log1p-ma4", "log1p-ma13", "week-sin", "week-cos"],
+      "coefficient_fit": "deterministic-clipped-IRLS",
+      "poisson_initialization": true,
+      "dispersion": "training-only-method-of-moments-clipped-0.000001-to-10",
+      "max_iterations": 4,
+      "coefficient_abs_limit": 12
+    }
+  ],
+  "leakage_guards": {
+    "feature_cutoff": "strictly-before-predicted-week",
+    "seasonal_lag": "exactly-52-prior-weeks",
+    "moving_windows": "prior-observed-weeks-only",
+    "fold_training": "test-weeks-never-fit-coefficients-dispersion-or-intervals",
+    "spatial_training": "held-out-blocks-never-fit-global-count-models"
+  },
+  "metrics": {
+    "required": [
+      "mae",
+      "poisson_deviance",
+      "negative_binomial_deviance",
+      "prediction_interval_90_coverage",
+      "relative_mae_gain_vs_seasonal_naive"
+    ],
+    "interval_nominal": 0.9,
+    "baseline_interval": "training-only-absolute-residual-90th-percentile",
+    "count_model_intervals": "distributional-central-90-percent",
+    "data_volume_bands_mean_weekly_count": {
+      "low": [0, 1],
+      "medium": [1, 5],
+      "high": [5, null]
+    },
+    "acs_population_audit_bands": {
+      "low": [0, 2500],
+      "medium": [2500, 4500],
+      "high": [4500, null]
+    }
+  },
+  "promotion_gate": {
+    "eligible_models": ["poisson-log-link-v1", "negative-binomial-log-link-v1"],
+    "minimum_observations_per_primary_slice": 1000,
+    "minimum_relative_mae_gain_each_fold_unit_and_holdout_slice": 0.02,
+    "minimum_aggregate_relative_mae_gain": 0.05,
+    "acceptable_interval_coverage_inclusive": [0.85, 0.95],
+    "finite_deviance_required": true,
+    "maximum_category_mae_regression_vs_seasonal": 0.1,
+    "all_primary_slices_must_pass": true,
+    "failure_result": "honest-no-promotion-historical-trends-only"
+  },
+  "artifact_policy": {
+    "large_outputs": "ignored-task-owned-only",
+    "committable": "schemas-code-small-safe-reports-serving-status-and-synthetic-tests",
+    "forbidden": ["event-level-coordinates", "generalized-addresses", "raw-events", "canonical-events"],
+    "hash_meaning": "input-or-artifact-byte-identity-only-not-model-correctness"
+  }
+}

@@ -1,0 +1,3441 @@
+{
+  "schema": "engagement-area-intelligence-residual-map/v1",
+  "generated_at": "2026-08-21T07:53:40.810Z",
+  "model": "negative-binomial-log-link-v1",
+  "promotion_status": "not-promoted",
+  "source_vintage": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759",
+  "residual_definition": "actual reported incident count minus modeled count; positive means under-estimation",
+  "geometry": "2km EPSG:3857 block identifiers only; no event coordinates or addresses",
+  "blocks": [
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4173:2438",
+      "observations": 1300,
+      "mean_residual_actual_minus_predicted": -0.10513510343911843,
+      "over_estimate_rate": 0.7961538461538461,
+      "under_estimate_rate": 0.20384615384615384,
+      "mean_actual": 0.5361538461538462,
+      "mean_predicted": 0.641288949592963
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4173:2439",
+      "observations": 2548,
+      "mean_residual_actual_minus_predicted": 0.006257207191981508,
+      "over_estimate_rate": 0.6542386185243328,
+      "under_estimate_rate": 0.3457613814756672,
+      "mean_actual": 0.6342229199372057,
+      "mean_predicted": 0.6279657127452235
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4173:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.8018552332749672,
+      "over_estimate_rate": 0.5961538461538461,
+      "under_estimate_rate": 0.40384615384615385,
+      "mean_actual": 10.51923076923077,
+      "mean_predicted": 11.32108600250574
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4173:2440",
+      "observations": 1872,
+      "mean_residual_actual_minus_predicted": -0.1656144494781773,
+      "over_estimate_rate": 0.8584401709401709,
+      "under_estimate_rate": 0.14155982905982906,
+      "mean_actual": 0.17467948717948717,
+      "mean_predicted": 0.3402939366576644
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4173:2440",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.05217628093965197,
+      "over_estimate_rate": 0.5673076923076923,
+      "under_estimate_rate": 0.4326923076923077,
+      "mean_actual": 2.7788461538461537,
+      "mean_predicted": 2.831022434785804
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4173:2441",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.21790376059694327,
+      "over_estimate_rate": 0.9375,
+      "under_estimate_rate": 0.0625,
+      "mean_actual": 0.06971153846153846,
+      "mean_predicted": 0.2876152990584818
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2436",
+      "observations": 1553,
+      "mean_residual_actual_minus_predicted": -0.16109979340644212,
+      "over_estimate_rate": 0.8370895041854475,
+      "under_estimate_rate": 0.16291049581455247,
+      "mean_actual": 0.19896973599484868,
+      "mean_predicted": 0.3600695294012908
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4174:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.16225348926763805,
+      "over_estimate_rate": 0.5961538461538461,
+      "under_estimate_rate": 0.40384615384615385,
+      "mean_actual": 1.9230769230769231,
+      "mean_predicted": 2.085330412344562
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2437",
+      "observations": 2288,
+      "mean_residual_actual_minus_predicted": -0.1227255028740145,
+      "over_estimate_rate": 0.8151223776223776,
+      "under_estimate_rate": 0.18487762237762237,
+      "mean_actual": 0.29632867132867136,
+      "mean_predicted": 0.41905417420268554
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4174:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.06692910503859409,
+      "over_estimate_rate": 0.5769230769230769,
+      "under_estimate_rate": 0.4230769230769231,
+      "mean_actual": 3.610576923076923,
+      "mean_predicted": 3.54364781803833
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2438",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.05446629426873977,
+      "over_estimate_rate": 0.6947115384615384,
+      "under_estimate_rate": 0.30528846153846156,
+      "mean_actual": 0.44320913461538464,
+      "mean_predicted": 0.49767542888412425
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4174:2438",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.02681311896164,
+      "over_estimate_rate": 0.5560897435897436,
+      "under_estimate_rate": 0.4439102564102564,
+      "mean_actual": 3.2419871794871793,
+      "mean_predicted": 3.2688002984488223
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2439",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.08272734683526807,
+      "over_estimate_rate": 0.7403846153846154,
+      "under_estimate_rate": 0.25961538461538464,
+      "mean_actual": 0.45643028846153844,
+      "mean_predicted": 0.5391576352968062
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2440",
+      "observations": 2922,
+      "mean_residual_actual_minus_predicted": -0.134319817202697,
+      "over_estimate_rate": 0.8086926762491444,
+      "under_estimate_rate": 0.19130732375085557,
+      "mean_actual": 0.2645448323066393,
+      "mean_predicted": 0.39886464950933703
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4174:2440",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.09299548883368354,
+      "over_estimate_rate": 0.5649038461538461,
+      "under_estimate_rate": 0.43509615384615385,
+      "mean_actual": 2.362980769230769,
+      "mean_predicted": 2.4559762580644526
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2441",
+      "observations": 1820,
+      "mean_residual_actual_minus_predicted": -0.2148375523878551,
+      "over_estimate_rate": 0.9362637362637363,
+      "under_estimate_rate": 0.06373626373626373,
+      "mean_actual": 0.07087912087912088,
+      "mean_predicted": 0.285716673266976
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4174:2441",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.17360219292028753,
+      "over_estimate_rate": 0.5817307692307693,
+      "under_estimate_rate": 0.4182692307692308,
+      "mean_actual": 1.5673076923076923,
+      "mean_predicted": 1.7409098852279796
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4174:2442",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.21984278249491715,
+      "over_estimate_rate": 0.9471153846153846,
+      "under_estimate_rate": 0.052884615384615384,
+      "mean_actual": 0.057692307692307696,
+      "mean_predicted": 0.27753509018722483
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2435",
+      "observations": 572,
+      "mean_residual_actual_minus_predicted": -0.22822851559065419,
+      "over_estimate_rate": 0.9458041958041958,
+      "under_estimate_rate": 0.05419580419580419,
+      "mean_actual": 0.05419580419580419,
+      "mean_predicted": 0.28242431978645854
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2435",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.06028679134350998,
+      "over_estimate_rate": 0.5240384615384616,
+      "under_estimate_rate": 0.47596153846153844,
+      "mean_actual": 4.956730769230769,
+      "mean_predicted": 4.89644397788726
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2436",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": -0.1933007676781602,
+      "over_estimate_rate": 0.7969735182849937,
+      "under_estimate_rate": 0.2030264817150063,
+      "mean_actual": 0.45649432534678436,
+      "mean_predicted": 0.6497950930249476
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.6659597491828545,
+      "over_estimate_rate": 0.5576923076923077,
+      "under_estimate_rate": 0.4423076923076923,
+      "mean_actual": 9.01923076923077,
+      "mean_predicted": 9.685190518413622
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2437",
+      "observations": 2912,
+      "mean_residual_actual_minus_predicted": -0.11395348369294216,
+      "over_estimate_rate": 0.792239010989011,
+      "under_estimate_rate": 0.20776098901098902,
+      "mean_actual": 0.3918269230769231,
+      "mean_predicted": 0.5057804067698671
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2437",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.1112812278788057,
+      "over_estimate_rate": 0.5745192307692307,
+      "under_estimate_rate": 0.4254807692307692,
+      "mean_actual": 2.4591346153846154,
+      "mean_predicted": 2.5704158432634205
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2438",
+      "observations": 2028,
+      "mean_residual_actual_minus_predicted": -0.10682177080325209,
+      "over_estimate_rate": 0.7741617357001972,
+      "under_estimate_rate": 0.22583826429980275,
+      "mean_actual": 0.3269230769230769,
+      "mean_predicted": 0.433744847726329
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.16131857724536747,
+      "over_estimate_rate": 0.5336538461538461,
+      "under_estimate_rate": 0.46634615384615385,
+      "mean_actual": 4.1875,
+      "mean_predicted": 4.026181422754634
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2439",
+      "observations": 1404,
+      "mean_residual_actual_minus_predicted": -0.22242305444272534,
+      "over_estimate_rate": 0.9451566951566952,
+      "under_estimate_rate": 0.054843304843304845,
+      "mean_actual": 0.06695156695156695,
+      "mean_predicted": 0.2893746213942925
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.16001412314011768,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 5.923076923076923,
+      "mean_predicted": 6.083091046217041
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2440",
+      "observations": 2444,
+      "mean_residual_actual_minus_predicted": -0.1317087471970875,
+      "over_estimate_rate": 0.838379705400982,
+      "under_estimate_rate": 0.161620294599018,
+      "mean_actual": 0.39157119476268415,
+      "mean_predicted": 0.5232799419597711
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2441",
+      "observations": 2548,
+      "mean_residual_actual_minus_predicted": -0.18020309901318424,
+      "over_estimate_rate": 0.8751962323390895,
+      "under_estimate_rate": 0.12480376766091052,
+      "mean_actual": 0.14285714285714285,
+      "mean_predicted": 0.3230602418703266
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4175:2441",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.19589054760882335,
+      "over_estimate_rate": 0.6538461538461539,
+      "under_estimate_rate": 0.34615384615384615,
+      "mean_actual": 1.2884615384615385,
+      "mean_predicted": 1.4843520860703614
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4175:2442",
+      "observations": 2080,
+      "mean_residual_actual_minus_predicted": -0.2038837999636542,
+      "over_estimate_rate": 0.9149038461538461,
+      "under_estimate_rate": 0.08509615384615385,
+      "mean_actual": 0.10048076923076923,
+      "mean_predicted": 0.30436456919442284
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2434",
+      "observations": 468,
+      "mean_residual_actual_minus_predicted": -0.2178166880233222,
+      "over_estimate_rate": 0.9401709401709402,
+      "under_estimate_rate": 0.05982905982905983,
+      "mean_actual": 0.06623931623931624,
+      "mean_predicted": 0.28405600426263855
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2435",
+      "observations": 2808,
+      "mean_residual_actual_minus_predicted": 0.04871247753735298,
+      "over_estimate_rate": 0.6335470085470085,
+      "under_estimate_rate": 0.36645299145299143,
+      "mean_actual": 0.7546296296296297,
+      "mean_predicted": 0.7059171520922773
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2435",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.18214290533854116,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 7.024038461538462,
+      "mean_predicted": 7.206181366877008
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2436",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": -0.015883363924221097,
+      "over_estimate_rate": 0.676923076923077,
+      "under_estimate_rate": 0.3230769230769231,
+      "mean_actual": 0.5814102564102565,
+      "mean_predicted": 0.5972936203344775
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.043454116381578686,
+      "over_estimate_rate": 0.5288461538461539,
+      "under_estimate_rate": 0.47115384615384615,
+      "mean_actual": 3.8653846153846154,
+      "mean_predicted": 3.821930499003036
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2437",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.07148286774163434,
+      "over_estimate_rate": 0.7214543269230769,
+      "under_estimate_rate": 0.2785456730769231,
+      "mean_actual": 0.375,
+      "mean_predicted": 0.4464828677416349
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.0993008648398362,
+      "over_estimate_rate": 0.5384615384615384,
+      "under_estimate_rate": 0.46153846153846156,
+      "mean_actual": 3.139423076923077,
+      "mean_predicted": 3.238723941762915
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2438",
+      "observations": 1456,
+      "mean_residual_actual_minus_predicted": -0.08934496151006537,
+      "over_estimate_rate": 0.8063186813186813,
+      "under_estimate_rate": 0.1936813186813187,
+      "mean_actual": 0.4368131868131868,
+      "mean_predicted": 0.5261581483232519
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.17222759065525273,
+      "over_estimate_rate": 0.5144230769230769,
+      "under_estimate_rate": 0.4855769230769231,
+      "mean_actual": 7.875,
+      "mean_predicted": 7.702772409344752
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2439",
+      "observations": 2288,
+      "mean_residual_actual_minus_predicted": -0.05541516776827235,
+      "over_estimate_rate": 0.7320804195804196,
+      "under_estimate_rate": 0.2679195804195804,
+      "mean_actual": 0.45236013986013984,
+      "mean_predicted": 0.5077753076284127
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2440",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": -0.11574246749041577,
+      "over_estimate_rate": 0.8048549810844893,
+      "under_estimate_rate": 0.19514501891551073,
+      "mean_actual": 0.3146279949558638,
+      "mean_predicted": 0.43037046244628047
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2440",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.10284066777577448,
+      "over_estimate_rate": 0.4567307692307692,
+      "under_estimate_rate": 0.5432692307692307,
+      "mean_actual": 4.278846153846154,
+      "mean_predicted": 4.176005486070378
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2441",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": -0.1172338939080616,
+      "over_estimate_rate": 0.7979192938209332,
+      "under_estimate_rate": 0.20208070617906684,
+      "mean_actual": 0.30233291298865067,
+      "mean_predicted": 0.4195668068967117
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2441",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.013261653024922245,
+      "over_estimate_rate": 0.5865384615384616,
+      "under_estimate_rate": 0.41346153846153844,
+      "mean_actual": 3.2403846153846154,
+      "mean_predicted": 3.2536462684095393
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4176:2442",
+      "observations": 2704,
+      "mean_residual_actual_minus_predicted": -0.15641712798714807,
+      "over_estimate_rate": 0.8332100591715976,
+      "under_estimate_rate": 0.16678994082840237,
+      "mean_actual": 0.19748520710059173,
+      "mean_predicted": 0.3539023350877394
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4176:2442",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.06150881756320911,
+      "over_estimate_rate": 0.5769230769230769,
+      "under_estimate_rate": 0.4230769230769231,
+      "mean_actual": 2.548076923076923,
+      "mean_predicted": 2.609585740640131
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2434",
+      "observations": 2548,
+      "mean_residual_actual_minus_predicted": -0.019992672448856334,
+      "over_estimate_rate": 0.7252747252747253,
+      "under_estimate_rate": 0.27472527472527475,
+      "mean_actual": 0.619309262166405,
+      "mean_predicted": 0.6393019346152612
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2434",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.16778528659588338,
+      "over_estimate_rate": 0.5408653846153846,
+      "under_estimate_rate": 0.45913461538461536,
+      "mean_actual": 7.1201923076923075,
+      "mean_predicted": 7.287977594288199
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.1898009009425637,
+      "over_estimate_rate": 0.4813701923076923,
+      "under_estimate_rate": 0.5186298076923077,
+      "mean_actual": 1.8446514423076923,
+      "mean_predicted": 1.6548505413651269
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2435",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.2797053294382723,
+      "over_estimate_rate": 0.5641025641025641,
+      "under_estimate_rate": 0.4358974358974359,
+      "mean_actual": 7.842948717948718,
+      "mean_predicted": 8.122654047386996
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2436",
+      "observations": 2867,
+      "mean_residual_actual_minus_predicted": -0.0593786112334966,
+      "over_estimate_rate": 0.7565399372166027,
+      "under_estimate_rate": 0.24346006278339727,
+      "mean_actual": 0.4325078479246599,
+      "mean_predicted": 0.4918864591581564
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2436",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.07607940995100212,
+      "over_estimate_rate": 0.5192307692307693,
+      "under_estimate_rate": 0.4807692307692308,
+      "mean_actual": 3.9591346153846154,
+      "mean_predicted": 3.883055205433616
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2437",
+      "observations": 2756,
+      "mean_residual_actual_minus_predicted": -0.024130357092192613,
+      "over_estimate_rate": 0.670899854862119,
+      "under_estimate_rate": 0.329100145137881,
+      "mean_actual": 0.5849056603773585,
+      "mean_predicted": 0.60903601746955
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2437",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.039161314542875324,
+      "over_estimate_rate": 0.5512820512820513,
+      "under_estimate_rate": 0.44871794871794873,
+      "mean_actual": 3.576923076923077,
+      "mean_predicted": 3.616084391465955
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2438",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.031186004522209505,
+      "over_estimate_rate": 0.6262019230769231,
+      "under_estimate_rate": 0.3737980769230769,
+      "mean_actual": 0.7430889423076923,
+      "mean_predicted": 0.7119029377854825
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2438",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.11009647137493804,
+      "over_estimate_rate": 0.5793269230769231,
+      "under_estimate_rate": 0.4206730769230769,
+      "mean_actual": 2.7115384615384617,
+      "mean_predicted": 2.821634932913398
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2439",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.09608143118853457,
+      "over_estimate_rate": 0.7626201923076923,
+      "under_estimate_rate": 0.23737980769230768,
+      "mean_actual": 0.33413461538461536,
+      "mean_predicted": 0.4302160465731507
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2439",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.04653005788313832,
+      "over_estimate_rate": 0.5480769230769231,
+      "under_estimate_rate": 0.4519230769230769,
+      "mean_actual": 3.9158653846153846,
+      "mean_predicted": 3.9623954424985253
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2440",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.11932422492743276,
+      "over_estimate_rate": 0.7935697115384616,
+      "under_estimate_rate": 0.20643028846153846,
+      "mean_actual": 0.28125,
+      "mean_predicted": 0.40057422492743294
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2440",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.10464123814568602,
+      "over_estimate_rate": 0.5841346153846154,
+      "under_estimate_rate": 0.41586538461538464,
+      "mean_actual": 1.7548076923076923,
+      "mean_predicted": 1.8594489304533777
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2441",
+      "observations": 2600,
+      "mean_residual_actual_minus_predicted": -0.1463406250990178,
+      "over_estimate_rate": 0.835,
+      "under_estimate_rate": 0.165,
+      "mean_actual": 0.20807692307692308,
+      "mean_predicted": 0.3544175481759409
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4177:2441",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.14232459164616393,
+      "over_estimate_rate": 0.6105769230769231,
+      "under_estimate_rate": 0.3894230769230769,
+      "mean_actual": 1.3990384615384615,
+      "mean_predicted": 1.5413630531846256
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4177:2442",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.24825336442486595,
+      "over_estimate_rate": 0.9855769230769231,
+      "under_estimate_rate": 0.014423076923076924,
+      "mean_actual": 0.014423076923076924,
+      "mean_predicted": 0.2626764413479429
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2433",
+      "observations": 1196,
+      "mean_residual_actual_minus_predicted": -0.1490264153903514,
+      "over_estimate_rate": 0.8419732441471572,
+      "under_estimate_rate": 0.15802675585284282,
+      "mean_actual": 0.2040133779264214,
+      "mean_predicted": 0.35303979331677365
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2434",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.2139245991823419,
+      "over_estimate_rate": 0.52734375,
+      "under_estimate_rate": 0.47265625,
+      "mean_actual": 1.5414663461538463,
+      "mean_predicted": 1.327541746971504
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2434",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.25455086369696156,
+      "over_estimate_rate": 0.5496794871794872,
+      "under_estimate_rate": 0.45032051282051283,
+      "mean_actual": 7.19551282051282,
+      "mean_predicted": 7.450063684209783
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.08676716383455027,
+      "over_estimate_rate": 0.47596153846153844,
+      "under_estimate_rate": 0.5240384615384616,
+      "mean_actual": 1.6604567307692308,
+      "mean_predicted": 1.5736895669346784
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2435",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.032881538239644965,
+      "over_estimate_rate": 0.5080128205128205,
+      "under_estimate_rate": 0.49198717948717946,
+      "mean_actual": 6.591346153846154,
+      "mean_predicted": 6.624227692085799
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.08716894428631779,
+      "over_estimate_rate": 0.5261418269230769,
+      "under_estimate_rate": 0.4738581730769231,
+      "mean_actual": 1.3118990384615385,
+      "mean_predicted": 1.2247300941752195
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2436",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.789189750521627,
+      "over_estimate_rate": 0.5913461538461539,
+      "under_estimate_rate": 0.40865384615384615,
+      "mean_actual": 8.5,
+      "mean_predicted": 9.289189750521624
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2437",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.0698879736239766,
+      "over_estimate_rate": 0.5522836538461539,
+      "under_estimate_rate": 0.44771634615384615,
+      "mean_actual": 0.9281850961538461,
+      "mean_predicted": 0.8582971225298703
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2437",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.07383545250439877,
+      "over_estimate_rate": 0.5737179487179487,
+      "under_estimate_rate": 0.42628205128205127,
+      "mean_actual": 3.8926282051282053,
+      "mean_predicted": 3.966463657632606
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2438",
+      "observations": 2340,
+      "mean_residual_actual_minus_predicted": -0.10622393354695261,
+      "over_estimate_rate": 0.7615384615384615,
+      "under_estimate_rate": 0.23846153846153847,
+      "mean_actual": 0.3106837606837607,
+      "mean_predicted": 0.4169076942307134
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.08871056720050965,
+      "over_estimate_rate": 0.6201923076923077,
+      "under_estimate_rate": 0.3798076923076923,
+      "mean_actual": 2.7740384615384617,
+      "mean_predicted": 2.8627490287389694
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2439",
+      "observations": 2808,
+      "mean_residual_actual_minus_predicted": -0.14967089236679954,
+      "over_estimate_rate": 0.8400997150997151,
+      "under_estimate_rate": 0.1599002849002849,
+      "mean_actual": 0.20441595441595442,
+      "mean_predicted": 0.35408684678275415
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4178:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.1532923699117662,
+      "over_estimate_rate": 0.49038461538461536,
+      "under_estimate_rate": 0.5096153846153846,
+      "mean_actual": 4.591346153846154,
+      "mean_predicted": 4.438053783934386
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2440",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": -0.21739384793066457,
+      "over_estimate_rate": 0.933974358974359,
+      "under_estimate_rate": 0.06602564102564103,
+      "mean_actual": 0.07115384615384615,
+      "mean_predicted": 0.2885476940845109
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4178:2441",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.23322293776793923,
+      "over_estimate_rate": 0.9615384615384616,
+      "under_estimate_rate": 0.038461538461538464,
+      "mean_actual": 0.040865384615384616,
+      "mean_predicted": 0.2740883223833238
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2431",
+      "observations": 260,
+      "mean_residual_actual_minus_predicted": -0.16186313600797306,
+      "over_estimate_rate": 0.8730769230769231,
+      "under_estimate_rate": 0.12692307692307692,
+      "mean_actual": 0.18846153846153846,
+      "mean_predicted": 0.3503246744695114
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2432",
+      "observations": 2458,
+      "mean_residual_actual_minus_predicted": -0.06899880860739423,
+      "over_estimate_rate": 0.7640358014646054,
+      "under_estimate_rate": 0.23596419853539463,
+      "mean_actual": 0.4727420667209113,
+      "mean_predicted": 0.5417408753283074
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2432",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.06733763803710803,
+      "over_estimate_rate": 0.5336538461538461,
+      "under_estimate_rate": 0.46634615384615385,
+      "mean_actual": 3.954326923076923,
+      "mean_predicted": 3.886989285039817
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2433",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.17681686163413182,
+      "over_estimate_rate": 0.5856370192307693,
+      "under_estimate_rate": 0.4143629807692308,
+      "mean_actual": 1.3560697115384615,
+      "mean_predicted": 1.5328865731725945
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2433",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.08613780263615736,
+      "over_estimate_rate": 0.5576923076923077,
+      "under_estimate_rate": 0.4423076923076923,
+      "mean_actual": 5.778846153846154,
+      "mean_predicted": 5.864983956482315
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2434",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.23064335465422023,
+      "over_estimate_rate": 0.5234375,
+      "under_estimate_rate": 0.4765625,
+      "mean_actual": 2.22265625,
+      "mean_predicted": 2.4532996046542204
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2434",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -2.4693057037713126,
+      "over_estimate_rate": 0.6298076923076923,
+      "under_estimate_rate": 0.3701923076923077,
+      "mean_actual": 13.23397435897436,
+      "mean_predicted": 15.703280062745666
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.26118137977666034,
+      "over_estimate_rate": 0.4738581730769231,
+      "under_estimate_rate": 0.5261418269230769,
+      "mean_actual": 1.7866586538461537,
+      "mean_predicted": 1.5254772740694935
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2435",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.03607893502355363,
+      "over_estimate_rate": 0.5228365384615384,
+      "under_estimate_rate": 0.47716346153846156,
+      "mean_actual": 6.03125,
+      "mean_predicted": 6.067328935023557
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.20910006756340527,
+      "over_estimate_rate": 0.49849759615384615,
+      "under_estimate_rate": 0.5015024038461539,
+      "mean_actual": 1.4624399038461537,
+      "mean_predicted": 1.2533398362827468
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2436",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": 0.05491910243592945,
+      "over_estimate_rate": 0.5230769230769231,
+      "under_estimate_rate": 0.47692307692307695,
+      "mean_actual": 5.444230769230769,
+      "mean_predicted": 5.38931166679484
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2437",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.0046722093913008625,
+      "over_estimate_rate": 0.6472355769230769,
+      "under_estimate_rate": 0.3527644230769231,
+      "mean_actual": 0.5543870192307693,
+      "mean_predicted": 0.5590592286220691
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.04819917032834428,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 4.903846153846154,
+      "mean_predicted": 4.952045324174498
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2438",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.11756230221671572,
+      "over_estimate_rate": 0.7782451923076923,
+      "under_estimate_rate": 0.22175480769230768,
+      "mean_actual": 0.2785456730769231,
+      "mean_predicted": 0.39610797529363945
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2438",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.24935816725432808,
+      "over_estimate_rate": 0.5793269230769231,
+      "under_estimate_rate": 0.4206730769230769,
+      "mean_actual": 3.891826923076923,
+      "mean_predicted": 4.141185090331252
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2439",
+      "observations": 1795,
+      "mean_residual_actual_minus_predicted": -0.22091004623889046,
+      "over_estimate_rate": 0.9431754874651811,
+      "under_estimate_rate": 0.05682451253481894,
+      "mean_actual": 0.06573816155988858,
+      "mean_predicted": 0.2866482077987793
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4179:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.1786724979235399,
+      "over_estimate_rate": 0.6298076923076923,
+      "under_estimate_rate": 0.3701923076923077,
+      "mean_actual": 1.4759615384615385,
+      "mean_predicted": 1.6546340363850776
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4179:2440",
+      "observations": 380,
+      "mean_residual_actual_minus_predicted": -0.24641767809281606,
+      "over_estimate_rate": 0.9842105263157894,
+      "under_estimate_rate": 0.015789473684210527,
+      "mean_actual": 0.015789473684210527,
+      "mean_predicted": 0.2622071517770265
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2431",
+      "observations": 1768,
+      "mean_residual_actual_minus_predicted": -0.1715018160328159,
+      "over_estimate_rate": 0.8755656108597285,
+      "under_estimate_rate": 0.1244343891402715,
+      "mean_actual": 0.16968325791855204,
+      "mean_predicted": 0.3411850739513679
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2431",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.3296495111339839,
+      "over_estimate_rate": 0.5673076923076923,
+      "under_estimate_rate": 0.4326923076923077,
+      "mean_actual": 8.274038461538462,
+      "mean_predicted": 8.603687972672445
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2432",
+      "observations": 3166,
+      "mean_residual_actual_minus_predicted": -0.07887372997282312,
+      "over_estimate_rate": 0.6465571699305117,
+      "under_estimate_rate": 0.3534428300694883,
+      "mean_actual": 1.3373341756159192,
+      "mean_predicted": 1.4162079055887438
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2432",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -2.465294626927244,
+      "over_estimate_rate": 0.6634615384615384,
+      "under_estimate_rate": 0.33653846153846156,
+      "mean_actual": 15.764423076923077,
+      "mean_predicted": 18.229717703850326
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2433",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.11353231859630189,
+      "over_estimate_rate": 0.5558007566204287,
+      "under_estimate_rate": 0.44419924337957123,
+      "mean_actual": 1.555170239596469,
+      "mean_predicted": 1.4416379210001693
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2433",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.5164310344471309,
+      "over_estimate_rate": 0.5737179487179487,
+      "under_estimate_rate": 0.42628205128205127,
+      "mean_actual": 8.53525641025641,
+      "mean_predicted": 9.051687444703532
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2434",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.057300427644909044,
+      "over_estimate_rate": 0.5516826923076923,
+      "under_estimate_rate": 0.4483173076923077,
+      "mean_actual": 1.7872596153846154,
+      "mean_predicted": 1.7299591877397031
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2434",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.9912405589470676,
+      "over_estimate_rate": 0.5865384615384616,
+      "under_estimate_rate": 0.41346153846153844,
+      "mean_actual": 9.697115384615385,
+      "mean_predicted": 10.688355943562447
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2435",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.1456686191118255,
+      "over_estimate_rate": 0.5708333333333333,
+      "under_estimate_rate": 0.42916666666666664,
+      "mean_actual": 1.3685897435897436,
+      "mean_predicted": 1.222921124477919
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2435",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.15505942455792518,
+      "over_estimate_rate": 0.5480769230769231,
+      "under_estimate_rate": 0.4519230769230769,
+      "mean_actual": 6.522435897435898,
+      "mean_predicted": 6.67749532199382
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.1097216474337877,
+      "over_estimate_rate": 0.5315504807692307,
+      "under_estimate_rate": 0.4684495192307692,
+      "mean_actual": 0.97265625,
+      "mean_predicted": 0.8629346025662122
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2436",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.0162824813427581,
+      "over_estimate_rate": 0.5336538461538461,
+      "under_estimate_rate": 0.46634615384615385,
+      "mean_actual": 5.295673076923077,
+      "mean_predicted": 5.27939059558032
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2437",
+      "observations": 2704,
+      "mean_residual_actual_minus_predicted": -0.11268158385111039,
+      "over_estimate_rate": 0.7052514792899408,
+      "under_estimate_rate": 0.2947485207100592,
+      "mean_actual": 0.757396449704142,
+      "mean_predicted": 0.8700780335552523
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4180:2437",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.12943926783380144,
+      "over_estimate_rate": 0.5600961538461539,
+      "under_estimate_rate": 0.43990384615384615,
+      "mean_actual": 4.887019230769231,
+      "mean_predicted": 5.016458498603031
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4180:2438",
+      "observations": 1716,
+      "mean_residual_actual_minus_predicted": -0.17006306880203645,
+      "over_estimate_rate": 0.7628205128205128,
+      "under_estimate_rate": 0.23717948717948717,
+      "mean_actual": 0.5909090909090909,
+      "mean_predicted": 0.760972159711128
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2430",
+      "observations": 52,
+      "mean_residual_actual_minus_predicted": -0.08869850346246594,
+      "over_estimate_rate": 0.7115384615384616,
+      "under_estimate_rate": 0.28846153846153844,
+      "mean_actual": 0.3269230769230769,
+      "mean_predicted": 0.41562158038554287
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2431",
+      "observations": 2496,
+      "mean_residual_actual_minus_predicted": 0.1561683529382275,
+      "over_estimate_rate": 0.5637019230769231,
+      "under_estimate_rate": 0.4362980769230769,
+      "mean_actual": 1.294871794871795,
+      "mean_predicted": 1.138703441933569
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2431",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.12388147996041102,
+      "over_estimate_rate": 0.5432692307692307,
+      "under_estimate_rate": 0.4567307692307692,
+      "mean_actual": 3.887019230769231,
+      "mean_predicted": 3.763137750808816
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2432",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -3.36516277994053,
+      "over_estimate_rate": 0.5682091346153846,
+      "under_estimate_rate": 0.43179086538461536,
+      "mean_actual": 5.033954326923077,
+      "mean_predicted": 8.399117106863612
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2432",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -3.396674032730646,
+      "over_estimate_rate": 0.6274038461538461,
+      "under_estimate_rate": 0.37259615384615385,
+      "mean_actual": 14.408653846153847,
+      "mean_predicted": 17.80532787888448
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2433",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.20139393871712388,
+      "over_estimate_rate": 0.5504413619167717,
+      "under_estimate_rate": 0.44955863808322827,
+      "mean_actual": 1.6402900378310215,
+      "mean_predicted": 1.4388960991138973
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2433",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -1.7337514805079801,
+      "over_estimate_rate": 0.6778846153846154,
+      "under_estimate_rate": 0.32211538461538464,
+      "mean_actual": 13.346153846153847,
+      "mean_predicted": 15.079905326661828
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2434",
+      "observations": 2964,
+      "mean_residual_actual_minus_predicted": 0.042419132838766714,
+      "over_estimate_rate": 0.6332658569500674,
+      "under_estimate_rate": 0.3667341430499325,
+      "mean_actual": 0.9655870445344129,
+      "mean_predicted": 0.923167911695645
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2434",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.17014625841315306,
+      "over_estimate_rate": 0.5889423076923077,
+      "under_estimate_rate": 0.4110576923076923,
+      "mean_actual": 7.084134615384615,
+      "mean_predicted": 7.2542808737977715
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.14547781309851746,
+      "over_estimate_rate": 0.5564903846153846,
+      "under_estimate_rate": 0.44350961538461536,
+      "mean_actual": 1.3849158653846154,
+      "mean_predicted": 1.2394380522861002
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2435",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.6766381560876643,
+      "over_estimate_rate": 0.6009615384615384,
+      "under_estimate_rate": 0.39903846153846156,
+      "mean_actual": 9.274038461538462,
+      "mean_predicted": 9.95067661762612
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4181:2436",
+      "observations": 2496,
+      "mean_residual_actual_minus_predicted": 0.0662358987083874,
+      "over_estimate_rate": 0.6237980769230769,
+      "under_estimate_rate": 0.3762019230769231,
+      "mean_actual": 0.9310897435897436,
+      "mean_predicted": 0.864853844881356
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4181:2436",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.04553492746017648,
+      "over_estimate_rate": 0.5384615384615384,
+      "under_estimate_rate": 0.46153846153846156,
+      "mean_actual": 5.2548076923076925,
+      "mean_predicted": 5.300342619767867
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2426",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.24560983138257686,
+      "over_estimate_rate": 0.9807692307692307,
+      "under_estimate_rate": 0.019230769230769232,
+      "mean_actual": 0.019230769230769232,
+      "mean_predicted": 0.2648406006133461
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2430",
+      "observations": 1716,
+      "mean_residual_actual_minus_predicted": 0.1816200173319113,
+      "over_estimate_rate": 0.5967365967365967,
+      "under_estimate_rate": 0.40326340326340326,
+      "mean_actual": 1.255827505827506,
+      "mean_predicted": 1.0742074884955954
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2430",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.10150519541591319,
+      "over_estimate_rate": 0.5384615384615384,
+      "under_estimate_rate": 0.46153846153846156,
+      "mean_actual": 6.5264423076923075,
+      "mean_predicted": 6.627947503108218
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2431",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.24936127374828684,
+      "over_estimate_rate": 0.4813701923076923,
+      "under_estimate_rate": 0.5186298076923077,
+      "mean_actual": 2.3170072115384617,
+      "mean_predicted": 2.0676459377901755
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2431",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.5125742075505952,
+      "over_estimate_rate": 0.5692307692307692,
+      "under_estimate_rate": 0.4307692307692308,
+      "mean_actual": 7.467307692307692,
+      "mean_predicted": 7.979881899858277
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2432",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -2.6444375021667486,
+      "over_estimate_rate": 0.6394230769230769,
+      "under_estimate_rate": 0.3605769230769231,
+      "mean_actual": 6.209735576923077,
+      "mean_predicted": 8.854173079089803
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2432",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -5.2288764170602695,
+      "over_estimate_rate": 0.7375,
+      "under_estimate_rate": 0.2625,
+      "mean_actual": 18.99903846153846,
+      "mean_predicted": 24.227914878598735
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2433",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.048063876868222354,
+      "over_estimate_rate": 0.599936948297604,
+      "under_estimate_rate": 0.400063051702396,
+      "mean_actual": 1.6185372005044136,
+      "mean_predicted": 1.5704733236361927
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2433",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.45087670385833317,
+      "over_estimate_rate": 0.5805288461538461,
+      "under_estimate_rate": 0.41947115384615385,
+      "mean_actual": 8.176682692307692,
+      "mean_predicted": 8.62755939616602
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2434",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.20186157465557877,
+      "over_estimate_rate": 0.5366586538461539,
+      "under_estimate_rate": 0.46334134615384615,
+      "mean_actual": 2.1021634615384617,
+      "mean_predicted": 1.900301886882883
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2434",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.22454257436635255,
+      "over_estimate_rate": 0.5552884615384616,
+      "under_estimate_rate": 0.44471153846153844,
+      "mean_actual": 8.057692307692308,
+      "mean_predicted": 8.28223488205866
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.29038472246724567,
+      "over_estimate_rate": 0.49459134615384615,
+      "under_estimate_rate": 0.5054086538461539,
+      "mean_actual": 1.9543269230769231,
+      "mean_predicted": 1.6639422006096796
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2435",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.16894319672454694,
+      "over_estimate_rate": 0.5488782051282052,
+      "under_estimate_rate": 0.4511217948717949,
+      "mean_actual": 6.3806089743589745,
+      "mean_predicted": 6.549552171083529
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.08742203675178675,
+      "over_estimate_rate": 0.5760216346153846,
+      "under_estimate_rate": 0.42397836538461536,
+      "mean_actual": 0.9251802884615384,
+      "mean_predicted": 0.8377582517097534
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2436",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.02761330385374648,
+      "over_estimate_rate": 0.5737179487179487,
+      "under_estimate_rate": 0.42628205128205127,
+      "mean_actual": 2.5544871794871793,
+      "mean_predicted": 2.5821004833409256
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4182:2437",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.13842555897462594,
+      "over_estimate_rate": 0.8173076923076923,
+      "under_estimate_rate": 0.18269230769230768,
+      "mean_actual": 0.21955128205128205,
+      "mean_predicted": 0.3579768410259083
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4182:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.07974050982556538,
+      "over_estimate_rate": 0.5721153846153846,
+      "under_estimate_rate": 0.42788461538461536,
+      "mean_actual": 1.7451923076923077,
+      "mean_predicted": 1.8249328175178727
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2424",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.25343344612493623,
+      "over_estimate_rate": 0.9951923076923077,
+      "under_estimate_rate": 0.004807692307692308,
+      "mean_actual": 0.004807692307692308,
+      "mean_predicted": 0.2582411384326285
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2425",
+      "observations": 784,
+      "mean_residual_actual_minus_predicted": -0.2455076804907321,
+      "over_estimate_rate": 0.9808673469387755,
+      "under_estimate_rate": 0.01913265306122449,
+      "mean_actual": 0.02040816326530612,
+      "mean_predicted": 0.2659158437560382
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2425",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.2930343986307995,
+      "over_estimate_rate": 0.6153846153846154,
+      "under_estimate_rate": 0.38461538461538464,
+      "mean_actual": 0.8413461538461539,
+      "mean_predicted": 1.1343805524769535
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2426",
+      "observations": 2340,
+      "mean_residual_actual_minus_predicted": -0.07335062855767414,
+      "over_estimate_rate": 0.7863247863247863,
+      "under_estimate_rate": 0.21367521367521367,
+      "mean_actual": 0.46153846153846156,
+      "mean_predicted": 0.5348890900961362
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2426",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.7345940620645994,
+      "over_estimate_rate": 0.5697115384615384,
+      "under_estimate_rate": 0.43028846153846156,
+      "mean_actual": 9.646634615384615,
+      "mean_predicted": 10.381228677449217
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2427",
+      "observations": 2704,
+      "mean_residual_actual_minus_predicted": 0.14340556375543237,
+      "over_estimate_rate": 0.5576923076923077,
+      "under_estimate_rate": 0.4423076923076923,
+      "mean_actual": 1.7965976331360947,
+      "mean_predicted": 1.6531920693806632
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2427",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.07678878834150847,
+      "over_estimate_rate": 0.4951923076923077,
+      "under_estimate_rate": 0.5048076923076923,
+      "mean_actual": 4.302884615384615,
+      "mean_predicted": 4.379673403726125
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2428",
+      "observations": 2496,
+      "mean_residual_actual_minus_predicted": 0.17372917959173834,
+      "over_estimate_rate": 0.5284455128205128,
+      "under_estimate_rate": 0.47155448717948717,
+      "mean_actual": 1.5977564102564104,
+      "mean_predicted": 1.424027230664671
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2428",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": 0.03172422738132577,
+      "over_estimate_rate": 0.5240384615384616,
+      "under_estimate_rate": 0.47596153846153844,
+      "mean_actual": 4.632692307692308,
+      "mean_predicted": 4.600968080310986
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2429",
+      "observations": 2964,
+      "mean_residual_actual_minus_predicted": 0.16837124707268597,
+      "over_estimate_rate": 0.5178812415654521,
+      "under_estimate_rate": 0.48211875843454793,
+      "mean_actual": 1.6467611336032388,
+      "mean_predicted": 1.478389886530553
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2429",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.2318082601072821,
+      "over_estimate_rate": 0.5576923076923077,
+      "under_estimate_rate": 0.4423076923076923,
+      "mean_actual": 4.709935897435898,
+      "mean_predicted": 4.9417441575431775
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2430",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.15829558800687907,
+      "over_estimate_rate": 0.49849759615384615,
+      "under_estimate_rate": 0.5015024038461539,
+      "mean_actual": 2.5102163461538463,
+      "mean_predicted": 2.351920758146965
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2430",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.35171558073567916,
+      "over_estimate_rate": 0.5615384615384615,
+      "under_estimate_rate": 0.43846153846153846,
+      "mean_actual": 7.457692307692308,
+      "mean_predicted": 7.809407888427981
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2431",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.2719279499139305,
+      "over_estimate_rate": 0.49008413461538464,
+      "under_estimate_rate": 0.5099158653846154,
+      "mean_actual": 1.8617788461538463,
+      "mean_predicted": 1.5898508962399143
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2431",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.12009935164342703,
+      "over_estimate_rate": 0.5492788461538461,
+      "under_estimate_rate": 0.45072115384615385,
+      "mean_actual": 5.796875,
+      "mean_predicted": 5.916974351643429
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2432",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.08286607159688447,
+      "over_estimate_rate": 0.5048076923076923,
+      "under_estimate_rate": 0.4951923076923077,
+      "mean_actual": 3.131610576923077,
+      "mean_predicted": 3.0487445053261935
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2432",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.6666742094586925,
+      "over_estimate_rate": 0.6033653846153846,
+      "under_estimate_rate": 0.39663461538461536,
+      "mean_actual": 9.185096153846153,
+      "mean_predicted": 9.851770363304837
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2433",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.01630169856362216,
+      "over_estimate_rate": 0.5453725961538461,
+      "under_estimate_rate": 0.45462740384615385,
+      "mean_actual": 3.3257211538461537,
+      "mean_predicted": 3.3094194552825353
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2433",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.820513897717221,
+      "over_estimate_rate": 0.6105769230769231,
+      "under_estimate_rate": 0.3894230769230769,
+      "mean_actual": 10.332932692307692,
+      "mean_predicted": 11.15344659002492
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2434",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.1580935644358908,
+      "over_estimate_rate": 0.5201322115384616,
+      "under_estimate_rate": 0.47986778846153844,
+      "mean_actual": 2.51171875,
+      "mean_predicted": 2.3536251855641077
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2434",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.7178007728891233,
+      "over_estimate_rate": 0.6310096153846154,
+      "under_estimate_rate": 0.36899038461538464,
+      "mean_actual": 7.600961538461538,
+      "mean_predicted": 8.31876231135066
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.039763718504406104,
+      "over_estimate_rate": 0.5516826923076923,
+      "under_estimate_rate": 0.4483173076923077,
+      "mean_actual": 2.1346153846153846,
+      "mean_predicted": 2.1743791031197897
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2435",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -1.6163327134547718,
+      "over_estimate_rate": 0.6802884615384616,
+      "under_estimate_rate": 0.31971153846153844,
+      "mean_actual": 10.110576923076923,
+      "mean_predicted": 11.72690963653169
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.20830792924473202,
+      "over_estimate_rate": 0.5021033653846154,
+      "under_estimate_rate": 0.49789663461538464,
+      "mean_actual": 2.114483173076923,
+      "mean_predicted": 1.906175243832188
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2436",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.8552963718005363,
+      "over_estimate_rate": 0.5865384615384616,
+      "under_estimate_rate": 0.41346153846153844,
+      "mean_actual": 9.149038461538462,
+      "mean_predicted": 10.004334833339005
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2437",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.1616363653350682,
+      "over_estimate_rate": 0.5641025641025641,
+      "under_estimate_rate": 0.4358974358974359,
+      "mean_actual": 1.2628205128205128,
+      "mean_predicted": 1.1011841474854442
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4183:2437",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.07788530588129286,
+      "over_estimate_rate": 0.5504807692307693,
+      "under_estimate_rate": 0.4495192307692308,
+      "mean_actual": 7.0889423076923075,
+      "mean_predicted": 7.1668276135736
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4183:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.05151690162997432,
+      "over_estimate_rate": 0.7115384615384616,
+      "under_estimate_rate": 0.28846153846153844,
+      "mean_actual": 0.3701923076923077,
+      "mean_predicted": 0.42170920932228234
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2424",
+      "observations": 520,
+      "mean_residual_actual_minus_predicted": -0.2468167673168198,
+      "over_estimate_rate": 0.9865384615384616,
+      "under_estimate_rate": 0.013461538461538462,
+      "mean_actual": 0.013461538461538462,
+      "mean_predicted": 0.2602783057783584
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2424",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.3780849234028195,
+      "over_estimate_rate": 0.6875,
+      "under_estimate_rate": 0.3125,
+      "mean_actual": 0.46153846153846156,
+      "mean_predicted": 0.8396233849412809
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2425",
+      "observations": 1800,
+      "mean_residual_actual_minus_predicted": -0.2213166654186492,
+      "over_estimate_rate": 0.9527777777777777,
+      "under_estimate_rate": 0.04722222222222222,
+      "mean_actual": 0.06333333333333334,
+      "mean_predicted": 0.28464999875198255
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2426",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.049315291369419645,
+      "over_estimate_rate": 0.657313997477932,
+      "under_estimate_rate": 0.3426860025220681,
+      "mean_actual": 1.019861286254729,
+      "mean_predicted": 0.9705459948853085
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2426",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.10752163549888061,
+      "over_estimate_rate": 0.5048076923076923,
+      "under_estimate_rate": 0.4951923076923077,
+      "mean_actual": 5.322115384615385,
+      "mean_predicted": 5.214593749116508
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2427",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.13234509111820553,
+      "over_estimate_rate": 0.4948918269230769,
+      "under_estimate_rate": 0.5051081730769231,
+      "mean_actual": 2.823016826923077,
+      "mean_predicted": 2.6906717358048704
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2427",
+      "observations": 1664,
+      "mean_residual_actual_minus_predicted": -0.17114911738087601,
+      "over_estimate_rate": 0.5342548076923077,
+      "under_estimate_rate": 0.4657451923076923,
+      "mean_actual": 4.994591346153846,
+      "mean_predicted": 5.165740463534719
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2428",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.13296563532801758,
+      "over_estimate_rate": 0.5024038461538461,
+      "under_estimate_rate": 0.49759615384615385,
+      "mean_actual": 2.480168269230769,
+      "mean_predicted": 2.3472026339027483
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2428",
+      "observations": 1456,
+      "mean_residual_actual_minus_predicted": -0.03025818043980181,
+      "over_estimate_rate": 0.5542582417582418,
+      "under_estimate_rate": 0.44574175824175827,
+      "mean_actual": 3.943681318681319,
+      "mean_predicted": 3.9739394991211188
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2429",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -5.944965848864549,
+      "over_estimate_rate": 0.6986177884615384,
+      "under_estimate_rate": 0.30138221153846156,
+      "mean_actual": 8.202223557692308,
+      "mean_predicted": 14.147189406556869
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2429",
+      "observations": 2288,
+      "mean_residual_actual_minus_predicted": -2.1434453262786337,
+      "over_estimate_rate": 0.6127622377622378,
+      "under_estimate_rate": 0.38723776223776224,
+      "mean_actual": 10.786713286713287,
+      "mean_predicted": 12.930158612991915
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2430",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.07760820415257706,
+      "over_estimate_rate": 0.5171274038461539,
+      "under_estimate_rate": 0.48287259615384615,
+      "mean_actual": 3.137019230769231,
+      "mean_predicted": 3.0594110266166576
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2430",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.2780032910674902,
+      "over_estimate_rate": 0.5625,
+      "under_estimate_rate": 0.4375,
+      "mean_actual": 6.778044871794871,
+      "mean_predicted": 7.056048162862367
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2431",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.5950142447433084,
+      "over_estimate_rate": 0.5552884615384616,
+      "under_estimate_rate": 0.44471153846153844,
+      "mean_actual": 4.034855769230769,
+      "mean_predicted": 4.629870013974062
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2431",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -1.60783403151657,
+      "over_estimate_rate": 0.624198717948718,
+      "under_estimate_rate": 0.37580128205128205,
+      "mean_actual": 11.03525641025641,
+      "mean_predicted": 12.64309044177295
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2432",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.3028641914384546,
+      "over_estimate_rate": 0.5676081730769231,
+      "under_estimate_rate": 0.4323918269230769,
+      "mean_actual": 3.8677884615384617,
+      "mean_predicted": 4.1706526529769254
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2432",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.5618484087734708,
+      "over_estimate_rate": 0.5881410256410257,
+      "under_estimate_rate": 0.41185897435897434,
+      "mean_actual": 8.732371794871796,
+      "mean_predicted": 9.294220203645278
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2433",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.03392576804804374,
+      "over_estimate_rate": 0.5216346153846154,
+      "under_estimate_rate": 0.47836538461538464,
+      "mean_actual": 2.6186899038461537,
+      "mean_predicted": 2.584764135798108
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2433",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -1.3084773965844687,
+      "over_estimate_rate": 0.6458333333333334,
+      "under_estimate_rate": 0.3541666666666667,
+      "mean_actual": 11.886217948717949,
+      "mean_predicted": 13.194695345302412
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2434",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.18064789025895886,
+      "over_estimate_rate": 0.5384615384615384,
+      "under_estimate_rate": 0.46153846153846156,
+      "mean_actual": 1.798234552332913,
+      "mean_predicted": 1.6175866620739527
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2434",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.22484738613608865,
+      "over_estimate_rate": 0.5471153846153847,
+      "under_estimate_rate": 0.4528846153846154,
+      "mean_actual": 7.016346153846154,
+      "mean_predicted": 7.241193539982237
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.17755713832847705,
+      "over_estimate_rate": 0.5417668269230769,
+      "under_estimate_rate": 0.4582331730769231,
+      "mean_actual": 1.4600360576923077,
+      "mean_predicted": 1.2824789193638322
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2435",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.30190430962638903,
+      "over_estimate_rate": 0.5673076923076923,
+      "under_estimate_rate": 0.4326923076923077,
+      "mean_actual": 7.081730769230769,
+      "mean_predicted": 7.383635078857155
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.17674917505108503,
+      "over_estimate_rate": 0.5582932692307693,
+      "under_estimate_rate": 0.4417067307692308,
+      "mean_actual": 1.8743990384615385,
+      "mean_predicted": 1.6976498634104566
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2436",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.19941058108201126,
+      "over_estimate_rate": 0.5413461538461538,
+      "under_estimate_rate": 0.45865384615384613,
+      "mean_actual": 6.341346153846154,
+      "mean_predicted": 6.540756734928167
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2437",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.22496795670375766,
+      "over_estimate_rate": 0.48587740384615385,
+      "under_estimate_rate": 0.5141225961538461,
+      "mean_actual": 1.3536658653846154,
+      "mean_predicted": 1.1286979086808577
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2437",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.09589620461785303,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 5.818509615384615,
+      "mean_predicted": 5.914405820002464
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4184:2438",
+      "observations": 2496,
+      "mean_residual_actual_minus_predicted": 0.05625402378479592,
+      "over_estimate_rate": 0.6438301282051282,
+      "under_estimate_rate": 0.3561698717948718,
+      "mean_actual": 0.8225160256410257,
+      "mean_predicted": 0.7662620018562284
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4184:2438",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.08602506703255028,
+      "over_estimate_rate": 0.5697115384615384,
+      "under_estimate_rate": 0.43028846153846156,
+      "mean_actual": 2.96875,
+      "mean_predicted": 3.0547750670325473
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2424",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.24118022553824267,
+      "over_estimate_rate": 0.9747596153846154,
+      "under_estimate_rate": 0.025240384615384616,
+      "mean_actual": 0.025240384615384616,
+      "mean_predicted": 0.2664206101536273
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2425",
+      "observations": 1874,
+      "mean_residual_actual_minus_predicted": -0.2102103520377584,
+      "over_estimate_rate": 0.9343649946638207,
+      "under_estimate_rate": 0.06563500533617929,
+      "mean_actual": 0.09231590181430097,
+      "mean_predicted": 0.30252625385205945
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2426",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.005996796283005822,
+      "over_estimate_rate": 0.6742788461538461,
+      "under_estimate_rate": 0.32572115384615385,
+      "mean_actual": 0.6493389423076923,
+      "mean_predicted": 0.6433421460246866
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2426",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": 0.10895583741244626,
+      "over_estimate_rate": 0.5192307692307693,
+      "under_estimate_rate": 0.4807692307692308,
+      "mean_actual": 4.354166666666667,
+      "mean_predicted": 4.2452108292542245
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2427",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.21430840861872372,
+      "over_estimate_rate": 0.48287259615384615,
+      "under_estimate_rate": 0.5171274038461539,
+      "mean_actual": 2.398737980769231,
+      "mean_predicted": 2.1844295721505076
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2427",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.33804476579380377,
+      "over_estimate_rate": 0.5596153846153846,
+      "under_estimate_rate": 0.4403846153846154,
+      "mean_actual": 6.493269230769231,
+      "mean_predicted": 6.831313996563031
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2428",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.2143247295815482,
+      "over_estimate_rate": 0.4948918269230769,
+      "under_estimate_rate": 0.5051081730769231,
+      "mean_actual": 2.4825721153846154,
+      "mean_predicted": 2.268247385803069
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2428",
+      "observations": 1872,
+      "mean_residual_actual_minus_predicted": -0.16382160193005313,
+      "over_estimate_rate": 0.5464743589743589,
+      "under_estimate_rate": 0.453525641025641,
+      "mean_actual": 5.163995726495727,
+      "mean_predicted": 5.327817328425785
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2429",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.20022283772564095,
+      "over_estimate_rate": 0.6021634615384616,
+      "under_estimate_rate": 0.39783653846153844,
+      "mean_actual": 2.0838341346153846,
+      "mean_predicted": 2.2840569723410242
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2429",
+      "observations": 1456,
+      "mean_residual_actual_minus_predicted": -0.20759220215234836,
+      "over_estimate_rate": 0.6002747252747253,
+      "under_estimate_rate": 0.39972527472527475,
+      "mean_actual": 3.3550824175824174,
+      "mean_predicted": 3.5626746197347607
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2430",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.13662838442957756,
+      "over_estimate_rate": 0.5753205128205128,
+      "under_estimate_rate": 0.42467948717948717,
+      "mean_actual": 1.419871794871795,
+      "mean_predicted": 1.283243410442219
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2430",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.03748952385443714,
+      "over_estimate_rate": 0.5625,
+      "under_estimate_rate": 0.4375,
+      "mean_actual": 3.4673076923076924,
+      "mean_predicted": 3.504797216162129
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2431",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.18371637477282654,
+      "over_estimate_rate": 0.49008413461538464,
+      "under_estimate_rate": 0.5099158653846154,
+      "mean_actual": 2.8843149038461537,
+      "mean_predicted": 2.7005985290733268
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2431",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.3273995985720507,
+      "over_estimate_rate": 0.5665064102564102,
+      "under_estimate_rate": 0.43349358974358976,
+      "mean_actual": 7.138621794871795,
+      "mean_predicted": 7.466021393443849
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2432",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.13684638639695582,
+      "over_estimate_rate": 0.5261418269230769,
+      "under_estimate_rate": 0.4738581730769231,
+      "mean_actual": 2.6670673076923075,
+      "mean_predicted": 2.530220921295351
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2432",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.5538957009584258,
+      "over_estimate_rate": 0.5721153846153846,
+      "under_estimate_rate": 0.42788461538461536,
+      "mean_actual": 8.00360576923077,
+      "mean_predicted": 8.557501470189186
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2433",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.11799468238830094,
+      "over_estimate_rate": 0.6021634615384616,
+      "under_estimate_rate": 0.39783653846153844,
+      "mean_actual": 1.1520432692307692,
+      "mean_predicted": 1.0340485868424671
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2433",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.5591489629016226,
+      "over_estimate_rate": 0.5913461538461539,
+      "under_estimate_rate": 0.40865384615384615,
+      "mean_actual": 9.427884615384615,
+      "mean_predicted": 9.987033578286239
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2434",
+      "observations": 2860,
+      "mean_residual_actual_minus_predicted": 0.07509224966334715,
+      "over_estimate_rate": 0.6094405594405594,
+      "under_estimate_rate": 0.3905594405594406,
+      "mean_actual": 0.9601398601398602,
+      "mean_predicted": 0.8850476104765116
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2434",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.049752059111707596,
+      "over_estimate_rate": 0.5432692307692307,
+      "under_estimate_rate": 0.4567307692307692,
+      "mean_actual": 4.331730769230769,
+      "mean_predicted": 4.281978710119064
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.1699571036728982,
+      "over_estimate_rate": 0.5078125,
+      "under_estimate_rate": 0.4921875,
+      "mean_actual": 1.7019230769230769,
+      "mean_predicted": 1.531965973250179
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2435",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.1667082735553567,
+      "over_estimate_rate": 0.5588942307692307,
+      "under_estimate_rate": 0.4411057692307692,
+      "mean_actual": 5.546875,
+      "mean_predicted": 5.713583273555354
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.20396092357112688,
+      "over_estimate_rate": 0.5066105769230769,
+      "under_estimate_rate": 0.4933894230769231,
+      "mean_actual": 1.5294471153846154,
+      "mean_predicted": 1.3254861918134888
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2436",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.4070305492300742,
+      "over_estimate_rate": 0.5849358974358975,
+      "under_estimate_rate": 0.4150641025641026,
+      "mean_actual": 7.3173076923076925,
+      "mean_predicted": 7.724338241537759
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2437",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.04337067358970678,
+      "over_estimate_rate": 0.5910456730769231,
+      "under_estimate_rate": 0.4089543269230769,
+      "mean_actual": 0.6667668269230769,
+      "mean_predicted": 0.6233961533333713
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2437",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.05217532123542829,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 2.7259615384615383,
+      "mean_predicted": 2.778136859696969
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2438",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.015121980129975341,
+      "over_estimate_rate": 0.6442307692307693,
+      "under_estimate_rate": 0.3557692307692308,
+      "mean_actual": 0.6375,
+      "mean_predicted": 0.6223780198700256
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4185:2438",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.03991521610522568,
+      "over_estimate_rate": 0.5208333333333334,
+      "under_estimate_rate": 0.4791666666666667,
+      "mean_actual": 2.9375,
+      "mean_predicted": 2.9774152161052254
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4185:2439",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.15016969181360548,
+      "over_estimate_rate": 0.8365384615384616,
+      "under_estimate_rate": 0.16346153846153846,
+      "mean_actual": 0.19230769230769232,
+      "mean_predicted": 0.34247738412129797
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2425",
+      "observations": 1428,
+      "mean_residual_actual_minus_predicted": -0.19253259244989554,
+      "over_estimate_rate": 0.9138655462184874,
+      "under_estimate_rate": 0.0861344537815126,
+      "mean_actual": 0.13725490196078433,
+      "mean_predicted": 0.32978749441067956
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2425",
+      "observations": 52,
+      "mean_residual_actual_minus_predicted": -0.22435981916009487,
+      "over_estimate_rate": 0.6346153846153846,
+      "under_estimate_rate": 0.36538461538461536,
+      "mean_actual": 2.25,
+      "mean_predicted": 2.474359819160095
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2426",
+      "observations": 884,
+      "mean_residual_actual_minus_predicted": -0.16344718848779338,
+      "over_estimate_rate": 0.8427601809954751,
+      "under_estimate_rate": 0.15723981900452488,
+      "mean_actual": 0.20475113122171945,
+      "mean_predicted": 0.3681983197095131
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2426",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.42878075338149285,
+      "over_estimate_rate": 0.7548076923076923,
+      "under_estimate_rate": 0.24519230769230768,
+      "mean_actual": 0.3605769230769231,
+      "mean_predicted": 0.7893576764584161
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2427",
+      "observations": 2080,
+      "mean_residual_actual_minus_predicted": -0.023410807028570086,
+      "over_estimate_rate": 0.7221153846153846,
+      "under_estimate_rate": 0.2778846153846154,
+      "mean_actual": 0.6875,
+      "mean_predicted": 0.7109108070285721
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2427",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.7284006500504568,
+      "over_estimate_rate": 0.7451923076923077,
+      "under_estimate_rate": 0.2548076923076923,
+      "mean_actual": 5.0889423076923075,
+      "mean_predicted": 5.817342957742763
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2428",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": -0.015628205610775374,
+      "over_estimate_rate": 0.7153215636822194,
+      "under_estimate_rate": 0.28467843631778056,
+      "mean_actual": 1.0425598991172762,
+      "mean_predicted": 1.0581881047280532
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2428",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.8114437831282487,
+      "over_estimate_rate": 0.7932692307692307,
+      "under_estimate_rate": 0.20673076923076922,
+      "mean_actual": 4.24198717948718,
+      "mean_predicted": 5.053430962615432
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2429",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.12259102036853999,
+      "over_estimate_rate": 0.5417668269230769,
+      "under_estimate_rate": 0.4582331730769231,
+      "mean_actual": 1.8377403846153846,
+      "mean_predicted": 1.715149364246844
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2429",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.3444139741760599,
+      "over_estimate_rate": 0.5759615384615384,
+      "under_estimate_rate": 0.42403846153846153,
+      "mean_actual": 4.7317307692307695,
+      "mean_predicted": 5.076144743406829
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2430",
+      "observations": 3016,
+      "mean_residual_actual_minus_predicted": -0.25598414224585164,
+      "over_estimate_rate": 0.53315649867374,
+      "under_estimate_rate": 0.46684350132625996,
+      "mean_actual": 2.7082228116710874,
+      "mean_predicted": 2.9642069539169356
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2430",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.2182271125626535,
+      "over_estimate_rate": 0.5423076923076923,
+      "under_estimate_rate": 0.4576923076923077,
+      "mean_actual": 6.826923076923077,
+      "mean_predicted": 7.045150189485734
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2431",
+      "observations": 2652,
+      "mean_residual_actual_minus_predicted": -0.08135933947284714,
+      "over_estimate_rate": 0.798265460030166,
+      "under_estimate_rate": 0.2017345399698341,
+      "mean_actual": 0.43514328808446456,
+      "mean_predicted": 0.516502627557313
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2431",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.008629710496276853,
+      "over_estimate_rate": 0.5552884615384616,
+      "under_estimate_rate": 0.44471153846153844,
+      "mean_actual": 6.711538461538462,
+      "mean_predicted": 6.702908751042182
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2432",
+      "observations": 2652,
+      "mean_residual_actual_minus_predicted": -0.1979374347808934,
+      "over_estimate_rate": 0.919683257918552,
+      "under_estimate_rate": 0.08031674208144797,
+      "mean_actual": 0.1048265460030166,
+      "mean_predicted": 0.30276398078390937
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2432",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.2962947481963521,
+      "over_estimate_rate": 0.4807692307692308,
+      "under_estimate_rate": 0.5192307692307693,
+      "mean_actual": 5.009615384615385,
+      "mean_predicted": 4.713320636419034
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2433",
+      "observations": 2780,
+      "mean_residual_actual_minus_predicted": -0.008217142994636974,
+      "over_estimate_rate": 0.6870503597122302,
+      "under_estimate_rate": 0.3129496402877698,
+      "mean_actual": 0.5431654676258992,
+      "mean_predicted": 0.5513826106205356
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2433",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.07804970643968916,
+      "over_estimate_rate": 0.5192307692307693,
+      "under_estimate_rate": 0.4807692307692308,
+      "mean_actual": 4.3173076923076925,
+      "mean_predicted": 4.239257985868004
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2434",
+      "observations": 2978,
+      "mean_residual_actual_minus_predicted": -0.15917696911615106,
+      "over_estimate_rate": 0.8535930154466085,
+      "under_estimate_rate": 0.14640698455339154,
+      "mean_actual": 0.17830758898589658,
+      "mean_predicted": 0.3374845581020471
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2434",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.1463381051452602,
+      "over_estimate_rate": 0.6346153846153846,
+      "under_estimate_rate": 0.36538461538461536,
+      "mean_actual": 1.4455128205128205,
+      "mean_predicted": 1.5918509256580804
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2435",
+      "observations": 2912,
+      "mean_residual_actual_minus_predicted": -0.14388779702401766,
+      "over_estimate_rate": 0.8355082417582418,
+      "under_estimate_rate": 0.16449175824175824,
+      "mean_actual": 0.20707417582417584,
+      "mean_predicted": 0.35096197284819414
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2435",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.1830617740931009,
+      "over_estimate_rate": 0.6682692307692307,
+      "under_estimate_rate": 0.3317307692307692,
+      "mean_actual": 1.0144230769230769,
+      "mean_predicted": 1.1974848510161782
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2436",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.11588357502665805,
+      "over_estimate_rate": 0.7950721153846154,
+      "under_estimate_rate": 0.2049278846153846,
+      "mean_actual": 0.2995793269230769,
+      "mean_predicted": 0.41546290194973434
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.16017760853803464,
+      "over_estimate_rate": 0.6201923076923077,
+      "under_estimate_rate": 0.3798076923076923,
+      "mean_actual": 1.6346153846153846,
+      "mean_predicted": 1.7947929931534194
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2437",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": -0.115804938803932,
+      "over_estimate_rate": 0.8211538461538461,
+      "under_estimate_rate": 0.17884615384615385,
+      "mean_actual": 0.3935897435897436,
+      "mean_predicted": 0.5093946823936762
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2437",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.09849556408100482,
+      "over_estimate_rate": 0.5705128205128205,
+      "under_estimate_rate": 0.42948717948717946,
+      "mean_actual": 2.2564102564102564,
+      "mean_predicted": 2.35490582049126
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2438",
+      "observations": 2704,
+      "mean_residual_actual_minus_predicted": -0.08937863816709918,
+      "over_estimate_rate": 0.7555473372781065,
+      "under_estimate_rate": 0.2444526627218935,
+      "mean_actual": 0.35539940828402367,
+      "mean_predicted": 0.44477804645112207
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4186:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.06227194311320669,
+      "over_estimate_rate": 0.5528846153846154,
+      "under_estimate_rate": 0.44711538461538464,
+      "mean_actual": 2.7259615384615383,
+      "mean_predicted": 2.7882334815747445
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4186:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.25611717044232674,
+      "over_estimate_rate": 1,
+      "under_estimate_rate": 0,
+      "mean_actual": 0,
+      "mean_predicted": 0.25611717044232674
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2423",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.25620922706714,
+      "over_estimate_rate": 1,
+      "under_estimate_rate": 0,
+      "mean_actual": 0,
+      "mean_predicted": 0.25620922706714
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2424",
+      "observations": 1236,
+      "mean_residual_actual_minus_predicted": -0.23548617112480605,
+      "over_estimate_rate": 0.9765372168284789,
+      "under_estimate_rate": 0.023462783171521034,
+      "mean_actual": 0.03155339805825243,
+      "mean_predicted": 0.26703956918305843
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2425",
+      "observations": 653,
+      "mean_residual_actual_minus_predicted": -0.23743343807194497,
+      "over_estimate_rate": 0.9739663093415007,
+      "under_estimate_rate": 0.026033690658499236,
+      "mean_actual": 0.030627871362940276,
+      "mean_predicted": 0.2680613094348854
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2426",
+      "observations": 1508,
+      "mean_residual_actual_minus_predicted": -0.12172316427833324,
+      "over_estimate_rate": 0.7937665782493368,
+      "under_estimate_rate": 0.20623342175066314,
+      "mean_actual": 0.27055702917771884,
+      "mean_predicted": 0.3922801934560511
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2427",
+      "observations": 2080,
+      "mean_residual_actual_minus_predicted": 0.07638413239963285,
+      "over_estimate_rate": 0.6076923076923076,
+      "under_estimate_rate": 0.3923076923076923,
+      "mean_actual": 0.9846153846153847,
+      "mean_predicted": 0.908231252215753
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2427",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -2.573334546515898,
+      "over_estimate_rate": 0.7019230769230769,
+      "under_estimate_rate": 0.2980769230769231,
+      "mean_actual": 14.735576923076923,
+      "mean_predicted": 17.308911469592815
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2428",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.17501145159816484,
+      "over_estimate_rate": 0.5326923076923077,
+      "under_estimate_rate": 0.4673076923076923,
+      "mean_actual": 1.876602564102564,
+      "mean_predicted": 1.7015911125044023
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2428",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.2028086432128431,
+      "over_estimate_rate": 0.5348557692307693,
+      "under_estimate_rate": 0.4651442307692308,
+      "mean_actual": 6.751201923076923,
+      "mean_predicted": 6.954010566289757
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2429",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.20517574551207246,
+      "over_estimate_rate": 0.4951923076923077,
+      "under_estimate_rate": 0.5048076923076923,
+      "mean_actual": 2.3572716346153846,
+      "mean_predicted": 2.1520958891033084
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2429",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.030661369116059864,
+      "over_estimate_rate": 0.561698717948718,
+      "under_estimate_rate": 0.43830128205128205,
+      "mean_actual": 3.793269230769231,
+      "mean_predicted": 3.823930599885292
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2430",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.10575071257256766,
+      "over_estimate_rate": 0.5306490384615384,
+      "under_estimate_rate": 0.46935096153846156,
+      "mean_actual": 2.7671274038461537,
+      "mean_predicted": 2.8728781164187187
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2430",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.8634695162122394,
+      "over_estimate_rate": 0.6009615384615384,
+      "under_estimate_rate": 0.39903846153846156,
+      "mean_actual": 9.131730769230769,
+      "mean_predicted": 9.995200285443016
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2431",
+      "observations": 3016,
+      "mean_residual_actual_minus_predicted": -0.0015260446949962908,
+      "over_estimate_rate": 0.6644562334217506,
+      "under_estimate_rate": 0.33554376657824936,
+      "mean_actual": 1.0053050397877985,
+      "mean_predicted": 1.0068310844827972
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2431",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -4.325736669538381,
+      "over_estimate_rate": 0.7644230769230769,
+      "under_estimate_rate": 0.23557692307692307,
+      "mean_actual": 18.971153846153847,
+      "mean_predicted": 23.296890515692233
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2432",
+      "observations": 2652,
+      "mean_residual_actual_minus_predicted": -0.07609909787787143,
+      "over_estimate_rate": 0.753393665158371,
+      "under_estimate_rate": 0.24660633484162897,
+      "mean_actual": 0.3793363499245852,
+      "mean_predicted": 0.45543544780245626
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2432",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.013361980558207427,
+      "over_estimate_rate": 0.5817307692307693,
+      "under_estimate_rate": 0.4182692307692308,
+      "mean_actual": 2.701923076923077,
+      "mean_predicted": 2.715285057481286
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2433",
+      "observations": 2132,
+      "mean_residual_actual_minus_predicted": 0.04548875389534459,
+      "over_estimate_rate": 0.6655722326454033,
+      "under_estimate_rate": 0.3344277673545966,
+      "mean_actual": 0.8156660412757973,
+      "mean_predicted": 0.7701772873804541
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2433",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": 0.03661992952139403,
+      "over_estimate_rate": 0.5352564102564102,
+      "under_estimate_rate": 0.46474358974358976,
+      "mean_actual": 3.171474358974359,
+      "mean_predicted": 3.1348544294529637
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2434",
+      "observations": 2548,
+      "mean_residual_actual_minus_predicted": 0.08821452408708635,
+      "over_estimate_rate": 0.5808477237048666,
+      "under_estimate_rate": 0.41915227629513346,
+      "mean_actual": 0.8445839874411303,
+      "mean_predicted": 0.7563694633540441
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2434",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.051854446733648654,
+      "over_estimate_rate": 0.5769230769230769,
+      "under_estimate_rate": 0.4230769230769231,
+      "mean_actual": 4.2548076923076925,
+      "mean_predicted": 4.3066621390413395
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2435",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.0378940439805443,
+      "over_estimate_rate": 0.6099759615384616,
+      "under_estimate_rate": 0.39002403846153844,
+      "mean_actual": 0.6929086538461539,
+      "mean_predicted": 0.655014609865607
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2435",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": 0.006885933396801085,
+      "over_estimate_rate": 0.5480769230769231,
+      "under_estimate_rate": 0.4519230769230769,
+      "mean_actual": 2.701923076923077,
+      "mean_predicted": 2.6950371435262728
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2436",
+      "observations": 2808,
+      "mean_residual_actual_minus_predicted": -0.18848219223107562,
+      "over_estimate_rate": 0.8931623931623932,
+      "under_estimate_rate": 0.10683760683760683,
+      "mean_actual": 0.1282051282051282,
+      "mean_predicted": 0.31668732043620323
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2436",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.16777265512829556,
+      "over_estimate_rate": 0.5120192307692307,
+      "under_estimate_rate": 0.4879807692307692,
+      "mean_actual": 3.7788461538461537,
+      "mean_predicted": 3.6110734987178583
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2437",
+      "observations": 2600,
+      "mean_residual_actual_minus_predicted": -0.19212064265200995,
+      "over_estimate_rate": 0.9253846153846154,
+      "under_estimate_rate": 0.07461538461538461,
+      "mean_actual": 0.12076923076923077,
+      "mean_predicted": 0.31288987342124
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.1325775993816877,
+      "over_estimate_rate": 0.5961538461538461,
+      "under_estimate_rate": 0.40384615384615385,
+      "mean_actual": 1.2211538461538463,
+      "mean_predicted": 1.3537314455355334
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2438",
+      "observations": 3144,
+      "mean_residual_actual_minus_predicted": -0.184838884348976,
+      "over_estimate_rate": 0.8915394402035624,
+      "under_estimate_rate": 0.10846055979643766,
+      "mean_actual": 0.13676844783715011,
+      "mean_predicted": 0.3216073321861254
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.24438735875379156,
+      "over_estimate_rate": 0.6826923076923077,
+      "under_estimate_rate": 0.3173076923076923,
+      "mean_actual": 1.0144230769230769,
+      "mean_predicted": 1.2588104356768686
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4187:2439",
+      "observations": 1872,
+      "mean_residual_actual_minus_predicted": -0.22881167358933005,
+      "over_estimate_rate": 0.9583333333333334,
+      "under_estimate_rate": 0.041666666666666664,
+      "mean_actual": 0.049145299145299144,
+      "mean_predicted": 0.27795697273462877
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4187:2439",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.06163834416339448,
+      "over_estimate_rate": 0.5961538461538461,
+      "under_estimate_rate": 0.40384615384615385,
+      "mean_actual": 2.0673076923076925,
+      "mean_predicted": 2.128946036471088
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2424",
+      "observations": 1404,
+      "mean_residual_actual_minus_predicted": -1.160369276420937,
+      "over_estimate_rate": 0.8575498575498576,
+      "under_estimate_rate": 0.14245014245014245,
+      "mean_actual": 1.8425925925925926,
+      "mean_predicted": 3.0029618690135247
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2424",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.4357877562243717,
+      "over_estimate_rate": 0.5721153846153846,
+      "under_estimate_rate": 0.42788461538461536,
+      "mean_actual": 8.41826923076923,
+      "mean_predicted": 8.8540569869936
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2425",
+      "observations": 2860,
+      "mean_residual_actual_minus_predicted": -0.08776552064562049,
+      "over_estimate_rate": 0.7916083916083916,
+      "under_estimate_rate": 0.2083916083916084,
+      "mean_actual": 0.42727272727272725,
+      "mean_predicted": 0.5150382479183474
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2425",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -1.0350947413932714,
+      "over_estimate_rate": 0.5913461538461539,
+      "under_estimate_rate": 0.40865384615384615,
+      "mean_actual": 12.798076923076923,
+      "mean_predicted": 13.83317166447019
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2426",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.09369671407651849,
+      "over_estimate_rate": 0.6037200504413619,
+      "under_estimate_rate": 0.3962799495586381,
+      "mean_actual": 1.0709331651954603,
+      "mean_predicted": 0.977236451118942
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2426",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.15947622937682915,
+      "over_estimate_rate": 0.5600961538461539,
+      "under_estimate_rate": 0.43990384615384615,
+      "mean_actual": 6.367788461538462,
+      "mean_predicted": 6.527264690915292
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2427",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.08377686450651647,
+      "over_estimate_rate": 0.5159254807692307,
+      "under_estimate_rate": 0.4840745192307692,
+      "mean_actual": 2.8734975961538463,
+      "mean_predicted": 2.789720731647334
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2427",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.9295723386689319,
+      "over_estimate_rate": 0.6045673076923077,
+      "under_estimate_rate": 0.3954326923076923,
+      "mean_actual": 9.90264423076923,
+      "mean_predicted": 10.832216569438174
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2428",
+      "observations": 2912,
+      "mean_residual_actual_minus_predicted": 0.1376407675288303,
+      "over_estimate_rate": 0.5755494505494505,
+      "under_estimate_rate": 0.42445054945054944,
+      "mean_actual": 2.103708791208791,
+      "mean_predicted": 1.9660680236799604
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2428",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.2786122014919747,
+      "over_estimate_rate": 0.5588942307692307,
+      "under_estimate_rate": 0.4411057692307692,
+      "mean_actual": 7.608173076923077,
+      "mean_predicted": 7.886785278415052
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2429",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.09145285412383139,
+      "over_estimate_rate": 0.5,
+      "under_estimate_rate": 0.5,
+      "mean_actual": 3.3368389423076925,
+      "mean_predicted": 3.245386088183873
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2429",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -1.2163006139441588,
+      "over_estimate_rate": 0.6081730769230769,
+      "under_estimate_rate": 0.3918269230769231,
+      "mean_actual": 9.844551282051283,
+      "mean_predicted": 11.060851895995443
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2430",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": -0.808240313606897,
+      "over_estimate_rate": 0.5691105769230769,
+      "under_estimate_rate": 0.4308894230769231,
+      "mean_actual": 4.4326923076923075,
+      "mean_predicted": 5.240932621299209
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2430",
+      "observations": 1040,
+      "mean_residual_actual_minus_predicted": -0.7778399397934438,
+      "over_estimate_rate": 0.5971153846153846,
+      "under_estimate_rate": 0.4028846153846154,
+      "mean_actual": 8.850961538461538,
+      "mean_predicted": 9.628801478254983
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2431",
+      "observations": 3328,
+      "mean_residual_actual_minus_predicted": 0.1727235208782449,
+      "over_estimate_rate": 0.5141225961538461,
+      "under_estimate_rate": 0.48587740384615385,
+      "mean_actual": 2.2938701923076925,
+      "mean_predicted": 2.1211466714294533
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2431",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.2810165111163946,
+      "over_estimate_rate": 0.5661057692307693,
+      "under_estimate_rate": 0.4338942307692308,
+      "mean_actual": 7.241586538461538,
+      "mean_predicted": 7.522603049577932
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2432",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": 0.013988362393140304,
+      "over_estimate_rate": 0.6458333333333334,
+      "under_estimate_rate": 0.3541666666666667,
+      "mean_actual": 0.6756410256410257,
+      "mean_predicted": 0.6616526632478855
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2432",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.17532784645983004,
+      "over_estimate_rate": 0.6322115384615384,
+      "under_estimate_rate": 0.36778846153846156,
+      "mean_actual": 1.5817307692307692,
+      "mean_predicted": 1.7570586156905972
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2433",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.11616967173924324,
+      "over_estimate_rate": 0.7836538461538461,
+      "under_estimate_rate": 0.21634615384615385,
+      "mean_actual": 0.27403846153846156,
+      "mean_predicted": 0.39020813327770465
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2434",
+      "observations": 260,
+      "mean_residual_actual_minus_predicted": 0.00013083090309641107,
+      "over_estimate_rate": 0.676923076923077,
+      "under_estimate_rate": 0.3230769230769231,
+      "mean_actual": 0.5,
+      "mean_predicted": 0.4998691690969036
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2435",
+      "observations": 2756,
+      "mean_residual_actual_minus_predicted": -0.07979144929214588,
+      "over_estimate_rate": 0.7568940493468795,
+      "under_estimate_rate": 0.24310595065312046,
+      "mean_actual": 0.3621190130624093,
+      "mean_predicted": 0.44191046235455494
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2435",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": 0.09466353439042592,
+      "over_estimate_rate": 0.5432692307692307,
+      "under_estimate_rate": 0.4567307692307692,
+      "mean_actual": 2.9951923076923075,
+      "mean_predicted": 2.9005287733018856
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2436",
+      "observations": 3140,
+      "mean_residual_actual_minus_predicted": -0.07947643562818468,
+      "over_estimate_rate": 0.743312101910828,
+      "under_estimate_rate": 0.256687898089172,
+      "mean_actual": 0.36369426751592354,
+      "mean_predicted": 0.443170703144108
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2437",
+      "observations": 3120,
+      "mean_residual_actual_minus_predicted": -0.10272208425675902,
+      "over_estimate_rate": 0.7907051282051282,
+      "under_estimate_rate": 0.2092948717948718,
+      "mean_actual": 0.3298076923076923,
+      "mean_predicted": 0.43252977656445163
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.025610598655100406,
+      "over_estimate_rate": 0.5625,
+      "under_estimate_rate": 0.4375,
+      "mean_actual": 2.5384615384615383,
+      "mean_predicted": 2.512850939806438
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2438",
+      "observations": 1809,
+      "mean_residual_actual_minus_predicted": -0.1826232928259569,
+      "over_estimate_rate": 0.904367053620785,
+      "under_estimate_rate": 0.09563294637921503,
+      "mean_actual": 0.13266998341625208,
+      "mean_predicted": 0.315293276242209
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4188:2438",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.025724104389602338,
+      "over_estimate_rate": 0.5865384615384616,
+      "under_estimate_rate": 0.41346153846153844,
+      "mean_actual": 2.1153846153846154,
+      "mean_predicted": 2.1411087197742193
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4188:2439",
+      "observations": 468,
+      "mean_residual_actual_minus_predicted": -0.17746593628263557,
+      "over_estimate_rate": 0.8824786324786325,
+      "under_estimate_rate": 0.11752136752136752,
+      "mean_actual": 0.1388888888888889,
+      "mean_predicted": 0.316354825171525
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2423",
+      "observations": 104,
+      "mean_residual_actual_minus_predicted": -0.2529873631552515,
+      "over_estimate_rate": 1,
+      "under_estimate_rate": 0,
+      "mean_actual": 0,
+      "mean_predicted": 0.2529873631552515
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2424",
+      "observations": 1716,
+      "mean_residual_actual_minus_predicted": -0.12850313106219685,
+      "over_estimate_rate": 0.8455710955710956,
+      "under_estimate_rate": 0.15442890442890442,
+      "mean_actual": 0.2692307692307692,
+      "mean_predicted": 0.3977339002929657
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2424",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.12677333896744894,
+      "over_estimate_rate": 0.6634615384615384,
+      "under_estimate_rate": 0.33653846153846156,
+      "mean_actual": 1.7451923076923077,
+      "mean_predicted": 1.8719656466597563
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2425",
+      "observations": 2496,
+      "mean_residual_actual_minus_predicted": -0.05819036684602138,
+      "over_estimate_rate": 0.717948717948718,
+      "under_estimate_rate": 0.28205128205128205,
+      "mean_actual": 0.4254807692307692,
+      "mean_predicted": 0.48367113607679085
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2425",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.008709246745576467,
+      "over_estimate_rate": 0.5288461538461539,
+      "under_estimate_rate": 0.47115384615384615,
+      "mean_actual": 3.1538461538461537,
+      "mean_predicted": 3.145136907100576
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2426",
+      "observations": 1300,
+      "mean_residual_actual_minus_predicted": 0.11389524480241761,
+      "over_estimate_rate": 0.5769230769230769,
+      "under_estimate_rate": 0.4230769230769231,
+      "mean_actual": 0.9038461538461539,
+      "mean_predicted": 0.7899509090437372
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2426",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.06026554479959851,
+      "over_estimate_rate": 0.5288461538461539,
+      "under_estimate_rate": 0.47115384615384615,
+      "mean_actual": 6.336538461538462,
+      "mean_predicted": 6.276272916738866
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2427",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.005088853169766643,
+      "over_estimate_rate": 0.6754807692307693,
+      "under_estimate_rate": 0.3245192307692308,
+      "mean_actual": 0.6454326923076923,
+      "mean_predicted": 0.6505215454774583
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2428",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": 0.14101811140724627,
+      "over_estimate_rate": 0.5336538461538461,
+      "under_estimate_rate": 0.46634615384615385,
+      "mean_actual": 0.8942307692307693,
+      "mean_predicted": 0.7532126578235231
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2429",
+      "observations": 1664,
+      "mean_residual_actual_minus_predicted": 0.11134172635127247,
+      "over_estimate_rate": 0.5667067307692307,
+      "under_estimate_rate": 0.4332932692307692,
+      "mean_actual": 1.2938701923076923,
+      "mean_predicted": 1.1825284659564204
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2429",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.4263318003722937,
+      "over_estimate_rate": 0.5817307692307693,
+      "under_estimate_rate": 0.4182692307692308,
+      "mean_actual": 7.834134615384615,
+      "mean_predicted": 8.260466415756902
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2430",
+      "observations": 2183,
+      "mean_residual_actual_minus_predicted": -0.011465999667111211,
+      "over_estimate_rate": 0.657810352725607,
+      "under_estimate_rate": 0.34218964727439305,
+      "mean_actual": 1.919377004122767,
+      "mean_predicted": 1.9308430037898776
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2430",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.6654429670215027,
+      "over_estimate_rate": 0.5817307692307693,
+      "under_estimate_rate": 0.4182692307692308,
+      "mean_actual": 8.632211538461538,
+      "mean_predicted": 9.297654505483038
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2431",
+      "observations": 3172,
+      "mean_residual_actual_minus_predicted": 0.1075555783284072,
+      "over_estimate_rate": 0.6185372005044136,
+      "under_estimate_rate": 0.38146279949558637,
+      "mean_actual": 1.1639344262295082,
+      "mean_predicted": 1.0563788479011023
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2431",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.30212809362232645,
+      "over_estimate_rate": 0.5689102564102564,
+      "under_estimate_rate": 0.4310897435897436,
+      "mean_actual": 5.666666666666667,
+      "mean_predicted": 5.968794760288991
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2432",
+      "observations": 1248,
+      "mean_residual_actual_minus_predicted": -0.12887404625356066,
+      "over_estimate_rate": 0.8092948717948718,
+      "under_estimate_rate": 0.1907051282051282,
+      "mean_actual": 0.2620192307692308,
+      "mean_predicted": 0.39089327702279136
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2436",
+      "observations": 1352,
+      "mean_residual_actual_minus_predicted": -0.2085080978896555,
+      "over_estimate_rate": 0.9312130177514792,
+      "under_estimate_rate": 0.06878698224852071,
+      "mean_actual": 0.08284023668639054,
+      "mean_predicted": 0.29134833457604586
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.14972757281715,
+      "over_estimate_rate": 0.6057692307692307,
+      "under_estimate_rate": 0.3942307692307692,
+      "mean_actual": 1.2067307692307692,
+      "mean_predicted": 1.3564583420479188
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2437",
+      "observations": 1612,
+      "mean_residual_actual_minus_predicted": -0.23272367462753168,
+      "over_estimate_rate": 0.9633995037220844,
+      "under_estimate_rate": 0.03660049627791563,
+      "mean_actual": 0.03784119106699752,
+      "mean_predicted": 0.27056486569452937
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4189:2437",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.1426495550014915,
+      "over_estimate_rate": 0.5961538461538461,
+      "under_estimate_rate": 0.40384615384615385,
+      "mean_actual": 1.0913461538461537,
+      "mean_predicted": 1.2339957088476452
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4189:2438",
+      "observations": 416,
+      "mean_residual_actual_minus_predicted": -0.2401142321897809,
+      "over_estimate_rate": 0.9735576923076923,
+      "under_estimate_rate": 0.026442307692307692,
+      "mean_actual": 0.026442307692307692,
+      "mean_predicted": 0.2665565398820887
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4190:2423",
+      "observations": 104,
+      "mean_residual_actual_minus_predicted": -0.2505420502028012,
+      "over_estimate_rate": 1,
+      "under_estimate_rate": 0,
+      "mean_actual": 0,
+      "mean_predicted": 0.2505420502028012
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4190:2430",
+      "observations": 832,
+      "mean_residual_actual_minus_predicted": -0.13709435469889336,
+      "over_estimate_rate": 0.8185096153846154,
+      "under_estimate_rate": 0.1814903846153846,
+      "mean_actual": 0.23677884615384615,
+      "mean_predicted": 0.3738732008527398
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4190:2431",
+      "observations": 1981,
+      "mean_residual_actual_minus_predicted": 0.0784747866611092,
+      "over_estimate_rate": 0.6087834427057042,
+      "under_estimate_rate": 0.39121655729429583,
+      "mean_actual": 0.8490661282180717,
+      "mean_predicted": 0.7705913415569625
+    },
+    {
+      "unit_type": "tract",
+      "spatial_block_id": "epsg3857-2km:-4190:2431",
+      "observations": 624,
+      "mean_residual_actual_minus_predicted": -0.10918935278360213,
+      "over_estimate_rate": 0.6137820512820513,
+      "under_estimate_rate": 0.38621794871794873,
+      "mean_actual": 3.0224358974358974,
+      "mean_predicted": 3.131625250219499
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4190:2436",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -8.028330246940843,
+      "over_estimate_rate": 0.9375,
+      "under_estimate_rate": 0.0625,
+      "mean_actual": 10.625,
+      "mean_predicted": 18.653330246940854
+    },
+    {
+      "unit_type": "fixed-grid",
+      "spatial_block_id": "epsg3857-2km:-4191:2431",
+      "observations": 208,
+      "mean_residual_actual_minus_predicted": -0.24802808297295492,
+      "over_estimate_rate": 0.9855769230769231,
+      "under_estimate_rate": 0.014423076923076924,
+      "mean_actual": 0.014423076923076924,
+      "mean_predicted": 0.26245115989603185
+    }
+  ]
+}

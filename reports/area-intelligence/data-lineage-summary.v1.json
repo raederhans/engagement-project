@@ -1,0 +1,295 @@
+{
+  "schema": "engagement-area-intelligence-lineage-summary/v1",
+  "generated_at": "2026-08-21T07:53:40.810Z",
+  "protocol_sha256": "4d402651606fffddee92d8609a6cd7c21f5ccf6998ac251dc322a9fa7ebf38de",
+  "mart_manifest_sha256": "5ce31c209a15180a65d85d53c0be6b4aecf983adb0a59f7db7b452159c49fca8",
+  "mart_artifact_identity": "sha256:ddba562e6b674e13b341e6abf3f4f2a9dcd5171beb7ed472277ebfa1b0623ef1",
+  "exact_input": {
+    "warehouse_manifest_sha256": "152c994ee721dfd9803c07bd36f6439abd5274e11ad1323c76879cade93ceb40",
+    "backfill_checkpoint_sha256": "3c3d0a75d7426900b3243dff4a9c36772d58ca2d10d1b3840303d8e94ff1d687",
+    "lineage_registry_sha256": "596e69ad1be44866343841fecbc3b8221c8d6a2cb7fada398cf84504cf56da41",
+    "warehouse_current_snapshot_id": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759",
+    "canonical_row_count": 3583548,
+    "active_row_count": 3583548,
+    "partition_count": 64,
+    "source_snapshot_count": 21
+  },
+  "source_coverage": {
+    "earliest_scope_start": "2006-01-01",
+    "latest_scope_end_exclusive": "2026-08-22",
+    "latest_event_at": "2026-08-20T03:47:00.000Z"
+  },
+  "source_snapshot_index": [
+    {
+      "index": 0,
+      "snapshot_id": "sha256:c318094b5925526b6e3f235020ca7277dfef8955b1001deb5e019414638dfb46",
+      "source_as_of": "2006-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2006-01-01",
+        "end_exclusive": "2007-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 1,
+      "snapshot_id": "sha256:729fed2a6279a1590b39c73ef88a695100786ada63ae34006c4ce855667599f4",
+      "source_as_of": "2007-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2007-01-01",
+        "end_exclusive": "2008-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 2,
+      "snapshot_id": "sha256:b10094dba45f41dd1bf5c498b87a366e398b4083fa356eff04ee6b64457d0943",
+      "source_as_of": "2008-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2008-01-01",
+        "end_exclusive": "2009-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 3,
+      "snapshot_id": "sha256:3eeb9341927acca599f08b6d1fa6117e2b018329b40bfb4790784412d105d477",
+      "source_as_of": "2009-12-31T23:50:00.000Z",
+      "scope": {
+        "start": "2009-01-01",
+        "end_exclusive": "2010-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 4,
+      "snapshot_id": "sha256:a7a3912c81fb97d7943967ef1ffdffaeb08845d5cb7b5d0cd50eec2120613afe",
+      "source_as_of": "2010-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2010-01-01",
+        "end_exclusive": "2011-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 5,
+      "snapshot_id": "sha256:0816230787b437b2e73167f389e0ac1f22cafef9d1999471c411009d92a38375",
+      "source_as_of": "2011-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2011-01-01",
+        "end_exclusive": "2012-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 6,
+      "snapshot_id": "sha256:76afaceca8bda05b1556210b15c435194ed8280cca6948672d904e0c4e4f69fc",
+      "source_as_of": "2012-12-31T23:55:00.000Z",
+      "scope": {
+        "start": "2012-01-01",
+        "end_exclusive": "2013-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 7,
+      "snapshot_id": "sha256:41070d00c531c2b9c8e2c0ff1fc7bb3acac8f3c05f49dc5ae7b3c87bbb8fe660",
+      "source_as_of": "2013-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2013-01-01",
+        "end_exclusive": "2014-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 8,
+      "snapshot_id": "sha256:2f616a6faa977879b9dacd96fdd55856de06be9af05063415898be98947706ab",
+      "source_as_of": "2014-12-31T23:57:00.000Z",
+      "scope": {
+        "start": "2014-01-01",
+        "end_exclusive": "2015-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 9,
+      "snapshot_id": "sha256:853236fc0c2f4e538930009e643650b76aaa27269f59310a7879ac30ac8cd0bc",
+      "source_as_of": "2015-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2015-01-01",
+        "end_exclusive": "2016-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 10,
+      "snapshot_id": "sha256:e65b158de876290406dbc99bdecf1ffbdcfab4e6b7420413c077e38d4e16bd11",
+      "source_as_of": "2016-12-31T23:57:00.000Z",
+      "scope": {
+        "start": "2016-01-01",
+        "end_exclusive": "2017-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 11,
+      "snapshot_id": "sha256:ce9664b74ea9d217ccf917bc64da33ef74a6f614fd34165ffb6da48a008a0b1e",
+      "source_as_of": "2017-12-31T23:57:00.000Z",
+      "scope": {
+        "start": "2017-01-01",
+        "end_exclusive": "2018-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 12,
+      "snapshot_id": "sha256:7d3b7f5c3d075972bcf5db5280da0005611e36a256fe94ecab3c87a942eec03b",
+      "source_as_of": "2018-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2018-01-01",
+        "end_exclusive": "2019-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 13,
+      "snapshot_id": "sha256:dd08f4369e84aa8d4686c8e7afd8c4793b1c46cd91815069d332003cd06dd43b",
+      "source_as_of": "2019-12-31T23:56:00.000Z",
+      "scope": {
+        "start": "2019-01-01",
+        "end_exclusive": "2020-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 14,
+      "snapshot_id": "sha256:8f7458c0db61c865ffc3e86a5642ae5b6f511e6ec6c4da0e98dfc9ff3e23bb90",
+      "source_as_of": "2020-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2020-01-01",
+        "end_exclusive": "2021-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 15,
+      "snapshot_id": "sha256:594580e061e81cf1f96fdce23ed9b528d1b3275936bfe07c27633ac5c9923f36",
+      "source_as_of": "2021-12-31T23:53:00.000Z",
+      "scope": {
+        "start": "2021-01-01",
+        "end_exclusive": "2022-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 16,
+      "snapshot_id": "sha256:4a09b6e4c086caa3cae6ea1069193d9992e81236f4f83ae256755a253f99f623",
+      "source_as_of": "2022-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2022-01-01",
+        "end_exclusive": "2023-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 17,
+      "snapshot_id": "sha256:1d7c1c5657348da1e6aa7eb0ae20de1c47cc17bbc3f19d953cc039e3856c7116",
+      "source_as_of": "2023-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2023-01-01",
+        "end_exclusive": "2024-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 18,
+      "snapshot_id": "sha256:87e8f9411fbef28f105385fc0fc40ca5a4c92907e41c95b0978d7b0b5c8a6e12",
+      "source_as_of": "2024-12-31T23:59:00.000Z",
+      "scope": {
+        "start": "2024-01-01",
+        "end_exclusive": "2025-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 19,
+      "snapshot_id": "sha256:855fbdf2ece02696e7c39e53825891802550d6b39e304597c800b4fd55594b39",
+      "source_as_of": "2025-12-31T23:58:00.000Z",
+      "scope": {
+        "start": "2025-01-01",
+        "end_exclusive": "2026-01-01",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    },
+    {
+      "index": 20,
+      "snapshot_id": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759",
+      "source_as_of": "2026-08-20T03:47:00.000Z",
+      "scope": {
+        "start": "2026-01-01",
+        "end_exclusive": "2026-08-22",
+        "completeness": "complete-query-required",
+        "ordering": "cartodb_id ASC"
+      }
+    }
+  ],
+  "transforms": {
+    "week": "UTC Monday 00:00 inclusive to next Monday exclusive",
+    "categories": {
+      "primary": "all-reported-incidents",
+      "tract_audit": [
+        "person",
+        "property",
+        "vehicle",
+        "financial",
+        "public_order",
+        "other"
+      ]
+    },
+    "tract_boundary_id": "sha256:ef89d595a3c6eeeac42e21878ac2bc7a68ddb59d229bd5dae929959dd2633a16",
+    "tract_geography_definition": "2020-census-tracts",
+    "grid_scheme": "epsg3857-square-grid-v1",
+    "acs_snapshot_id": "sha256:c30e568037e55fd77b49396d039d98e03b2dc0d2bbe5c3f3035dcfe9c83db356",
+    "acs_vintage": "2024"
+  },
+  "admission": {
+    "canonical_rows_seen": 3583548,
+    "tract": {
+      "admitted": 2969825,
+      "ambiguous_excluded": 549594,
+      "unmapped_excluded": 64129
+    },
+    "fixed-grid": {
+      "admitted": 3527128,
+      "unavailable_excluded": 56420
+    },
+    "unknown_category": 0,
+    "invalid_event_time": 0,
+    "non_active": 0
+  },
+  "privacy": {
+    "event_level_coordinates": false,
+    "generalized_locations": false,
+    "source_record_ids": false
+  },
+  "identity_note": "Identities bind exact manifests/artifacts only; they do not prove model correctness, data truth, freshness, completeness, or authority."
+}

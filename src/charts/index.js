@@ -24,7 +24,16 @@ import { applyTranslations, getLanguage, onLanguageChange, t } from '../i18n/ind
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 import { buildResidentialStability } from '../analysis/residential_stability.js';
 import { renderResidentialStability } from '../ui/residential_stability.js';
-import '../i18n/crime_safety.js';
+
+function renderAreaIntelligenceLoadFailure(error) {
+  console.error(error);
+  const content = document.querySelector('#area-intelligence [data-area-intelligence-content]');
+  if (!content) return false;
+  content.closest('.area-intelligence').dataset.modelStatus = 'invalid';
+  content.setAttribute('role', 'status');
+  content.textContent = t('chart.unavailable', { message: error?.message || error });
+  return true;
+}
 
 const DEFAULT_CHART_PREFERENCES = Object.freeze({
   palette: 'blue',
@@ -318,6 +327,9 @@ function createDefaultChartSinks() {
         writeInsight(id, '');
       }
       renderResidentialStability(null);
+      void import('../area_intelligence/view.js')
+        .then(({ clearAreaIntelligence }) => clearAreaIntelligence())
+        .catch(renderAreaIntelligenceLoadFailure);
     },
     monthly(cityRows, areaRows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
       const canvas = document.getElementById('chart-monthly');
@@ -386,6 +398,15 @@ export async function updateAllCharts(
     ? (sinks ? null : defaultChartLocaleCache)
     : chartCache;
   const isFresh = () => !signal?.aborted && shouldApply();
+  if (!sinks) {
+    void import('../area_intelligence/view.js')
+      .then(({ updateAreaIntelligence }) => updateAreaIntelligence({
+        queryMode,
+        selectedTractGEOID,
+        shouldApply: isFresh,
+      }))
+      .catch(renderAreaIntelligenceLoadFailure);
+  }
 
   if (queryMode === 'buffer' && !center3857) {
     if (!isFresh()) return { applied: false };

@@ -169,6 +169,7 @@ test('all declared translation keys exist in both catalogs', async () => {
   await import(new URL('src/i18n/diary_live.js', projectRoot));
   await import(new URL('src/i18n/diary_local.js', projectRoot));
   await import(new URL('src/i18n/crime_charts.js', projectRoot));
+  await import(new URL('src/i18n/area_intelligence.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));
   await import(new URL('src/ui/data_scope.js', projectRoot));
@@ -198,6 +199,7 @@ test('all declared translation keys exist in both catalogs', async () => {
     'src/routes_diary/alternative_route.js',
     'src/charts/diary_insights.js',
     'src/charts/index.js',
+    'src/area_intelligence/view.js',
     'src/map/initMap.js',
     'src/map/legend.js',
     'src/map/points.js',
@@ -250,6 +252,7 @@ test('every reader-visible UI surface participates in localization', () => {
     'src/routes_diary/alternative_route.js',
     'src/charts/diary_insights.js',
     'src/charts/index.js',
+    'src/area_intelligence/view.js',
     'src/map/initMap.js',
     'src/map/legend.js',
     'src/map/points.js',
