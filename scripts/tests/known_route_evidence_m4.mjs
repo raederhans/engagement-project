@@ -237,6 +237,41 @@ test('map match fails closed for off-network, multiple candidates, disconnected 
   assert.throws(() => matchKnownRouteToCenterline({ normalizedRoute: pinned, catalog: catalog() }), /data version/i);
 });
 
+test('centerline admission and map matching enforce geometry and main-thread computation budgets', () => {
+  const oversizedCoordinates = Array.from({ length: 5_001 }, (_, index) => [
+    -75.17 + index * 0.000001,
+    39.95,
+  ]);
+  assert.throws(
+    () => catalog([feature({
+      objectid: 1,
+      segId: 1,
+      from: 1,
+      to: 2,
+      coordinates: oversizedCoordinates,
+    })]),
+    /geometry is unsupported/i,
+  );
+
+  const denseCoordinates = Array.from({ length: 50 }, (_, index) => [
+    -75.17 + index * 0.0004,
+    39.95,
+  ]);
+  const denseFeatures = Array.from({ length: 500 }, (_, index) => feature({
+    objectid: index + 1,
+    segId: index + 1,
+    from: index + 1,
+    to: index + 2,
+    coordinates: denseCoordinates,
+  }));
+  const result = matchKnownRouteToCenterline({
+    normalizedRoute: admitKnownRouteEvidenceRequest(request()),
+    catalog: catalog(denseFeatures),
+  });
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.reason, 'matching-complexity-limit');
+});
+
 test('generalized hundred-block evidence uses uncertainty contributions, excludes ambiguous/unavailable rows, and adds to route total', () => {
   const normalizedRoute = admitKnownRouteEvidenceRequest(request());
   const match = matchKnownRouteToCenterline({ normalizedRoute, catalog: catalog() });

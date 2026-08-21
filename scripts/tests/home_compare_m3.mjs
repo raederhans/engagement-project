@@ -140,6 +140,24 @@ test('Home Compare rejects promotion, forecasts, safety claims, and private proj
   assert.throws(() => validateHomeCompareProjection(privateField), /forbidden field/i);
 });
 
+test('Home Compare rejects caller-tampered profile and root availability states', () => {
+  const rootTamper = structuredClone(makeProjection(2));
+  rootTamper.status = 'available';
+  assert.throws(
+    () => validateHomeCompareProjection(rootTamper),
+    /status mismatch/i,
+  );
+
+  const profileTamper = structuredClone(makeProjection(2));
+  profileTamper.profiles[0].evidence.assessments = metric({
+    status: 'unavailable', value: null, dataAsOf: null,
+  });
+  assert.throws(
+    () => validateHomeCompareProjection(profileTamper),
+    /status mismatch/i,
+  );
+});
+
 test('share state contains weights and dimensions only and rejects malicious or private state', () => {
   const encoded = encodeHomeCompareShareState({ weights: defaultWeights });
   const decoded = decodeHomeCompareShareState(encoded);
@@ -318,12 +336,18 @@ test('source smoke fails schema drift closed and writes semantic no-op idempoten
 });
 
 function makeProjection(count) {
-  const profiles = Array.from({ length: count }, (_, index) => ({
-    profileId: `home-${index + 1}`,
-    status: index === count - 1 && count === 3 ? 'partial' : 'available',
-    evidence: Object.fromEntries(HOME_COMPARE_EVIDENCE_KEYS.map((key) => [key, metric()])),
-    limitations: ['Synthetic fixture for isolated contract testing only.'],
-  }));
+  const profiles = Array.from({ length: count }, (_, index) => {
+    const partial = index === count - 1 && count === 3;
+    return {
+      profileId: `home-${index + 1}`,
+      status: partial ? 'partial' : 'available',
+      evidence: Object.fromEntries(HOME_COMPARE_EVIDENCE_KEYS.map((key) => [
+        key,
+        partial && key === 'assessments' ? metric({ status: 'partial' }) : metric(),
+      ])),
+      limitations: ['Synthetic fixture for isolated contract testing only.'],
+    };
+  });
   return createHomeCompareProjection({
     generatedAt: '2026-08-21T00:00:00.000Z',
     profiles,

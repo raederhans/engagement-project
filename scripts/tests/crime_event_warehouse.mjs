@@ -5,7 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { annualPeriods } from '../backfill_crime_event_warehouse.mjs';
+import { main as acquireCrimeEvents } from '../acquire_crime_events.mjs';
+import { main as backfillCrimeEventWarehouse, annualPeriods } from '../backfill_crime_event_warehouse.mjs';
+import { main as ingestCrimeEvents } from '../ingest_crime_events.mjs';
 import { createAcsPopulationIndex } from '../lib/crime_event_acs.mjs';
 import {
   createTractSpatialIndex,
@@ -23,6 +25,7 @@ import {
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
 } from '../lib/crime_event_warehouse.mjs';
+import { assertTaskOwnedDfev1Path } from '../lib/dfev1_path.mjs';
 
 const FIXTURE = await readJson('scripts/fixtures/data-foundation-m1/synthetic-revisions.json');
 const EVENT_CONTRACT = await readJson('scripts/data/crime_event_contract.v1.json');
@@ -31,6 +34,53 @@ const TAXONOMY = await readJson('src/data/crime_taxonomy.v1.json');
 const TRACTS = await readJson('public/data/tracts_phl.geojson');
 const TRACT_REGISTRY = await readJson('scripts/data/tract_source_contract.json');
 const ACS = await readJson('src/data/acs_tracts_2024_pa101.json');
+
+test('official crime CLIs reject non-.dfev1, out-of-worktree, and linked paths before filesystem writes', async (context) => {
+  const outside = path.join(os.tmpdir(), `dfev1-cli-boundary-${process.pid}-${Date.now()}`);
+  const linkedRoot = path.join(process.cwd(), '.dfev1', `cli-boundary-link-${process.pid}-${Date.now()}`);
+  await fs.mkdir(outside, { recursive: true });
+  await fs.writeFile(path.join(outside, 'sentinel.txt'), 'unchanged', 'utf8');
+  await fs.mkdir(path.dirname(linkedRoot), { recursive: true });
+  await fs.symlink(outside, linkedRoot, process.platform === 'win32' ? 'junction' : 'dir');
+  context.after(async () => {
+    await fs.unlink(linkedRoot);
+    await fs.rm(outside, { recursive: true, force: true });
+  });
+  await assert.rejects(
+    acquireCrimeEvents(['--start=2026-08-01', '--end=2026-08-02', `--output=${outside}`]),
+    /task-owned \.dfev1 path inside the current worktree/i,
+  );
+  await assert.rejects(
+    ingestCrimeEvents([`--snapshot=${outside}`, `--warehouse=${path.join(outside, 'warehouse')}`]),
+    /task-owned \.dfev1 path inside the current worktree/i,
+  );
+  await assert.rejects(
+    backfillCrimeEventWarehouse(['--through=2026-08-02', `--root=${outside}`]),
+    /task-owned \.dfev1 path inside the current worktree/i,
+  );
+  await assert.rejects(
+    backfillCrimeEventWarehouse(['--through=2026-08-02', '--root=.dfev1']),
+    /task-owned \.dfev1 path inside the current worktree/i,
+  );
+  await assert.rejects(
+    backfillCrimeEventWarehouse(['--through=2026-08-02', '--root=.']),
+    /task-owned \.dfev1 path inside the current worktree/i,
+  );
+  await assert.rejects(
+    acquireCrimeEvents([
+      '--start=2026-08-01',
+      '--end=2026-08-02',
+      `--output=${path.join(linkedRoot, 'acquisition')}`,
+    ]),
+    /must not escape the current worktree through a symbolic link or junction/i,
+  );
+  assert.equal(
+    await assertTaskOwnedDfev1Path('.dfev1/crime/allowed-cli-root'),
+    path.join(process.cwd(), '.dfev1', 'crime', 'allowed-cli-root'),
+  );
+  assert.equal(await fs.readFile(path.join(outside, 'sentinel.txt'), 'utf8'), 'unchanged');
+  assert.deepEqual(await fs.readdir(outside), ['sentinel.txt']);
+});
 
 test('synthetic revision fixture is isolated from official serving and Source Health', () => {
   assert.equal(FIXTURE.synthetic, true);

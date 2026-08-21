@@ -30,6 +30,10 @@ export const CENTERLINE_MATCH_CONTRACT = Object.freeze({
   directionMismatchPenaltyM: 20,
 });
 
+const MAX_COORDINATES_PER_FEATURE = 5_000;
+const MAX_TOTAL_COORDINATES = 50_000;
+const MAX_SEGMENT_COMPARISONS = 2_000_000;
+
 const REQUIRED_FIELD_TYPES = Object.freeze({
   objectid: 'esriFieldTypeOID',
   seg_id: 'esriFieldTypeInteger',
@@ -115,10 +119,16 @@ export function admitCenterlineFeatureCollection(value, { expectedCount, sourceV
     throw new Error('Philadelphia centerline response is incomplete or invalid.');
   }
   const edgeKeys = new Set();
+  let totalCoordinates = 0;
   const edges = value.features.map((feature, index) => {
     if (feature?.type !== 'Feature' || feature.geometry?.type !== 'LineString'
-      || !Array.isArray(feature.geometry.coordinates) || feature.geometry.coordinates.length < 2) {
+      || !Array.isArray(feature.geometry.coordinates) || feature.geometry.coordinates.length < 2
+      || feature.geometry.coordinates.length > MAX_COORDINATES_PER_FEATURE) {
       throw new Error('Philadelphia centerline geometry is unsupported.');
+    }
+    totalCoordinates += feature.geometry.coordinates.length;
+    if (totalCoordinates > MAX_TOTAL_COORDINATES) {
+      throw new Error('Philadelphia centerline response exceeds the admitted geometry complexity.');
     }
     const properties = normalizeProperties(feature.properties);
     const edgeKey = `${properties.seg_id}:${properties.objectid}`;
@@ -169,23 +179,31 @@ export function matchKnownRouteToCenterline({ normalizedRoute, catalog } = {}) {
     throw new Error('Known Route requested data version is unavailable.');
   }
   const samples = routeSamples(normalizedRoute.geometry.coordinates);
+  const segmentCount = catalog.edges.reduce((sum, edge) => sum + edge.coordinates.length - 1, 0);
+  const segmentComparisons = samples.length * segmentCount;
+  if (segmentComparisons > MAX_SEGMENT_COMPARISONS) {
+    return failure('matching-complexity-limit');
+  }
   const selected = [];
   let maximumDistanceM = 0;
   for (const sample of samples) {
-    const candidates = catalog.edges.map((edge) => ({
-      edge,
-      distanceM: pointToLineDistanceM(sample.coordinate, edge.coordinates),
-      alignment: lineDirectionAlignment(sample.coordinate, sample.direction, edge.coordinates),
-    })).map((candidate) => ({
-      ...candidate,
-      scoreM: candidate.distanceM
-        + (1 - candidate.alignment) * CENTERLINE_MATCH_CONTRACT.directionMismatchPenaltyM,
-    })).sort((left, right) => left.scoreM - right.scoreM
-      || left.distanceM - right.distanceM
-      || left.edge.segmentId - right.edge.segmentId
-      || left.edge.objectId - right.edge.objectId);
-    const first = candidates[0];
-    const second = candidates[1];
+    let first = null;
+    let second = null;
+    for (const edge of catalog.edges) {
+      const distanceM = pointToLineDistanceM(sample.coordinate, edge.coordinates);
+      const alignment = lineDirectionAlignment(sample.coordinate, sample.direction, edge.coordinates);
+      const candidate = {
+        edge,
+        distanceM,
+        scoreM: distanceM + (1 - alignment) * CENTERLINE_MATCH_CONTRACT.directionMismatchPenaltyM,
+      };
+      if (!first || compareCandidates(candidate, first) < 0) {
+        second = first;
+        first = candidate;
+      } else if (!second || compareCandidates(candidate, second) < 0) {
+        second = candidate;
+      }
+    }
     if (!first || first.distanceM > CENTERLINE_MATCH_CONTRACT.maximumOffNetworkDistanceM) {
       return failure('off-network', { maximumObservedDistanceM: round(first?.distanceM ?? Infinity, 2) });
     }
@@ -230,6 +248,13 @@ export function matchKnownRouteToCenterline({ normalizedRoute, catalog } = {}) {
     matchedEdges: Object.freeze(matchedEdges),
     normalizedRoute,
   });
+}
+
+function compareCandidates(left, right) {
+  return left.scoreM - right.scoreM
+    || left.distanceM - right.distanceM
+    || left.edge.segmentId - right.edge.segmentId
+    || left.edge.objectId - right.edge.objectId;
 }
 
 export async function requestPhiladelphiaCenterlineCatalog({

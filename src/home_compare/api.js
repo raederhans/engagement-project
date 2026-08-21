@@ -5,7 +5,7 @@ import { fetchCoverage } from '../api/meta.js';
 import { fetchJson } from '../utils/http.js';
 import { validateAreaIntelligenceServingArtifact } from '../area_intelligence/serving_contract.js';
 import { admitPropertyAddressCandidates, admitPropertyParcelJoin } from './address.js';
-import { createEvidenceMetric, HOME_COMPARE_EVIDENCE_KEYS } from './contract.js';
+import { createEvidenceMetric, HOME_COMPARE_EVIDENCE_KEYS, inferHomeProfileStatus } from './contract.js';
 
 const VACANCY_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/Vacant_Indicators_Bldg/FeatureServer/0/query';
 const HIN_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/high_injury_network_2025/FeatureServer/0/query';
@@ -79,10 +79,7 @@ export async function fetchHomeProfileEvidence(identity, {
     reportedIncidents: settlementMetric(reportedIncidents, SOURCE_IDS.reportedIncidents),
     hinContext: settlementMetric(hinContext, SOURCE_IDS.hinContext),
   };
-  const statuses = Object.values(evidence).map(({ status }) => status);
-  const status = statuses.every((value) => value === 'available')
-    ? 'available'
-    : statuses.some((value) => value !== 'unavailable') ? 'partial' : 'unavailable';
+  const status = inferHomeProfileStatus(evidence);
   return {
     privateLabel: identity.displayAddress,
     profile: {

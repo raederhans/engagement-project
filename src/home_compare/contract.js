@@ -46,6 +46,9 @@ export function validateHomeCompareProjection(value) {
     enumValue(profile.status, ['available', 'partial', 'unavailable'], `profiles[${index}].status`);
     exactObject(profile.evidence, HOME_COMPARE_EVIDENCE_KEYS, `profiles[${index}].evidence`);
     for (const key of HOME_COMPARE_EVIDENCE_KEYS) validateMetric(profile.evidence[key], `profiles[${index}].evidence.${key}`);
+    if (profile.status !== inferHomeProfileStatus(profile.evidence)) {
+      fail('status mismatch');
+    }
     stringArray(profile.limitations, `profiles[${index}].limitations`);
   });
   if (!Array.isArray(value.sources) || !value.sources.length) fail('sources must be a non-empty array');
@@ -75,6 +78,9 @@ export function validateHomeCompareProjection(value) {
     }
     stringArray(source.limitations, `sources[${index}].limitations`);
   });
+  if (value.status !== inferProjectionStatus(value.profiles, value.sources)) {
+    fail('status mismatch');
+  }
   validateAreaIntelligence(value.areaIntelligence);
   validateCommute(value.commute);
   validateSensitivity(value.sensitivity);
@@ -99,20 +105,13 @@ export function createHomeCompareProjection({
   sources,
   areaIntelligence,
   sensitivity,
-  status,
 } = {}) {
   const profileList = Array.isArray(profiles) ? profiles : [];
   const sourceList = Array.isArray(sources) ? sources : [];
-  const hasAdmittedProfile = profileList.some((profile) => profile?.status !== 'unavailable');
-  const hasSourceGap = sourceList.some((source) => source?.status !== 'current');
-  const inferredStatus = status || (
-    profileList.every((profile) => profile?.status === 'available') && !hasSourceGap ? 'available'
-      : hasAdmittedProfile ? 'partial' : 'unavailable'
-  );
   return validateHomeCompareProjection({
     schema: HOME_COMPARE_SCHEMA,
     generatedAt,
-    status: inferredStatus,
+    status: inferProjectionStatus(profileList, sourceList),
     profiles: profileList,
     sources: sourceList,
     areaIntelligence,
@@ -150,6 +149,21 @@ export function createHomeCompareProjection({
       'causal effect',
     ],
   });
+}
+
+export function inferHomeProfileStatus(evidence) {
+  const statuses = HOME_COMPARE_EVIDENCE_KEYS.map((key) => evidence[key].status);
+  return statuses.every((status) => status === 'available')
+    ? 'available'
+    : statuses.some((status) => status && status !== 'unavailable') ? 'partial' : 'unavailable';
+}
+
+function inferProjectionStatus(profiles, sources) {
+  if (profiles.every((profile) => profile?.status === 'available')
+    && sources.every((source) => source?.status === 'current')) {
+    return 'available';
+  }
+  return profiles.some((profile) => profile?.status !== 'unavailable') ? 'partial' : 'unavailable';
 }
 
 export function createEvidenceMetric({

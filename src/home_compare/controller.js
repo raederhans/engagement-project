@@ -206,6 +206,7 @@ export function createHomeCompareController({
         dimensions: [...HOME_COMPARE_DIMENSIONS],
       });
       const url = new URL(locationRef.href);
+      url.search = '';
       url.searchParams.set('hc', encoded);
       historyRef?.replaceState?.({}, '', url);
       if (typeof clipboard?.writeText !== 'function') throw new TypeError('Clipboard is unavailable.');

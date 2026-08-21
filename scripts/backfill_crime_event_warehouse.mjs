@@ -12,6 +12,7 @@ import {
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
 } from './lib/crime_event_warehouse.mjs';
+import { assertTaskOwnedDfev1Path } from './lib/dfev1_path.mjs';
 
 const DEFAULTS = Object.freeze({
   root: path.join('.dfev1', 'crime'),
@@ -34,6 +35,7 @@ export async function main(argv = process.argv.slice(2)) {
     console.log(helpText());
     return;
   }
+  options.root = await assertTaskOwnedDfev1Path(options.root, { label: 'Crime backfill root' });
   const [eventContract, sourceContract, taxonomy, tractGeoJson, tractSourceRegistry, acsSnapshot] = await Promise.all([
     readJson(options.eventContract),
     readJson(options.sourceContract),

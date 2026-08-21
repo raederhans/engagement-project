@@ -85,9 +85,19 @@ try {
   assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /Property: 42\.9%/i);
   assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /changes evidence order only/i);
 
+  await page.evaluate(() => {
+    const url = new URL(location.href);
+    url.searchParams.set('a', '-75.1652,39.9526');
+    url.searchParams.set('b', '-75.1720,39.9490');
+    url.searchParams.set('labelA', 'SYNTHETIC PRIVATE ADDRESS A');
+    url.searchParams.set('labelB', 'SYNTHETIC PRIVATE ADDRESS B');
+    history.replaceState({}, '', url);
+  });
   await dialog.locator('[data-home-share]').click();
   await page.waitForFunction(() => document.querySelector('[data-home-status]')?.textContent?.includes('Privacy-safe'));
-  const shared = new URL(page.url()).searchParams.get('hc');
+  const sharedUrl = new URL(page.url());
+  assert.deepEqual([...sharedUrl.searchParams.keys()], ['hc']);
+  const shared = sharedUrl.searchParams.get('hc');
   const sharedValue = JSON.parse(shared);
   assert.deepEqual(Object.keys(sharedValue).sort(), ['dimensions', 'schema', 'weights']);
   assert.equal(Object.keys(sharedValue.weights).length, 5);

@@ -8,6 +8,7 @@ import {
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
 } from './lib/crime_event_warehouse.mjs';
+import { assertTaskOwnedDfev1Path } from './lib/dfev1_path.mjs';
 
 const DEFAULTS = Object.freeze({
   eventContract: path.join('scripts', 'data', 'crime_event_contract.v1.json'),
@@ -24,6 +25,8 @@ export async function main(argv = process.argv.slice(2)) {
     console.log(helpText());
     return;
   }
+  options.snapshot = await assertTaskOwnedDfev1Path(options.snapshot, { label: 'Crime source snapshot' });
+  options.warehouse = await assertTaskOwnedDfev1Path(options.warehouse, { label: 'Crime warehouse' });
   const [eventContract, sourceContract, taxonomy, tractGeoJson, tractSourceRegistry, acsSnapshot] = await Promise.all([
     readJson(options.eventContract),
     readJson(options.sourceContract),

@@ -8,6 +8,7 @@ import {
   acquireCrimeSourceSnapshot,
   resolveIncrementalCrimeScope,
 } from './lib/crime_event_source.mjs';
+import { assertTaskOwnedDfev1Path } from './lib/dfev1_path.mjs';
 
 const DEFAULT_SOURCE_CONTRACT = path.join('scripts', 'data', 'crime_event_source_contract.json');
 
@@ -16,6 +17,10 @@ export async function main(argv = process.argv.slice(2)) {
   if (options.help) {
     console.log(helpText());
     return;
+  }
+  options.output = await assertTaskOwnedDfev1Path(options.output, { label: 'Crime acquisition output' });
+  if (options.warehouse) {
+    options.warehouse = await assertTaskOwnedDfev1Path(options.warehouse, { label: 'Crime acquisition warehouse' });
   }
   const sourceContract = JSON.parse(await fs.readFile(options.sourceContract, 'utf8'));
   let start = options.start;
