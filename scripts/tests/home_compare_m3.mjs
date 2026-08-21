@@ -33,6 +33,7 @@ import {
   homeCompareProductHtml,
 } from '../../src/home_compare/view.js';
 import { homeCompareResultsHtml } from '../../src/home_compare/results_view.js';
+import { createHomeCompareController } from '../../src/home_compare/controller.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registry = validateHomeCompareSourceRegistry(JSON.parse(
@@ -220,6 +221,74 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
   assert.match(rendered, /预测继续不可用/);
   assert.match(rendered, /通勤时间与 isochrone 不可用/);
   assert.match(rendered, /不计算 safety score/);
+});
+
+test('Home Compare discards a computed projection when a deferred results renderer outlives close or destroy', async () => {
+  for (const action of ['close', 'destroy']) {
+    const resultsView = deferred();
+    let evidenceCalls = 0;
+    const { controller, dialog, host } = createControllerHarness({
+      loadResultsView: () => resultsView.promise,
+      fetchEvidence: async () => {
+        evidenceCalls += 1;
+        return controllerEvidenceResult(evidenceCalls);
+      },
+    });
+    setControllerAddresses(host);
+
+    const pending = controller.compare();
+    await waitFor(() => evidenceCalls === 2);
+    await nextTurn();
+    assert.equal(controller.getState().busy, true, `${action} case remains pending on renderer import`);
+    assert.equal(controller.getState().hasResult, false, `${action} case does not commit before renderer import`);
+
+    if (action === 'close') dialog.close();
+    else controller.destroy();
+    assert.equal(controller.getState().hasResult, false, `${action} clears an in-flight projection`);
+
+    resultsView.resolve({ homeCompareResultsHtml: () => '<article>stale</article>' });
+    assert.deepEqual(await pending, { status: 'superseded' });
+    assert.equal(controller.getState().hasResult, false, `${action} cannot leave stale results renderable`);
+    assert.equal(controller.getState().busy, false, `${action} cannot leave the controller busy`);
+  }
+});
+
+test('Home Compare observes lazy results-view rejection, keeps it separate from source unavailability, and retries explicitly', async () => {
+  const unhandled = [];
+  const observeUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', observeUnhandled);
+  try {
+    let viewAttempts = 0;
+    const { controller, host } = createControllerHarness({
+      loadResultsView: () => {
+        viewAttempts += 1;
+        if (viewAttempts === 1) return Promise.reject(new Error('chunk unavailable'));
+        return Promise.resolve({ homeCompareResultsHtml: () => '<article>recovered</article>' });
+      },
+    });
+    setControllerAddresses(host);
+
+    const failed = await controller.compare();
+    assert.deepEqual(failed, { status: 'unavailable', reason: 'results-unavailable' });
+    assert.deepEqual(controller.getState(), {
+      addressCount: 2,
+      busy: false,
+      status: 'results-unavailable',
+      hasResult: false,
+      weights: defaultWeights,
+    });
+    assert.equal(host.querySelector('[data-home-retry-results]').hidden, false);
+    await nextTurn();
+    assert.deepEqual(unhandled, [], 'the import rejection is observed from creation');
+
+    host.querySelector('[data-home-retry-results]').emit('click');
+    await waitFor(() => !controller.getState().busy && controller.getState().hasResult);
+    assert.equal(viewAttempts, 2);
+    assert.equal(controller.getState().status, 'partial');
+    assert.equal(host.querySelector('[data-home-results]').innerHTML, '<article>recovered</article>');
+  } finally {
+    process.removeListener('unhandledRejection', observeUnhandled);
+  }
 });
 
 test('source registry freezes official fields, privacy exclusions, and unavailable routing', () => {
@@ -502,4 +571,151 @@ function syntheticSourceRequest(sourceRegistry, { omitGeocoderField = null } = {
 
 function hasCode(code) {
   return (error) => error?.code === code;
+}
+
+function createControllerHarness({
+  loadResultsView,
+  fetchEvidence = async () => controllerEvidenceResult(1),
+} = {}) {
+  const host = new ControllerHost();
+  const dialog = new ControllerDialog(host);
+  const controller = createHomeCompareController({
+    dialog,
+    loadResultsView,
+    loadRegistry: async () => registry,
+    loadAreaIntelligence: async () => areaBoundary(),
+    resolveAddress: async (address) => ({ address }),
+    fetchEvidence,
+    locationRef: { href: 'https://example.test/' },
+    historyRef: { replaceState() {} },
+  });
+  return { controller, dialog, host };
+}
+
+function controllerEvidenceResult(index) {
+  return {
+    profile: structuredClone(makeProjection(2).profiles[index - 1] || makeProjection(2).profiles[0]),
+    privateLabel: `Private home ${index}`,
+    sourceStates: Object.fromEntries(registry.sources.map((source) => [source.id, {
+      sourceId: source.id,
+      status: 'unavailable',
+      recordCount: null,
+      dataAsOf: null,
+      retrievedAt: null,
+    }])),
+  };
+}
+
+function setControllerAddresses(host) {
+  for (const [index, value] of ['100 TEST ST', '200 TEST ST'].entries()) {
+    const input = host.querySelector(`[data-home-address="${index}"]`);
+    input.value = value;
+    input.emit('input');
+  }
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function nextTurn() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function waitFor(predicate, attempts = 20) {
+  for (let index = 0; index < attempts; index += 1) {
+    if (predicate()) return;
+    await nextTurn();
+  }
+  assert.fail('Timed out waiting for the controller condition.');
+}
+
+class ControllerElement {
+  #listeners = new Map();
+
+  constructor(dataset = {}) {
+    this.dataset = dataset;
+    this.value = '';
+    this.textContent = '';
+    this.innerHTML = '';
+    this.hidden = false;
+    this.disabled = false;
+  }
+
+  addEventListener(type, listener) {
+    const listeners = this.#listeners.get(type) || [];
+    listeners.push(listener);
+    this.#listeners.set(type, listeners);
+  }
+
+  removeEventListener(type, listener) {
+    this.#listeners.set(type, (this.#listeners.get(type) || []).filter((item) => item !== listener));
+  }
+
+  emit(type) {
+    for (const listener of this.#listeners.get(type) || []) listener({ currentTarget: this, target: this });
+  }
+
+  replaceChildren() {
+    this.innerHTML = '';
+  }
+
+  focus() {}
+
+  scrollIntoView() {}
+}
+
+class ControllerHost extends ControllerElement {
+  #elements = new Map();
+
+  constructor() {
+    super();
+    for (const selector of [
+      '[data-home-destinations]', '[data-home-add]', '[data-home-run]', '[data-home-share]',
+      '[data-home-close]', '[data-home-status]', '[data-home-results]', '[data-home-retry-results]',
+    ]) this.#elements.set(selector, new ControllerElement());
+  }
+
+  querySelector(selector) {
+    const address = selector.match(/^\[data-home-address="(\d+)"\]$/);
+    if (address) return this.#element(selector);
+    return this.#elements.get(selector) || null;
+  }
+
+  querySelectorAll(selector) {
+    if (selector === '[data-home-weight]' || selector === '[data-home-remove]') return [];
+    return [];
+  }
+
+  #element(selector) {
+    if (!this.#elements.has(selector)) this.#elements.set(selector, new ControllerElement());
+    return this.#elements.get(selector);
+  }
+}
+
+class ControllerDialog extends ControllerElement {
+  constructor(host) {
+    super();
+    this.host = host;
+  }
+
+  querySelector(selector) {
+    return selector === '[data-home-compare-host]' ? this.host : null;
+  }
+
+  setAttribute() {}
+
+  removeAttribute() {}
+
+  showModal() {}
+
+  close() {
+    this.emit('close');
+  }
 }

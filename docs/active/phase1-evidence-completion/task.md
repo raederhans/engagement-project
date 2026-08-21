@@ -4,35 +4,35 @@
 
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
-| Baseline and ownership | complete | Clean detached `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`; required DFEV closeout is an ancestor. |
-| Unified Phase 1 record | complete | This directory is the sole Phase 1A-D plan/context/task surface. |
-| 1-0 release/browser gate | complete | Release runner includes Area Intelligence, Home Compare, and Known Route browser suites exactly once; workflow/package contract is green. |
-| 1-0 Home Compare gzip headroom | complete | Results renderer moved behind first compare; controller is 10,799 gzip bytes under unchanged 18,000 ceiling (7,201 bytes headroom). |
-| 1-0 M0/lifecycle semantics | complete | Precise recoverable serial multi-file transaction language and four-clock/status/schema/revision/DQ/lineage acceptance are frozen in `plan.md`; existing Source Health/data contracts are green. |
-| Independent review | requested | Main supervising task must perform independent code/architecture review; this task cannot self-approve integration. |
-| Integration / remote gates | deferred | Integration owner only; no merge/push/remote CI/deploy/live smoke in this task. |
+| Base, ownership, and unique record | complete | Detached repair starts at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
+| Home Compare renderer race/rejection repair | implemented; focused recheck pending | Local request controller, delayed commit, close/destroy regression, observed import rejection, results-unavailable, and explicit retry are implemented. |
+| Browser lifecycle repair | implemented; focused recheck pending | Shared helper and deterministic preview/Chromium/context/route/page failure-injection contracts are implemented; all three suites use it. |
+| Release graph and Phase 1 binding | implemented; focused recheck pending | Exact leaves/composite graph and executable Phase 1 handoff contracts are implemented. |
+| Handoff matrix and actual resources | implemented; final record pending | Plan records M1-M4/1D paths, receipts, ownership and serial order; context records 4198, 4189, 4194 and only real task outputs. |
+| Serial local verification | release/aggregate pending | Focused contracts, build/bundle, and the three direct browser suites are green; full npm run ci:release and npm run validate remain. |
+| Independent review | pending new candidate | This task cannot self-approve. Request independent code/architecture review only after the new exact cumulative Lore commit. |
+| Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
 ## Local verification ledger
 
-Commands, exit codes, and any retained diagnostic location are appended here
-before handoff. Browser suites execute serially under the owner declared in
-`context.md` and are never treated as remote/live source evidence.
+All commands run from C:/Users/raede/.codex/worktrees/e4c5/engagement_project
+by this task alone. Append fresh command, exact exit code, relevant result, and
+post-browser port state before requesting review. Do not treat a static check as
+browser evidence.
 
 | Command | Exit | Result |
 | --- | --- | --- |
-| `npm ci` | 0 | 395 lockfile packages installed locally; 396 audited; 0 vulnerabilities; `package-lock.json` unchanged. |
-| `node --test scripts/tests/release_workflow_contracts.mjs scripts/tests/home_compare_m3.mjs scripts/tests/source_health_contracts.mjs` | 0 | 34/34; release scripts/workflow, Home Compare privacy/projection/registry and Source Health clocks/status contracts pass. |
-| `npm run build:manifest && npm run verify:bundle` | 0 | Vite manifest built; all budgets pass. Home Compare controller `30,427/10,799` raw/gzip, result chunk `3,672/1,504`; ceiling unchanged. |
-| `npm run test:area-intelligence-browser` | 0 | Real browser suite passed with promoted/no-promotion paths and zero console/page errors; port 4192 released. |
-| `npm run test:home-compare-browser` | 0 | Real browser suite passed 2/3/4 profiles, bilingual/privacy/partial-unavailable/mobile paths with zero console/page errors; port 4193 released. |
-| `npm run test:known-route-evidence-browser` | 0 | Real browser suite passed consent/privacy/fail-closed/mobile paths with zero console/page errors; port 4194 released. |
-| `npm run validate` | 0 | Complete project test aggregate, production manifest build, and bundle policy passed. |
-| `npm run audit:dependencies`; `npm run lint:js`; `npm run lint:css` | 0 | 0 audit vulnerabilities; both linters clean. |
-| `npm run test:browser-smoke`; `npm run test:acs-multitract-browser` | 0 | General smoke and ACS browser passed; ACS reported zero console/page errors. |
-| `npm run test:visual-experience:dist` | 0 | 45 one-worker Playwright visual tests passed; temporary preview used port 4178 and exited. |
+| npm run test:browser-lifecycle | 0 | First fresh focused run: five deterministic launch/context/route/page cleanup contracts passed. |
+| npm run test:phase1-handoff | 0 | First fresh focused run: existing executable lifecycle/status contract and required M1-M4/1D handoff binding passed. |
+| npm run test:release-workflow | 0 | First fresh focused run: nine release workflow/package mapping and graph contracts passed. |
+| npm run test:home-compare | 0 | First fresh focused run: sixteen Home Compare contracts passed, including deferred renderer close/destroy and rejection/retry. |
+| npm run lint:js | 1 then repaired | Initial focused lint exposed unsafe throw inside helper finally-equivalent control flow; helper now records primary error, runs cleanup, then rethrows; the fresh lint rerun is green below. |
+| npm run build:manifest and npm run verify:bundle | 0 after the lint repair | Build and unchanged-ceiling bundle policy passed. Home Compare controller measured 31,287/11,113 raw/gzip and results 3,672/1,505; controller headroom is 6,887 gzip bytes. |
+| npm run test:browser-lifecycle; npm run test:phase1-handoff; npm run test:release-workflow; npm run test:home-compare; npm run lint:js; npm run lint:css | 0 | Fresh repaired focused pass: 5 lifecycle-injection, 1 Phase 1 binding, 9 release graph, and 16 Home Compare tests passed; both linters clean. |
+| npm run test:area-intelligence-browser | 0 | Real production-dist Chromium suite passed promoted/no-promotion and responsive paths with zero console/page errors; port 4198 and its dist harness were released. |
+| npm run test:home-compare-browser | 1 then repaired, then 0 | First browser run exposed close clearing a completed result; cleanup released 4189. The narrow in-flight-only fix passed 16 focused contracts, rebuilt bundle policy, then passed the real 2/3/4 profile, bilingual, privacy, partial/unavailable and mobile suite with zero console/page errors; 4189 released. |
+| npm run test:known-route-evidence-browser | 0 | Real production-dist Chromium suite passed consent/privacy/fail-closed/mobile paths with zero console/page errors; port 4194 released and no test-results directory was created. |
 
-The release runner itself was intentionally not rerun after its three new
-browser steps had been run directly. The executable contract verifies its exact
-command list, and every listed release command was exercised once locally;
-this avoids duplicate browser-suite execution while retaining release-gate
-evidence.
+The pre-repair candidate's validation ledger is superseded and must not be used
+as evidence for this repair. No browser or composite release run has yet been
+claimed for the repaired code.

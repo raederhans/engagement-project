@@ -1,4 +1,4 @@
-import { HOME_COMPARE_DIMENSIONS, HOME_COMPARE_EVIDENCE_KEYS } from './contract.js';
+import { HOME_COMPARE_DIMENSIONS } from './contract.js';
 
 const COPY = Object.freeze({
   en: Object.freeze({
@@ -14,6 +14,7 @@ const COPY = Object.freeze({
     weights: 'Evidence emphasis',
     weightsHint: 'Weights reorder evidence dimensions only. They never rank homes or create a recommendation.',
     compare: 'Compare evidence',
+    retryResults: 'Retry results view',
     close: 'Close',
     share: 'Copy settings link',
     shareHint: 'The link contains weights and visible dimensions only—no address, parcel, coordinate, or destination.',
@@ -70,6 +71,7 @@ const COPY = Object.freeze({
     weights: '证据侧重',
     weightsHint: '权重只改变证据维度的展示顺序，不给住宅排名，也不生成推荐。',
     compare: '比较证据',
+    retryResults: '重试加载结果视图',
     close: '关闭',
     share: '复制设置链接',
     shareHint: '链接只包含权重和可见维度；不包含地址、parcel、坐标或目的地。',
@@ -160,6 +162,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
         </div>
         <p class="home-compare__hint">${escapeHtml(copy.shareHint)}</p>
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
+        <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>
       <section class="home-compare__results" data-home-results aria-labelledby="home-compare-results-title" tabindex="-1"></section>
     </div>`;

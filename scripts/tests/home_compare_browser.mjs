@@ -5,30 +5,36 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
+import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
+
 const PORT = 4189;
 const OUTPUT_DIR = '.dfev1/home-neighborhood-compare/m3-v1/browser';
-await mkdir(OUTPUT_DIR, { recursive: true });
-const server = await preview({ preview: { host: '127.0.0.1', port: PORT, strictPort: true } });
-const baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]);
-baseUrl.searchParams.set('view', 'list');
-baseUrl.searchParams.set('hc', JSON.stringify({
-  schema: 'engagement-home-compare-share/v1',
-  weights: { property: 20, costHistory: 20, civicRecords: 20, transportContext: 20, dataQuality: 20 },
-  dimensions: ['property'],
-  address: '<img src=x onerror=alert(1)>',
-}));
-
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl.origin });
-await installSyntheticRoutes(context);
-const page = await context.newPage();
 const consoleErrors = [];
 const pageErrors = [];
-page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-page.on('pageerror', (error) => pageErrors.push(error.message));
+let baseUrl = null;
 
-try {
+await runBrowserSuite({
+  prepare: () => mkdir(OUTPUT_DIR, { recursive: true }),
+  createPreview: () => preview({ preview: { host: '127.0.0.1', port: PORT, strictPort: true } }),
+  launchBrowser: () => chromium.launch({ headless: true }),
+  createContext: (browser) => browser.newContext({ viewport: { width: 1280, height: 900 } }),
+  configureContext: async (context, { server }) => {
+    baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]);
+    baseUrl.searchParams.set('view', 'list');
+    baseUrl.searchParams.set('hc', JSON.stringify({
+      schema: 'engagement-home-compare-share/v1',
+      weights: { property: 20, costHistory: 20, civicRecords: 20, transportContext: 20, dataQuality: 20 },
+      dimensions: ['property'],
+      address: '<img src=x onerror=alert(1)>',
+    }));
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl.origin });
+    await installSyntheticRoutes(context);
+  },
+  configurePage: (page) => {
+    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+  },
+  run: async ({ page }) => {
   await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
   if (await page.locator('html').getAttribute('lang') !== 'en') {
     await page.locator('.language-switch').click();
@@ -164,13 +170,8 @@ try {
     pageErrors: pageErrors.length,
     mobileLayout,
   }, null, 2));
-} finally {
-  await context.close();
-  await browser.close();
-  await new Promise((resolve, reject) => {
-    server.httpServer.close((error) => (error ? reject(error) : resolve()));
-  });
-}
+  },
+});
 
 async function runComparison(dialog, count) {
   await dialog.locator('[data-home-run]').click();

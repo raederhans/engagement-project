@@ -126,10 +126,15 @@ test('local release gate injects the same feature flags as GitHub release CI', a
   });
 });
 
-test('release and CI mechanically require the three DFEV browser suites once each', async () => {
+test('release and CI mechanically require exactly one mapped invocation of each DFEV browser suite', async () => {
   const packageJson = JSON.parse(await readFile(packageUrl, 'utf8'));
   const workflow = await readFile(ciUrl, 'utf8');
   const { RELEASE_STEPS } = await import(releaseRunnerUrl);
+  const expectedLeafScripts = {
+    'test:area-intelligence-browser': 'node scripts/tests/area_intelligence_browser.mjs',
+    'test:home-compare-browser': 'node scripts/tests/home_compare_browser.mjs',
+    'test:known-route-evidence-browser': 'node scripts/tests/known_route_evidence_browser.mjs',
+  };
   assert.deepEqual(RELEASE_STEPS, [
     ['audit', '--audit-level=high'],
     ['run', 'lint:js'],
@@ -142,14 +147,38 @@ test('release and CI mechanically require the three DFEV browser suites once eac
     ['run', 'test:known-route-evidence-browser'],
     ['run', 'test:visual-experience:dist'],
   ]);
-  for (const script of [
-    'test:area-intelligence-browser',
-    'test:home-compare-browser',
-    'test:known-route-evidence-browser',
-  ]) {
-    assert.match(packageJson.scripts[script], /^node scripts\/tests\/.+_browser\.mjs$/);
+  for (const [script, command] of Object.entries(expectedLeafScripts)) {
+    assert.equal(packageJson.scripts[script], command, `${script} must retain its exact browser file mapping`);
+    assert.equal(
+      Object.entries(packageJson.scripts)
+        .filter(([name, value]) => name !== script && value.includes(command)).length,
+      0,
+      `${script} file may only be owned by its leaf package script`,
+    );
+    assert.equal(
+      Object.entries(packageJson.scripts)
+        .filter(([name, value]) => name !== script && npmRunReferences(value).includes(script)).length,
+      0,
+      `${script} may not be repeated by another package composite`,
+    );
+    assert.equal(RELEASE_STEPS.filter((step) => step[0] === 'run' && step[1] === script).length, 1);
   }
   const release = jobBlock(workflow, 'release');
   assert.match(release, /npx playwright install --with-deps chromium/);
   assert.equal((release.match(/npm run ci:release/g) || []).length, 1);
+  assert.equal((workflow.match(/npm run ci:release/g) || []).length, 1, 'only the release job invokes the composite runner');
+  for (const script of Object.keys(expectedLeafScripts)) {
+    assert.equal((workflow.match(new RegExp(`npm run ${script}`, 'g')) || []).length, 0,
+      `${script} must only flow through ci:release, never another workflow job`);
+  }
+  assert.deepEqual(
+    Object.entries(packageJson.scripts)
+      .filter(([name, value]) => name !== 'ci:release' && value.includes('scripts/run_release_gate.mjs')),
+    [],
+    'ci:release is the sole package entrypoint for the release runner',
+  );
 });
+
+function npmRunReferences(command) {
+  return [...String(command).matchAll(/npm run ([A-Za-z0-9:_-]+)/g)].map((match) => match[1]);
+}

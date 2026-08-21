@@ -1,67 +1,80 @@
 # Phase 1 Evidence Completion
 
-## Goal
+## Goal and truthful boundary
 
-Provide one durable Phase 1 handoff surface for evidence-first Area Intelligence,
-Home Compare, Known Route, and Source Health work. Phase 1-0 makes the existing
-three feature browser suites mechanically mandatory in release CI, restores
-meaningful Home Compare gzip headroom without relaxing a ceiling, corrects the
-M0 publication description, and freezes shared lifecycle/time semantics.
+This is the sole active Phase 1A-D handoff record. Phase 1-0 adds **new
+mechanical release/browser wiring coverage** and keeps its proof executable.
+It does not newly create Source Health or lifecycle semantics: sourceAsOf,
+retrievedAt, builtAt, observedAt, status separation, revision, schema, DQ, and
+lineage are **recorded and re-verified existing executable contracts**. The
+test:phase1-handoff contract binds that distinction to the standard test graph
+and rejects a missing handoff matrix.
 
-## Scope and ownership
+M0 publication means a **validated recoverable serialized multi-file
+transaction / 经验证、可恢复的串行多文件事务发布**: validate temporary artifacts,
+stage backups, install by serial rename, and roll back if a later installation
+fails. It does not claim strict instantaneous atomic visibility across files.
 
-- This worktree (`C:/Users/raede/.codex/worktrees/e4c5/engagement_project`) owns
-  Phase 1-0 source, tests, package/release wiring, this record, and its local
-  verification only.
-- The Phase 1 integration owner alone may change refs, main, remote state,
-  worktree topology, or perform merge/rebase/cherry-pick/push/deploy.
-- The Phase 1-0 live-process owner is this task. Browser/build/bundle commands
-  run serially from this cwd; no shared server is retained after each command.
+## Authority, non-goals, and shared ownership
 
-## Phase plan and gates
+- This task owns only local Phase 1-0 code, tests, records, and live processes
+  in C:/Users/raede/.codex/worktrees/e4c5/engagement_project.
+- This Phase 1-0 candidate owner is the sole local writer for its explicitly
+  delegated package/release/test/record changes. After handoff, **only the
+  final 1D integration/release owner** may write package.json,
+  scripts/run_release_gate.mjs, .github/workflows/ci.yml,
+  scripts/tests/bundle_policy.mjs, src/source_health/source_health_catalog.js,
+  shared public/data/** outputs, or docs/active/phase1-evidence-completion/**.
+  Earlier M1-M4 owners may propose a reviewed patch, not write or promote these
+  shared surfaces directly.
+- Scheduled refresh, remote CI, deploy, production/online smoke, source
+  acquisition authority, forecast promotion, routing authority, merge, push,
+  rebase, cherry-pick, and worktree cleanup are outside this task.
+- Local browser fixtures are browser wiring evidence only; they neither prove
+  source liveness nor promote a source, forecast, routing, or deployment claim.
 
-| Phase | Outcome | Gate before handoff | Owner / status |
-| --- | --- | --- | --- |
-| 1-0 | Release-gate, bundle-headroom, M0 vocabulary, lifecycle baseline | Targeted contracts; all three real browser suites; local release/core/bundle evidence; independent review requested | This task / executing |
-| 1A | Area Intelligence evidence completion | Source, evaluation, provenance, DQ and browser evidence; no forecast promotion by implication | Future delegated owner |
-| 1B | Home Compare evidence completion | Registry/schema/revision/lineage and privacy contracts; real browser evidence; bundle policy remains unchanged | Future delegated owner |
-| 1C | Known Route evidence completion | Consent, privacy, fail-closed source/admission and real browser evidence; no routing authority claim | Future delegated owner |
-| 1D | Source Health/release integration closeout | Cross-feature lifecycle receipt, release candidate, independent review, remote CI/deploy gates owned by integration owner | Integration owner only |
+## Frozen lifecycle acceptance
 
-## Shared source lifecycle contract
+- sourceAsOf is source-fact time; retrievedAt acquisition time; builtAt
+  artifact-build time; observedAt observation time. A missing clock is null or
+  unavailable according to the existing source contract, never invented.
+- current, partial, stale, unavailable, and unknown are distinct;
+  unavailable/unknown are not zero/current and partial/stale are not promotion.
+- Every consumer receipt must bind producer revision/identity, schema version,
+  DQ result, coverage, and lineage. HTTP transport validators are transport
+  evidence, never a substitute lifecycle clock or provenance receipt.
+- Future acceptance must execute the relevant focused contract plus the
+  producer/consumer receipt recheck; Markdown alone is not acceptance.
 
-- `sourceAsOf` is the date/time represented by the source facts; `retrievedAt`
-  is acquisition time; `builtAt` is artifact-build time; `observedAt` is the
-  time a local observation was made. They are distinct clocks and a missing
-  clock remains null/unavailable as its contract requires.
-- `current`, `partial`, `stale`, `unavailable`, and `unknown` are separate
-  evidence states. In particular, unavailable/unknown are not zero or current;
-  partial/stale may not be silently promoted to current.
-- Every future source admission must preserve schema/version/revision,
-  data-quality (DQ), coverage and lineage/provenance facts. Transport validators
-  are transport evidence, never a substitute business clock or lineage proof.
-- M0 publication is a **validated recoverable serialized multi-file
-  transaction** (`经验证、可恢复的串行多文件事务发布`): temporary artifacts,
-  backups, serial rename installation, and rollback. It does not assert
-  instantaneous all-files atomic visibility.
+## Single handoff matrix
 
-## Non-goals and deferred authority
+| Milestone | Exact writable paths; forbidden/shared paths | Inputs, ignored assets, and authority boundary | Producer → consumer binding | Mandatory pre-handoff checks |
+| --- | --- | --- | --- | --- |
+| **M1 frozen warehouse** | Writable: scripts/acquire_crime_events.mjs, scripts/ingest_crime_events.mjs, scripts/backfill_crime_event_warehouse.mjs, scripts/lib/crime_event_warehouse.mjs, scripts/tests/crime_event_warehouse.mjs, and task-owned ignored .dfev1/crime/**. Forbidden/shared: package.json, release/CI/bundle policy, Source Health catalog, public/data/**, all M2-M4 source/UI paths, and this record. | Official input is read under the approved source/license boundary; raw events, acquisition snapshots, canonical rows, checkpoint, cache, and logs stay ignored with documented retention. They are not serving, promotion, or authority evidence. | M1 publishes a validated warehouse manifest/checkpoint/lineage receipt containing source revision, schema, DQ, coverage, and four clocks. M2/M4 consume it read-only and recheck exact receipt identity before use. | npm run test:data-pipeline; warehouse-focused receipt/idempotency check; npm run verify:bundle if source reaches runtime; no browser claim unless a changed browser surface has its named suite. |
+| **M2 mart/evaluation** | Writable: scripts/build_area_intelligence_marts.mjs, scripts/evaluate_area_intelligence.mjs, scripts/lib/area_intelligence_*.mjs, scripts/tests/area_intelligence_m2.mjs, and task-owned ignored .dfev1/area-intelligence/**. Forbidden/shared: M1 raw warehouse, public/data/area_intelligence_baseline.v1.json, package/release/CI/bundle policy, Source Health catalog, M3/M4 paths, and this record. | Input is the exact M1 frozen receipt, read-only. Mart, evaluation, cache, model, report, checkpoint, and logs remain ignored and retained per task record; they are not a serving/promotion authority. | M2 receipt binds the M1 receipt, protocol/schema, DQ/lineage, model/evaluation revision, and four clocks. 1D alone may recheck and promote a validated serving projection; not-promoted stays unavailable. | npm run test:data-pipeline; Area-focused evaluation/receipt checks; npm run test:area-intelligence-browser; npm run verify:bundle; exact M1 receipt recheck before/after reads. |
+| **M3 Home Compare** | Writable: src/home_compare/**, scripts/smoke_home_compare_sources.mjs, scripts/lib/home_compare_source_smoke.mjs, scripts/tests/home_compare_m3.mjs, scripts/tests/home_compare_browser.mjs, and task-owned ignored .dfev1/home-neighborhood-compare/m3-v1/**. Forbidden/shared: public/data/home_compare_sources.v1.json, package/release/CI/bundle policy, Source Health catalog, M1/M2/M4 paths, and this record. | Public source responses and ephemeral address/parcel inputs are not retained in serving/share artifacts. Ignored smoke manifests/logs are retained only as local evidence and are neither serving nor promotion/authority data. | M3 producer receipt binds source registry revision/schema, observation DQ, lineage, status and clocks; Home UI consumes only its validated projection. 1D rechecks the source receipt before any shared catalog/output change. | npm run test:home-compare; Home source receipt/smoke contract; npm run test:home-compare-browser; npm run verify:bundle; Source Health receipt recheck if catalog binding changes. |
+| **M4 Known Route** | Writable: src/known_route_evidence/**, scripts/smoke_known_route_evidence.mjs, scripts/build_known_route_evidence.mjs, scripts/tests/known_route_evidence_m4.mjs, scripts/tests/known_route_evidence_browser.mjs, and task-owned ignored .dfev1/known-route-evidence-v1/**. Forbidden/shared: package/release/CI/bundle policy, Source Health catalog, public/data/**, M1-M3 paths, and this record. | Explicit public/manual route input, route-derived bounds, raw rows, checkpoints, reports, and logs remain ignored/task-owned. They cannot be serving/promotion/routing authority and must not create a route recommendation. | M4 receipt binds exact read-only upstream M1/M2/M3 receipts, input/consent/schema/DQ/lineage, and four-clock/status facts. 1D must recheck every upstream receipt before consuming any candidate projection. | npm run test:known-route-evidence; known-route receipt/idempotency checks; npm run test:known-route-evidence-browser; npm run verify:bundle; M1/M2/M3 receipt recheck. |
+| **1D integration/release** | Sole writable owner for the shared surfaces named above plus reviewed, path-scoped integration patches. All other paths remain owned by their producer milestone unless explicitly handed over. | Reads only validated producer receipts and ignored artifacts necessary to verify them; ignored raw/ephemeral assets remain non-serving and never become promotion/authority evidence by integration alone. | Recompute producer→consumer receipt/revision/schema/DQ/lineage binding at the candidate exact tip. Refuse missing, drifted, partial-as-current, or unavailable-as-zero evidence. | Every changed milestone focused check; all three browser suites; npm run verify:bundle; npm run ci:release; final receipt and topology/overlap/status recheck; independent review. Remote CI/deploy remain separate gates. |
 
-- No ceiling increase, dependency addition, product behavior/privacy/availability
-  change, scheduled refresh, remote CI, deploy, live smoke, source acquisition,
-  routing authority, forecast promotion, merge, push, or cleanup.
-- Local browser fixtures prove the exercised browser contract only. They do not
-  prove external source liveness, scheduled refresh, remote CI, deployment, or
-  production authority.
+## Required serial topology
 
-## Handoff rules
+M0 lifecycle baseline → M1 frozen warehouse → M2 mart/evaluation → M3/M4
+(M3 and M4 may run in parallel only when they share neither writable paths nor
+live outputs) → 1D integration/release.
 
-1. Recheck exact target SHA, worktree topology, status, ownership, and path
-   overlap immediately before integration.
-2. Integrate Phase 1-0 only by strict fast-forward when its base remains the
-   target tip; otherwise use one reviewed, path-scoped cherry-pick. Never bulk
-   merge an older worktree.
-3. Re-run the recorded targeted contracts, all three browser suites, core/release
-   gates as applicable, and bundle policy on the integration candidate.
-4. Keep this single directory active through 1D; append progress in place and
-   do not create duplicate Phase 1 total plans or archive it early.
+Before each arrow, the receiving owner records the producer exact tip, Git
+topology, worktree status, writable-path overlap, and validates the producer
+receipt again. No future source, forecast, routing, or deployment is described
+here as completed.
+
+## Phase 1-0 acceptance and handoff
+
+1. Recheck target SHA, topology, clean/owned status, and path overlap before
+   integration. This local candidate is never self-approved.
+2. The release runner must call Area Intelligence, Home Compare, and Known
+   Route browser leaves once each. The release-workflow contract checks their
+   exact package file mappings plus the repository-defined package/workflow
+   composite graph, not arbitrary external invocations.
+3. Integration is strict fast-forward only while this exact base remains the
+   target tip; otherwise use one independently reviewed path-scoped
+   cherry-pick. Keep this trio active through 1D; do not archive it early.

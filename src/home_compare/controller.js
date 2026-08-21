@@ -1,5 +1,3 @@
-import './styles.css';
-
 import { getLanguage, onLanguageChange } from '../i18n/index.js';
 import {
   combineHomeCompareSources,
@@ -44,6 +42,7 @@ export function createHomeCompareController({
   fetchEvidence = fetchHomeProfileEvidence,
   loadRegistry = loadHomeCompareRegistry,
   loadAreaIntelligence = loadM2AreaIntelligenceBoundary,
+  loadResultsView = () => import('./results_view.js'),
   clipboard = globalThis.navigator?.clipboard,
   locationRef = globalThis.location,
   historyRef = globalThis.history,
@@ -105,10 +104,16 @@ export function createHomeCompareController({
       button.addEventListener('click', () => removeAddress(Number(button.dataset.homeRemove)));
     }
     host.querySelector('[data-home-run]')?.addEventListener('click', () => { void compare(); });
+    host.querySelector('[data-home-retry-results]')?.addEventListener('click', () => { void compare(); });
     host.querySelector('[data-home-share]')?.addEventListener('click', () => { void shareSettings(); });
     host.querySelector('[data-home-close]')?.addEventListener('click', () => closeDialog(dialog));
     const status = host.querySelector('[data-home-status]');
     if (status) status.textContent = statusText(copy);
+    const retryResults = host.querySelector('[data-home-retry-results]');
+    if (retryResults) {
+      retryResults.hidden = state.status !== 'results-unavailable';
+      retryResults.disabled = state.busy;
+    }
     const resultHost = host.querySelector('[data-home-results]');
     if (state.result && renderResults) {
       resultHost.innerHTML = renderResults(state.result, { labels: state.labels, locale });
@@ -158,10 +163,16 @@ export function createHomeCompareController({
     }
     const requestGeneration = ++generation;
     requestController?.abort();
-    requestController = new AbortController();
+    const activeRequestController = new AbortController();
+    requestController = activeRequestController;
     // Results contain profile cards and localized formatting that are not needed
-    // to open/configure Home Compare. Load them with the first explicit compare.
-    const resultsView = import('./results_view.js');
+    // to open/configure Home Compare. Observe a failure immediately so a lazy
+    // chunk failure never escapes as an unhandled rejection while source work runs.
+    const resultsView = Promise.resolve().then(loadResultsView);
+    const observedResultsView = resultsView.then(
+      (view) => ({ view }),
+      (error) => ({ error }),
+    );
     state.busy = true;
     state.status = 'loading';
     state.result = null;
@@ -169,36 +180,44 @@ export function createHomeCompareController({
     render();
     try {
       const [registry, areaIntelligence, identities] = await Promise.all([
-        loadRegistry({ signal: requestController.signal }),
-        loadAreaIntelligence({ signal: requestController.signal }),
-        Promise.all(addresses.map((address) => resolveAddress(address, { signal: requestController.signal }))),
+        loadRegistry({ signal: activeRequestController.signal }),
+        loadAreaIntelligence({ signal: activeRequestController.signal }),
+        Promise.all(addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
       ]);
       const results = await Promise.all(identities.map((identity) => fetchEvidence(identity, {
-        signal: requestController.signal,
+        signal: activeRequestController.signal,
       })));
-      if (requestGeneration !== generation || requestController.signal.aborted) return { status: 'superseded' };
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
       const profiles = results.map((result, index) => ({
         ...result.profile,
         profileId: `home-${index + 1}`,
       }));
-      state.result = createHomeCompareProjection({
+      const projection = createHomeCompareProjection({
         profiles,
         sources: await combineHomeCompareSources(registry, results),
         areaIntelligence,
         sensitivity: buildWeightSensitivity(state.weights),
       });
-      state.labels = results.map(({ privateLabel }) => privateLabel);
-      ({ homeCompareResultsHtml: renderResults } = await resultsView);
-      if (requestGeneration !== generation || requestController.signal.aborted) return { status: 'superseded' };
-      state.status = state.result.status === 'available' ? 'available' : 'partial';
+      const labels = results.map(({ privateLabel }) => privateLabel);
+      const { view, error: resultsViewError } = await observedResultsView;
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
+      if (resultsViewError || typeof view?.homeCompareResultsHtml !== 'function') {
+        throw createResultsViewUnavailableError(resultsViewError);
+      }
+      // Commit only after all local work belongs to the active generation. This
+      // prevents a closed/destroyed dialog from retaining an old projection.
+      renderResults = view.homeCompareResultsHtml;
+      state.result = projection;
+      state.labels = labels;
+      state.status = projection.status === 'available' ? 'available' : 'partial';
       state.busy = false;
       render();
       const resultHost = host.querySelector('[data-home-results]');
       resultHost?.focus?.({ preventScroll: true });
       resultHost?.scrollIntoView?.({ block: 'nearest' });
-      return { status: state.result.status, projection: state.result };
+      return { status: projection.status, projection };
     } catch (error) {
-      if (requestGeneration !== generation || error?.name === 'AbortError') return { status: 'superseded' };
+      if (requestGeneration !== generation || activeRequestController.signal.aborted || error?.name === 'AbortError') return { status: 'superseded' };
       state.busy = false;
       state.status = errorStatus(error);
       render();
@@ -247,10 +266,15 @@ export function createHomeCompareController({
   }
 
   const onClose = () => {
+    const wasBusy = state.busy;
     generation += 1;
     requestController?.abort();
     requestController = null;
     state.busy = false;
+    if (wasBusy) {
+      state.result = null;
+      state.labels = [];
+    }
     if (state.status === 'loading') state.status = 'idle';
     render();
     returnFocus?.focus?.();
@@ -277,6 +301,10 @@ export function createHomeCompareController({
     destroy() {
       generation += 1;
       requestController?.abort();
+      requestController = null;
+      state.busy = false;
+      state.result = null;
+      state.labels = [];
       unsubscribeLanguage();
       dialog.removeEventListener('close', onClose);
       closeDialog(dialog);
@@ -286,6 +314,7 @@ export function createHomeCompareController({
 }
 
 function errorStatus(error) {
+  if (error?.code === 'RESULTS_VIEW_UNAVAILABLE') return 'results-unavailable';
   const code = String(error?.code || '');
   if (code.startsWith('ADDRESS_')) return code.toLowerCase().replaceAll('_', '-');
   if (code.startsWith('PARCEL_')) return code.toLowerCase().replaceAll('_', '-');
@@ -306,6 +335,7 @@ function getStatusMessages(locale) {
       'parcel-address-mismatch': 'geocoder 与 OPA 地址不一致，已 fail closed。',
       'parcel-geography-mismatch': 'geocoder 与 OPA 地理位置不一致，已 fail closed。',
       'source-unavailable': '至少一个必需来源或合同不可用；没有用零值或 mock 替代。',
+      'results-unavailable': '结果视图暂时无法加载；来源状态没有被改写。请重试。',
       shared: '已复制隐私安全的设置链接；链接不含地址或目的地。',
       'share-loaded': '已加载共享权重；地址和目的地保持为空。',
       'invalid-share': '共享设置无效，已拒绝加载。',
@@ -324,9 +354,17 @@ function getStatusMessages(locale) {
     'parcel-address-mismatch': 'City geocoder and OPA addresses disagree; the request failed closed.',
     'parcel-geography-mismatch': 'City geocoder and OPA geography disagree; the request failed closed.',
     'source-unavailable': 'A required source or contract is unavailable; no zero or mock was substituted.',
+    'results-unavailable': 'The results view could not load; source status was not changed. Retry the comparison.',
     shared: 'Privacy-safe settings link copied; it contains no address or destination.',
     'share-loaded': 'Shared weights loaded; addresses and destinations remain empty.',
     'invalid-share': 'Invalid shared settings were rejected.',
     'share-failed': 'The settings link could not be copied; addresses and destinations were not written to the URL.',
   };
+}
+
+function createResultsViewUnavailableError(cause) {
+  const error = new Error('Home Compare results view is unavailable.');
+  error.code = 'RESULTS_VIEW_UNAVAILABLE';
+  error.cause = cause;
+  return error;
 }

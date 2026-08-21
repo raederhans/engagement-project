@@ -4,25 +4,32 @@ import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
+import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
+
 const PORT = 4194;
-const server = await preview({ preview: { host: '127.0.0.1', port: PORT, strictPort: true } });
-const baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]);
-baseUrl.searchParams.set('view', 'list');
-baseUrl.searchParams.set('mode', 'crime');
-baseUrl.searchParams.set('start', '2025-06');
-baseUrl.searchParams.set('months', '1');
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const centerlineRequests = [];
 const networkObservations = { cityLimits: 0, incidentEnvelopes: 0 };
-await installSyntheticRoutes(context, centerlineRequests, networkObservations);
-const page = await context.newPage();
 const consoleErrors = [];
 const pageErrors = [];
-page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-page.on('pageerror', (error) => pageErrors.push(error.message));
+let baseUrl = null;
 
-try {
+await runBrowserSuite({
+  createPreview: () => preview({ preview: { host: '127.0.0.1', port: PORT, strictPort: true } }),
+  launchBrowser: () => chromium.launch({ headless: true }),
+  createContext: (browser) => browser.newContext({ viewport: { width: 1280, height: 900 } }),
+  configureContext: async (context, { server }) => {
+    baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]);
+    baseUrl.searchParams.set('view', 'list');
+    baseUrl.searchParams.set('mode', 'crime');
+    baseUrl.searchParams.set('start', '2025-06');
+    baseUrl.searchParams.set('months', '1');
+    await installSyntheticRoutes(context, centerlineRequests, networkObservations);
+  },
+  configurePage: (page) => {
+    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+  },
+  run: async ({ page }) => {
   await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
   if (await page.locator('html').getAttribute('lang') !== 'en') {
     await page.locator('.language-switch').click();
@@ -151,13 +158,8 @@ try {
     pageErrors: 0,
     mobile,
   })}\n`);
-} finally {
-  await context.close();
-  await browser.close();
-  await new Promise((resolve, reject) => {
-    server.httpServer.close((error) => (error ? reject(error) : resolve()));
-  });
-}
+  },
+});
 
 async function enterSyntheticRoute(surface, latitude) {
   const rows = surface.locator('[data-route-waypoint-list] > li');

@@ -5,6 +5,8 @@ import path from 'node:path';
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
+import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
+
 const manifest = JSON.parse(await readFile('dist/.vite/manifest.json', 'utf8'));
 const charts = manifest['src/charts/index.js'];
 const entry = manifest['index.html'];
@@ -25,17 +27,20 @@ const harness = `<!doctype html>
 <script type="module">import { updateAreaIntelligence } from '/${areaIntelligence.file}';
 window.areaIntelligenceSmoke=updateAreaIntelligence;</script>
 </body></html>`;
-await writeFile(harnessPath, harness, 'utf8');
-const server = await preview({ preview: { host: '127.0.0.1', port: 4198, strictPort: true } });
-const browser = await chromium.launch({ headless: true });
 const consoleErrors = [];
 const pageErrors = [];
 
-try {
-  const context = await browser.newContext({ viewport: { width: 1120, height: 800 } });
-  const page = await context.newPage();
+await runBrowserSuite({
+  prepare: () => writeFile(harnessPath, harness, 'utf8'),
+  createPreview: () => preview({ preview: { host: '127.0.0.1', port: 4198, strictPort: true } }),
+  launchBrowser: () => chromium.launch({ headless: true }),
+  createContext: (browser) => browser.newContext({ viewport: { width: 1120, height: 800 } }),
+  configurePage: (page) => {
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  },
+  cleanupArtifacts: () => rm(harnessPath, { force: true }),
+  run: async ({ page }) => {
   await page.goto('http://127.0.0.1:4198/area-intelligence-smoke.html', { waitUntil: 'networkidle' });
   await page.waitForFunction(() => Boolean(window.areaIntelligenceSmoke));
 
@@ -62,13 +67,9 @@ try {
   assert.equal(await card.locator('[role="status"]').count(), 0, 'promoted card must not retain a stale unavailable status');
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
-  await context.close();
   process.stdout.write('[Area Intelligence Browser] PASS - promoted/no-promotion, responsive layout, zero console/page errors.\n');
-} finally {
-  await browser.close();
-  await new Promise((resolve, reject) => server.httpServer.close((error) => (error ? reject(error) : resolve())));
-  await rm(harnessPath, { force: true });
-}
+  },
+});
 
 async function render(page, artifact) {
   await page.evaluate(async (value) => {
