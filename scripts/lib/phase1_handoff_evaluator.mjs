@@ -10,10 +10,17 @@ export async function readJson(pathname) {
   return JSON.parse(await readFile(pathname, 'utf8'));
 }
 
-function pathFlavor(value) {
-  if (typeof value !== 'string' || !value || value.includes('\0') || value.startsWith('\\\\')) throw new Error('path is empty, device, or UNC');
+function pathFlavor(value, platform) {
+  if (typeof value !== 'string' || !value || value.includes('\0')) throw new Error('path is empty or contains a NUL');
   if (value.includes('/') && value.includes('\\')) throw new Error('path mixes slash styles');
-  return /^[A-Za-z]:[\\/]/.test(value) ? path.win32 : path;
+  if (/^\\\\[.?]\\/.test(value)) throw new Error('path is a Windows device namespace');
+  if (/^\\\\/.test(value)) throw new Error('path is a UNC path');
+  if (platform === 'win32') {
+    if (!/^[A-Za-z]:[\\/]/.test(value)) throw new Error('Windows authority path must be drive-absolute');
+    return path.win32;
+  }
+  if (value.includes('\\') || /^[A-Za-z]:/.test(value)) throw new Error('POSIX authority path uses a Windows drive or separator');
+  return path;
 }
 
 function contained(flavor, root, candidate) {
@@ -21,18 +28,58 @@ function contained(flavor, root, candidate) {
   return relative !== '' && !flavor.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${flavor.sep}`);
 }
 
-export const realFilesystemAuthority = Object.freeze({
-  async receiptPath(worktree, evidenceRoot, receiptPath) {
-    const flavor = pathFlavor(worktree); pathFlavor(evidenceRoot); pathFlavor(receiptPath);
-    const root = flavor.resolve(worktree); const evidence = flavor.resolve(evidenceRoot); const receipt = flavor.resolve(receiptPath);
-    if (!contained(flavor, root, evidence) || !contained(flavor, evidence, receipt)) throw new Error('receipt path escapes worktree or evidence root');
-    const [canonicalEvidence, canonicalReceipt, stat] = await Promise.all([realpath(evidence), realpath(receipt), lstat(receipt)]);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('receipt is not a regular file');
-    const canonicalFlavor = pathFlavor(canonicalEvidence);
-    if (!contained(canonicalFlavor, canonicalEvidence, canonicalReceipt)) throw new Error('receipt realpath escapes evidence root');
-    return canonicalReceipt;
-  },
-});
+function separatorStyle(value) {
+  if (value.includes('\\')) return 'backslash';
+  if (value.includes('/')) return 'slash';
+  return 'none';
+}
+
+function lexicalWithin(parent, candidate, separator) {
+  const normalizedParent = parent.replace(/[\\/]+$/, '');
+  return candidate.startsWith(`${normalizedParent}${separator}`);
+}
+
+export function createFilesystemAuthority({
+  platform = process.platform,
+  canonicalize = realpath,
+  stat = lstat,
+} = {}) {
+  return Object.freeze({
+    async receiptPath(worktree, evidenceRoot, receiptPath) {
+      const flavor = pathFlavor(worktree, platform);
+      const evidenceFlavor = pathFlavor(evidenceRoot, platform);
+      const receiptFlavor = pathFlavor(receiptPath, platform);
+      if (flavor !== evidenceFlavor || flavor !== receiptFlavor) throw new Error('path flavor differs across authority inputs');
+      const styles = new Set([separatorStyle(worktree), separatorStyle(evidenceRoot), separatorStyle(receiptPath)]);
+      if (styles.size !== 1 || styles.has('none')) throw new Error('path separator style drift');
+      // Drive spelling is an authority boundary on Windows: accepting C: and c:
+      // as interchangeable would let an observation conceal a case/drive drift.
+      if (platform === 'win32') {
+        const drive = worktree.slice(0, 2);
+        if (evidenceRoot.slice(0, 2) !== drive || receiptPath.slice(0, 2) !== drive) throw new Error('Windows drive or case drift');
+      }
+      const separator = styles.has('backslash') ? '\\' : '/';
+      if (!lexicalWithin(worktree, evidenceRoot, separator) || !lexicalWithin(evidenceRoot, receiptPath, separator)) {
+        throw new Error('receipt lexical path escapes worktree or evidence root');
+      }
+      const root = flavor.resolve(worktree);
+      const evidence = flavor.resolve(evidenceRoot);
+      const receipt = flavor.resolve(receiptPath);
+      if (!contained(flavor, root, evidence) || !contained(flavor, evidence, receipt)) throw new Error('receipt path escapes worktree or evidence root');
+      const [canonicalRoot, canonicalEvidence, canonicalReceipt, receiptStat] = await Promise.all([
+        canonicalize(root), canonicalize(evidence), canonicalize(receipt), stat(receipt),
+      ]);
+      if (!receiptStat.isFile() || receiptStat.isSymbolicLink()) throw new Error('receipt is not a regular file');
+      const canonicalFlavor = pathFlavor(canonicalRoot, platform);
+      if (canonicalFlavor !== pathFlavor(canonicalEvidence, platform) || canonicalFlavor !== pathFlavor(canonicalReceipt, platform)
+        || !contained(canonicalFlavor, canonicalRoot, canonicalEvidence)
+        || !contained(canonicalFlavor, canonicalEvidence, canonicalReceipt)) throw new Error('receipt canonical path escapes worktree or evidence root');
+      return canonicalReceipt;
+    },
+  });
+}
+
+export const realFilesystemAuthority = createFilesystemAuthority();
 
 export async function inspectGitWorktree(worktree) {
   const run = async (...args) => (await execFileAsync('git', ['-C', worktree, ...args], { windowsHide: true })).stdout.trim();

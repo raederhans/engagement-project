@@ -88,9 +88,9 @@ export function runCommand(command, args, environment, { spawnChild = spawn } = 
       env: environment,
       stdio: 'inherit',
     });
-    child.once('error', reject);
+    child.once('error', (cause) => reject(createChildFailure('RELEASE_CHILD_SPAWN', command, args, { cause })));
     child.once('exit', (code, signal) => {
-      if (signal) reject(new Error(`${command} ${args.join(' ')} stopped by signal ${signal}`));
+      if (signal) reject(createChildFailure('RELEASE_CHILD_SIGNAL', command, args, { signal }));
       else resolve(code ?? 1);
     });
   });
@@ -110,23 +110,22 @@ export async function runReleaseGate({
   let code = 1;
   let bodyError;
   let nonzeroStepError;
+  let activeCommand;
+  let activeArgs;
+  let activeStep;
   try {
     for (const args of RELEASE_STEPS) {
-      code = args[0] === 'node'
-        ? await execute(process.execPath, args.slice(1), environment)
-        : await execute(process.execPath, [npmExecPath, ...args], environment);
+      activeStep = args;
+      activeCommand = process.execPath;
+      activeArgs = args[0] === 'node' ? args.slice(1) : [npmExecPath, ...args];
+      code = await execute(activeCommand, activeArgs, environment);
       if (code !== 0) {
-        nonzeroStepError = createNonzeroStepError(
-          process.execPath,
-          args[0] === 'node' ? args.slice(1) : [npmExecPath, ...args],
-          args,
-          code,
-        );
+        nonzeroStepError = createNonzeroStepError(activeCommand, activeArgs, activeStep, code);
         break;
       }
     }
   } catch (error) {
-    bodyError = error;
+    bodyError = annotateChildFailure(error, activeCommand, activeArgs, activeStep);
   }
   const cleanupErrors = [];
   for (const cleanup of [
@@ -144,11 +143,13 @@ export async function runReleaseGate({
     const error = new AggregateError([primaryError, ...cleanupErrors], 'Release gate failed and postcondition failed.');
     error.primaryError = primaryError;
     error.cleanupErrors = cleanupErrors;
+    if (Number.isInteger(primaryError.exitCode) && primaryError.exitCode > 0) error.exitCode = primaryError.exitCode;
     throw error;
   }
   if (bodyError) throw bodyError;
+  if (nonzeroStepError) throw nonzeroStepError;
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Release gate postcondition failed.');
-  return code;
+  return 0;
 }
 
 export function createNonzeroStepError(command, args, step, exitCode) {
@@ -161,6 +162,26 @@ export function createNonzeroStepError(command, args, step, exitCode) {
   return error;
 }
 
+function createChildFailure(code, command, args, { cause, signal } = {}) {
+  const detail = signal ? `stopped by signal ${signal}` : `could not spawn: ${cause?.message || String(cause)}`;
+  const error = new Error(`${command} ${args.join(' ')} ${detail}.`);
+  error.code = code;
+  error.command = command;
+  error.args = [...args];
+  if (signal) error.signal = signal;
+  if (cause) error.cause = cause;
+  return error;
+}
+
+function annotateChildFailure(error, command, args, step) {
+  const failure = error instanceof Error ? error : Object.assign(new Error(String(error)), { cause: error });
+  failure.code ||= 'RELEASE_CHILD_FAILURE';
+  failure.command ||= command;
+  failure.args ||= Array.isArray(args) ? [...args] : [];
+  failure.step ||= Array.isArray(step) ? [...step] : step;
+  return failure;
+}
+
 export function formatReleaseFailure(error) {
   if (error instanceof AggregateError) return [error.message, ...error.errors.map(formatReleaseFailure)].join('\n');
   if (!(error instanceof Error)) return String(error);
@@ -170,18 +191,24 @@ export function formatReleaseFailure(error) {
     Array.isArray(error.args) && `argv=${JSON.stringify(error.args)}`,
     (Array.isArray(error.step) ? error.step.join(' ') : error.step) && `step=${Array.isArray(error.step) ? error.step.join(' ') : error.step}`,
     error.exitCode != null && `exitCode=${error.exitCode}`,
+    error.signal && `signal=${error.signal}`,
   ].filter(Boolean);
   return details.length ? `${error.message}\n${details.join(' | ')}` : error.message;
+}
+
+export async function runReleaseCli({ gate = runReleaseGate, write = (message) => console.error(message) } = {}) {
+  try {
+    return { exitCode: await gate(), output: null };
+  } catch (error) {
+    const output = formatReleaseFailure(error);
+    write(output);
+    return { exitCode: Number.isInteger(error.exitCode) && error.exitCode > 0 ? error.exitCode : 1, output };
+  }
 }
 
 const isMain = process.argv[1]
   && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
-  try {
-    process.exitCode = await runReleaseGate();
-  } catch (error) {
-    console.error(formatReleaseFailure(error));
-    process.exitCode = 1;
-  }
+  process.exitCode = (await runReleaseCli()).exitCode;
 }

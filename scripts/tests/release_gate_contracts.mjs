@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createReleasePortAudit, formatReleaseFailure, RELEASE_STEPS, runCommand, runReleaseGate } from '../run_release_gate.mjs';
+import { createReleasePortAudit, formatReleaseFailure, RELEASE_STEPS, runCommand, runReleaseCli, runReleaseGate } from '../run_release_gate.mjs';
 
 test('release gate stops after the first nonzero child and always checks its postcondition', async () => {
   const started = []; let postconditions = 0; let audits = 0;
-  const code = await runReleaseGate({ environment: { npm_execpath: 'npm-cli.js' }, execute: async (_command, args) => { started.push(args.at(-1)); return started.length === 4 ? 9 : 0; }, taskOwnershipAudit: { async verify() { audits += 1; } }, postcondition: async () => { postconditions += 1; } });
-  assert.equal(code, 9); assert.equal(started.length, 4); assert.equal(postconditions, 1);
+  await assert.rejects(runReleaseGate({ environment: { npm_execpath: 'npm-cli.js' }, execute: async (_command, args) => { started.push(args.at(-1)); return started.length === 4 ? 9 : 0; }, taskOwnershipAudit: { async verify() { audits += 1; } }, postcondition: async () => { postconditions += 1; } }), (error) => error.code === 'RELEASE_STEP_NONZERO' && error.exitCode === 9);
+  assert.equal(started.length, 4); assert.equal(postconditions, 1);
   assert.equal(audits, 1);
   assert.equal(started.includes(RELEASE_STEPS[4][1]), false, 'N+1 must not start');
 });
@@ -101,6 +101,43 @@ test('release failure formatter retains executable argv, step, exit code, and ev
 });
 
 test('runCommand preserves child spawn and signal failures', async () => {
-  await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'error') queueMicrotask(() => listener(new Error('spawn failure'))); } }) }), /spawn failure/);
-  await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'exit') queueMicrotask(() => listener(null, 'SIGTERM')); } }) }), /SIGTERM/);
+  await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'error') queueMicrotask(() => listener(new Error('spawn failure'))); } }) }), (error) => error.code === 'RELEASE_CHILD_SPAWN' && error.command === 'node' && JSON.stringify(error.args) === '["fixture"]' && /spawn failure/.test(error.message));
+  await assert.rejects(runCommand('node', ['fixture'], {}, { spawnChild: () => ({ once(event, listener) { if (event === 'exit') queueMicrotask(() => listener(null, 'SIGTERM')); } }) }), (error) => error.code === 'RELEASE_CHILD_SIGNAL' && error.signal === 'SIGTERM' && error.command === 'node');
+});
+
+test('release CLI formats isolated nonzero, spawn, signal, cleanup-only, and aggregate failures with an explicit exit mapping', async () => {
+  const failures = [
+    Object.assign(new Error('nonzero'), { code: 'RELEASE_STEP_NONZERO', command: 'node', args: ['npm-cli.js', 'run', 'lint:js'], step: ['run', 'lint:js'], exitCode: 9 }),
+    Object.assign(new Error('spawn'), { code: 'RELEASE_CHILD_SPAWN', command: 'node', args: ['npm-cli.js', 'audit'], step: ['audit'] }),
+    Object.assign(new Error('signal'), { code: 'RELEASE_CHILD_SIGNAL', command: 'node', args: ['npm-cli.js', 'audit'], step: ['audit'], signal: 'SIGTERM' }),
+    new AggregateError([new Error('cleanup-only')], 'Release gate postcondition failed.'),
+    new AggregateError([
+      Object.assign(new Error('nonzero'), { code: 'RELEASE_STEP_NONZERO', command: 'node', args: ['npm-cli.js', 'audit'], step: ['audit'], exitCode: 7 }),
+      new Error('cleanup one'), new Error('cleanup two'),
+    ], 'Release gate failed and postcondition failed.'),
+  ];
+  for (const failure of failures) {
+    const written = [];
+    const result = await runReleaseCli({ gate: async () => { throw failure; }, write: (message) => written.push(message) });
+    assert.equal(written.length, 1);
+    assert.equal(result.output, written[0]);
+    assert.match(result.output, /command=node|cleanup-only/);
+    if (failure.exitCode) assert.equal(result.exitCode, failure.exitCode);
+    else assert.equal(result.exitCode, 1);
+  }
+  const aggregate = await runReleaseCli({
+    gate: () => runReleaseGate({
+      environment: { npm_execpath: 'npm-cli.js' },
+      execute: async () => 7,
+      taskOwnershipAudit: { async verify() { throw new Error('cleanup one'); } },
+      postcondition: async () => { throw new Error('cleanup two'); },
+    }),
+    write: () => {},
+  });
+  assert.equal(aggregate.exitCode, 7, 'aggregate preserves its primary child exit code');
+  assert.match(aggregate.output, /argv=\["npm-cli\.js","audit","--audit-level=high"\]/);
+  assert.match(aggregate.output, /step=audit --audit-level=high/);
+  assert.match(aggregate.output, /exitCode=7/);
+  assert.match(aggregate.output, /cleanup one/);
+  assert.match(aggregate.output, /cleanup two/);
 });

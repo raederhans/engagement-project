@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { access, readFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { evaluateHandoff, pathMatches, patternsOverlap } from '../lib/phase1_handoff_evaluator.mjs';
+import { createFilesystemAuthority, evaluateHandoff, pathMatches, patternsOverlap, realFilesystemAuthority } from '../lib/phase1_handoff_evaluator.mjs';
 
 const root = new URL('../../', import.meta.url);
 const policyUrl = new URL('../../docs/active/phase1-evidence-completion/handoff.manifest.json', import.meta.url);
@@ -344,6 +346,122 @@ test('receipt authority cannot be bypassed by an injected reader', async () => {
   assert.equal(result.decisions.admissionEligible, false);
   assert.equal(result.decisions.deletionEligible, false);
   assert.equal(result.phases.M1.decisions.admissionEligible, false);
+});
+
+test('real filesystem authority accepts a canonical inner regular file and rejects lexical escapes', async () => {
+  const temporary = await mkdtemp(path.join(tmpdir(), 'phase1-authority-'));
+  try {
+    const evidence = path.join(temporary, 'evidence');
+    const inner = path.join(evidence, 'receipt.json');
+    const outside = path.join(temporary, 'outside.json');
+    await mkdir(evidence); await writeFile(inner, '{}'); await writeFile(outside, '{}');
+    const authority = realFilesystemAuthority;
+    assert.equal(await authority.receiptPath(temporary, evidence, inner), await realpath(inner));
+    await assert.rejects(authority.receiptPath(temporary, evidence, outside), /escapes/);
+    await assert.rejects(authority.receiptPath(temporary, path.join(evidence, '..', 'outside-root'), inner), /escapes|ENOENT/);
+    await assert.rejects(authority.receiptPath(temporary, evidence, path.join(evidence, '..', 'outside.json')), /escapes/);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test('real filesystem authority rejects a live file symlink when Windows permits it', async (t) => {
+  const temporary = await mkdtemp(path.join(tmpdir(), 'phase1-authority-link-'));
+  try {
+    const evidence = path.join(temporary, 'evidence');
+    const outside = path.join(temporary, 'outside.json');
+    const link = path.join(evidence, 'receipt-link.json');
+    await mkdir(evidence); await writeFile(outside, '{}');
+    try {
+      await symlink(outside, link, 'file');
+    } catch (error) {
+      if (process.platform === 'win32' && ['EPERM', 'EACCES', 'UNKNOWN'].includes(error?.code)) {
+        t.skip(`Windows file symlink unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(realFilesystemAuthority.receiptPath(temporary, evidence, link), /not a regular file/);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test('Windows live junction escaping the worktree is rejected when junction creation is permitted', async (t) => {
+  if (process.platform !== 'win32') {
+    t.skip('Windows junction semantics are not available on this platform');
+    return;
+  }
+  const temporary = await mkdtemp(path.join(tmpdir(), 'phase1-junction-'));
+  const outside = `${temporary}-outside`;
+  try {
+    const junction = path.join(temporary, 'evidence-junction');
+    await mkdir(outside, { recursive: true });
+    const receipt = path.join(outside, 'receipt.json');
+    await writeFile(receipt, '{}');
+    try {
+      await symlink(outside, junction, 'junction');
+    } catch (error) {
+      if (['EPERM', 'EACCES', 'UNKNOWN'].includes(error?.code)) {
+        t.skip(`Windows junction unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(realFilesystemAuthority.receiptPath(temporary, junction, path.join(junction, 'receipt.json')), /canonical path escapes/);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test('filesystem authority rejects hostile lexical and canonical paths before any receipt reader runs', async () => {
+  const { policy, observation } = await documents();
+  const fileStat = async () => ({ isFile: () => true, isSymbolicLink: () => false });
+  const canonical = async (pathname) => pathname;
+  const windowsAuthority = createFilesystemAuthority({ platform: 'win32', canonicalize: canonical, stat: fileStat });
+  const posixJunctionEscape = createFilesystemAuthority({
+    platform: 'linux',
+    canonicalize: async (pathname) => pathname === '/worktree/evidence' ? '/outside/evidence' : pathname,
+    stat: fileStat,
+  });
+  const hostile = [
+    ['absolute outside', windowsAuthority, 'C:\\other\\receipt.json', 'C:\\worktree\\evidence'],
+    ['parent evidence root', windowsAuthority, 'C:\\worktree\\evidence\\receipt.json', 'C:\\worktree\\..\\outside'],
+    ['parent receipt', windowsAuthority, 'C:\\worktree\\evidence\\..\\outside.json', 'C:\\worktree\\evidence'],
+    ['mixed slash', windowsAuthority, 'C:\\worktree/evidence\\receipt.json', 'C:\\worktree\\evidence'],
+    ['UNC', windowsAuthority, '\\\\server\\share\\receipt.json', 'C:\\worktree\\evidence'],
+    ['device namespace', windowsAuthority, '\\\\?\\C:\\worktree\\evidence\\receipt.json', 'C:\\worktree\\evidence'],
+    ['drive case variation', windowsAuthority, 'c:\\worktree\\evidence\\receipt.json', 'C:\\worktree\\evidence'],
+    ['directory case variation', windowsAuthority, 'C:\\WORKTREE\\evidence\\receipt.json', 'C:\\WORKTREE\\evidence'],
+    ['POSIX symlink or Windows junction canonical escape', posixJunctionEscape, '/worktree/evidence/receipt.json', '/worktree/evidence'],
+  ];
+  for (const [name, filesystemAuthority, receiptPath, evidenceRoot] of hostile) {
+    const candidate = structuredClone(observation);
+    const phase = candidate.phases.find(({ phase: id }) => id === 'M1');
+    phase.worktree = receiptPath.startsWith('/') ? '/worktree' : 'C:\\worktree';
+    phase.evidenceRoot = evidenceRoot;
+    phase.receipt = {
+      availability: 'available', actualPath: receiptPath, schema: policy.phases.find(({ id }) => id === 'M1').receipt.schema,
+      identity: {}, revision: {}, validatorCommand: 'npm run test:phase1-handoff', result: 'pass',
+    };
+    let readerCalled = false;
+    const result = await evaluateHandoff({
+      policy,
+      observation: candidate,
+      filesystemAuthority,
+      readReceipt: async () => { readerCalled = true; return {}; },
+      inspectWorktree: async () => ({ head: phase.exactTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] }),
+      inspectRevision: async (_worktree, reference) => ({ tip: reference, mergeBase: phase.actualMergeBase, phaseBase: phase.phaseBase, changedPaths: [] }),
+      isAncestor: async () => true,
+      changedBetween: async () => [],
+      resolveRef: async (_worktree, reference) => reference,
+    });
+    assert.equal(readerCalled, false, `${name} must reject before reading receipt bytes`);
+    assert.equal(result.phases.M1.decisions.admissionEligible, false, `${name} blocks M1 admission`);
+    assert.equal(result.decisions.admissionEligible, false, `${name} blocks global admission`);
+    assert.equal(result.decisions.deletionEligible, false, `${name} blocks deletion`);
+  }
 });
 
 test('glob expansion recognizes concrete owned paths and rejects writer/control-surface overlap', () => {
