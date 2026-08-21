@@ -33,6 +33,14 @@ export const RECORD_ONLY_PATHS = Object.freeze([
   'docs/active/phase1-evidence-completion/task.md',
 ]);
 
+const PHASE1_0_WRITABLE = Object.freeze([
+  'docs/active/_worktree_registry.md',
+  'scripts/tests/area_intelligence_browser.mjs',
+  'scripts/tests/p1_accessibility_design_contracts.mjs',
+  'scripts/tests/release_gate_contracts.mjs',
+  'scripts/tests/run_visual_experience_dist_contracts.mjs',
+]);
+
 const EXACT_PHASE_POLICY = Object.freeze({
   M1: {
     owner: 'M1 frozen warehouse task',
@@ -42,6 +50,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [],
     upstreamReceiptBindings: [],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
+    receipt: { schema: 'engagement-phl-crime-event-warehouse/v1', requiredFields: ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at'], identityFields: ['current_snapshot_id'], revisionFields: ['updated_at', 'latest_revision_report'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M2: {
     owner: 'M2 mart/evaluation task',
@@ -51,6 +60,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4198],
     upstreamReceiptBindings: ['M1'],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
+    receipt: { schema: 'ModelEvaluationReport/v1', requiredFields: ['generated_at', 'protocol.schema', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M3: {
     owner: 'M3 Home Compare task',
@@ -60,6 +70,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4189],
     upstreamReceiptBindings: ['M2'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M3 receipt recheck', 'desktop-en-synthetic.png retained', 'mobile-en-synthetic.png retained', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
+    receipt: { schema: 'engagement-home-compare-source-smoke/v1', requiredFields: ['generatedAt', 'status', 'semanticIdentity', 'observations', 'routing', 'privacy', 'limitations'], identityFields: ['semanticIdentity'], revisionFields: ['generatedAt', 'observations.0.revision', 'observations.0.dq'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M4: {
     owner: 'M4 Known Route task',
@@ -67,14 +78,16 @@ const EXACT_PHASE_POLICY = Object.freeze({
     forbidden: ['package.json', 'public/data/**', 'src/home_compare/**'],
     ignoredOutputRoots: ['.dfev1/known-route-evidence-v1/**'],
     ports: [4194],
-    upstreamReceiptBindings: ['M1', 'M2'],
+    upstreamReceiptBindings: ['M1'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
     receipt: {
-      schema: 'known-route-evidence-checkpoint/v1',
-      dataQualityFields: ['dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated'],
-      lineageFields: ['lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity'],
-      consentFields: ['consent.publicCenterlineRequest'],
-      clockFields: ['clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt'],
+      mode: 'admission',
+      schema: 'engagement-known-route-evidence-handoff/v2',
+      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt'],
+      identityFields: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
+      revisionFields: ['centerlineDataVersion', 'startedAt'],
+      validatorCommand: 'npm run test:phase1-handoff',
+      dataQualityFields: ['dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated'], lineageFields: ['lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity'], consentFields: ['consent.publicCenterlineRequest'], clockFields: ['clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt'], futureRequired: true,
     },
   },
   '1D': {
@@ -85,6 +98,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4173, 4178, 4189, 4194, 4198],
     upstreamReceiptBindings: ['M1', 'M2', 'M3', 'M4'],
     retention: { duration: 'per-approved-project-policy', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['all producer receipt rechecks', 'independent review'], authorizationReceipt: '1D cumulative retention authorization' },
+    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'recordTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
 });
 
@@ -108,13 +122,14 @@ function exactPolicyReasons(policy) {
         ? !sameList(actual.retention?.[field], value)
         : actual.retention?.[field] !== value) reasons.push(`${id}: policy retention ${field} drift`);
     }
-    if (expected.receipt) {
-      if (actual.receipt?.schema !== expected.receipt.schema) reasons.push(`${id}: policy receipt schema drift`);
-      for (const field of ['dataQualityFields', 'lineageFields', 'consentFields', 'clockFields']) {
-        if (!sameList(actual.receipt?.[field], expected.receipt[field])) reasons.push(`${id}: policy receipt ${field} drift`);
-      }
+    if (expected.receipt) for (const [field, value] of Object.entries(expected.receipt)) {
+      if (field === 'mode' && id !== 'M4') continue;
+      if (Array.isArray(value)
+        ? !sameList(actual.receipt?.[field], value)
+        : actual.receipt?.[field] !== value) reasons.push(`${id}: policy receipt ${field} drift`);
     }
   }
+  if (!sameList(policy.phase1_0_writable, PHASE1_0_WRITABLE)) reasons.push('Phase1-0 writable scope drift');
   return reasons;
 }
 
@@ -175,6 +190,7 @@ export async function evaluateHandoff({
   reasons.push(...policyReasons);
   const policyEligible = policyReasons.length === 0;
   const policies = new Map(policy.phases.map((phase) => [phase.id, phase]));
+  const topology = topologicalOrder(policy.edges, [...policies.keys()]);
   const observations = new Map(observation.phases.map((phase) => [phase.phase, phase]));
   const phaseResults = {};
   const phaseMeta = new Map();
@@ -188,9 +204,12 @@ export async function evaluateHandoff({
       for (const key of ['producerTask', 'owner', 'worktree', 'evidenceRoot', 'exactTip', 'expectedBase', 'actualMergeBase', 'ancestorResult', 'status', 'actualChangedPaths', 'artifactOwner', 'ignoredRoot', 'retention', 'implementationTip', 'state']) {
         if (phase[key] == null) phaseReasons.push(`missing ${key}`);
       }
+      if (phase.ancestorResult !== true) phaseReasons.push('ancestor result is not true');
+      if (phase.actualMergeBase !== phase.expectedBase) phaseReasons.push('recorded merge-base diverges from expected base');
       if (phase.owner !== phasePolicy.owner) phaseReasons.push('owner drift');
       if (phase.artifactOwner !== phasePolicy.owner) phaseReasons.push('artifact owner drift');
       if (!phasePolicy.ignoredOutputRoots.includes(phase.ignoredRoot)) phaseReasons.push('ignored root drift');
+      if (!evidenceRootWithin(phase.worktree, phase.evidenceRoot, phasePolicy.ignoredOutputRoots)) phaseReasons.push('evidence root exceeds ignored-output boundary');
       if (!phase.retention?.duration || !phase.retention?.triggerEvent || !phase.retention?.decisionOwner
           || !Array.isArray(phase.retention?.deletePrerequisites)) phaseReasons.push('retention policy incomplete');
       for (const field of ['duration', 'triggerEvent', 'decisionOwner']) {
@@ -198,7 +217,7 @@ export async function evaluateHandoff({
       }
       if (!sameList(phase.retention?.deletePrerequisites, phasePolicy.retention.deletePrerequisites)) phaseReasons.push('retention delete-prerequisites drift');
       if (phase.retention?.authorizationReceipt != null
-          && phase.retention.authorizationReceipt !== phasePolicy.retention.authorizationReceipt) phaseReasons.push('retention authorization drift');
+          && !validDeletionAuthorization(phase, phasePolicy)) phaseReasons.push('retention authorization drift');
       if (phase.actualChangedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('actual changed path exceeds writable boundary');
       try {
         const actual = await inspectWorktree(phase.worktree);
@@ -206,6 +225,7 @@ export async function evaluateHandoff({
         if (JSON.stringify(actual.status) !== JSON.stringify(phase.status.porcelain || [])) phaseReasons.push('worktree status drift');
         const implementation = await inspectRevision(phase.worktree, phase.implementationTip);
         if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase) phaseReasons.push('implementation topology drift');
+        if (!await isAncestor(phase.worktree, phase.expectedBase, phase.exactTip)) phaseReasons.push('exact tip is not a descendant of expected base');
         if (JSON.stringify(implementation.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('implementation changed-path drift');
         if (actual.head !== phase.implementationTip) {
           if (!await isAncestor(phase.worktree, phase.implementationTip, actual.head)) phaseReasons.push('execution head is not an implementation descendant');
@@ -224,13 +244,18 @@ export async function evaluateHandoff({
       }
       if (phase.receipt?.availability === 'available') {
         try {
+          if (phase.receipt.schema !== phasePolicy.receipt.schema) throw new Error('observation schema drift');
+          if (phase.receipt.validatorCommand !== phasePolicy.receipt.validatorCommand) throw new Error('validator command drift');
+          if (phase.receipt.result !== 'pass') throw new Error('receipt result is not pass');
           validateReceipt(phaseId, phasePolicy, await readReceipt(phase.receipt.actualPath), phase.receipt);
-          receiptEligible = true;
+          receiptEligible = canonicalReceiptMode(phaseId) === 'admission';
+          if (!receiptEligible) phaseReasons.push('preparation-only receipt cannot be consumed');
         }
         catch (error) { phaseReasons.push(`receipt invalid: ${error.message}`); }
       } else {
         phaseReasons.push('receipt unavailable');
       }
+      validateUpstreamReceiptIdentities(phase, phasePolicy, observations, phaseReasons);
       if (phase.state === 'accepted' && !phase.reviewedTip) phaseReasons.push('accepted observation has no reviewed tip');
       if (phase.state === 'accepted' && !phase.recordTip) phaseReasons.push('accepted observation has no record tip');
       if (phase.state === 'accepted' && phase.recordTip !== phase.reviewedTip) phaseReasons.push('accepted record/review tip drift');
@@ -249,7 +274,8 @@ export async function evaluateHandoff({
     });
   }
 
-  for (const phasePolicy of policy.phases) {
+  for (const phaseId of topology) {
+    const phasePolicy = policies.get(phaseId);
     const meta = phaseMeta.get(phasePolicy.id);
     const upstream = phasePolicy.upstreamReceiptBindings.map((id) => phaseResults[id]);
     const consumptionEligible = meta.receiptEligible && upstream.every((result) => result?.decisions.consumptionEligible);
@@ -271,7 +297,7 @@ export async function evaluateHandoff({
     const phase = observations.get(phasePolicy.id);
     phaseResults[phasePolicy.id].decisions.deletionEligible = finalAdmissionEligible
       && phaseResults[phasePolicy.id].decisions.admissionEligible
-      && phase?.retention?.authorizationReceipt === phasePolicy.retention.authorizationReceipt;
+      && validDeletionAuthorization(phase, phasePolicy);
   }
 
   for (const [source, target] of policy.edges) {
@@ -291,6 +317,18 @@ export async function evaluateHandoff({
     // writable patterns (or a writer reaching its own ignored output root).
     if (patternsOverlap(policy.phases[i].writable, policy.phases[i].ignoredOutputRoots)) reasons.push(`writer/output overlap ${policy.phases[i].id}`);
   }
+  const cumulativePaths = observation.phases.flatMap((phase) => phase.actualChangedPaths || []);
+  const policyWritable = policy.phases.flatMap((phase) => phase.writable);
+  if (cumulativePaths.some((pathname) => !policyWritable.some((pattern) => pathMatches(pattern, pathname))
+    && !PHASE1_0_WRITABLE.includes(pathname))) reasons.push('cumulative changed path exceeds phase writable union');
+  const globallyBlocked = reasons.length > 0 || Object.values(phaseResults).some((phase) => phase.status === 'blocked');
+  if (globallyBlocked) {
+    for (const phase of Object.values(phaseResults)) {
+      phase.status = 'blocked';
+      phase.decisions.admissionEligible = false;
+      phase.decisions.deletionEligible = false;
+    }
+  }
   return {
     status: reasons.length ? 'blocked' : 'accepted',
     reasons,
@@ -298,8 +336,8 @@ export async function evaluateHandoff({
     decisions: {
       preparationEligible: policy.phases.every((phase) => phaseResults[phase.id].decisions.preparationEligible),
       consumptionEligible: phaseResults['1D']?.decisions.consumptionEligible === true,
-      admissionEligible: finalAdmissionEligible,
-      deletionEligible: policy.phases.every((phase) => phaseResults[phase.id].decisions.deletionEligible),
+      admissionEligible: !globallyBlocked && finalAdmissionEligible,
+      deletionEligible: !globallyBlocked && policy.phases.every((phase) => phaseResults[phase.id].decisions.deletionEligible),
     },
   };
 }
@@ -336,12 +374,56 @@ function isPreparationEligible(phase, policy, policyEligible) {
     && phase.owner === policy.owner
     && phase.artifactOwner === policy.owner
     && policy.ignoredOutputRoots.includes(phase.ignoredRoot)
+    && evidenceRootWithin(phase.worktree, phase.evidenceRoot, policy.ignoredOutputRoots)
     && phase.retention?.duration === policy.retention.duration
     && phase.retention?.triggerEvent === policy.retention.triggerEvent
     && phase.retention?.decisionOwner === policy.retention.decisionOwner
     && sameList(phase.retention?.deletePrerequisites, policy.retention.deletePrerequisites)
     && Array.isArray(phase.actualChangedPaths)
     && phase.actualChangedPaths.every((pathname) => policy.writable.some((pattern) => pathMatches(pattern, pathname))));
+}
+
+function evidenceRootWithin(worktree, evidenceRoot, patterns) {
+  const base = `${String(worktree || '').replaceAll('\\', '/').replace(/\/$/, '')}/`;
+  const candidate = String(evidenceRoot || '').replaceAll('\\', '/');
+  if (!candidate.startsWith(base)) return false;
+  const relative = candidate.slice(base.length);
+  return patterns.some((pattern) => pathMatches(pattern, relative) || pathMatches(pattern, `${relative}/`));
+}
+
+function validateUpstreamReceiptIdentities(phase, policy, observations, reasons) {
+  const declarations = Array.isArray(phase.upstreamReceiptIdentities) ? phase.upstreamReceiptIdentities : [];
+  for (const upstream of policy.upstreamReceiptBindings) {
+    const matching = declarations.filter((entry) => entry?.phase === upstream);
+    if (matching.length !== 1) { reasons.push(`upstream receipt identity missing or duplicated for ${upstream}`); continue; }
+    const declared = { ...matching[0] }; delete declared.phase;
+    const producer = observations.get(upstream);
+    const actual = producer?.receipt?.availability === 'available' ? producer.receipt.identity : null;
+    if (!Object.keys(declared).length || !actual || !sameRecord(declared, actual)) reasons.push(`upstream receipt identity drift for ${upstream}`);
+  }
+}
+
+function sameRecord(left, right) {
+  const leftKeys = Object.keys(left || {}).sort();
+  const rightKeys = Object.keys(right || {}).sort();
+  return sameList(leftKeys, rightKeys) && leftKeys.every((key) => left[key] === right[key]);
+}
+
+function validDeletionAuthorization(phase, policy) {
+  const authorization = phase?.retention?.authorizationReceipt;
+  return Boolean(authorization
+    && typeof authorization === 'object'
+    && authorization.schema === policy.retention.authorizationReceipt
+    && authorization.issuer === '1D integration/release owner'
+    && authorization.decisionOwner === policy.retention.decisionOwner
+    && authorization.target?.phase === phase.phase
+    && authorization.target?.ignoredRoot === phase.ignoredRoot
+    && sameList(authorization.prerequisites, policy.retention.deletePrerequisites)
+    && isExactTimestamp(authorization.decidedAt));
+}
+
+function canonicalReceiptMode(phaseId) {
+  return EXACT_PHASE_POLICY[phaseId].receipt.mode;
 }
 
 function isExactTimestamp(value) {
@@ -354,4 +436,15 @@ function hasCycle(edges) {
   const nodes = new Set(edges.flat()); const visiting = new Set(); const seen = new Set();
   const visit = (node) => { if (visiting.has(node)) return true; if (seen.has(node)) return false; visiting.add(node); const cycle = edges.filter(([from]) => from === node).some(([, to]) => visit(to)); visiting.delete(node); seen.add(node); return cycle; };
   return [...nodes].some(visit);
+}
+
+function topologicalOrder(edges, ids) {
+  const indegree = new Map(ids.map((id) => [id, 0]));
+  const next = new Map(ids.map((id) => [id, []]));
+  for (const [from, to] of edges) if (indegree.has(from) && indegree.has(to)) {
+    indegree.set(to, indegree.get(to) + 1); next.get(from).push(to);
+  }
+  const ready = ids.filter((id) => indegree.get(id) === 0).sort(); const order = [];
+  while (ready.length) { const id = ready.shift(); order.push(id); for (const to of next.get(id)) { indegree.set(to, indegree.get(to) - 1); if (indegree.get(to) === 0) ready.push(to); } ready.sort(); }
+  return order.length === ids.length ? order : ids;
 }

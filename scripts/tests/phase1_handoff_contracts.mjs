@@ -24,14 +24,15 @@ test('Phase 1 policy names real producer receipt contracts and every control sur
   assert.equal(policy.phases.find(({ id }) => id === 'M2').receipt.defaultPath, '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json');
   assert.equal(policy.phases.find(({ id }) => id === 'M3').receipt.defaultPath, '.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json');
   const m4 = policy.phases.find(({ id }) => id === 'M4');
-  assert.equal(m4.receipt.schema, 'known-route-evidence-checkpoint/v1');
+  assert.equal(m4.receipt.schema, 'engagement-known-route-evidence-handoff/v2');
+  assert.equal(m4.receipt.futureRequired, true);
   assert.ok(m4.receipt.requiredFields.includes('warehouseIdentity'));
   assert.deepEqual(m4.receipt.dataQualityFields, ['dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated']);
   assert.deepEqual(m4.receipt.lineageFields, ['lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity']);
   assert.deepEqual(m4.receipt.consentFields, ['consent.publicCenterlineRequest']);
   assert.deepEqual(m4.receipt.clockFields, ['clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt']);
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M3').upstreamReceiptBindings, ['M2']);
-  assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').upstreamReceiptBindings, ['M1', 'M2']);
+  assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').upstreamReceiptBindings, ['M1']);
   assert.deepEqual(policy.phases.find(({ id }) => id === '1D').upstreamReceiptBindings, ['M1', 'M2', 'M3', 'M4']);
   for (const phase of policy.phases) {
     assert.ok(phase.owner && phase.writable.length && phase.ignoredOutputRoots.length);
@@ -63,6 +64,8 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   for (const phase of fixture.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
     phase.worktree = `fixture/${phase.phase}`;
+    phase.evidenceRoot = `${phase.worktree}/${phase.ignoredRoot.replace('/**', '')}`;
+    phase.actualMergeBase = phase.expectedBase;
     phase.state = 'accepted'; phase.implementationTip = phase.exactTip; phase.recordTip = phase.exactTip; phase.reviewedTip = phase.exactTip;
     phase.status = { porcelain: [], index: [], untracked: [] }; phase.actualChangedPaths = [];
     // A producer's retained evidence must be admissible before the future 1D
@@ -75,6 +78,13 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     for (const field of definition.receipt.identityFields) phase.receipt.identity[field] = getPath(receipt, field);
     for (const field of definition.receipt.revisionFields) phase.receipt.revision[field] = getPath(receipt, field);
     receipts.set(phase.phase, receipt);
+  }
+  for (const phase of fixture.phases) {
+    const definition = policy.phases.find(({ id }) => id === phase.phase);
+    phase.upstreamReceiptIdentities = definition.upstreamReceiptBindings.map((upstream) => ({
+      phase: upstream,
+      ...fixture.phases.find((item) => item.phase === upstream).receipt.identity,
+    }));
   }
   const inspect = async (worktree) => {
     const phase = fixture.phases.find((item) => item.worktree === worktree);
@@ -100,7 +110,10 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   assert.equal(accepted.decisions.admissionEligible, true);
   assert.equal(accepted.decisions.deletionEligible, false, 'accepted evidence is not deletable without a future 1D authorization');
   const deletable = structuredClone(fixture);
-  for (const phase of deletable.phases) phase.retention.authorizationReceipt = policy.phases.find(({ id }) => id === phase.phase).retention.authorizationReceipt;
+  for (const phase of deletable.phases) {
+    const definition = policy.phases.find(({ id }) => id === phase.phase);
+    phase.retention.authorizationReceipt = { schema: definition.retention.authorizationReceipt, issuer: '1D integration/release owner', decisionOwner: definition.retention.decisionOwner, target: { phase: phase.phase, ignoredRoot: phase.ignoredRoot }, prerequisites: definition.retention.deletePrerequisites, decidedAt: '2026-08-22T00:00:00.000Z' };
+  }
   assert.equal((await evaluateHandoff({ policy, observation: deletable, ...fixtureOptions })).decisions.deletionEligible, true);
   const noReview = structuredClone(fixture); noReview.phases[0].reviewedTip = null;
   assert.equal((await evaluateHandoff({ policy, observation: noReview, ...fixtureOptions })).status, 'blocked');
