@@ -47,7 +47,7 @@ the temporary harness.
 
 ## Handoff checkpoint
 
-Validated implementation candidate: b4934b47e9ac35d6917ebc34b41a38afef2f92ab.
+Validated implementation candidate: f7190f5c77432f0855e4575583f6e66ac906f50d.
 It completed fresh focused checks, serial real-browser evidence, unchanged
 bundle policy, and the full npm run ci:release composite with no remaining
 listener on 4178, 4189, 4194, or 4198. The cumulative handoff is now
