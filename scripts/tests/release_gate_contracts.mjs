@@ -50,6 +50,17 @@ test('release port audit fails closed when a listener has no parseable PID or th
   assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'linux', run: () => { throw new Error('ss unavailable'); } }), /ss unavailable/);
 });
 
+test('release port audit ignores Windows TIME_WAIT rows while retaining fail-closed LISTENING ownership', async () => {
+  const transientOnly = '  TCP    127.0.0.1:4178     127.0.0.1:54321        TIME_WAIT       0\n';
+  const audit = createReleasePortAudit({ ports: [4178], platform: 'win32', run: () => transientOnly });
+  await audit.verify();
+  assert.throws(() => createReleasePortAudit({
+    ports: [4178],
+    platform: 'win32',
+    run: () => `${transientOnly}  TCP    127.0.0.1:4178     0.0.0.0:0              LISTENING\n`,
+  }), /unavailable/);
+});
+
 test('release gate reports both a primary execution failure and an ownership-audit failure', async () => {
   const primary = new Error('child failed'); const cleanup = new Error('listener remained');
   await assert.rejects(runReleaseGate({

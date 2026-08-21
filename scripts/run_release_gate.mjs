@@ -25,7 +25,10 @@ function windowsListeningPids(port, run = execFileSync) {
   const output = run('netstat.exe', ['-ano', '-p', 'tcp'], { encoding: 'utf8', windowsHide: true });
   const expression = new RegExp(`^\\s*TCP\\s+[^\\s]*:${port}\\s+[^\\s]+\\s+LISTENING\\s+(\\d+)\\s*$`, 'gmi');
   const matches = [...output.matchAll(expression)].map((match) => Number(match[1]));
-  const listener = new RegExp(`^\\s*TCP\\s+[^\\s]*:${port}\\s+`, 'gmi');
+  // `netstat` retains non-listening connections (notably TIME_WAIT) after a
+  // preview server exits. They have no listener ownership to audit and must
+  // not be mistaken for a malformed LISTENING row.
+  const listener = new RegExp(`^\\s*TCP\\s+[^\\s]*:${port}\\s+[^\\s]+\\s+LISTENING\\s+`, 'gmi');
   const listenerLines = [...output.matchAll(listener)].length;
   if (listenerLines !== matches.length || matches.some((pid) => !Number.isInteger(pid) || pid <= 0)) throw new Error(`Release listener ownership audit is unavailable for Windows port ${port}.`);
   return new Set(matches);
