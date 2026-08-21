@@ -95,9 +95,10 @@ supervisor observed, and observer exits are all `0`; baseline-subtracted
 listeners and recursive wrapper descendants are empty after the run. This is
 local execution evidence only, not review or admission approval.
 
-Cumulative evidence-record tip: pending a documentation-only follow-up. Its
-exact SHA must be resolved from Git rather than self-written into this record;
-it cannot make the implementation admissible without independent re-review.
+Cumulative candidate: the documentation-only record tip is intentionally
+resolved by `git rev-parse HEAD`, rather than self-written into this record.
+Its parent is the execution-evidence record for implementation `4ea5bb3`; it
+cannot make the implementation admissible without independent re-review.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
