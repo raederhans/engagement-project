@@ -13,6 +13,7 @@
       "exactTip": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
+      "phaseBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
       "status": {
         "porcelain": [],
@@ -59,6 +60,7 @@
       "exactTip": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
+      "phaseBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
       "status": {
         "porcelain": [],
@@ -67,19 +69,14 @@
       },
       "actualChangedPaths": [],
       "receipt": {
-        "availability": "available",
-        "actualPath": "C:/Users/raede/.codex/worktrees/fed9/engagement_project/.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json",
-        "schema": "ModelEvaluationReport/v1",
-        "identity": {
-          "data.mart_artifact_identity": "sha256:ddba562e6b674e13b341e6abf3f4f2a9dcd5171beb7ed472277ebfa1b0623ef1",
-          "data.source_vintage": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759"
-        },
-        "revision": {
-          "generated_at": "2026-08-21T07:53:40.810Z",
-          "protocol.sha256": "4d402651606fffddee92d8609a6cd7c21f5ccf6998ac251dc322a9fa7ebf38de"
-        },
+        "availability": "unavailable",
+        "actualPath": null,
+        "schema": null,
+        "identity": null,
+        "revision": null,
         "validatorCommand": "npm run test:phase1-handoff",
-        "result": "pass"
+        "result": "rebuild-required",
+        "reason": "The recorded fed9 worktree and its ignored .dfev1/area-intelligence/m2-baseline evidence root are absent; regenerate and independently validate a new M2 receipt before admission."
       },
       "upstreamReceiptIdentities": [
         {
@@ -104,7 +101,8 @@
       "implementationTip": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
       "recordTip": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
       "reviewedTip": null,
-      "state": "pending-review"
+      "state": "pending-review",
+      "evidenceAvailability": "unavailable-rebuild-required"
     },
     {
       "phase": "M3",
@@ -115,40 +113,14 @@
       "exactTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
+      "phaseBase": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "ancestorResult": true,
       "status": {
         "porcelain": [],
         "index": [],
         "untracked": []
       },
-      "actualChangedPaths": [
-        "docs/active/_worktree_registry.md",
-        "docs/active/phase1-evidence-completion/context.md",
-        "docs/active/phase1-evidence-completion/handoff.manifest.json",
-        "docs/active/phase1-evidence-completion/handoff.observation.json",
-        "docs/active/phase1-evidence-completion/plan.md",
-        "docs/active/phase1-evidence-completion/task.md",
-        "package.json",
-        "scripts/lib/browser_suite_lifecycle.mjs",
-        "scripts/lib/phase1_handoff_evaluator.mjs",
-        "scripts/run_release_gate.mjs",
-        "scripts/run_visual_experience_dist.mjs",
-        "scripts/tests/area_intelligence_browser.mjs",
-        "scripts/tests/browser_suite_lifecycle_contracts.mjs",
-        "scripts/tests/bundle_policy.mjs",
-        "scripts/tests/home_compare_browser.mjs",
-        "scripts/tests/home_compare_m3.mjs",
-        "scripts/tests/known_route_evidence_browser.mjs",
-        "scripts/tests/p1_accessibility_design_contracts.mjs",
-        "scripts/tests/phase1_handoff_contracts.mjs",
-        "scripts/tests/release_gate_contracts.mjs",
-        "scripts/tests/release_workflow_contracts.mjs",
-        "scripts/tests/run_visual_experience_dist_contracts.mjs",
-        "src/home_compare/controller.js",
-        "src/home_compare/loader.js",
-        "src/home_compare/results_view.js",
-        "src/home_compare/view.js"
-      ],
+      "actualChangedPaths": [],
       "receipt": {
         "availability": "unavailable",
         "actualPath": null,
@@ -180,7 +152,7 @@
         "authorizationReceipt": null
       },
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": null,
+      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
       "reviewedTip": null,
       "state": "pending-review"
     },
@@ -193,40 +165,14 @@
       "exactTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
+      "phaseBase": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "ancestorResult": true,
       "status": {
         "porcelain": [],
         "index": [],
         "untracked": []
       },
-      "actualChangedPaths": [
-        "docs/active/_worktree_registry.md",
-        "docs/active/phase1-evidence-completion/context.md",
-        "docs/active/phase1-evidence-completion/handoff.manifest.json",
-        "docs/active/phase1-evidence-completion/handoff.observation.json",
-        "docs/active/phase1-evidence-completion/plan.md",
-        "docs/active/phase1-evidence-completion/task.md",
-        "package.json",
-        "scripts/lib/browser_suite_lifecycle.mjs",
-        "scripts/lib/phase1_handoff_evaluator.mjs",
-        "scripts/run_release_gate.mjs",
-        "scripts/run_visual_experience_dist.mjs",
-        "scripts/tests/area_intelligence_browser.mjs",
-        "scripts/tests/browser_suite_lifecycle_contracts.mjs",
-        "scripts/tests/bundle_policy.mjs",
-        "scripts/tests/home_compare_browser.mjs",
-        "scripts/tests/home_compare_m3.mjs",
-        "scripts/tests/known_route_evidence_browser.mjs",
-        "scripts/tests/p1_accessibility_design_contracts.mjs",
-        "scripts/tests/phase1_handoff_contracts.mjs",
-        "scripts/tests/release_gate_contracts.mjs",
-        "scripts/tests/release_workflow_contracts.mjs",
-        "scripts/tests/run_visual_experience_dist_contracts.mjs",
-        "src/home_compare/controller.js",
-        "src/home_compare/loader.js",
-        "src/home_compare/results_view.js",
-        "src/home_compare/view.js"
-      ],
+      "actualChangedPaths": [],
       "receipt": {
         "availability": "unavailable",
         "actualPath": null,
@@ -237,14 +183,7 @@
         "result": "blocked"
       },
       "upstreamReceiptIdentities": [
-        {
-          "phase": "M1",
-          "current_snapshot_id": "sha256:f7f2b791587109f86921896305cc49a00174c0022b68dfcb1fb770cf5c9f1759"
-        },
-        {
-          "phase": "M2",
-          "data.mart_artifact_identity": "sha256:ddba562e6b674e13b341e6abf3f4f2a9dcd5171beb7ed472277ebfa1b0623ef1"
-        }
+        { "phase": "M1" }
       ],
       "artifactOwner": "M4 Known Route task",
       "ignoredRoot": ".dfev1/known-route-evidence-v1/**",
@@ -255,14 +194,13 @@
         "decisionOwner": "1D integration/release owner",
         "deletePrerequisites": [
           "M1 receipt recheck",
-          "M2 receipt recheck",
           "M4 receipt recheck",
           "1D cumulative receipt recheck"
         ],
         "authorizationReceipt": null
       },
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": null,
+      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
       "reviewedTip": null,
       "state": "pending-review"
     },
@@ -275,6 +213,7 @@
       "exactTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
+      "phaseBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "ancestorResult": true,
       "status": {
         "porcelain": [],
@@ -346,7 +285,7 @@
         "authorizationReceipt": null
       },
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
-      "recordTip": null,
+      "recordTip": "61f2ff3f307804eb3c4bd009f86146d337588686",
       "reviewedTip": null,
       "state": "pending-review"
     }

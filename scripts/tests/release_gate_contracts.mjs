@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createReleasePortAudit, RELEASE_STEPS, runCommand, runReleaseGate } from '../run_release_gate.mjs';
+import { createReleasePortAudit, formatReleaseFailure, RELEASE_STEPS, runCommand, runReleaseGate } from '../run_release_gate.mjs';
 
 test('release gate stops after the first nonzero child and always checks its postcondition', async () => {
   const started = []; let postconditions = 0; let audits = 0;
@@ -29,6 +29,19 @@ test('release port audit ignores pre-existing listeners but fails closed on a ne
     assert.deepEqual(error.leaks, [{ port: 4189, pid: 202 }]);
     return true;
   });
+});
+
+test('release port audit performs the same PID ownership check on Linux and fails closed when unsupported', async () => {
+  let afterRun = false;
+  const before = 'LISTEN 0 511 127.0.0.1:4178 0.0.0.0:* users:(("node",pid=101,fd=20))\n';
+  const after = `${before}LISTEN 0 511 127.0.0.1:4189 0.0.0.0:* users:(("node",pid=202,fd=20))\n`;
+  const audit = createReleasePortAudit({ ports: [4178, 4189], platform: 'linux', run: () => (afterRun ? after : before) });
+  afterRun = true;
+  await assert.rejects(audit.verify(), (error) => {
+    assert.deepEqual(error.leaks, [{ port: 4189, pid: 202 }]);
+    return true;
+  });
+  assert.throws(() => createReleasePortAudit({ ports: [4178], platform: 'darwin', run: () => '' }), /unavailable/);
 });
 
 test('release gate reports both a primary execution failure and an ownership-audit failure', async () => {
@@ -59,11 +72,26 @@ test('release gate preserves a nonzero step and all cleanup failures', async () 
     assert.equal(error.primaryError.code, 'RELEASE_STEP_NONZERO');
     assert.deepEqual(error.primaryError.step, RELEASE_STEPS[0]);
     assert.equal(error.primaryError.exitCode, 23);
+    assert.equal(error.primaryError.command, process.execPath);
+    assert.deepEqual(error.primaryError.args, ['npm-cli.js', 'audit', '--audit-level=high']);
     assert.deepEqual(error.cleanupErrors, [cleanupA, cleanupB]);
     assert.deepEqual(error.errors, [error.primaryError, cleanupA, cleanupB]);
     return true;
   });
   assert.deepEqual(started, ['--audit-level=high'], 'a nonzero first step prevents N+1 from starting');
+});
+
+test('release failure formatter retains executable argv, step, exit code, and every cleanup error', () => {
+  const primary = Object.assign(new Error('nonzero child'), { code: 'RELEASE_STEP_NONZERO', command: 'node', args: ['npm-cli.js', 'run', 'lint:js'], step: ['run', 'lint:js'], exitCode: 9 });
+  const cleanupA = new Error('listener remained'); const cleanupB = new Error('postcondition failed');
+  const aggregate = new AggregateError([primary, cleanupA, cleanupB], 'Release gate failed and postcondition failed.');
+  const formatted = formatReleaseFailure(aggregate);
+  assert.match(formatted, /command=node/);
+  assert.match(formatted, /argv=\["npm-cli.js","run","lint:js"\]/);
+  assert.match(formatted, /step=run lint:js/);
+  assert.match(formatted, /exitCode=9/);
+  assert.match(formatted, /listener remained/);
+  assert.match(formatted, /postcondition failed/);
 });
 
 test('runCommand preserves child spawn and signal failures', async () => {

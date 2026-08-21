@@ -79,7 +79,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ignoredOutputRoots: ['.dfev1/known-route-evidence-v1/**'],
     ports: [4194],
     upstreamReceiptBindings: ['M1'],
-    retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
+    retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
     receipt: {
       mode: 'admission',
       schema: 'engagement-known-route-evidence-handoff/v2',
@@ -133,12 +133,13 @@ function exactPolicyReasons(policy) {
   return reasons;
 }
 
-export async function inspectGitRevision(worktree, reference) {
+export async function inspectGitRevision(worktree, reference, phaseBase) {
   const run = async (...args) => (await execFileAsync('git', ['-C', worktree, ...args], { windowsHide: true })).stdout.trim();
   const tip = await run('rev-parse', reference);
   const mergeBase = await run('merge-base', 'main', tip);
-  const changed = await run('diff', '--name-only', `${mergeBase}..${tip}`);
-  return { tip, mergeBase, changedPaths: changed ? changed.split(/\r?\n/) : [] };
+  const base = await run('rev-parse', phaseBase || mergeBase);
+  const changed = await run('diff', '--name-only', `${base}..${tip}`);
+  return { tip, mergeBase, phaseBase: base, changedPaths: changed ? changed.split(/\r?\n/) : [] };
 }
 
 export async function isGitAncestor(worktree, ancestor, descendant) {
@@ -201,7 +202,7 @@ export async function evaluateHandoff({
     let receiptEligible = false;
     if (!phase) phaseReasons.push('missing observation');
     else {
-      for (const key of ['producerTask', 'owner', 'worktree', 'evidenceRoot', 'exactTip', 'expectedBase', 'actualMergeBase', 'ancestorResult', 'status', 'actualChangedPaths', 'artifactOwner', 'ignoredRoot', 'retention', 'implementationTip', 'state']) {
+      for (const key of ['producerTask', 'owner', 'worktree', 'evidenceRoot', 'exactTip', 'expectedBase', 'actualMergeBase', 'phaseBase', 'ancestorResult', 'status', 'actualChangedPaths', 'artifactOwner', 'ignoredRoot', 'retention', 'implementationTip', 'recordTip', 'state']) {
         if (phase[key] == null) phaseReasons.push(`missing ${key}`);
       }
       if (phase.ancestorResult !== true) phaseReasons.push('ancestor result is not true');
@@ -223,8 +224,9 @@ export async function evaluateHandoff({
         const actual = await inspectWorktree(phase.worktree);
         if (actual.main !== phase.expectedBase) phaseReasons.push('main topology drift');
         if (JSON.stringify(actual.status) !== JSON.stringify(phase.status.porcelain || [])) phaseReasons.push('worktree status drift');
-        const implementation = await inspectRevision(phase.worktree, phase.implementationTip);
-        if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase) phaseReasons.push('implementation topology drift');
+        const implementation = await inspectRevision(phase.worktree, phase.implementationTip, phase.phaseBase);
+        if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase || implementation.phaseBase !== phase.phaseBase) phaseReasons.push('implementation topology drift');
+        if (!await isAncestor(phase.worktree, phase.phaseBase, phase.exactTip)) phaseReasons.push('phase base is not an ancestor of exact tip');
         if (!await isAncestor(phase.worktree, phase.expectedBase, phase.exactTip)) phaseReasons.push('exact tip is not a descendant of expected base');
         if (JSON.stringify(implementation.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('implementation changed-path drift');
         if (actual.head !== phase.implementationTip) {
@@ -234,7 +236,13 @@ export async function evaluateHandoff({
             if (recordDelta.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('execution record delta is not record-only');
           }
         }
-        if (phase.recordTip != null && actual.head !== phase.recordTip) phaseReasons.push('record tip does not match execution head');
+        if (phase.recordTip != null && actual.head !== phase.recordTip) {
+          if (!await isAncestor(phase.worktree, phase.recordTip, actual.head)) phaseReasons.push('record tip is not an execution ancestor');
+          else {
+            const afterRecord = await changedBetween(phase.worktree, phase.recordTip, actual.head);
+            if (afterRecord.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('execution delta after record tip is not record-only');
+          }
+        }
       } catch { phaseReasons.push('tip/worktree is not resolvable'); }
       if (phase.implementationTip !== phase.exactTip) phaseReasons.push('implementation tip is not the observed exact tip');
       for (const key of ['exactTip', 'implementationTip', 'recordTip']) {
@@ -247,7 +255,7 @@ export async function evaluateHandoff({
           if (phase.receipt.schema !== phasePolicy.receipt.schema) throw new Error('observation schema drift');
           if (phase.receipt.validatorCommand !== phasePolicy.receipt.validatorCommand) throw new Error('validator command drift');
           if (phase.receipt.result !== 'pass') throw new Error('receipt result is not pass');
-          validateReceipt(phaseId, phasePolicy, await readReceipt(phase.receipt.actualPath), phase.receipt);
+          validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], await readReceipt(phase.receipt.actualPath), phase.receipt);
           receiptEligible = canonicalReceiptMode(phaseId) === 'admission';
           if (!receiptEligible) phaseReasons.push('preparation-only receipt cannot be consumed');
         }
@@ -343,22 +351,23 @@ export async function evaluateHandoff({
 }
 
 export function validateReceipt(phaseId, policy, receipt, observationReceipt = {}) {
-  if (policy.receipt.schema && receipt.schema !== policy.receipt.schema) throw new Error('schema drift');
-  for (const field of policy.receipt.requiredFields) if (readPath(receipt, field) == null) throw new Error(`missing ${field}`);
-  const identity = Object.fromEntries(policy.receipt.identityFields.map((field) => [field, readPath(receipt, field)]));
-  const revision = Object.fromEntries(policy.receipt.revisionFields.map((field) => [field, readPath(receipt, field)]));
+  const canonical = EXACT_PHASE_POLICY[phaseId] || policy;
+  if (canonical.receipt.schema && receipt.schema !== canonical.receipt.schema) throw new Error('schema drift');
+  for (const field of canonical.receipt.requiredFields) if (readPath(receipt, field) == null) throw new Error(`missing ${field}`);
+  const identity = Object.fromEntries(canonical.receipt.identityFields.map((field) => [field, readPath(receipt, field)]));
+  const revision = Object.fromEntries(canonical.receipt.revisionFields.map((field) => [field, readPath(receipt, field)]));
   if (JSON.stringify(identity) !== JSON.stringify(observationReceipt.identity)) throw new Error('identity drift');
   if (JSON.stringify(revision) !== JSON.stringify(observationReceipt.revision)) throw new Error('revision drift');
-  for (const field of policy.receipt.dataQualityFields || []) {
+  for (const field of canonical.receipt.dataQualityFields || []) {
     if (readPath(receipt, field) !== true) throw new Error(`data-quality drift ${field}`);
   }
-  for (const field of policy.receipt.lineageFields || []) {
+  for (const field of canonical.receipt.lineageFields || []) {
     if (typeof readPath(receipt, field) !== 'string' || !readPath(receipt, field)) throw new Error(`lineage drift ${field}`);
   }
-  for (const field of policy.receipt.consentFields || []) {
+  for (const field of canonical.receipt.consentFields || []) {
     if (readPath(receipt, field) !== true) throw new Error(`consent drift ${field}`);
   }
-  for (const field of policy.receipt.clockFields || []) {
+  for (const field of canonical.receipt.clockFields || []) {
     if (!isExactTimestamp(readPath(receipt, field))) throw new Error(`clock drift ${field}`);
   }
   return { phaseId, identity, revision };

@@ -33,6 +33,7 @@ test('Phase 1 policy names real producer receipt contracts and every control sur
   assert.deepEqual(m4.receipt.clockFields, ['clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt']);
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M3').upstreamReceiptBindings, ['M2']);
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').upstreamReceiptBindings, ['M1']);
+  assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').governancePrerequisites, ['M2 frozen evaluation receipt recheck']);
   assert.deepEqual(policy.phases.find(({ id }) => id === '1D').upstreamReceiptBindings, ['M1', 'M2', 'M3', 'M4']);
   for (const phase of policy.phases) {
     assert.ok(phase.owner && phase.writable.length && phase.ignoredOutputRoots.length);
@@ -66,6 +67,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     phase.worktree = `fixture/${phase.phase}`;
     phase.evidenceRoot = `${phase.worktree}/${phase.ignoredRoot.replace('/**', '')}`;
     phase.actualMergeBase = phase.expectedBase;
+    phase.phaseBase = phase.expectedBase;
     phase.state = 'accepted'; phase.implementationTip = phase.exactTip; phase.recordTip = phase.exactTip; phase.reviewedTip = phase.exactTip;
     phase.status = { porcelain: [], index: [], untracked: [] }; phase.actualChangedPaths = [];
     // A producer's retained evidence must be admissible before the future 1D
@@ -95,7 +97,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     inspectWorktree: inspect,
     inspectRevision: async (worktree, reference) => {
       const phase = fixture.phases.find((item) => item.worktree === worktree);
-      return { tip: reference, mergeBase: phase.actualMergeBase, changedPaths: [] };
+      return { tip: reference, mergeBase: phase.actualMergeBase, phaseBase: phase.phaseBase, changedPaths: [] };
     },
     isAncestor: async () => true,
     changedBetween: async () => [],
@@ -138,6 +140,14 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     ['retention delete prerequisite drift', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M1').retention.deletePrerequisites = []; }, policy],
     ['arbitrary deletion authorization', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M1').retention.authorizationReceipt = 'anything-at-all'; }, policy],
     ['record and review tip drift', (candidate) => { candidate.phases.find(({ phase }) => phase === '1D').reviewedTip = 'different-reviewed-tip'; }, policy],
+    ['evidence root outside precise ignored root', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').evidenceRoot = 'fixture/M3/.dfev1/not-home'; }, policy],
+    ['missing upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').upstreamReceiptIdentities = []; }, policy],
+    ['wrong upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').upstreamReceiptIdentities[0].current_snapshot_id = 'wrong'; }, policy],
+    ['divergent ancestor assertion', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M2').ancestorResult = false; }, policy],
+    ['M1 canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === 'M1').receipt.requiredFields = []; }, structuredClone(policy)],
+    ['M2 canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === 'M2').receipt.schema = 'anything/v1'; }, structuredClone(policy)],
+    ['M3 canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === 'M3').receipt.requiredFields = []; }, structuredClone(policy)],
+    ['1D canonical receipt policy weakening', (_candidate, candidatePolicy) => { candidatePolicy.phases.find(({ id }) => id === '1D').receipt.schema = null; }, structuredClone(policy)],
   ];
   for (const [name, mutate, candidatePolicy] of hostileCases) {
     const candidate = structuredClone(fixture);
@@ -165,6 +175,16 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   };
   assert.equal((await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions })).status, 'accepted');
   assert.equal((await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions, changedBetween: async () => ['src/home_compare/controller.js'] })).status, 'blocked');
+});
+
+test('topological decisions are order independent and blocked status never reports final admission', async () => {
+  const { policy, observation } = await documents();
+  const reordered = structuredClone(policy);
+  reordered.phases.reverse();
+  const result = await evaluateHandoff({ policy: reordered, observation });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.decisions.admissionEligible, false);
+  for (const phase of Object.values(result.phases)) assert.equal(phase.decisions.admissionEligible, false);
 });
 
 test('glob expansion recognizes concrete owned paths and rejects writer/control-surface overlap', () => {

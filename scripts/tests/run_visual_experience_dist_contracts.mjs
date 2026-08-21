@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { runVisualExperienceDist } from '../run_visual_experience_dist.mjs';
+import { formatVisualFailure, runVisualExperienceDist } from '../run_visual_experience_dist.mjs';
 
 test('visual runner closes the owning PreviewServer after success', async () => {
   const calls = [];
@@ -34,4 +34,15 @@ test('visual runner preserves a nonzero Playwright step and preview-close failur
       && error.cleanupErrors?.[0] === cleanup
       && error.errors?.[0] === error.primaryError,
   );
+});
+
+test('visual CLI formatter preserves nonzero primary context and cleanup errors', () => {
+  const primary = Object.assign(new Error('visual nonzero'), { code: 'VISUAL_PLAYWRIGHT_NONZERO', command: 'node', args: ['playwright-cli.js', 'test'], step: 'playwright test --config=playwright.config.mjs', exitCode: 9 });
+  const cleanup = new Error('preview close failure');
+  const formatted = formatVisualFailure(new AggregateError([primary, cleanup], 'Visual runner failed and preview cleanup failed.'));
+  assert.match(formatted, /command=node/);
+  assert.match(formatted, /argv=\["playwright-cli.js","test"\]/);
+  assert.match(formatted, /step=playwright test --config=playwright.config.mjs/);
+  assert.match(formatted, /exitCode=9/);
+  assert.match(formatted, /preview close failure/);
 });

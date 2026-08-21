@@ -27,20 +27,36 @@ function windowsListeningPids(port, run = execFileSync) {
   return new Set([...output.matchAll(expression)].map((match) => Number(match[1])));
 }
 
+function linuxListeningPids(port, run = execFileSync) {
+  // `ss -ltnpH` is present on the Ubuntu GitHub runner.  Read only the
+  // listening sockets; the PID comparison below deliberately distinguishes
+  // task-owned listeners from listeners which predate this release run.
+  const output = run('ss', ['-ltnpH'], { encoding: 'utf8', windowsHide: true });
+  const address = new RegExp(`(?:^|\\s)[^\\s]*:${port}(?:\\s|$)`);
+  return new Set(output.split(/\r?\n/)
+    .filter((line) => address.test(line))
+    .flatMap((line) => [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1]))));
+}
+
+function listeningPids(platform, port, run) {
+  if (platform === 'win32') return windowsListeningPids(port, run);
+  if (platform === 'linux') return linuxListeningPids(port, run);
+  throw new Error(`Release listener ownership audit is unavailable on ${platform}.`);
+}
+
 export function createReleasePortAudit({
   ports = RELEASE_AUDITED_PORTS,
   platform = process.platform,
   run = execFileSync,
 } = {}) {
-  const baseline = new Map(ports.map((port) => [port, platform === 'win32' ? windowsListeningPids(port, run) : new Set()]));
+  const baseline = new Map(ports.map((port) => [port, listeningPids(platform, port, run)]));
   return {
     baseline,
     async verify() {
-      if (platform !== 'win32') return;
       const leaks = [];
       for (const port of ports) {
         const before = baseline.get(port);
-        for (const pid of windowsListeningPids(port, run)) {
+        for (const pid of listeningPids(platform, port, run)) {
           if (!before.has(pid)) leaks.push({ port, pid });
         }
       }
@@ -143,7 +159,13 @@ export function createNonzeroStepError(command, args, step, exitCode) {
 export function formatReleaseFailure(error) {
   if (error instanceof AggregateError) return [error.message, ...error.errors.map(formatReleaseFailure)].join('\n');
   if (!(error instanceof Error)) return String(error);
-  const details = [error.code, error.command, Array.isArray(error.args) ? error.args.join(' ') : null, Array.isArray(error.step) ? error.step.join(' ') : error.step, error.exitCode].filter((value) => value != null);
+  const details = [
+    error.code && `code=${error.code}`,
+    error.command && `command=${error.command}`,
+    Array.isArray(error.args) && `argv=${JSON.stringify(error.args)}`,
+    (Array.isArray(error.step) ? error.step.join(' ') : error.step) && `step=${Array.isArray(error.step) ? error.step.join(' ') : error.step}`,
+    error.exitCode != null && `exitCode=${error.exitCode}`,
+  ].filter(Boolean);
   return details.length ? `${error.message}\n${details.join(' | ')}` : error.message;
 }
 

@@ -58,12 +58,26 @@ export function createVisualNonzeroError(exitCode) {
   error.code = 'VISUAL_PLAYWRIGHT_NONZERO';
   error.step = 'playwright test --config=playwright.config.mjs';
   error.command = process.execPath;
+  error.args = [fileURLToPath(new URL('../node_modules/@playwright/test/cli.js', import.meta.url)), 'test', '--config=playwright.config.mjs'];
   error.exitCode = exitCode;
   return error;
+}
+
+export function formatVisualFailure(error) {
+  if (error instanceof AggregateError) return [error.message, ...error.errors.map(formatVisualFailure)].join('\n');
+  if (!(error instanceof Error)) return String(error);
+  const details = [
+    error.code && `code=${error.code}`,
+    error.command && `command=${error.command}`,
+    Array.isArray(error.args) && `argv=${JSON.stringify(error.args)}`,
+    error.step && `step=${error.step}`,
+    error.exitCode != null && `exitCode=${error.exitCode}`,
+  ].filter(Boolean);
+  return details.length ? `${error.message}\n${details.join(' | ')}` : error.message;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
   try { process.exitCode = await runVisualExperienceDist(); }
-  catch (error) { console.error(error instanceof Error ? error.stack || error.message : String(error)); process.exitCode = 1; }
+  catch (error) { console.error(formatVisualFailure(error)); process.exitCode = 1; }
 }
