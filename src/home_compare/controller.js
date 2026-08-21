@@ -26,6 +26,28 @@ const DEFAULT_WEIGHTS = Object.freeze({
   dataQuality: 20,
 });
 
+function loadInitialResultsView() {
+  return import('./results_view.js');
+}
+
+function loadRetryResultsView() {
+  // This must remain a statically analyzable Vite import. A `new URL()` plus
+  // `@vite-ignore` looks like a retry URL in source but emits an unbundled
+  // module with broken relative imports in production dist.
+  return import('./results_view.js?homeCompareRetry=1');
+}
+
+function createDefaultResultsViewLoader() {
+  let attempts = 0;
+  return () => {
+    attempts += 1;
+    // Chromium retains a failed static module-map entry for the document.
+    // The explicit retry uses a second, Vite-built lazy entry; normal first
+    // compare intent remains the original static lazy split.
+    return attempts === 1 ? loadInitialResultsView() : loadRetryResultsView();
+  };
+}
+
 function openDialog(dialog) {
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
@@ -42,7 +64,7 @@ export function createHomeCompareController({
   fetchEvidence = fetchHomeProfileEvidence,
   loadRegistry = loadHomeCompareRegistry,
   loadAreaIntelligence = loadM2AreaIntelligenceBoundary,
-  loadResultsView = () => import('./results_view.js'),
+  loadResultsView: suppliedResultsViewLoader = null,
   clipboard = globalThis.navigator?.clipboard,
   locationRef = globalThis.location,
   historyRef = globalThis.history,
@@ -50,6 +72,7 @@ export function createHomeCompareController({
   if (!dialog?.querySelector) throw new TypeError('Home Compare dialog is required.');
   const host = dialog.querySelector('[data-home-compare-host]');
   if (!host) throw new TypeError('Home Compare host is required.');
+  const loadResultsView = suppliedResultsViewLoader || createDefaultResultsViewLoader();
 
   const state = {
     addresses: ['', ''],

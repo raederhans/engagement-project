@@ -1,63 +1,14 @@
 {
-  "schema": "engagement-phase1-handoff/v1",
+  "schema": "engagement-phase1-handoff-policy/v2",
+  "kind": "versioned-phase-policy-definition",
   "controlSurfaceOwner": "1D integration/release owner",
-  "controlSurfaces": [
-    "scripts/lib/browser_suite_lifecycle.mjs",
-    "scripts/tests/browser_suite_lifecycle_contracts.mjs",
-    "scripts/tests/phase1_handoff_contracts.mjs",
-    "scripts/tests/release_workflow_contracts.mjs",
-    "scripts/run_release_gate.mjs"
-  ],
+  "controlSurfaces": ["scripts/lib/browser_suite_lifecycle.mjs", "scripts/tests/browser_suite_lifecycle_contracts.mjs", "scripts/lib/phase1_handoff_evaluator.mjs", "scripts/tests/phase1_handoff_contracts.mjs", "scripts/tests/release_workflow_contracts.mjs", "scripts/run_release_gate.mjs", "scripts/run_visual_experience_dist.mjs", ".github/workflows/ci.yml"],
   "phases": [
-    {
-      "id": "M1",
-      "owner": "M1 frozen warehouse task",
-      "writable": ["scripts/acquire_crime_events.mjs", "scripts/ingest_crime_events.mjs", "scripts/backfill_crime_event_warehouse.mjs", "scripts/lib/crime_event_warehouse.mjs", "scripts/tests/crime_event_warehouse.mjs"],
-      "forbidden": ["package.json", "public/data/**", "src/home_compare/**", "src/routes_crime/known_route_*.js"],
-      "ignoredOutputRoots": [".dfev1/crime/**"],
-      "ports": [],
-      "retention": { "duration": "180 days after 1D acceptance", "decisionOwner": "1D integration/release owner", "deletePrerequisites": ["M1 receipt recheck", "documented 1D retention decision"] },
-      "receipt": { "path": ".dfev1/crime/warehouse-manifest.json", "schema": "engagement-phl-crime-event-warehouse/v1", "validator": "scripts/tests/crime_event_warehouse.mjs", "requiredFields": ["schema", "revision", "quality", "lineage", "builtAt"] },
-      "upstreamReceiptBindings": [], "nonAuthority": ["serving", "promotion", "authority"], "mandatoryScripts": ["test:data-pipeline"], "gates": ["exact-tip", "topology", "status", "overlap"]
-    },
-    {
-      "id": "M2",
-      "owner": "M2 mart/evaluation task",
-      "writable": ["scripts/build_area_intelligence_marts.mjs", "scripts/evaluate_area_intelligence.mjs", "scripts/lib/area_intelligence_*.mjs", "scripts/tests/area_intelligence_m2.mjs"],
-      "forbidden": ["package.json", "public/data/**", "src/home_compare/**", "src/routes_crime/known_route_*.js"],
-      "ignoredOutputRoots": [".dfev1/area-intelligence/**"], "ports": [4198],
-      "retention": { "duration": "180 days after 1D acceptance", "decisionOwner": "1D integration/release owner", "deletePrerequisites": ["M1/M2 receipt recheck", "documented 1D retention decision"] },
-      "receipt": { "path": ".dfev1/area-intelligence/evaluation/report.json", "schema": "ModelEvaluationReport/v1", "validator": "scripts/tests/area_intelligence_m2.mjs", "requiredFields": ["schema", "protocol", "promotion", "builtAt"] },
-      "upstreamReceiptBindings": ["M1"], "nonAuthority": ["serving", "promotion"], "mandatoryScripts": ["test:data-pipeline", "test:area-intelligence-browser"], "gates": ["exact-tip", "topology", "status", "overlap"]
-    },
-    {
-      "id": "M3",
-      "owner": "M3 Home Compare task",
-      "writable": ["src/home_compare/**", "scripts/smoke_home_compare_sources.mjs", "scripts/lib/home_compare_source_smoke.mjs", "scripts/tests/home_compare_m3.mjs", "scripts/tests/home_compare_browser.mjs"],
-      "forbidden": ["package.json", "public/data/**", "src/routes_crime/known_route_*.js"],
-      "ignoredOutputRoots": [".dfev1/home-neighborhood-compare/m3-v1/**"], "ports": [4189],
-      "retention": { "duration": "30 days after independently reviewed 1D acceptance", "decisionOwner": "1D integration/release owner", "deletePrerequisites": ["M3 receipt recheck", "retain desktop-en-synthetic.png", "retain mobile-en-synthetic.png", "documented 1D retention decision"] },
-      "receipt": { "path": ".dfev1/home-neighborhood-compare/m3-v1/official-smoke/report.json", "schema": "engagement-home-compare-source-smoke/v1", "validator": "scripts/tests/home_compare_m3.mjs", "requiredFields": ["schema", "revision", "dq", "observedAt"] },
-      "upstreamReceiptBindings": [], "nonAuthority": ["serving", "promotion", "routing-authority"], "mandatoryScripts": ["test:home-compare", "test:home-compare-browser"], "gates": ["exact-tip", "topology", "status", "overlap"]
-    },
-    {
-      "id": "M4",
-      "owner": "M4 Known Route task",
-      "writable": ["src/routes_crime/known_route_*.js", "scripts/smoke_known_route_evidence.mjs", "scripts/build_known_route_evidence.mjs", "scripts/lib/known_route_evidence_checkpoint.mjs", "scripts/tests/known_route_evidence_m4.mjs", "scripts/tests/known_route_evidence_browser.mjs"],
-      "forbidden": ["package.json", "public/data/**", "src/home_compare/**"],
-      "ignoredOutputRoots": [".dfev1/known-route-evidence-v1/**"], "ports": [4194],
-      "retention": { "duration": "30 days after independently reviewed 1D acceptance", "decisionOwner": "1D integration/release owner", "deletePrerequisites": ["M1/M2/M4 receipt recheck", "documented 1D retention decision"] },
-      "receipt": { "path": ".dfev1/known-route-evidence-v1/full-warehouse/checkpoint.json", "schema": "known-route-evidence-checkpoint/v1", "validator": "scripts/tests/known_route_evidence_m4.mjs", "requiredFields": ["schema", "warehouse", "lineage", "builtAt"] },
-      "upstreamReceiptBindings": ["M1", "M2"], "nonAuthority": ["serving", "promotion", "routing-authority"], "mandatoryScripts": ["test:known-route-evidence", "test:known-route-evidence-browser"], "gates": ["exact-tip", "topology", "status", "overlap"]
-    },
-    {
-      "id": "1D",
-      "owner": "1D integration/release owner", "writable": ["package.json", "scripts/run_release_gate.mjs", "scripts/tests/bundle_policy.mjs", "docs/active/phase1-evidence-completion/**"],
-      "forbidden": [], "ignoredOutputRoots": [], "ports": [4173, 4178, 4198, 4189, 4194],
-      "retention": { "duration": "per approved project retention policy", "decisionOwner": "1D integration/release owner", "deletePrerequisites": ["all producer receipt rechecks", "independent review"] },
-      "receipt": { "path": ".dfev1/phase1/cumulative-receipt.json", "schema": "engagement-phase1-cumulative-receipt/v1", "validator": "scripts/tests/phase1_handoff_contracts.mjs", "requiredFields": ["schema", "producerReceipts", "topology", "status", "overlap"] },
-      "upstreamReceiptBindings": ["M1", "M2", "M3", "M4"], "nonAuthority": ["remote-ci", "deployment", "online-smoke"], "mandatoryScripts": ["test:phase1-handoff", "ci:release"], "gates": ["exact-tip", "topology", "status", "overlap"]
-    }
+    {"id":"M1","owner":"M1 frozen warehouse task","writable":["scripts/acquire_crime_events.mjs","scripts/ingest_crime_events.mjs","scripts/backfill_crime_event_warehouse.mjs","scripts/lib/crime_event_warehouse.mjs","scripts/tests/crime_event_warehouse.mjs"],"forbidden":["package.json","public/data/**","src/home_compare/**","src/routes_crime/known_route_*.js"],"ignoredOutputRoots":[".dfev1/crime/**"],"ports":[],"retention":{"duration":"P180D","triggerEvent":"independently-reviewed-1D-acceptance","decisionOwner":"1D integration/release owner","deletePrerequisites":["M1 receipt recheck","1D cumulative receipt recheck"],"authorizationReceipt":"1D cumulative retention authorization"},"receipt":{"defaultPath":".dfev1/crime/warehouse/manifest.json","schema":"engagement-phl-crime-event-warehouse/v1","requiredFields":["current_snapshot_id","coverage","lineage_registry","latest_quality_report","latest_revision_report","updated_at"],"identityFields":["current_snapshot_id"],"revisionFields":["updated_at","latest_revision_report"],"validatorCommand":"npm run test:phase1-handoff"},"upstreamReceiptBindings":[],"nonAuthority":["serving","promotion","authority"],"mandatoryScripts":["test:data-pipeline"],"gates":["exact-tip","topology","status","overlap"]},
+    {"id":"M2","owner":"M2 mart/evaluation task","writable":["scripts/build_area_intelligence_marts.mjs","scripts/evaluate_area_intelligence.mjs","scripts/lib/area_intelligence_*.mjs","scripts/tests/area_intelligence_m2.mjs"],"forbidden":["package.json","public/data/**","src/home_compare/**","src/routes_crime/known_route_*.js"],"ignoredOutputRoots":[".dfev1/area-intelligence/**"],"ports":[4198],"retention":{"duration":"P180D","triggerEvent":"independently-reviewed-1D-acceptance","decisionOwner":"1D integration/release owner","deletePrerequisites":["M1 receipt recheck","M2 receipt recheck","1D cumulative receipt recheck"],"authorizationReceipt":"1D cumulative retention authorization"},"receipt":{"defaultPath":".dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json","schema":"ModelEvaluationReport/v1","requiredFields":["generated_at","protocol.schema","data.mart_artifact_identity","data.source_vintage","data.coverage"],"identityFields":["data.mart_artifact_identity","data.source_vintage"],"revisionFields":["generated_at","protocol.sha256"],"validatorCommand":"npm run test:phase1-handoff"},"upstreamReceiptBindings":["M1"],"nonAuthority":["serving","promotion"],"mandatoryScripts":["test:data-pipeline","test:area-intelligence-browser"],"gates":["exact-tip","topology","status","overlap"]},
+    {"id":"M3","owner":"M3 Home Compare task","writable":["src/home_compare/**","scripts/smoke_home_compare_sources.mjs","scripts/lib/home_compare_source_smoke.mjs","scripts/tests/home_compare_m3.mjs","scripts/tests/home_compare_browser.mjs"],"forbidden":["package.json","public/data/**","src/routes_crime/known_route_*.js"],"ignoredOutputRoots":[".dfev1/home-neighborhood-compare/m3-v1/**"],"ports":[4189],"retention":{"duration":"P30D","triggerEvent":"independently-reviewed-1D-acceptance","decisionOwner":"1D integration/release owner","deletePrerequisites":["M3 receipt recheck","desktop-en-synthetic.png retained","mobile-en-synthetic.png retained","1D cumulative receipt recheck"],"authorizationReceipt":"1D cumulative retention authorization"},"receipt":{"defaultPath":".dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json","schema":"engagement-home-compare-source-smoke/v1","requiredFields":["generatedAt","status","semanticIdentity","observations","routing","privacy","limitations"],"identityFields":["semanticIdentity"],"revisionFields":["generatedAt","observations.0.revision","observations.0.dq"],"validatorCommand":"npm run test:phase1-handoff"},"upstreamReceiptBindings":["M2"],"nonAuthority":["serving","promotion","routing-authority"],"mandatoryScripts":["test:home-compare","test:home-compare-browser"],"gates":["exact-tip","topology","status","overlap"]},
+    {"id":"M4","owner":"M4 Known Route task","writable":["src/routes_crime/known_route_*.js","scripts/smoke_known_route_evidence.mjs","scripts/build_known_route_evidence.mjs","scripts/lib/known_route_evidence_checkpoint.mjs","scripts/tests/known_route_evidence_m4.mjs","scripts/tests/known_route_evidence_browser.mjs"],"forbidden":["package.json","public/data/**","src/home_compare/**"],"ignoredOutputRoots":[".dfev1/known-route-evidence-v1/**"],"ports":[4194],"retention":{"duration":"P30D","triggerEvent":"independently-reviewed-1D-acceptance","decisionOwner":"1D integration/release owner","deletePrerequisites":["M1 receipt recheck","M2 receipt recheck","M4 receipt recheck","1D cumulative receipt recheck"],"authorizationReceipt":"1D cumulative retention authorization"},"receipt":{"defaultPath":".dfev1/known-route-evidence-v1/full-warehouse/checkpoint.json","schema":null,"requiredFields":["warehouseIdentity","routeIdentity","centerlineDataVersion","catalogIdentity","corridorIdentity","completedPartitions","partitionCount","startedAt","completion","accumulator"],"identityFields":["warehouseIdentity","routeIdentity","catalogIdentity"],"revisionFields":["centerlineDataVersion","startedAt"],"validatorCommand":"npm run test:phase1-handoff"},"upstreamReceiptBindings":["M1","M2"],"nonAuthority":["serving","promotion","routing-authority"],"mandatoryScripts":["test:known-route-evidence","test:known-route-evidence-browser"],"gates":["exact-tip","topology","status","overlap"]},
+    {"id":"1D","owner":"1D integration/release owner","writable":["package.json","scripts/lib/browser_suite_lifecycle.mjs","scripts/tests/browser_suite_lifecycle_contracts.mjs","scripts/lib/phase1_handoff_evaluator.mjs","scripts/tests/phase1_handoff_contracts.mjs","scripts/tests/release_workflow_contracts.mjs","scripts/run_release_gate.mjs","scripts/run_visual_experience_dist.mjs",".github/workflows/ci.yml","scripts/tests/bundle_policy.mjs","docs/active/phase1-evidence-completion/**"],"forbidden":[],"ignoredOutputRoots":[".dfev1/phase1/**"],"ports":[4173,4178,4189,4194,4198],"retention":{"duration":"per-approved-project-policy","triggerEvent":"independently-reviewed-1D-acceptance","decisionOwner":"1D integration/release owner","deletePrerequisites":["all producer receipt rechecks","independent review"],"authorizationReceipt":"1D cumulative retention authorization"},"receipt":{"defaultPath":".dfev1/phase1/cumulative-receipt.json","schema":"engagement-phase1-cumulative-receipt/v1","requiredFields":["producerReceipts","topology","status","overlap"],"identityFields":["producerReceipts"],"revisionFields":["implementationTip","recordTip"],"validatorCommand":"npm run test:phase1-handoff"},"upstreamReceiptBindings":["M1","M2","M3","M4"],"nonAuthority":["remote-ci","deployment","online-smoke"],"mandatoryScripts":["test:phase1-handoff","ci:release"],"gates":["exact-tip","topology","status","overlap"]}
   ],
-  "edges": [["M0", "M1"], ["M1", "M2"], ["M2", "M3"], ["M2", "M4"], ["M3", "1D"], ["M4", "1D"]]
+  "edges":[["M1","M2"],["M2","M3"],["M1","M4"],["M2","M4"],["M1","1D"],["M2","1D"],["M3","1D"],["M4","1D"]]
 }

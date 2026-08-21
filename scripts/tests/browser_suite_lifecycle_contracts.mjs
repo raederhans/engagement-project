@@ -15,7 +15,7 @@ test('browser-suite lifecycle closes preview and removes harness when Chromium l
     cleanupArtifacts: fixture.cleanupArtifacts,
     run: async () => assert.fail('run must not execute'),
   }), /injected Chromium launch failure/);
-  assert.deepEqual(fixture.calls, ['prepare', 'preview', 'server.close', 'artifacts.cleanup']);
+  assert.deepEqual(fixture.calls, ['prepare', 'preview', 'preview.close', 'artifacts.cleanup']);
   await assert.rejects(access(fixture.harnessPath));
 });
 
@@ -29,7 +29,7 @@ test('browser-suite lifecycle rethrows an isolated primary failure unchanged aft
     cleanupArtifacts: fixture.cleanupArtifacts,
     run: async () => { throw primary; },
   }), (error) => error === primary);
-  assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'server.close', 'artifacts.cleanup']);
+  assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'preview.close', 'artifacts.cleanup']);
 });
 
 test('browser-suite lifecycle aggregates isolated cleanup failures after completing reverse cleanup', async () => {
@@ -74,7 +74,7 @@ for (const primary of [undefined, null, false, 0, '']) {
     } catch (error) {
       assert.equal(error, primary);
     }
-    assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'server.close', 'artifacts.cleanup']);
+    assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'preview.close', 'artifacts.cleanup']);
   });
 }
 
@@ -88,7 +88,7 @@ test('browser-suite lifecycle preserves a falsy primary alongside every cleanup 
     && error.cleanupErrors.length === 5
     && error.errors[0] === false
     && error.errors.length === 6);
-  assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'server.close', 'artifacts.cleanup']);
+  assert.deepEqual(fixture.calls.slice(-5), ['page.close', 'context.close', 'browser.close', 'preview.close', 'artifacts.cleanup']);
 });
 
 for (const [stage, inject] of [
@@ -127,7 +127,7 @@ for (const [name, inject] of [
       cleanupArtifacts: fixture.cleanupArtifacts,
       run: async () => assert.fail('run must not execute'),
     }), /injected/);
-    assert.ok(fixture.calls.includes('server.close'), `${name} closes preview`);
+    assert.ok(fixture.calls.includes('preview.close'), `${name} closes preview`);
     assert.ok(fixture.calls.includes('browser.close'), `${name} closes browser`);
     assert.ok(fixture.calls.includes('artifacts.cleanup'), `${name} removes harness`);
     if (!inject.newContext) assert.ok(fixture.calls.includes('context.close'), `${name} closes context`);
@@ -173,11 +173,12 @@ async function lifecycleFixture(inject = {}) {
       calls.push('preview');
       if (Object.hasOwn(inject, 'createPreview')) throw inject.createPreview;
       return {
+        async close() {
+          calls.push('preview.close');
+          if (inject.serverClose) throw new Error('injected cleanup server failure');
+        },
         httpServer: {
-          close(callback) {
-            calls.push('server.close');
-            callback(inject.serverClose ? new Error('injected cleanup server failure') : undefined);
-          },
+          close() { throw new Error('raw httpServer.close must not be used'); },
         },
       };
     },

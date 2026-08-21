@@ -149,13 +149,17 @@ assert.deepEqual(
   'Home Compare loader must keep its data, contracts, UI, and styles behind a nested lazy boundary',
 );
 assert.ok(homeCompareController?.isDynamicEntry, 'Vite manifest must contain the Home Compare controller as a nested lazy chunk');
-assert.deepEqual(
-  new Set(homeCompareController.dynamicImports || []),
-  new Set(['src/home_compare/results_view.js', 'src/home_compare/source_registry.js']),
-  'Home Compare must keep runtime registry admission and result-only rendering behind explicit query-time boundaries',
-);
-assert.ok(homeCompareSourceRegistry?.isDynamicEntry, 'Vite manifest must contain the Home Compare registry validator as a lazy chunk');
-assert.ok(homeCompareResultsView?.isDynamicEntry, 'Vite manifest must keep Home Compare result rendering behind the first completed compare');
+  assert.deepEqual(
+    new Set(homeCompareController.dynamicImports || []),
+    new Set([
+      'src/home_compare/results_view.js',
+      'src/home_compare/results_view.js?homeCompareRetry=1',
+      'src/home_compare/source_registry.js',
+    ]),
+    'Home Compare must start registry admission and renderer loading at first valid compare intent/query-time, keep both before result commit, and retain one Vite-built retry entry',
+  );
+  assert.ok(homeCompareSourceRegistry?.isDynamicEntry, 'Vite manifest must contain the Home Compare registry validator as a lazy chunk');
+  assert.ok(homeCompareResultsView?.isDynamicEntry, 'Vite manifest must keep Home Compare result rendering behind first valid compare intent/query-time and before result commit');
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),

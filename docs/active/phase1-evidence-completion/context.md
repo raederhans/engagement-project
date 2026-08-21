@@ -28,6 +28,11 @@ mechanical proof that a preview-success/Chromium-launch failure and context,
 route, page creation, or page-setup failure close acquired resources and remove
 the temporary harness.
 
+Current repair execution owner: this e4c5 task alone. Before the next composite
+gate, it runs the production Home Compare browser suite serially on port 4189;
+the task-owned retained output is `.dfev1/home-neighborhood-compare/m3-v1/browser`.
+No second browser, preview, or release runner may share that port/output.
+
 ## Decisions and boundaries
 
 - The first valid Home Compare compare intent/query-time creates and observes

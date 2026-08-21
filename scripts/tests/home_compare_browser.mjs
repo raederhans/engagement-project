@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
@@ -34,7 +34,7 @@ await runBrowserSuite({
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     page.on('pageerror', (error) => pageErrors.push(error.message));
   },
-  run: async ({ page }) => {
+  run: async ({ page, browser }) => {
   await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
   if (await page.locator('html').getAttribute('lang') !== 'en') {
     await page.locator('.language-switch').click();
@@ -74,6 +74,10 @@ await runBrowserSuite({
   assert.match(drilldown, /Coverage/i);
   assert.match(drilldown, /Precision \/ uncertainty/i);
   assert.match(drilldown, /Official source/i);
+
+  await verifyProductionChunkRetry(browser);
+  await verifyNativeCloseWhileRendererPending(browser, 'click');
+  await verifyNativeCloseWhileRendererPending(browser, 'escape');
 
   await dialog.locator('[data-home-add]').click();
   await fillAddress(dialog, 2);
@@ -175,7 +179,11 @@ await runBrowserSuite({
 
 async function runComparison(dialog, count) {
   await dialog.locator('[data-home-run]').click();
-  await dialog.locator(`[data-home-profile="${count}"]`).waitFor({ state: 'visible' });
+  try {
+    await dialog.locator(`[data-home-profile="${count}"]`).waitFor({ state: 'visible' });
+  } catch (error) {
+    throw new Error(`comparison did not render ${count} profiles: ${await dialog.locator('[data-home-status]').innerText()} | ${await dialog.locator('[data-home-results]').innerText()} | ${error.message}`);
+  }
   assert.equal(await dialog.locator('[data-home-profile]').count(), count);
 }
 
@@ -289,4 +297,75 @@ function syntheticIndex(value) {
 
 async function json(route, body) {
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+async function verifyProductionChunkRetry(browser) {
+  const manifest = JSON.parse(await readFile('dist/.vite/manifest.json', 'utf8'));
+  const chunk = manifest['src/home_compare/results_view.js']?.file;
+  const retryChunk = manifest['src/home_compare/results_view.js?homeCompareRetry=1']?.file;
+  assert.match(chunk || '', /^assets\/results_view-[\w-]+\.js$/, 'manifest must name the initial production results-view chunk');
+  assert.match(retryChunk || '', /^assets\/results_view-[\w-]+\.js$/, 'manifest must name the explicit retry production chunk');
+  assert.notEqual(retryChunk, chunk, 'retry must have a distinct Vite-built module-map entry after the first chunk fails');
+  const matcher = new RegExp(`/${chunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\?|$)`);
+  const resultsChunkMatcher = /\/assets\/results_view-[\w-]+\.js(?:\?|$)/;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const pageErrors = []; let requests = 0; const resultsChunkRequests = [];
+  await page.addInitScript(() => { window.__homeUnhandled = []; window.addEventListener('unhandledrejection', (event) => window.__homeUnhandled.push(String(event.reason))); });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('request', (request) => { if (resultsChunkMatcher.test(request.url())) resultsChunkRequests.push(request.url()); });
+  try {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl.origin });
+    await installSyntheticRoutes(context);
+    await context.route(matcher, async (route) => {
+      requests += 1;
+      await route.fulfill({ status: 503, contentType: 'text/javascript', body: '/* transient production chunk failure */' });
+    });
+    await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
+    const opener = page.locator('[data-home-compare-open]'); const dialog = page.locator('[data-home-compare-dialog]');
+    await opener.click(); await fillAddresses(dialog, 2); await dialog.locator('[data-home-run]').click();
+    try {
+      await dialog.locator('[data-home-retry-results]').waitFor({ state: 'visible' });
+    } catch (error) {
+      throw new Error(`production chunk failure was not rendered: requests=${requests}; status=${await dialog.locator('[data-home-status]').innerText()}; results=${await dialog.locator('[data-home-results]').innerText()}; pageErrors=${JSON.stringify(pageErrors)}; ${error.message}`);
+    }
+    assert.equal(await dialog.locator('[data-home-retry-results]').isVisible(), true);
+    assert.equal(await dialog.locator('[data-home-profile]').count(), 0, 'chunk failure leaves no stale result DOM');
+    assert.deepEqual(await page.evaluate(() => [...window.__homeUnhandled]), []);
+    assert.deepEqual(pageErrors, []);
+    await context.unroute(matcher);
+    await dialog.locator('[data-home-retry-results]').click();
+    await dialog.locator('[data-home-profile="2"]').waitFor({ state: 'visible' });
+    assert.equal(requests, 1, 'the one deliberately failed initial static-import request is observed');
+    assert.ok(resultsChunkRequests.some((url) => url.includes(`/${chunk}`)), 'first compare must request the manifest initial chunk');
+    assert.ok(resultsChunkRequests.some((url) => url.includes(`/${retryChunk}`)), 'retry must request the distinct Vite-built production retry chunk');
+    await dialog.locator('[data-home-close]').click(); await dialog.waitFor({ state: 'hidden' }); await opener.click();
+    assert.equal(await dialog.locator('[data-home-profile]').count(), 2, 'completed close/reopen remains valid');
+  } finally { await context.close(); }
+}
+
+async function verifyNativeCloseWhileRendererPending(browser, action) {
+  const manifest = JSON.parse(await readFile('dist/.vite/manifest.json', 'utf8'));
+  const chunk = manifest['src/home_compare/results_view.js']?.file;
+  const matcher = new RegExp(`/${chunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\?|$)`);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage(); let release; let markStarted;
+  const pageErrors = [];
+  const pending = new Promise((resolve) => { release = resolve; }); const started = new Promise((resolve) => { markStarted = resolve; });
+  try {
+    await page.addInitScript(() => { window.__homeUnhandled = []; window.addEventListener('unhandledrejection', (event) => window.__homeUnhandled.push(String(event.reason))); });
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl.origin }); await installSyntheticRoutes(context);
+    await context.route(matcher, async (route) => { markStarted(); await pending; await route.continue(); });
+    await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
+    const opener = page.locator('[data-home-compare-open]'); const dialog = page.locator('[data-home-compare-dialog]');
+    await opener.click(); await fillAddresses(dialog, 2); await dialog.locator('[data-home-run]').click(); await started;
+    if (action === 'click') await dialog.locator('[data-home-close]').click(); else await page.keyboard.press('Escape');
+    assert.equal(await dialog.getAttribute('aria-busy'), 'false', `${action} cancels before held renderer resolves`);
+    release(); await dialog.waitFor({ state: 'hidden' });
+    assert.equal(await opener.evaluate((element) => document.activeElement === element), true, `${action} restores focus`);
+    await opener.click(); assert.equal(await dialog.locator('[data-home-profile]').count(), 0, `${action} cannot commit stale result after reopen`);
+    assert.deepEqual(await page.evaluate(() => [...window.__homeUnhandled]), [], `${action} leaves no unhandled rejection`);
+    assert.deepEqual(pageErrors, [], `${action} leaves no page error`);
+  } finally { release?.(); await context.close(); }
 }

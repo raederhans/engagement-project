@@ -1,9 +1,3 @@
-function closeServer(server) {
-  return new Promise((resolve, reject) => {
-    server.httpServer.close((error) => (error ? reject(error) : resolve()));
-  });
-}
-
 async function closeIfPresent(resource) {
   if (resource?.close) await resource.close();
 }
@@ -50,7 +44,10 @@ export async function runBrowserSuite({
       () => closeIfPresent(page),
       () => closeIfPresent(context),
       () => closeIfPresent(browser),
-      () => (server ? closeServer(server) : undefined),
+      // Vite preview returns a PreviewServer wrapper. Its own close() owns
+      // the HTTP listener and any Vite-managed resources; reaching into
+      // httpServer closes only part of that transaction.
+      () => closeIfPresent(server),
       () => cleanupArtifacts?.(),
     ]) {
       try {
