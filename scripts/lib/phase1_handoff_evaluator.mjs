@@ -22,6 +22,10 @@ export async function inspectGitWorktree(worktree) {
   };
 }
 
+export async function resolveGitRef(worktree, reference) {
+  return (await execFileAsync('git', ['-C', worktree, 'rev-parse', `${reference}^{commit}`], { windowsHide: true })).stdout.trim();
+}
+
 export function pathMatches(pattern, pathname) {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replaceAll('**', '::DOUBLE_STAR::').replaceAll('*', '[^/]*')
@@ -40,7 +44,7 @@ function patternCouldOverlap(a, b) {
   return aPrefix.startsWith(bPrefix) || bPrefix.startsWith(aPrefix);
 }
 
-export async function evaluateHandoff({ policy, observation, inspectWorktree = inspectGitWorktree, readReceipt = readJson }) {
+export async function evaluateHandoff({ policy, observation, inspectWorktree = inspectGitWorktree, readReceipt = readJson, resolveRef = resolveGitRef }) {
   const reasons = [];
   if (policy.schema !== 'engagement-phase1-handoff-policy/v2') reasons.push('policy schema drift');
   if (observation.schema !== 'engagement-phase1-handoff-observation/v1') reasons.push('observation schema drift');
@@ -67,6 +71,12 @@ export async function evaluateHandoff({ policy, observation, inspectWorktree = i
         if (JSON.stringify(actual.status) !== JSON.stringify(phase.status.porcelain || [])) phaseReasons.push('worktree status drift');
         if (JSON.stringify(actual.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('changed-path drift');
       } catch { phaseReasons.push('tip/worktree is not resolvable'); }
+      if (phase.implementationTip !== phase.exactTip) phaseReasons.push('implementation tip is not the observed exact tip');
+      for (const key of ['exactTip', 'implementationTip', 'recordTip']) {
+        if (phase[key] == null) continue;
+        try { await resolveRef(phase.worktree, phase[key]); }
+        catch { phaseReasons.push(`${key} is not resolvable`); }
+      }
       if (phase.receipt?.availability === 'available') {
         try { validateReceipt(phaseId, phasePolicy, await readReceipt(phase.receipt.actualPath), phase.receipt); }
         catch (error) { phaseReasons.push(`receipt invalid: ${error.message}`); }
@@ -74,6 +84,10 @@ export async function evaluateHandoff({ policy, observation, inspectWorktree = i
         phaseReasons.push('receipt unavailable');
       }
       if (phase.state === 'accepted' && !phase.reviewedTip) phaseReasons.push('accepted observation has no reviewed tip');
+      if (phase.reviewedTip != null) {
+        try { await resolveRef(phase.worktree, phase.reviewedTip); }
+        catch { phaseReasons.push('reviewedTip is not resolvable'); }
+      }
       if (phase.state !== 'accepted') phaseReasons.push(`admission state is ${phase.state}`);
     }
     phaseResults[phaseId] = { status: phaseReasons.length ? 'blocked' : 'accepted', reasons: phaseReasons };

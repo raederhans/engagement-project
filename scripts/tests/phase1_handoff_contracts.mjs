@@ -52,7 +52,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const receipts = new Map();
   for (const phase of fixture.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
-    phase.state = 'accepted'; phase.reviewedTip = `${phase.exactTip}-reviewed`;
+    phase.state = 'accepted'; phase.implementationTip = phase.exactTip; phase.recordTip = phase.exactTip; phase.reviewedTip = phase.exactTip;
     phase.status = { porcelain: [], index: [], untracked: [] }; phase.actualChangedPaths = [];
     phase.retention.authorizationReceipt = 'fixture-retention-authorization';
     phase.receipt = { availability: 'available', actualPath: phase.phase, schema: definition.receipt.schema, identity: {}, revision: {}, validatorCommand: definition.receipt.validatorCommand, result: 'pass' };
@@ -67,16 +67,21 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     const phase = fixture.phases.find((item) => item.worktree === worktree);
     return { head: phase.exactTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
   };
-  const accepted = await evaluateHandoff({ policy, observation: fixture, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key) });
+  const resolveRef = async (_worktree, reference) => reference;
+  const accepted = await evaluateHandoff({ policy, observation: fixture, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef });
   assert.equal(accepted.status, 'accepted');
   const noReview = structuredClone(fixture); noReview.phases[0].reviewedTip = null;
-  assert.equal((await evaluateHandoff({ policy, observation: noReview, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key) })).status, 'blocked');
+  assert.equal((await evaluateHandoff({ policy, observation: noReview, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef })).status, 'blocked');
+  const missingRecord = structuredClone(fixture); missingRecord.phases[0].recordTip = null;
+  assert.equal((await evaluateHandoff({ policy, observation: missingRecord, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef })).status, 'blocked');
+  const unresolved = structuredClone(fixture); unresolved.phases[0].recordTip = 'missing-fixture-tip';
+  assert.equal((await evaluateHandoff({ policy, observation: unresolved, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef: async (_worktree, reference) => { if (reference === 'missing-fixture-tip') throw new Error('unresolved'); return reference; } })).status, 'blocked');
   const schemaDrift = structuredClone(fixture); receipts.get('M1').schema = 'wrong/v1';
-  assert.equal((await evaluateHandoff({ policy, observation: schemaDrift, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key) })).status, 'blocked');
+  assert.equal((await evaluateHandoff({ policy, observation: schemaDrift, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef })).status, 'blocked');
   receipts.get('M1').schema = policy.phases[0].receipt.schema;
   const overlapPolicy = structuredClone(policy); overlapPolicy.phases.find(({ id }) => id === 'M3').writable.push('src/home_compare/controller.js');
   overlapPolicy.phases.find(({ id }) => id === '1D').writable.push('src/home_compare/**');
-  assert.equal((await evaluateHandoff({ policy: overlapPolicy, observation: fixture, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key) })).status, 'blocked');
+  assert.equal((await evaluateHandoff({ policy: overlapPolicy, observation: fixture, inspectWorktree: inspect, readReceipt: async (key) => receipts.get(key), resolveRef })).status, 'blocked');
 });
 
 test('glob expansion recognizes concrete owned paths and rejects writer/control-surface overlap', () => {

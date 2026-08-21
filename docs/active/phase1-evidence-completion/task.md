@@ -5,10 +5,10 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | complete | Implementation tip b156178e9c0263e2d111c4e43a9eeec0bdad3c0d closes the Vite preview through its owning `PreviewServer`, following the prior control-flow, lifecycle, structured-handoff, and release-ownership repairs. |
-| Focused and bundle verification | complete | The b156 implementation chain has focused Home Compare, browser-lifecycle, Phase 1 handoff, and release-workflow contract coverage, JS/CSS lint, manifest build, and unchanged-ceiling bundle-policy evidence. The composite below freshly reran the standard release graph at b156. |
-| Composite local release verification | complete | `npm.cmd run ci:release` exited **0** at b156178e9c0263e2d111c4e43a9eeec0bdad3c0d. The task-owned observation parent recorded its natural exit in `.dfev1/phase1-release-b156-observation-attempt2/exit-code.txt`; the graph included validate, bundle policy, browser leaves, and visual-dist. |
-| Cumulative evidence record | complete | This strict documentation-only commit is the cumulative evidence-record tip. It does not claim a new composite execution after its own documentation delta. |
+| Current implementation | complete | Implementation tip `deec3ff46f21ac3dff1ebcc33d58651195341253` adds the real producer-aligned handoff evaluator, fail-closed release listener audit, owning `PreviewServer` lifecycle, and production native-dialog/chunk-retry coverage. |
+| Focused and bundle verification | complete | The `deec3ff` implementation tip has focused Home Compare, lifecycle, visual, handoff, release-workflow, JS/CSS lint, manifest build, and unchanged-ceiling bundle-policy evidence. |
+| Composite local release verification | complete | A single task-owned `npm.cmd run ci:release` parent exited **0** at `deec3ff46f21ac3dff1ebcc33d58651195341253`; its self-contained receipt is `.dfev1/phase1-release-deec3ff/receipt.json`. The graph included validate, bundle policy, browser leaves, and visual-dist. |
+| Cumulative evidence record | complete | This strict documentation-only commit records the `deec3ff` execution evidence. It does not claim a composite execution after its own documentation delta. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -39,8 +39,12 @@ browser evidence.
 | npm run build:manifest; npm run verify:bundle | 0 | Current repair build passed unchanged ceilings. Home Compare controller is 32,205/11,369 raw/gzip, retaining 6,631 gzip bytes below the existing 18,000-byte ceiling; lazy results view is 3,520/1,460. Content is included by implementation tip 7e0c5929d34140c995c8180a3804d14a1c2635c5. |
 | npm.cmd run ci:release | 0 | Fresh full composite at **b156178e9c0263e2d111c4e43a9eeec0bdad3c0d**, run by one task-owned parent process. The prior unobservable runner was not credited; a first logging attempt exited 1 before the runner because direct Node lacked `npm_execpath`, then the single corrected `npm.cmd run ci:release` attempt naturally wrote exit 0. It completed audit, linters, validate, manifest/bundle policy, general/ACS browsers, Area/Home/Known Route browser leaves, and visual-dist (35 passed, 10 designed skips). |
 | Post-release task-owned process and listener audit | 0 | After the recorded exit, no task-owned process remained and `netstat` found no listener on **4173, 4178, 4189, 4194, or 4198**. No PID was manually stopped for the passing b156 run. |
+| npm run test:home-compare; npm run test:browser-lifecycle; npm run test:visual-experience-lifecycle; npm run test:release-workflow; npm run test:phase1-handoff | 0 | Fresh `deec3ff` focused evidence: Home 20/20, lifecycle 19/19 (including falsy primary and complete reverse cleanup matrix), visual lifecycle 3/3, release workflow 14/14 (including listener-audit and child failure contracts), and handoff evaluator 4/4. |
+| npm run lint:js; npm run lint:css; npm run build:manifest; npm run verify:bundle | 0 | Fresh `deec3ff` static/build evidence. Existing ceilings unchanged; Home Compare controller is 32,414 / 11,424 raw/gzip, retaining 6,576 gzip bytes below the 18,000-byte ceiling. |
+| npm run test:area-intelligence-browser; npm run test:home-compare-browser; npm run test:known-route-evidence-browser | 0 | One task-owned serial production-dist Chromium parent: Area 4198, Home 4189, Known Route 4194. Home includes fresh-page hashed-chunk 503 → results-unavailable → Vite-built retry recovery, plus delayed real chunk Close/Escape stale-commit prevention and focus return. |
+| npm.cmd run ci:release | 0 | One natural parent run at **deec3ff46f21ac3dff1ebcc33d58651195341253**. Receipt records pre-run HEAD/main/merge-base/clean status, owner PID, timestamps, exit 0, process-tree snapshots, and empty listener audits at 4173/4178/4189/4194/4198; visual-dist finished 35 passed / 10 designed skips. |
 
-Rows through old f7190f5c77432f0855e4575583f6e66ac906f50d and 7e0c5929d34140c995c8180a3804d14a1c2635c5
-are historical and must not be attributed to b156. This task is
+Rows through old f7190f5c77432f0855e4575583f6e66ac906f50d, 7e0c5929d34140c995c8180a3804d14a1c2635c5, and b156
+are historical and must not be attributed to deec3ff. This task is
 **ready-for-review / blocked-for-admission**: reviewed candidate tip is **none**;
 it does not self-approve, integrate, push, deploy, or clean worktrees/branches.

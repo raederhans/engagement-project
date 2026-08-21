@@ -63,17 +63,20 @@ No second browser, preview, or release runner may share that port/output.
 
 ## Handoff checkpoint
 
-Implementation tip: b156178e9c0263e2d111c4e43a9eeec0bdad3c0d. It contains
-the current control-flow, snapshot, lazy-renderer, lifecycle, structured
-handoff, and preview-owner implementation. A single task-owned
-`npm.cmd run ci:release` parent recorded its natural exit as 0 in
-`.dfev1/phase1-release-b156-observation-attempt2/exit-code.txt`; it completed
-complete validation, unchanged-ceiling bundle policy, release-owned browser
-leaves, and visual-dist. Earlier f719 and 7e0c evidence is historical only and
-is not evidence for this implementation tip.
+Implementation tip: `deec3ff46f21ac3dff1ebcc33d58651195341253`. It contains
+the current control-flow, snapshot, lazy-renderer retry entry, owning-preview
+lifecycle, release listener audit, and producer-aligned structured handoff
+implementation. One task-owned `npm.cmd run ci:release` parent naturally
+exited 0; its self-contained receipt at
+`.dfev1/phase1-release-deec3ff/receipt.json` binds pre-run
+HEAD/main/merge-base/clean status, owner PID, timestamps, exit, process tree,
+and post-run five-port audit. It completed complete validation,
+unchanged-ceiling bundle policy, release-owned browser leaves, and visual-dist.
+Earlier f719, 7e0c, and b156 evidence is historical only and is not evidence
+for this implementation tip.
 
 Cumulative evidence-record tip: this strict record-only commit; its exact SHA
-must be resolved with `git rev-parse HEAD`. It records the b156
+must be resolved with `git rev-parse HEAD`. It records `deec3ff`
 implementation-tip evidence without claiming to have re-run the composite
 after a documentation-only commit.
 
@@ -81,7 +84,7 @@ Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
 Integration, remote CI, deployment, scheduled refresh, and online smoke remain
 deferred. The task is ready-for-review but blocked-for-admission; the reviewed
-candidate tip remains none. After the recorded b156 release exit, the
+candidate tip remains none. After the recorded `deec3ff` release exit, the
 task-owned process tree had naturally exited and ports **4173, 4178, 4189,
 4194, and 4198** had no listeners. No process was manually stopped for this
 passing run.
