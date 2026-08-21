@@ -17,6 +17,8 @@ async function documents() {
 test('Phase 1 policy names real producer receipt contracts and every control surface owner', async () => {
   const { policy, packageJson } = await documents();
   assert.equal(policy.schema, 'engagement-phase1-handoff-policy/v2');
+  assert.equal(policy.authorityReceipts.review.schema, 'engagement-phase1-independent-review/v1');
+  assert.equal(policy.authorityReceipts.deletion.schema, 'engagement-phase1-independent-deletion/v1');
   assert.equal(packageJson.scripts['test:phase1-handoff'], 'node --test scripts/tests/phase1_handoff_contracts.mjs');
   for (const surface of policy.controlSurfaces) await access(new URL(`../../${surface}`, import.meta.url));
   assert.deepEqual(policy.phases.map(({ id }) => id), ['M1', 'M2', 'M3', 'M4', '1D']);
@@ -62,6 +64,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const { policy, observation } = await documents();
   const fixture = structuredClone(observation);
   const receipts = new Map();
+  const authorityReceipts = new Map();
   for (const phase of fixture.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
     phase.worktree = `fixture/${phase.phase}`;
@@ -83,6 +86,13 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     for (const field of definition.receipt.revisionFields) phase.receipt.revision[field] = getPath(receipt, field);
     receipts.set(phase.phase, receipt);
   }
+  const m1 = fixture.phases.find((phase) => phase.phase === 'M1');
+  const m4 = fixture.phases.find((phase) => phase.phase === 'M4');
+  const m4Receipt = receipts.get('M4');
+  // This is a producer binding, not merely the similarly named M4 field.
+  m4Receipt.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
+  m4Receipt.lineage.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
+  m4.receipt.identity.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
   for (const phase of fixture.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
     phase.upstreamReceiptIdentities = definition.upstreamReceiptBindings.map((upstream) => ({
@@ -90,6 +100,20 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       ...fixture.phases.find((item) => item.phase === upstream).receipt.identity,
     }));
     if (phase.phase === 'M4') phase.governanceReceiptIdentities = [{ phase: 'M2', ...fixture.phases.find((item) => item.phase === 'M2').receipt.identity }];
+    phase.reviewAuthority = {
+      path: `review/${phase.phase}`,
+      schema: 'engagement-phase1-independent-review/v1',
+      expectedIdentity: { receiptId: `review-${phase.phase}` },
+      expectedIssuer: { taskId: 'independent-review-task', identity: 'reviewer-identity' },
+    };
+    authorityReceipts.set(phase.reviewAuthority.path, {
+      schema: phase.reviewAuthority.schema,
+      identity: phase.reviewAuthority.expectedIdentity,
+      reviewer: phase.reviewAuthority.expectedIssuer,
+      phase: phase.phase,
+      verdict: 'approve',
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+    });
   }
   const inspect = async (worktree) => {
     const phase = fixture.phases.find((item) => item.worktree === worktree);
@@ -105,12 +129,15 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     isAncestor: async () => true,
     changedBetween: async () => [],
     readReceipt: async (key) => receipts.get(key),
-    filesystemAuthority: { async receiptPath(_worktree, _evidenceRoot, receiptPath) { return receiptPath; } },
-    reviewAuthority: { async validate({ recordTip, reviewedTip }) { assert.equal(recordTip, reviewedTip); } },
+    filesystemAuthority: { async receiptPath(_worktree, _evidenceRoot, receiptPath) {
+      if (receiptPath.startsWith('../') || receiptPath.startsWith('..\\') || /^[A-Za-z]:[\\/]/.test(receiptPath)) throw new Error('fixture authority rejects path escape');
+      return receiptPath;
+    } },
+    authorityReader: { async read(key) { return authorityReceipts.get(key); } },
     resolveRef,
   };
   const accepted = await evaluateHandoff({ policy, observation: fixture, ...fixtureOptions });
-  assert.equal(accepted.status, 'accepted', accepted.reasons.join('; '));
+  if (accepted.status !== 'accepted') throw new Error(accepted.reasons.join('; '));
   assert.equal(accepted.phases.M1.status, 'accepted', 'missing future deletion authorization does not block retained producer evidence');
   assert.equal(accepted.decisions.preparationEligible, true);
   assert.equal(accepted.decisions.consumptionEligible, true);
@@ -119,7 +146,25 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const deletable = structuredClone(fixture);
   for (const phase of deletable.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
-    phase.retention.authorizationReceipt = { schema: definition.retention.authorizationReceipt, issuer: '1D integration/release owner', decisionOwner: definition.retention.decisionOwner, target: { phase: phase.phase, ignoredRoot: phase.ignoredRoot }, prerequisites: definition.retention.deletePrerequisites, decidedAt: '2026-08-22T00:00:00.000Z' };
+    phase.deletionAuthority = {
+      path: `deletion/${phase.phase}`,
+      schema: 'engagement-phase1-independent-deletion/v1',
+      expectedIdentity: { receiptId: `deletion-${phase.phase}` },
+      expectedIssuer: { taskId: 'independent-retention-task', identity: 'retention-identity' },
+    };
+    authorityReceipts.set(phase.deletionAuthority.path, {
+      schema: phase.deletionAuthority.schema,
+      identity: phase.deletionAuthority.expectedIdentity,
+      issuer: phase.deletionAuthority.expectedIssuer,
+      decision: { ...phase.deletionAuthority.expectedIssuer, decidedAt: '2026-08-22T00:00:00.000Z' },
+      accepted1D: {
+        cumulativeTip: deletable.phases.find((item) => item.phase === '1D').reviewedTip,
+        receiptIdentity: deletable.phases.find((item) => item.phase === '1D').receipt.identity,
+      },
+      target: { phase: phase.phase, ignoredRoot: phase.ignoredRoot },
+      prerequisites: definition.retention.deletePrerequisites,
+      decidedAt: '2026-08-22T00:00:00.000Z',
+    });
   }
   assert.equal((await evaluateHandoff({ policy, observation: deletable, ...fixtureOptions })).decisions.deletionEligible, true);
   const noReview = structuredClone(fixture); noReview.phases[0].reviewedTip = null;
@@ -161,12 +206,86 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     mutate(candidate, candidatePolicy);
     const result = await evaluateHandoff({ policy: candidatePolicy, observation: candidate, ...fixtureOptions });
     assert.equal(result.status, 'blocked', `${name} must fail closed`);
+    assert.equal(result.decisions.admissionEligible, false, `${name} cannot admit globally`);
+    assert.equal(result.decisions.deletionEligible, false, `${name} cannot authorize deletion`);
+    assert.equal(result.phases.M4.decisions.admissionEligible, false, `${name} cannot admit M4`);
+    assert.equal(result.phases['1D'].decisions.admissionEligible, false, `${name} cannot admit 1D`);
+  }
+
+  const authorityHostile = [
+    ['missing review reference', (candidate) => { candidate.phases[0].reviewAuthority = null; }, () => {}],
+    ['review path escape', (candidate) => { candidate.phases[0].reviewAuthority.path = '../review/M1'; }, () => {}],
+    ['review schema mismatch', (candidate) => { candidate.phases[0].reviewAuthority.schema = 'forged/v1'; }, () => {}],
+    ['review issuer self-sign', (_candidate, _receipts, authorities) => { authorities.get('review/M1').reviewer = { taskId: 'M1 frozen warehouse task', identity: 'reviewer-identity' }; }],
+    ['review verdict mismatch', (_candidate, _receipts, authorities) => { authorities.get('review/M2').verdict = 'reject'; }],
+    ['review candidate tip mismatch', (_candidate, _receipts, authorities) => { authorities.get('review/M3').candidate.cumulativeTip = 'forged-tip'; }],
+    ['review identity mismatch', (_candidate, _receipts, authorities) => { authorities.get('review/M4').identity = { receiptId: 'forged-review' }; }],
+    ['M1 to M4 actual warehouse identity mismatch', (candidate, entries) => {
+      const candidateM4 = candidate.phases.find(({ phase }) => phase === 'M4');
+      entries.get('M4').warehouseIdentity = 'forged-warehouse';
+      entries.get('M4').lineage.warehouseIdentity = 'forged-warehouse';
+      candidateM4.receipt.identity.warehouseIdentity = 'forged-warehouse';
+      candidateM4.upstreamReceiptIdentities[0].current_snapshot_id = entries.get('M1').current_snapshot_id;
+    }],
+    ['declared DAG ancestry fails', () => {}],
+    ['M2 governance is not rechecked', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M2').state = 'pending-review'; }],
+  ];
+  for (const [name, mutate] of authorityHostile) {
+    const candidate = structuredClone(fixture);
+    const candidateReceipts = new Map([...receipts].map(([key, value]) => [key, structuredClone(value)]));
+    const candidateAuthorities = new Map([...authorityReceipts].map(([key, value]) => [key, structuredClone(value)]));
+    mutate(candidate, candidateReceipts, candidateAuthorities);
+    const hostileOptions = {
+      ...fixtureOptions,
+      readReceipt: async (key) => candidateReceipts.get(key),
+      authorityReader: { async read(key) { return candidateAuthorities.get(key); } },
+      isAncestor: name === 'declared DAG ancestry fails' ? async () => false : fixtureOptions.isAncestor,
+    };
+    const result = await evaluateHandoff({ policy, observation: candidate, ...hostileOptions });
+    assert.equal(result.status, 'blocked', `${name} must fail closed`);
+    assert.equal(result.decisions.admissionEligible, false, `${name} cannot admit globally`);
+    assert.equal(result.decisions.deletionEligible, false, `${name} cannot authorize deletion`);
+    assert.equal(result.phases.M4.decisions.admissionEligible, false, `${name} cannot admit M4`);
+    assert.equal(result.phases['1D'].decisions.admissionEligible, false, `${name} cannot admit 1D`);
+  }
+
+  // Bad deletion receipts do not erase valid retained evidence, but they can
+  // never grant deletion.  This keeps the future-delete gate separate from
+  // producer preparation/admission as required by the retention policy.
+  const deletionHostile = structuredClone(deletable);
+  deletionHostile.phases[0].deletionAuthority.expectedIssuer = { taskId: 'M1 frozen warehouse task', identity: 'M1 frozen warehouse task' };
+  const deletionResult = await evaluateHandoff({ policy, observation: deletionHostile, ...fixtureOptions });
+  assert.equal(deletionResult.status, 'accepted');
+  assert.equal(deletionResult.decisions.admissionEligible, true);
+  assert.equal(deletionResult.decisions.deletionEligible, false);
+  for (const [name, mutate] of [
+    ['self-signed deletion authority', (entries, candidate) => {
+      const phase = candidate.phases.find((item) => item.phase === 'M1');
+      phase.deletionAuthority.expectedIssuer = { taskId: phase.owner, identity: phase.owner };
+      const receipt = entries.get('deletion/M1');
+      receipt.issuer = phase.deletionAuthority.expectedIssuer;
+      receipt.decision = { ...phase.deletionAuthority.expectedIssuer, decidedAt: receipt.decidedAt };
+    }],
+    ['deletion 1D binding mismatch', (entries) => { entries.get('deletion/M2').accepted1D.cumulativeTip = 'forged-1D-tip'; }],
+  ]) {
+    const candidate = structuredClone(deletable);
+    const candidateAuthorities = new Map([...authorityReceipts].map(([key, value]) => [key, structuredClone(value)]));
+    mutate(candidateAuthorities, candidate);
+    const result = await evaluateHandoff({ policy, observation: candidate, ...fixtureOptions, authorityReader: { async read(key) { return candidateAuthorities.get(key); } } });
+    assert.equal(result.status, 'accepted', `${name} does not erase retained evidence`);
+    assert.equal(result.decisions.admissionEligible, true, `${name} cannot recast admission`);
+    assert.equal(result.decisions.deletionEligible, false, `${name} must fail closed for deletion`);
   }
 
   const documentationChild = structuredClone(fixture);
   for (const phase of documentationChild.phases) {
     phase.recordTip = `${phase.exactTip}-record`;
     phase.reviewedTip = phase.recordTip;
+    authorityReceipts.get(phase.reviewAuthority.path).candidate = {
+      implementationTip: phase.implementationTip,
+      executionRecordTip: phase.recordTip,
+      cumulativeTip: phase.reviewedTip,
+    };
   }
   const recordInspect = async (worktree) => {
     const phase = documentationChild.phases.find((item) => item.worktree === worktree);

@@ -131,6 +131,11 @@ const EXACT_PHASE_POLICY = Object.freeze({
 
 const REQUIRED_PHASE_IDS = Object.freeze(['M1', 'M2', 'M3', 'M4', '1D']);
 
+const AUTHORITY_RECEIPT_POLICY = Object.freeze({
+  review: Object.freeze({ schema: 'engagement-phase1-independent-review/v1' }),
+  deletion: Object.freeze({ schema: 'engagement-phase1-independent-deletion/v1' }),
+});
+
 function collectionReasons(policy, observation) {
   const reasons = [];
   const requireExactlyOnce = (entries, key, label) => {
@@ -190,6 +195,9 @@ function exactPolicyReasons(policy) {
         : actual.receipt?.[field] !== value) reasons.push(`${id}: policy receipt ${field} drift`);
     }
   }
+  for (const [kind, expected] of Object.entries(AUTHORITY_RECEIPT_POLICY)) {
+    if (policy.authorityReceipts?.[kind]?.schema !== expected.schema) reasons.push(`${kind} authority receipt policy drift`);
+  }
   if (!sameList(policy.phase1_0_writable, PHASE1_0_WRITABLE)) reasons.push('Phase1-0 writable scope drift');
   return reasons;
 }
@@ -242,7 +250,7 @@ export async function evaluateHandoff({
   changedBetween = changedPathsBetween,
   readReceipt = readJson,
   filesystemAuthority = realFilesystemAuthority,
-  reviewAuthority = { async validate() { throw new Error('independent review authority is unavailable'); } },
+  authorityReader = { async read(pathname) { return readJson(pathname); } },
   resolveRef = resolveGitRef,
 } = {}) {
   const structuralReasons = collectionReasons(policy, observation);
@@ -284,8 +292,7 @@ export async function evaluateHandoff({
         if (phase.retention?.[field] !== phasePolicy.retention[field]) phaseReasons.push(`retention ${field} drift`);
       }
       if (!sameList(phase.retention?.deletePrerequisites, phasePolicy.retention.deletePrerequisites)) phaseReasons.push('retention delete-prerequisites drift');
-      if (phase.retention?.authorizationReceipt != null
-          && !validDeletionAuthorization(phase, phasePolicy)) phaseReasons.push('retention authorization drift');
+      if (phase.retention?.authorizationReceipt != null) phaseReasons.push('embedded retention authorization is not an independent authority receipt');
       if (phase.actualChangedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('actual changed path exceeds writable boundary');
       try {
         const actual = await inspectWorktree(phase.worktree);
@@ -323,7 +330,8 @@ export async function evaluateHandoff({
           if (phase.receipt.validatorCommand !== phasePolicy.receipt.validatorCommand) throw new Error('validator command drift');
           if (phase.receipt.result !== 'pass') throw new Error('receipt result is not pass');
           const canonicalReceiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, phase.receipt.actualPath);
-          validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], await readReceipt(canonicalReceiptPath), phase.receipt);
+          const receiptEvidence = validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], await readReceipt(canonicalReceiptPath), phase.receipt);
+          phaseMeta.set(phaseId, { receiptEvidence });
           receiptEligible = canonicalReceiptMode(phaseId) === 'admission';
           if (!receiptEligible) phaseReasons.push('preparation-only receipt cannot be consumed');
         }
@@ -340,7 +348,9 @@ export async function evaluateHandoff({
           const identity = { ...declaration[0] }; delete identity.phase;
           if (!sameRecord(identity, m2.receipt.identity)) phaseReasons.push('M2 governance receipt identity drift');
           try {
-            if (!await isAncestor(m2.worktree, m2.reviewedTip || m2.exactTip, phase.phaseBase)) phaseReasons.push('M2 governance tip is not an ancestor of M4 phase base');
+            const m2Tip = m2.reviewedTip || m2.exactTip;
+            if (!await isAncestor(phase.worktree, m2Tip, phase.phaseBase)
+              || !await isAncestor(phase.worktree, m2Tip, phase.implementationTip)) phaseReasons.push('M2 governance tip is not an ancestor of M4 base and implementation');
           } catch { phaseReasons.push('M2 governance ancestry is not resolvable'); }
         }
       }
@@ -353,18 +363,47 @@ export async function evaluateHandoff({
       }
       if (phase.state === 'accepted') {
         try {
-          await reviewAuthority.validate({ phase: phaseId, implementationTip: phase.implementationTip, recordTip: phase.recordTip, reviewedTip: phase.reviewedTip });
+          await validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader });
         } catch (error) { phaseReasons.push(`independent review authority invalid: ${error.message}`); }
       }
       if (phase.state !== 'accepted') phaseReasons.push(`admission state is ${phase.state}`);
     }
     phaseMeta.set(phaseId, {
+      ...phaseMeta.get(phaseId),
       phase,
       phasePolicy,
       phaseReasons,
       receiptEligible,
       preparationEligible: isPreparationEligible(phase, phasePolicy, policyEligible),
     });
+  }
+
+  // A declared data edge is also a source-control edge: the upstream reviewed
+  // (or exact, while review is pending) tip must precede both the target's
+  // declared phase base and its implementation.  This does not infer an
+  // M2->M4 product edge; M2 is handled separately above as governance.
+  for (const [source, target] of policy.edges) {
+    const upstream = observations.get(source);
+    const downstream = observations.get(target);
+    const targetMeta = phaseMeta.get(target);
+    if (!upstream || !downstream || !targetMeta) continue;
+    try {
+      const upstreamTip = upstream.reviewedTip || upstream.exactTip;
+      if (!await isAncestor(downstream.worktree, upstreamTip, downstream.phaseBase)
+        || !await isAncestor(downstream.worktree, upstreamTip, downstream.implementationTip)) targetMeta.phaseReasons.push(`${source} topology tip is not an ancestor of ${target} base and implementation`);
+    } catch { targetMeta.phaseReasons.push(`${source} to ${target} topology ancestry is not resolvable`); }
+  }
+
+  // M4's typed M1 binding is stronger than an observation declaration: the
+  // actual M4 handoff receipt must carry the warehouse identity that the M1
+  // producer actually emitted, and validateReceipt already requires the same
+  // M4 value at its top level and in lineage.
+  const m1 = observations.get('M1');
+  const m4Meta = phaseMeta.get('M4');
+  if (m4Meta?.receiptEvidence && m1?.receipt?.availability === 'available') {
+    if (m4Meta.receiptEvidence.identity.warehouseIdentity !== m1.receipt.identity?.current_snapshot_id) {
+      m4Meta.phaseReasons.push('M1/M4 warehouse identity cross-binding drift');
+    }
   }
 
   for (const phaseId of topology) {
@@ -390,7 +429,14 @@ export async function evaluateHandoff({
     const phase = observations.get(phasePolicy.id);
     phaseResults[phasePolicy.id].decisions.deletionEligible = finalAdmissionEligible
       && phaseResults[phasePolicy.id].decisions.admissionEligible
-      && validDeletionAuthorization(phase, phasePolicy);
+      && await validateDeletionAuthority({
+        phase,
+        phasePolicy,
+        oneD: observations.get('1D'),
+        oneDResult: phaseResults['1D'],
+        filesystemAuthority,
+        authorityReader,
+      });
   }
 
   for (const [source, target] of policy.edges) {
@@ -519,17 +565,59 @@ function sameRecord(left, right) {
   return sameList(leftKeys, rightKeys) && leftKeys.every((key) => left[key] === right[key]);
 }
 
-function validDeletionAuthorization(phase, policy) {
-  const authorization = phase?.retention?.authorizationReceipt;
-  return Boolean(authorization
-    && typeof authorization === 'object'
-    && authorization.schema === policy.retention.authorizationReceipt
-    && authorization.issuer === '1D integration/release owner'
-    && authorization.decisionOwner === policy.retention.decisionOwner
-    && authorization.target?.phase === phase.phase
-    && authorization.target?.ignoredRoot === phase.ignoredRoot
-    && sameList(authorization.prerequisites, policy.retention.deletePrerequisites)
-    && isExactTimestamp(authorization.decidedAt));
+async function readAuthorityReceipt(reference, phase, filesystemAuthority, authorityReader, kind) {
+  if (!reference || typeof reference !== 'object' || typeof reference.path !== 'string'
+    || typeof reference.schema !== 'string' || !reference.expectedIdentity
+    || !reference.expectedIssuer) throw new Error(`${kind} authority reference is incomplete`);
+  const receiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, reference.path);
+  const receipt = await authorityReader.read(receiptPath);
+  if (!receipt || typeof receipt !== 'object') throw new Error(`${kind} authority receipt is not an object`);
+  if (receipt.schema !== reference.schema || receipt.schema !== AUTHORITY_RECEIPT_POLICY[kind].schema) throw new Error(`${kind} authority schema drift`);
+  if (!sameRecord(receipt.identity, reference.expectedIdentity)) throw new Error(`${kind} authority identity drift`);
+  const issuer = receipt.reviewer || receipt.issuer;
+  if (!sameRecord(issuer, reference.expectedIssuer)) throw new Error(`${kind} authority issuer drift`);
+  return receipt;
+}
+
+function isIndependentIssuer(issuer, phase) {
+  return Boolean(issuer
+    && typeof issuer.taskId === 'string' && issuer.taskId
+    && typeof issuer.identity === 'string' && issuer.identity
+    && issuer.taskId !== phase.producerTask
+    && issuer.taskId !== phase.owner
+    && issuer.taskId !== '1D integration/release owner'
+    && issuer.identity !== phase.producerTask
+    && issuer.identity !== phase.owner
+    && issuer.identity !== '1D integration/release owner');
+}
+
+async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, authorityReader }) {
+  const receipt = await readAuthorityReceipt(phase.reviewAuthority, phase, filesystemAuthority, authorityReader, 'review');
+  if (!isIndependentIssuer(receipt.reviewer, phase)) throw new Error('review authority is not independent');
+  if (receipt.phase !== phaseId || receipt.verdict !== 'approve') throw new Error('review verdict or phase drift');
+  if (receipt.candidate?.implementationTip !== phase.implementationTip
+    || receipt.candidate?.executionRecordTip !== phase.recordTip
+    || receipt.candidate?.cumulativeTip !== phase.reviewedTip) throw new Error('review candidate tip binding drift');
+}
+
+async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, filesystemAuthority, authorityReader }) {
+  if (!phase || !oneD || oneDResult?.decisions?.admissionEligible !== true || oneD.state !== 'accepted') return false;
+  try {
+    const receipt = await readAuthorityReceipt(phase.deletionAuthority, phase, filesystemAuthority, authorityReader, 'deletion');
+    if (!isIndependentIssuer(receipt.issuer, phase)) return false;
+    if (receipt.decision?.taskId === phase.producerTask || receipt.decision?.taskId === phase.owner
+      || receipt.decision?.taskId === '1D integration/release owner') return false;
+    if (receipt.decision?.taskId !== receipt.issuer.taskId
+      || receipt.decision?.identity !== receipt.issuer.identity
+      || receipt.decision?.decidedAt !== receipt.decidedAt) return false;
+    if (receipt.accepted1D?.cumulativeTip !== oneD.reviewedTip
+      || !sameRecord(receipt.accepted1D?.receiptIdentity, oneD.receipt?.identity)) return false;
+    return receipt.target?.phase === phase.phase
+      && receipt.target?.ignoredRoot === phase.ignoredRoot
+      && sameList(receipt.prerequisites, phasePolicy.retention.deletePrerequisites)
+      && isExactTimestamp(receipt.decidedAt)
+      && isExactTimestamp(receipt.decision?.decidedAt);
+  } catch { return false; }
 }
 
 function canonicalReceiptMode(phaseId) {

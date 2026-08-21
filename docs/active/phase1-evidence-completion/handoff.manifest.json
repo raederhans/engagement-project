@@ -2,6 +2,16 @@
   "schema": "engagement-phase1-handoff-policy/v2",
   "kind": "versioned-phase-policy-definition",
   "controlSurfaceOwner": "1D integration/release owner",
+  "authorityReceipts": {
+    "review": {
+      "schema": "engagement-phase1-independent-review/v1",
+      "description": "An external reviewer receipt; a phase observation may only reference its path and expected identity."
+    },
+    "deletion": {
+      "schema": "engagement-phase1-independent-deletion/v1",
+      "description": "An external retention-authority receipt bound to an independently accepted 1D cumulative receipt."
+    }
+  },
   "phase1_0_writable": [
     "docs/active/_worktree_registry.md",
     "scripts/tests/area_intelligence_browser.mjs",

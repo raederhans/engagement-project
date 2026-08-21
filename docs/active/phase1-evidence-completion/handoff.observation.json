@@ -48,6 +48,8 @@
       "implementationTip": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
       "recordTip": "a86b4fb02d3c06c3a7904b1674f3eae1b16a5929",
       "reviewedTip": null,
+      "reviewAuthority": null,
+      "deletionAuthority": null,
       "state": "pending-review",
       "evidenceAvailability": "unavailable-rebuild-required"
     },
@@ -101,6 +103,8 @@
       "implementationTip": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
       "recordTip": "9e8ff7ea24b1237a7322a59de602603f2786df5f",
       "reviewedTip": null,
+      "reviewAuthority": null,
+      "deletionAuthority": null,
       "state": "pending-review",
       "evidenceAvailability": "unavailable-rebuild-required"
     },
@@ -154,6 +158,8 @@
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
+      "reviewAuthority": null,
+      "deletionAuthority": null,
       "state": "pending-review"
     },
     {
@@ -202,6 +208,8 @@
       "implementationTip": "fe32f7baeb1bbaf19b219012f5b89285b575311a",
       "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
+      "reviewAuthority": null,
+      "deletionAuthority": null,
       "state": "pending-review"
     },
     {
@@ -287,6 +295,8 @@
       "implementationTip": "78db018ddf8eb30335393347b2c897b834fccd79",
       "recordTip": "4093e60164c8edf755cd5355f56f3b3b4399ccae",
       "reviewedTip": null,
+      "reviewAuthority": null,
+      "deletionAuthority": null,
       "state": "pending-review"
     }
   ]
