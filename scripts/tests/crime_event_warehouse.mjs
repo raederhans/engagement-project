@@ -22,8 +22,10 @@ import {
 } from '../lib/crime_event_source.mjs';
 import {
   classifyCrimeDataStatus,
+  CRIME_WAREHOUSE_RECEIPT_SCHEMA,
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
+  validateCrimeWarehouseAdmissionReceipt,
 } from '../lib/crime_event_warehouse.mjs';
 import { assertTaskOwnedDfev1Path } from '../lib/dfev1_path.mjs';
 
@@ -101,6 +103,122 @@ test('quality vocabulary keeps unavailable, partial, stale, zero, and available 
   assert.equal(classifyCrimeDataStatus({
     availability: 'available', rowCount: 1, freshnessStatus: 'current-within-policy',
   }), 'available');
+});
+
+test('real backfill producer publishes one official frozen receipt and validates hostile drift fail closed', async (context) => {
+  const root = path.join(
+    process.cwd(),
+    '.dfev1',
+    'crime',
+    `receipt-contract-${process.pid}-${Date.now()}`,
+  );
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const runtime = officialBackfillRuntime();
+  const args = [
+    '--start=2025-12-31',
+    '--through=2026-01-02',
+    `--root=${root}`,
+    '--page-size=10',
+    `--partitions=${EVENT_CONTRACT.default_partition_count}`,
+  ];
+
+  const published = await backfillCrimeEventWarehouse(args, runtime);
+  const admitted = await validateCrimeWarehouseAdmissionReceipt(root);
+  assert.equal(published.idempotent, false);
+  assert.equal(admitted.receipt.schema, CRIME_WAREHOUSE_RECEIPT_SCHEMA);
+  assert.equal(admitted.receipt.mode, 'official-local-candidate');
+  assert.equal(admitted.receipt.serving_eligible, false);
+  assert.equal(admitted.receipt.authority.integration_authority, false);
+  assert.equal(admitted.receipt.authority.deletion_authority, false);
+  assert.deepEqual(admitted.receipt.coverage, {
+    start: '2025-12-31',
+    end_exclusive: '2026-01-02',
+    earliest_event_at: '2025-12-31T01:00:00.000Z',
+    latest_event_at: '2026-01-01T03:00:00.000Z',
+  });
+  assert.equal(admitted.receipt.counts.acquired_rows, 2);
+  assert.equal(admitted.receipt.counts.canonical_rows, 2);
+  assert.equal(admitted.receipt.data_quality.status_semantics.unavailable_is_zero, false);
+  assert.equal(admitted.receipt.data_quality.status_semantics.partial_is_current, false);
+  assert.equal(admitted.receipt.data_quality.fixed_grid.unavailable, 1);
+  assert.equal(admitted.receipt.data_quality.tract.unmapped, 1);
+  assert.equal(admitted.receipt.artifacts.source_manifests.raw_shard_count, 128);
+  assert.match(admitted.receipt.artifacts.source_manifests.raw_sha256, /^sha256:[a-f0-9]{64}$/);
+  for (const name of [
+    'warehouse_manifest', 'backfill_checkpoint', 'lineage_registry',
+    'latest_quality_report', 'latest_revision_report', 'current_source_manifest',
+  ]) {
+    const artifact = admitted.receipt.artifacts[name];
+    assert.doesNotMatch(artifact.path, /\\|(^|\/)\.\.?(\/|$)/);
+    assert.match(artifact.sha256, /^sha256:[a-f0-9]{64}$/);
+  }
+
+  const receiptPath = path.join(root, 'receipt.json');
+  const checkpointPath = path.join(root, 'backfill-checkpoint.json');
+  const before = {
+    bytes: await fs.readFile(receiptPath),
+    mtimeMs: (await fs.stat(receiptPath)).mtimeMs,
+    checkpointBytes: await fs.readFile(checkpointPath),
+    checkpointMtimeMs: (await fs.stat(checkpointPath)).mtimeMs,
+  };
+  const rerun = await backfillCrimeEventWarehouse(args, runtime);
+  assert.equal(rerun.idempotent, true);
+  assert.deepEqual(await fs.readFile(receiptPath), before.bytes);
+  assert.equal((await fs.stat(receiptPath)).mtimeMs, before.mtimeMs);
+  assert.deepEqual(await fs.readFile(checkpointPath), before.checkpointBytes);
+  assert.equal((await fs.stat(checkpointPath)).mtimeMs, before.checkpointMtimeMs);
+
+  const qualityPath = path.join(root, ...admitted.receipt.artifacts.latest_quality_report.path.split('/'));
+  const revisionPath = path.join(root, ...admitted.receipt.artifacts.latest_revision_report.path.split('/'));
+  const qualityBytes = await fs.readFile(qualityPath);
+  const revisionBytes = await fs.readFile(revisionPath);
+  await fs.appendFile(qualityPath, ' ', 'utf8');
+  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /identity|drifted/i);
+  await fs.writeFile(qualityPath, qualityBytes);
+  await fs.rm(revisionPath);
+  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /ENOENT|no such file/i);
+  await fs.writeFile(revisionPath, revisionBytes);
+
+  const currentSourceManifestPath = path.join(
+    root,
+    ...admitted.receipt.artifacts.current_source_manifest.path.split('/'),
+  );
+  const currentSourceManifest = await readJson(currentSourceManifestPath);
+  const rawShardPath = path.join(
+    path.dirname(currentSourceManifestPath),
+    ...currentSourceManifest.shards[0].path.split('/'),
+  );
+  const rawShardBytes = await fs.readFile(rawShardPath);
+  await fs.appendFile(rawShardPath, ' ', 'utf8');
+  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /raw shard bytes drifted/i);
+  await fs.writeFile(rawShardPath, rawShardBytes);
+
+  const driftedQuality = JSON.parse(qualityBytes.toString('utf8'));
+  driftedQuality.schema = 'engagement-phl-crime-data-quality/drifted';
+  await fs.writeFile(qualityPath, `${JSON.stringify(driftedQuality, null, 2)}\n`, 'utf8');
+  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /companion schema drifted/i);
+  await fs.writeFile(qualityPath, qualityBytes);
+
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.mode = 'synthetic-test';
+  }, /cannot admit synthetic/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.clocks.retrieved_at = '2026-08-22T12:00:00.000Z';
+    receipt.clocks.built_at = '2026-08-22T11:00:00.000Z';
+  }, /not finite and monotonic/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.artifacts.latest_quality_report.sha256 = `sha256:${'0'.repeat(64)}`;
+  }, /fields drifted/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.source.revision = `sha256:${'0'.repeat(64)}`;
+  }, /identity or source revision is invalid/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.coverage.latest_event_at = '2026-08-22T00:00:00.000Z';
+  }, /not finite and monotonic/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.artifacts.latest_quality_report.path = 'warehouse/quality/../quality.json';
+  }, /canonical safe relative path/i);
+  await validateCrimeWarehouseAdmissionReceipt(root);
 });
 
 test('revision-aware warehouse preserves event lifecycle, lineage, crosswalk, spatial, and ACS semantics', async (context) => {
@@ -391,6 +509,92 @@ test('source acquisition resumes its exact checkpoint without duplicating commit
   assert.equal(resumed.manifest.acquisition.pages_completed, 2);
   assert.equal(resumed.manifest.acquisition.count_complete, true);
 });
+
+function officialBackfillRuntime() {
+  const rows = [
+    {
+      ...sourceRow(1),
+      dispatch_date_time: '2025-12-31T01:00:00.000Z',
+      dispatch_date: '2025-12-31',
+    },
+    {
+      ...sourceRow(2),
+      dispatch_date_time: '2026-01-01T03:00:00.000Z',
+      dispatch_date: '2026-01-01',
+      dispatch_time: '03:00:00',
+      hour: 3,
+      point_x: null,
+      point_y: null,
+    },
+  ];
+  const fields = Object.fromEntries(
+    Object.entries(SOURCE_CONTRACT.expected_query_schema).map(([name, type]) => [name, { type }]),
+  );
+  const request = async (input) => {
+    const sql = new URL(input).searchParams.get('q');
+    const start = sql.match(/dispatch_date_time >= '([^']+)'/)?.[1];
+    const end = sql.match(/dispatch_date_time < '([^']+)'/)?.[1];
+    const scopedRows = rows.filter((row) => row.dispatch_date_time >= start && row.dispatch_date_time < end);
+    if (sql.startsWith('SELECT COUNT(*)')) {
+      return jsonResponse({
+        rows: [{
+          row_count: scopedRows.length,
+          distinct_source_ids: scopedRows.length,
+          distinct_dc_keys: scopedRows.length,
+          min_event_at: scopedRows[0]?.dispatch_date_time || null,
+          max_event_at: scopedRows.at(-1)?.dispatch_date_time || null,
+        }],
+        fields: {},
+      });
+    }
+    if (sql.includes('cartodb_id > 0')) return jsonResponse({ rows: scopedRows, fields });
+    return jsonResponse({ rows: [], fields });
+  };
+  let clock = Date.parse('2026-08-22T10:30:00.000Z');
+  return {
+    now() {
+      const value = new Date(clock);
+      clock += 1_000;
+      return value;
+    },
+    async inspectCrimeSourceHealth() {
+      return {
+        schema: 'engagement-phl-crime-source-health-observation/v1',
+        observed_at: '2026-08-22T10:29:59.000Z',
+        row_count: rows.length,
+        date_scoped_row_count: rows.length,
+        scope: { start: '2025-12-31', end_exclusive: '2026-01-02' },
+        distinct_source_ids: rows.length,
+        distinct_dc_keys: rows.length,
+        duplicate_source_id_count: 0,
+        suspected_duplicate_dc_key_excess: 0,
+        event_time_missing: 0,
+        source_id_missing: 0,
+        coordinate_missing: 1,
+        coordinate_outside_city_bounds: 0,
+        min_event_at: rows[0].dispatch_date_time,
+        max_event_at: rows[1].dispatch_date_time,
+        meaning: 'Test transport observation; never official evidence.',
+      };
+    },
+    acquireCrimeSourceSnapshot(options) {
+      return acquireCrimeSourceSnapshot({ ...options, request });
+    },
+  };
+}
+
+async function assertReceiptMutation(root, mutate, pattern) {
+  const receiptPath = path.join(root, 'receipt.json');
+  const original = await fs.readFile(receiptPath);
+  const value = JSON.parse(original.toString('utf8'));
+  mutate(value);
+  await fs.writeFile(receiptPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  try {
+    await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), pattern);
+  } finally {
+    await fs.writeFile(receiptPath, original);
+  }
+}
 
 async function writeSyntheticSnapshot(directory, vintage) {
   const partitionCount = EVENT_CONTRACT.default_partition_count;

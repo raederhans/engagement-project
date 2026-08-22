@@ -11,6 +11,8 @@ import {
 import {
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
+  publishCrimeWarehouseAdmissionReceipt,
+  validateCrimeWarehouseAdmissionReceipt,
 } from './lib/crime_event_warehouse.mjs';
 import { assertTaskOwnedDfev1Path } from './lib/dfev1_path.mjs';
 
@@ -29,13 +31,25 @@ const DEFAULTS = Object.freeze({
   partitionCount: undefined,
 });
 
-export async function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2), runtime = {}) {
   const options = parseArguments(argv);
   if (options.help) {
     console.log(helpText());
     return;
   }
   options.root = await assertTaskOwnedDfev1Path(options.root, { label: 'Crime backfill root' });
+  if (options.validateOnly) {
+    const admitted = await validateCrimeWarehouseAdmissionReceipt(options.root);
+    console.log(
+      `[crime-backfill] Validated ${admitted.receipt.mode} receipt ${admitted.path}: `
+        + `${admitted.bytes} bytes, ${admitted.receipt.identity}.`,
+    );
+    return admitted;
+  }
+  const acquire = runtime.acquireCrimeSourceSnapshot || acquireCrimeSourceSnapshot;
+  const inspectSource = runtime.inspectCrimeSourceHealth || inspectCrimeSourceHealth;
+  const ingest = runtime.ingestCrimeSourceSnapshot || ingestCrimeSourceSnapshot;
+  const now = runtime.now || (() => new Date());
   const [eventContract, sourceContract, taxonomy, tractGeoJson, tractSourceRegistry, acsSnapshot] = await Promise.all([
     readJson(options.eventContract),
     readJson(options.sourceContract),
@@ -60,7 +74,7 @@ export async function main(argv = process.argv.slice(2)) {
   const periods = annualPeriods(options.start, options.through);
   const checkpoint = await loadCheckpoint(checkpointPath, { options, periods });
   if (!checkpoint.source_health_preflight) {
-    checkpoint.source_health_preflight = await inspectCrimeSourceHealth(sourceContract, {
+    checkpoint.source_health_preflight = await inspectSource(sourceContract, {
       scope: { start: options.start, end_exclusive: options.through },
     });
     checkpoint.updated_at = checkpoint.source_health_preflight.observed_at;
@@ -70,21 +84,23 @@ export async function main(argv = process.argv.slice(2)) {
     const periodId = `${period.start}_${period.end_exclusive}`;
     const snapshotDir = path.join(options.root, 'acquisitions', periodId);
     console.log(`[crime-backfill] Starting ${periodId}.`);
-    const acquisition = await acquireCrimeSourceSnapshot({
+    const acquisition = await acquire({
       outputDir: snapshotDir,
       start: period.start,
       end: period.end_exclusive,
       sourceContract,
       pageSize: options.pageSize,
       partitionCount: options.partitionCount,
+      now,
       onProgress(event) {
         console.log(`[crime-backfill] acquisition ${periodId} ${JSON.stringify(event)}`);
       },
     });
-    const ingest = await ingestCrimeSourceSnapshot({
+    const ingested = await ingest({
       snapshotDir,
       warehouseDir,
       dependencies,
+      now,
       onProgress(event) {
         console.log(`[crime-backfill] ingest ${periodId} ${JSON.stringify(event)}`);
       },
@@ -92,15 +108,14 @@ export async function main(argv = process.argv.slice(2)) {
     const nextCompleted = {
       snapshot_id: acquisition.manifest.snapshot_id,
       source_rows: acquisition.manifest.row_count,
-      canonical_rows: ingest.manifest.canonical_row_count,
+      canonical_rows: ingested.manifest.canonical_row_count,
     };
     const existingCompleted = checkpoint.completed[periodId];
     const completionChanged = !existingCompleted
       || existingCompleted.snapshot_id !== nextCompleted.snapshot_id
-      || existingCompleted.source_rows !== nextCompleted.source_rows
-      || existingCompleted.canonical_rows !== nextCompleted.canonical_rows;
+      || existingCompleted.source_rows !== nextCompleted.source_rows;
     if (completionChanged) {
-      nextCompleted.completed_at = new Date().toISOString();
+      nextCompleted.completed_at = exactNow(now);
       checkpoint.completed[periodId] = nextCompleted;
       checkpoint.updated_at = nextCompleted.completed_at;
       await writeJsonAtomic(checkpointPath, checkpoint);
@@ -121,7 +136,7 @@ export async function main(argv = process.argv.slice(2)) {
   };
   if (JSON.stringify(checkpoint.final_quality) !== JSON.stringify(finalQuality)) {
     checkpoint.final_quality = finalQuality;
-    checkpoint.updated_at = new Date().toISOString();
+    checkpoint.updated_at = exactNow(now);
     await writeJsonAtomic(checkpointPath, checkpoint);
   }
   if (!finalQuality.date_scoped_count_complete) {
@@ -129,16 +144,23 @@ export async function main(argv = process.argv.slice(2)) {
       `Backfill acquired ${acquiredRows} rows but preflight expected ${expectedDateScopedRows} date-scoped rows.`,
     );
   }
+  const receipt = await publishCrimeWarehouseAdmissionReceipt(options.root);
   console.log(
     `[crime-backfill] Local candidate covers requested scopes [${options.start}, ${options.through}); `
       + `${Object.keys(checkpoint.completed).length}/${periods.length} periods recorded.`,
   );
+  console.log(
+    `[crime-backfill] ${receipt.idempotent ? 'Verified existing' : 'Published'} frozen receipt `
+      + `${receipt.path}: ${receipt.bytes} bytes, ${receipt.receipt.identity}.`,
+  );
+  return receipt;
 }
 
 function parseArguments(argv) {
-  const options = { ...DEFAULTS, help: false };
+  const options = { ...DEFAULTS, help: false, validateOnly: false };
   for (const argument of argv) {
     if (argument === '--help' || argument === '-h') options.help = true;
+    else if (argument === '--validate-only') options.validateOnly = true;
     else if (argument.startsWith('--root=')) options.root = argument.slice('--root='.length);
     else if (argument.startsWith('--start=')) options.start = argument.slice('--start='.length);
     else if (argument.startsWith('--through=')) options.through = argument.slice('--through='.length);
@@ -153,10 +175,17 @@ function parseArguments(argv) {
     else if (argument.startsWith('--acs=')) options.acs = argument.slice('--acs='.length);
     else throw new Error(`Unknown argument: ${argument}`);
   }
-  if (!options.help && !options.through) {
+  if (!options.help && !options.validateOnly && !options.through) {
     throw new Error('Crime event backfill requires an explicit half-open --through=YYYY-MM-DD gate.');
   }
   return options;
+}
+
+function exactNow(now) {
+  const value = now();
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new Error('Crime backfill clock is invalid.');
+  return parsed.toISOString();
 }
 
 export function annualPeriods(start, through) {
@@ -231,9 +260,13 @@ Usage:
   node scripts/backfill_crime_event_warehouse.mjs \\
     --start=2006-01-01 --through=YYYY-MM-DD --root=.dfev1/crime
 
+Receipt recheck:
+  node scripts/backfill_crime_event_warehouse.mjs --validate-only --root=.dfev1/crime
+
 The --through date is exclusive and must be explicit. Every annual acquisition has its own
-checkpoint and exact source manifest. The outer checkpoint records completed periods. Re-run
-the identical command to resume. All raw/canonical event data and logs remain ignored.`;
+checkpoint and exact source manifest. The outer checkpoint records completed periods. Only a
+complete official-local-candidate run publishes receipt.json. Re-run the identical command to
+resume and preserve identical receipt bytes/mtime. All raw/canonical data and logs remain ignored.`;
 }
 
 function isDirectInvocation() {

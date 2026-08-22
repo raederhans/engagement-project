@@ -25,6 +25,9 @@ const QUALITY_SCHEMA = 'engagement-phl-crime-data-quality/v1';
 const LINEAGE_SCHEMA = 'engagement-phl-crime-lineage/v1';
 const SYNTHETIC_SNAPSHOT_SCHEMA = 'engagement-phl-crime-synthetic-snapshot/v1';
 const TRANSACTION_SCHEMA = 'engagement-phl-crime-warehouse-transaction/v1';
+const REVISION_SCHEMA = 'engagement-phl-crime-revisions/v1';
+const BACKFILL_CHECKPOINT_SCHEMA = 'engagement-phl-crime-backfill-checkpoint/v1';
+export const CRIME_WAREHOUSE_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v1';
 
 export async function createWarehouseDependencies({
   eventContract,
@@ -129,7 +132,9 @@ export async function ingestCrimeSourceSnapshot({
 
   const qualityAccumulator = createQualityAccumulator(snapshotManifest, dependencies, observedAt);
   const revisionDetails = [];
+  const priorEarliestEventAt = currentManifest?.coverage?.earliest_event_at || null;
   const priorLatestEventAt = currentManifest?.coverage?.latest_event_at || null;
+  let earliestEventAt = priorEarliestEventAt;
   let latestEventAt = priorLatestEventAt;
   let canonicalRowCount = 0;
 
@@ -174,6 +179,7 @@ export async function ingestCrimeSourceSnapshot({
         if (revisionType !== 'unchanged') {
           appendRevisionDetail(revisionDetails, revisionRecord(sourceId, revisionType, prior, next));
         }
+        if (!earliestEventAt || next.event_at < earliestEventAt) earliestEventAt = next.event_at;
         if (!latestEventAt || next.event_at > latestEventAt) latestEventAt = next.event_at;
       }
 
@@ -229,6 +235,7 @@ export async function ingestCrimeSourceSnapshot({
           currentManifest?.coverage?.latest_scope_end_exclusive,
           snapshotManifest.scope.end_exclusive,
         ),
+        earliest_event_at: earliestEventAt,
         latest_event_at: latestEventAt,
       },
       transforms: {
@@ -257,7 +264,7 @@ export async function ingestCrimeSourceSnapshot({
     await fs.writeFile(
       path.join(transactionDir, 'candidate-meta', 'revision.json'),
       `${JSON.stringify({
-        schema: 'engagement-phl-crime-revisions/v1',
+        schema: REVISION_SCHEMA,
         snapshot_id: snapshotManifest.snapshot_id,
         observed_at: observedAt,
         counts: quality.revisions,
@@ -439,6 +446,7 @@ export function validateCanonicalEvent(event, eventContract) {
     || !exactTimestamp(event.event_at)
     || !exactTimestamp(event.first_seen_at)
     || !exactTimestamp(event.last_seen_at)
+    || exactTimestamp(event.first_seen_at) > exactTimestamp(event.last_seen_at)
     || !/^sha256:[a-f0-9]{64}$/.test(event.row_hash)
     || !eventContract.lifecycle_states.includes(event.lifecycle?.state)
     || event.generalized_location?.exact_sidewalk_or_street_segment !== false
@@ -458,6 +466,590 @@ export function classifyCrimeDataStatus({ availability, rowCount, freshnessStatu
   if (rowCount === 0) return 'zero';
   if (freshnessStatus === 'stale') return 'stale';
   return 'available';
+}
+
+export async function createCrimeWarehouseAdmissionReceipt(evidenceRoot) {
+  const evidence = await inspectCrimeWarehouseEvidence(evidenceRoot);
+  const receipt = { ...evidence, identity: identityOf(evidence) };
+  validateCrimeWarehouseReceiptShape(receipt);
+  return Object.freeze(structuredClone(receipt));
+}
+
+export async function validateCrimeWarehouseAdmissionReceipt(evidenceRoot) {
+  const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
+  const receiptArtifact = await readRelativeJsonArtifact(root, 'receipt.json', 'crime warehouse receipt');
+  const receipt = receiptArtifact.value;
+  validateCrimeWarehouseReceiptShape(receipt);
+  const evidence = await inspectCrimeWarehouseEvidence(root.absolute);
+  const expectedIdentity = identityOf(evidence);
+  if (receipt.identity !== expectedIdentity) {
+    throw new Error('Crime warehouse receipt identity drifted from its declared evidence.');
+  }
+  if (stableSerialization(withoutIdentity(receipt)) !== stableSerialization(evidence)) {
+    throw new Error('Crime warehouse receipt fields drifted from the real producer output.');
+  }
+  return Object.freeze({
+    receipt: structuredClone(receipt),
+    path: receiptArtifact.absolute,
+    bytes: receiptArtifact.bytes.length,
+    sha256: rawSha256(receiptArtifact.bytes),
+  });
+}
+
+export async function publishCrimeWarehouseAdmissionReceipt(evidenceRoot) {
+  const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
+  const receipt = await createCrimeWarehouseAdmissionReceipt(root.absolute);
+  const text = `${JSON.stringify(receipt, null, 2)}\n`;
+  const destination = path.join(root.absolute, 'receipt.json');
+  const existing = await readJsonIfExists(destination);
+  if (existing && stableSerialization(existing) === stableSerialization(receipt)) {
+    const admitted = await validateCrimeWarehouseAdmissionReceipt(root.absolute);
+    return Object.freeze({ ...admitted, idempotent: true });
+  }
+  await writeJsonAtomic(destination, receipt);
+  const admitted = await validateCrimeWarehouseAdmissionReceipt(root.absolute);
+  if (admitted.bytes !== Buffer.byteLength(text)) {
+    throw new Error('Crime warehouse receipt bytes changed during serialized publication.');
+  }
+  return Object.freeze({ ...admitted, idempotent: false });
+}
+
+async function inspectCrimeWarehouseEvidence(evidenceRoot) {
+  const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
+  const manifestArtifact = await readRelativeJsonArtifact(
+    root,
+    'warehouse/manifest.json',
+    'warehouse manifest',
+  );
+  const checkpointArtifact = await readRelativeJsonArtifact(
+    root,
+    'backfill-checkpoint.json',
+    'backfill checkpoint',
+  );
+  const manifest = manifestArtifact.value;
+  const checkpoint = checkpointArtifact.value;
+  if (manifest?.schema !== WAREHOUSE_SCHEMA
+    || manifest.mode !== 'official-local-candidate'
+    || manifest.serving_eligible !== false
+    || checkpoint?.schema !== BACKFILL_CHECKPOINT_SCHEMA) {
+    throw new Error('Crime warehouse admission requires official-local-candidate producer output.');
+  }
+
+  const lineageRelative = warehouseCompanionRelative(manifest.lineage_registry, 'lineage registry');
+  const qualityRelative = warehouseCompanionRelative(manifest.latest_quality_report, 'latest quality report');
+  const revisionRelative = warehouseCompanionRelative(manifest.latest_revision_report, 'latest revision report');
+  const [lineageArtifact, qualityArtifact, revisionArtifact] = await Promise.all([
+    readRelativeJsonArtifact(root, lineageRelative, 'lineage registry'),
+    readRelativeJsonArtifact(root, qualityRelative, 'latest quality report'),
+    readRelativeJsonArtifact(root, revisionRelative, 'latest revision report'),
+  ]);
+  const lineage = lineageArtifact.value;
+  const quality = qualityArtifact.value;
+  const revision = revisionArtifact.value;
+  if (lineage?.schema !== LINEAGE_SCHEMA
+    || quality?.schema !== QUALITY_SCHEMA
+    || revision?.schema !== REVISION_SCHEMA) {
+    throw new Error('Crime warehouse companion schema drifted.');
+  }
+  if (quality.snapshot_id !== manifest.current_snapshot_id
+    || revision.snapshot_id !== manifest.current_snapshot_id
+    || quality.lineage?.source_snapshot_id !== manifest.current_snapshot_id) {
+    throw new Error('Crime warehouse quality or revision companion drifted from current_snapshot_id.');
+  }
+
+  const sourceSnapshots = await inspectLineageSourceSnapshots(root, lineage, manifest);
+  const currentSource = sourceSnapshots.items.find(
+    ({ value }) => value.snapshot_id === manifest.current_snapshot_id,
+  );
+  if (!currentSource) throw new Error('Crime warehouse lineage lacks the current source revision.');
+  const canonical = await inspectCanonicalPartitions(root, manifest.partition_count);
+  validateCrimeWarehouseProducerSemantics({
+    manifest,
+    checkpoint,
+    lineage,
+    quality,
+    revision,
+    sourceSnapshots,
+    currentSource: currentSource.value,
+    canonical,
+  });
+
+  const clocks = {
+    source_as_of: currentSource.value.source_vintage.source_as_of,
+    retrieved_at: currentSource.value.source_vintage.retrieved_at,
+    built_at: manifest.updated_at,
+    observed_at: checkpoint.updated_at,
+  };
+  validateReceiptClockOrder(clocks, {
+    start: manifest.coverage.earliest_scope_start,
+    end_exclusive: manifest.coverage.latest_scope_end_exclusive,
+    earliest_event_at: manifest.coverage.earliest_event_at,
+    latest_event_at: manifest.coverage.latest_event_at,
+  });
+  const evidence = {
+    schema: CRIME_WAREHOUSE_RECEIPT_SCHEMA,
+    mode: 'official-local-candidate',
+    serving_eligible: false,
+    source: {
+      dataset_id: currentSource.value.dataset_id,
+      provider: currentSource.value.provider,
+      source_table: currentSource.value.source_table,
+      schema: currentSource.value.schema,
+      revision: manifest.current_snapshot_id,
+    },
+    warehouse: {
+      schema: manifest.schema,
+      event_schema: manifest.transforms.event_schema,
+      current_snapshot_id: manifest.current_snapshot_id,
+    },
+    coverage: {
+      start: manifest.coverage.earliest_scope_start,
+      end_exclusive: manifest.coverage.latest_scope_end_exclusive,
+      earliest_event_at: manifest.coverage.earliest_event_at,
+      latest_event_at: manifest.coverage.latest_event_at,
+    },
+    counts: {
+      acquired_rows: checkpoint.final_quality.acquired_rows,
+      expected_date_scoped_rows: checkpoint.final_quality.expected_date_scoped_rows,
+      canonical_rows: manifest.canonical_row_count,
+      active_rows: manifest.active_row_count,
+      removal_candidate_rows: manifest.removal_candidate_count,
+      source_snapshots: sourceSnapshots.items.length,
+      canonical_partitions: manifest.partition_count,
+    },
+    clocks,
+    data_quality: {
+      status: quality.data_status,
+      status_semantics: structuredClone(quality.status_semantics),
+      coordinate: structuredClone(quality.coordinate),
+      tract: structuredClone(quality.join_coverage.tract),
+      fixed_grid: structuredClone(quality.join_coverage.fixed_grid),
+      route_corridor: structuredClone(quality.join_coverage.route_corridor),
+      acs_estimate_moe: structuredClone(quality.join_coverage.acs_estimate_moe),
+      unknown_label_count: quality.labels.unknown_observed.length,
+    },
+    artifacts: {
+      warehouse_manifest: artifactDescriptor(manifestArtifact, manifest.schema),
+      backfill_checkpoint: artifactDescriptor(checkpointArtifact, checkpoint.schema),
+      lineage_registry: artifactDescriptor(lineageArtifact, lineage.schema),
+      latest_quality_report: artifactDescriptor(qualityArtifact, quality.schema),
+      latest_revision_report: artifactDescriptor(revisionArtifact, revision.schema),
+      current_source_manifest: artifactDescriptor(currentSource.artifact, currentSource.value.schema),
+      source_manifests: sourceSnapshots.aggregate,
+      canonical,
+    },
+    authority: {
+      producer_validated_local_candidate: true,
+      integration_authority: false,
+      serving_authority: false,
+      deletion_authority: false,
+    },
+    limitations: [
+      'Raw hashes bind exact local bytes; they do not prove upstream completeness, accuracy, or continuing freshness.',
+      'Serialized multi-file transaction recovery is validated; instantaneous multi-file atomic visibility is not claimed.',
+      'Ambiguous, unmapped, partial, stale, and unavailable states are not zero or current.',
+    ],
+  };
+  return evidence;
+}
+
+async function inspectLineageSourceSnapshots(root, lineage, manifest) {
+  if (!Array.isArray(lineage?.source_snapshots) || lineage.source_snapshots.length === 0) {
+    throw new Error('Crime warehouse lineage source snapshot registry is empty.');
+  }
+  const items = [];
+  const seen = new Set();
+  let totalBytes = 0;
+  let totalRows = 0;
+  let rawBytes = 0;
+  let rawShardCount = 0;
+  let earliestEventAt = null;
+  let latestEventAt = null;
+  const rawBindings = [];
+  for (const entry of lineage.source_snapshots) {
+    if (!entry || typeof entry.manifest_path !== 'string' || seen.has(entry.snapshot_id)) {
+      throw new Error('Crime warehouse lineage source identities must be unique and complete.');
+    }
+    seen.add(entry.snapshot_id);
+    const relative = await relativePathInsideRoot(root, entry.manifest_path, 'source manifest');
+    const artifact = await readRelativeJsonArtifact(root, relative, 'source manifest');
+    const value = artifact.value;
+    if (value?.schema !== 'engagement-phl-crime-source-snapshot/v1'
+      || value.source_kind !== 'official'
+      || value.availability !== 'available'
+      || value.snapshot_id !== entry.snapshot_id
+      || value.source_vintage?.id !== entry.snapshot_id
+      || value.source_vintage?.source_as_of !== entry.source_as_of
+      || value.source_vintage?.retrieved_at !== entry.retrieved_at
+      || value.row_count !== entry.row_count
+      || stableSerialization(value.scope) !== stableSerialization(entry.scope)) {
+      throw new Error(`Crime warehouse lineage source manifest drifted for ${entry.snapshot_id || '(missing)'}.`);
+    }
+    const minimum = exactTimestamp(value.source_summary_after?.min_event_at);
+    const maximum = exactTimestamp(value.source_summary_after?.max_event_at);
+    if ((value.row_count > 0 && (!minimum || !maximum)) || (minimum && maximum && minimum > maximum)) {
+      throw new Error('Crime warehouse source manifest event coverage is invalid.');
+    }
+    earliestEventAt = minimum && (!earliestEventAt || minimum < earliestEventAt) ? minimum : earliestEventAt;
+    latestEventAt = maximum && (!latestEventAt || maximum > latestEventAt) ? maximum : latestEventAt;
+    totalRows += value.row_count;
+    totalBytes += artifact.bytes.length;
+    const raw = await inspectSourceRawShards(root, artifact.relative, value);
+    rawBytes += raw.bytes;
+    rawShardCount += raw.count;
+    rawBindings.push(...raw.bindings);
+    items.push({ value, artifact, raw });
+  }
+  if (stableSerialization([...seen]) !== stableSerialization(manifest.applied_snapshot_ids)) {
+    throw new Error('Crime warehouse applied revisions drifted from lineage order.');
+  }
+  const bindings = items.map(({ artifact, value }) => ({
+    path: artifact.relative,
+    bytes: artifact.bytes.length,
+    sha256: rawSha256(artifact.bytes),
+    revision: value.snapshot_id,
+  }));
+  return {
+    items,
+    totalRows,
+    earliestEventAt,
+    latestEventAt,
+    aggregate: {
+      count: items.length,
+      bytes: totalBytes,
+      sha256: identityOf(bindings),
+      raw_shard_count: rawShardCount,
+      raw_bytes: rawBytes,
+      raw_sha256: identityOf(rawBindings),
+    },
+  };
+}
+
+async function inspectSourceRawShards(root, manifestRelative, manifest) {
+  finiteInteger(manifest.partition_count, 'source manifest partition_count', { minimum: 1 });
+  if (!Array.isArray(manifest.shards) || manifest.shards.length !== manifest.partition_count) {
+    throw new Error('Crime warehouse source manifest raw shard set drifted.');
+  }
+  const manifestDirectory = path.posix.dirname(manifestRelative);
+  const bindings = [];
+  let bytes = 0;
+  let rows = 0;
+  for (let partition = 0; partition < manifest.partition_count; partition += 1) {
+    const shard = manifest.shards[partition];
+    const expectedPath = `rows/part-${String(partition).padStart(3, '0')}.jsonl`;
+    if (shard?.partition !== partition || shard.path !== expectedPath) {
+      throw new Error('Crime warehouse source manifest raw shard order drifted.');
+    }
+    finiteInteger(shard.row_count, 'source raw shard row_count');
+    finiteInteger(shard.bytes, 'source raw shard bytes');
+    if (!/^sha256:[a-f0-9]{64}$/.test(shard.identity || '')) {
+      throw new Error('Crime warehouse source raw shard identity is invalid.');
+    }
+    const relative = `${manifestDirectory}/${canonicalRelativePath(shard.path, 'source raw shard')}`;
+    const resolved = await resolveCanonicalRelative(root, relative, {
+      expectDirectory: false,
+      label: 'source raw shard',
+    });
+    const stat = await fs.stat(resolved.absolute);
+    const identity = await hashFile(resolved.absolute);
+    if (stat.size !== shard.bytes || identity !== shard.identity) {
+      throw new Error(`Crime warehouse source raw shard bytes drifted for ${relative}.`);
+    }
+    bytes += stat.size;
+    rows += shard.row_count;
+    bindings.push({ path: relative, bytes: stat.size, sha256: identity });
+  }
+  if (rows !== manifest.row_count) throw new Error('Crime warehouse source raw shard row count drifted.');
+  return { count: bindings.length, bytes, bindings };
+}
+
+async function inspectCanonicalPartitions(root, partitionCount) {
+  finiteInteger(partitionCount, 'warehouse partition_count', { minimum: 1 });
+  const directoryRelative = 'warehouse/canonical';
+  const directory = await resolveCanonicalRelative(root, directoryRelative, { expectDirectory: true });
+  const names = (await fs.readdir(directory.absolute)).filter((name) => /^part-\d{3}\.jsonl$/.test(name)).sort();
+  const expectedNames = Array.from(
+    { length: partitionCount },
+    (_, index) => `part-${String(index).padStart(3, '0')}.jsonl`,
+  );
+  if (stableSerialization(names) !== stableSerialization(expectedNames)) {
+    throw new Error('Crime warehouse canonical partition name set drifted.');
+  }
+  const bindings = [];
+  let bytes = 0;
+  for (const name of names) {
+    const relative = `${directoryRelative}/${name}`;
+    const artifact = await resolveCanonicalRelative(root, relative, {
+      expectDirectory: false,
+      label: 'canonical partition',
+    });
+    const stat = await fs.stat(artifact.absolute);
+    bytes += stat.size;
+    bindings.push({ path: relative, bytes: stat.size, sha256: await hashFile(artifact.absolute) });
+  }
+  return {
+    path: directoryRelative,
+    partition_count: partitionCount,
+    bytes,
+    sha256: identityOf(bindings),
+  };
+}
+
+function validateCrimeWarehouseProducerSemantics({
+  manifest,
+  checkpoint,
+  lineage,
+  quality,
+  revision,
+  sourceSnapshots,
+  currentSource,
+  canonical,
+}) {
+  const counts = [
+    ['canonical_row_count', manifest.canonical_row_count],
+    ['active_row_count', manifest.active_row_count],
+    ['removal_candidate_count', manifest.removal_candidate_count],
+    ['acquired_rows', checkpoint.final_quality?.acquired_rows],
+    ['expected_date_scoped_rows', checkpoint.final_quality?.expected_date_scoped_rows],
+  ];
+  counts.forEach(([label, value]) => finiteInteger(value, label));
+  if (checkpoint.final_quality?.date_scoped_count_complete !== true
+    || checkpoint.start !== manifest.coverage?.earliest_scope_start
+    || checkpoint.through !== manifest.coverage?.latest_scope_end_exclusive
+    || Object.keys(checkpoint.completed || {}).length !== sourceSnapshots.items.length
+    || checkpoint.final_quality.acquired_rows !== checkpoint.final_quality.expected_date_scoped_rows
+    || checkpoint.final_quality.acquired_rows !== sourceSnapshots.totalRows
+    || checkpoint.final_quality.acquired_rows !== manifest.canonical_row_count
+    || manifest.active_row_count + manifest.removal_candidate_count !== manifest.canonical_row_count
+    || quality.lifecycle?.active !== manifest.active_row_count
+    || quality.lifecycle?.removal_candidate !== manifest.removal_candidate_count
+    || canonical.partition_count !== manifest.partition_count
+    || lineage.model_input_contract?.serving_status !== 'not-published') {
+    throw new Error('Crime warehouse manifest/checkpoint/lineage row or coverage contract drifted.');
+  }
+  if (sourceSnapshots.earliestEventAt !== manifest.coverage.earliest_event_at
+    || sourceSnapshots.latestEventAt !== manifest.coverage.latest_event_at
+    || currentSource.scope?.end_exclusive !== checkpoint.through
+    || currentSource.source_vintage?.source_as_of !== manifest.coverage.latest_event_at) {
+    throw new Error('Crime warehouse source revision or event coverage drifted.');
+  }
+  const completedSnapshotIds = Object.values(checkpoint.completed).map(({ snapshot_id: id }) => id);
+  if (stableSerialization(completedSnapshotIds) !== stableSerialization(manifest.applied_snapshot_ids)) {
+    throw new Error('Crime warehouse checkpoint revision order drifted.');
+  }
+  const dqSums = [
+    ['coordinate', quality.coordinate, ['available', 'missing', 'invalid', 'outside_city_bounds']],
+    ['tract', quality.join_coverage?.tract, ['mapped', 'unmapped', 'ambiguous']],
+    ['fixed grid', quality.join_coverage?.fixed_grid, ['mapped', 'unavailable']],
+    ['route corridor', quality.join_coverage?.route_corridor, ['available', 'unavailable']],
+    ['ACS estimate/MOE', quality.join_coverage?.acs_estimate_moe,
+      ['available', 'partial', 'unavailable', 'incompatible-vintage']],
+  ];
+  for (const [label, value, keys] of dqSums) {
+    const sum = keys.reduce((total, key) => total + finiteInteger(value?.[key], `${label}.${key}`), 0);
+    if (sum !== manifest.canonical_row_count) throw new Error(`Crime warehouse ${label} DQ counts drifted.`);
+  }
+  if (quality.status_semantics?.unavailable_is_zero !== false
+    || quality.status_semantics?.partial_is_current !== false
+    || quality.status_semantics?.stale_is_current !== false
+    || !Array.isArray(quality.labels?.unknown_observed)
+    || revision.observed_at !== manifest.updated_at
+    || quality.observed_at !== manifest.updated_at
+    || lineage.model_input_contract?.generated_at !== manifest.updated_at) {
+    throw new Error('Crime warehouse DQ, revision, or lineage clock semantics drifted.');
+  }
+}
+
+function validateCrimeWarehouseReceiptShape(receipt) {
+  exactObjectKeys(receipt, [
+    'schema', 'mode', 'serving_eligible', 'source', 'warehouse', 'coverage', 'counts', 'clocks',
+    'data_quality', 'artifacts', 'authority', 'limitations', 'identity',
+  ], 'crime warehouse receipt');
+  if (receipt.schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
+    || receipt.mode !== 'official-local-candidate'
+    || receipt.serving_eligible !== false
+    || receipt.authority?.producer_validated_local_candidate !== true
+    || receipt.authority?.integration_authority !== false
+    || receipt.authority?.serving_authority !== false
+    || receipt.authority?.deletion_authority !== false) {
+    throw new Error('Crime warehouse receipt cannot admit synthetic, serving, integration, or deletion authority.');
+  }
+  if (!/^sha256:[a-f0-9]{64}$/.test(receipt.identity || '')
+    || !/^sha256:[a-f0-9]{64}$/.test(receipt.source?.revision || '')
+    || receipt.source.revision !== receipt.warehouse?.current_snapshot_id) {
+    throw new Error('Crime warehouse receipt identity or source revision is invalid.');
+  }
+  Object.entries(receipt.counts || {}).forEach(([label, value]) => finiteInteger(value, `receipt counts.${label}`));
+  validateReceiptClockOrder(receipt.clocks, receipt.coverage);
+  for (const [name, artifact] of Object.entries(receipt.artifacts || {})) {
+    if (name === 'canonical' || name === 'source_manifests') {
+      if (!/^sha256:[a-f0-9]{64}$/.test(artifact?.sha256 || '')) {
+        throw new Error(`Crime warehouse receipt ${name} aggregate identity is invalid.`);
+      }
+      if (name === 'canonical') {
+        canonicalRelativePath(artifact?.path, 'receipt canonical directory');
+        finiteInteger(artifact?.partition_count, 'receipt canonical partition_count', { minimum: 1 });
+        finiteInteger(artifact?.bytes, 'receipt canonical bytes');
+      } else {
+        finiteInteger(artifact?.count, 'receipt source manifest count', { minimum: 1 });
+        finiteInteger(artifact?.bytes, 'receipt source manifest bytes');
+        finiteInteger(artifact?.raw_shard_count, 'receipt source raw shard count', { minimum: 1 });
+        finiteInteger(artifact?.raw_bytes, 'receipt source raw shard bytes');
+        if (!/^sha256:[a-f0-9]{64}$/.test(artifact?.raw_sha256 || '')) {
+          throw new Error('Crime warehouse receipt source raw shard aggregate identity is invalid.');
+        }
+      }
+      continue;
+    }
+    canonicalRelativePath(artifact?.path, `receipt artifact ${name}`);
+    finiteInteger(artifact?.bytes, `receipt artifact ${name} bytes`);
+    if (!/^sha256:[a-f0-9]{64}$/.test(artifact?.sha256 || '') || typeof artifact?.schema !== 'string') {
+      throw new Error(`Crime warehouse receipt ${name} binding is invalid.`);
+    }
+  }
+  if (receipt.data_quality?.status_semantics?.unavailable_is_zero !== false
+    || receipt.data_quality?.status_semantics?.partial_is_current !== false
+    || receipt.data_quality?.status_semantics?.stale_is_current !== false) {
+    throw new Error('Crime warehouse receipt changed fail-closed status semantics.');
+  }
+}
+
+function validateReceiptClockOrder(clocks, coverage) {
+  const sourceAsOf = exactTimestamp(clocks?.source_as_of);
+  const retrievedAt = exactTimestamp(clocks?.retrieved_at);
+  const builtAt = exactTimestamp(clocks?.built_at);
+  const observedAt = exactTimestamp(clocks?.observed_at);
+  const earliestEventAt = exactTimestamp(coverage?.earliest_event_at);
+  const latestEventAt = exactTimestamp(coverage?.latest_event_at);
+  const start = exactDateText(coverage?.start, 'coverage start');
+  const end = exactDateText(coverage?.end_exclusive, 'coverage end');
+  if (!sourceAsOf || !retrievedAt || !builtAt || !observedAt || !earliestEventAt || !latestEventAt
+    || start >= end
+    || sourceAsOf > retrievedAt
+    || retrievedAt > builtAt
+    || builtAt > observedAt
+    || earliestEventAt > latestEventAt
+    || `${start}T00:00:00.000Z` > earliestEventAt
+    || latestEventAt >= `${end}T00:00:00.000Z`
+    || builtAt < latestEventAt) {
+    throw new Error('Crime warehouse receipt clocks or event coverage are not finite and monotonic.');
+  }
+}
+
+function artifactDescriptor(artifact, schema) {
+  return {
+    path: artifact.relative,
+    bytes: artifact.bytes.length,
+    sha256: rawSha256(artifact.bytes),
+    schema,
+  };
+}
+
+function warehouseCompanionRelative(value, label) {
+  return `warehouse/${canonicalRelativePath(value, label)}`;
+}
+
+async function canonicalDirectoryRoot(value, label) {
+  const absolute = path.resolve(value || '');
+  const stat = await fs.lstat(absolute);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${label} must be a real directory.`);
+  return { absolute, real: await fs.realpath(absolute) };
+}
+
+async function relativePathInsideRoot(root, candidate, label) {
+  if (typeof candidate !== 'string' || !path.isAbsolute(candidate)) {
+    throw new Error(`Crime warehouse ${label} must identify an absolute producer path before receipt canonicalization.`);
+  }
+  const targetReal = await fs.realpath(candidate);
+  const relative = path.relative(root.real, targetReal);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Crime warehouse ${label} escaped its evidence root.`);
+  }
+  return canonicalRelativePath(relative.split(path.sep).join('/'), label);
+}
+
+async function readRelativeJsonArtifact(root, relative, label) {
+  const artifact = await readRelativeBytes(root, relative, label);
+  try {
+    artifact.value = JSON.parse(artifact.bytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(`Crime warehouse ${label} is not valid JSON: ${error.message}`);
+  }
+  return artifact;
+}
+
+async function readRelativeBytes(root, relative, label) {
+  const resolved = await resolveCanonicalRelative(root, relative, { expectDirectory: false, label });
+  return {
+    relative: resolved.relative,
+    absolute: resolved.absolute,
+    bytes: await fs.readFile(resolved.absolute),
+  };
+}
+
+async function resolveCanonicalRelative(root, relative, { expectDirectory = false, label = 'artifact' } = {}) {
+  const canonical = canonicalRelativePath(relative, label);
+  const segments = canonical.split('/');
+  let cursor = root.absolute;
+  for (let index = 0; index < segments.length; index += 1) {
+    cursor = path.join(cursor, segments[index]);
+    const stat = await fs.lstat(cursor);
+    if (stat.isSymbolicLink()) throw new Error(`Crime warehouse ${label} uses a symbolic link or junction.`);
+    if (index < segments.length - 1 && !stat.isDirectory()) {
+      throw new Error(`Crime warehouse ${label} has a non-directory ancestor.`);
+    }
+  }
+  const stat = await fs.lstat(cursor);
+  if ((expectDirectory && !stat.isDirectory()) || (!expectDirectory && !stat.isFile())) {
+    throw new Error(`Crime warehouse ${label} has the wrong filesystem type.`);
+  }
+  const real = await fs.realpath(cursor);
+  const containment = path.relative(root.real, real);
+  if (!containment || containment.startsWith('..') || path.isAbsolute(containment)) {
+    throw new Error(`Crime warehouse ${label} escaped its evidence root.`);
+  }
+  return { relative: canonical, absolute: cursor };
+}
+
+function canonicalRelativePath(value, label) {
+  if (typeof value !== 'string' || !value || value.includes('\\') || path.posix.isAbsolute(value)
+    || path.win32.isAbsolute(value) || value.includes(':') || path.posix.normalize(value) !== value
+    || value.split('/').some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error(`Crime warehouse ${label} must use a canonical safe relative path.`);
+  }
+  return value;
+}
+
+function rawSha256(value) {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function withoutIdentity(value) {
+  const copy = structuredClone(value);
+  delete copy.identity;
+  return copy;
+}
+
+function exactObjectKeys(value, keys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || stableSerialization(Object.keys(value).sort()) !== stableSerialization([...keys].sort())) {
+    throw new Error(`Crime warehouse ${label} schema is invalid.`);
+  }
+}
+
+function finiteInteger(value, label, { minimum = 0 } = {}) {
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw new Error(`Crime warehouse ${label} must be a finite non-negative integer.`);
+  }
+  return value;
+}
+
+function exactDateText(value, label) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+    || new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) !== value) {
+    throw new Error(`Crime warehouse ${label} must be an exact date.`);
+  }
+  return value;
 }
 
 export async function recoverWarehouseTransaction(warehouseDir) {
