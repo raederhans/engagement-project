@@ -17,6 +17,19 @@ async function documents() {
   return { policy: JSON.parse(policyText), observation: JSON.parse(observationText), packageJson: JSON.parse(packageText) };
 }
 
+function assertAllGatesFalse(result, label) {
+  assert.equal(result.status, 'blocked', label);
+  for (const phase of Object.values(result.phases)) {
+    assert.equal(phase.status, 'blocked', `${label}: ${phase.phase ?? 'phase'} status`);
+    for (const decision of ['preparationEligible', 'consumptionEligible', 'admissionEligible', 'deletionEligible']) {
+      assert.equal(phase.decisions[decision], false, `${label}: ${decision}`);
+    }
+  }
+  for (const decision of ['preparationEligible', 'consumptionEligible', 'admissionEligible', 'deletionEligible']) {
+    assert.equal(result.decisions[decision], false, `${label}: global ${decision}`);
+  }
+}
+
 test('Phase 1 policy names real producer receipt contracts and every control surface owner', async () => {
   const { policy, packageJson } = await documents();
   assert.equal(policy.schema, 'engagement-phase1-handoff-policy/v2');
@@ -47,6 +60,8 @@ test('Phase 1 policy names real producer receipt contracts and every control sur
     assert.ok(phase.owner && phase.writable.length && phase.ignoredOutputRoots.length);
     assert.ok(phase.retention.duration && phase.retention.triggerEvent && phase.retention.decisionOwner && phase.retention.authorizationReceipt);
     assert.ok(phase.receipt.validatorCommand && phase.receipt.requiredFields.length);
+    assert.deepEqual(phase.admission, { validatorStatus: 'not-installed', validatorOwner: phase.owner });
+    assert.equal(phase.receipt.mode, 'future-admission');
     for (const script of phase.mandatoryScripts) assert.ok(packageJson.scripts[script], `${phase.id} requires ${script}`);
   }
 });
@@ -66,7 +81,7 @@ test('current real observation is mechanically blocked rather than falsely admit
   assert.equal(result.decisions.deletionEligible, false, 'future deletion remains fail-closed without the 1D authorization');
 });
 
-test('evaluator accepts a complete fixture and rejects schema, review, topology, status, and glob-overlap drift', async () => {
+test('synthetic complete receipts, tips, and resolver material cannot cross an uninstalled phase-validator boundary', async () => {
   const { policy, observation } = await documents();
   const fixture = structuredClone(observation);
   const receipts = new Map();
@@ -171,6 +186,9 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       });
     }
   }
+  let receiptReads = 0;
+  let authorityReads = 0;
+  let resolverCalls = 0;
   const fixtureOptions = {
     inspectWorktree: inspect,
     inspectRevision: async (worktree, reference) => {
@@ -180,6 +198,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     isAncestor: async () => true,
     changedBetween: async () => [],
     readReceipt: async (key) => {
+      receiptReads += 1;
       const phase = fixture.phases.find((item) => item.receipt.actualPath === key);
       return rawFixturePayload(receipts.get(phase?.phase));
     },
@@ -187,9 +206,10 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       if (receiptPath.startsWith('../') || receiptPath.startsWith('..\\') || /^[A-Za-z]:[\\/]/.test(receiptPath)) throw new Error('fixture authority rejects path escape');
       return receiptPath;
     } },
-    authorityReader: { async read(key) { return rawFixturePayload(authorityReceipts.get(key)); } },
+    authorityReader: { async read(key) { authorityReads += 1; return rawFixturePayload(authorityReceipts.get(key)); } },
     trustedAuthorityResolver: {
       async resolve(input) {
+        resolverCalls += 1;
         const expected = trustedRecords.get(`${input.kind}:${input.phase}`);
         if (!expected || input.canonicalPath !== expected.canonicalPath || input.rawDigest !== expected.rawDigest
           || JSON.stringify(input.candidate) !== JSON.stringify(expected.candidate)
@@ -200,15 +220,12 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     resolveRef,
   };
   const accepted = await evaluateHandoff({ policy, observation: fixture, ...fixtureOptions });
-  if (accepted.status !== 'accepted') throw new Error(accepted.reasons.join('; '));
-  assert.equal(accepted.phases.M1.status, 'accepted', 'missing future deletion authorization does not block retained producer evidence');
-  assert.equal(accepted.decisions.preparationEligible, true);
-  assert.equal(accepted.decisions.consumptionEligible, true);
-  assert.equal(accepted.decisions.admissionEligible, true);
-  assert.equal(accepted.decisions.deletionEligible, false, 'accepted evidence is not deletable without a future 1D authorization');
+  assertAllGatesFalse(accepted, 'complete synthetic future fixture');
+  assert.equal(receiptReads, 0, 'uninstalled validators prevent synthetic receipt reads');
+  assert.equal(authorityReads, 0, 'uninstalled validators prevent synthetic authority reads');
+  assert.equal(resolverCalls, 0, 'an injected resolver cannot enable admission');
   const untrusted = await evaluateHandoff({ policy, observation: fixture, ...fixtureOptions, trustedAuthorityResolver: null });
-  assert.equal(untrusted.status, 'blocked', 'a receipt path and issuer label cannot self-authorize without an external trust resolver');
-  assert.equal(untrusted.decisions.admissionEligible, false);
+  assertAllGatesFalse(untrusted, 'untrusted synthetic future fixture');
   for (const [name, mutate] of [
     ['missing resolver raw digest', (trusted) => { delete trusted.rawDigest; }],
     ['resolver canonical path drift', (trusted) => { trusted.canonicalPath = 'fixture/forged.json'; }],
@@ -286,7 +303,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       },
     });
   }
-  assert.equal((await evaluateHandoff({ policy, observation: deletable, ...fixtureOptions })).decisions.deletionEligible, true);
+  assertAllGatesFalse(await evaluateHandoff({ policy, observation: deletable, ...fixtureOptions }), 'synthetic deletion authority');
   const noReview = structuredClone(fixture); noReview.phases[0].reviewedTip = null;
   assert.equal((await evaluateHandoff({ policy, observation: noReview, ...fixtureOptions })).status, 'blocked');
   const unresolved = structuredClone(fixture); unresolved.phases[0].recordTip = 'missing-fixture-tip';
@@ -428,9 +445,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const deletionHostile = structuredClone(deletable);
   deletionHostile.phases[0].deletionAuthority.expectedIssuer = { taskId: 'M1 frozen warehouse task', identity: 'M1 frozen warehouse task' };
   const deletionResult = await evaluateHandoff({ policy, observation: deletionHostile, ...fixtureOptions });
-  assert.equal(deletionResult.status, 'accepted');
-  assert.equal(deletionResult.decisions.admissionEligible, true);
-  assert.equal(deletionResult.decisions.deletionEligible, false);
+  assertAllGatesFalse(deletionResult, 'self-signed synthetic deletion authority');
   for (const [name, mutate] of [
     ['self-signed deletion authority', (entries, candidate) => {
       const phase = candidate.phases.find((item) => item.phase === 'M1');
@@ -446,9 +461,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     const candidateAuthorities = new Map([...authorityReceipts].map(([key, value]) => [key, structuredClone(value)]));
     mutate(candidateAuthorities, candidate);
     const result = await evaluateHandoff({ policy, observation: candidate, ...fixtureOptions, authorityReader: { async read(key) { return rawFixturePayload(candidateAuthorities.get(key)); } } });
-    assert.equal(result.status, 'accepted', `${name} does not erase retained evidence`);
-    assert.equal(result.decisions.admissionEligible, true, `${name} cannot recast admission`);
-    assert.equal(result.decisions.deletionEligible, false, `${name} must fail closed for deletion`);
+    assertAllGatesFalse(result, name);
   }
 
   // Three distinct tips are valid: implementation -> execution evidence ->
@@ -514,7 +527,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     } },
   };
   const documentedResult = await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions });
-  assert.equal(documentedResult.status, 'accepted', documentedResult.reasons.join('; '));
+  assertAllGatesFalse(documentedResult, 'synthetic record-only descendant');
   assert.equal((await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions, changedBetween: async () => ['src/home_compare/controller.js'] })).status, 'blocked');
 
   for (const [name, mutate] of [
@@ -558,7 +571,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     },
   };
   const unionResult = await evaluateHandoff({ policy, observation: unionOwned, ...unionOptions });
-  assert.equal(unionResult.status, 'accepted', unionResult.reasons.join('; '));
+  assertAllGatesFalse(unionResult, 'synthetic cumulative path union');
   const ownSliceEscape = await evaluateHandoff({
     policy, observation: unionOwned, ...unionOptions,
     changedBetween: async (_worktree, ancestor, descendant) => ancestor === oneDPhase.phaseBase && descendant === oneDPhase.implementationTip

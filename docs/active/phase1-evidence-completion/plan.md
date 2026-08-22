@@ -81,3 +81,25 @@ here as completed.
 3. Integration is strict fast-forward only while this exact base remains the
    target tip; otherwise use one independently reviewed path-scoped
    cherry-pick. Keep this trio active through 1D; do not archive it early.
+
+## Step 1 scope convergence — Phase 1-0 only
+
+The former `543c214` → `a7271b3` → `142cd3a` chain is a historical local
+execution candidate with a **REQUEST_CHANGES** review outcome. Its release
+receipt remains exact-tip execution evidence only; it is not an admission,
+producer-validator, review, or deletion authority.
+
+Phase 1-0 retains and re-verifies only the release graph, the once-each Area
+Intelligence/Home Compare/Known Route browser-leaf wiring, browser lifecycle
+cleanup, unchanged bundle ceiling/headroom, M0 recoverable-serialized wording,
+and frozen lifecycle/status/four-clock semantics. It does not install a final
+producer admission validator for M1, M2, M3, M4, or 1D.
+
+Accordingly, checked-in Phase 1 policy fixes all five validator states to
+`not-installed` and their receipt modes to `future-admission`. The evaluator
+must fail closed before reading a receipt or authority or invoking an injected
+resolver: preparation, consumption, admission, and deletion are all false.
+Only the named future phase owner, in a separately reviewed implementation,
+may install that phase's executable admission validator and revise this frozen
+policy. Future M1/M2 warehouse/mart details, M3 privacy fields, M4 identity
+unification, and 1D path provenance remain owned work, not Phase 1-0 repairs.

@@ -11,6 +11,26 @@
 - This is a repair candidate, not an integration approval. A new cumulative
   local commit and independent re-review are required after the ledger closes.
 
+## Step 1 scope convergence (no live process)
+
+- The historical `543c214` → `a7271b3` → `142cd3a` candidate received
+  REQUEST_CHANGES. Its ignored release material remains byte-bound historical
+  execution evidence; it cannot be reused as a producer admission, review, or
+  deletion decision.
+- Phase 1-0 does not install any final M1/M2/M3/M4/1D producer validator.
+  The immutable evaluator policy marks every phase validator `not-installed`
+  and every receipt mode `future-admission`. It short-circuits before receipt
+  readers, authority readers, or injected resolvers, making preparation,
+  consumption, admission, and deletion false for every phase and globally.
+- This preserves the independently useful release graph, real browser leaf
+  wiring, lifecycle cleanup, bundle headroom, M0 wording, and existing
+  sourceAsOf/retrievedAt/builtAt/observedAt plus status semantics. It does not
+  invent M3 privacy fields, normalize M4 identities, repair M1/M2 producer
+  schemas, or pre-approve 1D provenance.
+- No long test, browser, preview, port, or full release process was started in
+  this scope-convergence step. Future validator installation belongs only to
+  the named phase owner in a separately reviewed implementation.
+
 ## Live-process ownership and resources
 
 | Command class | Owner and cwd | Shared port/output | Command and success criterion | Cleanup/stop rule |

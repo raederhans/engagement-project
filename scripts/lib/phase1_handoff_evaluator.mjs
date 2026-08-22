@@ -165,7 +165,8 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [],
     upstreamReceiptBindings: [],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-phl-crime-event-warehouse/v1', defaultPath: '.dfev1/crime/warehouse/manifest.json', requiredFields: ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at'], identityFields: ['current_snapshot_id'], revisionFields: ['updated_at', 'latest_revision_report'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    admission: { validatorStatus: 'not-installed', validatorOwner: 'M1 frozen warehouse task' },
+    receipt: { schema: 'engagement-phl-crime-event-warehouse/v1', defaultPath: '.dfev1/crime/warehouse/manifest.json', requiredFields: ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at'], identityFields: ['current_snapshot_id'], revisionFields: ['updated_at', 'latest_revision_report'], validatorCommand: 'npm run test:phase1-handoff', mode: 'future-admission' },
   },
   M2: {
     owner: 'M2 mart/evaluation task',
@@ -175,7 +176,8 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4198],
     upstreamReceiptBindings: ['M1'],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'ModelEvaluationReport/v1', defaultPath: '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json', requiredFields: ['generated_at', 'protocol.schema', 'protocol.sha256', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage', 'data.admission', 'metrics.primary_by_fold_space_holdout', 'metrics.by_category', 'metrics.by_data_volume'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    admission: { validatorStatus: 'not-installed', validatorOwner: 'M2 mart/evaluation task' },
+    receipt: { schema: 'ModelEvaluationReport/v1', defaultPath: '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json', requiredFields: ['generated_at', 'protocol.schema', 'protocol.sha256', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage', 'data.admission', 'metrics.primary_by_fold_space_holdout', 'metrics.by_category', 'metrics.by_data_volume'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'future-admission' },
   },
   M3: {
     owner: 'M3 Home Compare task',
@@ -185,7 +187,8 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4189],
     upstreamReceiptBindings: ['M2'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M3 receipt recheck', 'desktop-en-synthetic.png retained', 'mobile-en-synthetic.png retained', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-home-compare-source-smoke/v1', defaultPath: '.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json', requiredFields: ['generatedAt', 'status', 'semanticIdentity', 'observations', 'routing', 'privacy', 'limitations'], identityFields: ['semanticIdentity'], revisionFields: ['generatedAt', 'observations.0.revision', 'observations.0.dq'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    admission: { validatorStatus: 'not-installed', validatorOwner: 'M3 Home Compare task' },
+    receipt: { schema: 'engagement-home-compare-source-smoke/v1', defaultPath: '.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json', requiredFields: ['generatedAt', 'status', 'semanticIdentity', 'observations', 'routing', 'privacy', 'limitations'], identityFields: ['semanticIdentity'], revisionFields: ['generatedAt', 'observations.0.revision', 'observations.0.dq'], validatorCommand: 'npm run test:phase1-handoff', mode: 'future-admission' },
   },
   M4: {
     owner: 'M4 Known Route task',
@@ -196,8 +199,9 @@ const EXACT_PHASE_POLICY = Object.freeze({
     upstreamReceiptBindings: ['M1'],
     governancePrerequisites: ['M2 frozen evaluation receipt recheck'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
+    admission: { validatorStatus: 'not-installed', validatorOwner: 'M4 Known Route task' },
     receipt: {
-      mode: 'admission',
+      mode: 'future-admission',
       schema: 'engagement-known-route-evidence-handoff/v2', defaultPath: '.dfev1/known-route-evidence-v1/full-warehouse/final-handoff.json',
       requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.receiptDigest', 'governance.m2.canonicalPath', 'governance.m2.evidenceRoot', 'governance.m2.implementationTip', 'governance.m2.executionRecordTip', 'governance.m2.cumulativeTip', 'governance.m2.dq', 'governance.m2.dqRechecked'],
       identityFields: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
@@ -214,7 +218,8 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4173, 4178, 4189, 4194, 4198],
     upstreamReceiptBindings: ['M1', 'M2', 'M3', 'M4'],
     retention: { duration: 'per-approved-project-policy', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['all producer receipt rechecks', 'independent review'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', defaultPath: '.dfev1/phase1/cumulative-receipt.json', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap', 'implementationTip', 'executionRecordTip', 'cumulativeTip'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'executionRecordTip', 'cumulativeTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    admission: { validatorStatus: 'not-installed', validatorOwner: '1D integration/release owner' },
+    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', defaultPath: '.dfev1/phase1/cumulative-receipt.json', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap', 'implementationTip', 'executionRecordTip', 'cumulativeTip'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'executionRecordTip', 'cumulativeTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'future-admission' },
   },
 });
 
@@ -292,6 +297,14 @@ function blockedStructureResult(reasons) {
   return { status: 'blocked', reasons, phases, decisions: { preparationEligible: false, consumptionEligible: false, admissionEligible: false, deletionEligible: false } };
 }
 
+function uninstalledValidatorReasons() {
+  // This is a Phase1-0 invariant in checked-in evaluator code, not an
+  // observation field, fixture switch, or resolver result. A later phase
+  // owner must add its own reviewed executable validator before this guard can
+  // be changed; authority material alone is never a substitute.
+  return REQUIRED_PHASE_IDS.map((id) => `${id}: phase-owned admission validator is not installed`);
+}
+
 function sameList(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -313,6 +326,7 @@ function exactPolicyReasons(policy) {
         ? !sameList(actual.retention?.[field], value)
         : actual.retention?.[field] !== value) reasons.push(`${id}: policy retention ${field} drift`);
     }
+    if (!sameRecord(actual.admission, expected.admission)) reasons.push(`${id}: policy admission-validator boundary drift`);
     if (expected.receipt) for (const [field, value] of Object.entries(expected.receipt)) {
       if (Array.isArray(value)
         ? !sameList(actual.receipt?.[field], value)
@@ -418,6 +432,12 @@ export async function evaluateHandoff({
   policyReasons.push(...exactPolicyReasons(policy));
   reasons.push(...policyReasons);
   const policyEligible = policyReasons.length === 0;
+  // Phase1-0 owns release/browser/lifecycle proof, not any producer's final
+  // admission validator. Do this before any receipt or authority reader can
+  // run, so a synthetic receipt, injected resolver, or candidate-owned flag
+  // cannot manufacture preparation, consumption, admission, or deletion.
+  const validatorReasons = uninstalledValidatorReasons();
+  if (validatorReasons.length) return blockedStructureResult([...reasons, ...validatorReasons]);
   const policies = new Map(policy.phases.map((phase) => [phase.id, phase]));
   const topology = topologicalOrder(policy.edges, [...policies.keys()]);
   const observations = new Map(observation.phases.map((phase) => [phase.phase, phase]));
