@@ -4,11 +4,18 @@ import { readFile } from 'node:fs/promises';
 import { lstat, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { validateModelEvaluationReport } from './area_intelligence_evaluation.mjs';
+import { validateHomeCompareSourceObservation } from './home_compare_source_smoke.mjs';
 
 const execFileAsync = promisify(execFile);
 
 export async function readJson(pathname) {
   return JSON.parse(await readFile(pathname, 'utf8'));
+}
+
+export async function readJsonBytes(pathname) {
+  const bytes = await readFile(pathname);
+  return Object.freeze({ value: JSON.parse(bytes.toString('utf8')), bytes, rawDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` });
 }
 
 function pathFlavor(value, platform) {
@@ -21,7 +28,7 @@ function pathFlavor(value, platform) {
     return path.win32;
   }
   if (value.includes('\\') || /^[A-Za-z]:/.test(value)) throw new Error('POSIX authority path uses a Windows drive or separator');
-  return path;
+  return path.posix;
 }
 
 function contained(flavor, root, candidate, { allowEqual = false } = {}) {
@@ -89,6 +96,17 @@ export function createFilesystemAuthority({
       const allowed = ignoredRoot ? flavor.resolve(root, ignoredRootLiteral(ignoredRoot)) : root;
       if (!contained(flavor, root, evidence) || !contained(flavor, allowed, evidence, { allowEqual: true }) || !contained(flavor, evidence, receipt)) throw new Error('receipt path escapes exact ignored root');
       if (defaultPath && receipt !== flavor.resolve(root, defaultPath)) throw new Error('receipt path is not the canonical policy receipt');
+      // A final realpath check alone is insufficient: an inner junction can
+      // point back inside the same root and still make later replacement
+      // semantics ambiguous. Every existing ancestor must itself be direct.
+      const ancestors = [];
+      for (let cursor = receipt; ; cursor = flavor.dirname(cursor)) {
+        ancestors.push(cursor);
+        if (cursor === root) break;
+        if (cursor === flavor.dirname(cursor)) throw new Error('receipt path cannot reach worktree root');
+      }
+      const ancestorStats = await Promise.all(ancestors.map((entry) => stat(entry)));
+      if (ancestorStats.some((entry) => entry.isSymbolicLink?.())) throw new Error('receipt ancestor is a symlink or reparse point');
       const [canonicalRoot, canonicalAllowed, canonicalEvidence, canonicalReceipt, receiptStat] = await Promise.all([
         canonicalize(root), canonicalize(allowed), canonicalize(evidence), canonicalize(receipt), stat(receipt),
       ]);
@@ -147,7 +165,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [],
     upstreamReceiptBindings: [],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-phl-crime-event-warehouse/v1', requiredFields: ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at'], identityFields: ['current_snapshot_id'], revisionFields: ['updated_at', 'latest_revision_report'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'engagement-phl-crime-event-warehouse/v1', defaultPath: '.dfev1/crime/warehouse/manifest.json', requiredFields: ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at'], identityFields: ['current_snapshot_id'], revisionFields: ['updated_at', 'latest_revision_report'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M2: {
     owner: 'M2 mart/evaluation task',
@@ -157,7 +175,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4198],
     upstreamReceiptBindings: ['M1'],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'ModelEvaluationReport/v1', requiredFields: ['generated_at', 'protocol.schema', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'ModelEvaluationReport/v1', defaultPath: '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json', requiredFields: ['generated_at', 'protocol.schema', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage', 'evaluation'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M3: {
     owner: 'M3 Home Compare task',
@@ -167,7 +185,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4189],
     upstreamReceiptBindings: ['M2'],
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M3 receipt recheck', 'desktop-en-synthetic.png retained', 'mobile-en-synthetic.png retained', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-home-compare-source-smoke/v1', requiredFields: ['generatedAt', 'status', 'semanticIdentity', 'observations', 'routing', 'privacy', 'limitations'], identityFields: ['semanticIdentity'], revisionFields: ['generatedAt', 'observations.0.revision', 'observations.0.dq'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'engagement-home-compare-source-smoke/v1', defaultPath: '.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json', requiredFields: ['generatedAt', 'status', 'semanticIdentity', 'observations', 'routing', 'privacy', 'limitations'], identityFields: ['semanticIdentity'], revisionFields: ['generatedAt', 'observations.0.revision', 'observations.0.dq'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M4: {
     owner: 'M4 Known Route task',
@@ -180,8 +198,8 @@ const EXACT_PHASE_POLICY = Object.freeze({
     retention: { duration: 'P30D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M4 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
     receipt: {
       mode: 'admission',
-      schema: 'engagement-known-route-evidence-handoff/v2',
-      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.reviewedTip', 'governance.m2.dqRechecked'],
+      schema: 'engagement-known-route-evidence-handoff/v2', defaultPath: '.dfev1/known-route-evidence-v1/full-warehouse/final-handoff.json',
+      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.receiptDigest', 'governance.m2.reviewedTip', 'governance.m2.dqRechecked'],
       identityFields: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
       revisionFields: ['centerlineDataVersion', 'startedAt'],
       validatorCommand: 'npm run test:phase1-handoff',
@@ -196,7 +214,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4173, 4178, 4189, 4194, 4198],
     upstreamReceiptBindings: ['M1', 'M2', 'M3', 'M4'],
     retention: { duration: 'per-approved-project-policy', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['all producer receipt rechecks', 'independent review'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'recordTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', defaultPath: '.dfev1/phase1/cumulative-receipt.json', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'recordTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
 });
 
@@ -333,9 +351,9 @@ export async function evaluateHandoff({
   inspectRevision = inspectGitRevision,
   isAncestor = isGitAncestor,
   changedBetween = changedPathsBetween,
-  readReceipt = readJson,
+  readReceipt = readJsonBytes,
   filesystemAuthority = realFilesystemAuthority,
-  authorityReader = { async read(pathname) { return readJson(pathname); } },
+  authorityReader = { async read(pathname) { return readJsonBytes(pathname); } },
   // A JSON label is not a trust root.  Integration admission must supply a
   // registry/signature-backed resolver which pins the authority receipt bytes
   // and reviewer identity independently from the producer observation.
@@ -418,11 +436,16 @@ export async function evaluateHandoff({
           if (phase.receipt.schema !== phasePolicy.receipt.schema) throw new Error('observation schema drift');
           if (phase.receipt.validatorCommand !== phasePolicy.receipt.validatorCommand) throw new Error('validator command drift');
           if (phase.receipt.result !== 'pass') throw new Error('receipt result is not pass');
+          const separator = phase.worktree.includes('\\') ? '\\' : '/';
+          const policyPath = `${phase.worktree.replace(/[\\/]+$/, '')}${separator}${phasePolicy.receipt.defaultPath.replaceAll('/', separator)}`;
+          if (phase.receipt.actualPath !== policyPath) throw new Error('receipt path drifts from immutable policy default');
           const canonicalReceiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, phase.receipt.actualPath, {
             ignoredRoot: phase.ignoredRoot,
             defaultPath: phasePolicy.receipt.defaultPath,
           });
-          const receiptEvidence = validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], await readReceipt(canonicalReceiptPath), phase.receipt);
+          const payload = await readReceipt(canonicalReceiptPath);
+          const normalizedReceipt = normalizeRawReceipt(payload);
+          const receiptEvidence = { ...validateReceipt(phaseId, EXACT_PHASE_POLICY[phaseId], normalizedReceipt.value, phase.receipt), rawDigest: normalizedReceipt.rawDigest, canonicalPath: canonicalReceiptPath };
           phaseMeta.set(phaseId, { receiptEvidence });
           receiptEligible = canonicalReceiptMode(phaseId) === 'admission';
           if (!receiptEligible) phaseReasons.push('preparation-only receipt cannot be consumed');
@@ -442,6 +465,7 @@ export async function evaluateHandoff({
           if (!sameRecord(identity, m2Evidence.identity)
             || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.identity, m2Evidence.identity)
             || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.revision, m2Evidence.revision)
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.receiptDigest !== m2Evidence.rawDigest
             || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.reviewedTip !== m2.reviewedTip
             || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.dqRechecked !== true) phaseReasons.push('M2 governance receipt identity drift');
           try {
@@ -510,7 +534,7 @@ export async function evaluateHandoff({
       const observed = observations.get(id);
       const binding = bindings?.filter((entry) => entry?.phase === id) || [];
       if (binding.length !== 1 || !actual || !observed
-        || binding[0].schema !== actual.schema || !sameRecord(binding[0].identity, actual.identity)
+        || binding[0].schema !== actual.schema || binding[0].receiptDigest !== actual.rawDigest || !sameRecord(binding[0].identity, actual.identity)
         || !sameRecord(binding[0].revision, actual.revision)
         || binding[0].implementationTip !== observed.implementationTip
         || binding[0].recordTip !== observed.recordTip || binding[0].reviewedTip !== observed.reviewedTip
@@ -536,6 +560,20 @@ export async function evaluateHandoff({
     };
     reasons.push(...meta.phaseReasons.map((reason) => `${phasePolicy.id}: ${reason}`));
   }
+  // The cumulative receipt is an attestation of this evaluator's own exact
+  // graph result.  It is checked after all producer decisions exist, rather
+  // than accepting an arbitrary non-empty status/overlap shape.
+  if (oneDMeta?.receiptEvidence) {
+    const expectedStatus = Object.fromEntries(REQUIRED_PHASE_IDS.map((id) => [id, phaseResults[id]?.status]));
+    const receipt = oneDMeta.receiptEvidence.receipt;
+    if (!sameRecord(receipt.status, expectedStatus)
+      || !sameList(receipt.overlap, [{ status: 'none', pairs: [] }])) {
+      oneDMeta.phaseReasons.push('1D status or overlap does not match evaluator recomputation');
+      phaseResults['1D'].status = 'blocked';
+      phaseResults['1D'].decisions.admissionEligible = false;
+      reasons.push('1D: status or overlap does not match evaluator recomputation');
+    }
+  }
   const finalAdmissionEligible = phaseResults['1D']?.decisions.admissionEligible === true;
   for (const phasePolicy of policy.phases) {
     const phase = observations.get(phasePolicy.id);
@@ -546,6 +584,8 @@ export async function evaluateHandoff({
         phasePolicy,
         oneD: observations.get('1D'),
         oneDResult: phaseResults['1D'],
+        oneDEvidence: oneDMeta?.receiptEvidence,
+        producerEvidence: phaseMeta.get(phasePolicy.id)?.receiptEvidence,
         filesystemAuthority,
         authorityReader,
         trustedAuthorityResolver,
@@ -594,6 +634,21 @@ export async function evaluateHandoff({
   };
 }
 
+function normalizeRawReceipt(payload) {
+  const envelope = Buffer.isBuffer(payload)
+    ? { value: JSON.parse(payload.toString('utf8')), bytes: payload, rawDigest: `sha256:${createHash('sha256').update(payload).digest('hex')}` }
+    : payload;
+  if (!envelope?.value || !Buffer.isBuffer(envelope.bytes) || typeof envelope.rawDigest !== 'string') {
+    throw new Error('receipt reader did not provide immutable raw bytes');
+  }
+  const expectedDigest = `sha256:${createHash('sha256').update(envelope.bytes).digest('hex')}`;
+  if (envelope.rawDigest !== expectedDigest) throw new Error('receipt raw digest does not match supplied bytes');
+  let parsed;
+  try { parsed = JSON.parse(envelope.bytes.toString('utf8')); } catch { throw new Error('receipt raw bytes are not JSON'); }
+  if (JSON.stringify(parsed) !== JSON.stringify(envelope.value)) throw new Error('receipt reader value does not match supplied bytes');
+  return Object.freeze({ value: parsed, bytes: envelope.bytes, rawDigest: expectedDigest });
+}
+
 export function validateReceipt(phaseId, policy, receipt, observationReceipt = {}) {
   const canonical = EXACT_PHASE_POLICY[phaseId] || policy;
   if (!isPlainRecord(receipt)) throw new Error('receipt is not a plain object');
@@ -627,6 +682,8 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
   if (phaseId === 'M4') {
     const clocks = canonical.receipt.clockFields.map((field) => Date.parse(readPath(receipt, field)));
     if (clocks.some((value, index) => index && value < clocks[index - 1])) throw new Error('M4 clocks are out of order');
+    if (!isExactTimestamp(receipt.startedAt) || Date.parse(receipt.startedAt) < clocks[1]
+      || Date.parse(receipt.startedAt) > clocks[3]) throw new Error('M4 startedAt clock drift');
     if (!Number.isInteger(receipt.completedPartitions) || !Number.isInteger(receipt.partitionCount)
       || receipt.partitionCount <= 0 || receipt.completedPartitions !== receipt.partitionCount) throw new Error('M4 partition completion drift');
     if (!isPlainRecord(receipt.completion) || !['complete', 'completed'].includes(receipt.completion.state)
@@ -638,8 +695,12 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
   if (phaseId === '1D') {
     if (!Array.isArray(receipt.producerReceipts) || receipt.producerReceipts.length !== 4
       || new Set(receipt.producerReceipts.map((entry) => entry?.phase)).size !== 4
-      || !REQUIRED_PHASE_IDS.slice(0, 4).every((id) => receipt.producerReceipts.some((entry) => entry?.phase === id && isPlainRecord(entry.identity) && isPlainRecord(entry.revision) && typeof entry.schema === 'string' && typeof entry.receiptDigest === 'string'))) throw new Error('1D producer receipt binding drift');
-    if (!Array.isArray(receipt.topology) || !sameEdgeSet(receipt.topology, CANONICAL_DATA_EDGES) || !Array.isArray(receipt.overlap) || !isPlainRecord(receipt.status)) throw new Error('1D cumulative receipt semantics drift');
+      || !REQUIRED_PHASE_IDS.slice(0, 4).every((id) => receipt.producerReceipts.some((entry) => entry?.phase === id && isPlainRecord(entry.identity) && isPlainRecord(entry.revision) && typeof entry.schema === 'string' && isDigest(entry.receiptDigest)))) throw new Error('1D producer receipt binding drift');
+    if (!Array.isArray(receipt.topology) || !sameEdgeSet(receipt.topology, CANONICAL_DATA_EDGES)
+      || !Array.isArray(receipt.overlap) || receipt.overlap.length !== 1 || !isPlainRecord(receipt.overlap[0])
+      || receipt.overlap[0].status !== 'none' || !Array.isArray(receipt.overlap[0].pairs) || receipt.overlap[0].pairs.length
+      || !isPlainRecord(receipt.status) || Object.keys(receipt.status).length !== REQUIRED_PHASE_IDS.length
+      || REQUIRED_PHASE_IDS.some((id) => receipt.status[id] !== 'accepted')) throw new Error('1D cumulative receipt semantics drift');
   }
   return { phaseId, schema: receipt.schema, identity, revision, receipt };
 }
@@ -666,13 +727,49 @@ function validateVersionedDomain(phaseId, receipt) {
     M4: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
   }[phaseId] || [];
   for (const field of digestFields) if (!isDigest(readPath(receipt, field))) throw new Error(`digest drift ${field}`);
-  if (phaseId === 'M1' && (!isPlainRecord(receipt.coverage) || !isPlainRecord(receipt.lineage_registry))) throw new Error('M1 coverage or lineage type drift');
-  if (phaseId === 'M2' && (!isPlainRecord(receipt.protocol) || !isPlainRecord(receipt.data?.coverage))) throw new Error('M2 protocol or coverage type drift');
+  if (phaseId === 'M1') validateM1WarehouseReceipt(receipt);
+  if (phaseId === 'M2') validateM2EvaluationReceipt(receipt);
   if (phaseId === 'M3') {
-    if (!['pass', 'partial'].includes(receipt.status) || !Array.isArray(receipt.observations) || !isPlainRecord(receipt.observations[0])
-      || receipt.observations[0].dq !== true || !isPlainRecord(receipt.routing) || !isPlainRecord(receipt.privacy) || !isPlainRecord(receipt.limitations)) throw new Error('M3 source-smoke semantics drift');
+    if (!['partial', 'unavailable'].includes(receipt.status) || !Array.isArray(receipt.observations) || !receipt.observations.length
+      || !isPlainRecord(receipt.routing) || !Object.keys(receipt.routing).length
+      || !isPlainRecord(receipt.privacy) || !Object.keys(receipt.privacy).length
+      || !Array.isArray(receipt.limitations) || !receipt.limitations.length) throw new Error('M3 source-smoke semantics drift');
+    for (const observation of receipt.observations) {
+      const source = { id: observation?.sourceId, dataset: observation?.dataset, transport: observation?.transport };
+      validateHomeCompareSourceObservation(observation, source);
+    }
   }
   if (phaseId === 'M4' && (!isPlainRecord(receipt.dataQuality) || !isPlainRecord(receipt.lineage) || !isPlainRecord(receipt.consent))) throw new Error('M4 DQ, lineage, or consent type drift');
+}
+
+// validateExactWarehouse is deliberately a filesystem/protocol validator: it
+// needs the frozen partition root and protocol to check all 64 parts.  A
+// handoff receipt cannot truthfully rerun it, so this adapter validates the
+// exact receipt projection it is allowed to consume, while the producer's
+// own validator remains the authority for the complete warehouse.
+function validateM1WarehouseReceipt(receipt) {
+  if (!isPlainRecord(receipt.coverage) || !isPlainRecord(receipt.lineage_registry)) throw new Error('M1 coverage or lineage type drift');
+  const coverage = receipt.coverage;
+  if (typeof coverage.earliest_scope_start !== 'string' || !coverage.earliest_scope_start
+    || typeof coverage.latest_scope_end_exclusive !== 'string' || !coverage.latest_scope_end_exclusive
+    || !Number.isFinite(Date.parse(coverage.earliest_scope_start)) || !Number.isFinite(Date.parse(coverage.latest_scope_end_exclusive))
+    || Date.parse(coverage.earliest_scope_start) >= Date.parse(coverage.latest_scope_end_exclusive)) throw new Error('M1 coverage semantics drift');
+  const lineage = receipt.lineage_registry;
+  if (!Array.isArray(lineage.source_snapshots) || !lineage.source_snapshots.length
+    || lineage.source_snapshots.some((entry) => !isPlainRecord(entry) || !isDigest(entry.snapshot_id))
+    || !isPlainRecord(lineage.model_input_contract)
+    || lineage.model_input_contract.serving_status !== 'not-published') throw new Error('M1 lineage semantics drift');
+  if (!isExactTimestamp(receipt.updated_at)) throw new Error('M1 updated clock drift');
+}
+
+function validateM2EvaluationReceipt(receipt) {
+  if (!isPlainRecord(receipt.protocol) || !isPlainRecord(receipt.data) || !isPlainRecord(receipt.data.coverage)
+    || !Object.keys(receipt.data.coverage).length || !isExactTimestamp(receipt.generated_at)) throw new Error('M2 protocol, coverage, or generated clock drift');
+  if (typeof receipt.protocol.schema !== 'string' || !receipt.protocol.schema || !isDigest(receipt.protocol.sha256)) throw new Error('M2 protocol semantics drift');
+  // The detached handoff retains a complete, machine-checkable evaluation
+  // report so it can reuse the producer's pure domain validator rather than
+  // duplicating metric admissibility in a Markdown policy.
+  validateModelEvaluationReport(receipt.evaluation);
 }
 
 function readPath(value, dotted) {
@@ -726,12 +823,7 @@ function validateUpstreamReceiptIdentities(phase, policy, observations, reasons)
 function sameRecord(left, right) {
   const leftKeys = Object.keys(left || {}).sort();
   const rightKeys = Object.keys(right || {}).sort();
-  return sameList(leftKeys, rightKeys) && leftKeys.every((key) => left[key] === right[key]);
-}
-
-function authorityDigest(payload) {
-  const bytes = Buffer.isBuffer(payload?.bytes) ? payload.bytes : Buffer.from(typeof payload?.bytes === 'string' ? payload.bytes : JSON.stringify(payload?.receipt ?? payload));
-  return createHash('sha256').update(bytes).digest('hex');
+  return sameList(leftKeys, rightKeys) && leftKeys.every((key) => JSON.stringify(left[key]) === JSON.stringify(right[key]));
 }
 
 async function readAuthorityReceipt(reference, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, kind) {
@@ -744,22 +836,23 @@ async function readAuthorityReceipt(reference, phase, filesystemAuthority, autho
   const receiptPath = await filesystemAuthority.receiptPath(phase.worktree, phase.evidenceRoot, reference.path, {
     ignoredRoot: phase.ignoredRoot,
   });
-  const payload = await authorityReader.read(receiptPath);
-  const receipt = payload?.receipt ?? payload;
-  if (!receipt || typeof receipt !== 'object') throw new Error(`${kind} authority receipt is not an object`);
+  const payload = normalizeRawReceipt(await authorityReader.read(receiptPath));
+  const receipt = payload.value?.receipt ?? payload.value;
+  if (!isPlainRecord(receipt)) throw new Error(`${kind} authority receipt is not an object`);
   if (!trustedAuthorityResolver?.resolve) throw new Error(`${kind} authority has no independent trusted resolver`);
-  const trusted = await trustedAuthorityResolver.resolve({
-    kind, canonicalPath: receiptPath, digest: authorityDigest(payload), phase: phase.phase,
-    candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
-  });
   const candidate = { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip };
+  const trusted = await trustedAuthorityResolver.resolve({
+    kind, canonicalPath: receiptPath, rawDigest: payload.rawDigest, phase: phase.phase, candidate,
+    issuer: receipt.reviewer || receipt.issuer,
+  });
   if (!trusted || trusted.trusted !== true || trusted.kind !== kind || trusted.phase !== phase.phase
-    || trusted.digest !== authorityDigest(payload) || !sameRecord(trusted.candidate, candidate)) throw new Error(`${kind} authority digest or candidate is not independently trusted`);
+    || trusted.rawDigest !== payload.rawDigest || trusted.canonicalPath !== receiptPath
+    || !sameRecord(trusted.candidate, candidate)) throw new Error(`${kind} authority digest, path, or candidate is not independently trusted`);
   if (receipt.schema !== reference.schema || receipt.schema !== AUTHORITY_RECEIPT_POLICY[kind].schema) throw new Error(`${kind} authority schema drift`);
   if (!sameRecord(receipt.identity, reference.expectedIdentity)) throw new Error(`${kind} authority identity drift`);
   const issuer = receipt.reviewer || receipt.issuer;
-  if (!sameRecord(issuer, trusted.issuer)) throw new Error(`${kind} authority issuer drift`);
-  return { receipt, trusted };
+  if (!sameRecord(issuer, trusted.issuer) || !sameRecord(issuer, reference.expectedIssuer)) throw new Error(`${kind} authority issuer drift`);
+  return { receipt, trusted, rawDigest: payload.rawDigest, canonicalPath: receiptPath };
 }
 
 function isIndependentIssuer(issuer, phase) {
@@ -783,10 +876,10 @@ async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, au
     || receipt.candidate?.cumulativeTip !== phase.reviewedTip) throw new Error('review candidate tip binding drift');
 }
 
-async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, filesystemAuthority, authorityReader, trustedAuthorityResolver }) {
+async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, oneDEvidence, producerEvidence, filesystemAuthority, authorityReader, trustedAuthorityResolver }) {
   if (!phase || !oneD || oneDResult?.decisions?.admissionEligible !== true || oneD.state !== 'accepted') return false;
   try {
-    const { receipt } = await readAuthorityReceipt(phase.deletionAuthority, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, 'deletion');
+    const { receipt, trusted } = await readAuthorityReceipt(phase.deletionAuthority, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, 'deletion');
     if (!isIndependentIssuer(receipt.issuer, phase)) return false;
     if (receipt.decision?.taskId === phase.producerTask || receipt.decision?.taskId === phase.owner
       || receipt.decision?.taskId === '1D integration/release owner') return false;
@@ -794,7 +887,19 @@ async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult,
       || receipt.decision?.identity !== receipt.issuer.identity
       || receipt.decision?.decidedAt !== receipt.decidedAt) return false;
     if (receipt.accepted1D?.cumulativeTip !== oneD.reviewedTip
-      || !sameRecord(receipt.accepted1D?.receiptIdentity, oneD.receipt?.identity)) return false;
+      || !sameRecord(receipt.accepted1D?.receiptIdentity, oneD.receipt?.identity)
+      || receipt.accepted1D?.receiptDigest !== oneDEvidence?.rawDigest
+      || receipt.target?.receiptDigest !== producerEvidence?.rawDigest
+      || receipt.target?.canonicalPath !== producerEvidence?.canonicalPath
+      || receipt.target?.evidenceRoot !== phase.evidenceRoot) return false;
+    if (!sameRecord(trusted.deletionBinding, {
+      accepted1DRawDigest: oneDEvidence?.rawDigest,
+      targetRawDigest: producerEvidence?.rawDigest,
+      targetCanonicalPath: producerEvidence?.canonicalPath,
+      evidenceRoot: phase.evidenceRoot,
+      targets: receipt.target?.targets,
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+    })) return false;
     return receipt.target?.phase === phase.phase
       && receipt.target?.ignoredRoot === phase.ignoredRoot
       && sameList(receipt.prerequisites, phasePolicy.retention.deletePrerequisites)

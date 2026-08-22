@@ -140,7 +140,8 @@
           "protocol.schema",
           "data.mart_artifact_identity",
           "data.source_vintage",
-          "data.coverage"
+          "data.coverage",
+          "evaluation"
         ],
         "identityFields": [
           "data.mart_artifact_identity",
@@ -306,6 +307,7 @@
           "clocks.observedAt",
           "governance.m2.identity",
           "governance.m2.revision",
+          "governance.m2.receiptDigest",
           "governance.m2.reviewedTip",
           "governance.m2.dqRechecked"
         ],

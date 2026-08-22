@@ -3,6 +3,7 @@ import test from 'node:test';
 import { access, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import { createFilesystemAuthority, evaluateHandoff, pathMatches, patternsOverlap, realFilesystemAuthority } from '../lib/phase1_handoff_evaluator.mjs';
 
@@ -25,10 +26,12 @@ test('Phase 1 policy names real producer receipt contracts and every control sur
   for (const surface of policy.controlSurfaces) await access(new URL(`../../${surface}`, import.meta.url));
   assert.deepEqual(policy.phases.map(({ id }) => id), ['M1', 'M2', 'M3', 'M4', '1D']);
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M1').receipt.requiredFields, ['current_snapshot_id', 'coverage', 'lineage_registry', 'latest_quality_report', 'latest_revision_report', 'updated_at']);
+  assert.equal(policy.phases.find(({ id }) => id === 'M1').receipt.defaultPath, '.dfev1/crime/warehouse/manifest.json');
   assert.equal(policy.phases.find(({ id }) => id === 'M2').receipt.defaultPath, '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json');
   assert.equal(policy.phases.find(({ id }) => id === 'M3').receipt.defaultPath, '.dfev1/home-neighborhood-compare/m3-v1/official-smoke/manifest.json');
   const m4 = policy.phases.find(({ id }) => id === 'M4');
   assert.equal(m4.receipt.schema, 'engagement-known-route-evidence-handoff/v2');
+  assert.equal(m4.receipt.defaultPath, '.dfev1/known-route-evidence-v1/full-warehouse/final-handoff.json');
   assert.equal(m4.receipt.futureRequired, true);
   assert.ok(m4.receipt.requiredFields.includes('warehouseIdentity'));
   assert.deepEqual(m4.receipt.dataQualityFields, ['dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated']);
@@ -39,6 +42,7 @@ test('Phase 1 policy names real producer receipt contracts and every control sur
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').upstreamReceiptBindings, ['M1']);
   assert.deepEqual(policy.phases.find(({ id }) => id === 'M4').governancePrerequisites, ['M2 frozen evaluation receipt recheck']);
   assert.deepEqual(policy.phases.find(({ id }) => id === '1D').upstreamReceiptBindings, ['M1', 'M2', 'M3', 'M4']);
+  assert.equal(policy.phases.find(({ id }) => id === '1D').receipt.defaultPath, '.dfev1/phase1/cumulative-receipt.json');
   for (const phase of policy.phases) {
     assert.ok(phase.owner && phase.writable.length && phase.ignoredOutputRoots.length);
     assert.ok(phase.retention.duration && phase.retention.triggerEvent && phase.retention.decisionOwner && phase.retention.authorizationReceipt);
@@ -78,7 +82,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     // A producer's retained evidence must be admissible before the future 1D
     // deletion decision exists. A present authorization, however, is exact.
     phase.retention.authorizationReceipt = null;
-    phase.receipt = { availability: 'available', actualPath: phase.phase, schema: definition.receipt.schema, identity: {}, revision: {}, validatorCommand: definition.receipt.validatorCommand, result: 'pass' };
+    phase.receipt = { availability: 'available', actualPath: `${phase.worktree}/${definition.receipt.defaultPath}`, schema: definition.receipt.schema, identity: {}, revision: {}, validatorCommand: definition.receipt.validatorCommand, result: 'pass' };
     const receipt = strictFixtureReceipt(phase.phase, definition);
     if (definition.receipt.schema) receipt.schema = definition.receipt.schema;
     for (const field of definition.receipt.identityFields) phase.receipt.identity[field] = getPath(receipt, field);
@@ -93,13 +97,13 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   m4Receipt.lineage.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
   m4.receipt.identity.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
   const m2 = fixture.phases.find((phase) => phase.phase === 'M2');
-  m4Receipt.governance = { m2: { identity: m2.receipt.identity, revision: m2.receipt.revision, reviewedTip: m2.reviewedTip, dqRechecked: true } };
+  m4Receipt.governance = { m2: { identity: m2.receipt.identity, revision: m2.receipt.revision, receiptDigest: rawFixtureDigest(receipts.get('M2')), reviewedTip: m2.reviewedTip, dqRechecked: true } };
   const oneD = fixture.phases.find((phase) => phase.phase === '1D');
   const oneDReceipt = receipts.get('1D');
   oneDReceipt.producerReceipts = ['M1', 'M2', 'M3', 'M4'].map((id) => ({
     phase: id,
     schema: receipts.get(id).schema,
-    receiptDigest: digest(`receipt-${id}`),
+    receiptDigest: rawFixtureDigest(receipts.get(id)),
     identity: fixture.phases.find((phase) => phase.phase === id).receipt.identity,
     revision: fixture.phases.find((phase) => phase.phase === id).receipt.revision,
     implementationTip: fixture.phases.find((phase) => phase.phase === id).implementationTip,
@@ -135,6 +139,20 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     return { head: phase.exactTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
   };
   const resolveRef = async (_worktree, reference) => reference;
+  const trustedRecords = new Map();
+  for (const phase of fixture.phases) {
+    for (const kind of ['review', 'deletion']) {
+      const reference = phase[`${kind}Authority`];
+      if (!reference) continue;
+      const authority = authorityReceipts.get(reference.path);
+      trustedRecords.set(`${kind}:${phase.phase}`, {
+        trusted: true, kind, phase: phase.phase, canonicalPath: reference.path,
+        rawDigest: rawFixtureDigest(authority),
+        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+        issuer: kind === 'review' ? phase.reviewAuthority.expectedIssuer : phase.deletionAuthority.expectedIssuer,
+      });
+    }
+  }
   const fixtureOptions = {
     inspectWorktree: inspect,
     inspectRevision: async (worktree, reference) => {
@@ -143,24 +161,22 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     },
     isAncestor: async () => true,
     changedBetween: async () => [],
-    readReceipt: async (key) => receipts.get(key),
+    readReceipt: async (key) => {
+      const phase = fixture.phases.find((item) => item.receipt.actualPath === key);
+      return rawFixturePayload(receipts.get(phase?.phase));
+    },
     filesystemAuthority: { async receiptPath(_worktree, _evidenceRoot, receiptPath) {
       if (receiptPath.startsWith('../') || receiptPath.startsWith('..\\') || /^[A-Za-z]:[\\/]/.test(receiptPath)) throw new Error('fixture authority rejects path escape');
       return receiptPath;
     } },
-    authorityReader: { async read(key) { return authorityReceipts.get(key); } },
+    authorityReader: { async read(key) { return rawFixturePayload(authorityReceipts.get(key)); } },
     trustedAuthorityResolver: {
-      async resolve({ kind, digest, phase, candidate }) {
-        return {
-          trusted: true,
-          kind,
-          phase,
-          digest,
-          candidate,
-          issuer: kind === 'review'
-            ? { taskId: 'independent-review-task', identity: 'reviewer-identity' }
-            : { taskId: 'independent-retention-task', identity: 'retention-identity' },
-        };
+      async resolve(input) {
+        const expected = trustedRecords.get(`${input.kind}:${input.phase}`);
+        if (!expected || input.canonicalPath !== expected.canonicalPath || input.rawDigest !== expected.rawDigest
+          || JSON.stringify(input.candidate) !== JSON.stringify(expected.candidate)
+          || JSON.stringify(input.issuer) !== JSON.stringify(expected.issuer)) return null;
+        return structuredClone(expected);
       },
     },
     resolveRef,
@@ -175,6 +191,26 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const untrusted = await evaluateHandoff({ policy, observation: fixture, ...fixtureOptions, trustedAuthorityResolver: null });
   assert.equal(untrusted.status, 'blocked', 'a receipt path and issuer label cannot self-authorize without an external trust resolver');
   assert.equal(untrusted.decisions.admissionEligible, false);
+  for (const [name, mutate] of [
+    ['missing resolver raw digest', (trusted) => { delete trusted.rawDigest; }],
+    ['resolver canonical path drift', (trusted) => { trusted.canonicalPath = 'fixture/forged.json'; }],
+    ['resolver kind drift', (trusted) => { trusted.kind = 'deletion'; }],
+    ['resolver phase drift', (trusted) => { trusted.phase = 'M4'; }],
+    ['resolver candidate-tip drift', (trusted) => { trusted.candidate.cumulativeTip = 'forged-tip'; }],
+    ['resolver issuer self-sign drift', (trusted) => { trusted.issuer = { taskId: 'M1 frozen warehouse task', identity: 'M1 frozen warehouse task' }; }],
+  ]) {
+    const result = await evaluateHandoff({
+      policy, observation: fixture, ...fixtureOptions,
+      trustedAuthorityResolver: { async resolve(input) {
+        const trusted = await fixtureOptions.trustedAuthorityResolver.resolve(input);
+        if (input.kind === 'review' && input.phase === 'M1') mutate(trusted);
+        return trusted;
+      } },
+    });
+    assert.equal(result.status, 'blocked', name);
+    assert.equal(result.decisions.admissionEligible, false, name);
+    assert.equal(result.decisions.deletionEligible, false, name);
+  }
   const hiddenBase = structuredClone(fixture);
   const hiddenM1 = hiddenBase.phases.find((phase) => phase.phase === 'M1');
   hiddenM1.phaseBase = hiddenM1.implementationTip;
@@ -205,10 +241,27 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       accepted1D: {
         cumulativeTip: deletable.phases.find((item) => item.phase === '1D').reviewedTip,
         receiptIdentity: deletable.phases.find((item) => item.phase === '1D').receipt.identity,
+        receiptDigest: rawFixtureDigest(receipts.get('1D')),
       },
-      target: { phase: phase.phase, ignoredRoot: phase.ignoredRoot },
+      target: {
+        phase: phase.phase, ignoredRoot: phase.ignoredRoot, evidenceRoot: phase.evidenceRoot,
+        canonicalPath: phase.receipt.actualPath, receiptDigest: rawFixtureDigest(receipts.get(phase.phase)),
+        targets: [phase.receipt.actualPath],
+      },
       prerequisites: definition.retention.deletePrerequisites,
       decidedAt: '2026-08-22T00:00:00.000Z',
+    });
+    const authority = authorityReceipts.get(phase.deletionAuthority.path);
+    trustedRecords.set(`deletion:${phase.phase}`, {
+      trusted: true, kind: 'deletion', phase: phase.phase, canonicalPath: phase.deletionAuthority.path,
+      rawDigest: rawFixtureDigest(authority), issuer: phase.deletionAuthority.expectedIssuer,
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      deletionBinding: {
+        accepted1DRawDigest: rawFixtureDigest(receipts.get('1D')),
+        targetRawDigest: rawFixtureDigest(receipts.get(phase.phase)), targetCanonicalPath: phase.receipt.actualPath,
+        evidenceRoot: phase.evidenceRoot, targets: [phase.receipt.actualPath],
+        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      },
     });
   }
   assert.equal((await evaluateHandoff({ policy, observation: deletable, ...fixtureOptions })).decisions.deletionEligible, true);
@@ -272,6 +325,21 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       candidateM4.receipt.identity.warehouseIdentity = 'forged-warehouse';
       candidateM4.upstreamReceiptIdentities[0].current_snapshot_id = entries.get('M1').current_snapshot_id;
     }],
+    ['M1 empty coverage is not a warehouse receipt', (_candidate, entries) => { entries.get('M1').coverage = {}; }],
+    ['M1 empty lineage registry is not a warehouse receipt', (_candidate, entries) => { entries.get('M1').lineage_registry = {}; }],
+    ['M1 invalid updated timestamp is rejected', (_candidate, entries) => { entries.get('M1').updated_at = 'not-a-time'; }],
+    ['M2 array protocol is rejected', (_candidate, entries) => { entries.get('M2').protocol = []; }],
+    ['M2 empty coverage is rejected', (_candidate, entries) => { entries.get('M2').data.coverage = {}; }],
+    ['M2 invalid generated timestamp is rejected', (_candidate, entries) => { entries.get('M2').generated_at = 'not-a-time'; }],
+    ['M2 invalid evaluation metric is rejected by producer validator', (_candidate, entries) => { entries.get('M2').evaluation.metrics.primary_by_fold_space_holdout[0].mae = null; }],
+    ['M3 empty routing is rejected by source-domain adapter', (_candidate, entries) => { entries.get('M3').routing = {}; }],
+    ['M3 invalid source observation time is rejected', (_candidate, entries) => { entries.get('M3').observations[0].retrievedAt = 'not-a-time'; }],
+    ['M3 invalid source revision is rejected', (_candidate, entries) => { entries.get('M3').observations[0].revision = ''; }],
+    ['M3 empty limitations is rejected', (_candidate, entries) => { entries.get('M3').limitations = []; }],
+    ['M4 invalid started clock is rejected', (_candidate, entries) => { entries.get('M4').startedAt = 'not-a-time'; }],
+    ['M4 governance M2 raw digest drift is rejected', (_candidate, entries) => { entries.get('M4').governance.m2.receiptDigest = digest('forged-m2'); }],
+    ['1D non-digest producer binding is rejected', (_candidate, entries) => { entries.get('1D').producerReceipts[0].receiptDigest = 'arbitrary'; }],
+    ['1D recomputed status drift is rejected', (_candidate, entries) => { entries.get('1D').status.M3 = 'blocked'; }],
     ['declared DAG ancestry fails', () => {}],
     ['M2 governance is not rechecked', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M2').state = 'pending-review'; }],
   ];
@@ -282,8 +350,11 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     mutate(candidate, candidateReceipts, candidateAuthorities);
     const hostileOptions = {
       ...fixtureOptions,
-      readReceipt: async (key) => candidateReceipts.get(key),
-      authorityReader: { async read(key) { return candidateAuthorities.get(key); } },
+      readReceipt: async (key) => {
+        const phase = candidate.phases.find((item) => item.receipt.actualPath === key);
+        return rawFixturePayload(candidateReceipts.get(phase?.phase));
+      },
+      authorityReader: { async read(key) { return rawFixturePayload(candidateAuthorities.get(key)); } },
       isAncestor: name === 'declared DAG ancestry fails' ? async () => false : fixtureOptions.isAncestor,
     };
     const result = await evaluateHandoff({ policy, observation: candidate, ...hostileOptions });
@@ -293,6 +364,21 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     assert.equal(result.phases.M4.decisions.admissionEligible, false, `${name} cannot admit M4`);
     assert.equal(result.phases['1D'].decisions.admissionEligible, false, `${name} cannot admit 1D`);
   }
+
+  // Receipt identity is the raw on-disk JSON byte sequence, not a convenient
+  // reserialization of an equivalent object. Whitespace changes therefore
+  // invalidate bindings unless all downstream receipts and independent trust
+  // records are regenerated by their proper owners.
+  const whitespaceResult = await evaluateHandoff({
+    policy, observation: fixture, ...fixtureOptions,
+    readReceipt: async (key) => {
+      const phase = fixture.phases.find((item) => item.receipt.actualPath === key);
+      return rawFixturePayload(receipts.get(phase?.phase), phase?.phase === 'M2' ? '\n' : '');
+    },
+  });
+  assert.equal(whitespaceResult.status, 'blocked');
+  assert.equal(whitespaceResult.decisions.admissionEligible, false);
+  assert.equal(whitespaceResult.decisions.deletionEligible, false);
 
   // Bad deletion receipts do not erase valid retained evidence, but they can
   // never grant deletion.  This keeps the future-delete gate separate from
@@ -312,11 +398,12 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       receipt.decision = { ...phase.deletionAuthority.expectedIssuer, decidedAt: receipt.decidedAt };
     }],
     ['deletion 1D binding mismatch', (entries) => { findAuthority(entries, 'deletion', 'M2').accepted1D.cumulativeTip = 'forged-1D-tip'; }],
+    ['deletion raw receipt replay mismatch', (entries) => { findAuthority(entries, 'deletion', 'M3').target.receiptDigest = digest('stale-target'); }],
   ]) {
     const candidate = structuredClone(deletable);
     const candidateAuthorities = new Map([...authorityReceipts].map(([key, value]) => [key, structuredClone(value)]));
     mutate(candidateAuthorities, candidate);
-    const result = await evaluateHandoff({ policy, observation: candidate, ...fixtureOptions, authorityReader: { async read(key) { return candidateAuthorities.get(key); } } });
+    const result = await evaluateHandoff({ policy, observation: candidate, ...fixtureOptions, authorityReader: { async read(key) { return rawFixturePayload(candidateAuthorities.get(key)); } } });
     assert.equal(result.status, 'accepted', `${name} does not erase retained evidence`);
     assert.equal(result.decisions.admissionEligible, true, `${name} cannot recast admission`);
     assert.equal(result.decisions.deletionEligible, false, `${name} must fail closed for deletion`);
@@ -345,12 +432,21 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     }
   }
   const childM2 = documentationChild.phases.find((phase) => phase.phase === 'M2');
-  receipts.get('M4').governance.m2 = { identity: childM2.receipt.identity, revision: childM2.receipt.revision, reviewedTip: childM2.reviewedTip, dqRechecked: true };
+  receipts.get('M4').governance.m2 = { identity: childM2.receipt.identity, revision: childM2.receipt.revision, receiptDigest: rawFixtureDigest(receipts.get('M2')), reviewedTip: childM2.reviewedTip, dqRechecked: true };
+  receipts.get('1D').producerReceipts.find((entry) => entry.phase === 'M4').receiptDigest = rawFixtureDigest(receipts.get('M4'));
   documentationChild.phases.find((phase) => phase.phase === '1D').receipt.identity.producerReceipts = receipts.get('1D').producerReceipts;
   const recordInspect = async (worktree) => {
     const phase = documentationChild.phases.find((item) => item.worktree === worktree);
     return { head: phase.recordTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
   };
+  const recordTrusted = new Map(documentationChild.phases.map((phase) => {
+    const authority = authorityReceipts.get(phase.reviewAuthority.path);
+    return [`review:${phase.phase}`, {
+      trusted: true, kind: 'review', phase: phase.phase, canonicalPath: phase.reviewAuthority.path,
+      rawDigest: rawFixtureDigest(authority), issuer: phase.reviewAuthority.expectedIssuer,
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+    }];
+  }));
   const recordOptions = {
     ...fixtureOptions,
     inspectWorktree: recordInspect,
@@ -358,6 +454,13 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       'docs/active/_worktree_registry.md',
       'docs/active/phase1-evidence-completion/task.md',
     ],
+    trustedAuthorityResolver: { async resolve(input) {
+      const expected = recordTrusted.get(`${input.kind}:${input.phase}`);
+      if (!expected || input.canonicalPath !== expected.canonicalPath || input.rawDigest !== expected.rawDigest
+        || JSON.stringify(input.candidate) !== JSON.stringify(expected.candidate)
+        || JSON.stringify(input.issuer) !== JSON.stringify(expected.issuer)) return null;
+      return structuredClone(expected);
+    } },
   };
   const documentedResult = await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions });
   assert.equal(documentedResult.status, 'accepted', documentedResult.reasons.join('; '));
@@ -412,6 +515,27 @@ test('receipt authority cannot be bypassed by an injected reader', async () => {
   assert.equal(result.phases.M1.decisions.admissionEligible, false);
 });
 
+test('immutable policy default receipt paths block an injected reader before raw bytes are read', async () => {
+  const { policy, observation } = await documents();
+  const candidate = structuredClone(observation);
+  const phase = candidate.phases.find(({ phase: id }) => id === 'M1');
+  phase.receipt = {
+    availability: 'available', actualPath: `${phase.worktree}/.dfev1/crime/warehouse/attacker.json`,
+    schema: policy.phases.find(({ id }) => id === 'M1').receipt.schema, identity: {}, revision: {},
+    validatorCommand: 'npm run test:phase1-handoff', result: 'pass',
+  };
+  let read = false;
+  const result = await evaluateHandoff({
+    policy, observation: candidate,
+    filesystemAuthority: { async receiptPath() { return phase.receipt.actualPath; } },
+    readReceipt: async () => { read = true; return rawFixturePayload({}); },
+  });
+  assert.equal(read, false);
+  assert.equal(result.phases.M1.decisions.admissionEligible, false);
+  assert.equal(result.decisions.admissionEligible, false);
+  assert.equal(result.decisions.deletionEligible, false);
+});
+
 test('real filesystem authority accepts a canonical inner regular file and rejects lexical escapes', async () => {
   const temporary = await mkdtemp(path.join(tmpdir(), 'phase1-authority-'));
   try {
@@ -441,6 +565,24 @@ test('exact ignored root and canonical receipt path reject sibling evidence befo
     assert.equal(await realFilesystemAuthority.receiptPath(temporary, allowed, allowedReceipt, { ignoredRoot: '.dfev1/crime/**', defaultPath: '.dfev1/crime/warehouse/manifest.json' }), await realpath(allowedReceipt));
     await assert.rejects(realFilesystemAuthority.receiptPath(temporary, sibling, siblingReceipt, { ignoredRoot: '.dfev1/crime/**', defaultPath: '.dfev1/crime/warehouse/manifest.json' }), /exact ignored root/);
   } finally { await rm(temporary, { recursive: true, force: true }); }
+});
+
+test('filesystem authority rejects an inner reparse ancestor even when its final canonical path stays inside the exact root', async () => {
+  const stat = async (pathname) => ({
+    isFile: () => pathname.endsWith('manifest.json'),
+    // This adapter models either a POSIX symlink or a Windows reparse/junction
+    // discovered at an existing inner ancestor.  The final canonical target
+    // intentionally remains inside the root, which is why realpath alone is
+    // not an adequate authority check.
+    isSymbolicLink: () => pathname.endsWith('/warehouse'),
+  });
+  const authority = createFilesystemAuthority({ platform: 'linux', canonicalize: async (pathname) => pathname, stat });
+  await assert.rejects(
+    authority.receiptPath('/worktree', '/worktree/.dfev1/crime/warehouse', '/worktree/.dfev1/crime/warehouse/manifest.json', {
+      ignoredRoot: '.dfev1/crime/**', defaultPath: '.dfev1/crime/warehouse/manifest.json',
+    }),
+    /symlink or reparse/,
+  );
 });
 
 test('real filesystem authority rejects a live file symlink when Windows permits it', async (t) => {
@@ -486,7 +628,7 @@ test('Windows live junction escaping the worktree is rejected when junction crea
       }
       throw error;
     }
-    await assert.rejects(realFilesystemAuthority.receiptPath(temporary, junction, path.join(junction, 'receipt.json')), /canonical path escapes/);
+    await assert.rejects(realFilesystemAuthority.receiptPath(temporary, junction, path.join(junction, 'receipt.json')), /canonical path escapes|symlink or reparse/);
   } finally {
     await rm(temporary, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
@@ -564,29 +706,44 @@ function findAuthority(entries, kind, phase) {
 }
 
 function digest(seed) { return `sha256:${String(seed).replace(/[^a-f0-9]/gi, 'a').toLowerCase().padEnd(64, 'a').slice(0, 64)}`; }
+function rawFixtureDigest(value) { return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`; }
+function rawFixturePayload(value, prefix = '') {
+  const bytes = Buffer.from(`${prefix}${JSON.stringify(value)}`, 'utf8');
+  return { value: JSON.parse(bytes.toString('utf8')), bytes, rawDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` };
+}
 
 function strictFixtureReceipt(phase, definition) {
   const receipt = {};
   for (const field of definition.receipt.requiredFields) setPath(receipt, field, fixtureReceiptValue(phase, field));
   receipt.schema = definition.receipt.schema;
   if (phase === 'M1') {
-    receipt.current_snapshot_id = digest('m1'); receipt.coverage = { complete: true }; receipt.lineage_registry = { source: 'registry' };
+    receipt.current_snapshot_id = digest('m1');
+    receipt.coverage = { earliest_scope_start: '2026-01-01T00:00:00.000Z', latest_scope_end_exclusive: '2026-08-22T00:00:00.000Z' };
+    receipt.lineage_registry = { source_snapshots: [{ snapshot_id: digest('m1-snapshot') }], model_input_contract: { serving_status: 'not-published' } };
     receipt.latest_quality_report = 'quality-v1'; receipt.latest_revision_report = 'revision-v1'; receipt.updated_at = '2026-08-22T00:00:00.000Z';
   }
   if (phase === 'M2') {
     receipt.generated_at = '2026-08-22T00:00:00.000Z'; receipt.protocol = { schema: 'evaluation/v1', sha256: digest('m2-protocol') };
     receipt.data = { mart_artifact_identity: digest('m2-mart'), source_vintage: digest('m2-source'), coverage: { complete: true } };
+    receipt.evaluation = {
+      schema: 'ModelEvaluationReport/v1', protocol: { frozen_before_model_performance: true },
+      metrics: {
+        primary_by_fold_space_holdout: [{ model: 'fixture', fold: 'one', mae: 1, poisson_deviance: 1, negative_binomial_deviance: 1, prediction_interval_90_coverage: 0.9, relative_mae_gain_vs_seasonal_naive: 0.1 }],
+        by_category: [], by_data_volume: [],
+      }, promotion: { status: 'not-promoted' },
+    };
   }
   if (phase === 'M3') {
-    receipt.generatedAt = '2026-08-22T00:00:00.000Z'; receipt.status = 'pass'; receipt.semanticIdentity = digest('m3');
-    receipt.observations = [{ revision: 'revision-1', dq: true }]; receipt.routing = { unavailable: true }; receipt.privacy = { sessionOnly: true }; receipt.limitations = { source: 'fixture' };
+    receipt.generatedAt = '2026-08-22T00:00:00.000Z'; receipt.status = 'partial'; receipt.semanticIdentity = digest('m3');
+    receipt.observations = [{ sourceId: 'fixture-source', status: 'partial', dataset: 'fixture-dataset', transport: 'fixture-transport', retrievedAt: '2026-08-22T00:00:00.000Z', sourceAsOf: '2026-08-21T00:00:00.000Z', revision: 'revision-1', rowCount: 1, schemaFields: ['id'], missingFields: [], dq: ['fixture-dq'] }];
+    receipt.routing = { unavailable: true }; receipt.privacy = { sessionOnly: true }; receipt.limitations = ['fixture limitation'];
   }
   if (phase === 'M4') {
     receipt.warehouseIdentity = digest('m4-warehouse'); receipt.routeIdentity = digest('m4-route'); receipt.catalogIdentity = digest('m4-catalog'); receipt.centerlineDataVersion = 'centerline-v1'; receipt.corridorIdentity = 'corridor-v1';
-    receipt.completedPartitions = 2; receipt.partitionCount = 2; receipt.startedAt = '2026-08-22T00:00:00.000Z'; receipt.completion = { state: 'complete' }; receipt.accumulator = { partitions: 2 };
+    receipt.completedPartitions = 2; receipt.partitionCount = 2; receipt.startedAt = '2026-08-22T00:02:00.000Z'; receipt.completion = { state: 'complete' }; receipt.accumulator = { partitions: 2 };
     receipt.dataQuality = { partitionCompletion: true, accumulatorValidated: true }; receipt.lineage = { warehouseIdentity: receipt.warehouseIdentity, routeIdentity: receipt.routeIdentity, catalogIdentity: receipt.catalogIdentity };
     receipt.consent = { publicCenterlineRequest: true }; receipt.clocks = { sourceAsOf: '2026-08-22T00:00:00.000Z', retrievedAt: '2026-08-22T00:01:00.000Z', builtAt: '2026-08-22T00:02:00.000Z', observedAt: '2026-08-22T00:03:00.000Z' };
   }
-  if (phase === '1D') { receipt.producerReceipts = []; receipt.topology = [['M1', 'M2'], ['M2', 'M3'], ['M1', 'M4'], ['M1', '1D'], ['M2', '1D'], ['M3', '1D'], ['M4', '1D']]; receipt.overlap = []; receipt.status = { accepted: true }; receipt.implementationTip = 'tip'; receipt.recordTip = 'tip'; }
+  if (phase === '1D') { receipt.producerReceipts = []; receipt.topology = [['M1', 'M2'], ['M2', 'M3'], ['M1', 'M4'], ['M1', '1D'], ['M2', '1D'], ['M3', '1D'], ['M4', '1D']]; receipt.overlap = [{ status: 'none', pairs: [] }]; receipt.status = { M1: 'accepted', M2: 'accepted', M3: 'accepted', M4: 'accepted', '1D': 'accepted' }; receipt.implementationTip = 'tip'; receipt.recordTip = 'tip'; }
   return receipt;
 }
