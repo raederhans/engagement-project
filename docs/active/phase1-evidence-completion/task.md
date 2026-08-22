@@ -9,7 +9,7 @@
 | Focused and bundle verification | complete | Exact-tip Phase 1 handoff (13 pass, one Windows symlink-permission skip), release/visual workflow (17 pass), lint, manifest JSON, diff, and clean status passed before release. |
 | Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Fresh root `.dfev1/phase1-release-914abe5-r1/` has inner/wrapper/outer/supervisor/observer exits 0, empty wrapper/outer/observer errors, no new recursive descendant, and no new audited listener. |
 | Execution evidence record | complete / pending independent review | This non-self-referencing documentation commit anchors `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `2ace27e37f271cecf1162ad8ee182f77554500d57a046223f74bbcddfff58010`. |
-| Cumulative evidence record | pending record-only update | It must follow this execution-evidence record without hard-coding its own SHA; `reviewedTip` remains null. |
+| Cumulative evidence record | complete / pending independent review | It follows execution record `a3c4fb7b13510119bf4c9bfee05cfab2a86e132a`; its own candidate identity is intentionally resolved by `git rev-parse HEAD`, never self-written. `reviewedTip` remains null. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 

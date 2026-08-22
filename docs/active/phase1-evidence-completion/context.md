@@ -105,9 +105,10 @@ new recursive wrapper descendants are empty after the run. The release log
 records visual-dist **35 passed / 10 designed skips**. This is local execution
 evidence only, not review or admission approval.
 
-This documentation commit is the execution-evidence record; its identity is
-deliberately not self-written. A subsequent record-only cumulative commit may
-refer to this parent execution record and must still leave `reviewedTip` null.
+Execution-evidence record `a3c4fb7b13510119bf4c9bfee05cfab2a86e132a`
+anchors these exact receipt bytes. The current record-only cumulative candidate
+is deliberately resolved by `git rev-parse HEAD`, not self-written; it must
+continue to leave `reviewedTip` null.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
