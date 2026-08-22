@@ -41,7 +41,7 @@
 | Home Compare browser | This task; current worktree | port 4189; retained task-owned .dfev1/home-neighborhood-compare/m3-v1/browser output | npm run test:home-compare-browser; real Chromium and production dist | helper closes page/context/browser/server; the task-owned browser evidence output is retained, not a test-results directory |
 | Known Route browser | This task; current worktree | port 4194; no task-owned test-results directory | npm run test:known-route-evidence-browser; real Chromium and production dist | helper closes page/context/browser/server; no output directory is claimed |
 | Composite release gate | This task; current worktree | its child commands run serially; visual runner may use its own temporary preview | npm run ci:release, not an equivalent hand-assembled command list | run only after the direct three-suite browser evidence; verify ports after completion |
-| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-543c214-r1/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
+| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; fresh `.dfev1/phase1-release-6e71478-r1/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
 
 No persistent service is authorized. If the same hypothesis fails three times,
 stop rerunning it and diagnose. The helper failure-injection contract is the
@@ -49,10 +49,10 @@ mechanical proof that a preview-success/Chromium-launch failure and context,
 route, page creation, or page-setup failure close acquired resources and remove
 the temporary harness.
 
-Current repair execution owner: this e4c5 task alone. Before the next composite
-gate, it runs the production Home Compare browser suite serially on port 4189;
-the task-owned retained output is `.dfev1/home-neighborhood-compare/m3-v1/browser`.
-No second browser, preview, or release runner may share that port/output.
+Current repair execution owner: this e4c5 task alone. The authorized frozen
+`6e71478954356f1890df1a45d167ff1a52a588ba` composite gate ran serially after
+its no-release self-test. No second browser, preview, or release runner may
+share port 4189 or any of the audited release ports/output roots.
 
 The current composite gate is governed by three ignored PowerShell layers under
 its exact-tip root. The supervisor freezes `HEAD`, local `main`, merge base,
@@ -130,6 +130,41 @@ anchors these exact receipt bytes. The following record-only cumulative
 candidate resolves its own identity with `git rev-parse HEAD`, never
 self-writes it, and must continue to leave `cumulativeTip` and `reviewedTip`
 null.
+
+## Current Step 1 release evidence (local execution only)
+
+- Frozen implementation: `6e71478954356f1890df1a45d167ff1a52a588ba`; local
+  main and merge-base: `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`; the
+  supervisor froze a clean `git status --porcelain=v1 --untracked-files=all`
+  before it started the wrapper.
+- This task was the only live-process owner in
+  `C:/Users/raede/.codex/worktrees/e4c5/engagement_project`. It first ran the
+  no-release wrapper self-test, then exactly one synchronous
+  `npm.cmd run ci:release` through observer → supervisor → wrapper. Its fresh
+  ignored root is `.dfev1/phase1-release-6e71478-r1/`; historical 543c214 and
+  earlier roots were neither overwritten nor reused.
+- The canonical relative raw external receipt is
+  `.dfev1/phase1-release-6e71478-r1/external-observed.json` (schema
+  `engagement-phase1-release-external-observer/v1`, 4,418 bytes, raw SHA-256
+  `c3d9b6e26387470b9be3e233afa33f690d8b622b736c01ac4cb2e08a899e597f`). Its
+  outer and wrapper receipt SHA-256 values are respectively
+  `0f0110744e7f47fdfce324e40f19ef18ed4194dcdb2257b3d150562738842969` and
+  `45b41e1dca8b9546e422d5be617af851ed4d424277742b3822847d42f710b93a`.
+- Inner release, wrapper-declared, outer-observed-wrapper, outer, supervisor,
+  and observer exits are all `0`; all receipt error arrays are empty. The
+  wrapper's recursive PID scope has zero baseline-subtracted descendants and
+  zero new listeners. The pre-existing `conhost.exe` baseline was observed
+  both before and after, so it is not claimed as a run leak. The audited ports
+  4173/4178/4189/4194/4198 have no post-run listener and no exact-root wrapper,
+  supervisor, observer, release, or visual process remains.
+- Raw release logs are retained in that root: stdout is 338,770 bytes
+  (`57e772bd2a76e0cde563d9984b65c80020b150fccaddc697af88794d98803c55`) and
+  stderr is 863 bytes
+  (`9d81809e09bc46a5ca72c6013833e9ff9eabaf7373db8c3cd8bded7660f41c51`). The
+  composite runner's visual-dist result is **35 passed / 10 designed skips**;
+  it included the real Area Intelligence, Home Compare, and Known Route
+  browser leaves. This is local execution evidence only, never review,
+  deletion, source, or producer-admission authority.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
