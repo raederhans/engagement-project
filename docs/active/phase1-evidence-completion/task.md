@@ -5,11 +5,11 @@
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Base, ownership, and unique record | complete | Detached repair begins at 5435dd88a0d4edd509d3cb2c6028c666bdfa3961 over local main 91cba5544f6a1ae7dc8c26a9d265657f452aae3b. |
-| Current implementation | complete | Frozen implementation tip is `b68b4ef60c0190b54b63dcec286f4def31ad45e5`. Historical `fe32f7`/`78db018`/`4ea5bb3` records do not validate it. |
-| Focused and bundle verification | complete | Fresh exact-tip Phase 1 handoff, release/visual workflow, lint, JSON, diff, status, build and existing bundle-policy checks passed. |
-| Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Fresh root `.dfev1/phase1-release-b68b4ef-r3/` has observer/wrapper/outer exit 0, empty wrapper errors, no new descendants, and no new audited listener. |
-| Execution evidence record | complete / pending independent review | The final observer receipt is `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `7131ef97321594bb3230396d0ac2a9ceec8b412d0d51bccd4d006f2e6d6c1b61`. |
-| Cumulative evidence record | complete / pending independent review | This record-only candidate follows execution-evidence record `5513d7d248e429e0d7957fb37d4996c41f73051b`; its own candidate identity is intentionally resolved by `git rev-parse HEAD`, never self-written. `reviewedTip` remains null. |
+| Current implementation | complete | Frozen implementation tip is `914abe5df9e2d1dacfcb900661423b2fbca67835`. All `b68`/`fe32f7`/`78db018`/`4ea5bb3` receipts are historical and do not validate it. |
+| Focused and bundle verification | complete | Exact-tip Phase 1 handoff (13 pass, one Windows symlink-permission skip), release/visual workflow (17 pass), lint, manifest JSON, diff, and clean status passed before release. |
+| Composite local release verification | complete | One task-owned observer/supervisor/wrapper run invoked `npm.cmd run ci:release` at the frozen tip. Fresh root `.dfev1/phase1-release-914abe5-r1/` has inner/wrapper/outer/supervisor/observer exits 0, empty wrapper/outer/observer errors, no new recursive descendant, and no new audited listener. |
+| Execution evidence record | complete / pending independent review | This non-self-referencing documentation commit anchors `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `2ace27e37f271cecf1162ad8ee182f77554500d57a046223f74bbcddfff58010`. |
+| Cumulative evidence record | pending record-only update | It must follow this execution-evidence record without hard-coding its own SHA; `reviewedTip` remains null. |
 | Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
 | Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
 
@@ -22,6 +22,12 @@ browser evidence.
 
 | Command | Exit | Result |
 | --- | --- | --- |
+| `npm run test:phase1-handoff` | 0 | Frozen `914abe5` preflight: 13 pass plus one explicit Windows symlink-permission skip; typed receipt, raw-digest, authority, path, and hostile regressions passed. |
+| `node --test scripts/tests/release_workflow_contracts.mjs scripts/tests/run_visual_experience_dist_contracts.mjs` | 0 | Frozen `914abe5` preflight: 17 release/visual workflow and structured-failure contracts passed. |
+| `npm run lint:js`; manifest JSON parse; `git diff --check`; full porcelain | 0 | Frozen `914abe5` preflight was clean. |
+| ignored wrapper no-release self-test | 0 | Fresh `.dfev1/phase1-release-914abe5-r1/` start marker/receipt/exit material passed; it recorded empty new descendant/listener arrays, no release invocation, no audited TIME_WAIT, and material SHA-256 values. |
+| observer-supervised `npm.cmd run ci:release` | 0 | Exactly one natural observer → supervisor → wrapper release at frozen `914abe5`; inner/wrapper/outer/supervisor/observer exits all 0; release log includes Area/Home/Known Route browser leaves and visual-dist 35 passed / 10 designed skips. |
+| post-run observer/port/process audit | 0 | Final external receipt has 14 material entries and zero errors; wrapper has zero new recursive descendants and zero new listeners; no task-owned wrapper process and no listener on 4173/4178/4189/4194/4198 remained. |
 | npm run test:browser-lifecycle | 0 | First fresh focused run: five deterministic launch/context/route/page cleanup contracts passed. |
 | npm run test:phase1-handoff | 0 | First fresh focused run: existing executable lifecycle/status contract and required M1-M4/1D handoff binding passed. |
 | npm run test:release-workflow | 0 | First fresh focused run: nine release workflow/package mapping and graph contracts passed. |

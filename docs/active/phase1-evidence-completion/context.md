@@ -21,7 +21,7 @@
 | Home Compare browser | This task; current worktree | port 4189; retained task-owned .dfev1/home-neighborhood-compare/m3-v1/browser output | npm run test:home-compare-browser; real Chromium and production dist | helper closes page/context/browser/server; the task-owned browser evidence output is retained, not a test-results directory |
 | Known Route browser | This task; current worktree | port 4194; no task-owned test-results directory | npm run test:known-route-evidence-browser; real Chromium and production dist | helper closes page/context/browser/server; no output directory is claimed |
 | Composite release gate | This task; current worktree | its child commands run serially; visual runner may use its own temporary preview | npm run ci:release, not an equivalent hand-assembled command list | run only after the direct three-suite browser evidence; verify ports after completion |
-| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-b68b4ef-r3/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
+| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-914abe5-r1/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
 
 No persistent service is authorized. If the same hypothesis fails three times,
 stop rerunning it and diagnose. The helper failure-injection contract is the
@@ -86,21 +86,28 @@ handoff must use and validate only
 consent, and four-clock fields. Current M4 evidence remains unavailable rather
 than being backfilled or claimed.
 
-Current exact local execution evidence is bound to implementation tip
-`b68b4ef60c0190b54b63dcec286f4def31ad45e5` in
-`.dfev1/phase1-release-b68b4ef-r3/external-observed.json` (schema
-`engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256
-`7131ef97321594bb3230396d0ac2a9ceec8b412d0d51bccd4d006f2e6d6c1b61`). The supervisor froze
-local `main` and merge-base at `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`
-with a clean full porcelain. Inner release, wrapper-declared, outer observed,
-supervisor observed, and observer exits are all `0`; baseline-subtracted
-listeners and recursive wrapper descendants are empty after the run. This is
-local execution evidence only, not review or admission approval.
+Current exact local execution evidence is bound to frozen implementation tip
+`914abe5df9e2d1dacfcb900661423b2fbca67835` in
+`.dfev1/phase1-release-914abe5-r1/external-observed.json` (schema
+`engagement-phase1-release-external-observer/v1`, canonical relative path as
+shown, 4,418 bytes, raw SHA-256
+`2ace27e37f271cecf1162ad8ee182f77554500d57a046223f74bbcddfff58010`). Its
+tracked material binding includes wrapper `run-release.ps1` SHA-256
+`2a4617fe66c0ea2f37383329886fec20a7693744e9f140d8cb85ac804e06e245`, outer
+receipt SHA-256 `c35c62a5e90984aadaf4ef8625af9af7395d0136d5e70d7dd7f1f2b27ef9acb3`,
+and wrapper receipt SHA-256
+`b079483f72df01ac1ecdc4b14c642a7e5d7301769885adb50bc259311220f5f6`.
+The supervisor froze local `main` and merge-base at
+`91cba5544f6a1ae7dc8c26a9d265657f452aae3b` with clean full porcelain.
+Inner release, wrapper-declared, outer observed, supervisor observed, and
+observer exits are all `0`; wrapper errors, baseline-subtracted listeners, and
+new recursive wrapper descendants are empty after the run. The release log
+records visual-dist **35 passed / 10 designed skips**. This is local execution
+evidence only, not review or admission approval.
 
-Cumulative candidate: the documentation-only record tip is intentionally
-resolved by `git rev-parse HEAD`, rather than self-written into this record.
-Its parent is execution-evidence record `5513d7d248e429e0d7957fb37d4996c41f73051b` for implementation `b68b4ef`; it
-cannot make the implementation admissible without independent re-review.
+This documentation commit is the execution-evidence record; its identity is
+deliberately not self-written. A subsequent record-only cumulative commit may
+refer to this parent execution record and must still leave `reviewedTip` null.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
