@@ -21,7 +21,7 @@
 | Home Compare browser | This task; current worktree | port 4189; retained task-owned .dfev1/home-neighborhood-compare/m3-v1/browser output | npm run test:home-compare-browser; real Chromium and production dist | helper closes page/context/browser/server; the task-owned browser evidence output is retained, not a test-results directory |
 | Known Route browser | This task; current worktree | port 4194; no task-owned test-results directory | npm run test:known-route-evidence-browser; real Chromium and production dist | helper closes page/context/browser/server; no output directory is claimed |
 | Composite release gate | This task; current worktree | its child commands run serially; visual runner may use its own temporary preview | npm run ci:release, not an equivalent hand-assembled command list | run only after the direct three-suite browser evidence; verify ports after completion |
-| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-914abe5-r1/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
+| Exact-tip release supervisor | This task; current worktree | ports 4173/4178/4189/4194/4198; `.dfev1/phase1-release-543c214-r1/` | `observe-release.ps1` waits `supervise-release.ps1`, which freezes Git/status before synchronously starting `run-release.ps1`; the wrapper invokes exactly `npm.cmd run ci:release` | one live owner; retain start/receipt/log/exit artifacts on success or failure; no process kill or concurrent runner |
 
 No persistent service is authorized. If the same hypothesis fails three times,
 stop rerunning it and diagnose. The helper failure-injection contract is the
@@ -87,16 +87,16 @@ consent, and four-clock fields. Current M4 evidence remains unavailable rather
 than being backfilled or claimed.
 
 Current exact local execution evidence is bound to frozen implementation tip
-`914abe5df9e2d1dacfcb900661423b2fbca67835` in
-`.dfev1/phase1-release-914abe5-r1/external-observed.json` (schema
+`543c214f890232b9e580c297b6547a2494e0bd50` in
+`.dfev1/phase1-release-543c214-r1/external-observed.json` (schema
 `engagement-phase1-release-external-observer/v1`, canonical relative path as
 shown, 4,418 bytes, raw SHA-256
-`2ace27e37f271cecf1162ad8ee182f77554500d57a046223f74bbcddfff58010`). Its
+`628b58d9d093d5d8a90d01f7f2b1c9c93dd5bae7ad8037a6b81192affc86fe9d`). Its
 tracked material binding includes wrapper `run-release.ps1` SHA-256
 `2a4617fe66c0ea2f37383329886fec20a7693744e9f140d8cb85ac804e06e245`, outer
-receipt SHA-256 `c35c62a5e90984aadaf4ef8625af9af7395d0136d5e70d7dd7f1f2b27ef9acb3`,
+receipt SHA-256 `d10ccbe93bb82e570dd839bdda5942ea307baa9a8c02f941fc4868c729826fed`,
 and wrapper receipt SHA-256
-`b079483f72df01ac1ecdc4b14c642a7e5d7301769885adb50bc259311220f5f6`.
+`78e96cb3d8df0c20a9589e241623e0d3ccfd454bbabdd4cd3bf001f5b9c1f22a`.
 The supervisor froze local `main` and merge-base at
 `91cba5544f6a1ae7dc8c26a9d265657f452aae3b` with clean full porcelain.
 Inner release, wrapper-declared, outer observed, supervisor observed, and
@@ -105,10 +105,10 @@ new recursive wrapper descendants are empty after the run. The release log
 records visual-dist **35 passed / 10 designed skips**. This is local execution
 evidence only, not review or admission approval.
 
-Execution-evidence record `a3c4fb7b13510119bf4c9bfee05cfab2a86e132a`
-anchors these exact receipt bytes. The current record-only cumulative candidate
-is deliberately resolved by `git rev-parse HEAD`, not self-written; it must
-continue to leave `reviewedTip` null.
+This execution-evidence commit anchors these exact receipt bytes without
+self-writing its own SHA. The following record-only cumulative candidate will
+resolve this execution record with Git and resolve its own identity with `git
+rev-parse HEAD`; it must continue to leave `reviewedTip` null.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.
