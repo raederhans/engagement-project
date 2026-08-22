@@ -182,6 +182,12 @@ test('real backfill producer publishes one official frozen receipt and validates
     (bytes) => Buffer.concat([Buffer.from('{invalid-json\n'), bytes]),
     /not valid JSON/i,
   );
+  await assertProducerJsonLinesMutation(root, populatedCanonicalPath, (events) => {
+    events[0].row_hash = `sha256:${'0'.repeat(64)}`;
+    events[0].source_ids.objectid = '999999';
+    events[0].raw_category.offense_label = 'Forged but valid label';
+    events[0].generalized_location.value = '999 BLOCK FORGED ST';
+  }, /drifted from its source row transforms/i);
 
   const currentSourceManifestPath = path.join(
     root,
@@ -200,6 +206,12 @@ test('real backfill producer publishes one official frozen receipt and validates
   await assertProducerJsonMutation(root, revisionPath, (revision) => {
     revision.counts.added += 1;
   }, /revision report counts drifted/i);
+  await assertProducerJsonMutations(root, [revisionPath, qualityPath], ([revision, quality]) => {
+    revision.counts.added -= 1;
+    revision.counts.modified += 1;
+    quality.revisions.added -= 1;
+    quality.revisions.modified += 1;
+  }, /mechanically recomputed source history/i);
   await assertProducerJsonMutation(root, checkpointPath, (checkpoint) => {
     checkpoint.periods[1].start = '2026-01-02';
   }, /exact continuous range/i);
@@ -240,6 +252,9 @@ test('real backfill producer publishes one official frozen receipt and validates
   await assertReceiptMutation(root, (receipt) => {
     receipt.mode = 'synthetic-test';
   }, /cannot admit synthetic/i);
+  await assertReceiptMutation(root, (receipt) => {
+    receipt.schema = 'engagement-phl-crime-warehouse-receipt/v2';
+  }, /cannot admit synthetic|serving|integration|deletion authority/i);
   await assertReceiptMutation(root, (receipt) => {
     receipt.clocks.retrieved_at = '2026-08-22T12:00:00.000Z';
     receipt.clocks.built_at = '2026-08-22T11:00:00.000Z';
@@ -704,6 +719,32 @@ async function assertProducerJsonMutation(root, filePath, mutate, pattern) {
   const value = JSON.parse(original.toString('utf8'));
   mutate(value);
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  try {
+    await assert.rejects(createCrimeWarehouseAdmissionReceipt(root), pattern);
+  } finally {
+    await fs.writeFile(filePath, original);
+  }
+}
+
+async function assertProducerJsonMutations(root, filePaths, mutate, pattern) {
+  const originals = await Promise.all(filePaths.map((filePath) => fs.readFile(filePath)));
+  const values = originals.map((original) => JSON.parse(original.toString('utf8')));
+  mutate(values);
+  await Promise.all(filePaths.map((filePath, index) => (
+    fs.writeFile(filePath, `${JSON.stringify(values[index], null, 2)}\n`, 'utf8')
+  )));
+  try {
+    await assert.rejects(createCrimeWarehouseAdmissionReceipt(root), pattern);
+  } finally {
+    await Promise.all(filePaths.map((filePath, index) => fs.writeFile(filePath, originals[index])));
+  }
+}
+
+async function assertProducerJsonLinesMutation(root, filePath, mutate, pattern) {
+  const original = await fs.readFile(filePath);
+  const values = original.toString('utf8').split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  mutate(values);
+  await fs.writeFile(filePath, `${values.map((value) => JSON.stringify(value)).join('\n')}\n`, 'utf8');
   try {
     await assert.rejects(createCrimeWarehouseAdmissionReceipt(root), pattern);
   } finally {
