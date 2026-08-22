@@ -27,7 +27,10 @@ const SYNTHETIC_SNAPSHOT_SCHEMA = 'engagement-phl-crime-synthetic-snapshot/v1';
 const TRANSACTION_SCHEMA = 'engagement-phl-crime-warehouse-transaction/v1';
 const REVISION_SCHEMA = 'engagement-phl-crime-revisions/v1';
 const BACKFILL_CHECKPOINT_SCHEMA = 'engagement-phl-crime-backfill-checkpoint/v1';
-export const CRIME_WAREHOUSE_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v1';
+const SOURCE_SNAPSHOT_SCHEMA = 'engagement-phl-crime-source-snapshot/v1';
+const EVENT_CONTRACT_URL = new URL('../data/crime_event_contract.v1.json', import.meta.url);
+const SOURCE_CONTRACT_URL = new URL('../data/crime_event_source_contract.json', import.meta.url);
+export const CRIME_WAREHOUSE_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v2';
 
 export async function createWarehouseDependencies({
   eventContract,
@@ -74,6 +77,7 @@ export async function ingestCrimeSourceSnapshot({
   now = () => new Date(),
   onProgress = () => {},
   failAtPublishPartition = null,
+  failAfterPublishMetadata = null,
 } = {}) {
   if (!snapshotDir || !warehouseDir) throw new Error('Crime warehouse ingest requires snapshot and warehouse directories.');
   validateDependencies(dependencies);
@@ -295,12 +299,20 @@ export async function ingestCrimeSourceSnapshot({
       transactionId,
       partitionCount,
       failAtPublishPartition,
+      failAfterPublishMetadata,
     });
     await removeOwnedDirectory(warehouseDir, transactionDir);
     onProgress({ phase: 'complete', rowCount: canonicalRowCount, snapshotId: snapshotManifest.snapshot_id });
     return { idempotent: false, manifest, quality };
   } catch (error) {
-    await recoverWarehouseTransaction(warehouseDir).catch(() => {});
+    try {
+      await recoverWarehouseTransaction(warehouseDir);
+    } catch (recoveryError) {
+      throw new AggregateError(
+        [error, recoveryError],
+        'Crime warehouse publication failed and transaction recovery also failed.',
+      );
+    }
     throw error;
   }
 }
@@ -440,6 +452,10 @@ export function canonicalizeSourceRow(sourceRow, snapshotManifest, dependencies,
 
 export function validateCanonicalEvent(event, eventContract) {
   validateEventContract(eventContract);
+  return validateCanonicalEventAgainstContract(event, eventContract);
+}
+
+function validateCanonicalEventAgainstContract(event, eventContract) {
   if (event?.schema !== EVENT_SCHEMA
     || JSON.stringify(Object.keys(event)) !== JSON.stringify(eventContract.canonical_event_required_fields)
     || typeof event.source_record_id !== 'string'
@@ -516,6 +532,12 @@ export async function publishCrimeWarehouseAdmissionReceipt(evidenceRoot) {
 
 async function inspectCrimeWarehouseEvidence(evidenceRoot) {
   const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
+  const [eventContract, sourceContract] = await Promise.all([
+    readJsonUrl(EVENT_CONTRACT_URL),
+    readJsonUrl(SOURCE_CONTRACT_URL),
+  ]);
+  validateEventContract(eventContract);
+  validateSourceContract(sourceContract);
   const manifestArtifact = await readRelativeJsonArtifact(
     root,
     'warehouse/manifest.json',
@@ -557,12 +579,19 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     throw new Error('Crime warehouse quality or revision companion drifted from current_snapshot_id.');
   }
 
-  const sourceSnapshots = await inspectLineageSourceSnapshots(root, lineage, manifest);
+  const periods = validateBackfillPeriods(checkpoint);
+  const sourceSnapshots = await inspectLineageSourceSnapshots(
+    root,
+    lineage,
+    manifest,
+    sourceContract,
+    periods,
+  );
   const currentSource = sourceSnapshots.items.find(
     ({ value }) => value.snapshot_id === manifest.current_snapshot_id,
   );
   if (!currentSource) throw new Error('Crime warehouse lineage lacks the current source revision.');
-  const canonical = await inspectCanonicalPartitions(root, manifest.partition_count);
+  const canonical = await inspectCanonicalPartitions(root, manifest, eventContract);
   validateCrimeWarehouseProducerSemantics({
     manifest,
     checkpoint,
@@ -572,6 +601,7 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     sourceSnapshots,
     currentSource: currentSource.value,
     canonical,
+    periods,
   });
 
   const clocks = {
@@ -653,9 +683,12 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
   return evidence;
 }
 
-async function inspectLineageSourceSnapshots(root, lineage, manifest) {
+async function inspectLineageSourceSnapshots(root, lineage, manifest, sourceContract, periods) {
   if (!Array.isArray(lineage?.source_snapshots) || lineage.source_snapshots.length === 0) {
     throw new Error('Crime warehouse lineage source snapshot registry is empty.');
+  }
+  if (lineage.source_snapshots.length !== periods.length) {
+    throw new Error('Crime warehouse lineage source snapshots do not match the exact backfill periods.');
   }
   const items = [];
   const seen = new Set();
@@ -666,7 +699,8 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest) {
   let earliestEventAt = null;
   let latestEventAt = null;
   const rawBindings = [];
-  for (const entry of lineage.source_snapshots) {
+  for (const [index, entry] of lineage.source_snapshots.entries()) {
+    const expectedPeriod = periods[index];
     if (!entry || typeof entry.manifest_path !== 'string' || seen.has(entry.snapshot_id)) {
       throw new Error('Crime warehouse lineage source identities must be unique and complete.');
     }
@@ -674,14 +708,23 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest) {
     const relative = await relativePathInsideRoot(root, entry.manifest_path, 'source manifest');
     const artifact = await readRelativeJsonArtifact(root, relative, 'source manifest');
     const value = artifact.value;
-    if (value?.schema !== 'engagement-phl-crime-source-snapshot/v1'
+    await validateCrimeSourceSnapshot(value, path.dirname(artifact.absolute), { sourceContract });
+    if (value?.schema !== SOURCE_SNAPSHOT_SCHEMA
       || value.source_kind !== 'official'
       || value.availability !== 'available'
+      || value.provider !== sourceContract.provider
+      || value.source_url !== sourceContract.api_url
+      || value.source_catalog_url !== sourceContract.official_catalog_url
+      || stableSerialization(value.source_schema) !== stableSerialization(sourceContract.expected_query_schema)
       || value.snapshot_id !== entry.snapshot_id
       || value.source_vintage?.id !== entry.snapshot_id
       || value.source_vintage?.source_as_of !== entry.source_as_of
       || value.source_vintage?.retrieved_at !== entry.retrieved_at
       || value.row_count !== entry.row_count
+      || value.scope?.start !== expectedPeriod.start
+      || value.scope?.end_exclusive !== expectedPeriod.end_exclusive
+      || value.scope?.completeness !== 'complete-query-required'
+      || value.scope?.ordering !== 'cartodb_id ASC'
       || stableSerialization(value.scope) !== stableSerialization(entry.scope)) {
       throw new Error(`Crime warehouse lineage source manifest drifted for ${entry.snapshot_id || '(missing)'}.`);
     }
@@ -694,7 +737,44 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest) {
     latestEventAt = maximum && (!latestEventAt || maximum > latestEventAt) ? maximum : latestEventAt;
     totalRows += value.row_count;
     totalBytes += artifact.bytes.length;
-    const raw = await inspectSourceRawShards(root, artifact.relative, value);
+    const raw = await inspectSourceRawShards(root, artifact.relative, value, sourceContract);
+    const recomputedSnapshotId = identityOf({
+      dataset_id: value.dataset_id,
+      source_table: value.source_table,
+      scope: { start: value.scope.start, end_exclusive: value.scope.end_exclusive },
+      row_count: raw.rows,
+      source_as_of: value.source_vintage.source_as_of,
+      source_schema: sourceContract.expected_query_schema,
+      shards: value.shards.map(({ path: shardPath, row_count: rowCount, bytes: shardBytes, identity }) => ({
+        path: shardPath,
+        row_count: rowCount,
+        bytes: shardBytes,
+        identity,
+      })),
+    });
+    if (recomputedSnapshotId !== value.snapshot_id) {
+      throw new Error(`Crime warehouse source snapshot identity drifted for ${value.snapshot_id}.`);
+    }
+    if (raw.rows !== value.row_count
+      || raw.earliest_event_at !== minimum
+      || raw.latest_event_at !== maximum
+      || stableSerialization(value.source_summary_before) !== stableSerialization(value.source_summary_after)
+      || value.source_summary_before?.row_count !== raw.rows
+      || value.source_summary_after?.row_count !== raw.rows
+      || value.source_summary_after?.distinct_source_ids !== raw.rows
+      || value.source_summary_after?.distinct_dc_keys !== raw.distinct_dc_keys
+      || value.source_summary_after?.suspected_duplicate_dc_key_excess !== raw.rows - raw.distinct_dc_keys
+      || exactTimestamp(value.source_summary_after?.min_event_at) !== raw.earliest_event_at
+      || exactTimestamp(value.source_summary_after?.max_event_at) !== raw.latest_event_at
+      || stableSerialization(value.quality?.counts_by_date) !== stableSerialization(raw.counts_by_date)
+      || stableSerialization(value.quality?.counts_by_category) !== stableSerialization(raw.counts_by_category)
+      || value.quality?.coordinate_missing !== raw.coordinate_missing
+      || value.quality?.coordinate_invalid !== raw.coordinate_invalid
+      || value.quality?.coordinate_outside_city_bounds !== raw.coordinate_outside_city_bounds
+      || value.quality?.duplicate_source_id_count !== 0
+      || value.quality?.suspected_duplicate_count !== raw.rows - raw.distinct_dc_keys) {
+      throw new Error(`Crime warehouse source snapshot semantic counts drifted for ${value.snapshot_id}.`);
+    }
     rawBytes += raw.bytes;
     rawShardCount += raw.count;
     rawBindings.push(...raw.bindings);
@@ -725,7 +805,7 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest) {
   };
 }
 
-async function inspectSourceRawShards(root, manifestRelative, manifest) {
+async function inspectSourceRawShards(root, manifestRelative, manifest, sourceContract) {
   finiteInteger(manifest.partition_count, 'source manifest partition_count', { minimum: 1 });
   if (!Array.isArray(manifest.shards) || manifest.shards.length !== manifest.partition_count) {
     throw new Error('Crime warehouse source manifest raw shard set drifted.');
@@ -734,6 +814,15 @@ async function inspectSourceRawShards(root, manifestRelative, manifest) {
   const bindings = [];
   let bytes = 0;
   let rows = 0;
+  let earliestEventAt = null;
+  let latestEventAt = null;
+  let coordinateMissing = 0;
+  let coordinateInvalid = 0;
+  let coordinateOutsideCityBounds = 0;
+  const countsByDate = new Map();
+  const countsByCategory = new Map();
+  const distinctDcKeys = new Set();
+  const [minLongitude, minLatitude, maxLongitude, maxLatitude] = sourceContract.source_semantics.city_bbox;
   for (let partition = 0; partition < manifest.partition_count; partition += 1) {
     const shard = manifest.shards[partition];
     const expectedPath = `rows/part-${String(partition).padStart(3, '0')}.jsonl`;
@@ -755,15 +844,60 @@ async function inspectSourceRawShards(root, manifestRelative, manifest) {
     if (stat.size !== shard.bytes || identity !== shard.identity) {
       throw new Error(`Crime warehouse source raw shard bytes drifted for ${relative}.`);
     }
+    let actualRows = 0;
+    let previousSourceId = 0;
+    for await (const sourceRow of readJsonLines(resolved.absolute)) {
+      validateSourceRowAgainstContract(sourceRow, sourceContract);
+      const sourceId = sourceIdentifier(sourceRow);
+      if (sourceId <= previousSourceId || partitionForSourceId(sourceId, manifest.partition_count) !== partition) {
+        throw new Error(`Crime warehouse source raw shard ${partition} has duplicate, unordered, or misplaced IDs.`);
+      }
+      previousSourceId = sourceId;
+      const eventAt = exactTimestamp(sourceRow.dispatch_date_time, `source ${sourceId} dispatch_date_time`);
+      const eventDate = eventAt.slice(0, 10);
+      if (eventDate < manifest.scope.start || eventDate >= manifest.scope.end_exclusive) {
+        throw new Error(`Crime warehouse source row ${sourceId} is outside its declared period.`);
+      }
+      earliestEventAt = !earliestEventAt || eventAt < earliestEventAt ? eventAt : earliestEventAt;
+      latestEventAt = !latestEventAt || eventAt > latestEventAt ? eventAt : latestEventAt;
+      countsByDate.set(eventDate, (countsByDate.get(eventDate) || 0) + 1);
+      const category = textOrNull(sourceRow.text_general_code) || 'unavailable';
+      countsByCategory.set(category, (countsByCategory.get(category) || 0) + 1);
+      if (sourceRow.dc_key != null) distinctDcKeys.add(String(sourceRow.dc_key));
+      if (sourceRow.point_x == null || sourceRow.point_y == null) coordinateMissing += 1;
+      else if (!Number.isFinite(sourceRow.point_x) || !Number.isFinite(sourceRow.point_y)
+        || sourceRow.point_x < -180 || sourceRow.point_x > 180
+        || sourceRow.point_y < -90 || sourceRow.point_y > 90) coordinateInvalid += 1;
+      else if (sourceRow.point_x < minLongitude || sourceRow.point_x > maxLongitude
+        || sourceRow.point_y < minLatitude || sourceRow.point_y > maxLatitude) coordinateOutsideCityBounds += 1;
+      actualRows += 1;
+    }
+    if (actualRows !== shard.row_count) {
+      throw new Error(`Crime warehouse source raw shard ${partition} row count drifted from its bytes.`);
+    }
     bytes += stat.size;
-    rows += shard.row_count;
+    rows += actualRows;
     bindings.push({ path: relative, bytes: stat.size, sha256: identity });
   }
   if (rows !== manifest.row_count) throw new Error('Crime warehouse source raw shard row count drifted.');
-  return { count: bindings.length, bytes, bindings };
+  return {
+    count: bindings.length,
+    bytes,
+    bindings,
+    rows,
+    earliest_event_at: earliestEventAt,
+    latest_event_at: latestEventAt,
+    counts_by_date: Object.fromEntries([...countsByDate.entries()].sort()),
+    counts_by_category: Object.fromEntries([...countsByCategory.entries()].sort()),
+    coordinate_missing: coordinateMissing,
+    coordinate_invalid: coordinateInvalid,
+    coordinate_outside_city_bounds: coordinateOutsideCityBounds,
+    distinct_dc_keys: distinctDcKeys.size,
+  };
 }
 
-async function inspectCanonicalPartitions(root, partitionCount) {
+async function inspectCanonicalPartitions(root, manifest, eventContract) {
+  const partitionCount = manifest.partition_count;
   finiteInteger(partitionCount, 'warehouse partition_count', { minimum: 1 });
   const directoryRelative = 'warehouse/canonical';
   const directory = await resolveCanonicalRelative(root, directoryRelative, { expectDirectory: true });
@@ -777,13 +911,34 @@ async function inspectCanonicalPartitions(root, partitionCount) {
   }
   const bindings = [];
   let bytes = 0;
-  for (const name of names) {
+  const counts = emptyCanonicalInspectionCounts();
+  let earliestEventAt = null;
+  let latestEventAt = null;
+  const unknownLabels = new Set();
+  for (const [partition, name] of names.entries()) {
     const relative = `${directoryRelative}/${name}`;
     const artifact = await resolveCanonicalRelative(root, relative, {
       expectDirectory: false,
       label: 'canonical partition',
     });
     const stat = await fs.stat(artifact.absolute);
+    let previousSourceId = 0;
+    for await (const event of readJsonLines(artifact.absolute)) {
+      validateCanonicalEventAgainstContract(event, eventContract);
+      const sourceId = sourceNumericId(event);
+      if (sourceId <= previousSourceId || partitionForSourceId(sourceId, partitionCount) !== partition) {
+        throw new Error(`Crime warehouse canonical partition ${partition} has duplicate, unordered, or misplaced IDs.`);
+      }
+      previousSourceId = sourceId;
+      if (event.source_ids?.cartodb_id !== String(sourceId)
+        || event.lineage?.source_snapshot_id !== event.source_vintage?.snapshot_id
+        || !manifest.applied_snapshot_ids.includes(event.source_vintage?.snapshot_id)) {
+        throw new Error(`Canonical crime event ${event.source_record_id} has inconsistent source identity or lineage.`);
+      }
+      accumulateInspectedCanonicalQuality(counts, event, unknownLabels);
+      earliestEventAt = !earliestEventAt || event.event_at < earliestEventAt ? event.event_at : earliestEventAt;
+      latestEventAt = !latestEventAt || event.event_at > latestEventAt ? event.event_at : latestEventAt;
+    }
     bytes += stat.size;
     bindings.push({ path: relative, bytes: stat.size, sha256: await hashFile(artifact.absolute) });
   }
@@ -792,7 +947,120 @@ async function inspectCanonicalPartitions(root, partitionCount) {
     partition_count: partitionCount,
     bytes,
     sha256: identityOf(bindings),
+    counts,
+    earliest_event_at: earliestEventAt,
+    latest_event_at: latestEventAt,
+    unknown_labels: [...unknownLabels].sort(),
   };
+}
+
+function emptyCanonicalInspectionCounts() {
+  return {
+    canonical_rows: 0,
+    lifecycle: { active: 0, removal_candidate: 0 },
+    coordinate: { available: 0, missing: 0, invalid: 0, outside_city_bounds: 0 },
+    tract: { mapped: 0, unmapped: 0, ambiguous: 0 },
+    fixed_grid: { mapped: 0, unavailable: 0 },
+    route_corridor: { available: 0, unavailable: 0, matches: 0 },
+    acs_estimate_moe: { available: 0, partial: 0, unavailable: 0, 'incompatible-vintage': 0 },
+    unavailable_label_count: 0,
+  };
+}
+
+function accumulateInspectedCanonicalQuality(counts, event, unknownLabels) {
+  if (event.event_at !== exactTimestamp(event.event_at)
+    || event.first_seen_at !== exactTimestamp(event.first_seen_at)
+    || event.last_seen_at !== exactTimestamp(event.last_seen_at)) {
+    throw new Error(`Canonical crime event ${event.source_record_id} timestamps are not canonical UTC values.`);
+  }
+  counts.canonical_rows += 1;
+  if (event.lifecycle.state === 'active') {
+    if (event.lifecycle.first_missing_at !== null || event.lifecycle.missing_vintages !== 0
+      || event.lifecycle.reason !== null) {
+      throw new Error(`Canonical crime event ${event.source_record_id} active lifecycle is invalid.`);
+    }
+    counts.lifecycle.active += 1;
+  } else {
+    if (!exactTimestamp(event.lifecycle.first_missing_at)
+      || !Number.isInteger(event.lifecycle.missing_vintages) || event.lifecycle.missing_vintages < 1
+      || event.lifecycle.reason !== 'absent-from-complete-query-scope') {
+      throw new Error(`Canonical crime event ${event.source_record_id} removal lifecycle is invalid.`);
+    }
+    counts.lifecycle.removal_candidate += 1;
+  }
+
+  if (event.coordinate.status === 'available') counts.coordinate.available += 1;
+  else if (event.coordinate.status !== 'unavailable') {
+    throw new Error(`Canonical crime event ${event.source_record_id} coordinate status is invalid.`);
+  } else if (event.coordinate.reason === 'coordinate-missing') counts.coordinate.missing += 1;
+  else if (event.coordinate.reason === 'coordinate-outside-city-bounds') counts.coordinate.outside_city_bounds += 1;
+  else counts.coordinate.invalid += 1;
+
+  incrementSupportedStatus(counts.tract, event.spatial?.tract?.status, ['mapped', 'unmapped', 'ambiguous'], event);
+  incrementSupportedStatus(counts.fixed_grid, event.spatial?.grid?.status, ['mapped', 'unavailable'], event);
+  incrementSupportedStatus(
+    counts.route_corridor,
+    event.spatial?.route_corridor?.status,
+    ['available', 'unavailable'],
+    event,
+  );
+  if (!Array.isArray(event.spatial?.route_corridor?.matches)) {
+    throw new Error(`Canonical crime event ${event.source_record_id} route matches are invalid.`);
+  }
+  counts.route_corridor.matches += event.spatial.route_corridor.matches.length;
+  incrementSupportedStatus(
+    counts.acs_estimate_moe,
+    event.acs?.status,
+    ['available', 'partial', 'unavailable', 'incompatible-vintage'],
+    event,
+  );
+  if (event.raw_category?.offense_label == null) counts.unavailable_label_count += 1;
+  if (event.normalized_category?.status === 'unknown-label') {
+    if (typeof event.raw_category?.offense_label !== 'string' || !event.raw_category.offense_label) {
+      throw new Error(`Canonical crime event ${event.source_record_id} unknown label is invalid.`);
+    }
+    unknownLabels.add(event.raw_category.offense_label);
+  }
+}
+
+function incrementSupportedStatus(target, status, supported, event) {
+  if (!supported.includes(status)) {
+    throw new Error(`Canonical crime event ${event.source_record_id} has unsupported DQ status ${status || '(missing)'}.`);
+  }
+  target[status] += 1;
+}
+
+function validateBackfillPeriods(checkpoint) {
+  const start = exactDateText(checkpoint?.start, 'backfill checkpoint start');
+  const through = exactDateText(checkpoint?.through, 'backfill checkpoint through');
+  if (start >= through) throw new Error('Crime warehouse checkpoint range is empty or reversed.');
+  const expected = [];
+  let cursor = start;
+  while (cursor < through) {
+    const nextYear = `${Number(cursor.slice(0, 4)) + 1}-01-01`;
+    const endExclusive = nextYear < through ? nextYear : through;
+    expected.push({ start: cursor, end_exclusive: endExclusive });
+    cursor = endExclusive;
+  }
+  if (stableSerialization(checkpoint.periods) !== stableSerialization(expected)) {
+    throw new Error('Crime warehouse checkpoint periods are not the exact continuous range derived from start/through.');
+  }
+  const expectedKeys = expected.map(({ start: periodStart, end_exclusive: periodEnd }) => (
+    `${periodStart}_${periodEnd}`
+  ));
+  if (stableSerialization(Object.keys(checkpoint.completed || {})) !== stableSerialization(expectedKeys)) {
+    throw new Error('Crime warehouse completed period keys have a gap, overlap, or order drift.');
+  }
+  for (const key of expectedKeys) {
+    const completed = checkpoint.completed[key];
+    if (!/^sha256:[a-f0-9]{64}$/.test(completed?.snapshot_id || '')
+      || !exactTimestamp(completed?.completed_at)) {
+      throw new Error(`Crime warehouse completed period ${key} metadata is invalid.`);
+    }
+    finiteInteger(completed.source_rows, `completed period ${key} source_rows`);
+    finiteInteger(completed.canonical_rows, `completed period ${key} canonical_rows`);
+  }
+  return expected;
 }
 
 function validateCrimeWarehouseProducerSemantics({
@@ -804,6 +1072,7 @@ function validateCrimeWarehouseProducerSemantics({
   sourceSnapshots,
   currentSource,
   canonical,
+  periods,
 }) {
   const counts = [
     ['canonical_row_count', manifest.canonical_row_count],
@@ -824,11 +1093,16 @@ function validateCrimeWarehouseProducerSemantics({
     || quality.lifecycle?.active !== manifest.active_row_count
     || quality.lifecycle?.removal_candidate !== manifest.removal_candidate_count
     || canonical.partition_count !== manifest.partition_count
+    || canonical.counts.canonical_rows !== manifest.canonical_row_count
+    || canonical.counts.lifecycle.active !== manifest.active_row_count
+    || canonical.counts.lifecycle.removal_candidate !== manifest.removal_candidate_count
     || lineage.model_input_contract?.serving_status !== 'not-published') {
     throw new Error('Crime warehouse manifest/checkpoint/lineage row or coverage contract drifted.');
   }
   if (sourceSnapshots.earliestEventAt !== manifest.coverage.earliest_event_at
     || sourceSnapshots.latestEventAt !== manifest.coverage.latest_event_at
+    || canonical.earliest_event_at !== manifest.coverage.earliest_event_at
+    || canonical.latest_event_at !== manifest.coverage.latest_event_at
     || currentSource.scope?.end_exclusive !== checkpoint.through
     || currentSource.source_vintage?.source_as_of !== manifest.coverage.latest_event_at) {
     throw new Error('Crime warehouse source revision or event coverage drifted.');
@@ -837,6 +1111,20 @@ function validateCrimeWarehouseProducerSemantics({
   if (stableSerialization(completedSnapshotIds) !== stableSerialization(manifest.applied_snapshot_ids)) {
     throw new Error('Crime warehouse checkpoint revision order drifted.');
   }
+  let cumulativeRows = 0;
+  periods.forEach((period, index) => {
+    const periodId = `${period.start}_${period.end_exclusive}`;
+    const completed = checkpoint.completed[periodId];
+    const source = sourceSnapshots.items[index].value;
+    cumulativeRows += source.row_count;
+    if (completed.snapshot_id !== source.snapshot_id
+      || completed.source_rows !== source.row_count
+      || completed.canonical_rows !== cumulativeRows
+      || source.scope.start !== period.start
+      || source.scope.end_exclusive !== period.end_exclusive) {
+      throw new Error(`Crime warehouse period ${periodId} completion drifted from its source manifest.`);
+    }
+  });
   const dqSums = [
     ['coordinate', quality.coordinate, ['available', 'missing', 'invalid', 'outside_city_bounds']],
     ['tract', quality.join_coverage?.tract, ['mapped', 'unmapped', 'ambiguous']],
@@ -849,6 +1137,24 @@ function validateCrimeWarehouseProducerSemantics({
     const sum = keys.reduce((total, key) => total + finiteInteger(value?.[key], `${label}.${key}`), 0);
     if (sum !== manifest.canonical_row_count) throw new Error(`Crime warehouse ${label} DQ counts drifted.`);
   }
+  const recomputedDq = [
+    ['coordinate', quality.coordinate, canonical.counts.coordinate],
+    ['tract', quality.join_coverage?.tract, canonical.counts.tract],
+    ['fixed grid', quality.join_coverage?.fixed_grid, canonical.counts.fixed_grid],
+    ['route corridor', quality.join_coverage?.route_corridor, canonical.counts.route_corridor],
+    ['ACS estimate/MOE', quality.join_coverage?.acs_estimate_moe, canonical.counts.acs_estimate_moe],
+    ['lifecycle', quality.lifecycle, canonical.counts.lifecycle],
+  ];
+  for (const [label, declared, recomputed] of recomputedDq) {
+    if (stableSerialization(declared) !== stableSerialization(recomputed)) {
+      throw new Error(`Crime warehouse ${label} DQ counts drifted from canonical bytes.`);
+    }
+  }
+  if (quality.labels?.unavailable_count !== canonical.counts.unavailable_label_count
+    || stableSerialization(quality.labels?.unknown_observed) !== stableSerialization(canonical.unknown_labels)) {
+    throw new Error('Crime warehouse label DQ counts drifted from canonical bytes.');
+  }
+  validateRevisionSemantics(revision, quality, currentSource);
   if (quality.status_semantics?.unavailable_is_zero !== false
     || quality.status_semantics?.partial_is_current !== false
     || quality.status_semantics?.stale_is_current !== false
@@ -857,6 +1163,41 @@ function validateCrimeWarehouseProducerSemantics({
     || quality.observed_at !== manifest.updated_at
     || lineage.model_input_contract?.generated_at !== manifest.updated_at) {
     throw new Error('Crime warehouse DQ, revision, or lineage clock semantics drifted.');
+  }
+}
+
+function validateRevisionSemantics(revision, quality, currentSource) {
+  const revisionTypes = [
+    'added', 'late-arriving', 'modified', 'reclassified', 'unchanged', 'reappeared',
+    'removal-candidate', 'transformation-updated',
+  ];
+  if (stableSerialization(Object.keys(revision.counts || {})) !== stableSerialization(revisionTypes)
+    || stableSerialization(revision.counts) !== stableSerialization(quality.revisions)) {
+    throw new Error('Crime warehouse revision report counts drifted from quality revisions.');
+  }
+  const total = revisionTypes.reduce(
+    (sum, type) => sum + finiteInteger(revision.counts[type], `revision counts.${type}`),
+    0,
+  );
+  if (total !== currentSource.row_count + revision.counts['removal-candidate']) {
+    throw new Error('Crime warehouse revision counts do not match the current source bytes and lifecycle changes.');
+  }
+  finiteInteger(revision.change_details_limit, 'revision change_details_limit', { minimum: 1 });
+  if (!Array.isArray(revision.changes)) throw new Error('Crime warehouse revision change details are invalid.');
+  const changed = total - revision.counts.unchanged;
+  const expectedDetails = Math.min(changed, revision.change_details_limit);
+  if (revision.changes.length !== expectedDetails
+    || revision.change_details_truncated !== (changed > revision.change_details_limit)) {
+    throw new Error('Crime warehouse revision detail truncation drifted from declared counts.');
+  }
+  for (const change of revision.changes) {
+    if (!revisionTypes.includes(change?.type) || change.type === 'unchanged'
+      || typeof change.source_record_id !== 'string'
+      || !/^sha256:[a-f0-9]{64}$/.test(change.row_hash || '')
+      || !exactTimestamp(change.first_seen_at)
+      || !exactTimestamp(change.last_seen_at)) {
+      throw new Error('Crime warehouse revision change detail is invalid.');
+    }
   }
 }
 
@@ -1093,6 +1434,8 @@ export async function recoverWarehouseTransaction(warehouseDir) {
       const previousLineage = path.join(transactionDir, 'backup-meta', 'lineage.json');
       if (await pathExists(previousLineage)) {
         await replaceFileFromCopy(previousLineage, path.join(warehouseDir, 'lineage', 'registry.json'));
+      } else {
+        await fs.rm(path.join(warehouseDir, 'lineage', 'registry.json'), { force: true });
       }
     }
     await removeOwnedDirectory(warehouseDir, transactionDir);
@@ -1107,6 +1450,7 @@ async function publishTransaction({
   transactionId,
   partitionCount,
   failAtPublishPartition,
+  failAfterPublishMetadata,
 }) {
   await fs.mkdir(path.join(warehouseDir, 'canonical'), { recursive: true });
   await fs.mkdir(path.join(transactionDir, 'backup'), { recursive: true });
@@ -1135,18 +1479,22 @@ async function publishTransaction({
     path.join(transactionDir, 'candidate-meta', 'quality.json'),
     path.join(warehouseDir, 'quality', `${transactionId}.json`),
   );
+  if (failAfterPublishMetadata === 'quality') throw new Error('Injected metadata publish failure after quality.');
   await replaceFileFromCopy(
     path.join(transactionDir, 'candidate-meta', 'revision.json'),
     path.join(warehouseDir, 'revisions', `${transactionId}.json`),
   );
+  if (failAfterPublishMetadata === 'revision') throw new Error('Injected metadata publish failure after revision.');
   await replaceFileFromCopy(
     path.join(transactionDir, 'candidate-meta', 'lineage.json'),
     path.join(warehouseDir, 'lineage', 'registry.json'),
   );
+  if (failAfterPublishMetadata === 'lineage') throw new Error('Injected metadata publish failure after lineage.');
   await replaceFileFromCopy(
     path.join(transactionDir, 'candidate-meta', 'manifest.json'),
     path.join(warehouseDir, 'manifest.json'),
   );
+  if (failAfterPublishMetadata === 'manifest') throw new Error('Injected metadata publish failure after manifest.');
   journal.state = 'committed';
   await writeJsonAtomic(journalPath, journal);
 }
@@ -1502,6 +1850,26 @@ function sourceIdentifier(row) {
   return number;
 }
 
+function validateSourceRowAgainstContract(row, sourceContract) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    throw new Error('Crime warehouse source JSONL row is not an object.');
+  }
+  const expectedFields = [...sourceContract.selected_fields].sort();
+  if (stableSerialization(Object.keys(row).sort()) !== stableSerialization(expectedFields)) {
+    throw new Error('Crime warehouse source JSONL row schema drifted from the approved source contract.');
+  }
+  for (const [field, expectedType] of Object.entries(sourceContract.expected_query_schema)) {
+    const value = row[field];
+    if (value == null) continue;
+    const valid = expectedType === 'date'
+      ? typeof value === 'string' && Boolean(exactTimestamp(value))
+      : typeof value === expectedType && (expectedType !== 'number' || Number.isFinite(value));
+    if (!valid) {
+      throw new Error(`Crime warehouse source JSONL field ${field} drifted from type ${expectedType}.`);
+    }
+  }
+}
+
 function sourceNumericId(event) {
   const match = String(event?.source_record_id || '').match(/^cartodb:(\d+)$/);
   const number = match ? Number(match[1]) : NaN;
@@ -1601,6 +1969,10 @@ async function readJsonIfExists(filePath) {
     if (error?.code === 'ENOENT') return null;
     throw error;
   }
+}
+
+async function readJsonUrl(url) {
+  return JSON.parse(await fs.readFile(url, 'utf8'));
 }
 
 async function writeJsonAtomic(destination, value) {

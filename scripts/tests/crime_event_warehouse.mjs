@@ -23,6 +23,7 @@ import {
 import {
   classifyCrimeDataStatus,
   CRIME_WAREHOUSE_RECEIPT_SCHEMA,
+  createCrimeWarehouseAdmissionReceipt,
   createWarehouseDependencies,
   ingestCrimeSourceSnapshot,
   validateCrimeWarehouseAdmissionReceipt,
@@ -168,8 +169,49 @@ test('real backfill producer publishes one official frozen receipt and validates
   assert.deepEqual(await fs.readFile(checkpointPath), before.checkpointBytes);
   assert.equal((await fs.stat(checkpointPath)).mtimeMs, before.checkpointMtimeMs);
 
+  const receiptBytes = await fs.readFile(receiptPath);
+  await fs.rm(receiptPath);
+  const canonicalDirectory = path.join(root, 'warehouse', 'canonical');
+  const populatedCanonicalName = `part-${String(
+    partitionForSourceId(1, EVENT_CONTRACT.default_partition_count),
+  ).padStart(3, '0')}.jsonl`;
+  const populatedCanonicalPath = path.join(canonicalDirectory, populatedCanonicalName);
+  await assertProducerBytesMutation(
+    root,
+    populatedCanonicalPath,
+    (bytes) => Buffer.concat([Buffer.from('{invalid-json\n'), bytes]),
+    /not valid JSON/i,
+  );
+
+  const currentSourceManifestPath = path.join(
+    root,
+    ...admitted.receipt.artifacts.current_source_manifest.path.split('/'),
+  );
+  await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
+    sourceManifest.source_schema.cartodb_id = 'string';
+  }, /source schema|approved source contract|manifest drifted/i);
+  await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
+    sourceManifest.snapshot_id = `sha256:${'0'.repeat(64)}`;
+    sourceManifest.source_vintage.id = sourceManifest.snapshot_id;
+  }, /identity|lineage source manifest drifted/i);
+
   const qualityPath = path.join(root, ...admitted.receipt.artifacts.latest_quality_report.path.split('/'));
   const revisionPath = path.join(root, ...admitted.receipt.artifacts.latest_revision_report.path.split('/'));
+  await assertProducerJsonMutation(root, revisionPath, (revision) => {
+    revision.counts.added += 1;
+  }, /revision report counts drifted/i);
+  await assertProducerJsonMutation(root, checkpointPath, (checkpoint) => {
+    checkpoint.periods[1].start = '2026-01-02';
+  }, /exact continuous range/i);
+  await assertProducerJsonMutation(root, checkpointPath, (checkpoint) => {
+    checkpoint.periods[1].start = '2025-12-31';
+  }, /exact continuous range/i);
+  await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
+    sourceManifest.scope.start = '2025-12-31';
+  }, /scope|manifest drifted|identity/i);
+  await fs.writeFile(receiptPath, receiptBytes);
+  await createCrimeWarehouseAdmissionReceipt(root);
+
   const qualityBytes = await fs.readFile(qualityPath);
   const revisionBytes = await fs.readFile(revisionPath);
   await fs.appendFile(qualityPath, ' ', 'utf8');
@@ -179,10 +221,6 @@ test('real backfill producer publishes one official frozen receipt and validates
   await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /ENOENT|no such file/i);
   await fs.writeFile(revisionPath, revisionBytes);
 
-  const currentSourceManifestPath = path.join(
-    root,
-    ...admitted.receipt.artifacts.current_source_manifest.path.split('/'),
-  );
   const currentSourceManifest = await readJson(currentSourceManifestPath);
   const rawShardPath = path.join(
     path.dirname(currentSourceManifestPath),
@@ -190,7 +228,7 @@ test('real backfill producer publishes one official frozen receipt and validates
   );
   const rawShardBytes = await fs.readFile(rawShardPath);
   await fs.appendFile(rawShardPath, ' ', 'utf8');
-  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /raw shard bytes drifted/i);
+  await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), /identity does not match|raw shard bytes drifted/i);
   await fs.writeFile(rawShardPath, rawShardBytes);
 
   const driftedQuality = JSON.parse(qualityBytes.toString('utf8'));
@@ -219,6 +257,71 @@ test('real backfill producer publishes one official frozen receipt and validates
     receipt.artifacts.latest_quality_report.path = 'warehouse/quality/../quality.json';
   }, /canonical safe relative path/i);
   await validateCrimeWarehouseAdmissionReceipt(root);
+});
+
+test('first metadata publication recovers every pre-manifest boundary without orphan lineage', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-metadata-recovery-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const snapshotDir = path.join(root, 'snapshot');
+  await writeSyntheticSnapshot(snapshotDir, FIXTURE.vintages[0]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+
+  for (const stage of ['quality', 'revision', 'lineage']) {
+    await assert.rejects(ingestCrimeSourceSnapshot({
+      snapshotDir,
+      warehouseDir,
+      dependencies,
+      allowSynthetic: true,
+      now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+      failAfterPublishMetadata: stage,
+    }), new RegExp(`Injected metadata publish failure after ${stage}`));
+    assert.equal(await pathExists(path.join(warehouseDir, 'manifest.json')), false);
+    assert.equal(await pathExists(path.join(warehouseDir, 'lineage', 'registry.json')), false);
+    assert.deepEqual(await directoryNames(path.join(warehouseDir, 'quality')), []);
+    assert.deepEqual(await directoryNames(path.join(warehouseDir, 'revisions')), []);
+    assert.deepEqual(await directoryNames(path.join(warehouseDir, 'canonical')), []);
+    assert.deepEqual(await directoryNames(path.join(warehouseDir, '.transactions')), []);
+  }
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+    failAfterPublishMetadata: 'manifest',
+  }), /Injected metadata publish failure after manifest/);
+  const committedManifest = await readJson(path.join(warehouseDir, 'manifest.json'));
+  const committedLineage = await readJson(path.join(warehouseDir, 'lineage', 'registry.json'));
+  assert.deepEqual(committedManifest.applied_snapshot_ids, [committedManifest.current_snapshot_id]);
+  assert.deepEqual(
+    committedLineage.source_snapshots.map(({ snapshot_id: snapshotId }) => snapshotId),
+    [committedManifest.current_snapshot_id],
+  );
+  assert.deepEqual(await directoryNames(path.join(warehouseDir, '.transactions')), []);
+
+  const rerun = await ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  });
+  assert.equal(rerun.idempotent, true);
+  assert.deepEqual(
+    (await readJson(path.join(warehouseDir, 'lineage', 'registry.json')))
+      .source_snapshots.map(({ snapshot_id: snapshotId }) => snapshotId),
+    [committedManifest.current_snapshot_id],
+  );
 });
 
 test('revision-aware warehouse preserves event lifecycle, lineage, crosswalk, spatial, and ACS semantics', async (context) => {
@@ -593,6 +696,37 @@ async function assertReceiptMutation(root, mutate, pattern) {
     await assert.rejects(validateCrimeWarehouseAdmissionReceipt(root), pattern);
   } finally {
     await fs.writeFile(receiptPath, original);
+  }
+}
+
+async function assertProducerJsonMutation(root, filePath, mutate, pattern) {
+  const original = await fs.readFile(filePath);
+  const value = JSON.parse(original.toString('utf8'));
+  mutate(value);
+  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  try {
+    await assert.rejects(createCrimeWarehouseAdmissionReceipt(root), pattern);
+  } finally {
+    await fs.writeFile(filePath, original);
+  }
+}
+
+async function assertProducerBytesMutation(root, filePath, mutate, pattern) {
+  const original = await fs.readFile(filePath);
+  await fs.writeFile(filePath, mutate(original));
+  try {
+    await assert.rejects(createCrimeWarehouseAdmissionReceipt(root), pattern);
+  } finally {
+    await fs.writeFile(filePath, original);
+  }
+}
+
+async function directoryNames(directory) {
+  try {
+    return (await fs.readdir(directory)).sort();
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
   }
 }
 
