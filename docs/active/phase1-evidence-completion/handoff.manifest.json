@@ -138,10 +138,14 @@
         "requiredFields": [
           "generated_at",
           "protocol.schema",
+          "protocol.sha256",
           "data.mart_artifact_identity",
           "data.source_vintage",
           "data.coverage",
-          "evaluation"
+          "data.admission",
+          "metrics.primary_by_fold_space_holdout",
+          "metrics.by_category",
+          "metrics.by_data_volume"
         ],
         "identityFields": [
           "data.mart_artifact_identity",
@@ -308,7 +312,12 @@
           "governance.m2.identity",
           "governance.m2.revision",
           "governance.m2.receiptDigest",
-          "governance.m2.reviewedTip",
+          "governance.m2.canonicalPath",
+          "governance.m2.evidenceRoot",
+          "governance.m2.implementationTip",
+          "governance.m2.executionRecordTip",
+          "governance.m2.cumulativeTip",
+          "governance.m2.dq",
           "governance.m2.dqRechecked"
         ],
         "identityFields": [
@@ -407,14 +416,18 @@
           "producerReceipts",
           "topology",
           "status",
-          "overlap"
+          "overlap",
+          "implementationTip",
+          "executionRecordTip",
+          "cumulativeTip"
         ],
         "identityFields": [
           "producerReceipts"
         ],
         "revisionFields": [
           "implementationTip",
-          "recordTip"
+          "executionRecordTip",
+          "cumulativeTip"
         ],
         "validatorCommand": "npm run test:phase1-handoff"
       },

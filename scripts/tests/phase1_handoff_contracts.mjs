@@ -77,7 +77,9 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     phase.evidenceRoot = `${phase.worktree}/${phase.ignoredRoot.replace('/**', '')}`;
     phase.actualMergeBase = phase.expectedBase;
     phase.phaseBase = phase.expectedBase;
-    phase.state = 'accepted'; phase.implementationTip = phase.exactTip; phase.recordTip = phase.exactTip; phase.reviewedTip = phase.exactTip;
+    phase.state = 'accepted'; phase.implementationTip = tip(`${phase.phase}-implementation`); phase.exactTip = phase.implementationTip;
+    phase.recordTip = tip(`${phase.phase}-execution`); phase.cumulativeTip = tip(`${phase.phase}-cumulative`); phase.reviewedTip = phase.cumulativeTip;
+    if (phase.phase === '1D') { phase.phaseBase = tip('pre-1d-integrated'); phase.preIntegrationBase = phase.phaseBase; }
     phase.status = { porcelain: [], index: [], untracked: [] }; phase.actualChangedPaths = [];
     // A producer's retained evidence must be admissible before the future 1D
     // deletion decision exists. A present authorization, however, is exact.
@@ -97,7 +99,13 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   m4Receipt.lineage.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
   m4.receipt.identity.warehouseIdentity = m1.receipt.identity.current_snapshot_id;
   const m2 = fixture.phases.find((phase) => phase.phase === 'M2');
-  m4Receipt.governance = { m2: { identity: m2.receipt.identity, revision: m2.receipt.revision, receiptDigest: rawFixtureDigest(receipts.get('M2')), reviewedTip: m2.reviewedTip, dqRechecked: true } };
+  m4Receipt.governance = { m2: {
+    identity: m2.receipt.identity, revision: m2.receipt.revision, receiptDigest: rawFixtureDigest(receipts.get('M2')),
+    canonicalPath: m2.receipt.actualPath, evidenceRoot: m2.evidenceRoot,
+    implementationTip: m2.implementationTip, executionRecordTip: m2.recordTip, cumulativeTip: m2.cumulativeTip,
+    dq: m2ReceiptDq(receipts.get('M2')),
+    dqRechecked: true,
+  } };
   const oneD = fixture.phases.find((phase) => phase.phase === '1D');
   const oneDReceipt = receipts.get('1D');
   oneDReceipt.producerReceipts = ['M1', 'M2', 'M3', 'M4'].map((id) => ({
@@ -107,11 +115,21 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     identity: fixture.phases.find((phase) => phase.phase === id).receipt.identity,
     revision: fixture.phases.find((phase) => phase.phase === id).receipt.revision,
     implementationTip: fixture.phases.find((phase) => phase.phase === id).implementationTip,
-    recordTip: fixture.phases.find((phase) => phase.phase === id).recordTip,
+    canonicalPath: fixture.phases.find((phase) => phase.phase === id).receipt.actualPath,
+    evidenceRoot: fixture.phases.find((phase) => phase.phase === id).evidenceRoot,
+    executionRecordTip: fixture.phases.find((phase) => phase.phase === id).recordTip,
+    cumulativeTip: fixture.phases.find((phase) => phase.phase === id).cumulativeTip,
     reviewedTip: fixture.phases.find((phase) => phase.phase === id).reviewedTip,
+    dq: fixtureReceiptDq(id, receipts.get(id)),
     dqRechecked: true,
   }));
   oneD.receipt.identity.producerReceipts = oneDReceipt.producerReceipts;
+  oneDReceipt.implementationTip = oneD.implementationTip;
+  oneDReceipt.executionRecordTip = oneD.recordTip;
+  oneDReceipt.cumulativeTip = oneD.cumulativeTip;
+  oneD.receipt.revision.implementationTip = oneDReceipt.implementationTip;
+  oneD.receipt.revision.executionRecordTip = oneDReceipt.executionRecordTip;
+  oneD.receipt.revision.cumulativeTip = oneDReceipt.cumulativeTip;
   for (const phase of fixture.phases) {
     const definition = policy.phases.find(({ id }) => id === phase.phase);
     phase.upstreamReceiptIdentities = definition.upstreamReceiptBindings.map((upstream) => ({
@@ -131,12 +149,12 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       reviewer: phase.reviewAuthority.expectedIssuer,
       phase: phase.phase,
       verdict: 'approve',
-      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
     });
   }
   const inspect = async (worktree) => {
     const phase = fixture.phases.find((item) => item.worktree === worktree);
-    return { head: phase.exactTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
+    return { head: phase.cumulativeTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
   };
   const resolveRef = async (_worktree, reference) => reference;
   const trustedRecords = new Map();
@@ -148,7 +166,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       trustedRecords.set(`${kind}:${phase.phase}`, {
         trusted: true, kind, phase: phase.phase, canonicalPath: reference.path,
         rawDigest: rawFixtureDigest(authority),
-        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
         issuer: kind === 'review' ? phase.reviewAuthority.expectedIssuer : phase.deletionAuthority.expectedIssuer,
       });
     }
@@ -239,13 +257,17 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       issuer: phase.deletionAuthority.expectedIssuer,
       decision: { ...phase.deletionAuthority.expectedIssuer, decidedAt: '2026-08-22T00:00:00.000Z' },
       accepted1D: {
-        cumulativeTip: deletable.phases.find((item) => item.phase === '1D').reviewedTip,
+        cumulativeTip: deletable.phases.find((item) => item.phase === '1D').cumulativeTip,
+        reviewedTip: deletable.phases.find((item) => item.phase === '1D').reviewedTip,
         receiptIdentity: deletable.phases.find((item) => item.phase === '1D').receipt.identity,
         receiptDigest: rawFixtureDigest(receipts.get('1D')),
       },
       target: {
         phase: phase.phase, ignoredRoot: phase.ignoredRoot, evidenceRoot: phase.evidenceRoot,
         canonicalPath: phase.receipt.actualPath, receiptDigest: rawFixtureDigest(receipts.get(phase.phase)),
+        schema: receipts.get(phase.phase).schema, identity: phase.receipt.identity, revision: phase.receipt.revision,
+        dq: fixtureReceiptDq(phase.phase, receipts.get(phase.phase)),
+        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
         targets: [phase.receipt.actualPath],
       },
       prerequisites: definition.retention.deletePrerequisites,
@@ -255,12 +277,12 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     trustedRecords.set(`deletion:${phase.phase}`, {
       trusted: true, kind: 'deletion', phase: phase.phase, canonicalPath: phase.deletionAuthority.path,
       rawDigest: rawFixtureDigest(authority), issuer: phase.deletionAuthority.expectedIssuer,
-      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
       deletionBinding: {
         accepted1DRawDigest: rawFixtureDigest(receipts.get('1D')),
         targetRawDigest: rawFixtureDigest(receipts.get(phase.phase)), targetCanonicalPath: phase.receipt.actualPath,
         evidenceRoot: phase.evidenceRoot, targets: [phase.receipt.actualPath],
-        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+        candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
       },
     });
   }
@@ -287,7 +309,7 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     ['retention trigger drift', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').retention.triggerEvent = 'any-time'; }, policy],
     ['retention delete prerequisite drift', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M1').retention.deletePrerequisites = []; }, policy],
     ['arbitrary deletion authorization', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M1').retention.authorizationReceipt = 'anything-at-all'; }, policy],
-    ['record and review tip drift', (candidate) => { candidate.phases.find(({ phase }) => phase === '1D').reviewedTip = 'different-reviewed-tip'; }, policy],
+    ['execution record tip swap', (candidate) => { candidate.phases.find(({ phase }) => phase === '1D').recordTip = tip('swapped-execution-record'); }, policy],
     ['evidence root outside precise ignored root', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').evidenceRoot = 'fixture/M3/.dfev1/not-home'; }, policy],
     ['missing upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M3').upstreamReceiptIdentities = []; }, policy],
     ['wrong upstream receipt identity', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M4').upstreamReceiptIdentities[0].current_snapshot_id = 'wrong'; }, policy],
@@ -326,19 +348,39 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
       candidateM4.upstreamReceiptIdentities[0].current_snapshot_id = entries.get('M1').current_snapshot_id;
     }],
     ['M1 empty coverage is not a warehouse receipt', (_candidate, entries) => { entries.get('M1').coverage = {}; }],
-    ['M1 empty lineage registry is not a warehouse receipt', (_candidate, entries) => { entries.get('M1').lineage_registry = {}; }],
+    ['M1 lineage registry object is not the producer path receipt', (_candidate, entries) => { entries.get('M1').lineage_registry = {}; }],
+    ['M1 quality report must be a safe relative JSON path', (_candidate, entries) => { entries.get('M1').latest_quality_report = '../quality.json'; }],
+    ['M1 revision report must be a safe relative JSON path', (_candidate, entries) => { entries.get('M1').latest_revision_report = 'revisions/transaction.txt'; }],
+    ['M1 coverage date field is strict', (_candidate, entries) => { entries.get('M1').coverage.earliest_scope_start = '2026-99-99'; }],
     ['M1 invalid updated timestamp is rejected', (_candidate, entries) => { entries.get('M1').updated_at = 'not-a-time'; }],
     ['M2 array protocol is rejected', (_candidate, entries) => { entries.get('M2').protocol = []; }],
     ['M2 empty coverage is rejected', (_candidate, entries) => { entries.get('M2').data.coverage = {}; }],
+    ['M2 incomplete admission is rejected', (_candidate, entries) => { entries.get('M2').data.admission['fixed-grid'].admitted = 0; }],
+    ['M2 admission shape is exact', (_candidate, entries) => { entries.get('M2').data.admission.complete = true; }],
+    ['M2 arbitrary protocol schema is rejected', (_candidate, entries) => { entries.get('M2').protocol.schema = 'forged/v1'; }],
     ['M2 invalid generated timestamp is rejected', (_candidate, entries) => { entries.get('M2').generated_at = 'not-a-time'; }],
-    ['M2 invalid evaluation metric is rejected by producer validator', (_candidate, entries) => { entries.get('M2').evaluation.metrics.primary_by_fold_space_holdout[0].mae = null; }],
+    ['M2 invalid canonical report metric is rejected by producer validator', (_candidate, entries) => { entries.get('M2').metrics.primary_by_fold_space_holdout[0].mae = null; }],
+    ['M2 empty required report slice is rejected', (_candidate, entries) => { entries.get('M2').metrics.by_category = []; }],
     ['M3 empty routing is rejected by source-domain adapter', (_candidate, entries) => { entries.get('M3').routing = {}; }],
     ['M3 invalid source observation time is rejected', (_candidate, entries) => { entries.get('M3').observations[0].retrievedAt = 'not-a-time'; }],
     ['M3 invalid source revision is rejected', (_candidate, entries) => { entries.get('M3').observations[0].revision = ''; }],
+    ['M3 source identity cannot be constructed from the candidate', (_candidate, entries) => { entries.get('M3').observations[0].dataset = 'forged-dataset'; }],
+    ['M3 routing cannot promote a source smoke receipt', (_candidate, entries) => { entries.get('M3').routing.road.status = 'available'; }],
+    ['M3 privacy runtime fields are frozen', (_candidate, entries) => { entries.get('M3').privacy.runtime_only_fields = []; }],
     ['M3 empty limitations is rejected', (_candidate, entries) => { entries.get('M3').limitations = []; }],
     ['M4 invalid started clock is rejected', (_candidate, entries) => { entries.get('M4').startedAt = 'not-a-time'; }],
+    ['M4 corridor identity cannot be an array', (_candidate, entries) => { entries.get('M4').corridorIdentity = ['corridor']; }],
+    ['M4 accumulator requires real checkpoint counters', (_candidate, entries) => { entries.get('M4').accumulator.rowsRead = -1; }],
+    ['M4 accumulator requires nonempty segments', (_candidate, entries) => { entries.get('M4').accumulator.segments = []; }],
+    ['M4 accumulator segment fields are typed', (_candidate, entries) => { entries.get('M4').accumulator.segments[0].contributionUnits = 'one'; }],
     ['M4 governance M2 raw digest drift is rejected', (_candidate, entries) => { entries.get('M4').governance.m2.receiptDigest = digest('forged-m2'); }],
+    ['M4 governance M2 canonical receipt path drift is rejected', (_candidate, entries) => { entries.get('M4').governance.m2.canonicalPath = 'fixture/M2/forged.json'; }],
+    ['M4 governance M2 evidence root drift is rejected', (_candidate, entries) => { entries.get('M4').governance.m2.evidenceRoot = 'fixture/M2/.dfev1/forged'; }],
+    ['M4 governance M2 execution tip drift is rejected', (_candidate, entries) => { entries.get('M4').governance.m2.executionRecordTip = tip('forged-m2-execution'); }],
     ['1D non-digest producer binding is rejected', (_candidate, entries) => { entries.get('1D').producerReceipts[0].receiptDigest = 'arbitrary'; }],
+    ['1D producer receipt path drift is rejected', (_candidate, entries) => { entries.get('1D').producerReceipts[0].canonicalPath = 'fixture/M1/forged.json'; }],
+    ['1D producer evidence root drift is rejected', (_candidate, entries) => { entries.get('1D').producerReceipts[1].evidenceRoot = 'fixture/M2/.dfev1/forged'; }],
+    ['1D producer cumulative tip drift is rejected', (_candidate, entries) => { entries.get('1D').producerReceipts[2].cumulativeTip = tip('forged-m3-cumulative'); }],
     ['1D recomputed status drift is rejected', (_candidate, entries) => { entries.get('1D').status.M3 = 'blocked'; }],
     ['declared DAG ancestry fails', () => {}],
     ['M2 governance is not rechecked', (candidate) => { candidate.phases.find(({ phase }) => phase === 'M2').state = 'pending-review'; }],
@@ -409,51 +451,60 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
     assert.equal(result.decisions.deletionEligible, false, `${name} must fail closed for deletion`);
   }
 
+  // Three distinct tips are valid: implementation -> execution evidence ->
+  // cumulative record.  A reviewer may attest that cumulative candidate
+  // without requiring the execution record to equal the reviewed candidate.
   const documentationChild = structuredClone(fixture);
+  const childReceipts = new Map([...receipts].map(([key, value]) => [key, structuredClone(value)]));
+  const childAuthorities = new Map([...authorityReceipts].map(([key, value]) => [key, structuredClone(value)]));
   for (const phase of documentationChild.phases) {
-    phase.recordTip = `${phase.exactTip}-record`;
-    phase.reviewedTip = phase.recordTip;
-    authorityReceipts.get(phase.reviewAuthority.path).candidate = {
-      implementationTip: phase.implementationTip,
-      executionRecordTip: phase.recordTip,
-      cumulativeTip: phase.reviewedTip,
+    phase.recordTip = tip(`${phase.phase}-execution-record`);
+    phase.cumulativeTip = tip(`${phase.phase}-cumulative-record`);
+    phase.reviewedTip = phase.cumulativeTip;
+    childAuthorities.get(phase.reviewAuthority.path).candidate = {
+      implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip,
     };
-    const producerBinding = receipts.get('1D').producerReceipts.find((entry) => entry.phase === phase.phase);
+    const producerBinding = childReceipts.get('1D').producerReceipts.find((entry) => entry.phase === phase.phase);
     if (producerBinding) {
-      producerBinding.implementationTip = phase.implementationTip;
-      producerBinding.recordTip = phase.recordTip;
+      producerBinding.executionRecordTip = phase.recordTip;
+      producerBinding.cumulativeTip = phase.cumulativeTip;
       producerBinding.reviewedTip = phase.reviewedTip;
-    }
-    if (phase.phase === '1D') {
-      receipts.get('1D').implementationTip = phase.implementationTip;
-      receipts.get('1D').recordTip = phase.recordTip;
-      phase.receipt.revision.implementationTip = phase.implementationTip;
-      phase.receipt.revision.recordTip = phase.recordTip;
     }
   }
   const childM2 = documentationChild.phases.find((phase) => phase.phase === 'M2');
-  receipts.get('M4').governance.m2 = { identity: childM2.receipt.identity, revision: childM2.receipt.revision, receiptDigest: rawFixtureDigest(receipts.get('M2')), reviewedTip: childM2.reviewedTip, dqRechecked: true };
-  receipts.get('1D').producerReceipts.find((entry) => entry.phase === 'M4').receiptDigest = rawFixtureDigest(receipts.get('M4'));
-  documentationChild.phases.find((phase) => phase.phase === '1D').receipt.identity.producerReceipts = receipts.get('1D').producerReceipts;
+  childReceipts.get('M4').governance.m2 = {
+    identity: childM2.receipt.identity, revision: childM2.receipt.revision, receiptDigest: rawFixtureDigest(childReceipts.get('M2')),
+    canonicalPath: childM2.receipt.actualPath, evidenceRoot: childM2.evidenceRoot,
+    implementationTip: childM2.implementationTip, executionRecordTip: childM2.recordTip, cumulativeTip: childM2.cumulativeTip, dq: m2ReceiptDq(childReceipts.get('M2')), dqRechecked: true,
+  };
+  childReceipts.get('1D').producerReceipts.find((entry) => entry.phase === 'M4').receiptDigest = rawFixtureDigest(childReceipts.get('M4'));
+  const childOneD = documentationChild.phases.find((phase) => phase.phase === '1D');
+  childReceipts.get('1D').implementationTip = childOneD.implementationTip;
+  childReceipts.get('1D').executionRecordTip = childOneD.recordTip;
+  childReceipts.get('1D').cumulativeTip = childOneD.cumulativeTip;
+  childOneD.receipt.revision = { implementationTip: childOneD.implementationTip, executionRecordTip: childOneD.recordTip, cumulativeTip: childOneD.cumulativeTip };
+  childOneD.receipt.identity.producerReceipts = childReceipts.get('1D').producerReceipts;
   const recordInspect = async (worktree) => {
     const phase = documentationChild.phases.find((item) => item.worktree === worktree);
-    return { head: phase.recordTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
+    return { head: phase.cumulativeTip, main: phase.expectedBase, mergeBase: phase.actualMergeBase, status: [], changedPaths: [] };
   };
   const recordTrusted = new Map(documentationChild.phases.map((phase) => {
-    const authority = authorityReceipts.get(phase.reviewAuthority.path);
+    const authority = childAuthorities.get(phase.reviewAuthority.path);
     return [`review:${phase.phase}`, {
       trusted: true, kind: 'review', phase: phase.phase, canonicalPath: phase.reviewAuthority.path,
       rawDigest: rawFixtureDigest(authority), issuer: phase.reviewAuthority.expectedIssuer,
-      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.cumulativeTip },
     }];
   }));
   const recordOptions = {
     ...fixtureOptions,
     inspectWorktree: recordInspect,
-    changedBetween: async () => [
-      'docs/active/_worktree_registry.md',
-      'docs/active/phase1-evidence-completion/task.md',
-    ],
+    changedBetween: async () => ['docs/active/_worktree_registry.md', 'docs/active/phase1-evidence-completion/task.md'],
+    readReceipt: async (key) => {
+      const phase = documentationChild.phases.find((item) => item.receipt.actualPath === key);
+      return rawFixturePayload(childReceipts.get(phase?.phase));
+    },
+    authorityReader: { async read(key) { return rawFixturePayload(childAuthorities.get(key)); } },
     trustedAuthorityResolver: { async resolve(input) {
       const expected = recordTrusted.get(`${input.kind}:${input.phase}`);
       if (!expected || input.canonicalPath !== expected.canonicalPath || input.rawDigest !== expected.rawDigest
@@ -465,6 +516,58 @@ test('evaluator accepts a complete fixture and rejects schema, review, topology,
   const documentedResult = await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions });
   assert.equal(documentedResult.status, 'accepted', documentedResult.reasons.join('; '));
   assert.equal((await evaluateHandoff({ policy, observation: documentationChild, ...recordOptions, changedBetween: async () => ['src/home_compare/controller.js'] })).status, 'blocked');
+
+  for (const [name, mutate] of [
+    ['missing cumulative tip', (candidate) => { candidate.phases[0].cumulativeTip = null; }],
+    ['execution/cumulative self-reference', (candidate) => { const phase = candidate.phases[0]; phase.cumulativeTip = phase.recordTip; }],
+    ['stale cumulative tip swap', (candidate) => { candidate.phases[0].cumulativeTip = tip('stale-cumulative'); }],
+  ]) {
+    const candidate = structuredClone(fixture); mutate(candidate);
+    const result = await evaluateHandoff({ policy, observation: candidate, ...fixtureOptions });
+    assert.equal(result.status, 'blocked', name);
+    assert.equal(result.phases.M1.decisions.admissionEligible, false, name);
+    assert.equal(result.decisions.admissionEligible, false, name);
+    assert.equal(result.decisions.deletionEligible, false, name);
+  }
+  const nonAncestor = await evaluateHandoff({
+    policy, observation: fixture, ...fixtureOptions,
+    isAncestor: async (_worktree, ancestor, descendant) => !(ancestor === fixture.phases[0].recordTip && descendant === fixture.phases[0].cumulativeTip),
+  });
+  assert.equal(nonAncestor.status, 'blocked');
+  assert.equal(nonAncestor.phases.M1.decisions.admissionEligible, false);
+  assert.equal(nonAncestor.decisions.admissionEligible, false);
+  assert.equal(nonAncestor.decisions.deletionEligible, false);
+
+  // The cumulative program range may contain M3/M4-owned files, while the
+  // final 1D implementation slice is limited to its own integration scope.
+  const unionOwned = structuredClone(fixture);
+  const oneDPhase = unionOwned.phases.find((phase) => phase.phase === '1D');
+  const programPaths = [
+    'docs/active/_worktree_registry.md', 'scripts/lib/phase1_handoff_evaluator.mjs',
+    'src/home_compare/controller.js', 'src/home_compare/loader.js', 'src/home_compare/results_view.js', 'src/home_compare/view.js',
+    'scripts/tests/home_compare_browser.mjs', 'scripts/tests/home_compare_m3.mjs',
+    'src/routes_crime/known_route_evidence.js', 'scripts/build_known_route_evidence.mjs',
+    'scripts/tests/known_route_evidence_m4.mjs', 'scripts/tests/known_route_evidence_browser.mjs',
+  ];
+  oneDPhase.actualChangedPaths = programPaths;
+  const unionOptions = {
+    ...fixtureOptions,
+    inspectRevision: async (worktree, reference) => {
+      const phase = unionOwned.phases.find((item) => item.worktree === worktree);
+      return { tip: reference, mergeBase: phase.actualMergeBase, expectedBase: phase.expectedBase, changedPaths: phase.phase === '1D' ? programPaths : [] };
+    },
+  };
+  const unionResult = await evaluateHandoff({ policy, observation: unionOwned, ...unionOptions });
+  assert.equal(unionResult.status, 'accepted', unionResult.reasons.join('; '));
+  const ownSliceEscape = await evaluateHandoff({
+    policy, observation: unionOwned, ...unionOptions,
+    changedBetween: async (_worktree, ancestor, descendant) => ancestor === oneDPhase.phaseBase && descendant === oneDPhase.implementationTip
+      ? ['src/home_compare/controller.js'] : [],
+  });
+  assert.equal(ownSliceEscape.status, 'blocked');
+  assert.equal(ownSliceEscape.phases['1D'].decisions.admissionEligible, false);
+  assert.equal(ownSliceEscape.decisions.admissionEligible, false);
+  assert.equal(ownSliceEscape.decisions.deletionEligible, false);
 });
 
 test('topological decisions are order independent and blocked status never reports final admission', async () => {
@@ -706,10 +809,20 @@ function findAuthority(entries, kind, phase) {
 }
 
 function digest(seed) { return `sha256:${String(seed).replace(/[^a-f0-9]/gi, 'a').toLowerCase().padEnd(64, 'a').slice(0, 64)}`; }
+function tip(seed) { return createHash('sha1').update(String(seed)).digest('hex'); }
 function rawFixtureDigest(value) { return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`; }
 function rawFixturePayload(value, prefix = '') {
   const bytes = Buffer.from(`${prefix}${JSON.stringify(value)}`, 'utf8');
   return { value: JSON.parse(bytes.toString('utf8')), bytes, rawDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` };
+}
+
+function m2ReceiptDq(receipt) { return structuredClone(receipt.data.admission); }
+function fixtureReceiptDq(phase, receipt) {
+  if (phase === 'M1') return { latestQualityReport: receipt.latest_quality_report };
+  if (phase === 'M2') return m2ReceiptDq(receipt);
+  if (phase === 'M3') return receipt.observations.map(({ sourceId, dq }) => ({ sourceId, dq: [...dq] }));
+  if (phase === 'M4') return structuredClone(receipt.dataQuality);
+  return null;
 }
 
 function strictFixtureReceipt(phase, definition) {
@@ -718,32 +831,41 @@ function strictFixtureReceipt(phase, definition) {
   receipt.schema = definition.receipt.schema;
   if (phase === 'M1') {
     receipt.current_snapshot_id = digest('m1');
-    receipt.coverage = { earliest_scope_start: '2026-01-01T00:00:00.000Z', latest_scope_end_exclusive: '2026-08-22T00:00:00.000Z' };
-    receipt.lineage_registry = { source_snapshots: [{ snapshot_id: digest('m1-snapshot') }], model_input_contract: { serving_status: 'not-published' } };
-    receipt.latest_quality_report = 'quality-v1'; receipt.latest_revision_report = 'revision-v1'; receipt.updated_at = '2026-08-22T00:00:00.000Z';
+    receipt.mode = 'official-local-candidate'; receipt.serving_eligible = false; receipt.partition_count = 64;
+    receipt.canonical_row_count = 4; receipt.active_row_count = 3; receipt.removal_candidate_count = 1;
+    receipt.applied_snapshot_ids = [receipt.current_snapshot_id];
+    receipt.coverage = { earliest_scope_start: '2026-01-01', latest_scope_end_exclusive: '2026-08-22', latest_event_at: '2026-08-21T00:00:00.000Z' };
+    receipt.lineage_registry = 'lineage/registry.json';
+    receipt.latest_quality_report = 'quality/transaction.json'; receipt.latest_revision_report = 'revisions/transaction.json'; receipt.updated_at = '2026-08-22T00:00:00.000Z';
   }
   if (phase === 'M2') {
-    receipt.generated_at = '2026-08-22T00:00:00.000Z'; receipt.protocol = { schema: 'evaluation/v1', sha256: digest('m2-protocol') };
-    receipt.data = { mart_artifact_identity: digest('m2-mart'), source_vintage: digest('m2-source'), coverage: { complete: true } };
-    receipt.evaluation = {
-      schema: 'ModelEvaluationReport/v1', protocol: { frozen_before_model_performance: true },
-      metrics: {
-        primary_by_fold_space_holdout: [{ model: 'fixture', fold: 'one', mae: 1, poisson_deviance: 1, negative_binomial_deviance: 1, prediction_interval_90_coverage: 0.9, relative_mae_gain_vs_seasonal_naive: 0.1 }],
-        by_category: [], by_data_volume: [],
-      }, promotion: { status: 'not-promoted' },
+    receipt.generated_at = '2026-08-22T00:00:00.000Z'; receipt.protocol = { schema: 'engagement-area-intelligence-evaluation-protocol/v1', sha256: digest('m2-protocol'), frozen_at: '2026-08-21T00:00:00.000Z', frozen_before_model_performance: true };
+    receipt.data = {
+      mart_artifact_identity: digest('m2-mart'), mart_manifest_sha256: digest('m2-manifest'), source_vintage: digest('m2-source'),
+      coverage: { earliest_scope_start: '2026-01-01', latest_scope_end_exclusive: '2026-08-22', latest_event_at: '2026-08-21T00:00:00.000Z' },
+      complete_week_end_exclusive: '2026-08-17', unit_count: { tract: 1, 'fixed-grid': 1 }, mart_rows: 2,
+      admission: { canonical_rows_seen: 2, tract: { admitted: 1, ambiguous_excluded: 0, unmapped_excluded: 0 }, 'fixed-grid': { admitted: 1, unavailable_excluded: 0 }, unknown_category: 0, invalid_event_time: 0, non_active: 0 },
     };
+    receipt.metrics = {
+      primary_by_fold_space_holdout: [{ model: 'fixture', fold: 'one', mae: 1, poisson_deviance: 1, negative_binomial_deviance: 1, prediction_interval_90_coverage: 0.9, relative_mae_gain_vs_seasonal_naive: 0.1 }],
+      by_category: [{ model: 'fixture', fold: 'one' }], by_data_volume: [{ model: 'fixture', fold: 'one' }],
+    }; receipt.promotion = { status: 'not-promoted' };
   }
   if (phase === 'M3') {
     receipt.generatedAt = '2026-08-22T00:00:00.000Z'; receipt.status = 'partial'; receipt.semanticIdentity = digest('m3');
-    receipt.observations = [{ sourceId: 'fixture-source', status: 'partial', dataset: 'fixture-dataset', transport: 'fixture-transport', retrievedAt: '2026-08-22T00:00:00.000Z', sourceAsOf: '2026-08-21T00:00:00.000Z', revision: 'revision-1', rowCount: 1, schemaFields: ['id'], missingFields: [], dq: ['fixture-dq'] }];
-    receipt.routing = { unavailable: true }; receipt.privacy = { sessionOnly: true }; receipt.limitations = ['fixture limitation'];
+    const sources = [
+      ['citygeo-address-locator', 'Address_Locator', 'arcgis-geocode-server'], ['opa-current-property', 'opa_properties_public', 'carto-sql'], ['opa-assessment-history', 'assessments', 'carto-sql'], ['real-estate-transfers', 'rtt_summary', 'carto-sql'], ['philly311-requests', 'public_cases_fc', 'carto-sql'], ['li-property-history', 'violations|business_licenses|case_investigations', 'carto-sql'], ['vacant-property-indicators', 'Vacant_Indicators_Bldg/0', 'arcgis-feature-service'], ['philadelphia-reported-crime', 'incidents_part1_part2', 'carto-sql'], ['vision-zero-hin-2025', 'high_injury_network_2025/0', 'arcgis-feature-service'],
+    ];
+    receipt.observations = sources.map(([sourceId, dataset, transport]) => ({ sourceId, status: 'partial', dataset, transport, retrievedAt: '2026-08-22T00:00:00.000Z', sourceAsOf: '2026-08-21T00:00:00.000Z', revision: null, rowCount: 1, schemaFields: ['id'], missingFields: [], dq: ['fixture-dq'] }));
+    receipt.routing = { status: 'unavailable', road: { status: 'unavailable', reason: 'fixture' }, transit: { status: 'unavailable', reason: 'fixture' }, forbidden_substitutes: ['fixture'] };
+    receipt.privacy = { runtime_only_fields: ['input_address', 'normalized_address', 'coordinates', 'parcel_identifier', 'commute_destination'], forbidden_tracked_or_shareable_fields: ['address', 'coordinates', 'source_record_id', 'owner', 'grantor', 'grantee', 'case_identifier', 'document_identifier'] }; receipt.limitations = ['fixture limitation'];
   }
   if (phase === 'M4') {
     receipt.warehouseIdentity = digest('m4-warehouse'); receipt.routeIdentity = digest('m4-route'); receipt.catalogIdentity = digest('m4-catalog'); receipt.centerlineDataVersion = 'centerline-v1'; receipt.corridorIdentity = 'corridor-v1';
-    receipt.completedPartitions = 2; receipt.partitionCount = 2; receipt.startedAt = '2026-08-22T00:02:00.000Z'; receipt.completion = { state: 'complete' }; receipt.accumulator = { partitions: 2 };
+    receipt.completedPartitions = 2; receipt.partitionCount = 2; receipt.startedAt = '2026-08-22T00:02:00.000Z'; receipt.completion = { state: 'complete', completedAt: '2026-08-22T00:03:00.000Z', durationMs: 1, maximumRssBytes: 1, resumedPartitions: 0 }; receipt.accumulator = { rowsRead: 2, eligibleGeneralizedRows: 2, contributingRows: 1, excluded: { nonActive: 0, coordinateUnavailable: 0, precisionUnavailable: 0, categoryUnavailable: 0, outsideUncertaintyCorridor: 0, ambiguousNonAdjacent: 0, malformed: 0 }, segments: [{ analysisSegmentId: 'segment-001', streetLabel: 'Fixture Street', contributionUnits: 1, contributingRows: 1, categories: [['property', 1]] }] };
     receipt.dataQuality = { partitionCompletion: true, accumulatorValidated: true }; receipt.lineage = { warehouseIdentity: receipt.warehouseIdentity, routeIdentity: receipt.routeIdentity, catalogIdentity: receipt.catalogIdentity };
     receipt.consent = { publicCenterlineRequest: true }; receipt.clocks = { sourceAsOf: '2026-08-22T00:00:00.000Z', retrievedAt: '2026-08-22T00:01:00.000Z', builtAt: '2026-08-22T00:02:00.000Z', observedAt: '2026-08-22T00:03:00.000Z' };
   }
-  if (phase === '1D') { receipt.producerReceipts = []; receipt.topology = [['M1', 'M2'], ['M2', 'M3'], ['M1', 'M4'], ['M1', '1D'], ['M2', '1D'], ['M3', '1D'], ['M4', '1D']]; receipt.overlap = [{ status: 'none', pairs: [] }]; receipt.status = { M1: 'accepted', M2: 'accepted', M3: 'accepted', M4: 'accepted', '1D': 'accepted' }; receipt.implementationTip = 'tip'; receipt.recordTip = 'tip'; }
+  if (phase === '1D') { receipt.producerReceipts = []; receipt.topology = [['M1', 'M2'], ['M2', 'M3'], ['M1', 'M4'], ['M1', '1D'], ['M2', '1D'], ['M3', '1D'], ['M4', '1D']]; receipt.overlap = [{ status: 'none', pairs: [] }]; receipt.status = { M1: 'accepted', M2: 'accepted', M3: 'accepted', M4: 'accepted', '1D': 'accepted' }; receipt.implementationTip = tip('1d-implementation'); receipt.executionRecordTip = tip('1d-execution'); receipt.cumulativeTip = tip('1d-cumulative'); }
   return receipt;
 }

@@ -175,7 +175,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4198],
     upstreamReceiptBindings: ['M1'],
     retention: { duration: 'P180D', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['M1 receipt recheck', 'M2 receipt recheck', '1D cumulative receipt recheck'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'ModelEvaluationReport/v1', defaultPath: '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json', requiredFields: ['generated_at', 'protocol.schema', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage', 'evaluation'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'ModelEvaluationReport/v1', defaultPath: '.dfev1/area-intelligence/m2-baseline/evaluation/model-evaluation-report.json', requiredFields: ['generated_at', 'protocol.schema', 'protocol.sha256', 'data.mart_artifact_identity', 'data.source_vintage', 'data.coverage', 'data.admission', 'metrics.primary_by_fold_space_holdout', 'metrics.by_category', 'metrics.by_data_volume'], identityFields: ['data.mart_artifact_identity', 'data.source_vintage'], revisionFields: ['generated_at', 'protocol.sha256'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
   M3: {
     owner: 'M3 Home Compare task',
@@ -199,7 +199,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     receipt: {
       mode: 'admission',
       schema: 'engagement-known-route-evidence-handoff/v2', defaultPath: '.dfev1/known-route-evidence-v1/full-warehouse/final-handoff.json',
-      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.receiptDigest', 'governance.m2.reviewedTip', 'governance.m2.dqRechecked'],
+      requiredFields: ['warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity', 'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator', 'dataQuality.partitionCompletion', 'dataQuality.accumulatorValidated', 'lineage.warehouseIdentity', 'lineage.routeIdentity', 'lineage.catalogIdentity', 'consent.publicCenterlineRequest', 'clocks.sourceAsOf', 'clocks.retrievedAt', 'clocks.builtAt', 'clocks.observedAt', 'governance.m2.identity', 'governance.m2.revision', 'governance.m2.receiptDigest', 'governance.m2.canonicalPath', 'governance.m2.evidenceRoot', 'governance.m2.implementationTip', 'governance.m2.executionRecordTip', 'governance.m2.cumulativeTip', 'governance.m2.dq', 'governance.m2.dqRechecked'],
       identityFields: ['warehouseIdentity', 'routeIdentity', 'catalogIdentity'],
       revisionFields: ['centerlineDataVersion', 'startedAt'],
       validatorCommand: 'npm run test:phase1-handoff',
@@ -214,7 +214,7 @@ const EXACT_PHASE_POLICY = Object.freeze({
     ports: [4173, 4178, 4189, 4194, 4198],
     upstreamReceiptBindings: ['M1', 'M2', 'M3', 'M4'],
     retention: { duration: 'per-approved-project-policy', triggerEvent: 'independently-reviewed-1D-acceptance', decisionOwner: '1D integration/release owner', deletePrerequisites: ['all producer receipt rechecks', 'independent review'], authorizationReceipt: '1D cumulative retention authorization' },
-    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', defaultPath: '.dfev1/phase1/cumulative-receipt.json', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'recordTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
+    receipt: { schema: 'engagement-phase1-cumulative-receipt/v1', defaultPath: '.dfev1/phase1/cumulative-receipt.json', requiredFields: ['producerReceipts', 'topology', 'status', 'overlap', 'implementationTip', 'executionRecordTip', 'cumulativeTip'], identityFields: ['producerReceipts'], revisionFields: ['implementationTip', 'executionRecordTip', 'cumulativeTip'], validatorCommand: 'npm run test:phase1-handoff', mode: 'admission' },
   },
 });
 
@@ -233,6 +233,30 @@ const AUTHORITY_RECEIPT_POLICY = Object.freeze({
   review: Object.freeze({ schema: 'engagement-phase1-independent-review/v1', pathTemplate: 'authority/review/{phase}.json' }),
   deletion: Object.freeze({ schema: 'engagement-phase1-independent-deletion/v1', pathTemplate: 'authority/deletion/{phase}.json' }),
 });
+
+// This is deliberately not derived from a candidate receipt.  It is the
+// frozen identity projection of public/data/home_compare_sources.v1.json,
+// whose full registry is independently validated by the M3 producer.  A
+// handoff observation may describe a source state, but cannot introduce a
+// source, dataset, or transport of its own choosing.
+const FROZEN_HOME_COMPARE_SOURCES = Object.freeze([
+  ['citygeo-address-locator', 'Address_Locator', 'arcgis-geocode-server'],
+  ['opa-current-property', 'opa_properties_public', 'carto-sql'],
+  ['opa-assessment-history', 'assessments', 'carto-sql'],
+  ['real-estate-transfers', 'rtt_summary', 'carto-sql'],
+  ['philly311-requests', 'public_cases_fc', 'carto-sql'],
+  ['li-property-history', 'violations|business_licenses|case_investigations', 'carto-sql'],
+  ['vacant-property-indicators', 'Vacant_Indicators_Bldg/0', 'arcgis-feature-service'],
+  ['philadelphia-reported-crime', 'incidents_part1_part2', 'carto-sql'],
+  ['vision-zero-hin-2025', 'high_injury_network_2025/0', 'arcgis-feature-service'],
+].map(([id, dataset, transport]) => Object.freeze({ id, dataset, transport })));
+
+const FROZEN_M3_PRIVACY = Object.freeze({
+  runtime_only_fields: Object.freeze(['input_address', 'normalized_address', 'coordinates', 'parcel_identifier', 'commute_destination']),
+  forbidden_tracked_or_shareable_fields: Object.freeze(['address', 'coordinates', 'source_record_id', 'owner', 'grantor', 'grantee', 'case_identifier', 'document_identifier']),
+});
+
+const EVALUATION_PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v1';
 
 function collectionReasons(policy, observation) {
   const reasons = [];
@@ -326,6 +350,28 @@ export async function changedPathsBetween(worktree, ancestor, descendant) {
   return stdout.trim() ? stdout.trim().split(/\r?\n/) : [];
 }
 
+function candidateTips(phase) {
+  return {
+    implementationTip: phase?.implementationTip,
+    executionRecordTip: phase?.recordTip,
+    cumulativeTip: phase?.cumulativeTip,
+    reviewedTip: phase?.reviewedTip,
+  };
+}
+
+function candidateTipsForAuthority(phase) {
+  const { reviewedTip: _reviewedTip, ...candidate } = candidateTips(phase);
+  return candidate;
+}
+
+function allWritableOwners(policies, pathname) {
+  const owners = policies.filter((policy) => {
+    const writable = policy.id === '1D' ? [...policy.writable, ...PHASE1_0_WRITABLE] : policy.writable;
+    return writable.some((pattern) => pathMatches(pattern, pathname));
+  });
+  return owners;
+}
+
 export function pathMatches(pattern, pathname) {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replaceAll('**', '::DOUBLE_STAR::').replaceAll('*', '[^/]*')
@@ -384,7 +430,7 @@ export async function evaluateHandoff({
     let receiptEligible = false;
     if (!phase) phaseReasons.push('missing observation');
     else {
-      for (const key of ['producerTask', 'owner', 'worktree', 'evidenceRoot', 'exactTip', 'expectedBase', 'actualMergeBase', 'phaseBase', 'ancestorResult', 'status', 'actualChangedPaths', 'artifactOwner', 'ignoredRoot', 'retention', 'implementationTip', 'recordTip', 'state']) {
+      for (const key of ['producerTask', 'owner', 'worktree', 'evidenceRoot', 'exactTip', 'expectedBase', 'actualMergeBase', 'phaseBase', 'ancestorResult', 'status', 'actualChangedPaths', 'artifactOwner', 'ignoredRoot', 'retention', 'implementationTip', 'recordTip', 'cumulativeTip', 'reviewedTip', 'state']) {
         if (phase[key] == null) phaseReasons.push(`missing ${key}`);
       }
       if (phase.ancestorResult !== true) phaseReasons.push('ancestor result is not true');
@@ -406,27 +452,41 @@ export async function evaluateHandoff({
         if (JSON.stringify(actual.status) !== JSON.stringify(phase.status.porcelain || [])) phaseReasons.push('worktree status drift');
         const implementation = await inspectRevision(phase.worktree, phase.implementationTip, phase.expectedBase);
         if (implementation.tip !== phase.exactTip || implementation.mergeBase !== phase.actualMergeBase || (implementation.expectedBase ?? implementation.phaseBase) !== phase.expectedBase) phaseReasons.push('implementation topology drift');
-        if (phase.phaseBase !== phase.expectedBase || phase.phaseBase !== phase.actualMergeBase) phaseReasons.push('phase base does not equal trusted candidate base');
+        if (phaseId !== '1D' && (phase.phaseBase !== phase.expectedBase || phase.phaseBase !== phase.actualMergeBase)) phaseReasons.push('phase base does not equal trusted candidate base');
         if (!await isAncestor(phase.worktree, phase.expectedBase, phase.exactTip)) phaseReasons.push('exact tip is not a descendant of expected base');
-        if (JSON.stringify(implementation.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('implementation changed-path drift');
-        if (implementation.changedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('full candidate changed path exceeds writable boundary');
-        if (actual.head !== phase.implementationTip) {
-          if (!await isAncestor(phase.worktree, phase.implementationTip, actual.head)) phaseReasons.push('execution head is not an implementation descendant');
-          else {
-            const recordDelta = await changedBetween(phase.worktree, phase.implementationTip, actual.head);
-            if (recordDelta.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('execution record delta is not record-only');
-          }
-        }
-        if (phase.recordTip != null && actual.head !== phase.recordTip) {
-          if (!await isAncestor(phase.worktree, phase.recordTip, actual.head)) phaseReasons.push('record tip is not an execution ancestor');
-          else {
-            const afterRecord = await changedBetween(phase.worktree, phase.recordTip, actual.head);
-            if (afterRecord.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('execution delta after record tip is not record-only');
-          }
+        const programRevision = phaseId === '1D' && phase.cumulativeTip
+          ? await inspectRevision(phase.worktree, phase.cumulativeTip, phase.expectedBase)
+          : implementation;
+        if (JSON.stringify(programRevision.changedPaths) !== JSON.stringify(phase.actualChangedPaths)) phaseReasons.push('program changed-path drift');
+        if (phaseId === '1D') {
+          const allPolicies = [...policies.values()];
+          if (programRevision.changedPaths.some((pathname) => allWritableOwners(allPolicies, pathname).length !== 1)) phaseReasons.push('overall program path is not uniquely owned by the phase writable union');
+          if (!phase.preIntegrationBase || phase.phaseBase !== phase.preIntegrationBase) phaseReasons.push('1D phase base is not the declared pre-integration boundary');
+          if (!await isAncestor(phase.worktree, phase.expectedBase, phase.phaseBase)
+            || !await isAncestor(phase.worktree, phase.phaseBase, phase.implementationTip)) phaseReasons.push('1D phase-base topology drift');
+          const ownSlice = await changedBetween(phase.worktree, phase.phaseBase, phase.implementationTip);
+          if (ownSlice.some((pathname) => ![...phasePolicy.writable, ...PHASE1_0_WRITABLE].some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('1D own changed path exceeds writable boundary');
+        } else if (implementation.changedPaths.some((pathname) => !phasePolicy.writable.some((pattern) => pathMatches(pattern, pathname)))) phaseReasons.push('full candidate changed path exceeds writable boundary');
+        const tips = candidateTips(phase);
+        if (phase.state === 'accepted') {
+          if (!tips.executionRecordTip || !tips.cumulativeTip || !tips.reviewedTip) phaseReasons.push('accepted observation is missing execution, cumulative, or reviewed tip');
+          if (tips.implementationTip === tips.executionRecordTip || tips.implementationTip === tips.cumulativeTip
+            || tips.executionRecordTip === tips.cumulativeTip) phaseReasons.push('candidate tip chain self-references an earlier stage');
+          if (actual.head !== tips.cumulativeTip) phaseReasons.push('worktree head is not the cumulative tip');
+          const chains = [
+            [tips.implementationTip, tips.executionRecordTip, 'implementation tip is not an execution-record ancestor'],
+            [tips.executionRecordTip, tips.cumulativeTip, 'execution-record tip is not a cumulative ancestor'],
+            [tips.executionRecordTip, tips.reviewedTip, 'execution-record tip is not a reviewed ancestor'],
+          ];
+          for (const [ancestor, descendant, reason] of chains) if (!await isAncestor(phase.worktree, ancestor, descendant)) phaseReasons.push(reason);
+          const executionDelta = await changedBetween(phase.worktree, tips.implementationTip, tips.executionRecordTip);
+          const cumulativeDelta = await changedBetween(phase.worktree, tips.executionRecordTip, tips.cumulativeTip);
+          if (executionDelta.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('execution record delta is not record-only');
+          if (cumulativeDelta.some((pathname) => !RECORD_ONLY_PATHS.includes(pathname))) phaseReasons.push('cumulative record delta is not record-only');
         }
       } catch { phaseReasons.push('tip/worktree is not resolvable'); }
       if (phase.implementationTip !== phase.exactTip) phaseReasons.push('implementation tip is not the observed exact tip');
-      for (const key of ['exactTip', 'implementationTip', 'recordTip']) {
+      for (const key of ['exactTip', 'implementationTip', 'recordTip', 'cumulativeTip', 'reviewedTip']) {
         if (phase[key] == null) continue;
         try { await resolveRef(phase.worktree, phase[key]); }
         catch { phaseReasons.push(`${key} is not resolvable`); }
@@ -466,18 +526,20 @@ export async function evaluateHandoff({
             || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.identity, m2Evidence.identity)
             || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.revision, m2Evidence.revision)
             || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.receiptDigest !== m2Evidence.rawDigest
-            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.reviewedTip !== m2.reviewedTip
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.canonicalPath !== m2Evidence.canonicalPath
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.evidenceRoot !== m2.evidenceRoot
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.implementationTip !== m2.implementationTip
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.executionRecordTip !== m2.recordTip
+            || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.cumulativeTip !== m2.cumulativeTip
+            || !sameRecord(phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.dq, receiptDqSummary('M2', m2Evidence.receipt))
             || phaseMeta.get('M4')?.receiptEvidence?.receipt?.governance?.m2?.dqRechecked !== true) phaseReasons.push('M2 governance receipt identity drift');
           try {
-            const m2Tip = m2.reviewedTip || m2.exactTip;
+            const m2Tip = m2.reviewedTip || m2.cumulativeTip || m2.exactTip;
             if (!await isAncestor(phase.worktree, m2Tip, phase.expectedBase)
               || !await isAncestor(phase.worktree, m2Tip, phase.implementationTip)) phaseReasons.push('M2 governance tip is not an ancestor of M4 base and implementation');
           } catch { phaseReasons.push('M2 governance ancestry is not resolvable'); }
         }
       }
-      if (phase.state === 'accepted' && !phase.reviewedTip) phaseReasons.push('accepted observation has no reviewed tip');
-      if (phase.state === 'accepted' && !phase.recordTip) phaseReasons.push('accepted observation has no record tip');
-      if (phase.state === 'accepted' && phase.recordTip !== phase.reviewedTip) phaseReasons.push('accepted record/review tip drift');
       if (phase.reviewedTip != null) {
         try { await resolveRef(phase.worktree, phase.reviewedTip); }
         catch { phaseReasons.push('reviewedTip is not resolvable'); }
@@ -509,8 +571,9 @@ export async function evaluateHandoff({
     const targetMeta = phaseMeta.get(target);
     if (!upstream || !downstream || !targetMeta) continue;
     try {
-      const upstreamTip = upstream.reviewedTip || upstream.exactTip;
-      if (!await isAncestor(downstream.worktree, upstreamTip, downstream.expectedBase)
+      const upstreamTip = upstream.reviewedTip || upstream.cumulativeTip || upstream.exactTip;
+      const downstreamBase = target === '1D' ? downstream.phaseBase : downstream.expectedBase;
+      if (!await isAncestor(downstream.worktree, upstreamTip, downstreamBase)
         || !await isAncestor(downstream.worktree, upstreamTip, downstream.implementationTip)) targetMeta.phaseReasons.push(`${source} topology tip is not an ancestor of ${target} base and implementation`);
     } catch { targetMeta.phaseReasons.push(`${source} to ${target} topology ancestry is not resolvable`); }
   }
@@ -536,8 +599,11 @@ export async function evaluateHandoff({
       if (binding.length !== 1 || !actual || !observed
         || binding[0].schema !== actual.schema || binding[0].receiptDigest !== actual.rawDigest || !sameRecord(binding[0].identity, actual.identity)
         || !sameRecord(binding[0].revision, actual.revision)
+        || binding[0].canonicalPath !== actual.canonicalPath || binding[0].evidenceRoot !== observed.evidenceRoot
         || binding[0].implementationTip !== observed.implementationTip
-        || binding[0].recordTip !== observed.recordTip || binding[0].reviewedTip !== observed.reviewedTip
+        || binding[0].executionRecordTip !== observed.recordTip || binding[0].cumulativeTip !== observed.cumulativeTip
+        || binding[0].reviewedTip !== observed.reviewedTip
+        || !sameRecord(binding[0].dq, receiptDqSummary(id, actual.receipt))
         || binding[0].dqRechecked !== true) oneDMeta.phaseReasons.push(`1D actual producer binding drift for ${id}`);
     }
   }
@@ -660,7 +726,14 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
   const identity = Object.fromEntries(canonical.receipt.identityFields.map((field) => [field, readPath(receipt, field)]));
   const revision = Object.fromEntries(canonical.receipt.revisionFields.map((field) => [field, readPath(receipt, field)]));
   for (const [field, value] of [...Object.entries(identity), ...Object.entries(revision)]) {
-    if (phaseId === 'M3' && field === 'observations.0.dq') continue;
+    if (phaseId === 'M3' && field === 'observations.0.dq') {
+      if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string' || !entry)) throw new Error('M3 observation DQ revision drift');
+      continue;
+    }
+    if (phaseId === 'M3' && field === 'observations.0.revision') {
+      if (value !== null && (typeof value !== 'string' || !value.trim() || value.length > 240)) throw new Error('M3 nullable revision drift');
+      continue;
+    }
     if (phaseId === '1D' && field === 'producerReceipts') continue;
     if (typeof value !== 'string' || !value.trim()) throw new Error(`identity or revision type drift ${field}`);
   }
@@ -700,7 +773,8 @@ export function validateReceipt(phaseId, policy, receipt, observationReceipt = {
       || !Array.isArray(receipt.overlap) || receipt.overlap.length !== 1 || !isPlainRecord(receipt.overlap[0])
       || receipt.overlap[0].status !== 'none' || !Array.isArray(receipt.overlap[0].pairs) || receipt.overlap[0].pairs.length
       || !isPlainRecord(receipt.status) || Object.keys(receipt.status).length !== REQUIRED_PHASE_IDS.length
-      || REQUIRED_PHASE_IDS.some((id) => receipt.status[id] !== 'accepted')) throw new Error('1D cumulative receipt semantics drift');
+      || REQUIRED_PHASE_IDS.some((id) => receipt.status[id] !== 'accepted')
+      || !isCommitId(receipt.implementationTip) || !isCommitId(receipt.executionRecordTip) || !isCommitId(receipt.cumulativeTip)) throw new Error('1D cumulative receipt semantics drift');
   }
   return { phaseId, schema: receipt.schema, identity, revision, receipt };
 }
@@ -711,6 +785,10 @@ function isPlainRecord(value) {
 
 function isDigest(value) {
   return typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+}
+
+function isCommitId(value) {
+  return typeof value === 'string' && /^[a-f0-9]{40}$/i.test(value);
 }
 
 function sameEdgeSet(actual, expected) {
@@ -729,17 +807,8 @@ function validateVersionedDomain(phaseId, receipt) {
   for (const field of digestFields) if (!isDigest(readPath(receipt, field))) throw new Error(`digest drift ${field}`);
   if (phaseId === 'M1') validateM1WarehouseReceipt(receipt);
   if (phaseId === 'M2') validateM2EvaluationReceipt(receipt);
-  if (phaseId === 'M3') {
-    if (!['partial', 'unavailable'].includes(receipt.status) || !Array.isArray(receipt.observations) || !receipt.observations.length
-      || !isPlainRecord(receipt.routing) || !Object.keys(receipt.routing).length
-      || !isPlainRecord(receipt.privacy) || !Object.keys(receipt.privacy).length
-      || !Array.isArray(receipt.limitations) || !receipt.limitations.length) throw new Error('M3 source-smoke semantics drift');
-    for (const observation of receipt.observations) {
-      const source = { id: observation?.sourceId, dataset: observation?.dataset, transport: observation?.transport };
-      validateHomeCompareSourceObservation(observation, source);
-    }
-  }
-  if (phaseId === 'M4' && (!isPlainRecord(receipt.dataQuality) || !isPlainRecord(receipt.lineage) || !isPlainRecord(receipt.consent))) throw new Error('M4 DQ, lineage, or consent type drift');
+  if (phaseId === 'M3') validateM3SourceSmokeReceipt(receipt);
+  if (phaseId === 'M4') validateM4HandoffReceipt(receipt);
 }
 
 // validateExactWarehouse is deliberately a filesystem/protocol validator: it
@@ -748,28 +817,123 @@ function validateVersionedDomain(phaseId, receipt) {
 // exact receipt projection it is allowed to consume, while the producer's
 // own validator remains the authority for the complete warehouse.
 function validateM1WarehouseReceipt(receipt) {
-  if (!isPlainRecord(receipt.coverage) || !isPlainRecord(receipt.lineage_registry)) throw new Error('M1 coverage or lineage type drift');
+  if (receipt.schema !== 'engagement-phl-crime-event-warehouse/v1'
+    || !['official-local-candidate', 'synthetic-test'].includes(receipt.mode)
+    || receipt.serving_eligible !== false
+    || !Number.isSafeInteger(receipt.partition_count) || receipt.partition_count < 1
+    || !Number.isSafeInteger(receipt.canonical_row_count) || receipt.canonical_row_count < 0
+    || !Number.isSafeInteger(receipt.active_row_count) || receipt.active_row_count < 0
+    || !Number.isSafeInteger(receipt.removal_candidate_count) || receipt.removal_candidate_count < 0
+    || !Array.isArray(receipt.applied_snapshot_ids) || !receipt.applied_snapshot_ids.length
+    || receipt.applied_snapshot_ids.some((value) => !isDigest(value))
+    || !receipt.applied_snapshot_ids.includes(receipt.current_snapshot_id)) throw new Error('M1 warehouse header semantics drift');
+  if (!isPlainRecord(receipt.coverage) || typeof receipt.lineage_registry !== 'string') throw new Error('M1 coverage or lineage type drift');
   const coverage = receipt.coverage;
-  if (typeof coverage.earliest_scope_start !== 'string' || !coverage.earliest_scope_start
+  if (!hasExactKeys(coverage, ['earliest_scope_start', 'latest_scope_end_exclusive', 'latest_event_at'])
+    || typeof coverage.earliest_scope_start !== 'string' || !coverage.earliest_scope_start
     || typeof coverage.latest_scope_end_exclusive !== 'string' || !coverage.latest_scope_end_exclusive
-    || !Number.isFinite(Date.parse(coverage.earliest_scope_start)) || !Number.isFinite(Date.parse(coverage.latest_scope_end_exclusive))
-    || Date.parse(coverage.earliest_scope_start) >= Date.parse(coverage.latest_scope_end_exclusive)) throw new Error('M1 coverage semantics drift');
-  const lineage = receipt.lineage_registry;
-  if (!Array.isArray(lineage.source_snapshots) || !lineage.source_snapshots.length
-    || lineage.source_snapshots.some((entry) => !isPlainRecord(entry) || !isDigest(entry.snapshot_id))
-    || !isPlainRecord(lineage.model_input_contract)
-    || lineage.model_input_contract.serving_status !== 'not-published') throw new Error('M1 lineage semantics drift');
-  if (!isExactTimestamp(receipt.updated_at)) throw new Error('M1 updated clock drift');
+    || !isIsoDateOrTimestamp(coverage.earliest_scope_start) || !isIsoDateOrTimestamp(coverage.latest_scope_end_exclusive)
+    || !isExactTimestamp(coverage.latest_event_at)
+    || Date.parse(coverage.earliest_scope_start) >= Date.parse(coverage.latest_scope_end_exclusive)
+    || Date.parse(coverage.latest_event_at) >= Date.parse(coverage.latest_scope_end_exclusive)) throw new Error('M1 coverage semantics drift');
+  if (!isSafeRelativeJsonPath(receipt.lineage_registry) || !isSafeRelativeJsonPath(receipt.latest_quality_report)
+    || !isSafeRelativeJsonPath(receipt.latest_revision_report)
+    || !isExactTimestamp(receipt.updated_at)) throw new Error('M1 registry/report path or updated clock drift');
 }
 
 function validateM2EvaluationReceipt(receipt) {
+  // The receipt itself is the canonical ModelEvaluationReport; accepting a
+  // nested convenience object would allow an unrelated report to self-certify.
+  validateModelEvaluationReport(receipt);
   if (!isPlainRecord(receipt.protocol) || !isPlainRecord(receipt.data) || !isPlainRecord(receipt.data.coverage)
-    || !Object.keys(receipt.data.coverage).length || !isExactTimestamp(receipt.generated_at)) throw new Error('M2 protocol, coverage, or generated clock drift');
-  if (typeof receipt.protocol.schema !== 'string' || !receipt.protocol.schema || !isDigest(receipt.protocol.sha256)) throw new Error('M2 protocol semantics drift');
-  // The detached handoff retains a complete, machine-checkable evaluation
-  // report so it can reuse the producer's pure domain validator rather than
-  // duplicating metric admissibility in a Markdown policy.
-  validateModelEvaluationReport(receipt.evaluation);
+    || receipt.protocol.schema !== EVALUATION_PROTOCOL_SCHEMA || !isDigest(receipt.protocol.sha256)
+    || !isExactTimestamp(receipt.protocol.frozen_at) || receipt.protocol.frozen_before_model_performance !== true
+    || !isExactTimestamp(receipt.generated_at)) throw new Error('M2 protocol or generated clock drift');
+  const coverage = receipt.data.coverage;
+  const admission = receipt.data.admission;
+  if (!hasExactKeys(coverage, ['earliest_scope_start', 'latest_scope_end_exclusive', 'latest_event_at'])
+    || !isIsoDateOrTimestamp(coverage.earliest_scope_start) || !isIsoDateOrTimestamp(coverage.latest_scope_end_exclusive)
+    || !isExactTimestamp(coverage.latest_event_at) || Date.parse(coverage.earliest_scope_start) >= Date.parse(coverage.latest_scope_end_exclusive)
+    || !validM2Admission(admission)
+    || !Number.isSafeInteger(receipt.data.unit_count?.tract) || receipt.data.unit_count.tract < 1
+    || !Number.isSafeInteger(receipt.data.unit_count?.['fixed-grid']) || receipt.data.unit_count['fixed-grid'] < 1
+    || !Number.isSafeInteger(receipt.data.mart_rows) || receipt.data.mart_rows < 1
+    || !isIsoDateOrTimestamp(receipt.data.complete_week_end_exclusive)) throw new Error('M2 coverage or data semantics drift');
+  for (const field of ['primary_by_fold_space_holdout', 'by_category', 'by_data_volume']) {
+    const rows = receipt.metrics?.[field];
+    if (!Array.isArray(rows) || !rows.length || rows.some((row) => !isPlainRecord(row) || typeof row.model !== 'string' || !row.model || typeof row.fold !== 'string' || !row.fold)) throw new Error(`M2 metrics ${field} semantics drift`);
+  }
+}
+
+function validateM3SourceSmokeReceipt(receipt) {
+  if (!isExactTimestamp(receipt.generatedAt) || !['partial', 'unavailable'].includes(receipt.status)
+    || !Array.isArray(receipt.observations) || receipt.observations.length !== FROZEN_HOME_COMPARE_SOURCES.length
+    || !Array.isArray(receipt.limitations) || !receipt.limitations.length
+    || receipt.limitations.some((value) => typeof value !== 'string' || !value.trim())) throw new Error('M3 source-smoke header semantics drift');
+  if (!isPlainRecord(receipt.routing) || receipt.routing.status !== 'unavailable'
+    || receipt.routing.road?.status !== 'unavailable' || receipt.routing.transit?.status !== 'unavailable'
+    || !Array.isArray(receipt.routing.forbidden_substitutes) || !receipt.routing.forbidden_substitutes.length) throw new Error('M3 routing promotion boundary drift');
+  if (!isPlainRecord(receipt.privacy)
+    || !sameList(receipt.privacy.runtime_only_fields, FROZEN_M3_PRIVACY.runtime_only_fields)
+    || !sameList(receipt.privacy.forbidden_tracked_or_shareable_fields, FROZEN_M3_PRIVACY.forbidden_tracked_or_shareable_fields)) throw new Error('M3 privacy boundary drift');
+  const sources = new Map(FROZEN_HOME_COMPARE_SOURCES.map((source) => [source.id, source]));
+  const seen = new Set();
+  for (const observation of receipt.observations) {
+    const source = sources.get(observation?.sourceId);
+    if (!source || seen.has(source.id) || observation.dataset !== source.dataset || observation.transport !== source.transport) throw new Error('M3 frozen source identity drift');
+    seen.add(source.id);
+    validateHomeCompareSourceObservation(observation, source);
+  }
+}
+
+function validateM4HandoffReceipt(receipt) {
+  if (!isPlainRecord(receipt.dataQuality) || !isPlainRecord(receipt.lineage) || !isPlainRecord(receipt.consent)
+    || typeof receipt.corridorIdentity !== 'string' || !receipt.corridorIdentity.trim() || Array.isArray(receipt.corridorIdentity)) throw new Error('M4 DQ, lineage, consent, or corridor identity type drift');
+  const accumulator = receipt.accumulator;
+  if (!isPlainRecord(accumulator) || !Number.isSafeInteger(accumulator.rowsRead) || accumulator.rowsRead < 0
+    || !Number.isSafeInteger(accumulator.eligibleGeneralizedRows) || accumulator.eligibleGeneralizedRows < 0
+    || !Number.isSafeInteger(accumulator.contributingRows) || accumulator.contributingRows < 0
+    || !isPlainRecord(accumulator.excluded) || !Array.isArray(accumulator.segments) || !accumulator.segments.length
+    || Object.keys(accumulator.excluded).sort().join('|') !== 'ambiguousNonAdjacent|categoryUnavailable|coordinateUnavailable|malformed|nonActive|outsideUncertaintyCorridor|precisionUnavailable'
+    || Object.values(accumulator.excluded).some((value) => !Number.isSafeInteger(value) || value < 0)
+    || accumulator.segments.some((segment) => !isPlainRecord(segment)
+      || typeof segment.analysisSegmentId !== 'string' || !/^segment-\d{3}$/.test(segment.analysisSegmentId)
+      || typeof segment.streetLabel !== 'string' || !segment.streetLabel
+      || !Number.isFinite(segment.contributionUnits) || segment.contributionUnits < 0
+      || !Number.isSafeInteger(segment.contributingRows) || segment.contributingRows < 0
+      || !Array.isArray(segment.categories)
+      || segment.categories.some((entry) => !Array.isArray(entry) || entry.length !== 2
+        || typeof entry[0] !== 'string' || !entry[0] || !Number.isFinite(entry[1]) || entry[1] < 0))) throw new Error('M4 accumulator semantics drift');
+  if (!isPlainRecord(receipt.completion) || !['complete', 'completed'].includes(receipt.completion.state)
+    || !isExactTimestamp(receipt.completion.completedAt)
+    || !Number.isSafeInteger(receipt.completion.durationMs) || receipt.completion.durationMs < 0
+    || !Number.isSafeInteger(receipt.completion.maximumRssBytes) || receipt.completion.maximumRssBytes < 0
+    || !Number.isSafeInteger(receipt.completion.resumedPartitions) || receipt.completion.resumedPartitions < 0) throw new Error('M4 completion semantics drift');
+}
+
+function isSafeRelativeJsonPath(value) {
+  return typeof value === 'string' && value.endsWith('.json') && !value.startsWith('/') && !value.includes('\\')
+    && value.split('/').every((segment) => segment && segment !== '.' && segment !== '..');
+}
+
+function isIsoDateOrTimestamp(value) {
+  return isExactTimestamp(value) || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && new Date(`${value}T00:00:00.000Z`).toISOString().startsWith(value));
+}
+
+function hasExactKeys(value, keys) {
+  return isPlainRecord(value) && sameList(Object.keys(value).sort(), [...keys].sort());
+}
+
+function validM2Admission(value) {
+  if (!hasExactKeys(value, ['canonical_rows_seen', 'tract', 'fixed-grid', 'unknown_category', 'invalid_event_time', 'non_active'])
+    || !hasExactKeys(value.tract, ['admitted', 'ambiguous_excluded', 'unmapped_excluded'])
+    || !hasExactKeys(value['fixed-grid'], ['admitted', 'unavailable_excluded'])) return false;
+  const integers = [value.canonical_rows_seen, value.tract.admitted, value.tract.ambiguous_excluded,
+    value.tract.unmapped_excluded, value['fixed-grid'].admitted, value['fixed-grid'].unavailable_excluded,
+    value.unknown_category, value.invalid_event_time, value.non_active];
+  return integers.every((number) => Number.isSafeInteger(number) && number >= 0)
+    && value.canonical_rows_seen > 0 && value.tract.admitted > 0 && value['fixed-grid'].admitted > 0;
 }
 
 function readPath(value, dotted) {
@@ -826,6 +990,14 @@ function sameRecord(left, right) {
   return sameList(leftKeys, rightKeys) && leftKeys.every((key) => JSON.stringify(left[key]) === JSON.stringify(right[key]));
 }
 
+function receiptDqSummary(phaseId, receipt) {
+  if (phaseId === 'M1') return { latestQualityReport: receipt.latest_quality_report };
+  if (phaseId === 'M2') return structuredClone(receipt.data.admission);
+  if (phaseId === 'M3') return receipt.observations.map(({ sourceId, dq }) => ({ sourceId, dq: [...dq] }));
+  if (phaseId === 'M4') return structuredClone(receipt.dataQuality);
+  return null;
+}
+
 async function readAuthorityReceipt(reference, phase, filesystemAuthority, authorityReader, trustedAuthorityResolver, kind) {
   if (!reference || typeof reference !== 'object' || typeof reference.path !== 'string'
     || typeof reference.schema !== 'string' || !reference.expectedIdentity) throw new Error(`${kind} authority reference is incomplete`);
@@ -840,7 +1012,7 @@ async function readAuthorityReceipt(reference, phase, filesystemAuthority, autho
   const receipt = payload.value?.receipt ?? payload.value;
   if (!isPlainRecord(receipt)) throw new Error(`${kind} authority receipt is not an object`);
   if (!trustedAuthorityResolver?.resolve) throw new Error(`${kind} authority has no independent trusted resolver`);
-  const candidate = { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip };
+  const candidate = candidateTipsForAuthority(phase);
   const trusted = await trustedAuthorityResolver.resolve({
     kind, canonicalPath: receiptPath, rawDigest: payload.rawDigest, phase: phase.phase, candidate,
     issuer: receipt.reviewer || receipt.issuer,
@@ -873,7 +1045,7 @@ async function validateReviewAuthority({ phase, phaseId, filesystemAuthority, au
   if (receipt.phase !== phaseId || receipt.verdict !== 'approve') throw new Error('review verdict or phase drift');
   if (receipt.candidate?.implementationTip !== phase.implementationTip
     || receipt.candidate?.executionRecordTip !== phase.recordTip
-    || receipt.candidate?.cumulativeTip !== phase.reviewedTip) throw new Error('review candidate tip binding drift');
+    || receipt.candidate?.cumulativeTip !== phase.cumulativeTip) throw new Error('review candidate tip binding drift');
 }
 
 async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult, oneDEvidence, producerEvidence, filesystemAuthority, authorityReader, trustedAuthorityResolver }) {
@@ -886,7 +1058,8 @@ async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult,
     if (receipt.decision?.taskId !== receipt.issuer.taskId
       || receipt.decision?.identity !== receipt.issuer.identity
       || receipt.decision?.decidedAt !== receipt.decidedAt) return false;
-    if (receipt.accepted1D?.cumulativeTip !== oneD.reviewedTip
+    if (receipt.accepted1D?.cumulativeTip !== oneD.cumulativeTip
+      || receipt.accepted1D?.reviewedTip !== oneD.reviewedTip
       || !sameRecord(receipt.accepted1D?.receiptIdentity, oneD.receipt?.identity)
       || receipt.accepted1D?.receiptDigest !== oneDEvidence?.rawDigest
       || receipt.target?.receiptDigest !== producerEvidence?.rawDigest
@@ -898,13 +1071,18 @@ async function validateDeletionAuthority({ phase, phasePolicy, oneD, oneDResult,
       targetCanonicalPath: producerEvidence?.canonicalPath,
       evidenceRoot: phase.evidenceRoot,
       targets: receipt.target?.targets,
-      candidate: { implementationTip: phase.implementationTip, executionRecordTip: phase.recordTip, cumulativeTip: phase.reviewedTip },
+      candidate: candidateTipsForAuthority(phase),
     })) return false;
     return receipt.target?.phase === phase.phase
       && receipt.target?.ignoredRoot === phase.ignoredRoot
       && sameList(receipt.prerequisites, phasePolicy.retention.deletePrerequisites)
       && isExactTimestamp(receipt.decidedAt)
-      && isExactTimestamp(receipt.decision?.decidedAt);
+      && isExactTimestamp(receipt.decision?.decidedAt)
+      && receipt.target?.schema === producerEvidence?.schema
+      && sameRecord(receipt.target?.identity, producerEvidence?.identity)
+      && sameRecord(receipt.target?.revision, producerEvidence?.revision)
+      && sameRecord(receipt.target?.dq, receiptDqSummary(phase.phase, producerEvidence?.receipt))
+      && sameRecord(receipt.target?.candidate, candidateTipsForAuthority(phase));
   } catch { return false; }
 }
 
