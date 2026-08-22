@@ -183,6 +183,28 @@ null because this external approval authorizes only the local Phase1-0 code
 integration, not M1-M4/1D producer admission. No push, remote CI, deployment,
 scheduled refresh, or online smoke was performed.
 
+## M1 local integration (2026-08-22)
+
+M1 producer task `01a028f8-8d0f-7b92-81c6-831ba669da99` generated a new
+official-local-candidate warehouse in its ignored
+`.dfev1/crime/m1-frozen-2026-08-22-r2` root and delivered cumulative code tip
+`326a440fe67f6c05f08a8bb4430bd641efdb2fd4`. Receipt v3 binds 21 retained raw
+snapshots to 64 canonical partitions by source ID, replays producer transforms,
+and mechanically recomputes the eight revision classes from the complete raw
+history. The frozen receipt covers `[2006-01-01, 2026-08-22)` with 3,584,011
+active rows, remains `serving_eligible=false`, and carries no integration,
+serving, deployment, or deletion authority.
+
+Independent review task `01a02961-f52f-77f3-a94e-8eb011b8b56e` approved the
+code, bounded current r2 data evidence, and strict-fast-forward topology after
+focused 10/10, data-pipeline 66/66, a real direct validation, hostile contract
+tests, and two unchanged idempotent reruns. The integration owner then strictly
+fast-forwarded local `main` from `a19fcf55438abb47e7685ee5b4d996f7e61e5d38`
+to `326a440fe67f6c05f08a8bb4430bd641efdb2fd4`; exact-main focused tests passed
+10/10. The producer worktree and ignored r1/r2 roots are retained through 1D.
+No push, remote CI, scheduled refresh, deployment, or online serving action was
+performed.
+
 ## Historical 2026-08-22 release receipt (partial; not current admission evidence)
 
 - Implementation tip: `78db018ddf8eb30335393347b2c897b834fccd79`; local

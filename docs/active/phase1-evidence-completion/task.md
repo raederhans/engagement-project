@@ -13,6 +13,7 @@
 | Cumulative evidence record | complete / independently reviewed | Candidate `5e25b5eed082420f569739c6cc2ebceca960f80f` binds implementation `6e714789` and execution record `fd00de5`; repository `reviewedTip` remains null because Phase1-0 integration review is not producer admission authority. |
 | Independent review | complete / APPROVE | User-visible task `01a028eb-3a3c-7151-8270-2e30c971e25d` returned `APPROVE for local strict fast-forward`, with P0-P3 all zero. |
 | Integration / remote / scheduled gates | local integration complete / remote deferred | Local `main` was strictly fast-forwarded to `5e25b5e`; no push, remote CI, deploy, scheduled refresh, live source, or online smoke was performed. |
+| Step 4 M1 frozen warehouse | complete / independently approved / locally integrated | Producer task `01a028f8-8d0f-7b92-81c6-831ba669da99` delivered cumulative candidate `326a440fe67f6c05f08a8bb4430bd641efdb2fd4`; independent review task `01a02961-f52f-77f3-a94e-8eb011b8b56e` approved code, current local r2 data evidence, and strict fast-forward. Local `main` was fast-forwarded from `a19fcf55438abb47e7685ee5b4d996f7e61e5d38` to `326a440fe67f6c05f08a8bb4430bd641efdb2fd4`. Receipt v3 remains ignored and local under the producer worktree; no push, serving, deployment, refresh, or deletion authority was created. |
 
 ## Local verification ledger
 
