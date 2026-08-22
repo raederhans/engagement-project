@@ -165,6 +165,11 @@ null.
   it included the real Area Intelligence, Home Compare, and Known Route
   browser leaves. This is local execution evidence only, never review,
   deletion, source, or producer-admission authority.
+- Execution-evidence record `fd00de5c6fff65916b117bcfa6cae05f562f2074`
+  anchors the exact raw receipt and material binding. The following cumulative
+  candidate resolves its own identity with `git rev-parse HEAD`; it must retain
+  `reviewedTip: null` and is only ready for independent review,
+  blocked-for-admission.
 
 Reviewed candidate tip: none. Independent re-review is requested for the
 cumulative evidence-record tip; this task cannot designate or self-approve it.

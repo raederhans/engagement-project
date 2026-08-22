@@ -2,7 +2,7 @@
   "schema": "engagement-phase1-handoff-observation/v1",
   "policySchema": "engagement-phase1-handoff-policy/v2",
   "kind": "concrete-handoff-observation",
-  "observedAt": "2026-08-22T00:42:45.3921066Z",
+  "observedAt": "2026-08-22T02:51:57.8053723Z",
   "phases": [
     {
       "phase": "M1",
@@ -222,7 +222,7 @@
       "owner": "1D integration/release owner",
       "worktree": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project",
       "evidenceRoot": "C:/Users/raede/.codex/worktrees/e4c5/engagement_project/.dfev1/phase1",
-      "exactTip": "543c214f890232b9e580c297b6547a2494e0bd50",
+      "exactTip": "6e71478954356f1890df1a45d167ff1a52a588ba",
       "expectedBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "actualMergeBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
       "phaseBase": "91cba5544f6a1ae7dc8c26a9d265657f452aae3b",
@@ -297,8 +297,8 @@
         ],
         "authorizationReceipt": null
       },
-      "implementationTip": "543c214f890232b9e580c297b6547a2494e0bd50",
-      "recordTip": "a7271b3a9a5b094af77079b7788b5a4c172f1300",
+      "implementationTip": "6e71478954356f1890df1a45d167ff1a52a588ba",
+      "recordTip": "fd00de5c6fff65916b117bcfa6cae05f562f2074",
       "cumulativeTip": null,
       "reviewedTip": null,
       "reviewAuthority": null,
