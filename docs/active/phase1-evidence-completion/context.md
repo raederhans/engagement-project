@@ -8,8 +8,8 @@
   the required DFEV closeout.
 - This worktree is the only writer of its files and the only live-test owner.
   No other worktree, ref, remote, user WIP, branch, or process is changed.
-- This is a repair candidate, not an integration approval. A new cumulative
-  local commit and independent re-review are required after the ledger closes.
+- The scope-converged candidate was independently reviewed and strictly
+  fast-forwarded to local `main`; producer admission remains separately blocked.
 
 ## Step 1 scope convergence (no live process)
 
@@ -171,12 +171,17 @@ null.
   `reviewedTip: null` and is only ready for independent review,
   blocked-for-admission.
 
-Reviewed candidate tip: none. Independent re-review is requested for the
-cumulative evidence-record tip; this task cannot designate or self-approve it.
-Integration, remote CI, deployment, scheduled refresh, and online smoke remain
-deferred. The task is blocked-for-admission and the reviewed candidate tip
-remains none. Historical process snapshots are not a proof of a complete
-process tree or of an externally observed wrapper exit.
+Independent integration review task `01a028eb-3a3c-7151-8270-2e30c971e25d`
+approved exact cumulative candidate `5e25b5eed082420f569739c6cc2ebceca960f80f`
+for local strict fast-forward, with P0-P3 all zero. Local `main` was then
+strictly fast-forwarded from `91cba5544f6a1ae7dc8c26a9d265657f452aae3b`
+to that candidate. Exact-main `test:phase1-handoff` passed 13 tests with one
+Windows symlink permission skip; direct evaluation remained globally blocked,
+all phase/global eligibility decisions were false, and the injected resolver
+was not called. `reviewedTip`, review authority, and deletion authority remain
+null because this external approval authorizes only the local Phase1-0 code
+integration, not M1-M4/1D producer admission. No push, remote CI, deployment,
+scheduled refresh, or online smoke was performed.
 
 ## Historical 2026-08-22 release receipt (partial; not current admission evidence)
 

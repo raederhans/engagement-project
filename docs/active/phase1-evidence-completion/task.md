@@ -9,10 +9,10 @@
 | Step 1 scope convergence | complete | Frozen implementation `6e71478954356f1890df1a45d167ff1a52a588ba` retains release/browser/lifecycle proof while making all M1/M2/M3/M4/1D admission validators immutable `not-installed`; synthetic receipts, tips, or resolvers cannot make any phase eligible. |
 | Focused and bundle verification | complete | The frozen `6e714789` preflight was clean; the post-record focused gates below re-verify current contracts without a second release. |
 | Composite local release verification | complete / local execution evidence only | Exactly one task-owned observer/supervisor/wrapper invocation ran `npm.cmd run ci:release` at frozen clean `6e714789`. Fresh root `.dfev1/phase1-release-6e71478-r1/` has all six reported exit identities 0, no errors, no baseline-subtracted recursive descendant, and no new audited listener. |
-| Execution evidence record | complete / pending independent review | Record-only commit `fd00de5c6fff65916b117bcfa6cae05f562f2074` anchors the new raw `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `c3d9b6e26387470b9be3e233afa33f690d8b622b736c01ac4cb2e08a899e597f`. |
-| Cumulative evidence record | pending this following record-only commit | This candidate binds implementation `6e714789` and execution record `fd00de5`; its own identity is resolved by `git rev-parse HEAD`, never self-written. `cumulativeTip` and `reviewedTip` remain null. |
-| Independent review | requested | Reviewed candidate tip is not yet designated. The main supervising task must independently resolve the clean cumulative HEAD and perform code/architecture re-review; this task cannot self-approve. |
-| Integration / remote / scheduled gates | deferred | No merge, push, remote CI, deploy, scheduled refresh, live source, or online smoke is authorized. |
+| Execution evidence record | complete / independently reviewed | Record-only commit `fd00de5c6fff65916b117bcfa6cae05f562f2074` anchors the new raw `external-observed.json`, schema `engagement-phase1-release-external-observer/v1`, 4,418 bytes, SHA-256 `c3d9b6e26387470b9be3e233afa33f690d8b622b736c01ac4cb2e08a899e597f`. |
+| Cumulative evidence record | complete / independently reviewed | Candidate `5e25b5eed082420f569739c6cc2ebceca960f80f` binds implementation `6e714789` and execution record `fd00de5`; repository `reviewedTip` remains null because Phase1-0 integration review is not producer admission authority. |
+| Independent review | complete / APPROVE | User-visible task `01a028eb-3a3c-7151-8270-2e30c971e25d` returned `APPROVE for local strict fast-forward`, with P0-P3 all zero. |
+| Integration / remote / scheduled gates | local integration complete / remote deferred | Local `main` was strictly fast-forwarded to `5e25b5e`; no push, remote CI, deploy, scheduled refresh, live source, or online smoke was performed. |
 
 ## Local verification ledger
 
@@ -64,8 +64,10 @@ browser evidence.
 
 Rows through old f7190f5c77432f0855e4575583f6e66ac906f50d, 7e0c5929d34140c995c8180a3804d14a1c2635c5, and b156
 are historical and must not be attributed to fe32f7b. This task is
-**ready-for-review / blocked-for-admission**: reviewed candidate tip is **none**;
-it does not self-approve, integrate, push, deploy, or clean worktrees/branches.
+**integrated locally / blocked-for-producer-admission**: external task
+`01a028eb-3a3c-7151-8270-2e30c971e25d` approved the exact cumulative candidate
+for local strict fast-forward. Repository review/deletion authority remains null,
+and no push, deploy, or producer admission occurred.
 
 ## Current exact execution evidence
 
