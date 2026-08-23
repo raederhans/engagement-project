@@ -1,5 +1,16 @@
 # Phase 1 Evidence Completion Context
 
+## Current evidence availability correction (2026-08-23)
+
+Codex later reclaimed the stopped `e4c5` and `4eb6` task worktrees. Their
+ignored execution/data roots were not tracked by Git and no independent recovery
+copy is present. References below to those roots being current, fresh, or
+retained describe the state at the time of their historical review only. The
+reviewed code commits remain available, but remote code synchronization does not
+restore the missing bytes or grant release, producer, serving, deployment, or
+deletion authority. Fresh evidence must be generated in a persistent,
+manually-managed worktree before any such claim.
+
 ## Candidate baseline
 
 - Current repair begins from detached candidate
@@ -201,9 +212,24 @@ focused 10/10, data-pipeline 66/66, a real direct validation, hostile contract
 tests, and two unchanged idempotent reruns. The integration owner then strictly
 fast-forwarded local `main` from `a19fcf55438abb47e7685ee5b4d996f7e61e5d38`
 to `326a440fe67f6c05f08a8bb4430bd641efdb2fd4`; exact-main focused tests passed
-10/10. The producer worktree and ignored r1/r2 roots are retained through 1D.
-No push, remote CI, scheduled refresh, deployment, or online serving action was
-performed.
+10/10. At integration time the producer worktree and ignored r1/r2 roots were
+intended to be retained through 1D. No remote CI, scheduled refresh, deployment,
+or online serving action was performed as part of that integration.
+
+## M1 evidence retention incident (observed 2026-08-23)
+
+The Codex-managed producer worktree was later reclaimed after the producer task
+stopped. Its ignored r1/r2 roots were not tracked by Git and no independent
+recovery copy is present. The reviewed code tip and its historical review remain
+in local `main`, but the former receipt and producer bytes are no longer current,
+re-verifiable admission evidence. Historical receipt identities must not be
+reused or represented as retained evidence.
+
+M1 must be regenerated under a persistent, manually managed evidence worktree.
+Any replacement receipt is a new candidate and requires fresh independent data
+review. M2-M4 and 1D data admission remain blocked until that replacement chain
+is complete; code-only remote synchronization does not grant producer, serving,
+deployment, or deletion authority.
 
 ## Historical 2026-08-22 release receipt (partial; not current admission evidence)
 
