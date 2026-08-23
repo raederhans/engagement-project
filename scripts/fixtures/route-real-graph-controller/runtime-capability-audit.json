@@ -1,0 +1,11 @@
+{
+  "schema": "route-real-graph-controller-runtime-capability-audit/v1",
+  "status": "unavailable",
+  "nativeBindingObserved": false,
+  "handleLevelReparseSafetyProven": false,
+  "durableNoReplacePromotionProven": false,
+  "windowsJobObjectTreeContainmentProven": false,
+  "rootPidTerminationAcceptedAsTreeContainment": false,
+  "liveMethodsExposed": false,
+  "commandsRunnable": false
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "route-real-graph-build-policy-audit-fixture/v2",
+  "dataClassification": "synthetic-contract-expectation",
+  "expectedPolicyIdentity": "sha256:7ff943808335ca5e01e4eba2bdd81c4c01037065466b51fd1dae1aa41150e08b",
+  "policySchema": "route-real-graph-build-policy/v2",
+  "policyId": "philadelphia-pa-260813-osmium-opl-core-only/v2",
+  "releaseSchemas": {
+    "acquisition": "route-real-graph-acquisition-release/v1",
+    "observedPayload": "route-real-graph-observed-payload-receipt/v1",
+    "extraction": "route-real-graph-extraction-release/v1"
+  },
+  "source": {
+    "datedFileName": "pennsylvania-260813.osm.pbf",
+    "datedUrl": "https://download.geofabrik.de/north-america/us/pennsylvania-260813.osm.pbf",
+    "sourceAsOf": "2026-08-13T20:21:01.000Z",
+    "localPayloadStatus": "unavailable"
+  },
+  "boundary": {
+    "policyId": "philadelphia-city-limits-1000m-core-only/v1",
+    "distance": 1000,
+    "unit": "metre",
+    "steps": 32,
+    "traversable": false,
+    "crossStateOutcome": "coverage-unavailable-not-no-route"
+  },
+  "intermediate": {
+    "schema": "route-real-graph-osmium-opl-intermediate/v1",
+    "parserStatus": "rd-b-exact-adapter-unavailable",
+    "bridgeStatus": "separate-reviewed-opl-to-rd-b-bridge-required",
+    "buildEvidenceStatus": "trusted-controller-build-evidence-unavailable",
+    "hiddenParserAllowed": false
+  },
+  "controller": {
+    "status": "not-implemented",
+    "commandsRunnable": false,
+    "releaseCertificateExecutable": false,
+    "registryState": "empty"
+  },
+  "licence": {
+    "dataLicence": "ODbL-1.0",
+    "attributionText": "OpenStreetMap contributors",
+    "publicReleaseEligible": false
+  }
+}

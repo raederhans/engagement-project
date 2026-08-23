@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "engagement-route-real-compact-graph-synthetic-construction-fixture/v1",
+  "fixtureId": "synthetic-construction-real-compact-two-components",
+  "dataClassification": "synthetic-construction-only",
+  "constructedAt": "2026-08-14T00:00:00.000Z",
+  "dependencyPlaceholders": {
+    "source": {
+      "schemaVersion": "engagement-route-real-compact-graph-source-dependency-fixture/v1",
+      "recordId": "synthetic-construction-source-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-A",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "acquisition": {
+      "schemaVersion": "engagement-route-real-compact-graph-acquisition-dependency-fixture/v1",
+      "recordId": "synthetic-construction-acquisition-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-A",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "profile": {
+      "schemaVersion": "engagement-route-real-compact-graph-profile-dependency-fixture/v1",
+      "recordId": "synthetic-construction-profile-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-B",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "boundary": {
+      "schemaVersion": "engagement-route-real-compact-graph-boundary-dependency-fixture/v1",
+      "recordId": "synthetic-construction-boundary-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-E",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "tool": {
+      "schemaVersion": "engagement-route-real-compact-graph-tool-dependency-fixture/v1",
+      "recordId": "synthetic-construction-tool-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-E",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "build": {
+      "schemaVersion": "engagement-route-real-compact-graph-build-dependency-fixture/v1",
+      "recordId": "synthetic-construction-build-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-E",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    },
+    "authorization": {
+      "schemaVersion": "engagement-route-real-compact-graph-authorization-dependency-fixture/v1",
+      "recordId": "synthetic-construction-authorization-placeholder",
+      "dataClassification": "synthetic-construction-only",
+      "dependencyLane": "RD-C",
+      "contractStatus": "primitive-fixture-placeholder-only"
+    }
+  },
+  "routeGraphCandidate": {
+    "schema": "route-graph-candidate/v1",
+    "dataClassification": "candidate-synthetic-fixture",
+    "sourceId": "synthetic-construction-source-candidate",
+    "sourceKind": "synthetic",
+    "profileId": "synthetic-construction-profile-integer-mm",
+    "mode": "walk",
+    "nodes": [
+      {
+        "id": "node:2a12360d3d1019b78fa7e2834b6a389caed1401edb19c3a6137fa59f7ab6a1a6",
+        "sourceNodeId": "synthetic-construction-source-node-y",
+        "coordinate": [-751590000, 399600000]
+      },
+      {
+        "id": "node:71c8f9249cba6ae9ea725b98be095f110a8ff9118aac8bdb9f65c02f5e2e79ec",
+        "sourceNodeId": "synthetic-construction-source-node-x",
+        "coordinate": [-751600000, 399600000]
+      },
+      {
+        "id": "node:a38a3b272ad7eec4c7358ef3f4f6b45efc05bd8bb41cb11d6182ef7fe6966090",
+        "sourceNodeId": "synthetic-construction-source-node-a",
+        "coordinate": [-751650000, 399500000]
+      },
+      {
+        "id": "node:e0ea1730d382987e00531ddc1115812a1a76002268d7e2fe0c47b6683d21ff46",
+        "sourceNodeId": "synthetic-construction-source-node-c",
+        "coordinate": [-751630000, 399500000]
+      },
+      {
+        "id": "node:f35382f2b1e439bbce30e84d655e12bf957c72aaf2ea8b6b28fb220a7d3bcdb0",
+        "sourceNodeId": "synthetic-construction-source-node-b",
+        "coordinate": [-751640000, 399500000]
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge:2949d9e512b77e9594c348daf927f2254d18ae8ade0e8716f25286580519bc18",
+        "sourceEdgeId": "synthetic-construction-source-edge-x",
+        "fromNodeId": "node:71c8f9249cba6ae9ea725b98be095f110a8ff9118aac8bdb9f65c02f5e2e79ec",
+        "toNodeId": "node:2a12360d3d1019b78fa7e2834b6a389caed1401edb19c3a6137fa59f7ab6a1a6",
+        "cost": 85000,
+        "geometry": [[-751600000, 399600000], [-751590000, 399600000]],
+        "traversal": "forward",
+        "sourceDirection": "forward"
+      },
+      {
+        "id": "edge:7137d00b5cc8164c95cb3284bafc28b0d224770c4acfc165ccec415a3ef1afc2",
+        "sourceEdgeId": "synthetic-construction-source-edge-b",
+        "fromNodeId": "node:f35382f2b1e439bbce30e84d655e12bf957c72aaf2ea8b6b28fb220a7d3bcdb0",
+        "toNodeId": "node:e0ea1730d382987e00531ddc1115812a1a76002268d7e2fe0c47b6683d21ff46",
+        "cost": 85000,
+        "geometry": [[-751640000, 399500000], [-751635000, 399500000], [-751630000, 399500000]],
+        "traversal": "forward",
+        "sourceDirection": "bidirectional"
+      },
+      {
+        "id": "edge:96b7ddf15fcd4e4e90dc58001e3b6aee68a74ebd78947d0784d5a891d4b9c827",
+        "sourceEdgeId": "synthetic-construction-source-edge-a",
+        "fromNodeId": "node:a38a3b272ad7eec4c7358ef3f4f6b45efc05bd8bb41cb11d6182ef7fe6966090",
+        "toNodeId": "node:f35382f2b1e439bbce30e84d655e12bf957c72aaf2ea8b6b28fb220a7d3bcdb0",
+        "cost": 85000,
+        "geometry": [[-751650000, 399500000], [-751640000, 399500000]],
+        "traversal": "forward",
+        "sourceDirection": "forward"
+      },
+      {
+        "id": "edge:c352bc7f887fc7ed105f6506365cf5290e65dd6b6fdfbb90561a986bfa153b36",
+        "sourceEdgeId": "synthetic-construction-source-edge-b",
+        "fromNodeId": "node:e0ea1730d382987e00531ddc1115812a1a76002268d7e2fe0c47b6683d21ff46",
+        "toNodeId": "node:f35382f2b1e439bbce30e84d655e12bf957c72aaf2ea8b6b28fb220a7d3bcdb0",
+        "cost": 85000,
+        "geometry": [[-751630000, 399500000], [-751635000, 399500000], [-751640000, 399500000]],
+        "traversal": "reverse",
+        "sourceDirection": "bidirectional"
+      }
+    ],
+    "topologyIdentity": "sha256:ffd32ce7638687c504ecb7cd210537bf475d99fc183a3e6e3d488696e627286f",
+    "geometryIdentity": "sha256:5af8d78b24ae39cb6ffae21b85dc7023debfcf02964f9f982ae3d8c146fef2b0",
+    "counts": {
+      "physicalFeatureCount": 3,
+      "excludedAccessCount": 0,
+      "nodeCount": 5,
+      "directedEdgeCount": 4,
+      "weakComponentCount": 2,
+      "largestWeakComponentNodeCount": 3,
+      "selfLoopCount": 0,
+      "zeroCostEdgeCount": 0
+    },
+    "limitations": [
+      "Synthetic route-graph-candidate/v1 construction for compact schema mechanics only.",
+      "The sole cost field is interpreted as integer millimetres only for this mechanics fixture."
+    ]
+  }
+}

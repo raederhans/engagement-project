@@ -1,0 +1,11 @@
+{
+  "schema": "route-real-graph-authority-source-readiness-cases/v1",
+  "cases": [
+    { "readiness": "candidate-evidence-partial", "recordCount": 1, "code": "source-readiness-ineligible" },
+    { "readiness": "candidate-evidence-stale", "recordCount": 1, "code": "source-readiness-ineligible" },
+    { "readiness": "candidate-evidence-unavailable", "recordCount": null, "code": "source-readiness-ineligible" },
+    { "readiness": "candidate-evidence-unknown", "recordCount": null, "code": "source-readiness-ineligible" },
+    { "readiness": "candidate-evidence-unavailable", "recordCount": 0, "code": "source-readiness-record-count" },
+    { "readiness": "candidate-evidence-unknown", "recordCount": 0, "code": "source-readiness-record-count" }
+  ]
+}

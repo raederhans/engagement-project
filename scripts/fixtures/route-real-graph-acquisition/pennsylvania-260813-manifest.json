@@ -1,0 +1,29 @@
+{
+  "schema": "route-real-graph-geofabrik-acquisition-manifest/v1",
+  "manifestIdentity": "sha256:8ab6720f87bc57616bcc8fbb43dc9c9276d6a4234d0a463062bf76761decdad2",
+  "dataClassification": "candidate-external",
+  "source": {
+    "provider": "Geofabrik GmbH",
+    "providerPage": "https://download.geofabrik.de/north-america/us/pennsylvania.html",
+    "region": "north-america/us/pennsylvania",
+    "format": "osm.pbf",
+    "datedUrl": "https://download.geofabrik.de/north-america/us/pennsylvania-260813.osm.pbf",
+    "sidecarMd5Url": "https://download.geofabrik.de/north-america/us/pennsylvania-260813.osm.pbf.md5"
+  },
+  "references": {
+    "boundary": "route-real-graph-boundary/philadelphia-preregistered-v1",
+    "profile": "route-real-graph-osm-walk-profile/pending-rd-b",
+    "tool": "route-real-graph-extractor/unavailable"
+  },
+  "policy": {
+    "candidateOnly": true,
+    "latestAllowed": false,
+    "fallbackAllowed": false,
+    "fullPayloadPersistenceAllowed": false
+  },
+  "limitations": [
+    "This manifest identifies candidate discovery and bounded acquisition inputs only; it is not source authenticity, admission, Source Health current status, product materialization, or publication authority.",
+    "HTTP headers and the provider MD5 sidecar are transport and corruption-detection evidence only; they do not prove business freshness, provenance, licence compliance, or reviewer identity.",
+    "Pennsylvania coverage does not establish the Philadelphia boundary, buffer, or cross-New-Jersey routing completeness."
+  ]
+}

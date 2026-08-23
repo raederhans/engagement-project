@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "dataClassification": "synthetic-contract-fixture",
+        "authority": false,
+        "note": "Small rectangle for geometry contract tests; not a Philadelphia boundary."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-75.1800, 39.9400],
+            [-75.1700, 39.9400],
+            [-75.1700, 39.9500],
+            [-75.1800, 39.9500],
+            [-75.1800, 39.9400]
+          ]
+        ]
+      }
+    }
+  ]
+}

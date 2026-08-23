@@ -1,0 +1,197 @@
+{
+  "schema": "route-real-graph-osm-intermediate/v1",
+  "sourceId": "osm-philadelphia-fixture",
+  "sourceKind": "osm",
+  "extractor": {
+    "schema": "route-real-graph-osm-extractor-binding/v1",
+    "extractorId": "fixture-osm-extractor",
+    "extractorVersion": "1.0.0",
+    "recordSchema": "route-real-graph-osm-edge-record/v1"
+  },
+  "boundary": {
+    "schema": "route-real-graph-osm-boundary/v1",
+    "boundaryId": "philadelphia-test-bbox-v1",
+    "clipperId": "fixture-boundary-clipper",
+    "clipperVersion": "1.0.0",
+    "clippingStatus": "complete",
+    "clippingPolicy": "extractor-preclipped-explicit-endpoints",
+    "outsideInputPolicy": "reject",
+    "bbox": [-75.2, 39.8, -74.8, 40.2]
+  },
+  "turnRestrictions": {
+    "schema": "route-real-graph-osm-turn-restrictions/v1",
+    "status": "unavailable",
+    "reason": "not-extracted"
+  },
+  "edges": [
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:400:segment:0:part:0",
+      "osmWayId": "400",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:107",
+      "toNodeId": "osm-node:108",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-75.04, 40.01], [-75.03, 40.02]],
+      "distanceMillimeters": 1600,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": null,
+        "foot": "yes",
+        "access": "yes",
+        "oneway": "no",
+        "onewayFoot": null,
+        "route": "ferry",
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:100:segment:0:part:0",
+      "osmWayId": "100",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:100",
+      "toNodeId": "osm-node:101",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-75.10000004, 39.90000004], [-75.09, 39.9]],
+      "distanceMillimeters": 1000,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": "residential",
+        "foot": "yes",
+        "access": "yes",
+        "oneway": null,
+        "onewayFoot": null,
+        "route": null,
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:600:segment:0:part:0",
+      "osmWayId": "600",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:111",
+      "toNodeId": "osm-node:112",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-74.95, 39.95], [-74.94, 39.95]],
+      "distanceMillimeters": 1400,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": "construction",
+        "foot": "yes",
+        "access": "yes",
+        "oneway": "no",
+        "onewayFoot": null,
+        "route": null,
+        "construction": "residential",
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:200:segment:0:part:0",
+      "osmWayId": "200",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:101",
+      "toNodeId": "osm-node:102",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-75.09, 39.9], [-75.08, 39.9]],
+      "distanceMillimeters": 1100,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": "footway",
+        "foot": "designated",
+        "access": "public",
+        "oneway": "yes",
+        "onewayFoot": "-1",
+        "route": null,
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:700:segment:3:part:1",
+      "osmWayId": "700",
+      "segmentIndex": 3,
+      "partIndex": 1,
+      "fromNodeId": "osm-node:113",
+      "toNodeId": "clip:philadelphia-test-bbox-v1:700:3:1:to",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "boundary-intersection",
+      "geometry": [[-74.9, 40.0], [-74.8, 40.0]],
+      "distanceMillimeters": 1700,
+      "boundaryDisposition": "clipped",
+      "tags": {
+        "highway": "path",
+        "foot": "permissive",
+        "access": "permissive",
+        "oneway": "0",
+        "onewayFoot": null,
+        "route": null,
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:300:segment:0:part:0",
+      "osmWayId": "300",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:105",
+      "toNodeId": "osm-node:106",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-75.06, 39.99], [-75.05, 40.0]],
+      "distanceMillimeters": 1200,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": "steps",
+        "foot": "official",
+        "access": "yes",
+        "oneway": "yes",
+        "onewayFoot": "no",
+        "route": null,
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    },
+    {
+      "schema": "route-real-graph-osm-edge-record/v1",
+      "recordId": "osm-way:500:segment:0:part:0",
+      "osmWayId": "500",
+      "segmentIndex": 0,
+      "partIndex": 0,
+      "fromNodeId": "osm-node:109",
+      "toNodeId": "osm-node:110",
+      "fromEndpointKind": "osm-node",
+      "toEndpointKind": "osm-node",
+      "geometry": [[-75.02, 40.03], [-75.01, 40.03]],
+      "distanceMillimeters": 1300,
+      "boundaryDisposition": "inside",
+      "tags": {
+        "highway": "service",
+        "foot": "yes",
+        "access": "no",
+        "oneway": "no",
+        "onewayFoot": null,
+        "route": null,
+        "construction": null,
+        "conditional": { "foot": null, "access": null, "oneway": null, "onewayFoot": null }
+      }
+    }
+  ]
+}
+

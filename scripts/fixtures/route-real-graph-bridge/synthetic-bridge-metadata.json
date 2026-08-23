@@ -1,0 +1,81 @@
+{
+  "schema": "route-real-graph-osmium-opl-bridge-metadata/v1",
+  "dataClassification": "synthetic-contract-fixture",
+  "fixtureId": "synthetic-osmium-opl-walking-v1",
+  "sourceId": "synthetic-osmium-opl-walking-source-v1",
+  "oplContract": {
+    "schema": "route-real-graph-osmium-opl-subset/v1",
+    "toolId": "osmium-tool/1.19.1/win-64/conda-forge-h60971b7_0",
+    "toolVersion": "1.19.1",
+    "outputFormat": "opl,add_metadata=version+timestamp",
+    "objectOrder": "nodes-then-ways-then-relations-id-ascending",
+    "nodeFields": ["id", "version", "timestamp", "tags", "longitude", "latitude"],
+    "wayFields": ["id", "version", "timestamp", "tags", "nodeRefsWithLocations"],
+    "relationFields": ["id", "version", "timestamp", "tags", "members"],
+    "distanceMechanicsIdentity": "sha256:3d49be28ab9fc1f70bef18a4ac9808bd4af2adab6cb5841af5da15d92d61c850"
+  },
+  "extractor": {
+    "schema": "route-real-graph-osm-extractor-binding/v1",
+    "extractorId": "osmium-tool/1.19.1/opl-to-rd-b/v1",
+    "extractorVersion": "1.19.1",
+    "recordSchema": "route-real-graph-osm-edge-record/v1"
+  },
+  "boundary": {
+    "schema": "route-real-graph-osm-boundary/v1",
+    "boundaryId": "synthetic-philadelphia-bbox-v1",
+    "clipperId": "synthetic-bbox-noop-clipper",
+    "clipperVersion": "1.0.0",
+    "clippingStatus": "complete",
+    "clippingPolicy": "extractor-preclipped-explicit-endpoints",
+    "outsideInputPolicy": "reject",
+    "bbox": [-75.2, 39.8, -74.8, 40.2]
+  },
+  "turnRestrictions": {
+    "schema": "route-real-graph-osm-turn-restrictions/v1",
+    "status": "unavailable",
+    "reason": "not-extracted"
+  },
+  "coverage": {
+    "status": "synthetic-bbox-only",
+    "crossState": "unavailable-no-real-observation",
+    "outsideBufferPolicy": "reject",
+    "boundaryIntersectionPolicy": "unavailable-reject"
+  },
+  "expected": {
+    "oplIdentity": "sha256:56c6309772e2c84f3c2fe7dfe102332172af43d4aa1669de8d7b0bc975b9cd73",
+    "nodeRecordCount": 4,
+    "wayRecordCount": 2,
+    "relationRecordCount": 0,
+    "tagCount": 9,
+    "nodeReferenceCount": 4,
+    "edgeRecordCount": 2,
+    "aggregateGeometryPointCount": 4,
+    "edgeDistances": [
+      {"recordId": "osm-way:200:segment:0:part:0", "distanceMillimeters": 853050},
+      {"recordId": "osm-way:300:segment:0:part:0", "distanceMillimeters": 1400754}
+    ],
+    "intermediateIdentity": "sha256:489245b95c6d6f433109281a780fcb3fadaecd412569cc15f1f8e6351d2bedb8",
+    "rdBAdapterIdentity": "sha256:97503a4ca01ef8bc84afe904356e9473dca16e3efd06a610be026564845581a4"
+  },
+  "claims": {
+    "syntheticFixtureOnly": true,
+    "exactOplBytesRequired": true,
+    "realBridgeAuthorized": false,
+    "trustedControllerImplemented": false,
+    "graphArtifactAuthority": false,
+    "rdCAdmissionAuthority": false,
+    "rdDRealArtifactAuthority": false,
+    "sourceHealthCurrent": false,
+    "runtimeAuthorized": false,
+    "publicationAuthorized": false
+  },
+  "limitations": [
+    "Successful materialization is synthetic exact-fixture mechanics only; it is not a real bridge observation or trusted controller result.",
+    "The bridge emits the accepted RD-B intermediate and invokes the accepted RD-B adapter, but it cannot mint GraphArtifact, RD-C authority, an RD-D real artifact, or Source Health current.",
+    "The sole cost is recomputed integer-millimetre geometry distance; duration, objective cost, safety, accessibility, completeness, and routing correctness are not produced or established.",
+    "Relations and turn restrictions remain explicitly unavailable and are never treated as an empty applied set.",
+    "Cross-state and non-rectangular core-boundary correctness remain unavailable; synthetic fixtures must remain wholly inside the declared bbox.",
+    "The 16 MiB OPL, 100,000-node, and related aggregate ceilings are defensive small-fixture mechanics, not evidence of full Philadelphia capacity.",
+    "No controller, process, filesystem, network, PBF parser, latest source, retry, fallback, runtime, or publication path exists in this module."
+  ]
+}

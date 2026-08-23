@@ -1,0 +1,22 @@
+{
+  "schema": "route-real-graph-osm-hostile-cases/v1",
+  "cases": [
+    { "name": "missing-foot", "path": ["edges", 0, "tags", "foot"], "value": null, "code": "missing-foot" },
+    { "name": "unknown-access", "path": ["edges", 0, "tags", "access"], "value": "members", "code": "unknown-access" },
+    { "name": "unknown-highway", "path": ["edges", 1, "tags", "highway"], "value": "corridor", "code": "unknown-highway" },
+    { "name": "unknown-oneway", "path": ["edges", 1, "tags", "oneway"], "value": "reversible", "code": "unknown-oneway" },
+    { "name": "unknown-route", "path": ["edges", 1, "tags", "route"], "value": "bus", "code": "unknown-route" },
+    { "name": "conditional-foot", "path": ["edges", 1, "tags", "conditional", "foot"], "value": "yes @ (sunrise-sunset)", "code": "conditional-semantics-unresolved" },
+    { "name": "outside-boundary", "path": ["edges", 1, "geometry", 0, 0], "value": -76, "code": "geometry-outside-boundary" },
+    { "name": "raw-outside-rounded-inside-max", "path": ["edges", 4, "geometry", 1, 0], "value": -74.79999996, "code": "geometry-outside-boundary" },
+    { "name": "raw-outside-rounded-inside-min", "path": ["edges", 1, "geometry", 0, 0], "value": -75.20000004, "code": "geometry-outside-boundary" },
+    { "name": "raw-interior-rounded-on-edge", "path": ["edges", 4, "geometry", 1, 0], "value": -74.80000004, "code": "boundary-intersection-not-on-raw-bbox" },
+    { "name": "interior-boundary-marker", "path": ["edges", 4, "geometry", 1, 0], "value": -74.85, "code": "boundary-intersection-not-on-raw-bbox" },
+    { "name": "zero-length-rounded-geometry", "path": ["edges", 1, "geometry"], "value": [[-75.1, 39.9], [-75.1, 39.9]], "code": "zero-length-geometry" },
+    { "name": "different-ids-collapsed-endpoints", "path": ["edges", 1, "geometry"], "value": [[-75.1, 39.9], [-75.09, 39.9], [-75.1, 39.9]], "code": "endpoint-coordinate-collapse" },
+    { "name": "forged-record-id", "path": ["edges", 1, "recordId"], "value": "osm-way:100:segment:0:part:9", "code": "unstable-edge-record-id" },
+    { "name": "clipping-marker-mismatch", "path": ["edges", 1, "boundaryDisposition"], "value": "clipped", "code": "boundary-marker-mismatch" },
+    { "name": "turn-restrictions-guessed-empty", "path": ["turnRestrictions", "status"], "value": "available", "code": "turn-restrictions-unavailable" },
+    { "name": "legacy-record-schema", "path": ["extractor", "recordSchema"], "value": "route-real-graph-osm-edge-record/v0", "code": "extractor-record-schema" }
+  ]
+}

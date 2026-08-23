@@ -1,1 +1,5 @@
 public/data/hin_2025.snapshot.json text eol=lf
+scripts/fixtures/route-real-graph-bridge/synthetic-walking.osm.opl text eol=lf
+scripts/fixtures/route-real-graph-controller/** text eol=lf
+scripts/lib/route_real_graph_controller/** text eol=lf
+scripts/tests/route_real_graph_controller.mjs text eol=lf

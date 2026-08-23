@@ -1,0 +1,34 @@
+{
+  "schema": "route-real-graph-authority-evidence-seed/v3",
+  "sourceId": "osm-philadelphia-walking-graph",
+  "source": {
+    "providerPage": "https://download.geofabrik.de/north-america/us/pennsylvania.html",
+    "datedUrl": "https://download.geofabrik.de/north-america/us/pennsylvania-260813.osm.pbf",
+    "lastModified": "Thu, 13 Aug 2026 23:26:51 GMT",
+    "etag": "\"rd-c-fixture\"",
+    "payloadMd5": "11111111111111111111111111111111",
+    "payloadSha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "payloadBytes": 12345
+  },
+  "clocks": {
+    "sourceAsOf": "2026-08-13T20:21:01.000Z",
+    "retrievedAt": "2026-08-14T00:00:00.000Z",
+    "acquisitionBuiltAt": "2026-08-14T00:01:00.000Z",
+    "acquisitionObservedAt": "2026-08-14T00:01:01.000Z",
+    "toolObservedAt": "2026-08-14T00:01:30.000Z",
+    "buildBuiltAt": "2026-08-14T00:02:00.000Z",
+    "buildObservedAt": "2026-08-14T00:03:00.000Z"
+  },
+  "profileId": "osm-walking-strict-candidate-v1",
+  "boundaryId": "philadelphia-reviewed-boundary-v1",
+  "graphVersion": "philadelphia-osm-real-candidate-v1",
+  "tool": {
+    "toolId": "reviewed-osm-extractor",
+    "toolVersion": "1.0.0",
+    "executableIdentity": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "identities": {
+    "intermediate": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "boundaryPolicy": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+  }
+}
