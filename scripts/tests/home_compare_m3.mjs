@@ -538,6 +538,55 @@ test('Home Compare rejects residential claims disguised as metadata and Chinese 
   }
 });
 
+test('Home Compare rejects ambiguous safety and causal text through the fail-closed lexicon', () => {
+  for (const text of [
+    'These homes are safest.',
+    'Homes have the lowest risk.',
+    'The two homes are safest.',
+    'Community homes are safest.',
+    'The block is clearly safest.',
+    '社区的风险最低。',
+    'The route does not reduce crime, yet increases incidents.',
+    'Crime is not reduced by the route but increased by the property.',
+    'The route significantly reduces crime.',
+    'The route reduces the risk.',
+    '该路线不降低犯罪但增加风险。',
+    '该路线不能减少事件，同时提高风险。',
+    '该路线明显降低犯罪。',
+    '该路线降低了犯罪。',
+    'The route reduces crime but does not increase risk.',
+    '该路线降低犯罪但不增加风险。',
+    'No evidence exists and the home is safest.',
+    '该住宅没有风险。',
+    'The source is safe.',
+    'The property is not unsafe.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare allows only complete trusted metadata and bounded denial forms', () => {
+  for (const text of [
+    'The source shows risk fields from the official dataset.',
+    'The product indicates risk availability.',
+    'The dataset shows safety-related record counts.',
+    '该来源说明风险字段。',
+    'This source has low-risk categories.',
+    'A dataset has the lowest risk field named category.',
+    'Neither of the homes is safe.',
+    'None of the homes is safe.',
+    'No residential property is safe.',
+    'There is no home that is safe.',
+    '没有任何住宅是安全的。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
 test('Home Compare binds negation to each complete assertion instead of the surrounding sentence', () => {
   for (const text of [
     'The route reduces crime but does not increase risk.',
