@@ -1,8 +1,8 @@
 import { CARTO_SQL_BASE } from '../config.js';
-import { fetchCountBuffer } from '../api/crime.js';
 import { findPhiladelphiaPropertyAddressCandidates } from '../api/geocoder.js';
-import { fetchCoverage } from '../api/meta.js';
+import { admitCoverageResponse, COVERAGE_SQL } from '../api/meta.js';
 import { fetchJson } from '../utils/http.js';
+import { buildCountBufferSQL } from '../utils/sql.js';
 import { validateAreaIntelligenceServingArtifact } from '../area_intelligence/serving_contract.js';
 import { admitPropertyAddressCandidates, admitPropertyParcelJoin } from './address.js';
 import { createEvidenceMetric, HOME_COMPARE_EVIDENCE_KEYS, inferHomeProfileStatus } from './contract.js';
@@ -26,7 +26,14 @@ export async function resolveHomePropertyAddress(input, {
   signal,
   minScore = 90,
 } = {}) {
-  const candidates = await findPhiladelphiaPropertyAddressCandidates(input, { request, signal });
+  const candidates = await findPhiladelphiaPropertyAddressCandidates(input, {
+    request: (url, options = {}) => postSensitiveArcGisQuery(url, {
+      request,
+      signal: options.signal ?? signal,
+      timeoutMs: options.timeoutMs,
+    }),
+    signal,
+  });
   const addressMatch = admitPropertyAddressCandidates(candidates, { minScore });
   const rows = await queryCarto(buildPropertyJoinSql(addressMatch.normalizedAddress), { request, signal });
   return admitPropertyParcelJoin(addressMatch, { rows });
@@ -36,22 +43,29 @@ export async function fetchHomeProfileEvidence(identity, {
   request = fetchJson,
   signal,
   now = () => new Date().toISOString(),
-  incidentReader = fetchCountBuffer,
-  coverageReader = fetchCoverage,
+  incidentReader = fetchHomeCompareIncidentCount,
+  coverageReader = fetchHomeCompareCoverage,
   radiusMeters = 400,
   incidentMonths = 12,
 } = {}) {
   validatePrivateIdentity(identity);
-  const retrievedAt = now();
+  let retrievedAt;
+  try {
+    retrievedAt = nullableDate(now());
+  } catch {
+    throw new TypeError('A Home Compare retrieval clock is required.');
+  }
+  if (!retrievedAt) throw new TypeError('A Home Compare retrieval clock is required.');
   const [assessments, transfers, serviceRequests, liHistory, vacancy, hinContext, reportedIncidents] = await Promise.allSettled([
     fetchAssessments(identity.parcelId, { request, signal, retrievedAt }),
-    fetchTransfers(identity.parcelId, { request, signal }),
+    fetchTransfers(identity.parcelId, { request, signal, retrievedAt }),
     fetchServiceRequests(identity.lngLat, { request, signal, radiusMeters, months: 24 }),
     fetchLiHistory(identity.parcelId, { request, signal }),
     fetchVacancy(identity.parcelId, { request, signal }),
     fetchHinContext(identity.lngLat, { request, signal, radiusMeters }),
     fetchReportedIncidents(identity.lngLat, {
       signal,
+      request,
       incidentReader,
       coverageReader,
       radiusMeters,
@@ -173,7 +187,7 @@ async function fetchAssessments(parcelId, { retrievedAt, ...options }) {
   });
 }
 
-async function fetchTransfers(parcelId, options) {
+async function fetchTransfers(parcelId, { retrievedAt, ...options }) {
   const rows = await queryCarto(`
     SELECT document_type, display_date, recording_date, document_date,
            adjusted_total_consideration, matched_regmap, discrepancy, property_count
@@ -182,23 +196,37 @@ async function fetchTransfers(parcelId, options) {
     ORDER BY display_date DESC NULLS LAST
     LIMIT 12
   `, options);
-  const records = rows.map((row) => ({
-    documentType: boundedOptionalText(row.document_type, 80),
-    displayDate: nullableDate(row.display_date),
-    recordingDate: nullableDate(row.recording_date),
-    documentDate: nullableDate(row.document_date),
-    consideration: nullableNumber(row.adjusted_total_consideration),
-    matchedRegistryMap: booleanOrNull(row.matched_regmap),
-    discrepancy: boundedOptionalText(row.discrepancy, 160),
-    propertyCount: nullableSafeInteger(row.property_count),
-  }));
+  const maximumAdmittedDate = Date.parse(retrievedAt) + 24 * 60 * 60 * 1000;
+  let futureDatedFieldCount = 0;
+  const records = rows.map((row) => {
+    const displayDate = dateNotAfter(row.display_date, maximumAdmittedDate);
+    const recordingDate = dateNotAfter(row.recording_date, maximumAdmittedDate);
+    const documentDate = dateNotAfter(row.document_date, maximumAdmittedDate);
+    futureDatedFieldCount += Number(displayDate.future) + Number(recordingDate.future) + Number(documentDate.future);
+    return {
+      documentType: boundedOptionalText(row.document_type, 80),
+      displayDate: displayDate.value,
+      recordingDate: recordingDate.value,
+      documentDate: documentDate.value,
+      consideration: nullableNumber(row.adjusted_total_consideration),
+      matchedRegistryMap: booleanOrNull(row.matched_regmap),
+      discrepancy: boundedOptionalText(row.discrepancy, 160),
+      propertyCount: nullableSafeInteger(row.property_count),
+    };
+  });
   return admittedMetricResult({
-    value: { recordCount: records.length, records },
-    dataAsOf: latestDate(...records.flatMap((row) => [row.recordingDate, row.documentDate, row.displayDate])),
+    status: futureDatedFieldCount ? 'partial' : 'available',
+    value: { recordCount: records.length, futureDatedFieldCount, records },
+    dataAsOf: latestDate(...records.map((row) => row.recordingDate)),
     recordCount: records.length,
     coverage: 'Up to 12 public transfer-tax document summaries joined by OPA account number.',
-    precision: 'Exact OPA account-number join; transaction-party and document identifiers are excluded.',
-    limitations: ['Recorded consideration is not an appraisal, comparable-sales recommendation, or proof of current ownership.'],
+    precision: 'Exact OPA account-number join; transaction-party and document identifiers are excluded; source dates later than retrieval plus one day are withheld as unknown.',
+    limitations: [
+      'Recorded consideration is not an appraisal, comparable-sales recommendation, or proof of current ownership.',
+      ...(futureDatedFieldCount
+        ? [`${futureDatedFieldCount} future sentinel date fields were withheld and this source remains partial.`]
+        : []),
+    ],
   });
 }
 
@@ -284,7 +312,7 @@ async function fetchVacancy(parcelId, { request, signal }) {
     returnGeometry: 'false',
     resultRecordCount: '3',
   });
-  const payload = await request(`${VACANCY_URL}?${params}`, { cacheTTL: 0, retries: 1, signal });
+  const payload = await postSensitiveArcGisQuery(VACANCY_URL, { request, signal, params });
   if (!payload || !Array.isArray(payload.features) || payload.error) throw new TypeError('Vacancy response is malformed.');
   if (payload.features.length > 1) throw new TypeError('Vacancy parcel join is ambiguous.');
   const attributes = payload.features[0]?.attributes || null;
@@ -316,7 +344,7 @@ async function fetchHinContext(lngLat, { request, signal, radiusMeters }) {
     units: 'esriSRUnit_Meter',
     returnCountOnly: 'true',
   });
-  const payload = await request(`${HIN_URL}?${params}`, { cacheTTL: 0, retries: 1, signal });
+  const payload = await postSensitiveArcGisQuery(HIN_URL, { request, signal, params });
   const count = admittedCount(payload?.count, 'HIN feature count');
   return admittedMetricResult({
     value: { nearbyNetworkFeatureCount: count },
@@ -330,12 +358,13 @@ async function fetchHinContext(lngLat, { request, signal, radiusMeters }) {
 
 async function fetchReportedIncidents(lngLat, {
   signal,
+  request,
   incidentReader,
   coverageReader,
   radiusMeters,
   months,
 }) {
-  const coverage = await coverageReader();
+  const coverage = await coverageReader({ request, signal });
   const maximum = new Date(`${coverage.max}T00:00:00.000Z`);
   if (Number.isNaN(maximum.getTime())) throw new TypeError('Crime coverage is invalid.');
   const end = new Date(maximum.getTime() + 24 * 60 * 60 * 1000);
@@ -347,6 +376,7 @@ async function fetchReportedIncidents(lngLat, {
     types: [],
     center3857: toWebMercator(lngLat),
     radiusM: radiusMeters,
+    request,
     signal,
   });
   const admitted = admittedCount(count, 'reported-incident count');
@@ -370,6 +400,54 @@ function buildPropertyJoinSql(normalizedAddress) {
     WHERE upper(location) = upper(${sqlLiteral(normalizedAddress)})
     LIMIT 6
   `;
+}
+
+async function postSensitiveArcGisQuery(url, {
+  request = fetchJson,
+  signal,
+  params,
+  timeoutMs = 15_000,
+} = {}) {
+  const endpoint = new URL(url);
+  const body = new URLSearchParams(endpoint.searchParams);
+  endpoint.search = '';
+  if (params) {
+    for (const [key, value] of params) body.set(key, value);
+  }
+  return request(endpoint.toString(), {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    cacheTTL: 0,
+    retries: 0,
+    timeoutMs,
+    signal,
+  });
+}
+
+async function fetchHomeCompareIncidentCount({
+  start,
+  end,
+  types,
+  center3857,
+  radiusM,
+  request = fetchJson,
+  signal,
+}) {
+  const rows = await queryCarto(buildCountBufferSQL({ start, end, types, center3857, radiusM }), {
+    request,
+    signal,
+  });
+  return admittedCount(singleRow(rows, 'reported-incident aggregate').n, 'reported-incident count');
+}
+
+async function fetchHomeCompareCoverage({
+  request = fetchJson,
+  signal,
+} = {}) {
+  return admitCoverageResponse({
+    rows: await queryCarto(COVERAGE_SQL, { request, signal }),
+  });
 }
 
 async function queryCarto(sql, { request = fetchJson, signal } = {}) {
@@ -507,6 +585,14 @@ function nullableDate(value) {
   const timestamp = typeof value === 'number' ? value : Date.parse(value);
   if (Number.isNaN(timestamp)) throw new TypeError('Source date is invalid.');
   return new Date(timestamp).toISOString();
+}
+
+function dateNotAfter(value, maximumTimestamp) {
+  const parsed = nullableDate(value);
+  return {
+    value: parsed && Date.parse(parsed) <= maximumTimestamp ? parsed : null,
+    future: parsed != null && Date.parse(parsed) > maximumTimestamp,
+  };
 }
 
 function latestDate(...values) {
