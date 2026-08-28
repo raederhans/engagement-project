@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M3 ready for final review — integrated candidate 5e21439 passed the central Home Compare gate (3/4 high tasks)`。
+`M3 repair candidate ready for focused re-review — initial M3-4 review failed closed; integrated repairs at 0bb709d pass the central Home Compare gate (4/4 high tasks)`。
 
 ## Checklist
 
@@ -26,7 +26,9 @@
 - [x] M2 Area Intelligence stage gate。
 - [x] 派发 M3-1 source/admission、M3-2 comparison/privacy、M3-3 UI/browser 三个 high 任务。
 - [x] 整合 M3 source-final candidates 并运行中央 Home Compare gate。
-- [ ] 创建 M3-4 最终 reviewer 并完成 M3 stage gate。
+- [x] 创建 M3-4 最终 reviewer；首轮复核在 `a795450` 以 3 个 P1、1 个 P2 fail closed。
+- [x] 复用 M3-1/M3-2 修复全部四项 findings，并在监督 worktree 运行合并态中央门禁。
+- [ ] 让 M3-4 对修复后的精确候选做 focused re-review 并完成 M3 stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
 - [ ] M5 Adaptive Route Alternatives stage gate。
@@ -91,6 +93,10 @@
 | central M3 production build and bundle | build exit 0; non-VRE dist 3,998,837 / 4,000,000 bytes, leaving 1,163 bytes; ceiling/config/dependencies unchanged. |
 | central M3 built-browser gate | PASS for 2/3/4 profiles, English/Chinese, partial/unavailable, M2 not-promoted/unavailable, commute unavailable, 390px, named dialog/results, focus restoration, no private URL/history/storage/IndexedDB/share values, destinations not transmitted, and 0 console/page errors. |
 | central public-landmark live admission after final repair | one high-confidence candidate, one exact OPA join, 0.9 m point agreement, profile partial, all nine source states partial, and 0 new query/retry logs; no address, coordinate or parcel was printed or persisted. |
+| M3-4 initial review of `a795450` | local gate FAIL; P0=0, P1=3, P2=1. Future OPA property dates, ordinary unsafe conclusion text, camelCase private aliases, and source endpoint/dataset/schema drift were accepted. All other focused/browser/bundle/privacy gates passed. |
+| M3-2 review repair `04a047c` / supervisor `73a3a97` | normalized camel/snake/kebab private keys; recursively rejects identity aliases and unsafe conclusions across metric/source/profile/root text while preserving ordinary `sourceId`/non-identity `ownership`. Task gate 31/31, build, bundle and browser PASS. |
+| M3-1 review repair `98f7b49` / supervisor `0bb709d` | OPA property dates later than retrieval +1 day are withheld and counted; metric becomes partial and `dataAsOf` uses admitted dates only. A synchronous code-owned SHA-256 identity binds all nine source endpoints/datasets/field contracts. |
+| central merged M3 repair gate at `0bb709d` | 32/32 Home Compare/source tests, targeted ESLint, build, diff-check and built-browser PASS; source registry chunk 4,601/1,985 raw/gzip; non-VRE 3,999,488/4,000,000 bytes, leaving 512 bytes; zero console/page errors. |
 
 ## Open risks and remaining work
 
@@ -108,7 +114,7 @@
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
 - M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
   不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- M3 candidate 的 bundle 只余 1,163 bytes；M4-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
+- M3 repair candidate 的 bundle 只余 512 bytes；M4-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
