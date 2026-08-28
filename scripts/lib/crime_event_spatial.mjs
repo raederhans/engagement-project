@@ -129,7 +129,13 @@ export function fixedWebMercatorGridCell(coordinate, { cellSizeM = 500 } = {}) {
   }
   const [longitude, latitude] = coordinate;
   if (Math.abs(latitude) >= WEB_MERCATOR_MAX_LATITUDE) {
-    return { status: 'unavailable', gridId: null, reason: 'web-mercator-latitude-unavailable' };
+    return {
+      status: 'unavailable',
+      gridId: null,
+      scheme: 'epsg3857-square-grid-v1',
+      projectedCellSizeM: cellSizeM,
+      reason: 'web-mercator-latitude-unavailable',
+    };
   }
   const x = EARTH_RADIUS_M * longitude * Math.PI / 180;
   const y = EARTH_RADIUS_M * Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360));
@@ -157,7 +163,9 @@ export function validateCorridorRegistry(value) {
       throw new Error('Route-corridor ids must be non-empty and unique.');
     }
     ids.add(corridor.id);
-    if (!Number.isInteger(corridor.buffer_m)) throw new Error(`Corridor ${corridor.id} buffer_m is invalid.`);
+    if (!Number.isInteger(corridor.buffer_m) || corridor.buffer_m <= 0) {
+      throw new Error(`Corridor ${corridor.id} buffer_m is invalid.`);
+    }
     if (!exactDate(corridor.temporal_start) || !exactDate(corridor.temporal_end_exclusive)
       || corridor.temporal_start >= corridor.temporal_end_exclusive) {
       throw new Error(`Corridor ${corridor.id} temporal coverage is invalid.`);
@@ -184,6 +192,18 @@ export function mapEventToCorridors(event, corridorRegistry) {
       reason: 'event-coordinate-or-time-unavailable',
     };
   }
+  const eventDate = exactTimestamp(event.event_at).slice(0, 10);
+  const applicableCorridors = corridorRegistry.corridors.filter((corridor) => (
+    eventDate >= corridor.temporal_start && eventDate < corridor.temporal_end_exclusive
+  ));
+  if (applicableCorridors.length === 0) {
+    return {
+      status: 'unavailable',
+      registryId: corridorRegistry.registryId,
+      matches: [],
+      reason: 'corridor-registry-temporal-coverage-unavailable',
+    };
+  }
   const incident = {
     type: 'Feature',
     geometry: { type: 'Point', coordinates: event.coordinate.value },
@@ -193,7 +213,7 @@ export function mapEventToCorridors(event, corridorRegistry) {
     },
   };
   const matches = [];
-  for (const corridor of corridorRegistry.corridors) {
+  for (const corridor of applicableCorridors) {
     const association = associateRouteCorridorIncidents({
       route: corridor.route,
       bufferM: corridor.buffer_m,

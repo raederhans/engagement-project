@@ -12,6 +12,8 @@ import { createAcsPopulationIndex } from '../lib/crime_event_acs.mjs';
 import {
   createTractSpatialIndex,
   fixedWebMercatorGridCell,
+  mapEventToCorridors,
+  validateCorridorRegistry,
   validateSourceCoordinate,
 } from '../lib/crime_event_spatial.mjs';
 import {
@@ -203,6 +205,12 @@ test('real backfill producer publishes one official frozen receipt and validates
 
   const qualityPath = path.join(root, ...admitted.receipt.artifacts.latest_quality_report.path.split('/'));
   const revisionPath = path.join(root, ...admitted.receipt.artifacts.latest_revision_report.path.split('/'));
+  const qualityReport = await readJson(qualityPath);
+  assert.equal(qualityReport.schema, 'engagement-phl-crime-data-quality/v2');
+  assert.equal(qualityReport.source.row_count, 1);
+  assert.equal(qualityReport.canonical.row_count, 2);
+  assert.equal(qualityReport.lineage.fixed_grid_scheme, EVENT_CONTRACT.spatial.fixed_grid.scheme);
+  assert.equal(qualityReport.lineage.acs_period, EVENT_CONTRACT.acs.period);
   await assertProducerJsonMutation(root, revisionPath, (revision) => {
     revision.counts.added += 1;
   }, /revision report counts drifted/i);
@@ -212,6 +220,21 @@ test('real backfill producer publishes one official frozen receipt and validates
     quality.revisions.added -= 1;
     quality.revisions.modified += 1;
   }, /mechanically recomputed source history/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.canonical.row_count += 1;
+  }, /row or coverage contract drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.source.row_count += 1;
+  }, /row-count or freshness DQ drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.freshness.status = 'stale';
+  }, /row-count or freshness DQ drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.labels.known_observed.push('Forged observed label');
+  }, /label DQ counts drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.lineage.fixed_grid_scheme = 'unversioned-grid';
+  }, /DQ, revision, or lineage clock semantics drifted/i);
   await assertProducerJsonMutation(root, checkpointPath, (checkpoint) => {
     checkpoint.periods[1].start = '2026-01-02';
   }, /exact continuous range/i);
@@ -567,6 +590,34 @@ test('tract boundary, fixed grid, and coordinate mapping fail closed', () => {
   assert.equal(validateSourceCoordinate([null, null], [-1, -1, 1, 1]).reason, 'coordinate-missing');
   assert.equal(validateSourceCoordinate([20, 20], [-1, -1, 1, 1]).reason, 'coordinate-outside-city-bounds');
   assert.equal(fixedWebMercatorGridCell([-75.16, 39.95]).gridId, fixedWebMercatorGridCell([-75.16, 39.95]).gridId);
+  const unavailableGrid = fixedWebMercatorGridCell([0, 86]);
+  assert.equal(unavailableGrid.status, 'unavailable');
+  assert.equal(unavailableGrid.scheme, EVENT_CONTRACT.spatial.fixed_grid.scheme);
+  assert.equal(unavailableGrid.projectedCellSizeM, EVENT_CONTRACT.spatial.fixed_grid.projected_cell_size_m);
+});
+
+test('route-corridor mapping distinguishes uncovered time from an observed zero-match', () => {
+  const registry = validateCorridorRegistry(FIXTURE.corridor_registry);
+  const uncovered = mapEventToCorridors({
+    source_record_id: 'synthetic:outside-time',
+    event_at: '2026-07-31T23:59:59.000Z',
+    coordinate: { value: [-75.16, 39.95] },
+  }, registry);
+  assert.equal(uncovered.status, 'unavailable');
+  assert.equal(uncovered.reason, 'corridor-registry-temporal-coverage-unavailable');
+  assert.deepEqual(uncovered.matches, []);
+
+  const coveredNoMatch = mapEventToCorridors({
+    source_record_id: 'synthetic:covered-no-match',
+    event_at: '2026-08-10T12:00:00.000Z',
+    coordinate: { value: [-75.30, 40.10] },
+  }, registry);
+  assert.equal(coveredNoMatch.status, 'available');
+  assert.deepEqual(coveredNoMatch.matches, []);
+  assert.throws(() => validateCorridorRegistry({
+    ...FIXTURE.corridor_registry,
+    corridors: [{ ...FIXTURE.corridor_registry.corridors[0], buffer_m: 0 }],
+  }), /buffer_m is invalid/);
 });
 
 test('ACS estimate/MOE admission rejects geography-definition drift', () => {
@@ -583,6 +634,13 @@ test('ACS estimate/MOE admission rejects geography-definition drift', () => {
   assert.equal(outsidePeriod.status, 'incompatible-vintage');
   assert.equal(outsidePeriod.valueStatus, 'available');
   assert.equal(outsidePeriod.modelInputEligible, false);
+  const unavailable = index.mapTract(null, { eventAt: '2024-06-01T00:00:00.000Z' });
+  assert.equal(unavailable.status, 'unavailable');
+  assert.deepEqual(unavailable.estimate, { variable: 'B01003_001E', value: null });
+  assert.deepEqual(unavailable.moe90, { variable: 'B01003_001M', value: null });
+  assert.equal(unavailable.geographyDefinition, EVENT_CONTRACT.acs.geography_definition);
+  assert.equal(unavailable.vintage, EVENT_CONTRACT.acs.vintage);
+  assert.equal(unavailable.period, EVENT_CONTRACT.acs.period);
   assert.throws(() => createAcsPopulationIndex(ACS, {
     contract: EVENT_CONTRACT.acs,
     tractGeoids: geoids,

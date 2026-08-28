@@ -22,7 +22,7 @@ import {
 
 const EVENT_SCHEMA = 'engagement-phl-crime-event/v1';
 const WAREHOUSE_SCHEMA = 'engagement-phl-crime-event-warehouse/v1';
-const QUALITY_SCHEMA = 'engagement-phl-crime-data-quality/v1';
+const QUALITY_SCHEMA = 'engagement-phl-crime-data-quality/v2';
 const LINEAGE_SCHEMA = 'engagement-phl-crime-lineage/v1';
 const SYNTHETIC_SNAPSHOT_SCHEMA = 'engagement-phl-crime-synthetic-snapshot/v1';
 const TRANSACTION_SCHEMA = 'engagement-phl-crime-warehouse-transaction/v1';
@@ -48,6 +48,10 @@ export async function createWarehouseDependencies({
 } = {}) {
   validateEventContract(eventContract);
   validateSourceContract(sourceContract);
+  if (stableSerialization(eventContract.spatial.city_bbox)
+    !== stableSerialization(sourceContract.source_semantics.city_bbox)) {
+    throw new Error('Crime event spatial city bounds drifted from the source contract.');
+  }
   const crosswalk = createOffenseCrosswalk(taxonomy);
   const geographyDefinition = eventContract.spatial.tract.geography_definition;
   const tractBoundaryId = spatialArtifactIdentity(tractGeoJson);
@@ -404,12 +408,25 @@ export function canonicalizeSourceRow(sourceRow, snapshotManifest, dependencies,
     };
   const tract = coordinate.value
     ? dependencies.tractIndex.mapPoint(coordinate.value)
-    : { status: 'unmapped', geoid: null, reason: coordinate.reason, candidates: [] };
+    : {
+      status: 'unmapped',
+      geoid: null,
+      reason: coordinate.reason,
+      candidates: [],
+      sourceId: dependencies.tractBoundaryId,
+      geographyDefinition: dependencies.tractIndex.geographyDefinition,
+    };
   const grid = coordinate.value
     ? fixedWebMercatorGridCell(coordinate.value, {
       cellSizeM: dependencies.eventContract.spatial.fixed_grid.projected_cell_size_m,
     })
-    : { status: 'unavailable', gridId: null, reason: coordinate.reason };
+    : {
+      status: 'unavailable',
+      gridId: null,
+      scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+      projectedCellSizeM: dependencies.eventContract.spatial.fixed_grid.projected_cell_size_m,
+      reason: coordinate.reason,
+    };
   const base = {
     schema: EVENT_SCHEMA,
     source_record_id: `cartodb:${sourceId}`,
@@ -648,6 +665,8 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     currentSource: currentSource.value,
     canonical,
     periods,
+    sourceContract,
+    dependencies,
   });
 
   const clocks = {
@@ -964,6 +983,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
   let earliestEventAt = null;
   let latestEventAt = null;
   const unknownLabels = new Set();
+  const observedLabels = new Set();
   const revisions = emptyRevisionCounts();
   for (const [partition, name] of names.entries()) {
     const relative = `${directoryRelative}/${name}`;
@@ -1010,7 +1030,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       validateCanonicalRawBinding(event, occurrences.at(-1), dependencies);
       const revisionType = classifyRecomputedRevision(occurrences, sourceSnapshots.items, dependencies);
       if (revisionType) revisions[revisionType] += 1;
-      accumulateInspectedCanonicalQuality(counts, event, unknownLabels);
+      accumulateInspectedCanonicalQuality(counts, event, unknownLabels, observedLabels);
       earliestEventAt = !earliestEventAt || event.event_at < earliestEventAt ? event.event_at : earliestEventAt;
       latestEventAt = !latestEventAt || event.event_at > latestEventAt ? event.event_at : latestEventAt;
       canonicalNext = await canonicalIterator.next();
@@ -1051,7 +1071,16 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
     counts,
     earliest_event_at: earliestEventAt,
     latest_event_at: latestEventAt,
-    unknown_labels: [...unknownLabels].sort(),
+    labels: {
+      crosswalk_version: dependencies.crosswalk.version,
+      known_observed: [...observedLabels]
+        .filter((label) => label !== 'unavailable' && !unknownLabels.has(label))
+        .sort(),
+      unknown_observed: [...unknownLabels].sort(),
+      known_not_observed: dependencies.crosswalk.knownLabels
+        .filter((label) => !observedLabels.has(label)),
+      unavailable_count: counts.unavailable_label_count,
+    },
     revision_counts: revisions,
   };
 }
@@ -1168,7 +1197,7 @@ function emptyCanonicalInspectionCounts() {
   };
 }
 
-function accumulateInspectedCanonicalQuality(counts, event, unknownLabels) {
+function accumulateInspectedCanonicalQuality(counts, event, unknownLabels, observedLabels) {
   if (event.event_at !== exactTimestamp(event.event_at)
     || event.first_seen_at !== exactTimestamp(event.first_seen_at)
     || event.last_seen_at !== exactTimestamp(event.last_seen_at)) {
@@ -1215,7 +1244,9 @@ function accumulateInspectedCanonicalQuality(counts, event, unknownLabels) {
     ['available', 'partial', 'unavailable', 'incompatible-vintage'],
     event,
   );
-  if (event.raw_category?.offense_label == null) counts.unavailable_label_count += 1;
+  const observedLabel = event.raw_category?.offense_label || 'unavailable';
+  observedLabels.add(observedLabel);
+  if (observedLabel === 'unavailable') counts.unavailable_label_count += 1;
   if (event.normalized_category?.status === 'unknown-label') {
     if (typeof event.raw_category?.offense_label !== 'string' || !event.raw_category.offense_label) {
       throw new Error(`Canonical crime event ${event.source_record_id} unknown label is invalid.`);
@@ -1274,7 +1305,44 @@ function validateCrimeWarehouseProducerSemantics({
   currentSource,
   canonical,
   periods,
+  sourceContract,
+  dependencies,
 }) {
+  const expectedManifestTransforms = {
+    event_schema: EVENT_SCHEMA,
+    crosswalk_version: dependencies.crosswalk.version,
+    tract_boundary_id: dependencies.tractBoundaryId,
+    tract_geography_definition: dependencies.tractIndex.geographyDefinition,
+    grid_scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+    acs_snapshot_id: dependencies.acsIndex.snapshotId,
+    acs_vintage: dependencies.acsIndex.vintage,
+    corridor_registry_id: null,
+  };
+  const expectedLineageTransforms = {
+    event_schema: EVENT_SCHEMA,
+    crosswalk: {
+      version: dependencies.crosswalk.version,
+      unknown_policy: dependencies.eventContract.crosswalk.unknown_policy,
+    },
+    tract: {
+      artifact_id: dependencies.tractBoundaryId,
+      geography_definition: dependencies.tractIndex.geographyDefinition,
+      geoid_count: dependencies.tractIndex.geoids.length,
+    },
+    grid: dependencies.eventContract.spatial.fixed_grid,
+    acs: {
+      snapshot_id: dependencies.acsIndex.snapshotId,
+      vintage: dependencies.acsIndex.vintage,
+      period: dependencies.acsIndex.period,
+      estimate_variable: dependencies.acsIndex.estimateVariable,
+      moe90_variable: dependencies.acsIndex.moe90Variable,
+    },
+    corridor: {
+      registry_id: null,
+      unavailable_is_zero: false,
+      positive_relation: dependencies.eventContract.spatial.route_corridor.positive_relation,
+    },
+  };
   const counts = [
     ['canonical_row_count', manifest.canonical_row_count],
     ['active_row_count', manifest.active_row_count],
@@ -1303,6 +1371,9 @@ function validateCrimeWarehouseProducerSemantics({
     || canonical.counts.canonical_rows !== manifest.canonical_row_count
     || canonical.counts.lifecycle.active !== manifest.active_row_count
     || canonical.counts.lifecycle.removal_candidate !== manifest.removal_candidate_count
+    || quality.canonical?.row_count !== manifest.canonical_row_count
+    || stableSerialization(manifest.transforms) !== stableSerialization(expectedManifestTransforms)
+    || stableSerialization(lineage.transforms) !== stableSerialization(expectedLineageTransforms)
     || lineage.model_input_contract?.serving_status !== 'not-published') {
     throw new Error('Crime warehouse manifest/checkpoint/lineage row or coverage contract drifted.');
   }
@@ -1357,9 +1428,19 @@ function validateCrimeWarehouseProducerSemantics({
       throw new Error(`Crime warehouse ${label} DQ counts drifted from canonical bytes.`);
     }
   }
-  if (quality.labels?.unavailable_count !== canonical.counts.unavailable_label_count
-    || stableSerialization(quality.labels?.unknown_observed) !== stableSerialization(canonical.unknown_labels)) {
+  if (stableSerialization(quality.labels) !== stableSerialization(canonical.labels)) {
     throw new Error('Crime warehouse label DQ counts drifted from canonical bytes.');
+  }
+  const expectedFreshness = evaluateFreshness(currentSource, sourceContract, quality.observed_at);
+  const expectedDataStatus = classifyCrimeDataStatus({
+    availability: currentSource.availability,
+    rowCount: currentSource.row_count,
+    freshnessStatus: expectedFreshness.status,
+  });
+  if (stableSerialization(quality.source) !== stableSerialization(qualitySourceSummary(currentSource))
+    || stableSerialization(quality.freshness) !== stableSerialization(expectedFreshness)
+    || quality.data_status !== expectedDataStatus) {
+    throw new Error('Crime warehouse source row-count or freshness DQ drifted from source evidence.');
   }
   validateRevisionSemantics(revision, quality, currentSource, canonical.revision_counts);
   if (quality.status_semantics?.unavailable_is_zero !== false
@@ -1368,6 +1449,16 @@ function validateCrimeWarehouseProducerSemantics({
     || !Array.isArray(quality.labels?.unknown_observed)
     || revision.observed_at !== manifest.updated_at
     || quality.observed_at !== manifest.updated_at
+    || stableSerialization(quality.lineage) !== stableSerialization({
+      source_snapshot_id: currentSource.snapshot_id,
+      tract_boundary_id: dependencies.tractBoundaryId,
+      tract_geography_definition: dependencies.tractIndex.geographyDefinition,
+      fixed_grid_scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+      acs_snapshot_id: dependencies.acsIndex.snapshotId,
+      acs_vintage: dependencies.acsIndex.vintage,
+      acs_period: dependencies.acsIndex.period,
+      corridor_registry_id: null,
+    })
     || lineage.model_input_contract?.generated_at !== manifest.updated_at) {
     throw new Error('Crime warehouse DQ, revision, or lineage clock semantics drifted.');
   }
@@ -1817,7 +1908,6 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
     rowCount: snapshotManifest.row_count,
     freshnessStatus: freshness.status,
   });
-  const dayCounts = snapshotManifest.quality?.counts_by_date || {};
   return {
     schema: QUALITY_SCHEMA,
     snapshot_id: snapshotManifest.snapshot_id,
@@ -1829,15 +1919,9 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
       stale_is_current: false,
       zero_requires_complete_query: true,
     },
-    source: {
-      row_count: snapshotManifest.row_count,
-      schema_drift: snapshotManifest.quality?.schema_drift || false,
-      duplicate_source_id_count: snapshotManifest.quality?.duplicate_source_id_count ?? null,
-      suspected_duplicate_count: snapshotManifest.quality?.suspected_duplicate_count ?? null,
-      suspected_duplicate_basis: snapshotManifest.quality?.suspected_duplicate_basis || null,
-      counts_by_date: snapshotManifest.quality?.counts_by_date || {},
-      counts_by_category: snapshotManifest.quality?.counts_by_category || {},
-      daily_count_anomalies: dailyCountAnomalies(dayCounts),
+    source: qualitySourceSummary(snapshotManifest),
+    canonical: {
+      row_count: accumulator.canonicalCount,
     },
     coordinate: accumulator.coordinate,
     labels: {
@@ -1862,9 +1946,27 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
     lineage: {
       source_snapshot_id: snapshotManifest.snapshot_id,
       tract_boundary_id: accumulator.dependencies.tractBoundaryId,
+      tract_geography_definition: accumulator.dependencies.tractIndex.geographyDefinition,
+      fixed_grid_scheme: accumulator.dependencies.eventContract.spatial.fixed_grid.scheme,
       acs_snapshot_id: accumulator.dependencies.acsIndex.snapshotId,
+      acs_vintage: accumulator.dependencies.acsIndex.vintage,
+      acs_period: accumulator.dependencies.acsIndex.period,
       corridor_registry_id: accumulator.dependencies.corridorRegistry?.registryId || null,
     },
+  };
+}
+
+function qualitySourceSummary(snapshotManifest) {
+  const dayCounts = snapshotManifest.quality?.counts_by_date || {};
+  return {
+    row_count: snapshotManifest.row_count,
+    schema_drift: snapshotManifest.quality?.schema_drift || false,
+    duplicate_source_id_count: snapshotManifest.quality?.duplicate_source_id_count ?? null,
+    suspected_duplicate_count: snapshotManifest.quality?.suspected_duplicate_count ?? null,
+    suspected_duplicate_basis: snapshotManifest.quality?.suspected_duplicate_basis || null,
+    counts_by_date: dayCounts,
+    counts_by_category: snapshotManifest.quality?.counts_by_category || {},
+    daily_count_anomalies: dailyCountAnomalies(dayCounts),
   };
 }
 
@@ -1961,6 +2063,19 @@ function validateEventContract(value) {
     || value.quality_report_schema !== QUALITY_SCHEMA || value.lineage_registry_schema !== LINEAGE_SCHEMA
     || value.schema_version !== 1 || !Array.isArray(value.canonical_event_required_fields)
     || value.crosswalk?.unknown_policy !== 'fail-closed-null-normalized-category'
+    || value.spatial?.coordinate_reference_system !== 'EPSG:4326'
+    || value.spatial?.source_precision !== 'hundred-block-generalized'
+    || !validBbox(value.spatial?.city_bbox)
+    || value.spatial?.tract?.ambiguous_boundary_policy !== 'fail-closed'
+    || value.spatial?.fixed_grid?.scheme !== 'epsg3857-square-grid-v1'
+    || !Number.isInteger(value.spatial?.fixed_grid?.projected_cell_size_m)
+    || value.spatial.fixed_grid.projected_cell_size_m <= 0
+    || value.spatial?.route_corridor?.registry_optional !== true
+    || value.spatial.route_corridor.registry_schema !== 'engagement-route-corridor-registry/v1'
+    || value.spatial.route_corridor.positive_relation !== 'reported-point-near-route'
+    || value.spatial.route_corridor.unavailable_registry_status !== 'unavailable'
+    || value.spatial.route_corridor.unavailable_temporal_coverage_status !== 'unavailable'
+    || value.spatial.route_corridor.exact_occurrence_claim !== false
     || value.acs?.estimate_and_moe_are_distinct !== true
     || value.artifact_policy?.raw_and_canonical_git_policy !== 'ignored-only'
     || value.artifact_policy?.canonical_partition_binding
@@ -1970,6 +2085,14 @@ function validateEventContract(value) {
     throw new Error('Crime event warehouse contract is invalid.');
   }
   return value;
+}
+
+function validBbox(value) {
+  return Array.isArray(value) && value.length === 4
+    && value.every(Number.isFinite)
+    && value[0] < value[2] && value[1] < value[3]
+    && value[0] >= -180 && value[2] <= 180
+    && value[1] >= -90 && value[3] <= 90;
 }
 
 function validateDependencies(value) {
