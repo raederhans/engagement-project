@@ -24,8 +24,8 @@ const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'so
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
 const EFFECT = '(\\b(reduc|increas|lower|rais|prevent)\\w*|降低|减少|增加|提高|预防|防止)';
 const HARM = '(\\b(crime|incident|risk|harm|victim)\\w*|犯罪|事件|风险|伤害|受害)';
-const CONCLUSION_ASSERTION = new RegExp(`(?=(\\b(home|property|route|area) (is|has) (the )?(safe(r|st)?|(low(er|est)?|no)[- ]risk)\\b|\\b(establish|prov|convert).{0,32}(safe|risk|victim|caus)|(${EFFECT}.{0,32}${HARM}|${HARM}.{0,32}${EFFECT})|(住宅|房[屋产]|路线|区域|社区)(是|属于)?((最|更)?安全|(最低|低|无)风险|风险最低)))`, 'gi');
-const DENIED_ASSERTION = /\b(not|can(not|'t))( be| prove (this|the|your)?)?\s*$|(\bno (evidence|proof)|没有证据)[^,.!?;，。！？；]{0,40}$|(不能(证明[该这本]?)?|不|没有|无法)$/i;
+const CONCLUSION_ASSERTION = new RegExp(`(?=(\\b(?!no )([a-z]+ ){1,2}(is|has) (the )?(safe(r|st)?|(low(er|est)?|no)[- ]risk)\\b|\\b(establish|prov|convert).{0,32}(safe|risk|victim|caus)|(${EFFECT}.{0,32}${HARM}|${HARM}.{0,32}${EFFECT})|(住宅|房[屋产]|路线|区域|社区|街[道区])(是|属于)?((最|更)?安全|(最低|低|无)风险|风险最低)))`, 'gi');
+const DENIED_ASSERTION = /\b(not|can(not|'t))( be| prove (this|the|your)?)?\s*$|(\bno (evidence|proof)|没有证据)[^,.!?;，。！？；]{0,40}$|\bno $|(不能(证明[该这本]?)?|不|没有|无法)$/i;
 const NEGATED_ASSERTION = /\bnot\b|不|没有|无法/i;
 const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 

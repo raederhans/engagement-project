@@ -418,6 +418,33 @@ test('Home Compare rejects affirmative home claims regardless of unrelated discl
   }
 });
 
+test('Home Compare admits subject-independent safety predicates with locally bound negation', () => {
+  for (const text of [
+    'The neighborhood is safest.',
+    'The community is safest.',
+    'The street is safest.',
+    'The block has the lowest risk.',
+    'This residence is safest.',
+    '该街道风险最低。',
+    '这个社区最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'No home is safe.',
+    'This neighborhood is not safe.',
+    '没有住宅是安全的。',
+    '该街道并不安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
 test('Home Compare rejects active, passive, and reverse causal claims with local negation only', () => {
   for (const text of [
     'Crime is reduced by the route.',
