@@ -182,6 +182,63 @@ test('Home Compare rejects promotion, forecasts, safety claims, and private proj
   }
 });
 
+test('Home Compare normalizes private field keys across naming styles without rejecting ordinary identifiers', () => {
+  const privateKeys = [
+    'ownerName', 'owner_name', 'owner-name',
+    'grantorName', 'grantor_name', 'grantor-name',
+    'granteeName', 'grantee_name', 'grantee-name',
+    'opaAccountNum', 'opa_account_num', 'opa-account-num',
+    'parcelNumber', 'parcel_number', 'parcel-number',
+    'normalizedAddress', 'normalized_address', 'normalized-address',
+    'coordinates',
+  ];
+  for (const key of privateKeys) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = { [key]: 'private identity' };
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /forbidden field/i,
+      `${key} must fail closed at a nested serialization boundary`,
+    );
+  }
+
+  const ordinary = structuredClone(makeProjection(2));
+  ordinary.profiles[0].evidence.property.value.details = {
+    sourceId: 'public-aggregate-source',
+    source_id: 'public-aggregate-source',
+    ownership: 'non-identifying aggregate category',
+  };
+  assert.doesNotThrow(() => validateHomeCompareProjection(ordinary));
+});
+
+test('Home Compare rejects unsafe conclusions from every user-visible text container', () => {
+  const hostile = 'This proves this home is the safest.';
+  const mutators = [
+    (projection) => { projection.profiles[0].evidence.property.coverage = hostile; },
+    (projection) => { projection.profiles[0].evidence.property.precision = hostile; },
+    (projection) => { projection.profiles[0].evidence.property.limitations = [hostile]; },
+    (projection) => { projection.profiles[0].evidence.property.value.summary = hostile; },
+    (projection) => { projection.sources[0].coverage = hostile; },
+    (projection) => { projection.sources[0].precision = hostile; },
+    (projection) => { projection.sources[0].limitations = [hostile]; },
+    (projection) => { projection.profiles[0].limitations = [hostile]; },
+    (projection) => { projection.limitations = [hostile]; },
+    (projection) => { projection.sensitivity.interpretation = hostile; },
+  ];
+  for (const mutate of mutators) {
+    const projection = structuredClone(makeProjection(2));
+    mutate(projection);
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  const legitimate = structuredClone(makeProjection(2));
+  legitimate.profiles[0].evidence.property.coverage = 'Coverage is limited to admitted public records.';
+  legitimate.profiles[0].evidence.property.precision = 'This does not establish property condition or absolute safety.';
+  legitimate.profiles[0].limitations = ['Missing evidence is unavailable, not zero.'];
+  legitimate.limitations = ['The comparison does not establish causality, suitability, or personal risk.'];
+  assert.doesNotThrow(() => validateHomeCompareProjection(legitimate));
+});
+
 test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
   for (const mutate of [
     (projection) => { projection.commute.status = 'available'; },

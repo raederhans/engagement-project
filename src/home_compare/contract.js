@@ -22,8 +22,6 @@ const ROOT_KEYS = ['schema', 'generatedAt', 'status', 'profiles', 'sources', 'ar
 const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
-const FORBIDDEN_KEY = /(?:^|_)(?:safety[_-]?score|victim[_-]?probability|safest[_-]?(?:area|route)|route[_-]?recommendation|automatic[_-]?recommendation)(?:$|_)/i;
-const PRIVATE_KEY = /(?:^|[_-])(?:(?:input|normalized|display)?[_-]?address(?:es)?|coordinates?|lng[_-]?lat|lat(?:itude)?|lon(?:gitude)?|geometry|point[_-]?[xy]|[xy]|(?:generalized[_-]?)?location(?:[_-]?block)?|parcel(?:[_-]?(?:id|identifier|number))?|opa[_-]?(?:id|account(?:[_-]?number)?)|(?:commute[_-]?)?destination(?:s)?|source[_-]?record[_-]?id|owner|grantor|grantee|case[_-]?identifier|document[_-]?identifier)(?:$|[_-])/i;
 const UNSAFE_CONCLUSION = /\b(?:low[- ]risk|no[- ]risk)\b|\b(?:establishes?|shows?|proves?|indicates?|means?|ranks?|recommends?)\b.{0,48}\b(?:safe|safer|safest|low[- ]risk|no[- ]risk|victim probability)\b|\b(?:causes?|causal effect|reduces?|increases?)\b.{0,48}\b(?:harm|crime|risk|incident)/i;
 
 function fail(message) {
@@ -50,7 +48,7 @@ export function validateHomeCompareProjection(value) {
     if (profile.status !== inferHomeProfileStatus(profile.evidence)) {
       fail('status mismatch');
     }
-    stringArray(profile.limitations, `profiles[${index}].limitations`);
+    conclusionTextArray(profile.limitations, `profiles[${index}].limitations`);
   });
   if (!Array.isArray(value.sources) || !value.sources.length) fail('sources must be a non-empty array');
   const sourceIds = new Set();
@@ -69,15 +67,15 @@ export function validateHomeCompareProjection(value) {
     enumValue(source.revision.status, ['available', 'unavailable'], `sources[${index}].revision.status`);
     if (source.revision.status === 'available') boundedText(source.revision.identity, 240, `sources[${index}].revision.identity`);
     else if (source.revision.identity !== null) fail(`sources[${index}].revision.identity must be null when unavailable`);
-    boundedText(source.coverage, 600, `sources[${index}].coverage`);
-    boundedText(source.precision, 600, `sources[${index}].precision`);
+    boundedConclusionText(source.coverage, 600, `sources[${index}].coverage`);
+    boundedConclusionText(source.precision, 600, `sources[${index}].precision`);
     if (source.status === 'unavailable' || source.status === 'unknown') {
       if (source.recordCount !== null) fail(`sources[${index}].recordCount must be null when unavailable or unknown`);
     } else if (source.recordCount !== null
       && (!Number.isSafeInteger(source.recordCount) || source.recordCount < 0)) {
       fail(`sources[${index}].recordCount must be a non-negative safe integer`);
     }
-    stringArray(source.limitations, `sources[${index}].limitations`);
+    conclusionTextArray(source.limitations, `sources[${index}].limitations`);
   });
   if (value.status !== inferProjectionStatus(value.profiles, value.sources)) {
     fail('status mismatch');
@@ -90,7 +88,7 @@ export function validateHomeCompareProjection(value) {
     fail('privacy must declare a public aggregate without personal data');
   }
   stringArray(value.privacy.excludedFields, 'privacy.excludedFields');
-  stringArray(value.limitations, 'limitations');
+  conclusionTextArray(value.limitations, 'limitations');
   stringArray(value.forbiddenClaims, 'forbiddenClaims');
   const forbidden = new Set(value.forbiddenClaims.map((claim) => claim.toLowerCase()));
   for (const required of ['safety score', 'victim probability', 'safest area', 'safest route', 'automatic recommendation']) {
@@ -244,11 +242,11 @@ function validateMetric(metric, label) {
   if (metric.status === 'unavailable' && metric.value !== null) fail(`${label}.value must be null when unavailable`);
   if (metric.status !== 'unavailable' && metric.value === null) fail(`${label}.value is required when evidence is admitted`);
   nullableIso(metric.dataAsOf, `${label}.dataAsOf`);
-  boundedText(metric.coverage, 600, `${label}.coverage`);
-  boundedText(metric.precision, 600, `${label}.precision`);
+  boundedConclusionText(metric.coverage, 600, `${label}.coverage`);
+  boundedConclusionText(metric.precision, 600, `${label}.precision`);
   if (!Array.isArray(metric.sourceIds) || !metric.sourceIds.length || metric.sourceIds.length > 4) fail(`${label}.sourceIds are invalid`);
   metric.sourceIds.forEach((sourceId, index) => boundedText(sourceId, 80, `${label}.sourceIds[${index}]`));
-  stringArray(metric.limitations, `${label}.limitations`);
+  conclusionTextArray(metric.limitations, `${label}.limitations`);
   validateJsonValue(metric.value, `${label}.value`, 0);
 }
 
@@ -259,12 +257,8 @@ function validateAreaIntelligence(value) {
   if (value.historicalEvidence.status !== 'available' || value.historicalEvidence.measure !== 'PPD reported incidents') {
     fail('areaIntelligence historical evidence contract is invalid');
   }
-  boundedText(value.historicalEvidence.coverage, 600, 'areaIntelligence.historicalEvidence.coverage');
-  stringArray(value.historicalEvidence.limitations, 'areaIntelligence.historicalEvidence.limitations');
-  rejectUnsafeConclusion(value.historicalEvidence.coverage, 'areaIntelligence.historicalEvidence.coverage');
-  value.historicalEvidence.limitations.forEach((limitation, index) => {
-    rejectUnsafeConclusion(limitation, `areaIntelligence.historicalEvidence.limitations[${index}]`);
-  });
+  boundedConclusionText(value.historicalEvidence.coverage, 600, 'areaIntelligence.historicalEvidence.coverage');
+  conclusionTextArray(value.historicalEvidence.limitations, 'areaIntelligence.historicalEvidence.limitations');
   exactObject(value.forecast, ['status', 'reason', 'predictions'], 'areaIntelligence.forecast');
   if (value.forecast.status !== 'unavailable' || value.forecast.reason !== 'model-did-not-exceed-predefined-seasonal-baseline'
     || !Array.isArray(value.forecast.predictions) || value.forecast.predictions.length !== 0) {
@@ -279,8 +273,7 @@ function validateCommute(value) {
     || !Array.isArray(value.isochrones) || value.isochrones.length) {
     fail('commute must remain unavailable without travel times or isochrones');
   }
-  boundedText(value.reason, 600, 'commute.reason');
-  rejectUnsafeConclusion(value.reason, 'commute.reason');
+  boundedConclusionText(value.reason, 600, 'commute.reason');
 }
 
 export function validateHomeCompareAreaIntelligenceBoundary(value) {
@@ -298,7 +291,7 @@ function validateSensitivity(value) {
   dimensionArray(value.topDimensions, 'sensitivity.topDimensions');
   dimensionArray(value.stableTopDimensions, 'sensitivity.stableTopDimensions');
   if (value.perturbationPercent !== 20) fail('sensitivity perturbation must remain 20 percent');
-  boundedText(value.interpretation, 400, 'sensitivity.interpretation');
+  boundedConclusionText(value.interpretation, 400, 'sensitivity.interpretation');
 }
 
 function admitWeights(value) {
@@ -339,6 +332,36 @@ function rejectUnsafeConclusion(value, label) {
   if (UNSAFE_CONCLUSION.test(value)) fail(`${label} contains an unsafe conclusion`);
 }
 
+function normalizeKeyTokens(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function isPrivateFieldKey(key) {
+  const tokens = normalizeKeyTokens(key);
+  const tokenSet = new Set(tokens);
+  if (tokens.some((token) => ['address', 'addresses', 'coordinate', 'coordinates', 'latitude', 'longitude', 'lat', 'lon', 'lng', 'lnglat', 'geometry', 'parcel', 'destination', 'destinations', 'owner', 'grantor', 'grantee'].includes(token))) return true;
+  if (tokenSet.has('opa') && (tokenSet.has('account') || tokenSet.has('id') || tokenSet.has('identifier'))) return true;
+  if (tokenSet.has('source') && tokenSet.has('record') && (tokenSet.has('id') || tokenSet.has('identifier'))) return true;
+  if ((tokenSet.has('case') || tokenSet.has('document')) && (tokenSet.has('id') || tokenSet.has('identifier'))) return true;
+  if (tokenSet.has('point') && (tokenSet.has('x') || tokenSet.has('y'))) return true;
+  if (tokenSet.has('location') && (tokens.length === 1 || tokenSet.has('normalized') || tokenSet.has('generalized') || tokenSet.has('block'))) return true;
+  return false;
+}
+
+function isForbiddenFieldKey(key) {
+  const tokenSet = new Set(normalizeKeyTokens(key));
+  return (tokenSet.has('safety') && tokenSet.has('score'))
+    || (tokenSet.has('victim') && tokenSet.has('probability'))
+    || (tokenSet.has('safest') && (tokenSet.has('area') || tokenSet.has('route')))
+    || (tokenSet.has('route') && tokenSet.has('recommendation'))
+    || (tokenSet.has('automatic') && tokenSet.has('recommendation'));
+}
+
 function exactObject(value, keys, label, namespace = 'artifact') {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     const prefix = namespace === 'share' ? 'Invalid Home Compare share state' : 'Invalid Home Compare artifact';
@@ -365,6 +388,16 @@ function stringArray(value, label) {
   value.forEach((item, index) => boundedText(item, 800, `${label}[${index}]`));
 }
 
+function boundedConclusionText(value, maximum, label) {
+  boundedText(value, maximum, label);
+  rejectUnsafeConclusion(value, label);
+}
+
+function conclusionTextArray(value, label) {
+  stringArray(value, label);
+  value.forEach((item, index) => rejectUnsafeConclusion(item, `${label}[${index}]`));
+}
+
 function dimensionArray(value, label) {
   if (!Array.isArray(value) || value.length > HOME_COMPARE_DIMENSIONS.length) fail(`${label} is invalid`);
   value.forEach((item) => { if (!HOME_COMPARE_DIMENSIONS.includes(item)) fail(`${label} contains an unknown dimension`); });
@@ -388,7 +421,11 @@ function httpsUrl(value, label) {
 }
 
 function validateJsonValue(value, label, depth) {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (value === null || typeof value === 'boolean') return;
+  if (typeof value === 'string') {
+    rejectUnsafeConclusion(value, label);
+    return;
+  }
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) fail(`${label} contains a non-finite number`);
     return;
@@ -403,7 +440,7 @@ function validateJsonValue(value, label, depth) {
   const keys = Object.keys(value);
   if (keys.length > 24) fail(`${label} exceeds the property limit`);
   for (const key of keys) {
-    if (FORBIDDEN_KEY.test(key) || PRIVATE_KEY.test(key)) fail(`${label} contains forbidden field ${key}`);
+    if (isForbiddenFieldKey(key) || isPrivateFieldKey(key)) fail(`${label} contains forbidden field ${key}`);
     validateJsonValue(value[key], `${label}.${key}`, depth + 1);
   }
 }
@@ -411,7 +448,7 @@ function validateJsonValue(value, label, depth) {
 function scanKeys(value, path) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_KEY.test(key) || PRIVATE_KEY.test(key)) fail(`${path} contains forbidden field ${key}`);
+    if (isForbiddenFieldKey(key) || isPrivateFieldKey(key)) fail(`${path} contains forbidden field ${key}`);
     scanKeys(child, `${path}.${key}`);
   }
 }
