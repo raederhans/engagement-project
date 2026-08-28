@@ -68,6 +68,8 @@
 | central `npm run build:manifest` | exit 0; production build complete. |
 | central `npm run verify:bundle` | PASS; 3,999,977 / 4,000,000 bytes excluding declared ACS VRE source artifact. |
 | central Area Intelligence browser | PASS; current-lineage promoted/not-promoted/invalid, responsive, zero console/page errors. |
+| M2-2 first GO pre-write protocol check | BLOCKED safely before root/process: LF Git blob SHA `d7d75ce0…` versus CRLF worktree SHA `f67fa948…`. |
+| supervisor `5c1f11d` protocol-byte fix | `.gitattributes` forces LF; M2 test asserts 6,935-byte LF-only SHA `d7d75ce0…`; 8/8 + ESLint + byte/diff checks PASS; protocol blob unchanged. |
 
 ## Open risks and remaining work
 
@@ -82,6 +84,8 @@
 - M2-1 memory quick pass 意外暴露旧 performance 摘要；科学规则机械等同旧冻结 v1 且未读取
   本轮结果，因此没有结果驱动调参，但不得声称严格观察者盲态无污染，M2-4 必须独立评估。
 - Bundle 只余 23 bytes；M3-M6 新 UI 不能提高 ceiling，需先做实际 code-splitting/体积收敛。
+- Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
+  不能只比较解析后的 JSON 语义。
 - M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。
 - M4 full builder 仍绑定旧 M1 row/date 常量；进入 M4 时必须迁移为本轮 receipt 驱动且复核
   canonical bindings，不能把旧数值换成新数值后继续硬编码。
