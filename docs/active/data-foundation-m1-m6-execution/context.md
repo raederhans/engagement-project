@@ -23,22 +23,26 @@
 | 2026-08-28 | M1-1 在暂停前留下 50,000-row、17,187,284-byte、`complete:false` 的单页 partial，0/21 yearly scopes，且无 warehouse/receipt/lineage/DQ。 | partial 保留取证但永不复用；正式重建必须写入新根。 |
 | 2026-08-28 | M1-2 source-final `3837512` 与 M1-3 source-final `35c6cee` 均从 `9d93df2` 派生；监督分支分别整合为 `ffa8d45`、`5d1b0d8`。 | raw schema、partition bytes/hash/rows、overlap drift、corridor coverage、ACS/DQ admission 现均 fail-closed。 |
 | 2026-08-28 | 监督分支对合并树运行 `test:data-pipeline` 69/69、聚焦 ESLint 和 `git diff --check`，全部通过。 | 仅证明代码门禁；仍需独立 reviewer 与新 M1 数据 receipt。 |
+| 2026-08-28 | M1-4 (`01a048ac-1559-7323-a9a8-ad3598754140`) 对 `9d93df2..5d1b0d8` 独立审查并给出 REQUEST CHANGES。 | 完整 backfill 继续暂停；不得用绿色既有测试越过 P1 blocker。 |
+| 2026-08-28 | Hostile overlap 复现证明：篡改一个不被下一 snapshot 覆盖的旧 canonical event 后，ingest 仍成功、保留伪造值并生成新的 partition binding。 | 任何 ingest 前必须先机械校验 manifest/lineage 与实际 canonical rowCount/bytes/SHA256；需补内容篡改、partition missing、非当前 vintage replay 回归。 |
+| 2026-08-28 | M1-1 已把 `3837512`、`35c6cee` 同步为 detached `4c9abe2`，与监督 `5d1b0d8` 的代码/契约树等价；13/13 + ESLint + diff-check 通过。 | 候选新根仍不存在，任务等待修复后的最终 GO。 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | task-owned `.dfev1` and `logs/` | paused after preflight; source-final sync pending |
-| M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; source-final `3837512` |
+| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | task-owned `.dfev1` and `logs/` | detached `4c9abe2`; paused on M1-4 P1 blocker |
+| M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | active; repairing pre-ingest canonical verification |
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | complete; source-final `35c6cee` |
-| M1 independent integration/data gate | queued high task | isolated worktree from supervisor branch | setup pending; read-only |
+| M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | REQUEST CHANGES on `5d1b0d8`; read-only |
 
 ## Handoff
 
-阶段尚未完成。M1-2/M1-3 已 source-final 并整合；只有独立代码门禁允许、M1-1 从新根生成
-完整 receipt/manifest/checkpoint/lineage/DQ，且独立数据门禁 PASS 后，才能创建 M2 新任务。
+阶段尚未完成。M1-4 已证明 `5d1b0d8` 存在 overlap canonical drift re-signing blocker。
+只有修复整合且复审 PASS、M1-1 从新根生成完整 receipt/manifest/checkpoint/lineage/DQ，
+并由 M1-4 独立数据门禁 PASS 后，才能创建 M2 新任务。
 
 ## Next step
 
-等待第 4 个 M1 独立 reviewer 的代码门禁；PASS 后把 `ffa8d45`、`5d1b0d8` 同步给 M1-1，
-在全新数据根执行 `[2006-01-01, 2026-08-28)` 完整重建、同命令幂等复跑和 validate-only。
+等待 M1-2 的 pre-ingest canonical verification 修复 source-final；整合并联合验证后让 M1-4 复审。
+只有复审 PASS 才同步 M1-1 并在全新数据根执行完整重建、同命令幂等复跑和 validate-only。
