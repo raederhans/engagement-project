@@ -36,6 +36,10 @@
 | 2026-08-29 | 主线程对当前 receipt/DQ v2 做有界恒等式 gate：coordinate、tract、grid、corridor、ACS 五组状态各自机械相加均等于 3,586,620；corridor registry 为 null 时 3,586,620 全为 unavailable；serving/integration authority 仍 false。 | M1 空间/ACS/DQ 语义允许作为 M2 protocol-v2 输入；不授予 serving、publish 或 safety claim。 |
 | 2026-08-29 | M1-3 最终 gate 两次、M1-2 fallback gate 一次、M1-4 最终 data-review gate 一次均由 Codex host 标记 completed，但返回 0 message/tool items。 | 这些静默回合不计为 reviewer PASS；记录独立 reviewer-channel 证据缺口。M1 本地机械数据门禁仍 PASS，但后续不得声称独立 data-review 完成。 |
 | 2026-08-29 | 创建 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务，均从监督 `a055752` 干净起步；M2-4 暂不创建。 | Protocol-v2 必须先冻结并整合，M2-2 才能读取新 performance；最终 reviewer 将从真实整合候选创建，M2 当前使用 3/4 新任务。 |
+| 2026-08-29 | M2-1 source-final `5607949` 冻结 protocol v2（SHA-256 `d7d75ce0eb0aaf80b950aa87125e5a98742dca57db38d22938b3851fed048ff6`），将 mart/evaluation 升为 exact receipt、实际 part set/rows/bytes/SHA 与 run-manifest `/v2` 单一 lineage seam；监督整合为 `285ede0`。 | v1 的 folds/models/metrics/thresholds/slices/promotion gate 逐字段不变；M2-2 只能从该代码门禁和全新 ignored root 执行。 |
+| 2026-08-29 | M2-1 的 memory quick pass 意外暴露旧 M2 performance 摘要，但未读取本轮 evaluation 输出；机械测试证明 protocol v2 科学设计字段与旧冻结 v1 完全相同。 | 不得声称观察者层面的严格 performance blindness 无污染；M2-4 必须独立判断该程序性偏差，同时禁止据本轮结果改 gate。 |
+| 2026-08-29 | M2-3 最终 source-final `3c8b3d4` 仅接受 evaluation run `/v2` 和含完整 `parts[]` 的 seam，验证 receipt→report→raw-serving coverage/source-vintage 连续性，并提供六文件事务 rollback；监督整合为 `dcd31ce`。 | 历史 tracked serving artifact 缺少当前 lineage 时 fail closed；本轮尚未真实 publish，也未授予 serving authority。 |
+| 2026-08-29 | 监督组合门禁：M2/publisher 21/21、i18n 11/11、目标 ESLint、production build、bundle policy 和 browser promoted/not-promoted/invalid 全部 PASS；bundle 为 3,999,977/4,000,000 bytes。 | M2 code gate PASS，可向唯一 M2-2 数据 owner 发 GO；后续任何 UI 变更必须重跑 bundle，不能提高 ceiling。 |
 
 ## Live process ownership
 
@@ -45,19 +49,19 @@
 | M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; repair source-final `34b90bd` |
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | source-final `35c6cee`; final data follow-ups returned 0 items, so main performed bounded metadata gate |
 | M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data follow-up returned 0 items and provides no verdict |
-| M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | active; owns protocol/mart/evaluation integrity only, no performance run |
+| M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | complete; source-final `5607949`, integrated as `285ede0`; exact M1 gate exit 0 |
 | M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | task-owned worktree from `a055752` | preflight only; unique future live-process owner, waiting for integrated protocol-v2 GO |
-| M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | active; owns publisher/serving/UI only, must not read new performance |
+| M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 
 ## Handoff
 
-M1 本地机械数据门禁完成：代码 blocker 已在 `037c615` 关闭，正式 root、exact rerun 与
-validate-only 均 PASS，bounded spatial/ACS/DQ 恒等式 gate 也 PASS。独立 reviewer 的最终数据回合
-因 Codex host 返回 0 items 而没有 verdict，必须保留为证据缺口；这不阻止 M2 绑定 exact receipt，
-但继续阻止 serving/publish 与“独立数据审查已完成”的声明。
+M2 代码门禁完成：protocol-v2/integrity 与 publisher/serving/UI 已在监督 `dcd31ce` 汇合，
+中央 21/21、11/11、ESLint、build、bundle 和 browser gate 均 PASS。M1 独立 reviewer-channel
+缺口和 M2-1 历史 performance 摘要意外暴露均继续保留；它们不授权 serving/publish，也不得被
+描述为严格盲态或独立数据审查完成。
 
 ## Next step
 
-创建 M2 最多四个 high 任务：先冻结 protocol-v2 与 exact M1 receipt/mart binding，再由唯一
-数据 owner 构建 mart/评估；并行任务只审查 evaluation/serving 语义和最终 gate。任何 performance
-输出都不得反向改变预注册 folds/models/thresholds/gates。
+从监督 `dcd31ce` 向既有 M2-2 唯一数据 owner 发 GO：同步精确整合树，在全新 task-owned
+ignored root 构建 mart、完全相同命令复跑，再运行 frozen protocol-v2 evaluation。输出完成后才
+创建本阶段第 4/4 个 high reviewer 任务；任何 performance 输出不得反向改变预注册规则。

@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M2 active — protocol freeze and serving audit running; data owner preflight only (3/4 high tasks)`。
+`M2 active — integrated code gate PASS; unique data owner ready for GO (3/4 high tasks)`。
 
 ## Checklist
 
@@ -20,7 +20,8 @@
 - [x] 由 M1-1 从全新根生成 full data receipt、exact rerun 与 validate-only。
 - [x] 运行 M1 stage gate；记录 independent reviewer-channel 缺口并冻结 M2 exact input。
 - [x] 派发 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务。
-- [ ] 整合 protocol-v2 和 serving source-final，运行中央代码门禁后给 M2-2 数据 GO。
+- [x] 整合 protocol-v2 和 serving source-final，运行中央代码门禁。
+- [ ] 给 M2-2 精确数据 GO，完成 mart exact rerun 与 frozen evaluation。
 - [ ] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
 - [ ] M2 Area Intelligence stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
@@ -59,6 +60,14 @@
 | M1 receipt identity | declared `sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4`; manifest/checkpoint/lineage/current quality/canonical bindings present. |
 | bounded spatial/ACS/DQ gate | PASS; coordinate/tract/grid/corridor/ACS state sums each equal 3,586,620; unavailable is not zero; serving/integration remain false. |
 | final delegated data-review follow-ups | M1-3 twice, M1-2 fallback once and M1-4 once completed with 0 items; no independent reviewer verdict may be claimed. |
+| M2-1 source-final `5607949` / supervisor `285ede0` | protocol v2 SHA `d7d75ce0eb0aaf80b950aa87125e5a98742dca57db38d22938b3851fed048ff6`; exact 9.37 GiB M1 gate exit 0; 8/8 hostile tests and targeted ESLint pass. |
+| M2-3 source-final `3c8b3d4` / supervisor `dcd31ce` | run/v2 + seam parts + coverage/source continuity + publication rollback integrated; no real publish or performance run. |
+| central M2/publisher focused suite | exit 0; 21/21 PASS. |
+| central i18n suite | exit 0; 11/11 PASS. |
+| central targeted ESLint and commit diff-check | exit 0. |
+| central `npm run build:manifest` | exit 0; production build complete. |
+| central `npm run verify:bundle` | PASS; 3,999,977 / 4,000,000 bytes excluding declared ACS VRE source artifact. |
+| central Area Intelligence browser | PASS; current-lineage promoted/not-promoted/invalid, responsive, zero console/page errors. |
 
 ## Open risks and remaining work
 
@@ -70,8 +79,9 @@
   independent data-review PASS，也不能据此开放 serving/publish。
 - 当前只有本地 evidence；remote CI、scheduled refresh、deployment 和 product liveness 均未运行。
 - M2 历史结论为 honest `not-promoted`，本轮不得因追求功能而放松预注册 gate。
-- M2 protocol/v1 绑定的是已丢失旧 M1 root；本轮需在任何新 performance 读取前冻结 v2，不能把
-  旧 hashes/counts、硬编码 admission 计数或历史 `not-promoted` 当作新运行证据。
+- M2-1 memory quick pass 意外暴露旧 performance 摘要；科学规则机械等同旧冻结 v1 且未读取
+  本轮结果，因此没有结果驱动调参，但不得声称严格观察者盲态无污染，M2-4 必须独立评估。
+- Bundle 只余 23 bytes；M3-M6 新 UI 不能提高 ceiling，需先做实际 code-splitting/体积收敛。
 - M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。
 - M4 full builder 仍绑定旧 M1 row/date 常量；进入 M4 时必须迁移为本轮 receipt 驱动且复核
   canonical bindings，不能把旧数值换成新数值后继续硬编码。
