@@ -20,9 +20,12 @@ import {
 import {
   buildAreaIntelligenceMarts,
   utcMonday,
+  validateExactWarehouse,
 } from '../lib/area_intelligence_mart.mjs';
 import {
+  evaluateAreaIntelligence,
   evaluatePromotion,
+  validateAreaIntelligenceMartForEvaluation,
   validateModelEvaluationReport,
 } from '../lib/area_intelligence_evaluation.mjs';
 import { validateAreaIntelligenceServingArtifact } from '../../src/area_intelligence/serving_contract.js';
@@ -32,12 +35,22 @@ import {
 } from '../../src/area_intelligence/view.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const protocolPath = path.join(repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v1.json');
+const protocolPath = path.join(repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v2.json');
+const legacyProtocolPath = path.join(repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v1.json');
 
 test('M2 evaluation protocol is frozen before performance and preserves claim/admission boundaries', async () => {
   const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
-  assert.equal(protocol.schema, 'engagement-area-intelligence-evaluation-protocol/v1');
+  const legacy = JSON.parse(await fs.readFile(legacyProtocolPath, 'utf8'));
+  assert.equal(protocol.schema, 'engagement-area-intelligence-evaluation-protocol/v2');
+  assert.equal(protocol.schema_version, 2);
   assert.equal(protocol.frozen_before_model_performance, true);
+  assert.equal(protocol.exact_input_gate.receipt_schema, 'engagement-phl-crime-warehouse-receipt/v3');
+  assert.equal(protocol.exact_input_gate.receipt_identity, 'sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4');
+  assert.equal('canonical_row_count' in protocol.exact_input_gate, false);
+  assert.equal('scope_end_exclusive' in protocol.exact_input_gate, false);
+  for (const field of ['target', 'admission', 'marts', 'rolling_folds', 'spatial_holdout', 'models', 'leakage_guards', 'metrics', 'promotion_gate', 'artifact_policy']) {
+    assert.deepEqual(protocol[field], legacy[field], `${field} must remain byte-semantically frozen from v1`);
+  }
   assert.equal(protocol.rolling_folds.length, 4);
   assert.equal(protocol.admission.tract, 'spatial.tract.status=mapped-only');
   assert.equal(protocol.admission.acs.race_income_poverty, 'unavailable');
@@ -173,7 +186,7 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
   const snapshotId = 'sha256:synthetic-source-snapshot';
   const acquisitionRoot = path.join(sourceRoot, 'acquisition');
   await fs.mkdir(acquisitionRoot, { recursive: true });
-  await fs.writeFile(path.join(acquisitionRoot, 'manifest.json'), `${JSON.stringify({ snapshot_id: snapshotId, row_count: 5 })}\n`);
+  await fs.writeFile(path.join(acquisitionRoot, 'manifest.json'), `${JSON.stringify({ schema: 'synthetic-source/v1', snapshot_id: snapshotId, row_count: 5 })}\n`);
   const events = [
     event({ id: 1, tractStatus: 'mapped', gridStatus: 'mapped', week: '2024-01-01T12:00:00.000Z', snapshotId }),
     event({ id: 2, tractStatus: 'ambiguous', gridStatus: 'mapped', week: '2024-01-08T12:00:00.000Z', snapshotId }),
@@ -191,26 +204,84 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
     current_snapshot_id: snapshotId, applied_snapshot_ids: [snapshotId],
     coverage: { earliest_scope_start: '2024-01-01', latest_scope_end_exclusive: '2024-02-01', latest_event_at: '2024-01-22T13:00:00.000Z' },
     transforms: { tract_boundary_id: 'tracts', tract_geography_definition: '2020-census-tracts', grid_scheme: 'epsg3857-square-grid-v1', acs_snapshot_id: 'acs', acs_vintage: '2024' },
+    latest_quality_report: 'quality/current.json',
   };
   const checkpoint = {
+    schema: 'engagement-phl-crime-backfill-checkpoint/v1',
     completed: { scope: {} },
     final_quality: { acquired_rows: 5, date_scoped_count_complete: true },
   };
   const lineage = {
+    schema: 'engagement-phl-crime-lineage/v1',
     source_snapshots: [{ snapshot_id: snapshotId, manifest_path: path.join(acquisitionRoot, 'manifest.json'), row_count: 5, availability: 'available', source_as_of: '2024-01-22T13:00:00.000Z', scope: {} }],
     model_input_contract: { serving_status: 'not-published' },
   };
   await fs.mkdir(path.join(sourceRoot, 'warehouse', 'lineage'), { recursive: true });
+  await fs.mkdir(path.join(sourceRoot, 'warehouse', 'quality'), { recursive: true });
   await fs.writeFile(path.join(sourceRoot, 'warehouse', 'manifest.json'), `${JSON.stringify(manifest)}\n`);
   await fs.writeFile(path.join(sourceRoot, 'backfill-checkpoint.json'), `${JSON.stringify(checkpoint)}\n`);
   await fs.writeFile(path.join(sourceRoot, 'warehouse', 'lineage', 'registry.json'), `${JSON.stringify(lineage)}\n`);
+  await fs.writeFile(path.join(sourceRoot, 'warehouse', 'quality', 'current.json'), `${JSON.stringify({
+    schema: 'engagement-phl-crime-data-quality/v2',
+    snapshot_id: snapshotId,
+  })}\n`);
+  const receipt = await writeSyntheticWarehouseReceipt(sourceRoot, { snapshotId, events });
   const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
   protocol.exact_input_gate = {
     ...protocol.exact_input_gate,
-    scope_start: '2024-01-01', scope_end_exclusive: '2024-02-01', completed_scope_count: 1,
-    canonical_row_count: 5, active_row_count: 5, partition_count: 2, source_snapshot_count: 1,
+    receipt_identity: receipt.identity,
+    required_mode: 'synthetic-fixture',
   };
   await fs.writeFile(fixtureProtocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+  await validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true });
+
+  const canonicalPart = path.join(canonicalRoot, 'part-000.jsonl');
+  const canonicalBytes = await fs.readFile(canonicalPart);
+  const canonicalTamper = Buffer.from(canonicalBytes);
+  canonicalTamper[0] = canonicalTamper[0] === 0x7b ? 0x5b : 0x7b;
+  await fs.writeFile(canonicalPart, canonicalTamper);
+  await assert.rejects(
+    validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true }),
+    /canonical partition drifted|SHA-256/i,
+  );
+  await fs.writeFile(canonicalPart, canonicalBytes);
+
+  const missingPart = `${canonicalPart}.missing`;
+  await fs.rename(canonicalPart, missingPart);
+  await assert.rejects(
+    validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true }),
+    /part set|ENOENT|no such file/i,
+  );
+  await fs.rename(missingPart, canonicalPart);
+
+  const extraCanonicalPart = path.join(canonicalRoot, 'part-999.jsonl');
+  await fs.writeFile(extraCanonicalPart, canonicalBytes);
+  await assert.rejects(
+    validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true }),
+    /part set/i,
+  );
+  await fs.rm(extraCanonicalPart);
+
+  const qualityPath = path.join(sourceRoot, 'warehouse', 'quality', 'current.json');
+  const qualityBytes = await fs.readFile(qualityPath);
+  await fs.writeFile(qualityPath, Buffer.concat([qualityBytes, Buffer.from(' ')]));
+  await assert.rejects(
+    validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true }),
+    /quality.*bytes|SHA-256/i,
+  );
+  await fs.writeFile(qualityPath, qualityBytes);
+
+  const receiptPath = path.join(sourceRoot, 'receipt.json');
+  const receiptBytes = await fs.readFile(receiptPath);
+  const wrongReceipt = JSON.parse(receiptBytes.toString('utf8'));
+  wrongReceipt.identity = `sha256:${'0'.repeat(64)}`;
+  await fs.writeFile(receiptPath, `${JSON.stringify(wrongReceipt, null, 2)}\n`);
+  await assert.rejects(
+    validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true }),
+    /receipt v3 identity/i,
+  );
+  await fs.writeFile(receiptPath, receiptBytes);
+
   let interrupted = false;
   await assert.rejects(() => buildAreaIntelligenceMarts({
     sourceRoot, outputRoot, protocolPath: fixtureProtocolPath,
@@ -243,11 +314,260 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
   assert.equal(rerun.idempotent, true);
   assert.deepEqual(await fs.readFile(publishedManifestPath), firstBytes);
   assert.equal((await fs.stat(publishedManifestPath)).mtimeMs, firstStat.mtimeMs);
+  const martGate = await validateAreaIntelligenceMartForEvaluation({
+    martRoot: outputRoot,
+    protocolPath: fixtureProtocolPath,
+  });
+  assert.equal(martGate.martManifest.exact_input.receipt_identity, receipt.identity);
+  assert.equal(martGate.martInventory.row_count, built.manifest.row_count);
+  assert.equal(martGate.martInventory.bytes, built.manifest.bytes);
+
+  const martPartPath = path.join(outputRoot, ...built.manifest.parts[0].path.split('/'));
+  const martPartBytes = await fs.readFile(martPartPath);
+  await fs.writeFile(martPartPath, Buffer.concat([martPartBytes, Buffer.from('\n')]));
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    /rows, bytes, or SHA-256 drifted/i,
+  );
+  await fs.writeFile(martPartPath, martPartBytes);
+
+  const missingMartPart = `${martPartPath}.missing`;
+  await fs.rename(martPartPath, missingMartPart);
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    /ENOENT|no such file|real file/i,
+  );
+  await fs.rename(missingMartPart, martPartPath);
+
+  const extraMartPart = path.join(path.dirname(martPartPath), 'part-999.jsonl');
+  await fs.writeFile(extraMartPart, martPartBytes);
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    /actual mart part set/i,
+  );
+  await fs.rm(extraMartPart);
+
+  const originalManifestBytes = await fs.readFile(publishedManifestPath);
+  const wrongRows = JSON.parse(originalManifestBytes.toString('utf8'));
+  wrongRows.parts[0].row_count += 1;
+  wrongRows.row_count += 1;
+  await fs.writeFile(publishedManifestPath, `${JSON.stringify(wrongRows, null, 2)}\n`);
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    /rows, bytes, or SHA-256 drifted/i,
+  );
+  await fs.writeFile(publishedManifestPath, originalManifestBytes);
+
+  const wrongReceiptManifest = JSON.parse(originalManifestBytes.toString('utf8'));
+  wrongReceiptManifest.exact_input.receipt_identity = `sha256:${'f'.repeat(64)}`;
+  await fs.writeFile(publishedManifestPath, `${JSON.stringify(wrongReceiptManifest, null, 2)}\n`);
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    /frozen evaluation gate/i,
+  );
+  await fs.writeFile(publishedManifestPath, originalManifestBytes);
+
+  await assert.rejects(
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: legacyProtocolPath }),
+    /evaluation protocol is invalid/i,
+  );
+
+  const evaluationOutput = path.join(testRoot, 'evaluation-output');
+  await fs.mkdir(evaluationOutput, { recursive: true });
+  const evaluationManifest = syntheticEvaluationManifest(martGate);
+  const evaluationManifestPath = path.join(evaluationOutput, 'manifest.json');
+  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(evaluationManifest, null, 2)}\n`);
+  const reusedEvaluation = await evaluateAreaIntelligence({
+    martRoot: outputRoot,
+    outputRoot: evaluationOutput,
+    protocolPath: fixtureProtocolPath,
+  });
+  assert.equal(reusedEvaluation.idempotent, true);
+  assert.equal(reusedEvaluation.manifest.lineage_seam.m1_receipt.identity, receipt.identity);
+  assert.equal(reusedEvaluation.manifest.lineage_seam.mart.part_bindings_identity, built.manifest.part_bindings_identity);
+  assert.deepEqual(
+    reusedEvaluation.manifest.lineage_seam.mart.parts.map(({ path: partPath }) => partPath),
+    built.manifest.parts.map(({ path: partPath }) => partPath),
+  );
+  assert.equal(reusedEvaluation.manifest.lineage_seam.outcome.availability, 'unavailable');
+
+  const brokenLineage = structuredClone(evaluationManifest);
+  brokenLineage.lineage_seam.m1_receipt.identity = `sha256:${'e'.repeat(64)}`;
+  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(brokenLineage, null, 2)}\n`);
+  await assert.rejects(
+    evaluateAreaIntelligence({ martRoot: outputRoot, outputRoot: evaluationOutput, protocolPath: fixtureProtocolPath }),
+    /different or invalid completed run/i,
+  );
+  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(evaluationManifest, null, 2)}\n`);
   for (const part of built.manifest.parts) {
     const contents = await fs.readFile(path.join(outputRoot, ...part.path.split('/')), 'utf8');
     assert.doesNotMatch(contents, /generalized_location|coordinate|source_record_id/);
   }
 });
+
+function syntheticEvaluationManifest(martGate) {
+  const promotion = { status: 'not-promoted', selected_model: null };
+  return {
+    schema: 'engagement-area-intelligence-evaluation-run/v2',
+    protocol_sha256: martGate.protocolIdentity,
+    mart_manifest_sha256: martGate.martManifestIdentity,
+    mart_artifact_identity: martGate.martManifest.artifact_identity,
+    lineage_seam: {
+      schema: 'engagement-area-intelligence-lineage-seam/v1',
+      protocol: {
+        schema: martGate.protocol.schema,
+        sha256: martGate.protocolIdentity,
+      },
+      mart: {
+        schema: martGate.martManifest.schema,
+        manifest_sha256: martGate.martManifestIdentity,
+        artifact_identity: martGate.martManifest.artifact_identity,
+        part_bindings_identity: martGate.martInventory.part_bindings_identity,
+        part_count: martGate.martInventory.parts.length,
+        row_count: martGate.martInventory.row_count,
+        bytes: martGate.martInventory.bytes,
+        parts: martGate.martInventory.parts.map((part) => ({
+          path: part.path,
+          unit_type: part.unit_type,
+          partition: part.partition,
+          row_count: part.row_count,
+          bytes: part.bytes,
+          sha256: part.sha256,
+        })),
+      },
+      m1_receipt: {
+        schema: martGate.martManifest.exact_input.receipt_schema,
+        identity: martGate.martManifest.exact_input.receipt_identity,
+        sha256: martGate.martManifest.exact_input.receipt_sha256,
+      },
+      outcome: {
+        promotion_status: 'not-promoted',
+        selected_model: null,
+        availability: 'unavailable',
+      },
+    },
+    promotion,
+    availability: 'unavailable',
+    selected_audit_model: null,
+    artifacts: [],
+    generated_at: '2026-08-29T00:00:00.000Z',
+    identity_meaning: 'Synthetic test fixture.',
+  };
+}
+
+async function writeSyntheticWarehouseReceipt(sourceRoot, { snapshotId, events }) {
+  const canonicalRoot = path.join(sourceRoot, 'warehouse', 'canonical');
+  const partNames = (await fs.readdir(canonicalRoot)).filter((name) => /^part-\d{3}\.jsonl$/.test(name)).sort();
+  const bindings = [];
+  for (const [partition, name] of partNames.entries()) {
+    const relative = `canonical/${name}`;
+    const bytes = await fs.readFile(path.join(canonicalRoot, name));
+    bindings.push({
+      partition,
+      path: relative,
+      row_count: bytes.toString('utf8').split(/\r?\n/).filter(Boolean).length,
+      bytes: bytes.length,
+      identity: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    });
+  }
+  const descriptors = {
+    warehouse_manifest: await syntheticArtifactDescriptor(sourceRoot, 'warehouse/manifest.json', 'engagement-phl-crime-event-warehouse/v1'),
+    backfill_checkpoint: await syntheticArtifactDescriptor(sourceRoot, 'backfill-checkpoint.json', 'engagement-phl-crime-backfill-checkpoint/v1'),
+    lineage_registry: await syntheticArtifactDescriptor(sourceRoot, 'warehouse/lineage/registry.json', 'engagement-phl-crime-lineage/v1'),
+    latest_quality_report: await syntheticArtifactDescriptor(sourceRoot, 'warehouse/quality/current.json', 'engagement-phl-crime-data-quality/v2'),
+  };
+  const canonicalBytes = bindings.reduce((sum, binding) => sum + binding.bytes, 0);
+  const canonicalIdentity = syntheticIdentityOf(bindings.map((binding) => ({
+    path: binding.path,
+    bytes: binding.bytes,
+    sha256: binding.identity,
+  })));
+  const evidence = {
+    schema: 'engagement-phl-crime-warehouse-receipt/v3',
+    mode: 'synthetic-fixture',
+    serving_eligible: false,
+    source: { dataset_id: 'synthetic', provider: 'test', source_table: 'fixture', schema: 'synthetic-source/v1', revision: snapshotId },
+    warehouse: { schema: 'engagement-phl-crime-event-warehouse/v1', event_schema: 'engagement-phl-crime-event/v1', current_snapshot_id: snapshotId },
+    coverage: {
+      start: '2024-01-01',
+      end_exclusive: '2024-02-01',
+      earliest_event_at: events[0].event_at,
+      latest_event_at: events.at(-1).event_at,
+    },
+    counts: {
+      acquired_rows: events.length,
+      expected_date_scoped_rows: events.length,
+      canonical_rows: events.length,
+      active_rows: events.length,
+      removal_candidate_rows: 0,
+      source_snapshots: 1,
+      canonical_partitions: bindings.length,
+    },
+    clocks: {
+      source_as_of: events.at(-1).event_at,
+      retrieved_at: '2024-01-22T14:00:00.000Z',
+      built_at: '2024-01-22T15:00:00.000Z',
+      observed_at: '2024-01-22T16:00:00.000Z',
+    },
+    data_quality: {
+      status: 'available',
+      status_semantics: {
+        unavailable_is_zero: false,
+        partial_is_current: false,
+        stale_is_current: false,
+        zero_requires_complete_query: true,
+      },
+      coordinate: { available: 4, missing: 1, invalid: 0, outside_city_bounds: 0 },
+      tract: { mapped: 3, unmapped: 1, ambiguous: 1 },
+      fixed_grid: { mapped: 4, unavailable: 1 },
+      route_corridor: { available: 0, unavailable: 5, matches: 0 },
+      acs_estimate_moe: { available: 5, partial: 0, unavailable: 0, 'incompatible-vintage': 0 },
+      unknown_label_count: 0,
+    },
+    artifacts: {
+      ...descriptors,
+      canonical: {
+        path: 'warehouse/canonical',
+        partition_count: bindings.length,
+        bytes: canonicalBytes,
+        sha256: canonicalIdentity,
+        partition_bindings: bindings,
+      },
+    },
+    authority: {
+      producer_validated_local_candidate: true,
+      integration_authority: false,
+      serving_authority: false,
+      deletion_authority: false,
+    },
+    limitations: ['Synthetic fixture only.'],
+  };
+  const receipt = { ...evidence, identity: syntheticIdentityOf(evidence) };
+  await fs.writeFile(path.join(sourceRoot, 'receipt.json'), `${JSON.stringify(receipt, null, 2)}\n`);
+  return receipt;
+}
+
+async function syntheticArtifactDescriptor(root, relative, schema) {
+  const bytes = await fs.readFile(path.join(root, ...relative.split('/')));
+  return {
+    path: relative,
+    bytes: bytes.length,
+    sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    schema,
+  };
+}
+
+function syntheticIdentityOf(value) {
+  return `sha256:${createHash('sha256').update(syntheticStableSerialization(value)).digest('hex')}`;
+}
+
+function syntheticStableSerialization(value) {
+  if (Array.isArray(value)) return `[${value.map(syntheticStableSerialization).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${syntheticStableSerialization(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
 
 function event({ id, tractStatus, gridStatus, week, snapshotId }) {
   const geoid = '42101007400';
@@ -275,7 +595,7 @@ function servingArtifact({ promoted }) {
     historical_evidence: {
       status: 'available',
       measure: 'PPD reported incidents',
-      coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-22' },
+      coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-28' },
       source_vintage: 'sha256:source',
       limitations: ['Historical evidence only.'],
     },

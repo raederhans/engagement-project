@@ -30,12 +30,36 @@ import {
 import { addWeeks } from './area_intelligence_mart.mjs';
 
 const EVALUATION_SCHEMA = 'ModelEvaluationReport/v1';
-const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v1';
-const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-evaluation-checkpoint/v1';
+const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v2';
+const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-evaluation-checkpoint/v2';
+const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
+const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
+const LINEAGE_SEAM_SCHEMA = 'engagement-area-intelligence-lineage-seam/v1';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const BASELINE_MODELS = ['seasonal-naive-52w', 'moving-average-4w', 'moving-average-13w'];
 const COUNT_MODELS = ['poisson-log-link-v1', 'negative-binomial-log-link-v1'];
 const ALL_MODELS = [...BASELINE_MODELS, ...COUNT_MODELS];
+
+export async function validateAreaIntelligenceMartForEvaluation({ martRoot, protocolPath } = {}) {
+  const resolvedMartRoot = path.resolve(martRoot || '');
+  const protocolBytes = await fs.readFile(protocolPath);
+  const protocol = JSON.parse(protocolBytes.toString('utf8'));
+  const protocolIdentity = sha256(protocolBytes);
+  validateProtocol(protocol);
+  const martManifestBytes = await fs.readFile(path.join(resolvedMartRoot, 'manifest.json'));
+  const martManifest = JSON.parse(martManifestBytes.toString('utf8'));
+  validateMartManifest(martManifest, protocol, protocolIdentity);
+  const martInventory = await validateExactMartFiles(resolvedMartRoot, martManifest);
+  validateMartArtifactIdentity(martManifest);
+  return {
+    martRoot: resolvedMartRoot,
+    protocol,
+    protocolIdentity,
+    martManifest,
+    martManifestIdentity: sha256(martManifestBytes),
+    martInventory,
+  };
+}
 
 export async function evaluateAreaIntelligence({
   martRoot,
@@ -44,20 +68,24 @@ export async function evaluateAreaIntelligence({
   now = () => new Date(),
   onProgress = () => {},
 } = {}) {
-  const resolvedMartRoot = path.resolve(martRoot || '');
   const resolvedOutput = assertOwnedOutputRoot(outputRoot);
-  const protocolBytes = await fs.readFile(protocolPath);
-  const protocol = JSON.parse(protocolBytes.toString('utf8'));
-  const protocolIdentity = sha256(protocolBytes);
-  validateProtocol(protocol);
-  const martManifestBytes = await fs.readFile(path.join(resolvedMartRoot, 'manifest.json'));
-  const martManifest = JSON.parse(martManifestBytes.toString('utf8'));
-  validateMartManifest(martManifest, protocolIdentity);
-  const martManifestIdentity = sha256(martManifestBytes);
+  const {
+    martRoot: resolvedMartRoot,
+    protocol,
+    protocolIdentity,
+    martManifest,
+    martManifestIdentity,
+    martInventory,
+  } = await validateAreaIntelligenceMartForEvaluation({ martRoot, protocolPath });
 
   const existing = await readJsonIfExists(path.join(resolvedOutput, 'manifest.json'));
   if (existing) {
-    if (await validateExistingEvaluation(existing, resolvedOutput, martManifestIdentity, protocolIdentity)) {
+    if (await validateExistingEvaluation(existing, resolvedOutput, {
+      martManifestIdentity,
+      protocolIdentity,
+      martManifest,
+      martInventory,
+    })) {
       return { manifest: existing, idempotent: true };
     }
     throw new Error('Area Intelligence evaluation output root contains a different or invalid completed run; use a new task-owned root.');
@@ -77,7 +105,7 @@ export async function evaluateAreaIntelligence({
   const poissonIterations = protocol.models.find((model) => model.id === 'poisson-log-link-v1').max_iterations;
   while (checkpoint.poisson_iterations_completed < poissonIterations) {
     const accumulators = new Map([...states].map(([key]) => [key, createIrlsAccumulator()]));
-    await scanMartUnits(resolvedMartRoot, martManifest, (series) => {
+    await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
       accumulateFitSeries(series, states, accumulators, 'poisson');
     });
     for (const [key, state] of states) {
@@ -97,7 +125,7 @@ export async function evaluateAreaIntelligence({
 
   if (!checkpoint.dispersion_completed) {
     const accumulators = new Map([...states].map(([key]) => [key, createDispersionAccumulator()]));
-    await scanMartUnits(resolvedMartRoot, martManifest, (series) => {
+    await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
       accumulateDispersionSeries(series, states, accumulators);
     });
     for (const [key, state] of states) {
@@ -114,7 +142,7 @@ export async function evaluateAreaIntelligence({
   const nbIterations = protocol.models.find((model) => model.id === 'negative-binomial-log-link-v1').max_iterations;
   while (checkpoint.nb_iterations_completed < nbIterations) {
     const accumulators = new Map([...states].map(([key]) => [key, createIrlsAccumulator()]));
-    await scanMartUnits(resolvedMartRoot, martManifest, (series) => {
+    await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
       accumulateFitSeries(series, states, accumulators, 'negative-binomial');
     });
     for (const [key, state] of states) {
@@ -137,7 +165,7 @@ export async function evaluateAreaIntelligence({
     for (const [key] of states) {
       for (const model of BASELINE_MODELS) histograms.set(`${key}|${model}`, createResidualHistogram());
     }
-    await scanMartUnits(resolvedMartRoot, martManifest, (series) => {
+    await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
       accumulateBaselineResiduals(series, states, histograms);
     });
     for (const [key, state] of states) {
@@ -154,7 +182,7 @@ export async function evaluateAreaIntelligence({
   }
 
   const metrics = createMetricCollections();
-  await scanMartUnits(resolvedMartRoot, martManifest, (series) => {
+  await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
     evaluateSeries(series, states, protocol, metrics);
   });
   const finalized = finalizeMetricCollections(metrics);
@@ -162,8 +190,9 @@ export async function evaluateAreaIntelligence({
   const generatedAt = exactNow(now);
   const selectedAuditModel = promotion.selected_model || selectBestAuditModel(finalized.aggregate);
   const forecasts = promotion.status === 'promoted'
-    ? await buildPromotedForecasts(resolvedMartRoot, martManifest, states, promotion.selected_model, generatedAt)
+    ? await buildPromotedForecasts(resolvedMartRoot, martManifest, martInventory, states, promotion.selected_model, generatedAt)
     : [];
+  await assertMartInventoryUnchanged(resolvedMartRoot, martManifest, martInventory);
 
   const report = buildEvaluationReport({
     protocol,
@@ -204,12 +233,24 @@ export async function evaluateAreaIntelligence({
     artifactRecords.push({ name, bytes: Buffer.byteLength(contents), sha256: sha256(Buffer.from(contents)) });
   }
   artifactRecords.sort((left, right) => left.name.localeCompare(right.name));
+  const availability = promotion.status === 'promoted' ? 'available' : 'unavailable';
+  const lineageSeam = buildEvaluationLineageSeam({
+    protocol,
+    protocolIdentity,
+    martManifest,
+    martManifestIdentity,
+    martInventory,
+    promotion,
+    availability,
+  });
   const evaluationManifest = {
     schema: EVALUATION_MANIFEST_SCHEMA,
     protocol_sha256: protocolIdentity,
     mart_manifest_sha256: martManifestIdentity,
     mart_artifact_identity: martManifest.artifact_identity,
+    lineage_seam: lineageSeam,
     promotion,
+    availability,
     selected_audit_model: selectedAuditModel,
     artifacts: artifactRecords,
     generated_at: generatedAt,
@@ -480,11 +521,11 @@ function selectBestAuditModel(aggregate) {
     || 'negative-binomial-log-link-v1';
 }
 
-async function buildPromotedForecasts(martRoot, manifest, states, model, generatedAt) {
+async function buildPromotedForecasts(martRoot, manifest, martInventory, states, model, generatedAt) {
   const latestFold = [...new Set([...states.values()].map((state) => state.fold.id))].at(-1);
   const state = states.get(stateKey(latestFold, 'tract', 'all'));
   const forecasts = [];
-  await scanMartUnits(martRoot, manifest, (series) => {
+  await scanMartUnits(martRoot, manifest, martInventory, (series) => {
     if (series.unit_type !== 'tract') return;
     const index = series.counts.length;
     const features = featureVector(series.counts, index, manifest.evaluation_complete_week_end_exclusive);
@@ -757,10 +798,12 @@ export function validateModelEvaluationReport(report) {
   return true;
 }
 
-async function scanMartUnits(martRoot, manifest, callback) {
+async function scanMartUnits(martRoot, manifest, martInventory, callback) {
+  const inventory = new Map(martInventory.parts.map((part) => [part.path, part]));
   for (const part of manifest.parts) {
     const partPath = path.resolve(martRoot, ...part.path.split('/'));
     if (!isInside(martRoot, partPath)) throw new Error('Area Intelligence mart part path escaped the mart root.');
+    await assertMartPartUnchanged(partPath, inventory.get(part.path));
     const input = readline.createInterface({ input: createReadStream(partPath, 'utf8'), crlfDelay: Infinity });
     let currentUnit = null;
     let rows = [];
@@ -776,6 +819,7 @@ async function scanMartUnits(martRoot, manifest, callback) {
       rows.push(row);
     }
     if (rows.length) await callback(buildSeries(rows, manifest));
+    await assertMartPartUnchanged(partPath, inventory.get(part.path));
   }
 }
 
@@ -873,12 +917,129 @@ function validateMartRow(row, expectedUnitType) {
   }
 }
 
-function validateMartManifest(manifest, protocolIdentity) {
-  if (manifest?.schema !== 'engagement-area-intelligence-feature-mart/v1'
+async function validateExactMartFiles(martRoot, manifest) {
+  const declaredPaths = new Set();
+  const parts = [];
+  for (const part of manifest.parts) {
+    if (typeof part?.path !== 'string'
+      || !/^marts\/(tract|fixed-grid)\/part-\d{3}\.jsonl$/.test(part.path)
+      || part.path !== `marts/${part.unit_type}/part-${String(part.partition).padStart(3, '0')}.jsonl`
+      || declaredPaths.has(part.path)
+      || !Number.isSafeInteger(part.row_count) || part.row_count < 0
+      || !Number.isSafeInteger(part.bytes) || part.bytes < 0
+      || !/^[a-f0-9]{64}$/.test(part.sha256 || '')) {
+      throw new Error('Area Intelligence mart part binding is invalid or duplicated.');
+    }
+    declaredPaths.add(part.path);
+    const partPath = path.resolve(martRoot, ...part.path.split('/'));
+    if (!isInside(martRoot, partPath)) throw new Error('Area Intelligence mart part path escaped the mart root.');
+    const observed = await inspectMartFile(partPath);
+    if (observed.row_count !== part.row_count
+      || observed.bytes !== part.bytes
+      || observed.sha256 !== part.sha256) {
+      throw new Error(`Area Intelligence mart part rows, bytes, or SHA-256 drifted: ${part.path}.`);
+    }
+    parts.push({ ...part, mtime_ms: observed.mtime_ms });
+  }
+  const actualPaths = await listMartPartPaths(path.join(martRoot, 'marts'), martRoot);
+  if (stableSerialization([...declaredPaths].sort()) !== stableSerialization(actualPaths)) {
+    throw new Error('Area Intelligence actual mart part set does not match the manifest.');
+  }
+  const rowCount = parts.reduce((sum, part) => sum + part.row_count, 0);
+  const bytes = parts.reduce((sum, part) => sum + part.bytes, 0);
+  const partBindingsIdentity = identityOf(parts.map((part) => ({
+    path: part.path,
+    unit_type: part.unit_type,
+    partition: part.partition,
+    row_count: part.row_count,
+    bytes: part.bytes,
+    sha256: part.sha256,
+  })));
+  if (rowCount !== manifest.row_count
+    || bytes !== manifest.bytes
+    || partBindingsIdentity !== manifest.part_bindings_identity) {
+    throw new Error('Area Intelligence mart aggregate rows, bytes, or part bindings drifted.');
+  }
+  return { parts, row_count: rowCount, bytes, part_bindings_identity: partBindingsIdentity };
+}
+
+async function inspectMartFile(filePath) {
+  const stat = await fs.lstat(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Area Intelligence mart part is not a real file.');
+  const hash = createHash('sha256');
+  let bytes = 0;
+  let rowCount = 0;
+  const source = createReadStream(filePath);
+  source.on('data', (chunk) => {
+    hash.update(chunk);
+    bytes += chunk.length;
+  });
+  const input = readline.createInterface({ input: source, crlfDelay: Infinity });
+  for await (const line of input) if (line) rowCount += 1;
+  return { row_count: rowCount, bytes, sha256: hash.digest('hex'), mtime_ms: stat.mtimeMs };
+}
+
+async function listMartPartPaths(directory, martRoot) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const result = [];
+  for (const entry of entries) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) throw new Error('Area Intelligence mart tree contains a symbolic link.');
+    if (entry.isDirectory()) result.push(...await listMartPartPaths(absolute, martRoot));
+    else if (entry.isFile() && /^part-\d{3}\.jsonl$/.test(entry.name)) {
+      result.push(path.relative(martRoot, absolute).replaceAll('\\', '/'));
+    }
+  }
+  return result.sort();
+}
+
+function validateMartArtifactIdentity(manifest) {
+  const core = structuredClone(manifest);
+  delete core.artifact_identity;
+  delete core.generated_at;
+  if (manifest.artifact_identity !== identityOf(core)) {
+    throw new Error('Area Intelligence mart artifact identity drifted from its manifest fields.');
+  }
+}
+
+async function assertMartPartUnchanged(filePath, expected) {
+  const stat = await fs.lstat(filePath);
+  if (!expected || !stat.isFile() || stat.isSymbolicLink()
+    || stat.size !== expected.bytes || stat.mtimeMs !== expected.mtime_ms) {
+    throw new Error(`Area Intelligence mart part changed after exact validation: ${expected?.path || filePath}.`);
+  }
+}
+
+async function assertMartInventoryUnchanged(martRoot, manifest, martInventory) {
+  const actualPaths = await listMartPartPaths(path.join(martRoot, 'marts'), martRoot);
+  if (stableSerialization(actualPaths) !== stableSerialization(martInventory.parts.map(({ path: partPath }) => partPath).sort())) {
+    throw new Error('Area Intelligence mart part set changed after exact validation.');
+  }
+  for (const part of martInventory.parts) {
+    await assertMartPartUnchanged(path.resolve(martRoot, ...part.path.split('/')), part);
+  }
+  if (manifest.part_bindings_identity !== martInventory.part_bindings_identity) {
+    throw new Error('Area Intelligence mart binding identity changed after exact validation.');
+  }
+}
+
+function validateMartManifest(manifest, protocol, protocolIdentity) {
+  if (manifest?.schema !== MART_SCHEMA
+    || manifest.protocol?.schema !== PROTOCOL_SCHEMA
     || manifest.protocol?.sha256 !== protocolIdentity
     || manifest.protocol?.frozen_before_model_performance !== true
-    || manifest.admission?.canonical_rows_seen !== 3583548
-    || manifest.admission?.tract?.ambiguous_excluded !== 549594
+    || manifest.exact_input?.receipt_schema !== protocol.exact_input_gate.receipt_schema
+    || manifest.exact_input?.receipt_identity !== protocol.exact_input_gate.receipt_identity
+    || !/^sha256:[a-f0-9]{64}$/.test(manifest.exact_input?.receipt_sha256 || '')
+    || manifest.exact_input?.canonical?.row_count !== manifest.admission?.canonical_rows_seen
+    || manifest.exact_input?.counts?.canonical_rows !== manifest.admission?.canonical_rows_seen
+    || manifest.admission?.tract?.admitted + manifest.admission?.tract?.ambiguous_excluded
+      + manifest.admission?.tract?.unmapped_excluded !== manifest.admission?.canonical_rows_seen
+    || manifest.admission?.['fixed-grid']?.admitted + manifest.admission?.['fixed-grid']?.unavailable_excluded
+      !== manifest.admission?.canonical_rows_seen
+    || manifest.admission?.unknown_category !== 0
+    || manifest.admission?.invalid_event_time !== 0
+    || manifest.admission?.non_active !== 0
     || !Array.isArray(manifest.parts) || manifest.parts.length === 0
     || manifest.artifact_policy?.event_level_data_included !== false) {
     throw new Error('Area Intelligence mart manifest failed the frozen evaluation gate.');
@@ -886,10 +1047,12 @@ function validateMartManifest(manifest, protocolIdentity) {
 }
 
 function validateProtocol(protocol) {
-  if (protocol?.schema !== 'engagement-area-intelligence-evaluation-protocol/v1'
+  if (protocol?.schema !== PROTOCOL_SCHEMA
+    || protocol.schema_version !== 2
     || protocol.frozen_before_model_performance !== true
     || protocol.rolling_folds?.length !== 4
-    || protocol.models?.length !== 5) {
+    || protocol.models?.length !== 5
+    || !/^sha256:[a-f0-9]{64}$/.test(protocol.exact_input_gate?.receipt_identity || '')) {
     throw new Error('Area Intelligence evaluation protocol is invalid.');
   }
 }
@@ -924,10 +1087,29 @@ async function loadOrCreateCheckpoint(checkpointPath, options) {
   return checkpoint;
 }
 
-async function validateExistingEvaluation(manifest, outputRoot, martManifestIdentity, protocolIdentity) {
+async function validateExistingEvaluation(manifest, outputRoot, {
+  martManifestIdentity,
+  protocolIdentity,
+  martManifest,
+  martInventory,
+}) {
+  if (!['promoted', 'not-promoted'].includes(manifest?.promotion?.status)) return false;
+  const expectedAvailability = manifest.promotion.status === 'promoted' ? 'available' : 'unavailable';
+  const expectedLineageSeam = buildEvaluationLineageSeam({
+    protocol: { schema: PROTOCOL_SCHEMA },
+    protocolIdentity,
+    martManifest,
+    martManifestIdentity,
+    martInventory,
+    promotion: manifest.promotion,
+    availability: expectedAvailability,
+  });
   if (manifest?.schema !== EVALUATION_MANIFEST_SCHEMA
     || manifest.mart_manifest_sha256 !== martManifestIdentity
     || manifest.protocol_sha256 !== protocolIdentity
+    || manifest.mart_artifact_identity !== martManifest.artifact_identity
+    || manifest.availability !== expectedAvailability
+    || stableSerialization(manifest.lineage_seam) !== stableSerialization(expectedLineageSeam)
     || !Array.isArray(manifest.artifacts)) return false;
   for (const artifact of manifest.artifacts) {
     const filePath = path.join(outputRoot, artifact.name);
@@ -935,6 +1117,51 @@ async function validateExistingEvaluation(manifest, outputRoot, martManifestIden
     if (!stat?.isFile() || stat.size !== artifact.bytes || await hashFile(filePath) !== artifact.sha256) return false;
   }
   return true;
+}
+
+function buildEvaluationLineageSeam({
+  protocol,
+  protocolIdentity,
+  martManifest,
+  martManifestIdentity,
+  martInventory,
+  promotion,
+  availability,
+}) {
+  return {
+    schema: LINEAGE_SEAM_SCHEMA,
+    protocol: {
+      schema: protocol.schema,
+      sha256: protocolIdentity,
+    },
+    mart: {
+      schema: martManifest.schema,
+      manifest_sha256: martManifestIdentity,
+      artifact_identity: martManifest.artifact_identity,
+      part_bindings_identity: martInventory.part_bindings_identity,
+      part_count: martInventory.parts.length,
+      row_count: martInventory.row_count,
+      bytes: martInventory.bytes,
+      parts: martInventory.parts.map((part) => ({
+        path: part.path,
+        unit_type: part.unit_type,
+        partition: part.partition,
+        row_count: part.row_count,
+        bytes: part.bytes,
+        sha256: part.sha256,
+      })),
+    },
+    m1_receipt: {
+      schema: martManifest.exact_input.receipt_schema,
+      identity: martManifest.exact_input.receipt_identity,
+      sha256: martManifest.exact_input.receipt_sha256,
+    },
+    outcome: {
+      promotion_status: promotion?.status,
+      selected_model: promotion?.selected_model ?? null,
+      availability,
+    },
+  };
 }
 
 function stripSums(rows) {
@@ -991,6 +1218,10 @@ async function hashFile(filePath) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function identityOf(value) {
+  return `sha256:${sha256(Buffer.from(stableSerialization(value)))}`;
 }
 
 function exactNow(now) {

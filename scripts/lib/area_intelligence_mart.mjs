@@ -4,9 +4,14 @@ import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+import {
+  CRIME_WAREHOUSE_RECEIPT_SCHEMA,
+  validateCrimeWarehouseAdmissionReceipt,
+} from './crime_event_warehouse.mjs';
 
-const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v1';
-const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-mart-checkpoint/v1';
+const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
+const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-mart-checkpoint/v2';
+const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function buildAreaIntelligenceMarts({
@@ -56,6 +61,15 @@ export async function buildAreaIntelligenceMarts({
     const key = String(inputPartition).padStart(3, '0');
     const completed = checkpoint.input_partitions[key];
     if (completed) {
+      const expectedBinding = gate.canonicalParts[inputPartition];
+      if (stableSerialization(completed.source_binding) !== stableSerialization({
+        name: expectedBinding.name,
+        row_count: expectedBinding.row_count,
+        bytes: expectedBinding.bytes,
+        sha256: expectedBinding.sha256,
+      })) {
+        throw new Error(`Area Intelligence checkpoint source binding drifted for ${expectedBinding.name}.`);
+      }
       await validateCheckpointFiles(resolvedOutput, completed.staging_files);
       continue;
     }
@@ -64,6 +78,7 @@ export async function buildAreaIntelligenceMarts({
     await fs.mkdir(inputDir, { recursive: true });
     const result = await stageCanonicalPartition({
       inputPath: gate.canonicalParts[inputPartition].absolute_path,
+      expectedBinding: gate.canonicalParts[inputPartition],
       inputDir,
       inputPartition,
       outputPartitionCount,
@@ -72,6 +87,7 @@ export async function buildAreaIntelligenceMarts({
     });
     checkpoint.input_partitions[key] = {
       ...result.counts,
+      source_binding: result.source_binding,
       staging_files: await inventoryRelativeFiles(resolvedOutput, result.files),
     };
     checkpoint.updated_at = exactNow(now);
@@ -80,8 +96,8 @@ export async function buildAreaIntelligenceMarts({
   }
 
   const admission = summarizeAdmission(checkpoint.input_partitions);
-  if (admission.canonical_rows_seen !== protocol.exact_input_gate.canonical_row_count) {
-    throw new Error(`Area Intelligence canonical row gate mismatch: expected ${protocol.exact_input_gate.canonical_row_count}, received ${admission.canonical_rows_seen}.`);
+  if (admission.canonical_rows_seen !== gate.receipt.counts.canonical_rows) {
+    throw new Error(`Area Intelligence canonical row gate mismatch: expected ${gate.receipt.counts.canonical_rows}, received ${admission.canonical_rows_seen}.`);
   }
   if (admission.unknown_category !== 0 || admission.invalid_event_time !== 0 || admission.non_active !== 0) {
     throw new Error('Area Intelligence canonical admission found unknown categories, invalid event times, or non-active rows; training is blocked.');
@@ -148,7 +164,16 @@ export async function buildAreaIntelligenceMarts({
     admission,
     output_partition_count: outputPartitionCount,
     parts,
+    part_bindings_identity: identityOf(parts.map((part) => ({
+      path: part.path,
+      unit_type: part.unit_type,
+      partition: part.partition,
+      row_count: part.row_count,
+      bytes: part.bytes,
+      sha256: part.sha256,
+    }))),
     row_count: parts.reduce((sum, part) => sum + part.row_count, 0),
+    bytes: parts.reduce((sum, part) => sum + part.bytes, 0),
     unit_count: {
       tract: new Set(parts.filter((part) => part.unit_type === 'tract').flatMap((part) => part.unit_ids)).size,
       'fixed-grid': new Set(parts.filter((part) => part.unit_type === 'fixed-grid').flatMap((part) => part.unit_ids)).size,
@@ -182,71 +207,206 @@ export async function buildAreaIntelligenceMarts({
   return { manifest, idempotent: false };
 }
 
+async function validateSyntheticWarehouseAdmissionReceipt(root) {
+  const receiptPath = path.join(root, 'receipt.json');
+  const receiptBytes = await fs.readFile(receiptPath);
+  const receipt = JSON.parse(receiptBytes.toString('utf8'));
+  const evidence = structuredClone(receipt);
+  delete evidence.identity;
+  if (receipt.schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
+    || receipt.mode !== 'synthetic-fixture'
+    || receipt.identity !== identityOf(evidence)) {
+    throw new Error('Area Intelligence synthetic M1 receipt v3 identity is invalid.');
+  }
+  for (const name of ['warehouse_manifest', 'backfill_checkpoint', 'lineage_registry', 'latest_quality_report']) {
+    const descriptor = receipt.artifacts?.[name];
+    const filePath = resolveReceiptArtifact(root, descriptor?.path);
+    await readReceiptJsonArtifact(filePath, descriptor, name);
+  }
+  const canonical = receipt.artifacts?.canonical;
+  const bindings = canonical?.partition_bindings;
+  if (!Array.isArray(bindings) || bindings.length === 0) {
+    throw new Error('Area Intelligence synthetic M1 receipt lacks canonical bindings.');
+  }
+  const canonicalDir = resolveReceiptArtifact(root, canonical.path);
+  const actualNames = (await fs.readdir(canonicalDir)).filter((name) => /^part-\d{3}\.jsonl$/.test(name)).sort();
+  const expectedNames = bindings.map(({ path: bindingPath }) => path.posix.basename(bindingPath)).sort();
+  if (stableSerialization(actualNames) !== stableSerialization(expectedNames)) {
+    throw new Error('Area Intelligence synthetic canonical part set drifted from its receipt.');
+  }
+  let rows = 0;
+  let bytes = 0;
+  for (const binding of bindings) {
+    const partPath = resolveReceiptArtifact(path.join(root, 'warehouse'), binding.path);
+    const observed = await inspectJsonlIdentity(partPath);
+    if (observed.row_count !== binding.row_count
+      || observed.bytes !== binding.bytes
+      || observed.sha256 !== binding.identity) {
+      throw new Error(`Area Intelligence synthetic canonical partition drifted from its receipt: ${binding.path}.`);
+    }
+    rows += observed.row_count;
+    bytes += observed.bytes;
+  }
+  const aggregateIdentity = identityOf(bindings.map((binding) => ({
+    path: binding.path,
+    bytes: binding.bytes,
+    sha256: binding.identity,
+  })));
+  if (rows !== receipt.counts?.canonical_rows
+    || bytes !== canonical.bytes
+    || bindings.length !== canonical.partition_count
+    || aggregateIdentity !== canonical.sha256) {
+    throw new Error('Area Intelligence synthetic canonical aggregate drifted from its receipt.');
+  }
+  return {
+    receipt,
+    path: receiptPath,
+    bytes: receiptBytes.length,
+    sha256: `sha256:${sha256(receiptBytes)}`,
+  };
+}
+
+function resolveReceiptArtifact(root, relativePath) {
+  if (typeof relativePath !== 'string' || !relativePath || relativePath.includes('\\')
+    || path.posix.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath)
+    || path.posix.normalize(relativePath) !== relativePath
+    || relativePath.split('/').some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error('Area Intelligence M1 receipt artifact path is not canonical and relative.');
+  }
+  const resolved = path.resolve(root, ...relativePath.split('/'));
+  if (!isInside(root, resolved)) throw new Error('Area Intelligence M1 receipt artifact escaped its root.');
+  return resolved;
+}
+
+async function readReceiptJsonArtifact(filePath, descriptor, label) {
+  const bytes = await fs.readFile(filePath);
+  if (bytes.length !== descriptor?.bytes || `sha256:${sha256(bytes)}` !== descriptor?.sha256) {
+    throw new Error(`Area Intelligence M1 receipt ${label} bytes or SHA-256 drifted.`);
+  }
+  const value = JSON.parse(bytes.toString('utf8'));
+  if (value?.schema !== descriptor.schema) {
+    throw new Error(`Area Intelligence M1 receipt ${label} schema drifted.`);
+  }
+  return value;
+}
+
+function assertReceiptStatusCounts(dataQuality, canonicalRows) {
+  const groups = [
+    ['coordinate', ['available', 'missing', 'invalid', 'outside_city_bounds']],
+    ['tract', ['mapped', 'unmapped', 'ambiguous']],
+    ['fixed_grid', ['mapped', 'unavailable']],
+    ['route_corridor', ['available', 'unavailable']],
+    ['acs_estimate_moe', ['available', 'partial', 'unavailable', 'incompatible-vintage']],
+  ];
+  for (const [name, fields] of groups) {
+    const total = fields.reduce((sum, field) => sum + Number(dataQuality?.[name]?.[field] ?? Number.NaN), 0);
+    if (!Number.isSafeInteger(total) || total !== canonicalRows) {
+      throw new Error(`Area Intelligence M1 receipt ${name} statuses do not mechanically reconcile to canonical rows.`);
+    }
+  }
+}
+
+async function inspectJsonlIdentity(filePath) {
+  const hash = createHash('sha256');
+  let bytes = 0;
+  let rowCount = 0;
+  const source = createReadStream(filePath);
+  source.on('data', (chunk) => {
+    hash.update(chunk);
+    bytes += chunk.length;
+  });
+  const input = readline.createInterface({ input: source, crlfDelay: Infinity });
+  for await (const line of input) if (line) rowCount += 1;
+  return { row_count: rowCount, bytes, sha256: `sha256:${hash.digest('hex')}` };
+}
+
 export async function validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture = false } = {}) {
   const root = path.resolve(sourceRoot || '');
   const warehouseRoot = path.join(root, 'warehouse');
-  const files = {
-    warehouse_manifest: path.join(warehouseRoot, 'manifest.json'),
-    backfill_checkpoint: path.join(root, 'backfill-checkpoint.json'),
-    lineage_registry: path.join(warehouseRoot, 'lineage', 'registry.json'),
-  };
-  const [manifestBytes, checkpointBytes, lineageBytes] = await Promise.all([
-    fs.readFile(files.warehouse_manifest),
-    fs.readFile(files.backfill_checkpoint),
-    fs.readFile(files.lineage_registry),
-  ]);
-  const manifest = JSON.parse(manifestBytes.toString('utf8'));
-  const checkpoint = JSON.parse(checkpointBytes.toString('utf8'));
-  const lineage = JSON.parse(lineageBytes.toString('utf8'));
   const expected = protocol.exact_input_gate;
-  const observedDigests = {
-    warehouse_manifest_sha256: sha256(manifestBytes),
-    backfill_checkpoint_sha256: sha256(checkpointBytes),
-    lineage_registry_sha256: sha256(lineageBytes),
+  const admitted = allowSyntheticFixture
+    ? await validateSyntheticWarehouseAdmissionReceipt(root)
+    : await validateCrimeWarehouseAdmissionReceipt(root);
+  const { receipt } = admitted;
+  if (receipt.schema !== expected.receipt_schema
+    || receipt.schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
+    || receipt.identity !== expected.receipt_identity
+    || receipt.mode !== expected.required_mode
+    || receipt.warehouse?.schema !== expected.warehouse_schema
+    || receipt.serving_eligible !== expected.serving_eligible
+    || stableSerialization(receipt.authority) !== stableSerialization(expected.required_authority)
+    || stableSerialization(receipt.data_quality?.status_semantics) !== stableSerialization(expected.required_status_semantics)) {
+    throw new Error('Area Intelligence exact M1 receipt v3 gate did not match the frozen protocol.');
+  }
+  for (const name of expected.required_artifacts) {
+    if (!receipt.artifacts?.[name]) throw new Error(`Area Intelligence exact M1 receipt lacks required artifact ${name}.`);
+  }
+  const files = {
+    receipt: path.join(root, 'receipt.json'),
+    warehouse_manifest: resolveReceiptArtifact(root, receipt.artifacts.warehouse_manifest.path),
+    backfill_checkpoint: resolveReceiptArtifact(root, receipt.artifacts.backfill_checkpoint.path),
+    lineage_registry: resolveReceiptArtifact(root, receipt.artifacts.lineage_registry.path),
+    latest_quality_report: resolveReceiptArtifact(root, receipt.artifacts.latest_quality_report.path),
   };
-
-  if (!allowSyntheticFixture) {
-    for (const [field, digest] of Object.entries(observedDigests)) {
-      if (digest !== expected[field]) throw new Error(`Area Intelligence exact input gate failed for ${field}.`);
-    }
-    if (manifest.mode !== 'official-local-candidate') {
-      throw new Error('Area Intelligence production mart build requires an official-local-candidate M1 warehouse.');
-    }
-  }
+  const [manifest, checkpoint, lineage, quality] = await Promise.all([
+    readReceiptJsonArtifact(files.warehouse_manifest, receipt.artifacts.warehouse_manifest, 'warehouse manifest'),
+    readReceiptJsonArtifact(files.backfill_checkpoint, receipt.artifacts.backfill_checkpoint, 'backfill checkpoint'),
+    readReceiptJsonArtifact(files.lineage_registry, receipt.artifacts.lineage_registry, 'lineage registry'),
+    readReceiptJsonArtifact(files.latest_quality_report, receipt.artifacts.latest_quality_report, 'latest quality report'),
+  ]);
   if (manifest.schema !== expected.warehouse_schema
-    || manifest.serving_eligible !== expected.serving_eligible
-    || manifest.partition_count !== expected.partition_count
-    || manifest.canonical_row_count !== expected.canonical_row_count
-    || manifest.active_row_count !== expected.active_row_count
-    || manifest.coverage?.earliest_scope_start !== expected.scope_start
-    || manifest.coverage?.latest_scope_end_exclusive !== expected.scope_end_exclusive
-    || manifest.applied_snapshot_ids?.length !== expected.source_snapshot_count
-    || Object.keys(checkpoint.completed || {}).length !== expected.completed_scope_count
-    || checkpoint.final_quality?.acquired_rows !== expected.canonical_row_count
+    || manifest.serving_eligible !== false
+    || manifest.current_snapshot_id !== receipt.warehouse.current_snapshot_id
+    || manifest.canonical_row_count !== receipt.counts.canonical_rows
+    || manifest.active_row_count !== receipt.counts.active_rows
+    || manifest.partition_count !== receipt.counts.canonical_partitions
+    || manifest.coverage?.earliest_scope_start !== receipt.coverage.start
+    || manifest.coverage?.latest_scope_end_exclusive !== receipt.coverage.end_exclusive
+    || manifest.applied_snapshot_ids?.length !== receipt.counts.source_snapshots
+    || Object.keys(checkpoint.completed || {}).length !== receipt.counts.source_snapshots
+    || checkpoint.final_quality?.acquired_rows !== receipt.counts.acquired_rows
     || checkpoint.final_quality?.date_scoped_count_complete !== true
-    || lineage.source_snapshots?.length !== expected.source_snapshot_count
-    || lineage.model_input_contract?.serving_status !== 'not-published') {
-    throw new Error('Area Intelligence M1 manifest/checkpoint/lineage gate did not match the frozen protocol.');
+    || lineage.source_snapshots?.length !== receipt.counts.source_snapshots
+    || lineage.model_input_contract?.serving_status !== 'not-published'
+    || quality.schema !== receipt.artifacts.latest_quality_report.schema
+    || quality.snapshot_id !== receipt.warehouse.current_snapshot_id
+    || manifest.latest_quality_report !== receipt.artifacts.latest_quality_report.path.replace(/^warehouse\//, '')
+    || receipt.data_quality?.status !== 'available') {
+    throw new Error('Area Intelligence M1 receipt/manifest/checkpoint/lineage/current-DQ gate drifted.');
   }
+  assertReceiptStatusCounts(receipt.data_quality, receipt.counts.canonical_rows);
 
   const canonicalDir = path.join(warehouseRoot, 'canonical');
-  const canonicalParts = [];
-  for (let index = 0; index < expected.partition_count; index += 1) {
+  const bindings = receipt.artifacts.canonical.partition_bindings;
+  if (!Array.isArray(bindings) || bindings.length !== receipt.counts.canonical_partitions) {
+    throw new Error('Area Intelligence exact M1 receipt canonical partition bindings are incomplete.');
+  }
+  const canonicalParts = await Promise.all(bindings.map(async (binding, index) => {
     const name = `part-${String(index).padStart(3, '0')}.jsonl`;
-    const absolutePath = path.join(canonicalDir, name);
+    if (binding.partition !== index || binding.path !== `canonical/${name}`
+      || !Number.isSafeInteger(binding.row_count) || binding.row_count < 0
+      || !Number.isSafeInteger(binding.bytes) || binding.bytes <= 0
+      || !/^sha256:[a-f0-9]{64}$/.test(binding.identity || '')) {
+      throw new Error(`Area Intelligence exact M1 receipt canonical binding is invalid for ${name}.`);
+    }
+    const absolutePath = path.join(warehouseRoot, ...binding.path.split('/'));
     const stat = await fs.stat(absolutePath);
-    if (!stat.isFile() || stat.size <= 0) throw new Error(`Area Intelligence canonical partition is missing or empty: ${name}`);
-    canonicalParts.push({
+    if (!stat.isFile() || stat.size !== binding.bytes) {
+      throw new Error(`Area Intelligence canonical partition is missing or byte-drifted: ${name}`);
+    }
+    return {
       name,
       absolute_path: absolutePath,
-      bytes: stat.size,
+      row_count: binding.row_count,
+      bytes: binding.bytes,
+      sha256: binding.identity,
       mtime_ms: stat.mtimeMs,
-    });
-  }
+    };
+  }));
   const namedParts = (await fs.readdir(canonicalDir)).filter((name) => /^part-\d{3}\.jsonl$/.test(name)).sort();
-  if (namedParts.length !== expected.partition_count
+  if (namedParts.length !== canonicalParts.length
     || namedParts.some((name, index) => name !== canonicalParts[index].name)) {
-    throw new Error('Area Intelligence canonical partition name set does not match the frozen 64-part contract.');
+    throw new Error('Area Intelligence actual canonical partition name set does not match the exact M1 receipt.');
   }
 
   const snapshotIds = new Set(manifest.applied_snapshot_ids);
@@ -263,31 +423,51 @@ export async function validateExactWarehouse(sourceRoot, protocol, { allowSynthe
     }
     lineageRowCount += entry.row_count;
   }
-  if (lineageRowCount !== expected.canonical_row_count) {
+  if (lineageRowCount !== receipt.counts.canonical_rows) {
     throw new Error(`Area Intelligence lineage row total mismatch: ${lineageRowCount}.`);
+  }
+  const boundRows = canonicalParts.reduce((sum, part) => sum + part.row_count, 0);
+  const boundBytes = canonicalParts.reduce((sum, part) => sum + part.bytes, 0);
+  if (boundRows !== receipt.counts.canonical_rows
+    || boundBytes !== receipt.artifacts.canonical.bytes
+    || receipt.artifacts.canonical.partition_count !== canonicalParts.length) {
+    throw new Error('Area Intelligence canonical receipt rows, bytes, or part count do not reconcile.');
   }
 
   return {
     root,
     warehouseRoot,
+    receipt,
     manifest,
     checkpoint,
     lineage,
+    quality,
     canonicalParts,
     files,
     identity: {
-      ...observedDigests,
+      receipt_schema: receipt.schema,
+      receipt_identity: receipt.identity,
+      receipt_sha256: admitted.sha256,
+      warehouse_manifest_sha256: receipt.artifacts.warehouse_manifest.sha256,
+      backfill_checkpoint_sha256: receipt.artifacts.backfill_checkpoint.sha256,
+      lineage_registry_sha256: receipt.artifacts.lineage_registry.sha256,
+      latest_quality_report_sha256: receipt.artifacts.latest_quality_report.sha256,
       warehouse_current_snapshot_id: manifest.current_snapshot_id,
-      canonical_row_count: manifest.canonical_row_count,
-      active_row_count: manifest.active_row_count,
-      partition_count: manifest.partition_count,
-      source_snapshot_count: lineage.source_snapshots.length,
+      coverage: structuredClone(receipt.coverage),
+      counts: structuredClone(receipt.counts),
+      canonical: {
+        partition_count: receipt.artifacts.canonical.partition_count,
+        row_count: boundRows,
+        bytes: boundBytes,
+        sha256: receipt.artifacts.canonical.sha256,
+      },
     },
   };
 }
 
 async function stageCanonicalPartition({
   inputPath,
+  expectedBinding,
   inputDir,
   inputPartition,
   outputPartitionCount,
@@ -307,7 +487,14 @@ async function stageCanonicalPartition({
     invalid_event_time: 0,
     non_active: 0,
   };
-  const input = readline.createInterface({ input: createReadStream(inputPath, 'utf8'), crlfDelay: Infinity });
+  const source = createReadStream(inputPath);
+  const sourceHash = createHash('sha256');
+  let sourceBytes = 0;
+  source.on('data', (chunk) => {
+    sourceHash.update(chunk);
+    sourceBytes += chunk.length;
+  });
+  const input = readline.createInterface({ input: source, crlfDelay: Infinity });
   let lineNumber = 0;
   try {
     for await (const line of input) {
@@ -383,7 +570,22 @@ async function stageCanonicalPartition({
   } finally {
     await Promise.all([...streams.values()].map(endStream));
   }
-  return { counts, files: [...files] };
+  const observedIdentity = `sha256:${sourceHash.digest('hex')}`;
+  if (counts.canonical_rows_seen !== expectedBinding.row_count
+    || sourceBytes !== expectedBinding.bytes
+    || observedIdentity !== expectedBinding.sha256) {
+    throw new Error(`Canonical input partition ${expectedBinding.name} drifted from the exact M1 receipt while being staged.`);
+  }
+  return {
+    counts,
+    source_binding: {
+      name: expectedBinding.name,
+      row_count: counts.canonical_rows_seen,
+      bytes: sourceBytes,
+      sha256: observedIdentity,
+    },
+    files: [...files],
+  };
 }
 
 async function writeStagingRecord({ streams, files, inputDir, unitType, outputPartitionCount, unitId, record }) {
@@ -613,13 +815,46 @@ async function validatePublishedMart(manifest, outputRoot, gate, protocolIdentit
     || manifest.protocol?.sha256 !== protocolIdentity
     || stableSerialization(manifest.exact_input) !== stableSerialization(gate.identity)
     || !Array.isArray(manifest.parts)) return false;
+  const declaredPaths = [];
   for (const part of manifest.parts) {
     const partPath = path.resolve(outputRoot, ...part.path.split('/'));
     if (!isInside(outputRoot, partPath)) return false;
-    const stat = await fs.stat(partPath).catch(() => null);
-    if (!stat?.isFile() || stat.size !== part.bytes || await hashFile(partPath) !== part.sha256) return false;
+    const observed = await inspectJsonlIdentity(partPath).catch(() => null);
+    if (!observed || observed.row_count !== part.row_count || observed.bytes !== part.bytes
+      || observed.sha256 !== `sha256:${part.sha256}`) return false;
+    declaredPaths.push(part.path);
   }
-  return true;
+  const actualPaths = await listNamedPartPaths(path.join(outputRoot, 'marts'), outputRoot);
+  const partBindingsIdentity = identityOf(manifest.parts.map((part) => ({
+    path: part.path,
+    unit_type: part.unit_type,
+    partition: part.partition,
+    row_count: part.row_count,
+    bytes: part.bytes,
+    sha256: part.sha256,
+  })));
+  const core = structuredClone(manifest);
+  delete core.artifact_identity;
+  delete core.generated_at;
+  return stableSerialization(actualPaths) === stableSerialization(declaredPaths.sort())
+    && manifest.row_count === manifest.parts.reduce((sum, part) => sum + part.row_count, 0)
+    && manifest.bytes === manifest.parts.reduce((sum, part) => sum + part.bytes, 0)
+    && manifest.part_bindings_identity === partBindingsIdentity
+    && manifest.artifact_identity === identityOf(core);
+}
+
+async function listNamedPartPaths(directory, root) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const paths = [];
+  for (const entry of entries) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) throw new Error('Area Intelligence mart tree contains a symbolic link.');
+    if (entry.isDirectory()) paths.push(...await listNamedPartPaths(absolute, root));
+    else if (entry.isFile() && /^part-\d{3}\.jsonl$/.test(entry.name)) {
+      paths.push(path.relative(root, absolute).replaceAll('\\', '/'));
+    }
+  }
+  return paths.sort();
 }
 
 async function assertUpstreamInventoryUnchanged(gate) {
@@ -631,7 +866,7 @@ async function assertUpstreamInventoryUnchanged(gate) {
   }
   for (const [field, filePath] of Object.entries(gate.files)) {
     const expected = gate.identity[`${field}_sha256`];
-    if (expected && await hashFile(filePath) !== expected) {
+    if (expected && `sha256:${await hashFile(filePath)}` !== expected) {
       throw new Error(`Authorized upstream ${field} changed during M2 build.`);
     }
   }
@@ -693,11 +928,13 @@ async function inventoryRelativeFiles(outputRoot, files) {
 }
 
 function validateEvaluationProtocol(protocol) {
-  if (protocol?.schema !== 'engagement-area-intelligence-evaluation-protocol/v1'
-    || protocol.schema_version !== 1
+  if (protocol?.schema !== PROTOCOL_SCHEMA
+    || protocol.schema_version !== 2
     || protocol.frozen_before_model_performance !== true
     || !Array.isArray(protocol.rolling_folds) || protocol.rolling_folds.length < 3
-    || protocol.promotion_gate?.failure_result !== 'honest-no-promotion-historical-trends-only') {
+    || protocol.promotion_gate?.failure_result !== 'honest-no-promotion-historical-trends-only'
+    || protocol.exact_input_gate?.receipt_schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
+    || !/^sha256:[a-f0-9]{64}$/.test(protocol.exact_input_gate?.receipt_identity || '')) {
     throw new Error('Area Intelligence evaluation protocol is invalid or not frozen.');
   }
 }

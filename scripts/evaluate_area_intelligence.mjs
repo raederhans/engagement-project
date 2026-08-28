@@ -19,7 +19,7 @@ try {
   const result = await evaluateAreaIntelligence({
     martRoot,
     outputRoot,
-    protocolPath: path.resolve(root, 'scripts/data/area_intelligence_evaluation_protocol.v1.json'),
+    protocolPath: path.resolve(root, 'scripts/data/area_intelligence_evaluation_protocol.v2.json'),
     onProgress(event) {
       peakRss = Math.max(peakRss, process.memoryUsage().rss);
       process.stdout.write(`${JSON.stringify({ event: 'area-intelligence-evaluation-progress', ...event })}\n`);
