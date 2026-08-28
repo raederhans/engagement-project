@@ -48,6 +48,7 @@
 | 2026-08-29 | 监督 `7f167e6` 让 runtime 直接调用 strict validator，并新增实际 built-browser hostile case；为维持不变的 4,000,000-byte ceiling，只在 build 时删除 HTML 行首缩进并保留全部换行/文本空白。 | 21/21、ESLint、diff-check、build、bundle 3,996,762/4,000,000 和 Area browser 均 PASS；protocol/data/publisher/tracked artifact 未改。 |
 | 2026-08-29 | 全局 browser smoke 连续停在 Analysis History line 716；在精确未修改 `d23863b` 的新临时 worktree、fresh `npm ci` 与原始 39.53 KB HTML 上复现相同 timeout，随后安全移除该临时 worktree。 | 这是可复现的既有测试缺口，不归因于 `7f167e6`；不阻止已聚焦证明的 M2 repair，但后续阶段需继续披露。 |
 | 2026-08-29 | M2-4 对 exact `7f167e6` focused re-review 为 P0/P1/P2 zero、总体 PASS；原 hostile runtime 现 `invalid` 且不渲染 historical evidence。 | M2 本地阶段完成并允许进入 M3，前提是 M2 只作为 unavailable/history dimension；scientific promotion、tracked publish/serving、remote/deploy 继续 FAIL/关闭。 |
+| 2026-08-29 | 从记录 M2 closeout 的 exact supervisor `7ce54dd` 创建 M3-1 source/admission、M3-2 comparison/privacy、M3-3 UI/browser 三个 high tasks；M3-4 保留给真实整合候选的最终 review。 | 三个 worktree 文件所有权互斥；地址/坐标/parcel 只允许 synthetic/session-memory，commute 和 M2 forecast 均保持 unavailable，bundle ceiling 不提高。 |
 
 ## Live process ownership
 
@@ -61,6 +62,9 @@
 | M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | `.dfev1/area-intelligence/m2-v2-source-final-9d1f243-d7d75ce0/logs/*.exit.json` | complete at detached `37359d7`; mart/evaluation run1+runs2 exit 0 and idempotent; exact root retained, no active process, no publish |
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 | M2 final independent review | `01a049db-fda6-77b1-98fe-e1078002aa23` / `2b86` | exact reviewer bases `d23863b` then `7f167e6` | initial FAIL on runtime lineage P1; focused re-review PASS with P0/P1/P2 zero; worktree clean, no publish or long data rerun |
+| M3 source/admission | `01a049fa-60bc-7070-b635-9650b58e4ed9` / `cf2d` | exact supervisor `7ce54dd` | active; owns Home Compare API/source registry/source smoke only |
+| M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | exact supervisor `7ce54dd` | active; owns address/contract/controller and focused M3 tests only |
+| M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | exact supervisor `7ce54dd` | active; owns loader/results/view/styles/Home Compare browser only |
 
 ## Handoff
 

@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M3 ready to dispatch — M2 local gate PASS; forecast remains not-promoted/unavailable (0/4 high tasks)`。
+`M3 active — three bounded implementation lanes running from exact 7ce54dd (3/4 high tasks)`。
 
 ## Checklist
 
@@ -24,6 +24,9 @@
 - [x] 给 M2-2 精确数据 GO，完成 mart exact rerun 与 frozen evaluation。
 - [x] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
 - [x] M2 Area Intelligence stage gate。
+- [x] 派发 M3-1 source/admission、M3-2 comparison/privacy、M3-3 UI/browser 三个 high 任务。
+- [ ] 整合 M3 source-final candidates 并运行中央 Home Compare gate。
+- [ ] 创建 M3-4 最终 reviewer 并完成 M3 stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
 - [ ] M5 Adaptive Route Alternatives stage gate。
