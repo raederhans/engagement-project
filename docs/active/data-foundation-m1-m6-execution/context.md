@@ -35,6 +35,7 @@
 | 2026-08-29 | Receipt declared identity 为 `sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4`；exact rerun 的 21/21 acquisition/ingest 均 idempotent，receipt bytes/mtime/identity 未变。 | M2 只能绑定该 exact receipt/manifest/checkpoint/lineage/canonical set；不得绑定路径名或旧 v1 常量。 |
 | 2026-08-29 | 主线程对当前 receipt/DQ v2 做有界恒等式 gate：coordinate、tract、grid、corridor、ACS 五组状态各自机械相加均等于 3,586,620；corridor registry 为 null 时 3,586,620 全为 unavailable；serving/integration authority 仍 false。 | M1 空间/ACS/DQ 语义允许作为 M2 protocol-v2 输入；不授予 serving、publish 或 safety claim。 |
 | 2026-08-29 | M1-3 最终 gate 两次、M1-2 fallback gate 一次、M1-4 最终 data-review gate 一次均由 Codex host 标记 completed，但返回 0 message/tool items。 | 这些静默回合不计为 reviewer PASS；记录独立 reviewer-channel 证据缺口。M1 本地机械数据门禁仍 PASS，但后续不得声称独立 data-review 完成。 |
+| 2026-08-29 | 创建 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务，均从监督 `a055752` 干净起步；M2-4 暂不创建。 | Protocol-v2 必须先冻结并整合，M2-2 才能读取新 performance；最终 reviewer 将从真实整合候选创建，M2 当前使用 3/4 新任务。 |
 
 ## Live process ownership
 
@@ -44,6 +45,9 @@
 | M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; repair source-final `34b90bd` |
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | source-final `35c6cee`; final data follow-ups returned 0 items, so main performed bounded metadata gate |
 | M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data follow-up returned 0 items and provides no verdict |
+| M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | active; owns protocol/mart/evaluation integrity only, no performance run |
+| M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | task-owned worktree from `a055752` | preflight only; unique future live-process owner, waiting for integrated protocol-v2 GO |
+| M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | active; owns publisher/serving/UI only, must not read new performance |
 
 ## Handoff
 

@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M1 local data gate PASS with reviewer-channel gap; M2 ready to dispatch (M1 used 4/4 high tasks)`。
+`M2 active — protocol freeze and serving audit running; data owner preflight only (3/4 high tasks)`。
 
 ## Checklist
 
@@ -19,6 +19,9 @@
 - [x] 整合 M1-2 补丁并让 M1-4 对修复后的精确 SHA 复审：PASS。
 - [x] 由 M1-1 从全新根生成 full data receipt、exact rerun 与 validate-only。
 - [x] 运行 M1 stage gate；记录 independent reviewer-channel 缺口并冻结 M2 exact input。
+- [x] 派发 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务。
+- [ ] 整合 protocol-v2 和 serving source-final，运行中央代码门禁后给 M2-2 数据 GO。
+- [ ] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
 - [ ] M2 Area Intelligence stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
