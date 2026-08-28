@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M2 active — integrated code gate PASS; unique data owner ready for GO (3/4 high tasks)`。
+`M2 active — exact data/evaluation candidate PASS with honest not-promoted; final reviewer pending (3/4 high tasks)`。
 
 ## Checklist
 
@@ -21,7 +21,7 @@
 - [x] 运行 M1 stage gate；记录 independent reviewer-channel 缺口并冻结 M2 exact input。
 - [x] 派发 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务。
 - [x] 整合 protocol-v2 和 serving source-final，运行中央代码门禁。
-- [ ] 给 M2-2 精确数据 GO，完成 mart exact rerun 与 frozen evaluation。
+- [x] 给 M2-2 精确数据 GO，完成 mart exact rerun 与 frozen evaluation。
 - [ ] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
 - [ ] M2 Area Intelligence stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
@@ -70,6 +70,12 @@
 | central Area Intelligence browser | PASS; current-lineage promoted/not-promoted/invalid, responsive, zero console/page errors. |
 | M2-2 first GO pre-write protocol check | BLOCKED safely before root/process: LF Git blob SHA `d7d75ce0…` versus CRLF worktree SHA `f67fa948…`. |
 | supervisor `5c1f11d` protocol-byte fix | `.gitattributes` forces LF; M2 test asserts 6,935-byte LF-only SHA `d7d75ce0…`; 8/8 + ESLint + byte/diff checks PASS; protocol blob unchanged. |
+| M2-2 exact pre-write gate at `37359d7` | tracked clean; protocol-v2 6,935 bytes / 0 CR / SHA `d7d75ce0…`; focused 8/8; exact fresh root absent; M1 receipt `cd7585ae…` with 3,586,620 rows / 64 parts. |
+| M2 mart run1 and identical rerun | exit 0; 1,265.499s then 1,007.255s; rerun `idempotent`; manifest/checkpoint/64 parts (66 files) had 0 bytes/SHA/mtime changes. |
+| M2 mart exact inventory | schema `/v2`; 64 parts / 1,611,918 rows / 825,033,042 part bytes; artifact identity `5ad0b1d0…aba894`; all actual part rows/bytes/SHA match. |
+| M2 evaluation run1 and identical rerun | exit 0; 285.620s then 6.386s; rerun `idempotent`; manifest/checkpoint/7 artifacts (9 files) had 0 bytes/SHA/mtime changes. |
+| M2 frozen promotion gate | honest `not-promoted` / `unavailable`; selected promotion model `null`; 7/7 artifacts match actual bytes/SHA; serving artifact validates with 0 predictions. |
+| main independent M2 root validation | mart validator rehashed exact parts and protocol successfully; evaluation `/v2` seam matches protocol, actual mart manifest/identity, 64 parts, 1,611,918 rows, exact M1 receipt and outcome. |
 
 ## Open risks and remaining work
 
@@ -83,6 +89,10 @@
 - M2 历史结论为 honest `not-promoted`，本轮不得因追求功能而放松预注册 gate。
 - M2-1 memory quick pass 意外暴露旧 performance 摘要；科学规则机械等同旧冻结 v1 且未读取
   本轮结果，因此没有结果驱动调参，但不得声称严格观察者盲态无污染，M2-4 必须独立评估。
+- 本轮 frozen gate 未选出可发布模型：Poisson 与 negative-binomial 均有 primary/category/coverage
+  失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
+- M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
+  不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
 - Bundle 只余 23 bytes；M3-M6 新 UI 不能提高 ceiling，需先做实际 code-splitting/体积收敛。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
   不能只比较解析后的 JSON 语义。

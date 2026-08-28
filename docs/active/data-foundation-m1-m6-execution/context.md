@@ -41,6 +41,9 @@
 | 2026-08-29 | M2-3 最终 source-final `3c8b3d4` 仅接受 evaluation run `/v2` 和含完整 `parts[]` 的 seam，验证 receipt→report→raw-serving coverage/source-vintage 连续性，并提供六文件事务 rollback；监督整合为 `dcd31ce`。 | 历史 tracked serving artifact 缺少当前 lineage 时 fail closed；本轮尚未真实 publish，也未授予 serving authority。 |
 | 2026-08-29 | 监督组合门禁：M2/publisher 21/21、i18n 11/11、目标 ESLint、production build、bundle policy 和 browser promoted/not-promoted/invalid 全部 PASS；bundle 为 3,999,977/4,000,000 bytes。 | M2 code gate PASS，可向唯一 M2-2 数据 owner 发 GO；后续任何 UI 变更必须重跑 bundle，不能提高 ceiling。 |
 | 2026-08-29 | M2-2 首次 GO 在创建 root 前发现 protocol Git blob/LF SHA 为 `d7d75ce0…`，但 `core.autocrlf=true` 的 supervisor/79c2 工作树被检出为 CRLF SHA `f67fa948…`；未启动数据进程。监督 `5c1f11d` 为 protocol JSON 强制 LF 并新增 exact SHA 回归，协议 blob 与科学字段未改变。 | 原 GO 作废；所有 checkout 必须先验证 6,935 bytes、LF-only、SHA `d7d75ce0…`，再创建 M2 root。 |
+| 2026-08-29 | M2-2 从 exact `37359d7` 在全新 ignored root 完成 mart run1 与同命令 rerun：64 actual parts、1,611,918 rows、825,033,042 part bytes，rerun 返回 `idempotent`，66 个 mart artifacts 的 bytes/SHA/mtime 均 0 变化。 | 当前 mart artifact identity 为 `sha256:5ad0b1d0c0765f6aaa05f8b5d68fdc04bce85f12234050d15ce89cb7ababa894`；只绑定本轮 protocol/M1 receipt/实际 parts，不替代历史 v1。 |
+| 2026-08-29 | Frozen evaluation run1 与同命令 rerun 均 exit 0；run schema `/v2`，7/7 artifacts 实际 bytes/SHA 匹配，rerun `idempotent` 且 9 个文件 bytes/SHA/mtime 0 变化。结果为 `not-promoted`、selected promotion model `null`、`unavailable`。 | 不运行 publisher，不改 tracked reports/public data；aggregate 表现或 selected audit model 都不能绕过所有 primary/category/coverage gates。 |
+| 2026-08-29 | 主线程重新调用 mart validator 并逐一验证 evaluation artifacts、serving contract 与 lineage seam：protocol `d7d75ce0…`、mart manifest `83bddd65…`、64 parts / 1,611,918 rows、M1 receipt `cd7585ae…` 和 not-promoted outcome 全部闭合。 | 当前可创建 M2-4 做最终独立 stage review；这仍不是 serving/publish、remote CI、deployment 或 product-liveness authority。 |
 
 ## Live process ownership
 
@@ -51,19 +54,18 @@
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | source-final `35c6cee`; final data follow-ups returned 0 items, so main performed bounded metadata gate |
 | M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data follow-up returned 0 items and provides no verdict |
 | M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | complete; source-final `5607949`, integrated as `285ede0`; exact M1 gate exit 0 |
-| M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | task-owned worktree from `a055752` | first GO stopped before root/process on CRLF hash mismatch; waiting for post-`5c1f11d` GO |
+| M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | `.dfev1/area-intelligence/m2-v2-source-final-9d1f243-d7d75ce0/logs/*.exit.json` | complete at detached `37359d7`; mart/evaluation run1+runs2 exit 0 and idempotent; exact root retained, no active process, no publish |
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 
 ## Handoff
 
-M2 代码门禁完成：protocol-v2/integrity 与 publisher/serving/UI 已汇合，且监督 `5c1f11d`
-关闭了跨 Windows worktree 的 protocol line-ending 身份漂移；
-中央 21/21、11/11、ESLint、build、bundle 和 browser gate 均 PASS。M1 独立 reviewer-channel
-缺口和 M2-1 历史 performance 摘要意外暴露均继续保留；它们不授权 serving/publish，也不得被
-描述为严格盲态或独立数据审查完成。
+M2 代码与数据候选完成：protocol-v2/integrity、publisher/serving/UI 已汇合；真实 mart 为
+64 parts / 1,611,918 rows，真实 frozen evaluation 诚实返回 `not-promoted/unavailable`，两条
+exact rerun 均保持全部产物 bytes/SHA/mtime。M1 独立 reviewer-channel 缺口和 M2-1 历史
+performance 摘要意外暴露均继续保留；publisher 未运行，tracked serving artifact 未改。
 
 ## Next step
 
-从包含 `5c1f11d` 的最新监督提交向既有 M2-2 唯一数据 owner 重新发 GO：同步精确整合树，在全新 task-owned
-ignored root 构建 mart、完全相同命令复跑，再运行 frozen protocol-v2 evaluation。输出完成后才
-创建本阶段第 4/4 个 high reviewer 任务；任何 performance 输出不得反向改变预注册规则。
+从记录了当前 exact data root 与 not-promoted 结果的监督提交创建 M2-4（本阶段第 4/4 个 high
+任务），独立复核代码、ignored artifacts、lineage、幂等证据、程序性盲态偏差与 M1 reviewer-channel
+缺口；在其 verdict 前不运行 publisher、不修改 tracked reports/public data，也不进入 M3。
