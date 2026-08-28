@@ -66,6 +66,7 @@ export async function acquireCrimeSourceSnapshot({
     const appendByPartition = Array.from({ length: partitionCount }, () => []);
     let previousId = lastSourceId;
     for (const sourceRow of rows) {
+      validateCrimeSourceRow(sourceRow, sourceContract);
       const sourceId = sourceIdentifier(sourceRow);
       if (sourceId <= previousId) throw new Error('Crime source keyset order is not strictly increasing.');
       previousId = sourceId;
@@ -244,6 +245,26 @@ export function validateSourceContract(value) {
     throw new Error('Crime event selected fields and expected query schema drifted.');
   }
   return value;
+}
+
+export function validateCrimeSourceRow(row, sourceContract) {
+  validateSourceContract(sourceContract);
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    throw new Error('Crime source row is not an object.');
+  }
+  const expectedFields = [...sourceContract.selected_fields].sort();
+  if (stableSerialization(Object.keys(row).sort()) !== stableSerialization(expectedFields)) {
+    throw new Error('Crime source row schema drifted from the approved source contract.');
+  }
+  for (const [field, expectedType] of Object.entries(sourceContract.expected_query_schema)) {
+    const value = row[field];
+    if (value == null) continue;
+    const valid = expectedType === 'date'
+      ? typeof value === 'string' && Boolean(timestampOrNull(value))
+      : typeof value === expectedType && (expectedType !== 'number' || Number.isFinite(value));
+    if (!valid) throw new Error(`Crime source row field ${field} drifted from type ${expectedType}.`);
+  }
+  return row;
 }
 
 export function buildPageSql(sourceContract, { start, end, lastSourceId = 0, pageSize } = {}) {

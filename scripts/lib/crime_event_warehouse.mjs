@@ -15,6 +15,7 @@ import {
 } from './crime_event_spatial.mjs';
 import {
   partitionForSourceId,
+  validateCrimeSourceRow,
   validateCrimeSourceSnapshot,
   validateSourceContract,
 } from './crime_event_source.mjs';
@@ -106,7 +107,11 @@ export async function ingestCrimeSourceSnapshot({
   if (currentManifest?.schema && currentManifest.schema !== WAREHOUSE_SCHEMA) {
     throw new Error('Existing crime warehouse schema is unsupported.');
   }
+  if (currentManifest) await validateWarehouseLineageBindings(warehouseDir, currentManifest);
   if (currentManifest?.applied_snapshot_ids?.includes(snapshotManifest.snapshot_id)) {
+    if (currentManifest.current_snapshot_id === snapshotManifest.snapshot_id) {
+      await validateWarehouseCanonicalBindings(warehouseDir, currentManifest);
+    }
     onProgress({ phase: 'idempotent', snapshotId: snapshotManifest.snapshot_id });
     return {
       idempotent: true,
@@ -145,13 +150,19 @@ export async function ingestCrimeSourceSnapshot({
   let earliestEventAt = priorEarliestEventAt;
   let latestEventAt = priorLatestEventAt;
   let canonicalRowCount = 0;
+  const canonicalPartitions = [];
 
   try {
     for (let partition = 0; partition < partitionCount; partition += 1) {
       const rawShard = snapshotManifest.shards[partition];
       const rawPath = safeSnapshotPath(snapshotDir, rawShard.path);
       const canonicalPath = path.join(warehouseDir, 'canonical', shardName(partition));
-      const existing = await readCanonicalPartition(canonicalPath, partition, partitionCount);
+      const existing = await readCanonicalPartition(
+        canonicalPath,
+        partition,
+        partitionCount,
+        dependencies.eventContract,
+      );
       const seen = new Set();
       let previousRawId = 0;
 
@@ -213,7 +224,14 @@ export async function ingestCrimeSourceSnapshot({
       rows.forEach((event) => accumulateCanonicalQuality(qualityAccumulator, event));
       canonicalRowCount += rows.length;
       const candidatePath = path.join(transactionDir, 'candidate', shardName(partition));
-      await writeJsonLines(candidatePath, rows);
+      const candidate = await writeJsonLines(candidatePath, rows);
+      canonicalPartitions.push({
+        partition,
+        path: path.posix.join('canonical', shardName(partition)),
+        row_count: candidate.row_count,
+        bytes: candidate.bytes,
+        identity: candidate.identity,
+      });
       onProgress({ phase: 'build-partition', partition, rowCount: rows.length });
     }
 
@@ -226,12 +244,14 @@ export async function ingestCrimeSourceSnapshot({
       snapshotManifest,
       dependencies,
       observedAt,
+      canonicalPartitions,
     });
     const manifest = {
       schema: WAREHOUSE_SCHEMA,
       mode: snapshotManifest.source_kind === 'synthetic' ? 'synthetic-test' : 'official-local-candidate',
       serving_eligible: false,
       partition_count: partitionCount,
+      canonical_partitions: canonicalPartitions,
       canonical_row_count: canonicalRowCount,
       active_row_count: quality.lifecycle.active,
       removal_candidate_count: quality.lifecycle.removal_candidate,
@@ -874,7 +894,7 @@ async function inspectSourceRawShards(root, manifestRelative, manifest, sourceCo
     let actualRows = 0;
     let previousSourceId = 0;
     for await (const sourceRow of readJsonLines(resolved.absolute)) {
-      validateSourceRowAgainstContract(sourceRow, sourceContract);
+      validateCrimeSourceRow(sourceRow, sourceContract);
       const sourceId = sourceIdentifier(sourceRow);
       if (sourceId <= previousSourceId || partitionForSourceId(sourceId, manifest.partition_count) !== partition) {
         throw new Error(`Crime warehouse source raw shard ${partition} has duplicate, unordered, or misplaced IDs.`);
@@ -952,6 +972,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       label: 'canonical partition',
     });
     const stat = await fs.stat(artifact.absolute);
+    let partitionRows = 0;
     let previousSourceId = 0;
     const canonicalIterator = readJsonLines(artifact.absolute)[Symbol.asyncIterator]();
     let canonicalNext = await canonicalIterator.next();
@@ -975,6 +996,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
         throw new Error(`Crime warehouse canonical partition ${partition} is not one-to-one with source ID ${sourceId}.`);
       }
       const event = canonicalNext.value;
+      partitionRows += 1;
       validateCanonicalEventAgainstContract(event, eventContract);
       if (sourceId <= previousSourceId || partitionForSourceId(sourceId, partitionCount) !== partition) {
         throw new Error(`Crime warehouse canonical partition ${partition} has duplicate, unordered, or misplaced IDs.`);
@@ -1002,13 +1024,30 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       throw new Error(`Crime warehouse canonical partition ${partition} contains an extra source ID.`);
     }
     bytes += stat.size;
-    bindings.push({ path: relative, bytes: stat.size, sha256: await hashFile(artifact.absolute) });
+    bindings.push({
+      partition,
+      path: relative,
+      row_count: partitionRows,
+      bytes: stat.size,
+      sha256: await hashFile(artifact.absolute),
+    });
   }
   return {
     path: directoryRelative,
     partition_count: partitionCount,
     bytes,
-    sha256: identityOf(bindings),
+    sha256: identityOf(bindings.map(({ path: bindingPath, bytes: bindingBytes, sha256 }) => ({
+      path: bindingPath,
+      bytes: bindingBytes,
+      sha256,
+    }))),
+    partition_bindings: bindings.map((binding) => ({
+      partition: binding.partition,
+      path: binding.path.replace(/^warehouse\//, ''),
+      row_count: binding.row_count,
+      bytes: binding.bytes,
+      identity: binding.sha256,
+    })),
     counts,
     earliest_event_at: earliestEventAt,
     latest_event_at: latestEventAt,
@@ -1244,6 +1283,12 @@ function validateCrimeWarehouseProducerSemantics({
     ['expected_date_scoped_rows', checkpoint.final_quality?.expected_date_scoped_rows],
   ];
   counts.forEach(([label, value]) => finiteInteger(value, label));
+  if (stableSerialization(manifest.canonical_partitions)
+      !== stableSerialization(canonical.partition_bindings)
+    || stableSerialization(lineage.canonical_partitions)
+      !== stableSerialization(canonical.partition_bindings)) {
+    throw new Error('Crime warehouse manifest or lineage canonical partition binding drifted.');
+  }
   if (checkpoint.final_quality?.date_scoped_count_complete !== true
     || checkpoint.start !== manifest.coverage?.earliest_scope_start
     || checkpoint.through !== manifest.coverage?.latest_scope_end_exclusive
@@ -1669,6 +1714,7 @@ async function buildLineageRegistry({
   snapshotManifest,
   dependencies,
   observedAt,
+  canonicalPartitions,
 }) {
   const existing = await readJsonIfExists(path.join(warehouseDir, 'lineage', 'registry.json'));
   const sources = Array.isArray(existing?.source_snapshots) ? [...existing.source_snapshots] : [];
@@ -1685,6 +1731,7 @@ async function buildLineageRegistry({
   return {
     schema: LINEAGE_SCHEMA,
     source_snapshots: sources,
+    canonical_partitions: structuredClone(canonicalPartitions),
     transforms: {
       event_schema: EVENT_SCHEMA,
       crosswalk: {
@@ -1915,7 +1962,11 @@ function validateEventContract(value) {
     || value.schema_version !== 1 || !Array.isArray(value.canonical_event_required_fields)
     || value.crosswalk?.unknown_policy !== 'fail-closed-null-normalized-category'
     || value.acs?.estimate_and_moe_are_distinct !== true
-    || value.artifact_policy?.raw_and_canonical_git_policy !== 'ignored-only') {
+    || value.artifact_policy?.raw_and_canonical_git_policy !== 'ignored-only'
+    || value.artifact_policy?.canonical_partition_binding
+      !== 'exact-bytes-in-warehouse-manifest-and-lineage'
+    || value.artifact_policy?.same_vintage_policy
+      !== 'verify-bound-partition-bytes-before-idempotent-return') {
     throw new Error('Crime event warehouse contract is invalid.');
   }
   return value;
@@ -1955,10 +2006,61 @@ async function validateSyntheticSnapshot(manifest, snapshotDir) {
   if (rows !== manifest.row_count) throw new Error('Synthetic crime snapshot row count drifted.');
 }
 
-async function readCanonicalPartition(filePath, partition, partitionCount) {
+async function validateWarehouseLineageBindings(warehouseDir, manifest) {
+  const lineage = await readJsonIfExists(path.join(warehouseDir, 'lineage', 'registry.json'));
+  const lineageSnapshotIds = lineage?.source_snapshots?.map(({ snapshot_id: snapshotId }) => snapshotId);
+  if (lineage?.schema !== LINEAGE_SCHEMA
+    || stableSerialization(lineageSnapshotIds) !== stableSerialization(manifest.applied_snapshot_ids)
+    || stableSerialization(lineage.canonical_partitions)
+      !== stableSerialization(manifest.canonical_partitions)) {
+    throw new Error('Crime warehouse lineage canonical partition binding drifted.');
+  }
+  return lineage;
+}
+
+async function validateWarehouseCanonicalBindings(warehouseDir, manifest) {
+  const bindings = manifest?.canonical_partitions;
+  const partitionCount = manifest?.partition_count;
+  if (!Number.isInteger(partitionCount) || partitionCount < 1
+    || !Array.isArray(bindings) || bindings.length !== partitionCount) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  const canonicalDir = path.join(warehouseDir, 'canonical');
+  const actualNames = (await fs.readdir(canonicalDir))
+    .filter((name) => /^part-\d{3}\.jsonl$/.test(name))
+    .sort();
+  const expectedNames = Array.from({ length: partitionCount }, (_, partition) => shardName(partition));
+  if (stableSerialization(actualNames) !== stableSerialization(expectedNames)) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  let rowCount = 0;
+  for (let partition = 0; partition < partitionCount; partition += 1) {
+    const binding = bindings[partition];
+    const expectedPath = path.posix.join('canonical', shardName(partition));
+    if (binding?.partition !== partition || binding.path !== expectedPath
+      || !Number.isSafeInteger(binding.row_count) || binding.row_count < 0
+      || !Number.isSafeInteger(binding.bytes) || binding.bytes < 0
+      || !/^sha256:[a-f0-9]{64}$/.test(binding.identity || '')) {
+      throw new Error('Crime warehouse canonical partition binding drifted.');
+    }
+    const filePath = path.join(warehouseDir, ...binding.path.split('/'));
+    const stat = await fs.stat(filePath);
+    if (!stat.isFile() || stat.size !== binding.bytes || await hashFile(filePath) !== binding.identity) {
+      throw new Error('Crime warehouse canonical partition binding drifted.');
+    }
+    rowCount += binding.row_count;
+  }
+  if (rowCount !== manifest.canonical_row_count) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  return bindings;
+}
+
+async function readCanonicalPartition(filePath, partition, partitionCount, eventContract) {
   const rows = new Map();
   if (!await pathExists(filePath)) return rows;
   for await (const event of readJsonLines(filePath)) {
+    validateCanonicalEventAgainstContract(event, eventContract);
     const sourceId = sourceNumericId(event);
     if (rows.has(sourceId) || partitionForSourceId(sourceId, partitionCount) !== partition) {
       throw new Error(`Canonical crime partition ${partition} contains duplicate or misplaced rows.`);
@@ -1986,11 +2088,21 @@ async function* readJsonLines(filePath) {
 async function writeJsonLines(filePath, rows) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const handle = await fs.open(filePath, 'w');
+  const hash = createHash('sha256');
+  let bytes = 0;
+  let rowCount = 0;
   try {
-    for (const row of rows) await handle.write(`${JSON.stringify(row)}\n`);
+    for (const row of rows) {
+      const line = `${JSON.stringify(row)}\n`;
+      await handle.write(line);
+      hash.update(line);
+      bytes += Buffer.byteLength(line);
+      rowCount += 1;
+    }
   } finally {
     await handle.close();
   }
+  return { row_count: rowCount, bytes, identity: `sha256:${hash.digest('hex')}` };
 }
 
 function eventInScope(event, scope) {
@@ -2002,26 +2114,6 @@ function sourceIdentifier(row) {
   const number = Number(row?.cartodb_id);
   if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Crime source row cartodb_id is invalid.');
   return number;
-}
-
-function validateSourceRowAgainstContract(row, sourceContract) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) {
-    throw new Error('Crime warehouse source JSONL row is not an object.');
-  }
-  const expectedFields = [...sourceContract.selected_fields].sort();
-  if (stableSerialization(Object.keys(row).sort()) !== stableSerialization(expectedFields)) {
-    throw new Error('Crime warehouse source JSONL row schema drifted from the approved source contract.');
-  }
-  for (const [field, expectedType] of Object.entries(sourceContract.expected_query_schema)) {
-    const value = row[field];
-    if (value == null) continue;
-    const valid = expectedType === 'date'
-      ? typeof value === 'string' && Boolean(exactTimestamp(value))
-      : typeof value === expectedType && (expectedType !== 'number' || Number.isFinite(value));
-    if (!valid) {
-      throw new Error(`Crime warehouse source JSONL field ${field} drifted from type ${expectedType}.`);
-    }
-  }
 }
 
 function sourceNumericId(event) {

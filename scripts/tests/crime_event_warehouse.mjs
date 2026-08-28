@@ -468,6 +468,87 @@ test('revision-aware warehouse preserves event lifecycle, lineage, crosswalk, sp
   assert.equal((await fs.stat(canonicalPath)).mtimeMs, canonicalBefore.mtimeMs);
 });
 
+test('same-vintage idempotence fails closed when canonical partition bindings drift', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-idempotence-binding-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const snapshotDir = path.join(root, 'snapshot');
+  await writeSyntheticSnapshot(snapshotDir, FIXTURE.vintages[0]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const lineage = await readJson(path.join(warehouseDir, 'lineage', 'registry.json'));
+  assert.equal(first.manifest.canonical_partitions.length, EVENT_CONTRACT.default_partition_count);
+  assert.deepEqual(lineage.canonical_partitions, first.manifest.canonical_partitions);
+
+  const populated = first.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
+  const canonicalPath = path.join(warehouseDir, 'canonical', populated.path.split('/').at(-1));
+  await fs.appendFile(canonicalPath, '\n', 'utf8');
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  }), /canonical partition binding drifted/i);
+});
+
+test('overlap refresh rejects a lineage partition binding drift before publication', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-binding-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const lineagePath = path.join(warehouseDir, 'lineage', 'registry.json');
+  const firstManifest = await readJson(path.join(firstDir, 'manifest.json'));
+  const lineage = await readJson(lineagePath);
+  lineage.canonical_partitions[0].bytes += 1;
+  await fs.writeFile(lineagePath, `${JSON.stringify(lineage, null, 2)}\n`, 'utf8');
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /lineage canonical partition binding drifted/i);
+  assert.equal(
+    (await readJson(path.join(warehouseDir, 'manifest.json'))).current_snapshot_id,
+    firstManifest.snapshot_id,
+  );
+});
+
 test('tract boundary, fixed grid, and coordinate mapping fail closed', () => {
   const tracts = {
     type: 'FeatureCollection',
@@ -565,6 +646,39 @@ test('source acquisition is keyset-bounded and rejects schema drift before publi
     now: () => new Date('2026-08-21T00:00:00.000Z'),
   }), /schema drifted/);
   assert.equal(await pathExists(path.join(outputDir, 'manifest.json')), false);
+
+  const rowDriftOutput = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-row-schema-drift-'));
+  context.after(() => fs.rm(rowDriftOutput, { recursive: true, force: true }));
+  const fields = Object.fromEntries(
+    Object.entries(SOURCE_CONTRACT.expected_query_schema).map(([name, type]) => [name, { type }]),
+  );
+  const rowDriftRequest = async (input) => {
+    const query = new URL(input).searchParams.get('q');
+    if (query.startsWith('SELECT COUNT(*)')) {
+      return jsonResponse({
+        rows: [{
+          row_count: 1,
+          distinct_source_ids: 1,
+          distinct_dc_keys: 1,
+          min_event_at: '2026-08-20T01:00:00Z',
+          max_event_at: '2026-08-20T01:00:00Z',
+        }],
+        fields: {},
+      });
+    }
+    return jsonResponse({ rows: [{ ...sourceRow(1), objectid: '1001' }], fields });
+  };
+  await assert.rejects(acquireCrimeSourceSnapshot({
+    outputDir: rowDriftOutput,
+    start: '2026-08-20',
+    end: '2026-08-21',
+    pageSize: 10,
+    partitionCount: EVENT_CONTRACT.default_partition_count,
+    sourceContract: SOURCE_CONTRACT,
+    request: rowDriftRequest,
+    now: () => new Date('2026-08-21T00:00:00.000Z'),
+  }), /source row field objectid drifted from type number/i);
+  assert.equal(await pathExists(path.join(rowDriftOutput, 'manifest.json')), false);
 });
 
 test('source acquisition resumes its exact checkpoint without duplicating committed pages', async (context) => {
