@@ -16,7 +16,7 @@ export async function updateAreaIntelligence({
   if (!root) return { applied: false, status: 'absent' };
   renderAreaIntelligencePresentation({ status: 'loading' }, { root });
   try {
-    const artifact = validateAreaIntelligenceServingArtifact(await fetchArtifact());
+    const artifact = admitRuntimeCandidate(await fetchArtifact());
     if (!shouldApply()) return { applied: false, status: 'stale' };
     cachedPresentation = createAreaIntelligencePresentation(artifact, { queryMode, selectedTractGEOID });
     renderAreaIntelligencePresentation(cachedPresentation, { root });
@@ -52,16 +52,20 @@ export function createAreaIntelligencePresentation(artifact, { queryMode, select
 }
 
 export function buildAreaIntelligenceHtml(presentation) {
-  const historical = `<p class="area-intelligence__historical">${escapeHtml(t('areaIntelligence.historicalAvailable'))}</p>`;
   if (!presentation || presentation.status === 'loading') {
-    return `${historical}<p class="area-intelligence__status" role="status">${escapeHtml(t('areaIntelligence.loading'))}</p>`;
+    return `<p class="area-intelligence__status" role="status">${escapeHtml(t('areaIntelligence.loading'))}</p>`;
   }
   if (presentation.status === 'invalid') {
-    return `${historical}<p class="area-intelligence__status area-intelligence__status--unavailable" role="status">${escapeHtml(t('areaIntelligence.invalid'))}</p>`;
+    return `<p class="area-intelligence__status area-intelligence__status--unavailable" role="status">${escapeHtml(t('areaIntelligence.invalid'))}</p>`;
   }
+  const historical = buildHistoricalHtml(presentation.historical);
   if (presentation.status === 'not-promoted') {
+    const statusKey = presentation.reason === 'model-did-not-exceed-predefined-seasonal-baseline'
+      ? 'areaIntelligence.notPromotedLegacy'
+      : 'areaIntelligence.notPromoted';
     return `${historical}
-      <p class="area-intelligence__status area-intelligence__status--unavailable" role="status">${escapeHtml(t('areaIntelligence.notPromoted'))}</p>
+      <p class="area-intelligence__status area-intelligence__status--unavailable" role="status">${escapeHtml(t(statusKey))}</p>
+      <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.unavailableReason', { reason: presentation.reason }))}</p>
       <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.historicalOnly'))}</p>`;
   }
   if (presentation.status === 'promoted-selection-unavailable') {
@@ -77,7 +81,26 @@ export function buildAreaIntelligenceHtml(presentation) {
       <div><dt>${escapeHtml(t('areaIntelligence.targetWeek'))}</dt><dd>${escapeHtml(prediction.target_week_start)}</dd></div>
     </dl>
     <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.trainedThrough', { date: prediction.trained_through }))}</p>
-    <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.uncertainty'))}</p>`;
+    <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.uncertainty'))}</p>
+    ${buildLimitationsHtml(prediction.limitations)}`;
+}
+
+function buildHistoricalHtml(historical) {
+  if (!historical) return '';
+  const coverage = historical.coverage;
+  return `<p class="area-intelligence__historical">${escapeHtml(t('areaIntelligence.historicalAvailable'))}</p>
+    <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.sourceAsOfLabel'))}: ${escapeHtml(historical.source_as_of)}</p>
+    <p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.coverageLabel'))}: ${escapeHtml(t('areaIntelligence.coverageWindow', {
+    start: coverage.earliest_scope_start,
+    end: coverage.latest_scope_end_exclusive,
+  }))}</p>
+    ${buildLimitationsHtml(historical.limitations)}`;
+}
+
+function buildLimitationsHtml(limitations = []) {
+  if (!limitations.length) return '';
+  return `<p class="area-intelligence__limits">${escapeHtml(t('areaIntelligence.limitationsLabel'))}: ${limitations
+    .map(escapeHtml).join(' · ')}</p>`;
 }
 
 export function renderAreaIntelligencePresentation(presentation, {
@@ -104,6 +127,20 @@ async function defaultFetchArtifact() {
     return response.json();
   });
   return artifactPromise;
+}
+
+function admitRuntimeCandidate(value) {
+  const artifact = validateAreaIntelligenceServingArtifact(value);
+  const { historical_evidence: historical, lineage } = artifact;
+  if (!lineage?.protocol || !lineage.mart || !lineage.m1_receipt
+    || artifact.evaluation?.protocol_sha256 !== lineage.protocol.sha256
+    || typeof historical?.source_as_of !== 'string'
+    || typeof historical?.coverage?.earliest_scope_start !== 'string'
+    || typeof historical?.coverage?.latest_scope_end_exclusive !== 'string'
+    || !historical.limitations?.length) {
+    throw new TypeError('Area Intelligence current serving lineage is unavailable or invalid.');
+  }
+  return artifact;
 }
 
 function formatCount(value) {

@@ -47,8 +47,12 @@ await runBrowserSuite({
   await render(page, servingArtifact({ promoted: false }));
   const card = page.locator('#area-intelligence');
   assert.equal(await card.getAttribute('data-model-status'), 'not-promoted');
-  assert.match(await card.innerText(), /model did not exceed the pre-defined seasonal baseline/i);
+  assert.match(await card.innerText(), /pre-defined promotion gate did not pass/i);
+  assert.match(await card.innerText(), /Unavailable reason: promotion-gate-not-passed/i);
   assert.match(await card.innerText(), /no zero forecast or hidden fallback/i);
+  assert.match(await card.innerText(), /Source as of[\s\S]*2026-08-28/i);
+  assert.match(await card.innerText(), /2006-01-01 through 2026-08-28 \(exclusive end\)/i);
+  assert.match(await card.innerText(), /Synthetic browser fixture; never product evidence/i);
   assert.equal(await card.locator('.area-intelligence__forecast').count(), 0);
 
   await render(page, servingArtifact({ promoted: true }));
@@ -65,9 +69,17 @@ await runBrowserSuite({
   const mobileColumns = await card.locator('.area-intelligence__forecast').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
   assert.equal(mobileColumns, 1);
   assert.equal(await card.locator('[role="status"]').count(), 0, 'promoted card must not retain a stale unavailable status');
+
+  const stale = servingArtifact({ promoted: false });
+  delete stale.lineage;
+  await render(page, stale);
+  assert.equal(await card.getAttribute('data-model-status'), 'invalid');
+  assert.match(await card.innerText(), /serving lineage or contract failed/i);
+  assert.doesNotMatch(await card.innerText(), /Historical charts show admitted/i);
+  assert.equal(await card.locator('.area-intelligence__forecast').count(), 0);
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
-  process.stdout.write('[Area Intelligence Browser] PASS - promoted/no-promotion, responsive layout, zero console/page errors.\n');
+  process.stdout.write('[Area Intelligence Browser] PASS - current-lineage, promoted/no-promotion/invalid, disclosures, responsive layout, zero console/page errors.\n');
   },
 });
 
@@ -82,14 +94,19 @@ async function render(page, artifact) {
 }
 
 function servingArtifact({ promoted }) {
-  const generatedAt = '2026-08-21T08:00:00.000Z';
+  const generatedAt = '2026-08-29T00:00:00.000Z';
   const model = 'negative-binomial-log-link-v1';
+  const digest = (character) => `sha256:${character.repeat(64)}`;
+  const hash = (character) => character.repeat(64);
+  const protocolSha256 = hash('a');
   return {
     schema: 'engagement-area-intelligence-serving/v1', generated_at: generatedAt,
     status: promoted ? 'promoted' : 'not-promoted',
     historical_evidence: {
-      status: 'available', measure: 'PPD reported incidents', source_vintage: 'sha256:test',
-      coverage: {}, limitations: ['Synthetic browser fixture; never product evidence.'],
+      status: 'available', measure: 'PPD reported incidents', source_vintage: digest('b'),
+      source_as_of: '2026-08-28T00:00:00.000Z',
+      coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-28' },
+      limitations: ['Synthetic browser fixture; never product evidence.'],
     },
     forecast: promoted ? {
       status: 'available', model_version: model,
@@ -97,15 +114,27 @@ function servingArtifact({ promoted }) {
         unit_type: 'tract', unit_id: '42101007400', target_week_start: '2026-08-17',
         predicted_reported_incident_count: 4.2, prediction_interval_90: { lower: 1, upper: 9 },
         trained_through: '2025-08-18', feature_observed_through: '2026-08-17', model_version: model,
-        generated_at: generatedAt, source_vintage: 'sha256:test', limitations: ['Synthetic browser fixture.'],
+        generated_at: generatedAt, source_vintage: digest('b'), limitations: ['Synthetic browser fixture.'],
       }],
     } : {
-      status: 'unavailable', reason: 'model-did-not-exceed-predefined-seasonal-baseline', predictions: [],
+      status: 'unavailable', reason: 'promotion-gate-not-passed', predictions: [],
     },
     evaluation: {
       promotion_status: promoted ? 'promoted' : 'not-promoted',
-      selected_model: promoted ? model : null, audit_model: model, protocol_sha256: 'test',
+      selected_model: promoted ? model : null, audit_model: model, protocol_sha256: protocolSha256,
     },
-    forbidden_claims: ['individual victim probability', 'absolute safety', 'safest route'],
+    lineage: {
+      protocol: { schema: 'engagement-area-intelligence-evaluation-protocol/v2', sha256: protocolSha256 },
+      evaluation: { schema: 'engagement-area-intelligence-evaluation-run/v2', manifest_sha256: hash('c') },
+      mart: {
+        schema: 'engagement-area-intelligence-feature-mart/v2', manifest_sha256: hash('d'),
+        artifact_identity: digest('e'), part_bindings_identity: digest('f'),
+      },
+      m1_receipt: { schema: 'engagement-phl-crime-warehouse-receipt/v3', identity: digest('1') },
+    },
+    forbidden_claims: [
+      'individual victim probability', 'absolute safety', 'safety score',
+      'safest area', 'safest route', 'causal effect',
+    ],
   };
 }
