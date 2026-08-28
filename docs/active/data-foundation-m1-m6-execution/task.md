@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M1 active — code gate PASS; full official rebuild running (4/4 high tasks)`。
+`M1 local data gate PASS with reviewer-channel gap; M2 ready to dispatch (M1 used 4/4 high tasks)`。
 
 ## Checklist
 
@@ -17,8 +17,8 @@
 - [x] 派发 M1-4 独立集成与数据门禁 reviewer；本阶段新任务达到 4/4。
 - [x] 接收 M1-4 首轮代码门禁：REQUEST CHANGES；hostile overlap 复现确认 P1。
 - [x] 整合 M1-2 补丁并让 M1-4 对修复后的精确 SHA 复审：PASS。
-- [ ] 由 M1-1 从全新根生成 full data receipt、exact rerun 与 validate-only。
-- [ ] 运行 M1 stage gate；更新 verdict 并在 PASS 后派发 M2。
+- [x] 由 M1-1 从全新根生成 full data receipt、exact rerun 与 validate-only。
+- [x] 运行 M1 stage gate；记录 independent reviewer-channel 缺口并冻结 M2 exact input。
 - [ ] M2 Area Intelligence stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
@@ -49,14 +49,22 @@
 | supervisor cherry-pick `037c615` | combined `npm run test:data-pipeline` 72/72; targeted ESLint and diff-check pass. |
 | M1-4 re-review of `037c615` | PASS; independent hostile script now rejects before transaction; 16/16 targeted tests plus syntax/ESLint/JSON/diff-check pass. |
 | M1-1 final sync | detached `8325842`; product tree equals supervisor `037c615`; formal source-final root and run1 ownership frozen. |
+| M1 formal root | 10,061,298,932 bytes / 1,514 files; 21 manifests / 1,344 raw shards; 3,586,620 acquisition = canonical = active rows; 64 canonical partitions / 8,741,798,048 bytes. |
+| M1 first backfill | exit 0; 4,507.311s; peak RSS 967,610,368 bytes; checkpoint 21/21. |
+| M1 exact-command rerun | exit 0; 3,712.230s; all 21 acquisition/ingest phases idempotent; receipt bytes/mtime/identity unchanged. |
+| M1 `--validate-only` | exit 0; 1,003.474s; frozen receipt and actual warehouse admission revalidated. |
+| M1 receipt identity | declared `sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4`; manifest/checkpoint/lineage/current quality/canonical bindings present. |
+| bounded spatial/ACS/DQ gate | PASS; coordinate/tract/grid/corridor/ACS state sums each equal 3,586,620; unavailable is not zero; serving/integration remain false. |
+| final delegated data-review follow-ups | M1-3 twice, M1-2 fallback once and M1-4 once completed with 0 items; no independent reviewer verdict may be claimed. |
 
 ## Open risks and remaining work
 
-- M1 full official backfill may take about one hour and roughly 10 GB based on historical evidence; source schema/count
-  preflight已重查，但完整 bytes、manifest、checkpoint、lineage、DQ 和 receipt 仍不存在。
-- M1-1 的 50,000-row partial 明确无效且不可恢复使用；后续必须写入全新根。
-- 新 pre-ingest full scan is intentionally O(canonical bytes + rows). 真实 3.58M-row 首轮按年度累计扫描，
-  exact rerun 最坏会重复扫描最终仓库约 21 次；需用 run telemetry 验证 wall time/RSS/磁盘，不得跳过校验。
+- M1 ignored root 约 9.37 GiB 且只存在于 retained `ac89` worktree；下游 M2-M4 完成前不得清理、移动或回收该 worktree。
+- M1-1 的 50,000-row partial 明确无效且仍原样保留；任何下游不得发现后自动 fallback 到该旧根。
+- 新 pre-ingest full scan is intentionally O(canonical bytes + rows)；exact rerun 观测到约 190.7 GiB
+  机械扫描下界和 93,252,120 row inspections，后续增量性能需单独优化但不能削弱 fail-closed gate。
+- 独立 final data reviewer 通道没有返回 evidence；M1 只能声明 local mechanical gate PASS，不能声明
+  independent data-review PASS，也不能据此开放 serving/publish。
 - 当前只有本地 evidence；remote CI、scheduled refresh、deployment 和 product liveness 均未运行。
 - M2 历史结论为 honest `not-promoted`，本轮不得因追求功能而放松预注册 gate。
 - M2 protocol/v1 绑定的是已丢失旧 M1 root；本轮需在任何新 performance 读取前冻结 v2，不能把

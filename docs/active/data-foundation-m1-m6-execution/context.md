@@ -31,23 +31,29 @@
 | 2026-08-28 | M1-1 同步为 detached `8325842`，产品代码树与监督 `037c615` 等价；正式根冻结为 `event-warehouse-v1-2006-through-2026-08-28-source-final-037c615`。 | 旧 partial 继续保留；正式首轮成为唯一 live writer。 |
 | 2026-08-28 | 当前 M2 protocol/v1 精确冻结的是已丢失的旧 M1 hashes、3,583,548 rows 与 `2026-08-22` exclusive end；evaluation 还硬编码旧 row/ambiguous counts。 | 新 M1 receipt 不能套用或静默改写 v1。M2 必须在读取本轮 performance 前冻结 protocol/v2，保留既有 folds/models/gates，改为 receipt/manifest 驱动的机械计数与实际 mart binding。 |
 | 2026-08-28 | 当前 M4 full builder 同样硬编码旧 M1 的 3,583,548 rows 与 `2026-08-22` exclusive end，只读取 manifest/rows，未先消费本轮 v3 admission receipt。 | M4 不能直接重放历史 builder；必须改成验证本轮 receipt 与实际 canonical bindings，且仍保留 public/non-private route 与 source coverage fail-closed。 |
+| 2026-08-29 | M1-1 在正式 ignored 根完成首轮 backfill、完全相同命令复跑和 `--validate-only`，三次均 exit 0；范围 `[2006-01-01, 2026-08-28)`，acquisition/canonical/active 均 3,586,620，64 partitions，root 10,061,298,932 bytes。 | 当前可读 M1 receipt 取代全部历史 hashes/counts；旧 50,000-row partial 保留但不可消费。 |
+| 2026-08-29 | Receipt declared identity 为 `sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4`；exact rerun 的 21/21 acquisition/ingest 均 idempotent，receipt bytes/mtime/identity 未变。 | M2 只能绑定该 exact receipt/manifest/checkpoint/lineage/canonical set；不得绑定路径名或旧 v1 常量。 |
+| 2026-08-29 | 主线程对当前 receipt/DQ v2 做有界恒等式 gate：coordinate、tract、grid、corridor、ACS 五组状态各自机械相加均等于 3,586,620；corridor registry 为 null 时 3,586,620 全为 unavailable；serving/integration authority 仍 false。 | M1 空间/ACS/DQ 语义允许作为 M2 protocol-v2 输入；不授予 serving、publish 或 safety claim。 |
+| 2026-08-29 | M1-3 最终 gate 两次、M1-2 fallback gate 一次、M1-4 最终 data-review gate 一次均由 Codex host 标记 completed，但返回 0 message/tool items。 | 这些静默回合不计为 reviewer PASS；记录独立 reviewer-channel 证据缺口。M1 本地机械数据门禁仍 PASS，但后续不得声称独立 data-review 完成。 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | `.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-source-final-037c615/logs/run1.*` | active; detached `8325842`, unique owner, first full run |
+| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | `.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-source-final-037c615/logs/metrics-summary.json` | complete; detached `8325842`, no active backfill, retained because downstream inputs are path-bound |
 | M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; repair source-final `34b90bd` |
-| M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | complete; source-final `35c6cee` |
-| M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data review pending |
+| M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | source-final `35c6cee`; final data follow-ups returned 0 items, so main performed bounded metadata gate |
+| M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data follow-up returned 0 items and provides no verdict |
 
 ## Handoff
 
-阶段尚未完成。代码 blocker 已在 `037c615` 关闭且复审 PASS。M1-1 正在全新根生成
-完整 receipt/manifest/checkpoint/lineage/DQ；只有 exact rerun、validate-only 与 M1-4 独立数据门禁
-全部 PASS 后，才能创建 M2 新任务。
+M1 本地机械数据门禁完成：代码 blocker 已在 `037c615` 关闭，正式 root、exact rerun 与
+validate-only 均 PASS，bounded spatial/ACS/DQ 恒等式 gate 也 PASS。独立 reviewer 的最终数据回合
+因 Codex host 返回 0 items 而没有 verdict，必须保留为证据缺口；这不阻止 M2 绑定 exact receipt，
+但继续阻止 serving/publish 与“独立数据审查已完成”的声明。
 
 ## Next step
 
-由 M1-1 唯一监控首轮 full backfill；监督线程只读取已落盘快照。首轮 21/21 + receipt/DQ
-通过后执行 exact-command rerun 与 validate-only，再把根路径交给 M1-4 做最终数据门禁。
+创建 M2 最多四个 high 任务：先冻结 protocol-v2 与 exact M1 receipt/mart binding，再由唯一
+数据 owner 构建 mart/评估；并行任务只审查 evaluation/serving 语义和最终 gate。任何 performance
+输出都不得反向改变预注册 folds/models/thresholds/gates。
