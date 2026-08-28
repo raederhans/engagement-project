@@ -587,6 +587,30 @@ test('Home Compare allows only complete trusted metadata and bounded denial form
   }
 });
 
+test('Home Compare rejects evidence denials followed by inference or a second assertion', () => {
+  for (const text of [
+    'No evidence shows the route reduces crime so the home is safest.',
+    'No evidence shows the route reduces crime therefore the home is safest.',
+    'There is no proof that the route reduces crime hence the property is safest.',
+    'No evidence shows the route reduces crime. The home is safest.',
+    'This cannot prove the route reduces crime. The home is safest.',
+    '没有证据表明该路线降低犯罪故该住宅最安全。',
+    '没有证据表明该路线降低犯罪于是该住宅最安全。',
+    '没有证据表明该路线降低犯罪并由此证明该住宅最安全。',
+    '没有证据表明该路线降低犯罪。该住宅最安全。',
+    'No evidence shows the route reduces crime! The home is safest.',
+    'There is no proof that the route reduces crime? The property is safest.',
+    'This cannot prove absolute safety therefore the route has the lowest risk.',
+    '没有证据表明该路线降低犯罪！该住宅最安全。',
+    '没有证据证明该住宅安全？该区域风险最低。',
+    '这不能证明该住宅安全故该路线风险最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
 test('Home Compare binds negation to each complete assertion instead of the surrounding sentence', () => {
   for (const text of [
     'The route reduces crime but does not increase risk.',

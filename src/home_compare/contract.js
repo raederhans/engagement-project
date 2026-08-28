@@ -22,38 +22,30 @@ const ROOT_KEYS = ['schema', 'generatedAt', 'status', 'profiles', 'sources', 'ar
 const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
-const EN_EFFECT = '(?:reduc|increas|lower|rais|prevent|caus|decreas|stop)\\w*';
-const EN_HARM = '(?:crime|incidents?|risk|harm|victimization)';
-const EN_RESIDENTIAL = '(?:route|property|home|area|neighbou?rhood|community|street|block|residence)';
-const ZH_EFFECT = '(?:降低|减少|增加|提高|预防|防止|导致|造成|阻止)';
-const ZH_HARM = '(?:犯罪|事件|风险|伤害|受害(?:事件|概率)?)';
-const ZH_RESIDENTIAL = '(?:住宅|房[屋产]|路线|区域|社区|小区|街道|街区)';
-const UNSAFE_SEMANTICS = /\b(?:safe|unsafe|risk|crime|incident|harm|victim|probab|caus|effect|reduc|increas|lower|rais|prevent|decreas|stop)\w*\b|安全|风险|犯罪|事件|伤害|受害|概率|因果|影响|效果|降低|减少|增加|提高|预防|防止|导致|造成|阻止/i;
-const SAFE_OWNED_TEXT = /^(?:Evidence dimensions describe public records and their coverage; they do not establish property condition, personal risk, causality, value, or suitability|The comparison does not establish causality, suitability, or personal risk|Feature proximity cannot be converted into (?:victim probability or a safety conclusion|victim probability, safest-neighborhood ranking, or route recommendation)|HIN is (?:crash-derived road context, not address risk, probability, or a ranking|road-network historical crash context, not an address-level risk or safety conclusion)|Targets are weekly counts(?: of preliminary PPD reported incidents)?, not a complete account of harm, individual victim probability, or absolute safety|(?:Reported )?Incidents are incomplete history, not individual risk, absolute safety, or a forecast|Reported incidents are (?:not absolute safety evidence|incomplete historical evidence, not a complete account of harm, victim probability, absolute safety, a forecast, or a safest-neighborhood ranking)|A zero applies only to its source query; it does not prove absence of harm or defects|Records are preliminary, can be reclassified, and expose generalized hundred-block locations rather than exact incident locations|Unavailable is not zero and does not establish safety, causality, or risk)\.$|^PPD Part I and Part II reported incidents from 2006 to present; M3 uses a disclosed historical time window and radius$/i;
-const SAFE_EVIDENCE_DENIAL_EN = /^(?!.*(?:\b(?:and|but|yet|however|while|although|despite|because)\b|[,;]))(?:(?:there is )?no (?:(?:reliable|currently admitted) )?(?:evidence|proof) (?:that|shows?|proves?|indicates?) .+|(?:this|the comparison) (?:does not|cannot) (?:establish|prove|show) .+)\.$/i;
-const SAFE_EVIDENCE_DENIAL_ZH = /^(?!.*(?:但|而|且|同时|然而|虽然|因为|所以|[，；]))(?:这不能(?:证明|表明|说明)|没有(?:可靠)?证据(?:表明|证明|说明)).+。$/;
-const SAFE_QUANTIFIED_DENIAL_EN = /^(?:no (?:residential )?(?:home|property)|neither (?:of the )?homes?|none of the homes|not every home|there is no home that) is safe\.$/i;
-const SAFE_DIRECT_DENIAL_EN = new RegExp(`^(?:this|the) ${EN_RESIDENTIAL} (?:is|are) not safe\\.$`, 'i');
-const SAFE_CAUSAL_DENIAL_EN = new RegExp(`^(?:the ${EN_RESIDENTIAL} (?:(?:does not|cannot) ${EN_EFFECT}|(?:cannot be|has not been) shown to ${EN_EFFECT}) ${EN_HARM}|${EN_HARM} (?:is|are) not ${EN_EFFECT} by the ${EN_RESIDENTIAL})\\.$`, 'i');
-const SAFE_DIRECT_DENIAL_ZH = new RegExp(`^(?:[该这]${ZH_RESIDENTIAL}并不安全|没有(?:一个|任何)?住宅是安全的)\\。$`);
-const SAFE_CAUSAL_DENIAL_ZH = new RegExp(`^(?:该${ZH_RESIDENTIAL}(?:不能|不)${ZH_EFFECT}${ZH_HARM}|${ZH_HARM}没有因该${ZH_RESIDENTIAL}而${ZH_EFFECT})\\。$`);
-const SAFE_METADATA_EN = /^(?:(?:the|this|a) )?(?:source|product|dataset) (?:reports?|displays?|shows?|indicates?|contains?|compares?|has) (?:increases in crime|an increase in crime counts|reduced incidents from the official source|low-risk and high-risk category labels|the lowest risk field named category|the safest-route label disabled|reduced incident coverage|risk fields from the official dataset|risk availability|safety-related record counts|low-risk categories|public safety and risk context|risk indicators|risk evidence by profile)\.$/i;
+const EN_EFFECT = '(reduc|increas|lower|rais|prevent|caus|decreas|stop)\\w*';
+const EN_HARM = '(crime|incidents?|risk|harm|victimization)';
+const EN_RESIDENTIAL = '(route|property|home|area|neighbou?rhood|community|street|block|residence)';
+const ZH_EFFECT = '(降低|减少|增加|提高|预防|防止|导致|造成|阻止)';
+const ZH_HARM = '(犯罪|事件|风险|伤害|受害(事件|概率)?)';
+const ZH_RESIDENTIAL = '(住宅|房[屋产]|路线|区域|社区|小区|街道|街区)';
+const UNSAFE_SEMANTICS = /\b(safe|unsafe|risk|crime|incident|harm|victim|probab|caus|effect|reduc|increas|lower|rais|prevent|decreas|stop)\w*\b|安全|风险|犯罪|事件|伤害|受害|概率|因果|影响|效果|降低|减少|增加|提高|预防|防止|导致|造成|阻止/i;
+const SAFE_OWNED_TEXT = /^(Evidence dimensions describe public records and their coverage; they do not establish property condition, personal risk, causality, value, or suitability|The comparison does not establish causality, suitability, or personal risk|Feature proximity cannot be converted into (victim probability or a safety conclusion|victim probability, safest-neighborhood ranking, or route recommendation)|HIN is (crash-derived road context, not address risk, probability, or a ranking|road-network historical crash context, not an address-level risk or safety conclusion)|Targets are weekly counts( of preliminary PPD reported incidents)?, not a complete account of harm, individual victim probability, or absolute safety|(Reported )?Incidents are incomplete history, not individual risk, absolute safety, or a forecast|Reported incidents are (not absolute safety evidence|incomplete historical evidence, not a complete account of harm, victim probability, absolute safety, a forecast, or a safest-neighborhood ranking)|A zero applies only to its source query; it does not prove absence of harm or defects|Records are preliminary, can be reclassified, and expose generalized hundred-block locations rather than exact incident locations|Unavailable is not zero and does not establish safety, causality, or risk)\.$|^PPD Part I and Part II reported incidents from 2006 to present; M3 uses a disclosed historical time window and radius$/i;
+const EN_ASSERTION = `((the |this |that |your )?${EN_RESIDENTIAL} ((is )?safe(r|st)?|has (the )?(lowest|low|no) risk|${EN_EFFECT} ${EN_HARM})|${EN_HARM} (is|are) ${EN_EFFECT} by (the )?${EN_RESIDENTIAL})`;
+const ZH_ASSERTION = `([该这]?${ZH_RESIDENTIAL}((是|属于)?(最|更)?安全|风险(为)?最低|(是|属于)?(最低|低|无)风险|没有风险|${ZH_EFFECT}${ZH_HARM})|${ZH_HARM}(由|因|被)[该这]?${ZH_RESIDENTIAL}(而)?${ZH_EFFECT})`;
+const SAFE_DENIAL_EN = new RegExp(`^((there is )?no ((reliable|currently admitted) )?(evidence|proof) (that|shows?|proves?|indicates?) ${EN_ASSERTION}|(this|the comparison) (does not|cannot) (establish|prove|show) (${EN_ASSERTION}|property condition( or absolute safety)?|absolute safety|safety|causality|personal risk)|(no (residential )?(home|property)|neither (of the )?homes?|none of the homes|not every home|there is no home that) is safe|(this|the) ${EN_RESIDENTIAL} (is|are) not safe|the ${EN_RESIDENTIAL} ((does not|cannot) ${EN_EFFECT}|(cannot be|has not been) shown to ${EN_EFFECT}) ${EN_HARM}|${EN_HARM} (is|are) not ${EN_EFFECT} by the ${EN_RESIDENTIAL})\\.$`, 'i');
+const SAFE_DENIAL_ZH = new RegExp(`^((没有(可靠)?证据(表明|证明|说明))${ZH_ASSERTION}|这不能(证明|表明|说明)(${ZH_ASSERTION}|安全|风险|因果|受害(者)?概率|房产状况)|[该这]${ZH_RESIDENTIAL}并不安全|没有(一个|任何)?住宅是安全的|该${ZH_RESIDENTIAL}(不能|不)${ZH_EFFECT}${ZH_HARM}|${ZH_HARM}没有因该${ZH_RESIDENTIAL}而${ZH_EFFECT})\\。$`);
+const SAFE_METADATA_EN = /^((the|this|a) )?(source|product|dataset) (reports?|displays?|shows?|indicates?|contains?|compares?|has) (increases in crime|an increase in crime counts|reduced incidents from the official source|low-risk (and high-risk category labels|categories)|the (lowest risk field named category|safest-route label disabled)|reduced incident coverage|risk (fields from the official dataset|availability|indicators|evidence by profile)|safety-related record counts|public safety and risk context)\.$/i;
 const SAFE_SEMANTIC_TEXT = [
   SAFE_OWNED_TEXT,
-  /^(?:risk and safety(?: conclusions)?|safety and risk(?: conclusions)?) (?:is|are) (?:unavailable|unknown)\.$/i,
-  /^风险和安全结论均(?:不可用|未知)。$/,
-  SAFE_EVIDENCE_DENIAL_EN,
-  SAFE_EVIDENCE_DENIAL_ZH,
-  SAFE_QUANTIFIED_DENIAL_EN,
-  SAFE_DIRECT_DENIAL_EN,
-  SAFE_CAUSAL_DENIAL_EN,
-  SAFE_DIRECT_DENIAL_ZH,
-  SAFE_CAUSAL_DENIAL_ZH,
+  /^(risk and safety( conclusions)?|safety and risk( conclusions)?) (is|are) (unavailable|unknown)\.$/i,
+  /^风险和安全结论均(不可用|未知)。$/,
+  SAFE_DENIAL_EN,
+  SAFE_DENIAL_ZH,
   SAFE_METADATA_EN,
-  /^(?:source coverage includes safety-related public records|(?:the )?(?:parser|loader|request|operation) is safe to (?:retry|parse|load))\.$/i,
-  /^该来源(?:说明|显示|报告|包含)(?:风险|安全)(?:字段|类别|可用性|记录数量)。$/,
+  /^(source coverage includes safety-related public records|(the )?(parser|loader|request|operation) is safe to (retry|parse|load))\.$/i,
+  /^该来源(说明|显示|报告|包含)(风险|安全)(字段|类别|可用性|记录数量)。$/,
 ];
-const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
+const PRIVATE_TOKEN = /^(address(es)?|coordinates?|latitude|longitude|lat|lon|lng(lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 
 function fail(message) {
   throw new TypeError(`Invalid Home Compare artifact: ${message}`);
