@@ -59,4 +59,6 @@
   exact rerun 最坏会重复扫描最终仓库约 21 次；需用 run telemetry 验证 wall time/RSS/磁盘，不得跳过校验。
 - 当前只有本地 evidence；remote CI、scheduled refresh、deployment 和 product liveness 均未运行。
 - M2 历史结论为 honest `not-promoted`，本轮不得因追求功能而放松预注册 gate。
+- M2 protocol/v1 绑定的是已丢失旧 M1 root；本轮需在任何新 performance 读取前冻结 v2，不能把
+  旧 hashes/counts、硬编码 admission 计数或历史 `not-promoted` 当作新运行证据。
 - M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。
