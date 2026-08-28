@@ -242,6 +242,14 @@ async function fillAddresses(dialog, count) {
   for (let index = 0; index < count; index += 1) await fillAddress(dialog, index);
 }
 
+async function waitForFreshPrivateSession(dialog, label) {
+  await dialog.waitFor({ state: 'visible' });
+  const addresses = dialog.locator('[data-home-address]');
+  await addresses.nth(1).waitFor({ state: 'visible' });
+  assert.equal(await addresses.count(), 2, `${label} mounts exactly two address controls`);
+  assert.deepEqual(await addresses.evaluateAll((inputs) => inputs.map((input) => input.value)), ['', ''], `${label} clears private addresses`);
+}
+
 async function fillAddress(dialog, index) {
   await dialog.locator(`[data-home-address="${index}"]`).fill(`${100 + index} SYNTHETIC FIXTURE ST`);
 }
@@ -482,8 +490,8 @@ async function verifyProductionChunkRetry(browser) {
     assert.ok(resultsChunkRequests.some((url) => url.includes(`/${chunk}`)), 'first compare must request the manifest initial chunk');
     assert.ok(resultsChunkRequests.some((url) => url.includes(`/${retryChunk}`)), 'retry must request the distinct Vite-built production retry chunk');
     await dialog.locator('[data-home-close]').click(); await dialog.waitFor({ state: 'hidden' }); await opener.click();
+    await waitForFreshPrivateSession(dialog, 'completed close/reopen');
     assert.equal(await dialog.locator('[data-home-profile]').count(), 0, 'completed close/reopen starts a fresh private session');
-    assert.deepEqual(await dialog.locator('[data-home-address]').evaluateAll((inputs) => inputs.map((input) => input.value)), ['', '']);
   } finally { await context.close(); }
 }
 
@@ -507,7 +515,9 @@ async function verifyNativeCloseWhileRendererPending(browser, action) {
     assert.equal(await dialog.getAttribute('aria-busy'), 'false', `${action} cancels before held renderer resolves`);
     release(); await dialog.waitFor({ state: 'hidden' });
     assert.equal(await opener.evaluate((element) => document.activeElement === element), true, `${action} restores focus`);
-    await opener.click(); assert.equal(await dialog.locator('[data-home-profile]').count(), 0, `${action} cannot commit stale result after reopen`);
+    await opener.click();
+    await waitForFreshPrivateSession(dialog, `${action} close/reopen`);
+    assert.equal(await dialog.locator('[data-home-profile]').count(), 0, `${action} cannot commit stale result after reopen`);
     assert.deepEqual(await page.evaluate(() => [...window.__homeUnhandled]), [], `${action} leaves no unhandled rejection`);
     assert.deepEqual(pageErrors, [], `${action} leaves no page error`);
   } finally { release?.(); await context.close(); }
