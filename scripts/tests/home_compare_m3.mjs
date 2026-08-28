@@ -526,6 +526,18 @@ test('Home Compare admits source product and dataset metadata descriptions', () 
   }
 });
 
+test('Home Compare rejects residential claims disguised as metadata and Chinese double negation', () => {
+  for (const text of [
+    'The home has the lowest risk field named category.',
+    'The property has the safest-route label disabled.',
+    '该住宅不是不安全，而是最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
 test('Home Compare binds negation to each complete assertion instead of the surrounding sentence', () => {
   for (const text of [
     'The route reduces crime but does not increase risk.',

@@ -34,6 +34,7 @@ const DIRECT_SAFETY_EN = new RegExp(`\\b(?<subject>${EN_DIRECT_SUBJECT})(?:is|ha
 const DIRECT_RISK_EN = new RegExp(`\\b(?<subject>${EN_DIRECT_SUBJECT})risk (?:is|remains) (?:the )?(?:low(?:er|est)?)\\b`, 'gi');
 const DIRECT_SAFETY_ZH = new RegExp(`(?<subject>${ZH_SUBJECT})(?:是|属于)?(?<claim>(?:最|更)?安全|没有风险|风险(?:为)?最低|(?:最低|低|无)风险)`, 'g');
 const DOUBLE_NEGATED_SAFETY_EN = new RegExp(`\\b${EN_DIRECT_SUBJECT}(?:is|remains) not unsafe\\b`, 'i');
+const DOUBLE_NEGATED_SAFETY_ZH = new RegExp(`${ZH_SUBJECT}(?:不是|并非)不安全(?:[，,](?:而是)?(?:最|更)?安全)?`);
 const ACTIVE_CAUSAL_EN = new RegExp(`\\b${EN_RESIDENTIAL_SUBJECT} (?:(?<negation>does not|cannot|can't) )?${EN_EFFECT} (?:not ${EN_WORD} but )?${EN_HARM}\\b`, 'gi');
 const PASSIVE_CAUSAL_EN = new RegExp(`\\b${EN_HARM} (?:is|are|was|were) (?:(?<negation>not) )?${EN_EFFECT} by ${EN_RESIDENTIAL_SUBJECT}\\b`, 'gi');
 const MASKED_CAUSAL_EN = new RegExp(`\\b(?:${EN_RESIDENTIAL_SUBJECT} (?:does not|cannot|can't) ${EN_EFFECT} ${EN_HARM} but (?:does |is )?${EN_EFFECT} ${EN_HARM}|${EN_HARM} (?:is|are|was|were) not ${EN_EFFECT} but (?:is|are|was|were) ${EN_EFFECT} by ${EN_RESIDENTIAL_SUBJECT})\\b`, 'i');
@@ -43,6 +44,7 @@ const MASKED_CAUSAL_ZH = new RegExp(`${ZH_HARM}没有${ZH_EFFECT}反而因${ZH_S
 const EVIDENCE_ASSERTION_EN = /\b(?:(?<negation>do(?:es)? not|cannot(?: be)?|can't(?: be)?) )?(?:prov|establish|show|indicat|mean|convert)\w*.{0,40}\b(?:safe(?:r|st)?|safety|risk|victim[- ]probability|caus\w*)\b/gi;
 const EVIDENCE_ASSERTION_ZH = /(?:(?<negation>不能|没有(?:可靠)?证据))?(?:证明|表明|说明).{0,24}(?:安全|风险|因果|受害(?:者)?概率)/g;
 const QUANTIFIED_DENIAL_EN = /^(?:(?:no|neither) [a-z0-9-]+|not every [a-z0-9-]+)$/i;
+const METADATA_SUBJECT = /^(?:the )?(?:source|product|dataset)$/i;
 const METADATA_TAIL = /^(?:-route label| (?:fields?|labels?|categories?|contexts?|trends?|counts?)\b| and (?:high|low)[- ]risk categor(?:y|ies) labels?\b)/i;
 const OPERATIONAL_SUBJECT = /\b(?:parser|loader|request|operation)$/i;
 const OPERATIONAL_METADATA_TAIL = /^ to (?:retry|parse|load)\b/i;
@@ -363,14 +365,14 @@ function rejectUnsafeConclusion(value, label) {
 }
 
 function hasDirectAssertion(text) {
-  if (DOUBLE_NEGATED_SAFETY_EN.test(text)) return true;
+  if (DOUBLE_NEGATED_SAFETY_EN.test(text) || DOUBLE_NEGATED_SAFETY_ZH.test(text)) return true;
   for (const pattern of [DIRECT_SAFETY_EN, DIRECT_RISK_EN]) {
     for (const match of text.matchAll(pattern)) {
       const subject = match.groups.subject.trim();
       const tail = text.slice(match.index + match[0].length);
       if (QUANTIFIED_DENIAL_EN.test(subject)
         || hasEvidenceDenial(text, match.index)
-        || METADATA_TAIL.test(tail)
+        || (METADATA_SUBJECT.test(subject) && METADATA_TAIL.test(tail))
         || (OPERATIONAL_SUBJECT.test(subject) && OPERATIONAL_METADATA_TAIL.test(tail))) continue;
       return true;
     }
