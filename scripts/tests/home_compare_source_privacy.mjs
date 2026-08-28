@@ -7,8 +7,37 @@ import {
   fetchHomeProfileEvidence,
   resolveHomePropertyAddress,
 } from '../../src/home_compare/api.js';
+import { validateHomeCompareSourceRegistry } from '../../src/home_compare/source_registry.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const sourceRegistry = JSON.parse(await readFile(
+  path.join(repoRoot, 'public/data/home_compare_sources.v1.json'),
+  'utf8',
+));
+
+test('Home Compare binds all source identities to a trusted synchronous registry baseline', () => {
+  for (const [index, source] of sourceRegistry.sources.entries()) {
+    const mutations = {
+      canonical_url: 'https://example.invalid/hostile-source',
+      dataset: `${source.dataset}-hostile-drift`,
+      expected_fields: [...source.expected_fields, 'hostile_field'],
+      selected_fields: source.selected_fields.slice(0, -1),
+      ...(source.api_url ? {
+        api_url: 'https://example.invalid/hostile-api',
+        transport: source.transport === 'carto-sql' ? 'arcgis-feature-service' : 'carto-sql',
+      } : {}),
+    };
+    for (const [field, hostileValue] of Object.entries(mutations)) {
+      const hostile = structuredClone(sourceRegistry);
+      hostile.sources[index][field] = hostileValue;
+      assert.throws(
+        () => validateHomeCompareSourceRegistry(hostile),
+        /source (?:identit|registr)/i,
+        `${source.id} accepted hostile ${field}`,
+      );
+    }
+  }
+});
 
 test('Home Compare keeps private source inputs out of URLs/logs and isolates one source failure', async () => {
   const calls = [];
@@ -40,12 +69,12 @@ test('Home Compare keeps private source inputs out of URLs/logs and isolates one
         location: '100 TEST ST',
         lon: -75.15995,
         lat: 39.95002,
-        assessment_date: '2026-01-01T00:00:00Z',
+        assessment_date: '9798-06-12T08:00:00Z',
         market_value: 100000,
         market_value_date: '2026-01-01T00:00:00Z',
-        sale_date: null,
-        sale_price: null,
-        recording_date: null,
+        sale_date: '9277-02-17T10:00:00Z',
+        sale_price: 95000,
+        recording_date: '2026-08-20T00:00:00Z',
         total_livable_area: 1200,
         number_of_bedrooms: 3,
         number_of_bathrooms: 2,
@@ -100,6 +129,14 @@ test('Home Compare keeps private source inputs out of URLs/logs and isolates one
   });
 
   assert.equal(result.profile.status, 'partial');
+  assert.equal(result.profile.evidence.property.status, 'partial');
+  assert.equal(result.profile.evidence.property.dataAsOf, '2026-08-20T00:00:00.000Z');
+  assert.equal(result.profile.evidence.property.value.assessmentDate, null);
+  assert.equal(result.profile.evidence.property.value.latestSaleDate, null);
+  assert.equal(result.profile.evidence.property.value.marketValueDate, '2026-01-01T00:00:00.000Z');
+  assert.equal(result.profile.evidence.property.value.recordingDate, '2026-08-20T00:00:00.000Z');
+  assert.equal(result.profile.evidence.property.value.futureDatedFieldCount, 2);
+  assert.doesNotMatch(JSON.stringify(result.profile), /9798-06-12|9277-02-17/);
   assert.equal(result.profile.evidence.transfers.status, 'partial');
   assert.equal(result.profile.evidence.transfers.dataAsOf, '2026-08-20T00:00:00.000Z');
   assert.equal(result.profile.evidence.transfers.value.futureDatedFieldCount, 2);

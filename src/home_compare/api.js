@@ -10,6 +10,8 @@ import { createEvidenceMetric, HOME_COMPARE_EVIDENCE_KEYS, inferHomeProfileStatu
 const VACANCY_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/Vacant_Indicators_Bldg/FeatureServer/0/query';
 const HIN_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/high_injury_network_2025/FeatureServer/0/query';
 const PRIVATE_AGGREGATE = 'Aggregate only; private inputs and rows are excluded.';
+const DAY_MS = 86_400_000;
+const PROPERTY_DATE_FIELDS = ['assessmentDate', 'marketValueDate', 'latestSaleDate', 'recordingDate'];
 const SOURCE_IDS = Object.freeze({
   address: 'citygeo-address-locator',
   property: 'opa-current-property',
@@ -68,10 +70,11 @@ export async function fetchHomeProfileEvidence(identity, {
     }),
   ]);
 
+  const propertyValue = withFutureDatesWithheld(identity.property, PROPERTY_DATE_FIELDS, Date.parse(retrievedAt) + DAY_MS);
   const property = createEvidenceMetric({
-    status: 'available',
-    value: identity.property,
-    dataAsOf: latestDate(identity.property.assessmentDate, identity.property.marketValueDate, identity.property.recordingDate),
+    status: propertyValue.futureDatedFieldCount ? 'partial' : 'available',
+    value: propertyValue,
+    dataAsOf: latestDate(...PROPERTY_DATE_FIELDS.map((field) => propertyValue[field])),
     sourceIds: [SOURCE_IDS.address, SOURCE_IDS.property],
     ...metricCopy(
       'One exact normalized-address OPA parcel and consistent point.',
@@ -185,7 +188,7 @@ async function fetchTransfers(parcelId, { retrievedAt, ...options }) {
   const rows = await queryCarto(`SELECT document_type, display_date, recording_date, document_date,
     adjusted_total_consideration, matched_regmap, discrepancy, property_count FROM rtt_summary
     WHERE opa_account_num = ${sqlLiteral(parcelId)} ORDER BY display_date DESC NULLS LAST LIMIT 12`, options);
-  const maximumAdmittedDate = Date.parse(retrievedAt) + 24 * 60 * 60 * 1000;
+  const maximumAdmittedDate = Date.parse(retrievedAt) + DAY_MS;
   let futureDatedFieldCount = 0;
   const admitDate = (value) => {
     const date = nullableDate(value);
@@ -348,7 +351,7 @@ async function fetchReportedIncidents(lngLat, {
   const coverage = await coverageReader({ request, signal });
   const maximum = new Date(`${coverage.max}T00:00:00.000Z`);
   if (Number.isNaN(maximum.getTime())) throw new TypeError('Crime coverage is invalid.');
-  const end = new Date(maximum.getTime() + 24 * 60 * 60 * 1000);
+  const end = new Date(maximum.getTime() + DAY_MS);
   const start = new Date(end);
   start.setUTCMonth(start.getUTCMonth() - admittedInteger(months, 1, 24));
   const count = await incidentReader({
@@ -562,6 +565,17 @@ function nullableDate(value) {
 
 function metricCopy(coverage, precision, ...limitations) {
   return { coverage, precision, limitations };
+}
+
+function withFutureDatesWithheld(value, fields, maximumTimestamp) {
+  const admitted = { ...value, futureDatedFieldCount: 0 };
+  for (const field of fields) {
+    if (admitted[field] && Date.parse(admitted[field]) > maximumTimestamp) {
+      admitted[field] = null;
+      admitted.futureDatedFieldCount += 1;
+    }
+  }
+  return admitted;
 }
 
 function requiredRetrievalDate(now) {
