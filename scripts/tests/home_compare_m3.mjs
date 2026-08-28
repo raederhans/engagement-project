@@ -400,6 +400,68 @@ test('Home Compare rejects every Unicode control or format character before conc
   }
 });
 
+test('Home Compare rejects affirmative home claims regardless of unrelated disclosure placement', () => {
+  for (const text of [
+    'The home is safest although risk is unavailable.',
+    'The home is safest because evidence is not complete.',
+    'The property is safest despite unknown risk.',
+    'The home is safest, not merely safe.',
+    'Evidence is not complete and your home is safest.',
+    '该住宅最安全，因为风险不可用。',
+    '该住宅最安全，虽然风险不可用。',
+    '风险数据不可用，所以该住宅最安全。',
+    '该住宅最安全且风险不可用。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects active, passive, and reverse causal claims with local negation only', () => {
+  for (const text of [
+    'Crime is reduced by the route.',
+    'Incidents are increased by the property.',
+    'Victimization is prevented by the home.',
+    'Harm is lowered by the route.',
+    '犯罪因该路线而降低。',
+    '受害事件被该住宅防止。',
+    '事件因该区域而增加。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'Crime is not reduced by the route.',
+    'No evidence shows the route reduces crime.',
+    '犯罪没有因该路线而降低。',
+    '没有证据表明该路线降低犯罪。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare admits descriptive safety and risk text without an affirmative predicate', () => {
+  for (const text of [
+    'The product displays public safety and risk context.',
+    'The source reports risk indicators.',
+    'The product compares risk evidence by profile.',
+    'Source coverage includes safety-related public records.',
+    'No evidence shows the route reduces crime.',
+    'There is no proof that the property increases incidents.',
+    '没有证据表明该路线降低犯罪。',
+    '没有证据证明该住宅最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ description: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
 test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
   for (const mutate of [
     (projection) => { projection.commute.status = 'available'; },

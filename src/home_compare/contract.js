@@ -22,10 +22,11 @@ const ROOT_KEYS = ['schema', 'generatedAt', 'status', 'profiles', 'sources', 'ar
 const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
-const CONCLUSION_TARGET = /\b(?:safe(?:r|st)?|safety|risk|victim[- ]probability|caus\w*)\b|安全|风险|因果|导致|造成|受害(?:者)?概率/i;
-const CAUSAL_CONCLUSION = /\b(?:reduc|increas|lower|rais|prevent)\w*.{0,32}\b(?:crime|incidents?|risk|harm|victimization)\b|(?:降低|减少|增加|提高|预防|防止).{0,16}(?:犯罪|事件|风险|伤害|受害)/i;
-const CONCLUSION_DISCLOSURE = /\b(?:not|cannot|can't|unavailable|unknown)\b|不(?:能|可)?|无法|未/i;
-const CONCLUSION_CLAUSE = /[.!?;。！？；]|\b(?:but|however|while|yet|whereas)\b|(?:,? and|,)(?= (?:(?:this|that|the|a|an) (?:home|property|route|area|neighbou?rhood)|it)\b)|但(?:是)?|然而|(?:，?(?:且|同时)|，)(?=(?:该|这|本)..)/i;
+const EFFECT = '(\\b(reduc|increas|lower|rais|prevent)\\w*|降低|减少|增加|提高|预防|防止)';
+const HARM = '(\\b(crime|incident|risk|harm|victim)\\w*|犯罪|事件|风险|伤害|受害)';
+const CONCLUSION_ASSERTION = new RegExp(`(?=(\\b(home|property|route|area) (is|has) (the )?(safe(r|st)?|(low(er|est)?|no)[- ]risk)\\b|\\b(establish|prov|convert).{0,32}(safe|risk|victim|caus)|(${EFFECT}.{0,32}${HARM}|${HARM}.{0,32}${EFFECT})|(住宅|房[屋产]|路线|区域|社区)(是|属于)?((最|更)?安全|(最低|低|无)风险|风险最低)))`, 'gi');
+const DENIED_ASSERTION = /\b(not|can(not|'t))( be| prove (this|the|your)?)?\s*$|(\bno (evidence|proof)|没有证据)[^,.!?;，。！？；]{0,40}$|(不能(证明[该这本]?)?|不|没有|无法)$/i;
+const NEGATED_ASSERTION = /\bnot\b|不|没有|无法/i;
 const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 
 function fail(message) {
@@ -333,11 +334,11 @@ function normalizeWeights(weights, total) {
 }
 
 function rejectUnsafeConclusion(value, label) {
-  const clauses = value.normalize('NFKC').replace(/\s+/g, ' ').split(CONCLUSION_CLAUSE);
-  if (clauses.some((clause) => (
-    CONCLUSION_TARGET.test(clause) || CAUSAL_CONCLUSION.test(clause)
-  ) && !CONCLUSION_DISCLOSURE.test(clause))) {
-    fail(`${label} contains an unsafe conclusion`);
+  const text = value.normalize('NFKC').replace(/\s+/g, ' ');
+  for (const match of text.matchAll(CONCLUSION_ASSERTION)) {
+    const prefix = text.slice(0, match.index).slice(-80);
+    if (NEGATED_ASSERTION.test(match[1]) || DENIED_ASSERTION.test(prefix)) continue;
+    fail(`${label} has an unsafe conclusion`);
   }
 }
 
