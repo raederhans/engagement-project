@@ -39,7 +39,14 @@ const protocolPath = path.join(repoRoot, 'scripts/data/area_intelligence_evaluat
 const legacyProtocolPath = path.join(repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v1.json');
 
 test('M2 evaluation protocol is frozen before performance and preserves claim/admission boundaries', async () => {
-  const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
+  const protocolBytes = await fs.readFile(protocolPath);
+  assert.equal(protocolBytes.includes(13), false, 'protocol bytes must remain LF-only in every checkout');
+  assert.equal(
+    createHash('sha256').update(protocolBytes).digest('hex'),
+    'd7d75ce0eb0aaf80b950aa87125e5a98742dca57db38d22938b3851fed048ff6',
+    'protocol byte identity must be checkout-independent',
+  );
+  const protocol = JSON.parse(protocolBytes.toString('utf8'));
   const legacy = JSON.parse(await fs.readFile(legacyProtocolPath, 'utf8'));
   assert.equal(protocol.schema, 'engagement-area-intelligence-evaluation-protocol/v2');
   assert.equal(protocol.schema_version, 2);
