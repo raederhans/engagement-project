@@ -62,3 +62,5 @@
 - M2 protocol/v1 绑定的是已丢失旧 M1 root；本轮需在任何新 performance 读取前冻结 v2，不能把
   旧 hashes/counts、硬编码 admission 计数或历史 `not-promoted` 当作新运行证据。
 - M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。
+- M4 full builder 仍绑定旧 M1 row/date 常量；进入 M4 时必须迁移为本轮 receipt 驱动且复核
+  canonical bindings，不能把旧数值换成新数值后继续硬编码。
