@@ -12,6 +12,7 @@ import {
   combineHomeCompareSources,
   fetchHomeProfileEvidence,
   loadHomeCompareRegistry,
+  loadM2AreaIntelligenceBoundary,
 } from '../../src/home_compare/api.js';
 import {
   buildWeightSensitivity,
@@ -77,6 +78,10 @@ test('property address and parcel join preserve runtime identity while failing c
     parcelRow({ parcel_number: '987654321' }),
   ] }), hasCode('PARCEL_AMBIGUOUS'));
   assert.throws(() => admitPropertyParcelJoin(address, { rows: [
+    parcelRow(),
+    parcelRow({ market_value: 110000 }),
+  ] }), hasCode('PARCEL_AMBIGUOUS'));
+  assert.throws(() => admitPropertyParcelJoin(address, { rows: [
     parcelRow({ location: '102 TEST ST' }),
   ] }), hasCode('PARCEL_ADDRESS_MISMATCH'));
   assert.throws(() => admitPropertyParcelJoin(address, { rows: [
@@ -99,6 +104,25 @@ test('Home Compare serving projection admits two, three, and four profiles witho
     const serialized = JSON.stringify(projection);
     assert.doesNotMatch(serialized, /"(?:input_address|normalized_address|coordinates|parcel_identifier|source_record_id)"\s*:/i);
     assert.doesNotMatch(serialized, /100 TEST ST/i);
+  }
+});
+
+test('Home Compare controller admits exactly two, three, and four unique parcels', async () => {
+  for (const count of [2, 3, 4]) {
+    let evidenceCalls = 0;
+    const { controller, host } = createControllerHarness({
+      fetchEvidence: async () => {
+        evidenceCalls += 1;
+        return controllerEvidenceResult(evidenceCalls);
+      },
+      loadResultsView: () => ({ homeCompareResultsHtml: () => `<article>${count}</article>` }),
+    });
+    while (controller.getState().addressCount < count) host.querySelector('[data-home-add]').emit('click');
+    setControllerAddresses(host, Array.from({ length: count }, (_, index) => `${index + 1}00 TEST ST`));
+    const completed = await controller.compare();
+    assert.equal(completed.status, 'partial');
+    assert.equal(completed.projection.profiles.length, count);
+    assert.equal(evidenceCalls, count);
   }
 });
 
@@ -140,6 +164,84 @@ test('Home Compare rejects promotion, forecasts, safety claims, and private proj
   const privateField = structuredClone(projection);
   privateField.profiles[0].evidence.property.value.address = '100 TEST ST';
   assert.throws(() => validateHomeCompareProjection(privateField), /forbidden field/i);
+
+  for (const [key, value] of [
+    ['normalizedAddress', '100 TEST ST'],
+    ['lat', 39.95],
+    ['lon', -75.16],
+    ['geometry', { x: -75.16, y: 39.95 }],
+    ['commuteDestination', 'PRIVATE DESTINATION'],
+  ]) {
+    const alias = structuredClone(projection);
+    alias.profiles[0].evidence.property.value[key] = value;
+    assert.throws(
+      () => validateHomeCompareProjection(alias),
+      /forbidden field/i,
+      `${key} must be rejected from serializable comparison artifacts`,
+    );
+  }
+});
+
+test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
+  for (const mutate of [
+    (projection) => { projection.commute.status = 'available'; },
+    (projection) => { projection.commute.authority = 'caller-claimed-graph'; },
+    (projection) => { projection.commute.travelTimes = [{ minutes: 10 }]; },
+    (projection) => { projection.commute.isochrones = [{ minutes: 15 }]; },
+    (projection) => { projection.commute.reason = 'This establishes a low-risk route.'; },
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    mutate(projection);
+    assert.throws(() => validateHomeCompareProjection(projection), /commute|unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits only historical-only M2 and fails current unavailability closed', async () => {
+  const trackedM2 = JSON.parse(await readFile(path.join(repoRoot, 'public/data/area_intelligence_baseline.v1.json'), 'utf8'));
+  const historical = await loadM2AreaIntelligenceBoundary({ request: async () => trackedM2 });
+  const admittedHistorical = structuredClone(makeProjection(2));
+  admittedHistorical.areaIntelligence = historical;
+  assert.equal(validateHomeCompareProjection(admittedHistorical).areaIntelligence.status, 'not-promoted');
+
+  const unsafe = structuredClone(makeProjection(2));
+  unsafe.areaIntelligence.historicalEvidence.limitations = ['This evidence establishes a low-risk area.'];
+  assert.throws(() => validateHomeCompareProjection(unsafe), /unsafe conclusion/i);
+
+  const malformed = structuredClone(makeProjection(2));
+  malformed.areaIntelligence.historicalEvidence.measure = null;
+  assert.throws(() => validateHomeCompareProjection(malformed), /historical evidence contract/i);
+
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    loadAreaIntelligence: async () => unavailableAreaBoundary(),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>must not render</article>' }),
+  });
+  setControllerAddresses(host);
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'source-unavailable' });
+  assert.equal(evidenceCalls, 0, 'an unavailable M2 boundary is rejected before private evidence queries');
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare aborts sibling address work when malformed M2 fails', async () => {
+  const signals = [];
+  const never = deferred();
+  const { controller, host } = createControllerHarness({
+    loadAreaIntelligence: async () => { throw new TypeError('Malformed M2 fixture.'); },
+    resolveAddress: async (_address, { signal }) => {
+      signals.push(signal);
+      return never.promise;
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>must not render</article>' }),
+  });
+  setControllerAddresses(host);
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'source-unavailable' });
+  assert.equal(signals.length, 2);
+  assert.ok(signals.every((signal) => signal.aborted), 'malformed M2 aborts sibling private address requests');
+  assert.equal(controller.getState().hasResult, false);
 });
 
 test('Home Compare rejects caller-tampered profile and root availability states', () => {
@@ -195,6 +297,27 @@ test('weight sensitivity changes evidence emphasis without ranking homes or reco
   assert.equal(sensitivity.perturbationPercent, 20);
   assert.match(sensitivity.interpretation, /do not rank homes/i);
   assert.doesNotMatch(JSON.stringify(sensitivity), /safety[_-]?score|recommendedHome|winner/i);
+
+  const uneven = buildWeightSensitivity({
+    property: 1,
+    costHistory: 1,
+    civicRecords: 1,
+    transportContext: 1,
+    dataQuality: 2,
+  });
+  assert.equal(
+    Object.values(uneven.normalizedWeights).reduce((sum, value) => sum + Math.round(value * 10), 0),
+    1000,
+    'normalized percentages must total exactly 100.0 after rounding',
+  );
+  assert.throws(
+    () => buildWeightSensitivity(Object.fromEntries(HOME_COMPARE_DIMENSIONS.map((key) => [key, 0]))),
+    /at least one weight must be positive/i,
+  );
+  assert.throws(
+    () => buildWeightSensitivity({ ...defaultWeights, property: 20.5 }),
+    /integer from 0 to 100/i,
+  );
 });
 
 test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, and escaped labels', () => {
@@ -279,7 +402,7 @@ test('Home Compare freezes every request input and rejects busy edits before sta
   const { controller, host } = createControllerHarness({
     resolveAddress: async (address) => {
       resolvedAddresses.push(address);
-      return { address };
+      return controllerIdentity(address);
     },
     fetchEvidence: async () => {
       evidenceCalls += 1;
@@ -319,6 +442,115 @@ test('Home Compare freezes every request input and rejects busy edits before sta
   assert.equal(completed.projection.sensitivity.normalizedWeights.property, 20, 'projection sensitivity uses the immutable request snapshot');
   assert.equal(host.querySelector('[data-home-address="0"]').value, '100 TEST ST');
   assert.equal(host.querySelector('[data-home-destinations]').value, 'Original destination');
+});
+
+test('Home Compare rejects duplicate parcel identities before evidence queries', async () => {
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    resolveAddress: async (address) => controllerIdentity(address, '111111111'),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>should not render</article>' }),
+  });
+  setControllerAddresses(host);
+
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'parcel-duplicate' });
+  assert.equal(evidenceCalls, 0);
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare rejects duplicate normalized addresses even if a hostile resolver changes parcel identity', async () => {
+  let resolution = 0;
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    resolveAddress: async () => controllerIdentity('100 TEST ST', resolution++ === 0 ? '111111111' : '222222222'),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>should not render</article>' }),
+  });
+  setControllerAddresses(host, ['100 TEST ST', '100 TEST ST']);
+
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'address-duplicate' });
+  assert.equal(evidenceCalls, 0);
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare supersedes an old address session before stale evidence work or commit', async () => {
+  const oldIdentities = [deferred(), deferred()];
+  let oldIndex = 0;
+  const evidenceParcels = [];
+  const { controller, dialog, host } = createControllerHarness({
+    resolveAddress: async (address) => {
+      if (address.startsWith('OLD')) return oldIdentities[oldIndex++].promise;
+      return controllerIdentity(address, address.endsWith('A') ? '222222222' : '333333333');
+    },
+    fetchEvidence: async (identity) => {
+      evidenceParcels.push(identity.parcelId);
+      return {
+        ...controllerEvidenceResult(evidenceParcels.length),
+        privateLabel: identity.displayAddress,
+      };
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: (_projection, { labels }) => `<article>${labels.join('|')}</article>` }),
+  });
+  setControllerAddresses(host, ['OLD A', 'OLD B']);
+  const oldCompare = controller.compare();
+  await waitFor(() => oldIndex === 2);
+  host.querySelector('[data-home-close]').emit('click');
+  await nextTurn();
+
+  controller.open();
+  setControllerAddresses(host, ['NEW A', 'NEW B']);
+  const current = await controller.compare();
+  assert.equal(current.status, 'partial');
+  assert.deepEqual(evidenceParcels, ['222222222', '333333333']);
+
+  oldIdentities[0].resolve(controllerIdentity('OLD A', '444444444'));
+  oldIdentities[1].resolve(controllerIdentity('OLD B', '555555555'));
+  assert.deepEqual(await oldCompare, { status: 'superseded' });
+  assert.deepEqual(evidenceParcels, ['222222222', '333333333'], 'stale identities cannot launch evidence queries');
+  assert.equal(controller.getState().hasResult, true);
+  assert.match(host.querySelector('[data-home-results]').innerHTML, /NEW A\|NEW B/);
+  dialog.close();
+});
+
+test('Home Compare shares only non-location settings and uses no persistent browser storage or logging', async () => {
+  const copied = [];
+  const replacements = [];
+  const { controller, host } = createControllerHarness({
+    clipboard: { writeText: async (value) => { copied.push(value); } },
+    historyRef: { replaceState: (state, title, url) => { replacements.push({ state, title, url: String(url) }); } },
+    locationRef: { href: 'https://example.test/compare?legacy=private#old' },
+  });
+  setControllerAddresses(host, ['PRIVATE HOME A', 'PRIVATE HOME B']);
+  const destinations = host.querySelector('[data-home-destinations]');
+  destinations.value = 'PRIVATE DESTINATION';
+  destinations.emit('input');
+  host.querySelector('[data-home-share]').emit('click');
+  await waitFor(() => copied.length === 1 && replacements.length === 1);
+
+  const serializedEffects = JSON.stringify({ copied, replacements });
+  assert.doesNotMatch(serializedEffects, /PRIVATE HOME|PRIVATE DESTINATION|legacy=private|#old/i);
+  assert.deepEqual(replacements[0].state, {});
+  const sharedUrl = new URL(copied[0]);
+  assert.deepEqual([...sharedUrl.searchParams.keys()], ['hc']);
+  assert.equal(sharedUrl.hash, '');
+  assert.deepEqual(decodeHomeCompareShareState(sharedUrl.searchParams.get('hc')).weights, defaultWeights);
+  assert.equal(controller.getState().status, 'shared');
+
+  const runtimeSource = await Promise.all([
+    'src/home_compare/address.js',
+    'src/home_compare/contract.js',
+    'src/home_compare/controller.js',
+  ].map((file) => readFile(path.join(repoRoot, file), 'utf8')));
+  assert.doesNotMatch(
+    runtimeSource.join('\n'),
+    /\b(?:localStorage|sessionStorage|indexedDB|sendBeacon|console\.(?:log|info|warn|error)|telemetry)\b/,
+  );
 });
 
 test('Home Compare renderer execution failures stay results-unavailable and recover with a healthy retry', async () => {
@@ -597,6 +829,23 @@ function areaBoundary() {
   };
 }
 
+function unavailableAreaBoundary() {
+  return {
+    status: 'unavailable',
+    historicalEvidence: {
+      status: 'unavailable',
+      measure: null,
+      coverage: 'Current M2 serving evidence is unavailable.',
+      limitations: ['Unavailable is not zero and does not establish safety, causality, or risk.'],
+    },
+    forecast: {
+      status: 'unavailable',
+      reason: 'current-m2-serving-evidence-unavailable',
+      predictions: [],
+    },
+  };
+}
+
 function candidate({
   address = '100 TEST ST, 19100',
   score = 100,
@@ -701,7 +950,11 @@ function hasCode(code) {
 function createControllerHarness({
   loadResultsView,
   fetchEvidence = async () => controllerEvidenceResult(1),
-  resolveAddress = async (address) => ({ address }),
+  resolveAddress = async (address) => controllerIdentity(address),
+  loadAreaIntelligence = async () => areaBoundary(),
+  clipboard,
+  locationRef = { href: 'https://example.test/' },
+  historyRef = { replaceState() {} },
 } = {}) {
   const host = new ControllerHost();
   const dialog = new ControllerDialog(host);
@@ -709,13 +962,23 @@ function createControllerHarness({
     dialog,
     loadResultsView,
     loadRegistry: async () => registry,
-    loadAreaIntelligence: async () => areaBoundary(),
+    loadAreaIntelligence,
     resolveAddress,
     fetchEvidence,
-    locationRef: { href: 'https://example.test/' },
-    historyRef: { replaceState() {} },
+    clipboard,
+    locationRef,
+    historyRef,
   });
   return { controller, dialog, host };
+}
+
+function controllerIdentity(address, parcelId = null) {
+  const digits = address.match(/\d+/)?.[0] || '1';
+  return {
+    normalizedAddress: address,
+    displayAddress: address,
+    parcelId: parcelId || digits.padStart(9, '0').slice(-9),
+  };
 }
 
 function controllerEvidenceResult(index) {
@@ -732,8 +995,8 @@ function controllerEvidenceResult(index) {
   };
 }
 
-function setControllerAddresses(host) {
-  for (const [index, value] of ['100 TEST ST', '200 TEST ST'].entries()) {
+function setControllerAddresses(host, values = ['100 TEST ST', '200 TEST ST']) {
+  for (const [index, value] of values.entries()) {
     const input = host.querySelector(`[data-home-address="${index}"]`);
     input.value = value;
     input.emit('input');
@@ -785,7 +1048,7 @@ class ControllerElement {
   }
 
   emit(type) {
-    for (const listener of this.#listeners.get(type) || []) listener({ currentTarget: this, target: this });
+    for (const listener of [...(this.#listeners.get(type) || [])]) listener({ currentTarget: this, target: this });
   }
 
   replaceChildren() {

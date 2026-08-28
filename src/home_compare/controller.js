@@ -12,6 +12,7 @@ import {
   decodeHomeCompareShareState,
   encodeHomeCompareShareState,
   HOME_COMPARE_DIMENSIONS,
+  validateHomeCompareAreaIntelligenceBoundary,
 } from './contract.js';
 import {
   getHomeCompareCopy,
@@ -262,7 +263,10 @@ export function createHomeCompareController({
         loadAreaIntelligence({ signal: activeRequestController.signal }),
         Promise.all(request.addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
       ]);
-      const results = await Promise.all(identities.map((identity) => fetchEvidence(identity, {
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
+      const admittedAreaIntelligence = validateHomeCompareAreaIntelligenceBoundary(areaIntelligence);
+      const admittedIdentities = admitComparisonIdentities(identities);
+      const results = await Promise.all(admittedIdentities.map((identity) => fetchEvidence(identity, {
         signal: activeRequestController.signal,
       })));
       if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
@@ -273,7 +277,7 @@ export function createHomeCompareController({
       const projection = createHomeCompareProjection({
         profiles,
         sources: await combineHomeCompareSources(registry, results),
-        areaIntelligence,
+        areaIntelligence: admittedAreaIntelligence,
         sensitivity: buildWeightSensitivity(request.weights),
       });
       const labels = results.map(({ privateLabel }) => privateLabel);
@@ -306,6 +310,7 @@ export function createHomeCompareController({
       return { status: projection.status, projection };
     } catch (error) {
       if (requestGeneration !== generation || activeRequestController.signal.aborted || error?.name === 'AbortError') return { status: 'superseded' };
+      activeRequestController.abort();
       if (requestController === activeRequestController) requestController = null;
       if (error?.code === 'RESULTS_VIEW_UNAVAILABLE') setResultsUnavailable(error);
       else {
@@ -412,9 +417,11 @@ function getStatusMessages(locale) {
       'invalid-destinations': '通勤目的地最多 3 个，每个不超过 160 个字符。',
       'address-low-confidence': '地址匹配分数不足；请补充完整街道地址。',
       'address-ambiguous': '存在多个高分地址候选；请细化地址。',
+      'address-duplicate': '多个住宅解析为同一个规范化地址，已 fail closed。',
       'address-geography-conflict': '等价地址候选的地理位置不一致，已 fail closed。',
       'parcel-missing': '没有找到精确 OPA parcel 关联，已 fail closed。',
       'parcel-ambiguous': '地址关联到多个 parcel，已 fail closed。',
+      'parcel-duplicate': '多个住宅解析为同一个 parcel，已 fail closed。',
       'parcel-address-mismatch': 'geocoder 与 OPA 地址不一致，已 fail closed。',
       'parcel-geography-mismatch': 'geocoder 与 OPA 地理位置不一致，已 fail closed。',
       'source-unavailable': '至少一个必需来源或合同不可用；没有用零值或 mock 替代。',
@@ -431,9 +438,11 @@ function getStatusMessages(locale) {
     'invalid-destinations': 'Use no more than 3 commute destinations, each under 160 characters.',
     'address-low-confidence': 'The address score is too low; provide a complete street address.',
     'address-ambiguous': 'Multiple high-confidence addresses remain; refine the address.',
+    'address-duplicate': 'Multiple homes resolve to the same normalized address; the request failed closed.',
     'address-geography-conflict': 'Equivalent address candidates disagree geographically; the request failed closed.',
     'parcel-missing': 'No exact OPA parcel join was found; the request failed closed.',
     'parcel-ambiguous': 'The address joins to multiple parcels; the request failed closed.',
+    'parcel-duplicate': 'Multiple homes resolve to the same parcel; the request failed closed.',
     'parcel-address-mismatch': 'City geocoder and OPA addresses disagree; the request failed closed.',
     'parcel-geography-mismatch': 'City geocoder and OPA geography disagree; the request failed closed.',
     'source-unavailable': 'A required source or contract is unavailable; no zero or mock was substituted.',
@@ -443,6 +452,38 @@ function getStatusMessages(locale) {
     'invalid-share': 'Invalid shared settings were rejected.',
     'share-failed': 'The settings link could not be copied; addresses and destinations were not written to the URL.',
   };
+}
+
+function admitComparisonIdentities(identities) {
+  if (!Array.isArray(identities) || identities.length < 2 || identities.length > 4) {
+    const error = new TypeError('Home Compare requires two to four admitted property identities.');
+    error.code = 'PARCEL_JOIN_INPUT_INVALID';
+    throw error;
+  }
+  const parcelIds = new Set();
+  const normalizedAddresses = new Set();
+  for (const identity of identities) {
+    if (!identity || typeof identity !== 'object'
+      || !/^\d{6,16}$/.test(identity.parcelId || '')
+      || typeof identity.normalizedAddress !== 'string' || !identity.normalizedAddress.trim()) {
+      const error = new TypeError('Home Compare requires admitted address and parcel identities.');
+      error.code = 'PARCEL_JOIN_INPUT_INVALID';
+      throw error;
+    }
+    if (normalizedAddresses.has(identity.normalizedAddress)) {
+      const error = new TypeError('Home Compare property identities must resolve to unique normalized addresses.');
+      error.code = 'ADDRESS_DUPLICATE';
+      throw error;
+    }
+    if (parcelIds.has(identity.parcelId)) {
+      const error = new TypeError('Home Compare property identities must resolve to unique parcels.');
+      error.code = 'PARCEL_DUPLICATE';
+      throw error;
+    }
+    normalizedAddresses.add(identity.normalizedAddress);
+    parcelIds.add(identity.parcelId);
+  }
+  return identities;
 }
 
 function createResultsViewUnavailableError(cause) {

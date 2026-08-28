@@ -23,7 +23,8 @@ const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
 const FORBIDDEN_KEY = /(?:^|_)(?:safety[_-]?score|victim[_-]?probability|safest[_-]?(?:area|route)|route[_-]?recommendation|automatic[_-]?recommendation)(?:$|_)/i;
-const PRIVATE_KEY = /(?:^|_)(?:address|coordinates?|lnglat|latitude|longitude|parcel(?:id|identifier)?|opa[_-]?(?:id|account)|destination|source[_-]?record[_-]?id|owner|grantor|grantee|case[_-]?identifier|document[_-]?identifier)(?:$|_)/i;
+const PRIVATE_KEY = /(?:^|[_-])(?:(?:input|normalized|display)?[_-]?address(?:es)?|coordinates?|lng[_-]?lat|lat(?:itude)?|lon(?:gitude)?|geometry|point[_-]?[xy]|[xy]|(?:generalized[_-]?)?location(?:[_-]?block)?|parcel(?:[_-]?(?:id|identifier|number))?|opa[_-]?(?:id|account(?:[_-]?number)?)|(?:commute[_-]?)?destination(?:s)?|source[_-]?record[_-]?id|owner|grantor|grantee|case[_-]?identifier|document[_-]?identifier)(?:$|[_-])/i;
+const UNSAFE_CONCLUSION = /\b(?:low[- ]risk|no[- ]risk)\b|\b(?:establishes?|shows?|proves?|indicates?|means?|ranks?|recommends?)\b.{0,48}\b(?:safe|safer|safest|low[- ]risk|no[- ]risk|victim probability)\b|\b(?:causes?|causal effect|reduces?|increases?)\b.{0,48}\b(?:harm|crime|risk|incident)/i;
 
 function fail(message) {
   throw new TypeError(`Invalid Home Compare artifact: ${message}`);
@@ -183,10 +184,7 @@ export function createEvidenceMetric({
 export function buildWeightSensitivity(weights) {
   const admitted = admitWeights(weights);
   const total = Object.values(admitted).reduce((sum, value) => sum + value, 0);
-  const normalizedWeights = Object.fromEntries(HOME_COMPARE_DIMENSIONS.map((key) => [
-    key,
-    Math.round((admitted[key] / total) * 1000) / 10,
-  ]));
+  const normalizedWeights = normalizeWeights(admitted, total);
   const topDimensions = orderedDimensions(admitted).slice(0, 2);
   const scenarioTops = [];
   for (const key of HOME_COMPARE_DIMENSIONS) {
@@ -263,6 +261,10 @@ function validateAreaIntelligence(value) {
   }
   boundedText(value.historicalEvidence.coverage, 600, 'areaIntelligence.historicalEvidence.coverage');
   stringArray(value.historicalEvidence.limitations, 'areaIntelligence.historicalEvidence.limitations');
+  rejectUnsafeConclusion(value.historicalEvidence.coverage, 'areaIntelligence.historicalEvidence.coverage');
+  value.historicalEvidence.limitations.forEach((limitation, index) => {
+    rejectUnsafeConclusion(limitation, `areaIntelligence.historicalEvidence.limitations[${index}]`);
+  });
   exactObject(value.forecast, ['status', 'reason', 'predictions'], 'areaIntelligence.forecast');
   if (value.forecast.status !== 'unavailable' || value.forecast.reason !== 'model-did-not-exceed-predefined-seasonal-baseline'
     || !Array.isArray(value.forecast.predictions) || value.forecast.predictions.length !== 0) {
@@ -278,6 +280,12 @@ function validateCommute(value) {
     fail('commute must remain unavailable without travel times or isochrones');
   }
   boundedText(value.reason, 600, 'commute.reason');
+  rejectUnsafeConclusion(value.reason, 'commute.reason');
+}
+
+export function validateHomeCompareAreaIntelligenceBoundary(value) {
+  validateAreaIntelligence(value);
+  return structuredClone(value);
 }
 
 function validateSensitivity(value) {
@@ -311,6 +319,24 @@ function admitWeights(value) {
 
 function orderedDimensions(weights) {
   return [...HOME_COMPARE_DIMENSIONS].sort((left, right) => weights[right] - weights[left] || left.localeCompare(right));
+}
+
+function normalizeWeights(weights, total) {
+  const allocations = HOME_COMPARE_DIMENSIONS.map((key, index) => {
+    const exactTenths = (weights[key] / total) * 1000;
+    const tenths = Math.floor(exactTenths);
+    return { key, index, tenths, remainder: exactTenths - tenths };
+  });
+  const remaining = 1000 - allocations.reduce((sum, allocation) => sum + allocation.tenths, 0);
+  const byRemainder = [...allocations].sort((left, right) => (
+    right.remainder - left.remainder || left.index - right.index
+  ));
+  for (let index = 0; index < remaining; index += 1) byRemainder[index].tenths += 1;
+  return Object.freeze(Object.fromEntries(allocations.map(({ key, tenths }) => [key, tenths / 10])));
+}
+
+function rejectUnsafeConclusion(value, label) {
+  if (UNSAFE_CONCLUSION.test(value)) fail(`${label} contains an unsafe conclusion`);
 }
 
 function exactObject(value, keys, label, namespace = 'artifact') {
