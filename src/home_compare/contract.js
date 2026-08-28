@@ -22,7 +22,10 @@ const ROOT_KEYS = ['schema', 'generatedAt', 'status', 'profiles', 'sources', 'ar
 const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
-const UNSAFE_CONCLUSION = /\b(?:low[- ]risk|no[- ]risk)\b|\b(?:establishes?|shows?|proves?|indicates?|means?|ranks?|recommends?)\b.{0,48}\b(?:safe|safer|safest|low[- ]risk|no[- ]risk|victim probability)\b|\b(?:causes?|causal effect|reduces?|increases?)\b.{0,48}\b(?:harm|crime|risk|incident)/i;
+const CONCLUSION_TARGET = /\b(?:safe(?:r|st)?|safety|risk|victim[- ]probability|caus\w*)\b|安全|风险|因果|导致|造成|受害(?:者)?概率/i;
+const CONCLUSION_DISCLOSURE = /\b(?:(?:do(?:es)? not|cannot|can't)(?: be)? (?:prov\w*|establish\w*|show\w*|mean\w*|imply\w*|rank\w*|recommend\w*|convert\w*|used|treated|read)|not (?:an? )?(?:(?:complete|individual|personal|address(?:-level)?|absolute) )*(?:account|risk|safe\w*)|unavailable|unknown)\b|(?:(?:并)?不(?:能)?|无法|不可)(?:[证表说]明|意味(?:着)?|推断|转[换化]|用于|视为|构成|代表|预测|推荐|排名|安全|风险)|未(?:证明|建立|知)|不可用/i;
+const CONCLUSION_CLAUSE = /[.!?;。！？；]|\b(?:but|however|and(?= (?:this|that|it)\b))\b|但(?:是)?|然而/i;
+const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 
 function fail(message) {
   throw new TypeError(`Invalid Home Compare artifact: ${message}`);
@@ -329,7 +332,10 @@ function normalizeWeights(weights, total) {
 }
 
 function rejectUnsafeConclusion(value, label) {
-  if (UNSAFE_CONCLUSION.test(value)) fail(`${label} contains an unsafe conclusion`);
+  const clauses = value.normalize('NFKC').replace(/\s+/g, ' ').split(CONCLUSION_CLAUSE);
+  if (clauses.some((clause) => CONCLUSION_TARGET.test(clause) && !CONCLUSION_DISCLOSURE.test(clause))) {
+    fail(`${label} contains an unsafe conclusion`);
+  }
 }
 
 function normalizeKeyTokens(key) {
@@ -337,19 +343,22 @@ function normalizeKeyTokens(key) {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
+    .match(/[a-z0-9]+/g) ?? [];
+}
+
+function hasAny(tokenSet, ...tokens) {
+  return tokens.some((token) => tokenSet.has(token));
 }
 
 function isPrivateFieldKey(key) {
   const tokens = normalizeKeyTokens(key);
   const tokenSet = new Set(tokens);
-  if (tokens.some((token) => ['address', 'addresses', 'coordinate', 'coordinates', 'latitude', 'longitude', 'lat', 'lon', 'lng', 'lnglat', 'geometry', 'parcel', 'destination', 'destinations', 'owner', 'grantor', 'grantee'].includes(token))) return true;
-  if (tokenSet.has('opa') && (tokenSet.has('account') || tokenSet.has('id') || tokenSet.has('identifier'))) return true;
-  if (tokenSet.has('source') && tokenSet.has('record') && (tokenSet.has('id') || tokenSet.has('identifier'))) return true;
-  if ((tokenSet.has('case') || tokenSet.has('document')) && (tokenSet.has('id') || tokenSet.has('identifier'))) return true;
-  if (tokenSet.has('point') && (tokenSet.has('x') || tokenSet.has('y'))) return true;
-  if (tokenSet.has('location') && (tokens.length === 1 || tokenSet.has('normalized') || tokenSet.has('generalized') || tokenSet.has('block'))) return true;
+  if (tokens.some((token) => PRIVATE_TOKEN.test(token))) return true;
+  if (tokenSet.has('opa') && hasAny(tokenSet, 'account', 'acct', 'id', 'identifier')) return true;
+  if (tokenSet.has('source') && tokenSet.has('record') && hasAny(tokenSet, 'id', 'identifier')) return true;
+  if (hasAny(tokenSet, 'case', 'document') && hasAny(tokenSet, 'id', 'identifier')) return true;
+  if (tokenSet.has('point') && hasAny(tokenSet, 'x', 'y')) return true;
+  if (tokenSet.has('location') && (tokens.length === 1 || hasAny(tokenSet, 'normalized', 'generalized', 'block'))) return true;
   return false;
 }
 
@@ -357,20 +366,19 @@ function isForbiddenFieldKey(key) {
   const tokenSet = new Set(normalizeKeyTokens(key));
   return (tokenSet.has('safety') && tokenSet.has('score'))
     || (tokenSet.has('victim') && tokenSet.has('probability'))
-    || (tokenSet.has('safest') && (tokenSet.has('area') || tokenSet.has('route')))
+    || (tokenSet.has('safest') && hasAny(tokenSet, 'area', 'route'))
     || (tokenSet.has('route') && tokenSet.has('recommendation'))
     || (tokenSet.has('automatic') && tokenSet.has('recommendation'));
 }
 
 function exactObject(value, keys, label, namespace = 'artifact') {
+  const prefix = namespace === 'share' ? 'Invalid Home Compare share state' : 'Invalid Home Compare artifact';
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    const prefix = namespace === 'share' ? 'Invalid Home Compare share state' : 'Invalid Home Compare artifact';
     throw new TypeError(`${prefix}: ${label} must be an object.`);
   }
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
-    const prefix = namespace === 'share' ? 'Invalid Home Compare share state' : 'Invalid Home Compare artifact';
     throw new TypeError(`${prefix}: ${label} fields are invalid.`);
   }
 }
@@ -423,7 +431,7 @@ function httpsUrl(value, label) {
 function validateJsonValue(value, label, depth) {
   if (value === null || typeof value === 'boolean') return;
   if (typeof value === 'string') {
-    rejectUnsafeConclusion(value, label);
+    boundedConclusionText(value, 800, label);
     return;
   }
   if (typeof value === 'number') {

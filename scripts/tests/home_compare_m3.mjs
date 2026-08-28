@@ -211,6 +211,32 @@ test('Home Compare normalizes private field keys across naming styles without re
   assert.doesNotThrow(() => validateHomeCompareProjection(ordinary));
 });
 
+test('Home Compare rejects plural private aliases and OPA account abbreviations recursively', () => {
+  const privateAliases = [
+    'owners', 'grantors', 'grantees', 'parcels',
+    'opaAcctNum', 'opa_acct_num', 'opa-acct-num',
+  ];
+  for (const key of privateAliases) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [
+      { publicSummary: { [key]: ['private identity'] } },
+    ];
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /forbidden field/i,
+      `${key} must fail closed inside nested arrays and objects`,
+    );
+  }
+
+  const ordinary = structuredClone(makeProjection(2));
+  ordinary.profiles[0].evidence.property.value.details = [{
+    sourceId: 'public-aggregate-source',
+    source_id: 'public-aggregate-source',
+    ownership: 'non-identifying aggregate category',
+  }];
+  assert.doesNotThrow(() => validateHomeCompareProjection(ordinary));
+});
+
 test('Home Compare rejects unsafe conclusions from every user-visible text container', () => {
   const hostile = 'This proves this home is the safest.';
   const mutators = [
@@ -237,6 +263,71 @@ test('Home Compare rejects unsafe conclusions from every user-visible text conta
   legitimate.profiles[0].limitations = ['Missing evidence is unavailable, not zero.'];
   legitimate.limitations = ['The comparison does not establish causality, suitability, or personal risk.'];
   assert.doesNotThrow(() => validateHomeCompareProjection(legitimate));
+});
+
+test('Home Compare applies clause-aware bilingual conclusion semantics and bounds nested text', () => {
+  const hostileConclusions = [
+    'This home is the safest.',
+    'This home has the lowest risk.',
+    'This proves\nthis home is the safest.',
+    'This does not prove this home is safe, but this home is the safest.',
+    'This does not prove this home is safe; however, this home has the lowest risk.',
+    '这证明该住宅最安全。',
+    '这不能证明该住宅安全，但该住宅最安全。',
+    '这不能证明该住宅安全；然而该住宅属于最低风险。',
+  ];
+  for (const text of hostileConclusions) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /invalid|unsafe conclusion/i,
+      `${JSON.stringify(text)} must fail closed`,
+    );
+  }
+
+  for (const text of [
+    'This does not prove this home is safe.',
+    '这不能证明该住宅安全。',
+    'Feature proximity cannot be converted into victim probability or a safety conclusion.',
+    'HIN is crash-derived road context, not address risk, probability, or a ranking.',
+    'Targets are weekly counts, not a complete account of harm, individual victim probability, or absolute safety.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(
+      () => validateHomeCompareProjection(projection),
+      `${JSON.stringify(text)} is a legitimate limitation`,
+    );
+  }
+
+  for (const text of ['', `bounded${String.fromCharCode(0)}escape`, 'x'.repeat(801)]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ note: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /invalid/i);
+  }
+});
+
+test('Home Compare admits direct English and Chinese negation disclosures', () => {
+  for (const text of [
+    'This home is not safe.',
+    '该住宅并不安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare does not let unavailable evidence mask a later affirmative conclusion', () => {
+  for (const text of [
+    'Risk is unavailable and this home is the safest.',
+    '该区域风险数据不可用，但该住宅最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
 });
 
 test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
