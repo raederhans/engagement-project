@@ -330,6 +330,76 @@ test('Home Compare does not let unavailable evidence mask a later affirmative co
   }
 });
 
+test('Home Compare scopes disclosures across common English and Chinese clause boundaries', () => {
+  for (const text of [
+    'This cannot prove safety and the home is the safest.',
+    'Risk is unavailable, while the property is the safest.',
+    'This home is not safe, and the route is safest.',
+    'This cannot prove safety, the property is safest.',
+    '风险不可用，且该住宅最安全。',
+    '该路线并不安全，同时该路线风险最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'Risk and safety are unavailable.',
+    'Reported incidents are incomplete history, not individual risk, absolute safety, or a forecast.',
+    '风险和安全结论均不可用。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects affirmative causal claims and preserves explicit causal negation', () => {
+  for (const text of [
+    'The route reduces crime.',
+    'The property increases incidents.',
+    'The home prevents victimization.',
+    'The route lowers risk.',
+    'The property raises harm.',
+    '该路线降低犯罪。',
+    '该住宅减少受害事件。',
+    '该区域增加风险。',
+    '该住宅提高受害概率。',
+    '该路线预防犯罪。',
+    '该住宅防止受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'The route does not reduce crime.',
+    'The property cannot increase incidents.',
+    '该路线不能降低犯罪。',
+    '该住宅不减少受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects every Unicode control or format character before conclusion checks', () => {
+  for (const text of [
+    `bounded${String.fromCodePoint(0x7f)}escape`,
+    `bounded${String.fromCodePoint(0x85)}escape`,
+    `bounded${String.fromCodePoint(0x200b)}escape`,
+    `saf${String.fromCodePoint(0x7f)}est`,
+    `saf${String.fromCodePoint(0x200b)}est`,
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /invalid/i);
+  }
+});
+
 test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
   for (const mutate of [
     (projection) => { projection.commute.status = 'available'; },

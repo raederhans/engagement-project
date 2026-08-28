@@ -23,8 +23,9 @@ const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
 const CONCLUSION_TARGET = /\b(?:safe(?:r|st)?|safety|risk|victim[- ]probability|caus\w*)\b|安全|风险|因果|导致|造成|受害(?:者)?概率/i;
-const CONCLUSION_DISCLOSURE = /\b(?:(?:do(?:es)? not|cannot|can't)(?: be)? (?:prov\w*|establish\w*|show\w*|mean\w*|imply\w*|rank\w*|recommend\w*|convert\w*|used|treated|read)|not (?:an? )?(?:(?:complete|individual|personal|address(?:-level)?|absolute) )*(?:account|risk|safe\w*)|unavailable|unknown)\b|(?:(?:并)?不(?:能)?|无法|不可)(?:[证表说]明|意味(?:着)?|推断|转[换化]|用于|视为|构成|代表|预测|推荐|排名|安全|风险)|未(?:证明|建立|知)|不可用/i;
-const CONCLUSION_CLAUSE = /[.!?;。！？；]|\b(?:but|however|and(?= (?:this|that|it)\b))\b|但(?:是)?|然而/i;
+const CAUSAL_CONCLUSION = /\b(?:reduc|increas|lower|rais|prevent)\w*.{0,32}\b(?:crime|incidents?|risk|harm|victimization)\b|(?:降低|减少|增加|提高|预防|防止).{0,16}(?:犯罪|事件|风险|伤害|受害)/i;
+const CONCLUSION_DISCLOSURE = /\b(?:not|cannot|can't|unavailable|unknown)\b|不(?:能|可)?|无法|未/i;
+const CONCLUSION_CLAUSE = /[.!?;。！？；]|\b(?:but|however|while|yet|whereas)\b|(?:,? and|,)(?= (?:(?:this|that|the|a|an) (?:home|property|route|area|neighbou?rhood)|it)\b)|但(?:是)?|然而|(?:，?(?:且|同时)|，)(?=(?:该|这|本)..)/i;
 const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 
 function fail(message) {
@@ -333,7 +334,9 @@ function normalizeWeights(weights, total) {
 
 function rejectUnsafeConclusion(value, label) {
   const clauses = value.normalize('NFKC').replace(/\s+/g, ' ').split(CONCLUSION_CLAUSE);
-  if (clauses.some((clause) => CONCLUSION_TARGET.test(clause) && !CONCLUSION_DISCLOSURE.test(clause))) {
+  if (clauses.some((clause) => (
+    CONCLUSION_TARGET.test(clause) || CAUSAL_CONCLUSION.test(clause)
+  ) && !CONCLUSION_DISCLOSURE.test(clause))) {
     fail(`${label} contains an unsafe conclusion`);
   }
 }
@@ -388,7 +391,7 @@ function enumValue(value, allowed, label) {
 }
 
 function boundedText(value, maximum, label) {
-  if (typeof value !== 'string' || !value.trim() || value.length > maximum || /[\u0000-\u001f]/.test(value)) fail(`${label} is invalid`);
+  if (typeof value !== 'string' || !value.trim() || value.length > maximum || /[\p{Cc}\p{Cf}]/u.test(value)) fail(`${label} is invalid`);
 }
 
 function stringArray(value, label) {
