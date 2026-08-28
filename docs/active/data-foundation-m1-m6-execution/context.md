@@ -26,23 +26,26 @@
 | 2026-08-28 | M1-4 (`01a048ac-1559-7323-a9a8-ad3598754140`) 对 `9d93df2..5d1b0d8` 独立审查并给出 REQUEST CHANGES。 | 完整 backfill 继续暂停；不得用绿色既有测试越过 P1 blocker。 |
 | 2026-08-28 | Hostile overlap 复现证明：篡改一个不被下一 snapshot 覆盖的旧 canonical event 后，ingest 仍成功、保留伪造值并生成新的 partition binding。 | 任何 ingest 前必须先机械校验 manifest/lineage 与实际 canonical rowCount/bytes/SHA256；需补内容篡改、partition missing、非当前 vintage replay 回归。 |
 | 2026-08-28 | M1-1 已把 `3837512`、`35c6cee` 同步为 detached `4c9abe2`，与监督 `5d1b0d8` 的代码/契约树等价；13/13 + ESLint + diff-check 通过。 | 候选新根仍不存在，任务等待修复后的最终 GO。 |
+| 2026-08-28 | M1-2 修复 source-final `34b90bd`（parent `3837512`）将 actual canonical scan 提升为所有 existing-warehouse ingest 的统一前置 gate；监督整合为 `037c615`。 | manifest/lineage/partition set/JSON parse/actual rows/bytes/SHA256/warehouse row count 任一漂移均在 transaction 前失败。 |
+| 2026-08-28 | 合并树 `test:data-pipeline` 72/72、目标 ESLint、diff-check 通过；M1-4 证明 `037c615` 与 `34b90bd` stable patch-id 相同，原 hostile repro 现拒绝且不留 transaction。 | M1-4 代码门禁 PASS，允许开始重建；不等于数据门禁 PASS。 |
+| 2026-08-28 | M1-1 同步为 detached `8325842`，产品代码树与监督 `037c615` 等价；正式根冻结为 `event-warehouse-v1-2006-through-2026-08-28-source-final-037c615`。 | 旧 partial 继续保留；正式首轮成为唯一 live writer。 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | task-owned `.dfev1` and `logs/` | detached `4c9abe2`; paused on M1-4 P1 blocker |
-| M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | active; repairing pre-ingest canonical verification |
+| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | `.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-source-final-037c615/logs/run1.*` | active; detached `8325842`, unique owner, first full run |
+| M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; repair source-final `34b90bd` |
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | complete; source-final `35c6cee` |
-| M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | REQUEST CHANGES on `5d1b0d8`; read-only |
+| M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data review pending |
 
 ## Handoff
 
-阶段尚未完成。M1-4 已证明 `5d1b0d8` 存在 overlap canonical drift re-signing blocker。
-只有修复整合且复审 PASS、M1-1 从新根生成完整 receipt/manifest/checkpoint/lineage/DQ，
-并由 M1-4 独立数据门禁 PASS 后，才能创建 M2 新任务。
+阶段尚未完成。代码 blocker 已在 `037c615` 关闭且复审 PASS。M1-1 正在全新根生成
+完整 receipt/manifest/checkpoint/lineage/DQ；只有 exact rerun、validate-only 与 M1-4 独立数据门禁
+全部 PASS 后，才能创建 M2 新任务。
 
 ## Next step
 
-等待 M1-2 的 pre-ingest canonical verification 修复 source-final；整合并联合验证后让 M1-4 复审。
-只有复审 PASS 才同步 M1-1 并在全新数据根执行完整重建、同命令幂等复跑和 validate-only。
+由 M1-1 唯一监控首轮 full backfill；监督线程只读取已落盘快照。首轮 21/21 + receipt/DQ
+通过后执行 exact-command rerun 与 validate-only，再把根路径交给 M1-4 做最终数据门禁。
