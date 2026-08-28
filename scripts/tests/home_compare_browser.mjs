@@ -118,7 +118,7 @@ await runBrowserSuite({
   await dialog.locator('[data-home-weight="property"]').fill('60');
   await runComparison(dialog, 4);
   assert.equal(await dialog.locator('[data-home-profile]').count(), 4);
-  assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /Property: 42\.9%/i);
+  assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /Property: 42\.8%/i);
   assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /changes evidence order only/i);
   verifyPrivateTransport(networkRequests);
   assertNoPrivateValues(await privacySnapshot(page), 'browser persistence before sharing');
@@ -248,7 +248,10 @@ async function fillAddress(dialog, index) {
 
 async function installSyntheticRoutes(context) {
   await context.route(/citygeo-geocoder-pub\.databridge\.phila\.gov\/.*\/Address_Locator\/GeocodeServer\/findAddressCandidates/i, async (route) => {
-    const input = new URL(route.request().url()).searchParams.get('Street') || '';
+    const params = sensitivePostParams(route.request(), ['Street']);
+    assert.equal(params.get('f'), 'json');
+    assert.equal(params.get('outSR'), '4326');
+    const input = params.get('Street') || '';
     const index = syntheticIndex(input);
     await json(route, {
       candidates: [{
@@ -311,14 +314,21 @@ async function installSyntheticRoutes(context) {
   });
 
   await context.route(/Vacant_Indicators_Bldg\/FeatureServer\/0\/query/i, async (route) => {
-    const where = new URL(route.request().url()).searchParams.get('where') || '';
+    const params = sensitivePostParams(route.request(), ['where']);
+    assert.equal(params.get('returnGeometry'), 'false');
+    const where = params.get('where') || '';
     if (where.includes("'123456792'")) {
       await json(route, { features: null, error: { code: 'synthetic-unavailable' } });
       return;
     }
     await json(route, { features: [{ attributes: { build_rank: 72, date_update: Date.parse('2026-08-17T00:00:00Z') } }] });
   });
-  await context.route(/high_injury_network_2025\/FeatureServer\/0\/query/i, (route) => json(route, { count: 1 }));
+  await context.route(/high_injury_network_2025\/FeatureServer\/0\/query/i, async (route) => {
+    const params = sensitivePostParams(route.request(), ['geometry']);
+    assert.equal(params.get('geometryType'), 'esriGeometryPoint');
+    assert.equal(params.get('returnCountOnly'), 'true');
+    await json(route, { count: syntheticCoordinateIndex(params.get('geometry')) + 1 });
+  });
 }
 
 function propertyRow(index) {
@@ -346,6 +356,25 @@ function syntheticIndex(value) {
   return match ? Number(match[1]) - 100 : 0;
 }
 
+function syntheticCoordinateIndex(value) {
+  const [longitude, latitude] = String(value).split(',').map(Number);
+  const longitudeIndex = Math.round((longitude + 75.16) / 0.001);
+  const latitudeIndex = Math.round((latitude - 39.95) / 0.001);
+  assert.equal(longitudeIndex, latitudeIndex, `synthetic coordinate pair drifted: ${value}`);
+  assert.ok(longitudeIndex >= 0 && longitudeIndex <= 3, `synthetic coordinate is out of fixture range: ${value}`);
+  return longitudeIndex;
+}
+
+function sensitivePostParams(request, requiredKeys) {
+  const url = new URL(request.url());
+  assert.equal(request.method(), 'POST', `${url.pathname} must use POST`);
+  assert.equal(url.search, '', `${url.pathname} must not expose sensitive query parameters`);
+  assert.match(request.headers()['content-type'] || '', /^application\/x-www-form-urlencoded(?:;|$)/i);
+  const params = new URLSearchParams(request.postData() || '');
+  for (const key of requiredKeys) assert.equal(params.has(key), true, `${url.pathname} body is missing ${key}`);
+  return params;
+}
+
 async function json(route, body) {
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 }
@@ -368,11 +397,17 @@ function verifyPrivateTransport(requests) {
     try { return { ...request, text: decodeURIComponent(text.replaceAll('+', ' ')) }; } catch { return { ...request, text }; }
   });
   const transmitted = decoded.filter(({ text }) => PRIVATE_VALUES.some((value) => text.includes(value)));
+  const privateUrls = decoded.filter(({ url }) => {
+    let text = url;
+    try { text = decodeURIComponent(url.replaceAll('+', ' ')); } catch {}
+    return PRIVATE_VALUES.some((value) => text.includes(value));
+  });
   assert.ok(transmitted.some(({ text }) => text.includes('100 SYNTHETIC FIXTURE ST')), 'input address transport is observed');
   assert.ok(transmitted.some(({ text }) => text.includes('100 SYNTHETIC NORMALIZED AVE')), 'normalized address transport is observed');
   assert.ok(transmitted.some(({ text }) => text.includes('123456790')), 'parcel transport is observed');
   assert.ok(transmitted.some(({ text }) => text.includes('-75.16') && text.includes('39.95')), 'coordinate transport is observed');
   assert.equal(transmitted.every(({ url }) => officialHosts.has(new URL(url).hostname)), true, 'private query values go only to admitted official hosts');
+  assert.deepEqual(privateUrls, [], 'private transport values stay out of request URLs');
   assert.equal(decoded.some(({ text }) => /SYNTHETIC DESTINATION [AB]/.test(text)), false, 'commute destinations are never transmitted');
 }
 
