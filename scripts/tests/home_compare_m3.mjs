@@ -445,6 +445,117 @@ test('Home Compare admits subject-independent safety predicates with locally bou
   }
 });
 
+test('Home Compare rejects expanded direct safety and risk predicates', () => {
+  for (const text of [
+    'The home remains safest.',
+    'The neighborhood offers the lowest risk.',
+    'The street poses no risk.',
+    'Block 5 is safest.',
+    'Residence 21 has the lowest risk.',
+    'Neighborhood risk is lowest.',
+    '该住宅没有风险。',
+    '该小区最安全。',
+    '街道风险为最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects syntax-anchored active passive and reverse causal assertions', () => {
+  for (const text of [
+    'The route causes crime.',
+    'Crime is caused by the route.',
+    'The route decreases incidents.',
+    'The property stops victimization.',
+    '该路线导致犯罪。',
+    '犯罪由该路线造成。',
+    '该住宅阻止受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects contrastive negation that masks a later assertion', () => {
+  for (const text of [
+    'The route reduces not congestion but crime.',
+    'This proves not cost but safety.',
+    'This establishes not value but risk.',
+    'Crime is not reduced but is increased by the route.',
+    '犯罪没有减少反而因该路线而增加。',
+    '这证明的不是便利，而是安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits evidence-linked and quantified safety denials', () => {
+  for (const text of [
+    'There is no reliable evidence that the route reduces crime.',
+    'No currently admitted evidence shows the neighborhood reduces crime.',
+    'The route cannot be shown to reduce crime.',
+    'The property has not been shown to increase incidents.',
+    '没有可靠证据表明该路线降低犯罪。',
+    'Not every home is safe.',
+    'Neither home is safe.',
+    '没有一个住宅是安全的。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare admits source product and dataset metadata descriptions', () => {
+  for (const text of [
+    'The source reports increases in crime.',
+    'The product displays an increase in crime counts.',
+    'The dataset reports reduced incidents from the official source.',
+    'The source has low-risk and high-risk category labels.',
+    'The dataset has the lowest risk field named category.',
+    'The product has the safest-route label disabled.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ description: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare binds negation to each complete assertion instead of the surrounding sentence', () => {
+  for (const text of [
+    'The route reduces crime but does not increase risk.',
+    'The route does not reduce crime but the property increases incidents.',
+    'No evidence exists and the home is safest.',
+    'No evidence shows the route reduces crime, but the home is safest.',
+    '该路线降低犯罪但不增加风险。',
+    'The home has no risk.',
+    'Crime is reduced by the route although risk is unavailable.',
+    'The property is not unsafe.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits locally negated causal and operational metadata statements', () => {
+  for (const text of [
+    'The route does not reduce crime.',
+    'The source reports reduced incident coverage.',
+    'The parser is safe to retry.',
+    'Risk and safety conclusions are unavailable.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
 test('Home Compare rejects active, passive, and reverse causal claims with local negation only', () => {
   for (const text of [
     'Crime is reduced by the route.',

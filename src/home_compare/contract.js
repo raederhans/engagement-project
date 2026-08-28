@@ -22,11 +22,33 @@ const ROOT_KEYS = ['schema', 'generatedAt', 'status', 'profiles', 'sources', 'ar
 const PROFILE_KEYS = ['profileId', 'status', 'evidence', 'limitations'];
 const METRIC_KEYS = ['status', 'value', 'dataAsOf', 'coverage', 'precision', 'sourceIds', 'limitations'];
 const SOURCE_KEYS = ['sourceId', 'status', 'officialUrl', 'sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt', 'revision', 'coverage', 'precision', 'recordCount', 'limitations'];
-const EFFECT = '(\\b(reduc|increas|lower|rais|prevent)\\w*|降低|减少|增加|提高|预防|防止)';
-const HARM = '(\\b(crime|incident|risk|harm|victim)\\w*|犯罪|事件|风险|伤害|受害)';
-const CONCLUSION_ASSERTION = new RegExp(`(?=(\\b(?!no )([a-z]+ ){1,2}(is|has) (the )?(safe(r|st)?|(low(er|est)?|no)[- ]risk)\\b|\\b(establish|prov|convert).{0,32}(safe|risk|victim|caus)|(${EFFECT}.{0,32}${HARM}|${HARM}.{0,32}${EFFECT})|(住宅|房[屋产]|路线|区域|社区|街[道区])(是|属于)?((最|更)?安全|(最低|低|无)风险|风险最低)))`, 'gi');
-const DENIED_ASSERTION = /\b(not|can(not|'t))( be| prove (this|the|your)?)?\s*$|(\bno (evidence|proof)|没有证据)[^,.!?;，。！？；]{0,40}$|\bno $|(不能(证明[该这本]?)?|不|没有|无法)$/i;
-const NEGATED_ASSERTION = /\bnot\b|不|没有|无法/i;
+const EN_WORD = '[a-z0-9][a-z0-9-]*';
+const EN_DIRECT_SUBJECT = `(?:(?:the|this|that|your|a|an|no|neither) (?:${EN_WORD} ){1,4}|not every (?:${EN_WORD} ){1,4}|(?:${EN_WORD} ){1,2})`;
+const EN_RESIDENTIAL_SUBJECT = '(?:(?:the|this|that|your|a|an) )?(?:home|property|route|area|neighbou?rhood|community|street|block|residence)(?: [0-9]+)?';
+const EN_EFFECT = '(?:reduc|increas|lower|rais|prevent|caus|decreas|stop)\\w*';
+const EN_HARM = '(?:crime|incidents?|risk|harm|victimization)';
+const ZH_SUBJECT = '(?:[该这本])?(?:住宅|房[屋产]|路线|区域|社区|小区|街道|街区)';
+const ZH_EFFECT = '(?:降低|减少|增加|提高|预防|防止|导致|造成|阻止)';
+const ZH_HARM = '(?:犯罪|事件|风险|伤害|受害(?:事件)?)';
+const DIRECT_SAFETY_EN = new RegExp(`\\b(?<subject>${EN_DIRECT_SUBJECT})(?:is|has|remains|offers|poses) (?:the )?(?<claim>safe(?:r|st)?|(?:low(?:er|est)?|no)[- ]risk)\\b`, 'gi');
+const DIRECT_RISK_EN = new RegExp(`\\b(?<subject>${EN_DIRECT_SUBJECT})risk (?:is|remains) (?:the )?(?:low(?:er|est)?)\\b`, 'gi');
+const DIRECT_SAFETY_ZH = new RegExp(`(?<subject>${ZH_SUBJECT})(?:是|属于)?(?<claim>(?:最|更)?安全|没有风险|风险(?:为)?最低|(?:最低|低|无)风险)`, 'g');
+const DOUBLE_NEGATED_SAFETY_EN = new RegExp(`\\b${EN_DIRECT_SUBJECT}(?:is|remains) not unsafe\\b`, 'i');
+const ACTIVE_CAUSAL_EN = new RegExp(`\\b${EN_RESIDENTIAL_SUBJECT} (?:(?<negation>does not|cannot|can't) )?${EN_EFFECT} (?:not ${EN_WORD} but )?${EN_HARM}\\b`, 'gi');
+const PASSIVE_CAUSAL_EN = new RegExp(`\\b${EN_HARM} (?:is|are|was|were) (?:(?<negation>not) )?${EN_EFFECT} by ${EN_RESIDENTIAL_SUBJECT}\\b`, 'gi');
+const MASKED_CAUSAL_EN = new RegExp(`\\b(?:${EN_RESIDENTIAL_SUBJECT} (?:does not|cannot|can't) ${EN_EFFECT} ${EN_HARM} but (?:does |is )?${EN_EFFECT} ${EN_HARM}|${EN_HARM} (?:is|are|was|were) not ${EN_EFFECT} but (?:is|are|was|were) ${EN_EFFECT} by ${EN_RESIDENTIAL_SUBJECT})\\b`, 'i');
+const ACTIVE_CAUSAL_ZH = new RegExp(`${ZH_SUBJECT}(?<negation>不|不能|没有)?${ZH_EFFECT}${ZH_HARM}`, 'g');
+const REVERSE_CAUSAL_ZH = new RegExp(`${ZH_HARM}(?<negation>没有)?(?:被|由|因)${ZH_SUBJECT}(?:而)?${ZH_EFFECT}`, 'g');
+const MASKED_CAUSAL_ZH = new RegExp(`${ZH_HARM}没有${ZH_EFFECT}反而因${ZH_SUBJECT}而${ZH_EFFECT}`);
+const EVIDENCE_ASSERTION_EN = /\b(?:(?<negation>do(?:es)? not|cannot(?: be)?|can't(?: be)?) )?(?:prov|establish|show|indicat|mean|convert)\w*.{0,40}\b(?:safe(?:r|st)?|safety|risk|victim[- ]probability|caus\w*)\b/gi;
+const EVIDENCE_ASSERTION_ZH = /(?:(?<negation>不能|没有(?:可靠)?证据))?(?:证明|表明|说明).{0,24}(?:安全|风险|因果|受害(?:者)?概率)/g;
+const QUANTIFIED_DENIAL_EN = /^(?:(?:no|neither) [a-z0-9-]+|not every [a-z0-9-]+)$/i;
+const METADATA_TAIL = /^(?:-route label| (?:fields?|labels?|categories?|contexts?|trends?|counts?)\b| and (?:high|low)[- ]risk categor(?:y|ies) labels?\b)/i;
+const OPERATIONAL_SUBJECT = /\b(?:parser|loader|request|operation)$/i;
+const OPERATIONAL_METADATA_TAIL = /^ to (?:retry|parse|load)\b/i;
+const EVIDENCE_DENIAL_EN = /(?:(?:there is )?no (?:(?:reliable|currently admitted) )?(?:evidence|proof)(?: (?:that|shows?|proves?|indicates?) (?:the )?)?|(?:do(?:es)? not|cannot|can't) (?:prove|establish|show|mean|indicate)(?: that)? )$/i;
+const EVIDENCE_DENIAL_ZH = /(?:没有(?:可靠)?证据(?:表明|证明)|不能(?:证明|表明|说明))[该这本]?$/;
+const QUANTIFIED_DENIAL_ZH = /没有(?:一个)?$/;
 const PRIVATE_TOKEN = /^(?:address(?:es)?|coordinates?|latitude|longitude|lat|lon|lng(?:lat)?|geometry|parcels?|destinations?|owners?|grantors?|grantees?)$/;
 
 function fail(message) {
@@ -335,11 +357,55 @@ function normalizeWeights(weights, total) {
 
 function rejectUnsafeConclusion(value, label) {
   const text = value.normalize('NFKC').replace(/\s+/g, ' ');
-  for (const match of text.matchAll(CONCLUSION_ASSERTION)) {
-    const prefix = text.slice(0, match.index).slice(-80);
-    if (NEGATED_ASSERTION.test(match[1]) || DENIED_ASSERTION.test(prefix)) continue;
+  if (hasDirectAssertion(text) || hasCausalAssertion(text) || hasEvidenceAssertion(text)) {
     fail(`${label} has an unsafe conclusion`);
   }
+}
+
+function hasDirectAssertion(text) {
+  if (DOUBLE_NEGATED_SAFETY_EN.test(text)) return true;
+  for (const pattern of [DIRECT_SAFETY_EN, DIRECT_RISK_EN]) {
+    for (const match of text.matchAll(pattern)) {
+      const subject = match.groups.subject.trim();
+      const tail = text.slice(match.index + match[0].length);
+      if (QUANTIFIED_DENIAL_EN.test(subject)
+        || hasEvidenceDenial(text, match.index)
+        || METADATA_TAIL.test(tail)
+        || (OPERATIONAL_SUBJECT.test(subject) && OPERATIONAL_METADATA_TAIL.test(tail))) continue;
+      return true;
+    }
+  }
+  for (const match of text.matchAll(DIRECT_SAFETY_ZH)) {
+    if (hasEvidenceDenial(text, match.index) || QUANTIFIED_DENIAL_ZH.test(text.slice(0, match.index))) continue;
+    return true;
+  }
+  return false;
+}
+
+function hasCausalAssertion(text) {
+  if (MASKED_CAUSAL_EN.test(text) || MASKED_CAUSAL_ZH.test(text)) return true;
+  for (const pattern of [ACTIVE_CAUSAL_EN, PASSIVE_CAUSAL_EN, ACTIVE_CAUSAL_ZH, REVERSE_CAUSAL_ZH]) {
+    for (const match of text.matchAll(pattern)) {
+      if (match.groups.negation || hasEvidenceDenial(text, match.index)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasEvidenceAssertion(text) {
+  for (const pattern of [EVIDENCE_ASSERTION_EN, EVIDENCE_ASSERTION_ZH]) {
+    for (const match of text.matchAll(pattern)) {
+      if (match.groups.negation || hasEvidenceDenial(text, match.index)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasEvidenceDenial(text, index) {
+  const prefix = text.slice(0, index).slice(-120);
+  return EVIDENCE_DENIAL_EN.test(prefix) || EVIDENCE_DENIAL_ZH.test(prefix);
 }
 
 function normalizeKeyTokens(key) {
