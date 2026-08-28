@@ -44,6 +44,10 @@
 | 2026-08-29 | M2-2 从 exact `37359d7` 在全新 ignored root 完成 mart run1 与同命令 rerun：64 actual parts、1,611,918 rows、825,033,042 part bytes，rerun 返回 `idempotent`，66 个 mart artifacts 的 bytes/SHA/mtime 均 0 变化。 | 当前 mart artifact identity 为 `sha256:5ad0b1d0c0765f6aaa05f8b5d68fdc04bce85f12234050d15ce89cb7ababa894`；只绑定本轮 protocol/M1 receipt/实际 parts，不替代历史 v1。 |
 | 2026-08-29 | Frozen evaluation run1 与同命令 rerun 均 exit 0；run schema `/v2`，7/7 artifacts 实际 bytes/SHA 匹配，rerun `idempotent` 且 9 个文件 bytes/SHA/mtime 0 变化。结果为 `not-promoted`、selected promotion model `null`、`unavailable`。 | 不运行 publisher，不改 tracked reports/public data；aggregate 表现或 selected audit model 都不能绕过所有 primary/category/coverage gates。 |
 | 2026-08-29 | 主线程重新调用 mart validator 并逐一验证 evaluation artifacts、serving contract 与 lineage seam：protocol `d7d75ce0…`、mart manifest `83bddd65…`、64 parts / 1,611,918 rows、M1 receipt `cd7585ae…` 和 not-promoted outcome 全部闭合。 | 当前可创建 M2-4 做最终独立 stage review；这仍不是 serving/publish、remote CI、deployment 或 product-liveness authority。 |
+| 2026-08-29 | M2-4 在 `d23863b` 独立复算 data chain 后发现一个 P1：production `view.js` 的弱 admission 接纳 present-but-malformed lineage，尽管 strict serving-candidate validator 会拒绝。 | M2 local gate 首轮 FAIL；暂停 M3，复用既有 M2-3 task 但其 follow-up 产生 0 items，最终由 integration owner 做最小修复。 |
+| 2026-08-29 | 监督 `7f167e6` 让 runtime 直接调用 strict validator，并新增实际 built-browser hostile case；为维持不变的 4,000,000-byte ceiling，只在 build 时删除 HTML 行首缩进并保留全部换行/文本空白。 | 21/21、ESLint、diff-check、build、bundle 3,996,762/4,000,000 和 Area browser 均 PASS；protocol/data/publisher/tracked artifact 未改。 |
+| 2026-08-29 | 全局 browser smoke 连续停在 Analysis History line 716；在精确未修改 `d23863b` 的新临时 worktree、fresh `npm ci` 与原始 39.53 KB HTML 上复现相同 timeout，随后安全移除该临时 worktree。 | 这是可复现的既有测试缺口，不归因于 `7f167e6`；不阻止已聚焦证明的 M2 repair，但后续阶段需继续披露。 |
+| 2026-08-29 | M2-4 对 exact `7f167e6` focused re-review 为 P0/P1/P2 zero、总体 PASS；原 hostile runtime 现 `invalid` 且不渲染 historical evidence。 | M2 本地阶段完成并允许进入 M3，前提是 M2 只作为 unavailable/history dimension；scientific promotion、tracked publish/serving、remote/deploy 继续 FAIL/关闭。 |
 
 ## Live process ownership
 
@@ -56,16 +60,17 @@
 | M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | complete; source-final `5607949`, integrated as `285ede0`; exact M1 gate exit 0 |
 | M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | `.dfev1/area-intelligence/m2-v2-source-final-9d1f243-d7d75ce0/logs/*.exit.json` | complete at detached `37359d7`; mart/evaluation run1+runs2 exit 0 and idempotent; exact root retained, no active process, no publish |
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
+| M2 final independent review | `01a049db-fda6-77b1-98fe-e1078002aa23` / `2b86` | exact reviewer bases `d23863b` then `7f167e6` | initial FAIL on runtime lineage P1; focused re-review PASS with P0/P1/P2 zero; worktree clean, no publish or long data rerun |
 
 ## Handoff
 
-M2 代码与数据候选完成：protocol-v2/integrity、publisher/serving/UI 已汇合；真实 mart 为
-64 parts / 1,611,918 rows，真实 frozen evaluation 诚实返回 `not-promoted/unavailable`，两条
-exact rerun 均保持全部产物 bytes/SHA/mtime。M1 独立 reviewer-channel 缺口和 M2-1 历史
-performance 摘要意外暴露均继续保留；publisher 未运行，tracked serving artifact 未改。
+M2 local stage 已关闭：真实 mart/evaluation exact identities 与幂等性通过，runtime lineage P1
+在 `7f167e6` 修复并获 M2-4 P0/P1/P2 zero 复审。真实 frozen evaluation 仍是
+`not-promoted/unavailable`；publisher 未运行，tracked historical serving artifact 未改。M1 独立
+reviewer-channel 缺口、M2-1 observer-blinding 偏差和既有 general browser-smoke failure 继续披露。
 
 ## Next step
 
-从记录了当前 exact data root 与 not-promoted 结果的监督提交创建 M2-4（本阶段第 4/4 个 high
-任务），独立复核代码、ignored artifacts、lineage、幂等证据、程序性盲态偏差与 M1 reviewer-channel
-缺口；在其 verdict 前不运行 publisher、不修改 tracked reports/public data，也不进入 M3。
+从记录 M2 final PASS 的精确监督提交创建 M3 最多四个 high 任务，分别冻结 source/admission、
+comparison/privacy contracts、runtime UI/browser 与最终 reviewer。M3 必须保留地址会话内存边界、
+partial/unavailable 语义和 commute unavailable；M2 只能作为 unavailable/history dimension。

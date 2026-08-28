@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M2 active — exact data/evaluation candidate PASS with honest not-promoted; final reviewer pending (3/4 high tasks)`。
+`M3 ready to dispatch — M2 local gate PASS; forecast remains not-promoted/unavailable (0/4 high tasks)`。
 
 ## Checklist
 
@@ -22,8 +22,8 @@
 - [x] 派发 M2-1 protocol/integrity、M2-2 unique data owner、M2-3 serving/UI 三个 high 任务。
 - [x] 整合 protocol-v2 和 serving source-final，运行中央代码门禁。
 - [x] 给 M2-2 精确数据 GO，完成 mart exact rerun 与 frozen evaluation。
-- [ ] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
-- [ ] M2 Area Intelligence stage gate。
+- [x] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
+- [x] M2 Area Intelligence stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
 - [ ] M5 Adaptive Route Alternatives stage gate。
@@ -76,6 +76,11 @@
 | M2 evaluation run1 and identical rerun | exit 0; 285.620s then 6.386s; rerun `idempotent`; manifest/checkpoint/7 artifacts (9 files) had 0 bytes/SHA/mtime changes. |
 | M2 frozen promotion gate | honest `not-promoted` / `unavailable`; selected promotion model `null`; 7/7 artifacts match actual bytes/SHA; serving artifact validates with 0 predictions. |
 | main independent M2 root validation | mart validator rehashed exact parts and protocol successfully; evaluation `/v2` seam matches protocol, actual mart manifest/identity, 64 parts, 1,611,918 rows, exact M1 receipt and outcome. |
+| M2-4 initial review at `d23863b` | FAIL with one P1: production UI used a weak present-lineage check and accepted malformed current lineage that the strict validator rejected; artifact/scientific subgates remained truthful. |
+| supervisor runtime repair `7f167e6` | UI now calls strict serving-candidate validator; built-browser hostile present-lineage case is `invalid`; M2/publisher 21/21, ESLint, diff-check, build, bundle and Area browser PASS. |
+| unchanged bundle ceiling after repair | PASS at 3,996,762 / 4,000,000 non-VRE bytes; build-only HTML compaction removed 5,282 indentation bytes while preserving every line break and text spacing. |
+| general browser-smoke diagnosis | same Analysis History line-716 timeout reproduced on exact unmodified `d23863b` in a fresh worktree/npm install/original HTML; not caused by the M2 repair, but remains an existing repository test gap. |
+| M2-4 focused re-review of `7f167e6` | P0/P1/P2 zero; M2 code+artifact local gate PASS and M3 unavailable-only admission PASS; scientific promotion and tracked publish/serving remain FAIL. |
 
 ## Open risks and remaining work
 
@@ -93,7 +98,9 @@
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
 - M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
   不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- Bundle 只余 23 bytes；M3-M6 新 UI 不能提高 ceiling，需先做实际 code-splitting/体积收敛。
+- Bundle 只余 3,238 bytes；M3-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
+- 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
+  未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
   不能只比较解析后的 JSON 语义。
 - M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。

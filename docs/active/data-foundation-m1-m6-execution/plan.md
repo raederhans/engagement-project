@@ -30,7 +30,7 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
 
 - [x] M1: 重建 2006 年至当前可获得日期的 revision-aware 事件仓库、crosswalk、tract/grid/
   corridor 状态、ACS E/M、lineage 与 DQ；仓库默认 `serving_eligible:false`。
-- [ ] M2: 从本轮 exact M1 receipt 重建 tract/grid-week marts，复跑冻结评估；只有预定义 gate
+- [x] M2: 从本轮 exact M1 receipt 重建 tract/grid-week marts，复跑冻结评估；只有预定义 gate
   通过才提供 forecast，否则诚实保留 `not-promoted/unavailable`。
 - [ ] M3: 让 2-4 个住房/社区比较维度拥有可验证 source adapters、地址/parcel admission、
   partial/unavailable 语义、权重敏感性和会话内隐私边界。
