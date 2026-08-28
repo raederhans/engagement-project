@@ -49,6 +49,8 @@
 | 2026-08-29 | 全局 browser smoke 连续停在 Analysis History line 716；在精确未修改 `d23863b` 的新临时 worktree、fresh `npm ci` 与原始 39.53 KB HTML 上复现相同 timeout，随后安全移除该临时 worktree。 | 这是可复现的既有测试缺口，不归因于 `7f167e6`；不阻止已聚焦证明的 M2 repair，但后续阶段需继续披露。 |
 | 2026-08-29 | M2-4 对 exact `7f167e6` focused re-review 为 P0/P1/P2 zero、总体 PASS；原 hostile runtime 现 `invalid` 且不渲染 historical evidence。 | M2 本地阶段完成并允许进入 M3，前提是 M2 只作为 unavailable/history dimension；scientific promotion、tracked publish/serving、remote/deploy 继续 FAIL/关闭。 |
 | 2026-08-29 | 从记录 M2 closeout 的 exact supervisor `7ce54dd` 创建 M3-1 source/admission、M3-2 comparison/privacy、M3-3 UI/browser 三个 high tasks；M3-4 保留给真实整合候选的最终 review。 | 三个 worktree 文件所有权互斥；地址/坐标/parcel 只允许 synthetic/session-memory，commute 和 M2 forecast 均保持 unavailable，bundle ceiling 不提高。 |
+| 2026-08-29 | M3 三条实现线分别交付 source/admission `3b78b73`、comparison/privacy `eb51e8f` 和 UI/browser `148cfaa`；组合后暴露 bundle 4,001,582/4,000,000 与旧 GET fixture 两个跨线 blocker。 | 复用原 M3-1/M3-3 任务修复，不创建第五任务、不提高 ceiling；POST fixture `c06dcfc` 与 source 去重 `06b1b44` 均从真实整合 chain 重新验证。 |
+| 2026-08-29 | 监督 exact `5e21439` 的中央 gate：29/29、ESLint、build、bundle 3,998,837/4,000,000 和 built browser 全部 PASS；公开市政地标 live admission 为 1 candidate/1 parcel/0.9 m，九源均 partial 且日志增量 0。 | M3 integrated candidate 可进入第 4/4 个独立 reviewer；这不是 private-address completeness、商业许可、remote CI、deployment 或 product-liveness 证明。 |
 
 ## Live process ownership
 
@@ -62,19 +64,19 @@
 | M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | `.dfev1/area-intelligence/m2-v2-source-final-9d1f243-d7d75ce0/logs/*.exit.json` | complete at detached `37359d7`; mart/evaluation run1+runs2 exit 0 and idempotent; exact root retained, no active process, no publish |
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 | M2 final independent review | `01a049db-fda6-77b1-98fe-e1078002aa23` / `2b86` | exact reviewer bases `d23863b` then `7f167e6` | initial FAIL on runtime lineage P1; focused re-review PASS with P0/P1/P2 zero; worktree clean, no publish or long data rerun |
-| M3 source/admission | `01a049fa-60bc-7070-b635-9650b58e4ed9` / `cf2d` | exact supervisor `7ce54dd` | active; owns Home Compare API/source registry/source smoke only |
-| M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | exact supervisor `7ce54dd` | active; owns address/contract/controller and focused M3 tests only |
-| M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | exact supervisor `7ce54dd` | active; owns loader/results/view/styles/Home Compare browser only |
+| M3 source/admission | `01a049fa-60bc-7070-b635-9650b58e4ed9` / `cf2d` | exact integrated parent `dbd29df` | complete; source-final `3b78b73`, final repair `06b1b44`; no active source smoke or browser process |
+| M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | exact supervisor `7ce54dd` | complete; source-final `eb51e8f`, integrated as `174357a`; worktree clean |
+| M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | exact integrated parent `b0e629c` | complete; source-final `148cfaa`, fixture repair `c06dcfc`; no active browser/server process |
 
 ## Handoff
 
-M2 local stage 已关闭：真实 mart/evaluation exact identities 与幂等性通过，runtime lineage P1
-在 `7f167e6` 修复并获 M2-4 P0/P1/P2 zero 复审。真实 frozen evaluation 仍是
-`not-promoted/unavailable`；publisher 未运行，tracked historical serving artifact 未改。M1 独立
-reviewer-channel 缺口、M2-1 observer-blinding 偏差和既有 general browser-smoke failure 继续披露。
+M3 integrated candidate `5e21439` 已通过中央 domain/source、build、bundle、built-browser 和公开地标
+live admission；地址/坐标/parcel 仅进入准入的官方 POST body，未进入 URL、日志、持久存储或 share
+state。M2 仍为 `not-promoted/unavailable`，commute/routing 仍 unavailable。M1 reviewer-channel 缺口、
+M2 observer-blinding 偏差、既有 general browser-smoke failure 和商业/再发布许可未确认继续披露。
 
 ## Next step
 
-从记录 M2 final PASS 的精确监督提交创建 M3 最多四个 high 任务，分别冻结 source/admission、
-comparison/privacy contracts、runtime UI/browser 与最终 reviewer。M3 必须保留地址会话内存边界、
-partial/unavailable 语义和 commute unavailable；M2 只能作为 unavailable/history dimension。
+从记录 M3 中央 gate 的精确监督提交创建 M3-4（本阶段第 4/4 个 high 任务）做只读最终 review；
+复算 source/parcel、2-4 profiles、weights、privacy、accessibility、M2/commute unavailable、bundle
+与 built-browser hostile paths。只有 reviewer PASS 后才关闭 M3 并创建 M4 任务。

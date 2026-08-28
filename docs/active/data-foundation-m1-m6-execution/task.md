@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M3 active — three bounded implementation lanes running from exact 7ce54dd (3/4 high tasks)`。
+`M3 ready for final review — integrated candidate 5e21439 passed the central Home Compare gate (3/4 high tasks)`。
 
 ## Checklist
 
@@ -25,7 +25,7 @@
 - [x] 创建 M2-4 最终 reviewer 并完成 M2 exact data/evaluation stage gate。
 - [x] M2 Area Intelligence stage gate。
 - [x] 派发 M3-1 source/admission、M3-2 comparison/privacy、M3-3 UI/browser 三个 high 任务。
-- [ ] 整合 M3 source-final candidates 并运行中央 Home Compare gate。
+- [x] 整合 M3 source-final candidates 并运行中央 Home Compare gate。
 - [ ] 创建 M3-4 最终 reviewer 并完成 M3 stage gate。
 - [ ] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
@@ -84,6 +84,13 @@
 | unchanged bundle ceiling after repair | PASS at 3,996,762 / 4,000,000 non-VRE bytes; build-only HTML compaction removed 5,282 indentation bytes while preserving every line break and text spacing. |
 | general browser-smoke diagnosis | same Analysis History line-716 timeout reproduced on exact unmodified `d23863b` in a fresh worktree/npm install/original HTML; not caused by the M2 repair, but remains an existing repository test gap. |
 | M2-4 focused re-review of `7f167e6` | P0/P1/P2 zero; M2 code+artifact local gate PASS and M3 unavailable-only admission PASS; scientific promotion and tracked publish/serving remain FAIL. |
+| M3-1 source/admission `3b78b73` plus bundle repair `06b1b44` | official-source POST/no-log seam, future transfer-date withholding and independent source failure isolation integrated; no endpoint, field, query condition, policy or dependency changed by the repair. |
+| M3-2 comparison/privacy `eb51e8f` | 28/28 task gate; unique normalized address/parcel admission, exact 100.0% largest-remainder weights, stale-session cancellation, private alias rejection, M2 history/unavailable-only and commute unavailable enforced. |
+| M3-3 UI/browser `148cfaa` plus POST fixture repair `c06dcfc` | close destroys the private session owner; rejected private share state is removed; empty results have an accessible name; built fixture follows POST bodies without weakening duplicate or privacy gates. |
+| central M3 domain/source gate at `5e21439` | exit 0; 29/29 Home Compare and source-privacy tests, targeted ESLint and commit diff-check PASS. |
+| central M3 production build and bundle | build exit 0; non-VRE dist 3,998,837 / 4,000,000 bytes, leaving 1,163 bytes; ceiling/config/dependencies unchanged. |
+| central M3 built-browser gate | PASS for 2/3/4 profiles, English/Chinese, partial/unavailable, M2 not-promoted/unavailable, commute unavailable, 390px, named dialog/results, focus restoration, no private URL/history/storage/IndexedDB/share values, destinations not transmitted, and 0 console/page errors. |
+| central public-landmark live admission after final repair | one high-confidence candidate, one exact OPA join, 0.9 m point agreement, profile partial, all nine source states partial, and 0 new query/retry logs; no address, coordinate or parcel was printed or persisted. |
 
 ## Open risks and remaining work
 
@@ -101,7 +108,7 @@
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
 - M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
   不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- Bundle 只余 3,238 bytes；M3-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
+- M3 candidate 的 bundle 只余 1,163 bytes；M4-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
