@@ -491,7 +491,7 @@ test('revision-aware warehouse preserves event lifecycle, lineage, crosswalk, sp
   assert.equal((await fs.stat(canonicalPath)).mtimeMs, canonicalBefore.mtimeMs);
 });
 
-test('same-vintage idempotence fails closed when canonical partition bindings drift', async (context) => {
+test('same-vintage idempotence rejects declared row counts that do not match canonical rows', async (context) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-idempotence-binding-'));
   context.after(() => fs.rm(root, { recursive: true, force: true }));
   const warehouseDir = path.join(root, 'warehouse');
@@ -517,9 +517,16 @@ test('same-vintage idempotence fails closed when canonical partition bindings dr
   assert.equal(first.manifest.canonical_partitions.length, EVENT_CONTRACT.default_partition_count);
   assert.deepEqual(lineage.canonical_partitions, first.manifest.canonical_partitions);
 
-  const populated = first.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
-  const canonicalPath = path.join(warehouseDir, 'canonical', populated.path.split('/').at(-1));
-  await fs.appendFile(canonicalPath, '\n', 'utf8');
+  const manifestPath = path.join(warehouseDir, 'manifest.json');
+  const lineagePath = path.join(warehouseDir, 'lineage', 'registry.json');
+  const manifest = await readJson(manifestPath);
+  const populatedIndex = manifest.canonical_partitions
+    .findIndex(({ row_count: rowCount }) => rowCount > 0);
+  manifest.canonical_partitions[populatedIndex].row_count += 1;
+  manifest.canonical_row_count += 1;
+  lineage.canonical_partitions[populatedIndex].row_count += 1;
+  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await fs.writeFile(lineagePath, `${JSON.stringify(lineage, null, 2)}\n`, 'utf8');
   await assert.rejects(ingestCrimeSourceSnapshot({
     snapshotDir,
     warehouseDir,
@@ -570,6 +577,143 @@ test('overlap refresh rejects a lineage partition binding drift before publicati
     (await readJson(path.join(warehouseDir, 'manifest.json'))).current_snapshot_id,
     firstManifest.snapshot_id,
   );
+});
+
+test('overlap refresh rejects tampered canonical content before carrying uncovered rows forward', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-tamper-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const canonicalPath = path.join(
+    warehouseDir,
+    'canonical',
+    `part-${String(partitionForSourceId(104, EVENT_CONTRACT.default_partition_count)).padStart(3, '0')}.jsonl`,
+  );
+  const rows = (await fs.readFile(canonicalPath, 'utf8'))
+    .trimEnd()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  const uncovered = rows.find(({ source_record_id: sourceRecordId }) => sourceRecordId === 'cartodb:104');
+  uncovered.raw_category.offense_label = 'Forged uncovered offense label';
+  await fs.writeFile(canonicalPath, `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`, 'utf8');
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /canonical partition binding drifted/i);
+  assert.equal(
+    (await readJson(path.join(warehouseDir, 'manifest.json'))).current_snapshot_id,
+    first.manifest.current_snapshot_id,
+  );
+});
+
+test('overlap refresh rejects a missing canonical partition before rebuilding it', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-missing-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const populated = first.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
+  await fs.unlink(path.join(warehouseDir, ...populated.path.split('/')));
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /canonical partition binding drifted/i);
+});
+
+test('non-current applied vintage replay validates the current canonical partition bindings', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-historical-replay-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const current = await ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  });
+  const healthyReplay = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  });
+  assert.equal(healthyReplay.idempotent, true);
+
+  const populated = current.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
+  await fs.appendFile(path.join(warehouseDir, ...populated.path.split('/')), '\n', 'utf8');
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  }), /canonical partition binding drifted/i);
 });
 
 test('tract boundary, fixed grid, and coordinate mapping fail closed', () => {

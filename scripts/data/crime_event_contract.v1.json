@@ -95,6 +95,7 @@
     "synthetic_fixture_runtime_policy": "never-admitted-as-official",
     "canonical_partition_binding": "exact-bytes-in-warehouse-manifest-and-lineage",
     "same_vintage_policy": "verify-bound-partition-bytes-before-idempotent-return",
+    "existing_warehouse_policy": "verify-bound-partition-rows-and-bytes-before-any-ingest",
     "identity_hash_purpose": "source snapshot and artifact byte identity only",
     "model_input_requires_lineage_registry": true,
     "serving_projection_status": "contract-only-not-published"

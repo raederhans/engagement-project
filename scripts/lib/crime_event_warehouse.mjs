@@ -111,11 +111,11 @@ export async function ingestCrimeSourceSnapshot({
   if (currentManifest?.schema && currentManifest.schema !== WAREHOUSE_SCHEMA) {
     throw new Error('Existing crime warehouse schema is unsupported.');
   }
-  if (currentManifest) await validateWarehouseLineageBindings(warehouseDir, currentManifest);
+  if (currentManifest) {
+    await validateWarehouseLineageBindings(warehouseDir, currentManifest);
+    await validateWarehouseCanonicalBindings(warehouseDir, currentManifest);
+  }
   if (currentManifest?.applied_snapshot_ids?.includes(snapshotManifest.snapshot_id)) {
-    if (currentManifest.current_snapshot_id === snapshotManifest.snapshot_id) {
-      await validateWarehouseCanonicalBindings(warehouseDir, currentManifest);
-    }
     onProgress({ phase: 'idempotent', snapshotId: snapshotManifest.snapshot_id });
     return {
       idempotent: true,
@@ -2081,7 +2081,9 @@ function validateEventContract(value) {
     || value.artifact_policy?.canonical_partition_binding
       !== 'exact-bytes-in-warehouse-manifest-and-lineage'
     || value.artifact_policy?.same_vintage_policy
-      !== 'verify-bound-partition-bytes-before-idempotent-return') {
+      !== 'verify-bound-partition-bytes-before-idempotent-return'
+    || value.artifact_policy?.existing_warehouse_policy
+      !== 'verify-bound-partition-rows-and-bytes-before-any-ingest') {
     throw new Error('Crime event warehouse contract is invalid.');
   }
   return value;
@@ -2168,15 +2170,40 @@ async function validateWarehouseCanonicalBindings(warehouseDir, manifest) {
     }
     const filePath = path.join(warehouseDir, ...binding.path.split('/'));
     const stat = await fs.stat(filePath);
-    if (!stat.isFile() || stat.size !== binding.bytes || await hashFile(filePath) !== binding.identity) {
+    const actual = await inspectCanonicalPartitionFile(filePath);
+    if (!stat.isFile() || stat.size !== binding.bytes
+      || actual.identity !== binding.identity || actual.rowCount !== binding.row_count) {
       throw new Error('Crime warehouse canonical partition binding drifted.');
     }
-    rowCount += binding.row_count;
+    rowCount += actual.rowCount;
   }
   if (rowCount !== manifest.canonical_row_count) {
     throw new Error('Crime warehouse canonical partition binding drifted.');
   }
   return bindings;
+}
+
+async function inspectCanonicalPartitionFile(filePath) {
+  const hash = createHash('sha256');
+  const input = createReadStream(filePath);
+  input.on('data', (chunk) => hash.update(chunk));
+  const lines = readline.createInterface({ input, crlfDelay: Infinity });
+  let rowCount = 0;
+  let lineNumber = 0;
+  for await (const line of lines) {
+    lineNumber += 1;
+    if (!line.trim()) continue;
+    try {
+      JSON.parse(line);
+    } catch (error) {
+      throw new Error(`${filePath}:${lineNumber} is not valid JSON: ${error.message}`);
+    }
+    rowCount += 1;
+  }
+  return {
+    rowCount,
+    identity: `sha256:${hash.digest('hex')}`,
+  };
 }
 
 async function readCanonicalPartition(filePath, partition, partitionCount, eventContract) {
