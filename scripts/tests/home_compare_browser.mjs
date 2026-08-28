@@ -11,6 +11,26 @@ const PORT = 4189;
 const OUTPUT_DIR = '.dfev1/home-neighborhood-compare/m3-v1/browser';
 const consoleErrors = [];
 const pageErrors = [];
+const networkRequests = [];
+const PRIVATE_VALUES = [
+  '100 SYNTHETIC FIXTURE ST',
+  '101 SYNTHETIC FIXTURE ST',
+  '102 SYNTHETIC FIXTURE ST',
+  '103 SYNTHETIC FIXTURE ST',
+  '100 SYNTHETIC NORMALIZED AVE',
+  '101 SYNTHETIC NORMALIZED AVE',
+  '102 SYNTHETIC NORMALIZED AVE',
+  '103 SYNTHETIC NORMALIZED AVE',
+  'SYNTHETIC DESTINATION A',
+  'SYNTHETIC DESTINATION B',
+  'SYNTHETIC PRIVATE ADDRESS',
+  '123456790',
+  '123456791',
+  '123456792',
+  '123456793',
+  '-75.16',
+  '39.95',
+];
 let baseUrl = null;
 
 await runBrowserSuite({
@@ -33,6 +53,7 @@ await runBrowserSuite({
   configurePage: (page) => {
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     page.on('pageerror', (error) => pageErrors.push(error.message));
+    page.on('request', (request) => networkRequests.push({ url: request.url(), body: request.postData() || '' }));
   },
   run: async ({ page, browser }) => {
   await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
@@ -51,9 +72,14 @@ await runBrowserSuite({
   assert.equal(await dialog.evaluate((element) => element.matches(':modal')), true);
   assert.equal(await dialog.locator('[data-home-address="0"]').evaluate((element) => document.activeElement === element), true);
   assert.match(await dialog.locator('[data-home-status]').innerText(), /Invalid shared settings were rejected/i);
+  assert.equal(new URL(page.url()).searchParams.has('hc'), false, 'rejected private share state is removed from the URL');
+  assertNoPrivateValues(page.url(), 'URL after rejecting private share state');
   assert.match(await dialog.locator('#home-compare-description').innerText(), /used ephemerally to query the listed official public sources/i);
   assert.match(await dialog.locator('#home-compare-description').innerText(), /commute destinations remain in this session/i);
   assert.equal(await dialog.locator('img, script').count(), 0, 'malicious share state must not create HTML elements');
+  assert.equal(await dialog.getAttribute('aria-labelledby'), 'home-compare-title');
+  assert.equal(await dialog.getAttribute('aria-describedby'), 'home-compare-description');
+  assert.equal(await dialog.getByRole('region', { name: 'Evidence profiles' }).count(), 1);
 
   await fillAddresses(dialog, 2);
   await dialog.locator('[data-home-destinations]').fill('SYNTHETIC DESTINATION A\nSYNTHETIC DESTINATION B');
@@ -94,6 +120,8 @@ await runBrowserSuite({
   assert.equal(await dialog.locator('[data-home-profile]').count(), 4);
   assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /Property: 42\.9%/i);
   assert.match(await dialog.locator('.home-compare__sensitivity').innerText(), /changes evidence order only/i);
+  verifyPrivateTransport(networkRequests);
+  assertNoPrivateValues(await privacySnapshot(page), 'browser persistence before sharing');
 
   await page.evaluate(() => {
     const url = new URL(location.href);
@@ -102,7 +130,7 @@ await runBrowserSuite({
     url.searchParams.set('labelA', 'SYNTHETIC PRIVATE ADDRESS A');
     url.searchParams.set('labelB', 'SYNTHETIC PRIVATE ADDRESS B');
     url.hash = 'SYNTHETIC PRIVATE ADDRESS FRAGMENT';
-    history.replaceState({}, '', url);
+    history.pushState({ labelA: 'SYNTHETIC PRIVATE ADDRESS A' }, '', url);
   });
   await dialog.locator('[data-home-share]').click();
   await page.waitForFunction(() => document.querySelector('[data-home-status]')?.textContent?.includes('Privacy-safe'));
@@ -114,18 +142,32 @@ await runBrowserSuite({
   assert.deepEqual(Object.keys(sharedValue).sort(), ['dimensions', 'schema', 'weights']);
   assert.equal(Object.keys(sharedValue.weights).length, 5);
   assert.doesNotMatch(shared, /SYNTHETIC|address|destination|coordinate|parcel/i);
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), sharedUrl.href);
+  assertNoPrivateValues(await privacySnapshot(page), 'browser persistence after sharing');
+  await page.goBack();
+  assertNoPrivateValues({ url: page.url(), state: await page.evaluate(() => history.state) }, 'back history entry');
+  await page.goForward();
+  assert.equal(page.url(), sharedUrl.href);
+  assertNoPrivateValues({ url: page.url(), state: await page.evaluate(() => history.state) }, 'forward history entry');
 
   await page.screenshot({ path: `${OUTPUT_DIR}/desktop-en-synthetic.png`, fullPage: true });
   await dialog.locator('[data-home-close]').click();
   await dialog.waitFor({ state: 'hidden' });
   assert.equal(await opener.evaluate((element) => document.activeElement === element), true);
+  assertNoPrivateValues(await privacySnapshot(page), 'browser persistence after close');
+  assert.doesNotMatch(await dialog.evaluate((element) => element.innerHTML), /SYNTHETIC|12345679|-75\.16|39\.95/i);
 
   await page.locator('.language-switch').click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   await opener.click();
   await dialog.getByRole('heading', { name: '并排比较 2–4 个费城住宅' }).waitFor();
+  assert.deepEqual(await dialog.locator('[data-home-address]').evaluateAll((inputs) => inputs.map((input) => input.value)), ['', '']);
+  assert.equal(await dialog.locator('[data-home-destinations]').inputValue(), '');
+  assert.equal(await dialog.locator('[data-home-profile]').count(), 0);
   assert.match(await dialog.locator('#home-compare-description').innerText(), /地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源/);
   assert.match(await dialog.locator('#home-compare-description').innerText(), /通勤目的地只保留在本次会话中/);
+  await fillAddresses(dialog, 2);
+  await runComparison(dialog, 2);
   assert.match(await dialog.innerText(), /预测继续不可用/);
   assert.match(await dialog.innerText(), /通勤时间与 isochrone 不可用/);
   assert.match(await dialog.innerText(), /不计算 safety score、不排名，也不推荐住宅/);
@@ -137,6 +179,8 @@ await runBrowserSuite({
   await page.setViewportSize({ width: 390, height: 844 });
   await opener.click();
   await dialog.waitFor({ state: 'visible' });
+  await fillAddresses(dialog, 2);
+  await runComparison(dialog, 2);
   const mobileLayout = await page.evaluate(() => {
     const activeDialog = document.querySelector('[data-home-compare-dialog]');
     const surface = document.querySelector('.home-compare__surface');
@@ -170,6 +214,13 @@ await runBrowserSuite({
     sourceStates: ['partial', 'unavailable'],
     forecast: 'not-promoted/unavailable',
     commute: 'unavailable',
+    privacy: {
+      urlHistory: 'no-private-values',
+      browserStorage: 'local-session-indexeddb-clean',
+      network: 'official-hosts-only; destinations-not-transmitted',
+      close: 'private-session-destroyed',
+    },
+    accessibility: 'named-dialog-and-results; keyboard-focus-restored',
     consoleErrors: consoleErrors.length,
     pageErrors: pageErrors.length,
     mobileLayout,
@@ -201,12 +252,12 @@ async function installSyntheticRoutes(context) {
     const index = syntheticIndex(input);
     await json(route, {
       candidates: [{
-        address: `${100 + index} SYNTHETIC FIXTURE ST`,
+        address: `${100 + index} SYNTHETIC NORMALIZED AVE`,
         score: 100,
         location: { x: -75.16 + index * 0.001, y: 39.95 + index * 0.001 },
         attributes: {
           Score: 100,
-          Match_addr: `${100 + index} SYNTHETIC FIXTURE ST`,
+          Match_addr: `${100 + index} SYNTHETIC NORMALIZED AVE`,
           House: String(100 + index),
           ZIP: '19100',
           Addr_type: 'PointAddress',
@@ -273,7 +324,7 @@ async function installSyntheticRoutes(context) {
 function propertyRow(index) {
   return {
     parcel_number: String(123456790 + index),
-    location: `${100 + index} SYNTHETIC FIXTURE ST`,
+    location: `${100 + index} SYNTHETIC NORMALIZED AVE`,
     lon: -75.16 + index * 0.001,
     lat: 39.95 + index * 0.001,
     assessment_date: '2026-01-01T00:00:00Z',
@@ -291,12 +342,68 @@ function propertyRow(index) {
 }
 
 function syntheticIndex(value) {
-  const match = String(value).match(/(10[0-3])\s+SYNTHETIC FIXTURE ST/i);
+  const match = String(value).match(/(10[0-3])\s+SYNTHETIC (?:FIXTURE ST|NORMALIZED AVE)/i);
   return match ? Number(match[1]) - 100 : 0;
 }
 
 async function json(route, body) {
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+function assertNoPrivateValues(value, label) {
+  const text = JSON.stringify(value);
+  for (const privateValue of PRIVATE_VALUES) {
+    assert.equal(text.includes(privateValue), false, `${label} contains ${privateValue}`);
+  }
+}
+
+function verifyPrivateTransport(requests) {
+  const officialHosts = new Set([
+    'citygeo-geocoder-pub.databridge.phila.gov',
+    'phl.carto.com',
+    'services.arcgis.com',
+  ]);
+  const decoded = requests.map((request) => {
+    const text = `${request.url} ${request.body}`;
+    try { return { ...request, text: decodeURIComponent(text.replaceAll('+', ' ')) }; } catch { return { ...request, text }; }
+  });
+  const transmitted = decoded.filter(({ text }) => PRIVATE_VALUES.some((value) => text.includes(value)));
+  assert.ok(transmitted.some(({ text }) => text.includes('100 SYNTHETIC FIXTURE ST')), 'input address transport is observed');
+  assert.ok(transmitted.some(({ text }) => text.includes('100 SYNTHETIC NORMALIZED AVE')), 'normalized address transport is observed');
+  assert.ok(transmitted.some(({ text }) => text.includes('123456790')), 'parcel transport is observed');
+  assert.ok(transmitted.some(({ text }) => text.includes('-75.16') && text.includes('39.95')), 'coordinate transport is observed');
+  assert.equal(transmitted.every(({ url }) => officialHosts.has(new URL(url).hostname)), true, 'private query values go only to admitted official hosts');
+  assert.equal(decoded.some(({ text }) => /SYNTHETIC DESTINATION [AB]/.test(text)), false, 'commute destinations are never transmitted');
+}
+
+async function privacySnapshot(page) {
+  return page.evaluate(async () => {
+    const databases = [];
+    for (const { name } of await indexedDB.databases()) {
+      if (!name) continue;
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open(name);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      for (const storeName of db.objectStoreNames) {
+        const values = await new Promise((resolve, reject) => {
+          const request = db.transaction(storeName).objectStore(storeName).getAll();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        databases.push({ name, storeName, values });
+      }
+      db.close();
+    }
+    return {
+      url: location.href,
+      historyState: history.state,
+      localStorage: { ...localStorage },
+      sessionStorage: { ...sessionStorage },
+      indexedDB: databases,
+    };
+  });
 }
 
 async function verifyProductionChunkRetry(browser) {
@@ -340,7 +447,8 @@ async function verifyProductionChunkRetry(browser) {
     assert.ok(resultsChunkRequests.some((url) => url.includes(`/${chunk}`)), 'first compare must request the manifest initial chunk');
     assert.ok(resultsChunkRequests.some((url) => url.includes(`/${retryChunk}`)), 'retry must request the distinct Vite-built production retry chunk');
     await dialog.locator('[data-home-close]').click(); await dialog.waitFor({ state: 'hidden' }); await opener.click();
-    assert.equal(await dialog.locator('[data-home-profile]').count(), 2, 'completed close/reopen remains valid');
+    assert.equal(await dialog.locator('[data-home-profile]').count(), 0, 'completed close/reopen starts a fresh private session');
+    assert.deepEqual(await dialog.locator('[data-home-address]').evaluateAll((inputs) => inputs.map((input) => input.value)), ['', '']);
   } finally { await context.close(); }
 }
 

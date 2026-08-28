@@ -1,4 +1,4 @@
-import { HOME_COMPARE_DIMENSIONS } from './contract.js';
+import { decodeHomeCompareShareState, HOME_COMPARE_DIMENSIONS } from './contract.js';
 
 const COPY = Object.freeze({
   en: Object.freeze({
@@ -122,6 +122,7 @@ export function getHomeCompareCopy(locale) {
 }
 
 export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false } = {}) {
+  scrubInvalidShareStateFromUrl();
   const copy = getHomeCompareCopy(locale);
   const addresses = Array.from({ length: addressCount }, (_, index) => `
     <div class="home-compare__address-row">
@@ -164,8 +165,21 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
         <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>
-      <section class="home-compare__results" data-home-results aria-labelledby="home-compare-results-title" tabindex="-1"></section>
+      <section class="home-compare__results" data-home-results aria-label="${escapeHtml(copy.results)}" tabindex="-1"></section>
     </div>`;
+}
+
+function scrubInvalidShareStateFromUrl() {
+  if (!globalThis.location?.href || !globalThis.history?.replaceState) return;
+  const url = new URL(globalThis.location.href);
+  const shared = url.searchParams.get('hc');
+  if (!shared) return;
+  try {
+    decodeHomeCompareShareState(shared);
+  } catch {
+    url.searchParams.delete('hc');
+    globalThis.history.replaceState({}, '', url);
+  }
 }
 
 function dimensionLabel(key, copy) {
