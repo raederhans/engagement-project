@@ -77,6 +77,16 @@ await runBrowserSuite({
   assert.match(await card.innerText(), /serving lineage or contract failed/i);
   assert.doesNotMatch(await card.innerText(), /Historical charts show admitted/i);
   assert.equal(await card.locator('.area-intelligence__forecast').count(), 0);
+
+  const malformed = servingArtifact({ promoted: false });
+  malformed.lineage.mart = {};
+  malformed.lineage.m1_receipt = {};
+  delete malformed.lineage.evaluation.manifest_sha256;
+  await render(page, malformed);
+  assert.equal(await card.getAttribute('data-model-status'), 'invalid');
+  assert.match(await card.innerText(), /serving lineage or contract failed/i);
+  assert.doesNotMatch(await card.innerText(), /Historical charts show admitted/i);
+  assert.equal(await card.locator('.area-intelligence__forecast').count(), 0);
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
   process.stdout.write('[Area Intelligence Browser] PASS - current-lineage, promoted/no-promotion/invalid, disclosures, responsive layout, zero console/page errors.\n');

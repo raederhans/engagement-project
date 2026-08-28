@@ -1,6 +1,9 @@
 import { applyTranslations, onLanguageChange, t } from '../i18n/index.js';
 import '../i18n/area_intelligence.js';
-import { validateAreaIntelligenceServingArtifact } from './serving_contract.js';
+import {
+  validateAreaIntelligenceServingArtifact,
+  validateAreaIntelligenceServingCandidate,
+} from './serving_contract.js';
 
 const ARTIFACT_URL = `${import.meta.env?.BASE_URL || '/'}data/area_intelligence_baseline.v1.json`;
 let artifactPromise;
@@ -130,17 +133,7 @@ async function defaultFetchArtifact() {
 }
 
 function admitRuntimeCandidate(value) {
-  const artifact = validateAreaIntelligenceServingArtifact(value);
-  const { historical_evidence: historical, lineage } = artifact;
-  if (!lineage?.protocol || !lineage.mart || !lineage.m1_receipt
-    || artifact.evaluation?.protocol_sha256 !== lineage.protocol.sha256
-    || typeof historical?.source_as_of !== 'string'
-    || typeof historical?.coverage?.earliest_scope_start !== 'string'
-    || typeof historical?.coverage?.latest_scope_end_exclusive !== 'string'
-    || !historical.limitations?.length) {
-    throw new TypeError('Area Intelligence current serving lineage is unavailable or invalid.');
-  }
-  return artifact;
+  return validateAreaIntelligenceServingCandidate(value);
 }
 
 function formatCount(value) {
