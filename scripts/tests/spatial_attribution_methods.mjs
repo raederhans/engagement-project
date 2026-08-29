@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import * as spatialAttribution from '../lib/spatial_attribution_methods.mjs';
+import { partitionForSourceId } from '../lib/crime_event_source.mjs';
 
 const {
   DEFAULT_SPATIAL_ATTRIBUTION_TOLERANCE,
@@ -158,9 +159,7 @@ test('streaming accumulator binds exact lineage and reconciles methods only to e
   });
   const accumulator = createSpatialAttributionAccumulator({ exactInput: exact, methodConfigs });
   assert.deepEqual(accumulator, { schema: SPATIAL_ATTRIBUTION_ACCUMULATOR_SCHEMA });
-  for (const row of [...rows].sort((left, right) => (
-    left.source_record_id < right.source_record_id ? -1 : 1
-  ))) {
+  for (const row of warehouseScanOrder(rows, exact.m1.canonical.partition_count)) {
     addSpatialAttributionEligibleRow(accumulator, row, {
       fractional: byKey.get(`${row.source_record_id}:fractional`),
       areaKernel: byKey.get(`${row.source_record_id}:area-kernel`),
@@ -220,26 +219,76 @@ test('streaming add rejects rows outside active, valid-time, mapped-category eli
   assert.equal(finalizeSpatialAttributionAccumulator(accumulator).input_rows, 1);
 });
 
-test('streaming add rejects duplicate or non-monotonic row identities without retaining all rows', () => {
-  const ordered = canonicalRows().toSorted((left, right) => (
-    left.source_record_id < right.source_record_id ? -1 : 1
-  ));
-  const duplicate = createSpatialAttributionAccumulator({ exactInput: exactInput(ordered) });
-  addSpatialAttributionEligibleRow(duplicate, ordered[0]);
+test('streaming and batch follow warehouse partition/numeric order and reject hostile identities', () => {
+  const numericRows = [
+    canonicalRow('cartodb:2', {
+      tract: mappedTract(TRACT_A),
+      grid: mappedGrid('epsg3857-500m:2:2'),
+    }),
+    canonicalRow('cartodb:10', {
+      tract: mappedTract(TRACT_B),
+      grid: mappedGrid('epsg3857-500m:10:10'),
+    }),
+  ];
+  const duplicate = createSpatialAttributionAccumulator({ exactInput: exactInput(numericRows) });
+  addSpatialAttributionEligibleRow(duplicate, numericRows[0]);
   assert.throws(
-    () => addSpatialAttributionEligibleRow(duplicate, ordered[0]),
+    () => addSpatialAttributionEligibleRow(duplicate, numericRows[0]),
     hasCode('row-order-invalid'),
   );
-  addSpatialAttributionEligibleRow(duplicate, ordered[1]);
-  addSpatialAttributionEligibleRow(duplicate, ordered[2]);
-  assert.equal(finalizeSpatialAttributionAccumulator(duplicate).input_rows, 3);
+  addSpatialAttributionEligibleRow(duplicate, numericRows[1]);
+  assert.equal(finalizeSpatialAttributionAccumulator(duplicate).input_rows, 2);
 
-  const reverse = createSpatialAttributionAccumulator({ exactInput: exactInput(ordered) });
-  addSpatialAttributionEligibleRow(reverse, ordered[1]);
+  const numericReverse = createSpatialAttributionAccumulator({
+    exactInput: exactInput(numericRows),
+  });
+  addSpatialAttributionEligibleRow(numericReverse, numericRows[1]);
   assert.throws(
-    () => addSpatialAttributionEligibleRow(reverse, ordered[0]),
+    () => addSpatialAttributionEligibleRow(numericReverse, numericRows[0]),
     hasCode('row-order-invalid'),
   );
+  assert.equal(compareEligible({ rows: numericRows.toReversed() }).input_rows, 2);
+
+  assert.equal(partitionForSourceId(168, 64), 0);
+  assert.equal(partitionForSourceId(60, 64), 1);
+  const crossPartitionRows = [
+    canonicalRow('cartodb:168', {
+      tract: mappedTract(TRACT_A),
+      grid: mappedGrid('epsg3857-500m:168:168'),
+    }),
+    canonicalRow('cartodb:60', {
+      tract: mappedTract(TRACT_B),
+      grid: mappedGrid('epsg3857-500m:60:60'),
+    }),
+  ];
+  const crossPartitionExact = exactInput(crossPartitionRows, { partitionCount: 64 });
+  const crossPartition = createSpatialAttributionAccumulator({
+    exactInput: crossPartitionExact,
+  });
+  addSpatialAttributionEligibleRow(crossPartition, crossPartitionRows[0]);
+  addSpatialAttributionEligibleRow(crossPartition, crossPartitionRows[1]);
+  assert.equal(finalizeSpatialAttributionAccumulator(crossPartition).input_rows, 2);
+  assert.equal(compareSpatialAttributionMethods({
+    exactInput: crossPartitionExact,
+    rows: crossPartitionRows.toReversed(),
+  }).input_rows, 2);
+
+  const reverse = createSpatialAttributionAccumulator({ exactInput: crossPartitionExact });
+  addSpatialAttributionEligibleRow(reverse, crossPartitionRows[1]);
+  assert.throws(
+    () => addSpatialAttributionEligibleRow(reverse, crossPartitionRows[0]),
+    hasCode('row-order-invalid'),
+  );
+
+  for (const sourceRecordId of ['synthetic:1', 'cartodb:0', 'cartodb:9007199254740992']) {
+    const invalidIdentity = createSpatialAttributionAccumulator({ exactInput: exactInput(1) });
+    const row = structuredClone(numericRows[0]);
+    row.source_record_id = sourceRecordId;
+    assert.throws(
+      () => addSpatialAttributionEligibleRow(invalidIdentity, row),
+      hasCode('row-identity-invalid'),
+    );
+  }
 });
 
 test('exact input rejects M1/M2 canonical and eligible admission drift before rows', () => {
@@ -525,6 +574,7 @@ function exactInput(rowsOrEligibleCount, {
   nonActive = 0,
   invalidEventTime = 0,
   categoryUnmapped = 0,
+  partitionCount = 1,
 } = {}) {
   const rows = Array.isArray(rowsOrEligibleCount) ? rowsOrEligibleCount : null;
   const analysisEligibleDenominator = rows?.length ?? rowsOrEligibleCount;
@@ -555,7 +605,7 @@ function exactInput(rowsOrEligibleCount, {
       warehouse_schema: 'engagement-phl-crime-event-warehouse/v1',
       warehouse_current_snapshot_id: digest('synthetic-m1-warehouse-snapshot'),
       canonical: {
-        partition_count: 1,
+        partition_count: partitionCount,
         row_count: canonicalDenominator,
         bytes: canonicalDenominator * 10,
         sha256: digest(`synthetic-m1-canonical:${canonicalDenominator}`),
@@ -599,6 +649,16 @@ function canonicalRows() {
       grid: unavailableGrid(),
     }),
   ];
+}
+
+function warehouseScanOrder(rows, partitionCount) {
+  return [...rows].sort((left, right) => {
+    const leftId = Number(left.source_record_id.slice('cartodb:'.length));
+    const rightId = Number(right.source_record_id.slice('cartodb:'.length));
+    return partitionForSourceId(leftId, partitionCount)
+      - partitionForSourceId(rightId, partitionCount)
+      || leftId - rightId;
+  });
 }
 
 function canonicalRow(sourceRecordId, spatial) {

@@ -1,4 +1,5 @@
 import { spatialArtifactIdentity } from './crime_event_spatial.mjs';
+import { partitionForSourceId } from './crime_event_source.mjs';
 
 export const SPATIAL_ATTRIBUTION_COMPARISON_SCHEMA =
   'engagement-spatial-attribution-method-comparison/v2';
@@ -329,7 +330,7 @@ export function createSpatialAttributionAccumulator({
     exactInput: admittedExactInput,
     configs,
     rowsAdded: 0,
-    lastRowIdentity: null,
+    lastRowOrder: null,
     finalized: false,
     sourceSpatialRows: emptySourceSpatialRows(),
     methods: new Map(METHOD_ORDER.map((method) => [
@@ -359,11 +360,15 @@ export function addSpatialAttributionEligibleRow(accumulator, row, {
     );
   }
   const rowIdentity = row.source_record_id;
-  if (state.lastRowIdentity !== null
-    && compareText(rowIdentity, state.lastRowIdentity) <= 0) {
+  const rowOrder = sourceRowOrder(
+    rowIdentity,
+    state.exactInput.m1.canonical.partition_count,
+  );
+  if (state.lastRowOrder !== null
+    && compareSourceRowOrder(rowOrder, state.lastRowOrder) <= 0) {
     throw contractError(
       'row-order-invalid',
-      'Streaming spatial attribution rows must have strictly increasing identities.',
+      'Streaming spatial attribution rows must follow canonical partition and numeric ID order.',
     );
   }
   const tractState = classifyTractState(row.spatial?.tract);
@@ -395,7 +400,7 @@ export function addSpatialAttributionEligibleRow(accumulator, row, {
     if (!inspected.ok) excludeRow(methodAccumulator, inspected.reason);
     else addWeightedAssignment(methodAccumulator, inspected.weights);
   }
-  state.lastRowIdentity = rowIdentity;
+  state.lastRowOrder = rowOrder;
   state.rowsAdded += 1;
   return accumulator;
 }
@@ -440,12 +445,14 @@ export function compareSpatialAttributionMethods({
   if (!Array.isArray(candidateInputs)) {
     throw contractError('candidate-inputs-invalid', 'Spatial attribution candidate inputs must be an array.');
   }
-  const sortedRows = admitRows(rows);
+  const accumulator = createSpatialAttributionAccumulator({ exactInput, methodConfigs });
+  const partitionCount = requireAccumulatorState(accumulator)
+    .exactInput.m1.canonical.partition_count;
+  const sortedRows = admitRows(rows, partitionCount);
   const candidates = indexCandidateInputs(
     candidateInputs,
     new Set(sortedRows.map(({ rowIdentity }) => rowIdentity)),
   );
-  const accumulator = createSpatialAttributionAccumulator({ exactInput, methodConfigs });
   for (const { rowIdentity, row } of sortedRows) {
     addSpatialAttributionEligibleRow(accumulator, row, {
       fractional: candidates.get(candidateKey(rowIdentity, 'fractional')),
@@ -557,7 +564,7 @@ function methodIdentityEvidence(blueprint) {
   };
 }
 
-function admitRows(rows) {
+function admitRows(rows, partitionCount) {
   const admitted = [];
   const identities = new Set();
   for (const row of rows) {
@@ -570,9 +577,13 @@ function admitRows(rows) {
       throw contractError('row-identity-duplicate', 'Spatial attribution input row identities must be unique.');
     }
     identities.add(rowIdentity);
-    admitted.push({ rowIdentity, row });
+    admitted.push({
+      rowIdentity,
+      rowOrder: sourceRowOrder(rowIdentity, partitionCount),
+      row,
+    });
   }
-  return admitted.sort((left, right) => compareText(left.rowIdentity, right.rowIdentity));
+  return admitted.sort((left, right) => compareSourceRowOrder(left.rowOrder, right.rowOrder));
 }
 
 function admitExactInput(value) {
@@ -682,9 +693,29 @@ function requireAccumulatorState(value) {
 }
 
 function requireRowIdentity(value) {
-  if (typeof value !== 'string' || !value || value.length > 256) {
-    throw contractError('row-identity-invalid', 'Spatial attribution row identity must be a non-empty bounded string.');
+  const match = typeof value === 'string' && value.length <= 256
+    ? value.match(/^cartodb:(\d+)$/)
+    : null;
+  const sourceId = match ? Number(match[1]) : Number.NaN;
+  if (!Number.isSafeInteger(sourceId) || sourceId <= 0) {
+    throw contractError(
+      'row-identity-invalid',
+      'Spatial attribution row identity must be cartodb:<positive safe integer>.',
+    );
   }
+  return sourceId;
+}
+
+function sourceRowOrder(rowIdentity, partitionCount) {
+  const sourceId = requireRowIdentity(rowIdentity);
+  return {
+    partition: partitionForSourceId(sourceId, partitionCount),
+    sourceId,
+  };
+}
+
+function compareSourceRowOrder(left, right) {
+  return left.partition - right.partition || left.sourceId - right.sourceId;
 }
 
 function indexCandidateInputs(inputs, rowIdentities) {
