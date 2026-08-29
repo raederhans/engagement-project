@@ -1,5 +1,5 @@
 import {
-  applyTranslations, onLanguageChange, setLanguage, t,
+  applyTranslations, getLanguage, onLanguageChange, setLanguage, t,
 } from '../i18n/index.js';
 import '../i18n/area_intelligence.js';
 import { validateAreaIntelligenceServingCandidate } from './serving_contract.js';
@@ -40,6 +40,7 @@ export function createAreaIntelligencePresentation(artifact) {
     historical: validated.historical_evidence,
     decision: validated.evaluation.decision,
     intervalOutcome: validated.evaluation.interval_90_outcome,
+    fitStateOutcome: validated.evaluation.fit_state_outcome,
     unavailable: validated.evaluation.why_unavailable,
   };
 }
@@ -70,13 +71,15 @@ function buildInvalidHtml(reason) {
 }
 
 function buildHistoricalHtml(historical) {
-  const { coverage } = historical;
+  const {
+    coverage, counts, mart_rows: martRows, measure, method, unit_count: unitCount,
+  } = historical;
   return `<section class="area-intelligence__history" aria-labelledby="area-intelligence-history-title">
     <p class="area-intelligence__kicker">${escapeHtml(t('areaIntelligence.historyKicker'))}</p>
     <h4 id="area-intelligence-history-title">${escapeHtml(t('areaIntelligence.historyTitle'))}</h4>
     <p class="area-intelligence__intro">${escapeHtml(t('areaIntelligence.historyTask'))}</p>
     <dl class="area-intelligence__evidence-grid">
-      ${factHtml('areaIntelligence.measureLabel', 'areaIntelligence.measureValue')}
+      ${factHtml('areaIntelligence.measureLabel', null, measure)}
       ${factHtml('areaIntelligence.sourceAsOfLabel', null, historical.source_as_of)}
       ${factHtml('areaIntelligence.coverageLabel', 'areaIntelligence.coverageWindow', null, {
     start: coverage.earliest_scope_start,
@@ -86,14 +89,19 @@ function buildHistoricalHtml(historical) {
     end: coverage.complete_week_end_exclusive,
   })}
       ${factHtml('areaIntelligence.geometryLabel', 'areaIntelligence.geometryValue')}
-      ${factHtml('areaIntelligence.precisionLabel', 'areaIntelligence.precisionValue')}
+      ${factHtml('areaIntelligence.precisionLabel', 'areaIntelligence.precisionValue', null, {
+    precision: method.source_location_precision,
+  })}
     </dl>
+    ${buildLedgerHtml({ counts, martRows, unitCount })}
     <div class="area-intelligence__method">
       <h5>${escapeHtml(t('areaIntelligence.methodTitle'))}</h5>
       <ul>
-        <li>${escapeHtml(t('areaIntelligence.weekMethod'))}</li>
+        <li>${escapeHtml(t('areaIntelligence.weekMethod', { definition: method.week_definition }))}</li>
         <li>${escapeHtml(t('areaIntelligence.denominatorMethod'))}</li>
-        <li>${escapeHtml(t('areaIntelligence.holdoutMethod'))}</li>
+        <li>${escapeHtml(t('areaIntelligence.holdoutMethod', {
+    distance: formatKilometers(method.spatial_holdout_block_size_m),
+  }))}</li>
         <li>${escapeHtml(t('areaIntelligence.exclusionMethod'))}</li>
       </ul>
     </div>
@@ -101,19 +109,50 @@ function buildHistoricalHtml(historical) {
   </section>`;
 }
 
+function buildLedgerHtml({
+  counts, martRows, unitCount,
+}) {
+  return `<section class="area-intelligence__ledger" aria-labelledby="area-intelligence-ledger-title">
+    <h5 id="area-intelligence-ledger-title">${escapeHtml(t('areaIntelligence.ledgerTitle'))}</h5>
+    <p>${escapeHtml(t('areaIntelligence.ledgerScope'))}</p>
+    <dl class="area-intelligence__ledger-grid">
+      ${countFactHtml('areaIntelligence.canonicalRowsLabel', counts.canonical_rows_seen)}
+      ${countFactHtml('areaIntelligence.tractAdmittedLabel', counts.tract.admitted)}
+      ${countFactHtml('areaIntelligence.tractAmbiguousLabel', counts.tract.ambiguous_excluded)}
+      ${countFactHtml('areaIntelligence.tractUnmappedLabel', counts.tract.unmapped_excluded)}
+      ${countFactHtml('areaIntelligence.gridAdmittedLabel', counts.fixed_grid.admitted)}
+      ${countFactHtml('areaIntelligence.gridUnavailableLabel', counts.fixed_grid.unavailable_excluded)}
+      ${countFactHtml('areaIntelligence.tractUnitsLabel', unitCount.tract)}
+      ${countFactHtml('areaIntelligence.gridUnitsLabel', unitCount.fixed_grid)}
+      ${countFactHtml('areaIntelligence.martRowsLabel', martRows)}
+    </dl>
+    <p class="area-intelligence__boundary">${escapeHtml(t('areaIntelligence.parallelDenominators'))}</p>
+  </section>`;
+}
+
 function buildUnavailableHtml(presentation) {
   const reasonKey = presentation.decision === 'no-promotion'
     ? 'areaIntelligence.noPromotionReason'
     : 'areaIntelligence.localCandidateReason';
-  const failedGateCount = presentation.intervalOutcome.failed_primary_slice_count;
+  const { failed_primary_slice_count: failedPrimarySlices } = presentation.intervalOutcome;
+  const fitState = presentation.fitStateOutcome;
   return `<aside class="area-intelligence__unavailable" aria-labelledby="area-intelligence-unavailable-title" data-reason="${escapeHtml(presentation.unavailable.code)}">
     <p class="area-intelligence__kicker">${escapeHtml(t('areaIntelligence.unavailableKicker'))}</p>
     <h4 id="area-intelligence-unavailable-title" role="status">${escapeHtml(t('areaIntelligence.unavailableTitle'))}</h4>
-    <p>${escapeHtml(t(reasonKey))}</p>
+    <p>${escapeHtml(t(reasonKey, { failedPrimarySlices: formatInteger(failedPrimarySlices) }))}</p>
     <dl class="area-intelligence__gate-facts">
       ${factHtml('areaIntelligence.intervalLabel', 'areaIntelligence.intervalUnavailable')}
-      ${factHtml('areaIntelligence.failedGatesLabel', 'areaIntelligence.failedGatesValue', null, { count: failedGateCount })}
+      ${countFactHtml('areaIntelligence.failedGatesLabel', failedPrimarySlices)}
     </dl>
+    <section class="area-intelligence__fit-states" aria-labelledby="area-intelligence-fit-states-title">
+      <h5 id="area-intelligence-fit-states-title">${escapeHtml(t('areaIntelligence.fitStateTitle'))}</h5>
+      <dl class="area-intelligence__gate-facts">
+        ${countFactHtml('areaIntelligence.fitStateTotalLabel', fitState.total)}
+        ${countFactHtml('areaIntelligence.fitStatePassedLabel', fitState.passed)}
+        ${countFactHtml('areaIntelligence.fitStateFailedLabel', fitState.failed)}
+        ${countFactHtml('areaIntelligence.fitStateBeforeLimitLabel', fitState.converged_before_iteration_limit)}
+      </dl>
+    </section>
     <p>${escapeHtml(t('areaIntelligence.intervalMeaning'))}</p>
     <p class="area-intelligence__no-fallback">${escapeHtml(t('areaIntelligence.historicalOnly'))}</p>
   </aside>`;
@@ -122,6 +161,10 @@ function buildUnavailableHtml(presentation) {
 function factHtml(labelKey, valueKey, value = null, params = {}) {
   const renderedValue = valueKey ? t(valueKey, params) : value;
   return `<div><dt>${escapeHtml(t(labelKey))}</dt><dd>${escapeHtml(renderedValue)}</dd></div>`;
+}
+
+function countFactHtml(labelKey, value) {
+  return factHtml(labelKey, null, formatInteger(value));
 }
 
 export function renderAreaIntelligencePresentation(presentation, {
@@ -171,6 +214,14 @@ function classifyInvalidReason(error) {
     return 'legacy-not-current';
   }
   return 'invalid-v2';
+}
+
+function formatInteger(value) {
+  return new Intl.NumberFormat(getLanguage(), { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatKilometers(meters) {
+  return new Intl.NumberFormat(getLanguage(), { maximumFractionDigits: 2 }).format(meters / 1000);
 }
 
 function escapeHtml(value) {

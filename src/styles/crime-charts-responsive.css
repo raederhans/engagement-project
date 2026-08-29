@@ -460,7 +460,9 @@
 
 .area-intelligence__history h4,
 .area-intelligence__unavailable h4,
-.area-intelligence__method h5 {
+.area-intelligence__method h5,
+.area-intelligence__ledger h5,
+.area-intelligence__fit-states h5 {
   margin: 0;
   color: var(--ink);
 }
@@ -490,7 +492,8 @@
 }
 
 .area-intelligence__evidence-grid,
-.area-intelligence__gate-facts {
+.area-intelligence__gate-facts,
+.area-intelligence__ledger-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 18px;
@@ -498,14 +501,16 @@
 }
 
 .area-intelligence__evidence-grid > div,
-.area-intelligence__gate-facts > div {
+.area-intelligence__gate-facts > div,
+.area-intelligence__ledger-grid > div {
   min-width: 0;
   padding: 8px 0;
   border-top: 1px solid rgba(129, 154, 176, 0.35);
 }
 
 .area-intelligence__evidence-grid dt,
-.area-intelligence__gate-facts dt {
+.area-intelligence__gate-facts dt,
+.area-intelligence__ledger-grid dt {
   color: var(--ink-muted);
   font-size: 10px;
   font-weight: 700;
@@ -513,7 +518,8 @@
 }
 
 .area-intelligence__evidence-grid dd,
-.area-intelligence__gate-facts dd {
+.area-intelligence__gate-facts dd,
+.area-intelligence__ledger-grid dd {
   margin: 4px 0 0;
   color: var(--ink);
   font-size: 11px;
@@ -526,6 +532,30 @@
   margin-top: 13px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+}
+
+.area-intelligence__ledger,
+.area-intelligence__fit-states {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.area-intelligence__ledger h5,
+.area-intelligence__fit-states h5 {
+  font-size: 12px;
+}
+
+.area-intelligence__ledger p,
+.area-intelligence__fit-states + p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.area-intelligence__ledger-grid {
+  margin-top: 10px;
 }
 
 .area-intelligence__method h5 {
@@ -695,6 +725,7 @@
 @media (max-width: 460px) {
   .area-intelligence__evidence-grid,
   .area-intelligence__gate-facts,
+  .area-intelligence__ledger-grid,
   .residential-stability__metrics {
     grid-template-columns: 1fr;
   }
@@ -710,8 +741,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .area-intelligence__content,
+  .area-intelligence__unavailable,
   .area-intelligence__unavailable::before {
     animation: none;
+    transition: none;
   }
 }
 
