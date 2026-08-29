@@ -22,7 +22,7 @@ import {
 } from '../route_real_graph_authority/safe_data.mjs';
 
 export const OSRM_MATURE_ENGINE_RECEIPT_SCHEMA =
-  'route-real-graph-osrm-mature-engine-receipt/v2';
+  'route-real-graph-osrm-mature-engine-receipt/v3';
 export const OSRM_GRAPH_ARTIFACT_SCHEMA = 'route-real-engine-graph-artifact/v1';
 
 const EXPECTED_M4_SOURCE_FINAL =
@@ -44,7 +44,8 @@ const ROOTS = Object.freeze({
   source: '.dfev1/route-real-graph-m5-1/source/geofabrik-pennsylvania-260824',
   cityBoundary: '.dfev1/route-real-graph-m5-1/source/philadelphia-city-limits',
   m4Input: '.dfev1/route-real-graph-m5-1/input/m4-source-final-b4fcc63',
-  receipt: '.dfev1/route-real-graph-m5-1/build/osrm-26.8.0-foot-pennsylvania-260824/mature-engine-receipt-v2.json',
+  probeEvidence: '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries',
+  receipt: '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-v3.json',
 });
 
 export const OSRM_RECEIPT_HASH_BLOCK_BYTES = 4 * 1_024 * 1_024;
@@ -480,22 +481,82 @@ function integerMatch(text, pattern, label) {
 }
 
 function inspectPublicProbe(projectRoot) {
-  const run1 = fileBinding(projectRoot, `${ROOTS.build}/probe-run1.json`);
-  const run2 = fileBinding(projectRoot, `${ROOTS.build}/probe-run2.json`);
-  const replayManifest = fileBinding(projectRoot, `${ROOTS.build}/probe-replay-manifest.json`);
+  const run1 = fileBinding(projectRoot, `${ROOTS.probeEvidence}/probe-run1.json`);
+  const run2 = fileBinding(projectRoot, `${ROOTS.probeEvidence}/probe-run2.json`);
+  const replayManifest = fileBinding(projectRoot, `${ROOTS.probeEvidence}/probe-replay-manifest.json`);
+  const transcriptBinding = fileBinding(projectRoot, `${ROOTS.probeEvidence}/probe-owned-transcript.json`);
   const run1Bytes = readFileSync(resolveOwned(projectRoot, run1.path));
   const run2Bytes = readFileSync(resolveOwned(projectRoot, run2.path));
   if (!run1Bytes.equals(run2Bytes) || run1.bytes !== run2.bytes || run1.sha256 !== run2.sha256) {
     fail('osrm-public-probe-replay', 'public probe run1 and run2 bytes are not exactly equal');
   }
   const manifest = JSON.parse(readFileSync(resolveOwned(projectRoot, replayManifest.path), 'utf8'));
-  if (manifest?.schema !== 'route-real-osrm-public-probe-replay/v1'
+  if (manifest?.schema !== 'route-real-osrm-public-probe-replay/v2'
     || manifest.equal !== true
     || manifest.run1?.path !== run1.path || manifest.run1?.bytes !== run1.bytes
     || manifest.run1?.sha256 !== run1.sha256
     || manifest.run2?.path !== run2.path || manifest.run2?.bytes !== run2.bytes
     || manifest.run2?.sha256 !== run2.sha256) {
     fail('osrm-public-probe-manifest', 'probe replay manifest does not bind both actual response files');
+  }
+  const transcript = JSON.parse(readFileSync(
+    resolveOwned(projectRoot, transcriptBinding.path),
+    'utf8',
+  ));
+  const { transcriptIdentity, ...transcriptCore } = transcript;
+  const port = transcript?.transport?.port;
+  const expectedUrl = `http://127.0.0.1:${port}/route/v1/walking/`
+    + '-75.163570,39.952583;-75.150282,39.948873'
+    + '?alternatives=false&steps=false&geometries=geojson&overview=full';
+  const expectedExecutable = fileBinding(
+    projectRoot,
+    `${ROOTS.native}/osrm-routed.exe`,
+  );
+  const expectedArguments = [
+    '--algorithm', 'mld', '--ip', '127.0.0.1', '--port', String(port), 'graph.osrm',
+  ];
+  const requestOwnershipIntact = (request) => (
+    ['ownershipBefore', 'ownershipAfter'].every((key) => (
+      request?.[key]?.method === 'windows-tcp-table-owning-process'
+      && request[key].childPid === transcript.launch?.childPid
+      && request[key].owningProcessId === transcript.launch?.childPid
+      && request[key].exclusiveOwnerMatch === true
+    ))
+  );
+  if (transcript?.schema !== 'route-real-osrm-owned-public-probe-transcript/v2'
+    || transcriptIdentity !== contentIdentity(transcriptCore)
+    || transcript.fixtureId !== 'philadelphia-city-hall-to-independence-hall/public-v1'
+    || transcript.transport?.protocol !== 'http'
+    || transcript.transport?.host !== '127.0.0.1'
+    || !Number.isSafeInteger(port) || port < 1 || port > 65_535
+    || transcript.transport?.allocation !== 'os-assigned-loopback-candidate'
+    || canonicalStringify(transcript.launch?.executable) !== canonicalStringify(expectedExecutable)
+    || transcript.launch?.graphPath !== `${ROOTS.build}/graph.osrm`
+    || transcript.launch?.cwd !== ROOTS.build
+    || canonicalStringify(transcript.launch?.arguments) !== canonicalStringify(expectedArguments)
+    || !Number.isSafeInteger(transcript.launch?.childPid) || transcript.launch.childPid < 1
+    || transcript.readiness?.method !== 'windows-tcp-table-owning-process'
+    || transcript.readiness?.command !== 'netstat.exe -ano -p tcp'
+    || transcript.readiness?.childPid !== transcript.launch.childPid
+    || transcript.readiness?.owningProcessId !== transcript.launch.childPid
+    || transcript.readiness?.childAlive !== true
+    || transcript.readiness?.exclusiveOwnerMatch !== true
+    || !Number.isSafeInteger(transcript.readiness?.attempts)
+    || transcript.readiness.attempts < 1 || transcript.readiness.attempts > 100
+    || transcript.requests?.length !== 2
+    || transcript.requests[0]?.sequence !== 1 || transcript.requests[0]?.url !== expectedUrl
+    || !requestOwnershipIntact(transcript.requests[0])
+    || canonicalStringify(transcript.requests[0]?.response) !== canonicalStringify(run1)
+    || transcript.requests[1]?.sequence !== 2 || transcript.requests[1]?.url !== expectedUrl
+    || !requestOwnershipIntact(transcript.requests[1])
+    || canonicalStringify(transcript.requests[1]?.response) !== canonicalStringify(run2)
+    || transcript.teardown?.targetedChildPid !== transcript.launch.childPid
+    || transcript.teardown?.terminationRequested !== true
+    || transcript.teardown?.portReleasedByChild !== true
+    || transcript.teardown?.foreignProcessTerminated !== false
+    || transcript.privateRuntimeProductPromotion !== false
+    || transcript.candidateGenerationAuthorized !== false) {
+    fail('osrm-public-probe-transcript', 'probe transcript does not bind transport, child ownership, exact launch, queries, and teardown');
   }
   const value = JSON.parse(run1Bytes.toString('utf8'));
   const route = value?.routes?.[0];
@@ -508,12 +569,19 @@ function inspectPublicProbe(projectRoot) {
   return {
     fixtureId: 'philadelphia-city-hall-to-independence-hall/public-v1',
     coordinates: [[-75.163570, 39.952583], [-75.150282, 39.948873]],
-    endpoint: 'http://127.0.0.1:<ephemeral>/route/v1/walking',
+    endpoint: `http://127.0.0.1:${port}/route/v1/walking`,
+    transport: transcript.transport,
+    launch: transcript.launch,
+    readiness: transcript.readiness,
+    teardown: transcript.teardown,
     localLoopbackOnly: true,
+    responderOwnershipVerified: true,
     deterministicRepeatedResponse: true,
     run1,
     run2,
     replayManifest,
+    transcript: transcriptBinding,
+    transcriptIdentity,
     result: {
       code: 'Ok', routeCount: 1, waypointCount: 2,
       distanceMetres: route.distance, durationSeconds: route.duration,

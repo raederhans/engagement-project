@@ -24,9 +24,9 @@ const ATTEMPTED_HANDLES = new WeakSet();
 // Integration-owner-controlled positive capability root. It is intentionally
 // one exact installed receipt, not a caller-extensible list or JSON registry.
 const INSTALLED = Object.freeze({
-  registryRevision: 'route-real-mature-engine-registry/m5-1-27badbd-osrm-26.8.0-v2',
+  registryRevision: 'route-real-mature-engine-registry/m5-1-p2-owned-responder-osrm-26.8.0-v3',
   receiptSchema: OSRM_MATURE_ENGINE_RECEIPT_SCHEMA,
-  receiptIdentity: 'sha256:d69e4a53558262fd834c6f8078d7618a545e1141069910213538f47c821889c0',
+  receiptIdentity: 'sha256:1cbbf20561e49bbd812874f8fc480cf77c5fa2d168649818354315f1b66fced8',
   graphArtifactIdentity: 'sha256:3adc0b82ec95257a58eae324dbdd0a469e5e54599461c152bf3b3239049901e0',
   topologyIdentity: 'sha256:25f3d33d33d82cf670c64db2f1bbc7e0bc7f9c1a11a31ba8ad700eb7fc6e0e3a',
   geometryIdentity: 'sha256:eef990bba12ff2891f01e66805bf6c6f84df764b45e6f66eacd8e11ee6b7c75b',
