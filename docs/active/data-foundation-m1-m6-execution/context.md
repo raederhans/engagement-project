@@ -57,6 +57,10 @@
 | 2026-08-29 | 多轮 M3-4 对抗证明自然语言肯定语法枚举仍会漏普通复数、修饰词、中文体貌词和省略主语结构；监督在 `0602a4a` 改为 unsafe lexicon 默认拒绝，只允许全字符串受控 disclosures/denials/metadata/operational 文案。 | 未知或歧义安全语义被拒是产品策略；不再把运行时 regex 当成开放式 NLP。typed claim AST 保留为后续架构方向，不扩大本轮范围。 |
 | 2026-08-29 | M3-4 在 `0602a4a` 仍复现 evidence-denial `.+` 跨句吞掉后续肯定结论；`9ccabe5` 将英中文本绑定到单个受控 target，35 hostile/39 legitimate 独立矩阵无逃逸或误拒。 | 语义/source/privacy gate 已闭合；任何新的代码拥有安全词汇文案仍须显式进入全锚定 allowlist。 |
 | 2026-08-29 | M3-4 在同一 fresh dist 上发现 close/reopen browser gate 2 PASS/2 FAIL：测试在 async controller 重建前读取空控件；`7a0f03c` 改为等待新 dialog 与恰好两个可见空地址控件。中央与 reviewer 各自连续 6/6 PASS。 | 这是既有 test race 而非 production tree 回归；最终 exact `7a0f03c` 的独立 verdict 为 P0/P1/P2 zero、M3 local PASS、M4 admission PASS。M4 可以开始。 |
+| 2026-08-29 | M4-1/M4-2/M4-3/M4-4 四个 high 任务分别完成 builder/receipt、Centerline/privacy/UI、唯一 ignored-data writer 和独立 exact-tip review；最终监督 SHA 为 `b4fcc63c7540f0a5e31844158a0fc853d2c8c0a6`。 | 本阶段任务数冻结为 4/4；新 source-final 根只绑定 exact `b4fcc63`，旧 `full-warehouse` 不可 fallback。 |
+| 2026-08-29 | M4 writer 从本轮 M1 64 partitions 扫描 3,586,620 rows / 8,741,798,048 raw bytes，生成精确三工件；completed rerun idempotent 且 bytes/SHA/100ns mtime 零变化。 | M4 证据覆盖 `[2006-01-01, 2026-08-28)`；2,024 contributing rows 与 609.840838 contribution units 只是聚合历史 evidence，不是个体风险或安全结论。 |
+| 2026-08-29 | M4-4 首轮发现 Centerline schema/CRS、M1 aggregation TOCTOU、v2 validator 和 completed-inventory 四类问题；修复后 reviewer 在 exact `b4fcc63` 独立复验为 P0/P1/P2/P3 全零。 | M4 local stage gate PASS；Centerline 继续 reference-only，mode/accessibility/routing/safety/M2 authority 全为 false，M5 不得继承不存在的路由授权。 |
+| 2026-08-29 | 最终 reviewer 构建观测 non-VRE bundle 3,999,920/4,000,000，M4 chunk 36,497/36,500；浏览器双语、键盘、桌面/移动、隐私与 0 console/page errors 全部 PASS。 | M5-M6 只有 80-byte 总包余量，必须 code-split/压缩现有字节，禁止提高 ceiling。 |
 
 ## Live process ownership
 
@@ -74,18 +78,22 @@
 | M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | final repair bases through exact `0602a4a` | complete; fail-closed source `4a2a72c` and single-target denial repair `d7d8fd1` integrated as `0602a4a` and `9ccabe5`; worktree clean |
 | M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | final supervisor exact `7a0f03c` | complete; original source-final `148cfaa`, POST fixture `c06dcfc`; final follow-up returned 0 items, so supervisor made the one-file observable-ready test repair and proved six consecutive PASS runs |
 | M3 final independent review | `01a04a1d-74f8-7b70-a252-0b7ea1ee55f5` / `73e0` | final exact candidate `7a0f03c` | complete; final P0/P1/P2 zero, M3 local gate PASS and M4 admission PASS; no active browser/server process |
+| M4 builder/receipt | `01a04ad4-c4d4-7013-b315-f22eefb56c69` | tracked source-final commits through exact supervisor `b4fcc63` | complete; receipt/validator/aggregation repairs integrated, no active process |
+| M4 Centerline/privacy/UI | `01a04ad4-c50c-7800-8128-1056e4d4b2df` | exact live Centerline transaction and focused browser gates | complete; 47-feature public reference smoke PASS, no active server/listener |
+| M4 unique ignored-data writer | `01a04af3-c867-7770-bd3d-e97c2eda5e1b` / `f1a1` | `.dfev1/known-route-evidence-v1/full-warehouse-source-final-b4fcc63` | complete; exact three-artifact root retained, fresh writer and completed rerun PASS |
+| M4 final independent review | `01a04b18-68d7-7810-b23d-f854a1064575` / `7897` | exact `b4fcc63` plus source-final root | complete; P0/P1/P2/P3 zero, all original findings CLOSED, tracked clean |
 
 ## Handoff
 
-M3 final `7a0f03c` 已通过同一独立 reviewer 的 exact-tip gate：P0/P1/P2 均为零，M3 local gate
-与 M4 admission 均 PASS。地址/坐标/parcel 仅进入准入的官方 POST body，未进入 URL、日志、
-持久存储或 share state；未知安全语义默认 fail closed。M2 仍为 `not-promoted/unavailable`，
-commute/routing 仍 unavailable。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general
-browser-smoke failure、262-byte bundle 余量和商业/再发布许可未确认继续披露。
+M4 final `b4fcc63` 已通过独立 reviewer 的 exact-tip gate：P0/P1/P2/P3 均为零，原 3 个 P1
+和 1 个 P2 均关闭。source-final 三工件精确绑定本轮 M1/M2 与 live public Centerline transaction；
+M2 仍为 `not-promoted/unavailable`，Centerline 仍是 reference-only，routing/mode/accessibility/
+safety authority 均为 false。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general
+browser-smoke failure、80-byte bundle 余量和 routing graph/许可/运行 authority 缺口继续披露。
 
 ## Next step
 
-提交本记录后，从 exact supervisor tip 创建 M4-1 builder/receipt 与 M4-2 Centerline/privacy/UI 两个
-互斥 high 任务；先完成代码整合和聚焦门禁，再创建唯一 M4-3 ignored data owner 扫描本轮 M1
-64 partitions，最后以 M4-4 独立 exact-tip reviewer 关闭阶段。M4 仍不得把 Centerline 提升为
-mode/accessibility/routing authority，也不得生成“safest route”结论。
+提交本记录后，从 exact supervisor tip 创建 M5-1 真实图/许可/authority/engine 任务。只有本地成熟
+routing engine、可复建真实图 receipt 和正向私有 authority 同时成立，才继续 M5-2 Pareto/oracle
+与 M5-3 product/browser；否则 M5 诚实结束为 `unavailable/no routing promotion`。M5-4 保留给独立
+exact-tip reviewer，阶段最多 4 个 high 任务，且不得把私人地址、坐标或路线发送到远端服务。

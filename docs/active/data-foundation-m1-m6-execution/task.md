@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M3 complete — exact 7a0f03c passed the independent final gate with P0/P1/P2 zero and M4 admission PASS (4/4 high tasks)`。
+`M4 complete — exact b4fcc63 passed the independent final gate with P0/P1/P2/P3 zero (4/4 high tasks)`。
 
 ## Checklist
 
@@ -30,7 +30,7 @@
 - [x] 复用 M3-1/M3-2 修复全部四项 findings，并在监督 worktree 运行合并态中央门禁。
 - [x] 让 M3-4 对修复后的精确候选做 focused re-review 并完成 M3 stage gate。
 - [x] M3 Home and Neighborhood Compare stage gate。
-- [ ] M4 Known Route Evidence stage gate。
+- [x] M4 Known Route Evidence stage gate。
 - [ ] M5 Adaptive Route Alternatives stage gate。
 - [ ] M6 Local Diary / closed Community Evidence stage gate。
 
@@ -101,10 +101,15 @@
 | fail-closed semantic candidate `0602a4a` | Replaced open-ended direct/causal/evidence inference with unsafe-lexicon default denial and fully anchored owned disclosure, quantified denial, metadata and operational allowlists; 53/53, ESLint, build, bundle and browser passed, but reviewer reproduced one P1 where `.+` in evidence denial swallowed a later assertion. |
 | evidence-denial repair `9ccabe5` | EN/ZH evidence denials now bind one complete controlled target and reject cross-sentence, inference and second-predicate suffixes; 54/54 PASS, bundle 3,999,738/4,000,000 and browser PASS. Reviewer independently found 0 semantic/source/privacy findings, but exposed an existing close/reopen browser-test race at 2 PASS / 2 FAIL. |
 | final browser-gate repair `7a0f03c` | Test waits for the newly mounted visible dialog and exactly two visible empty address controls before checking a fresh private session; no sleeps/retry swallowing or product-code change. Central and independent reviewer each obtained six consecutive browser PASS runs; final reviewer verdict P0=0/P1=0/P2=0, M3 local gate PASS, M4 admission PASS. |
+| M4 integrated code gate through `b4fcc63` | M4 16/16, Centerline 3/3, targeted ESLint, build, bundle and built-browser all PASS; the live public ArcGIS transaction returned 47 deterministic reference features with exact count, EPSG:4326 CRS, object-id and metadata recheck bindings. |
+| M4 source-final ignored root | `full-warehouse-source-final-b4fcc63` contains exactly `checkpoint.json`, `aggregate-report.json` and `final-handoff.json`; 64/64 M1 partitions, 3,586,620 rows and 8,741,798,048 raw bytes bind receipt `cd7585ae…e16e4` and M2 mart `5ad0b1d0…ba894`. |
+| M4 fresh writer plus completed rerun | first writer exit 0; completed rerun returned `restoredCompletedCheckpoint:true` and `idempotent:true`; exact inventory, bytes, SHA-256 and 100ns mtimes had zero changes and no temp/backup/transaction residue. |
+| M4 evidence semantics | 3,530,212 generalized eligible rows, 2,024 contributors and 609.840838 aggregate contribution units; coverage `[2006-01-01, 2026-08-28)`; M2 remains `not-promoted/unavailable`, Centerline remains reference-only and routing/accessibility/safety authority remains false. |
+| M4-4 exact-tip review of `b4fcc63` | PASS / APPROVE with P0=0, P1=0, P2=0, P3=0; all original 3 P1 and 1 P2 findings CLOSED; reviewer independently repeated public validate-only, data-chain, focused code, build, bundle and browser gates on a clean exact tip. |
 
 ## Open risks and remaining work
 
-- M1 ignored root 约 9.37 GiB 且只存在于 retained `ac89` worktree；下游 M2-M4 完成前不得清理、移动或回收该 worktree。
+- M1 ignored root 约 9.37 GiB 且只存在于 retained `ac89` worktree；M4 已完成但本轮 M1-M6 收尾前仍不得清理、移动或回收该 worktree。
 - M1-1 的 50,000-row partial 明确无效且仍原样保留；任何下游不得发现后自动 fallback 到该旧根。
 - 新 pre-ingest full scan is intentionally O(canonical bytes + rows)；exact rerun 观测到约 190.7 GiB
   机械扫描下界和 93,252,120 row inspections，后续增量性能需单独优化但不能削弱 fail-closed gate。
@@ -116,13 +121,15 @@
   本轮结果，因此没有结果驱动调参，但不得声称严格观察者盲态无污染，M2-4 必须独立评估。
 - 本轮 frozen gate 未选出可发布模型：Poisson 与 negative-binomial 均有 primary/category/coverage
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
-- M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
-  不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- M3 final candidate 的 bundle 为 3,999,738/4,000,000 non-VRE bytes，只余 262 bytes；M4-M6 不能提高 ceiling，任何 bundled 改动必须同步做真实 code-splitting/体积收敛。
+- M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；本轮 M1-M6 收尾前不得清理、
+  移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
+- M4 final candidate 的 reviewer bundle 为 3,999,920/4,000,000 non-VRE bytes，只余 80 bytes；
+  M5-M6 不能提高 ceiling，任何 bundled 改动必须先做真实 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
   不能只比较解析后的 JSON 语义。
-- M4/M5 的真实道路图 authority 和许可仍需从当前 main 的实际 contracts重新判定。
-- M4 full builder 仍绑定旧 M1 row/date 常量；进入 M4 时必须迁移为本轮 receipt 驱动且复核
-  canonical bindings，不能把旧数值换成新数值后继续硬编码。
+- M4 source-final ignored root 只存在于 retained `f1a1` worktree；精确三工件及其本轮 M1/M2
+  lineage 必须保留到 M5-M6 收尾，旧 `full-warehouse` 仅作审计历史，禁止自动 fallback。
+- M4 Centerline 只拥有 reference topology/geometry authority；M5 的真实 routing graph、mode、
+  accessibility、travel-time、许可与正向运行 authority 仍未成立，synthetic graph 不得晋级。
