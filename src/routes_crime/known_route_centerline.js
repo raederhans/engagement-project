@@ -363,10 +363,12 @@ export async function requestPhiladelphiaCenterlineCatalog({
         outFields: PHILADELPHIA_CENTERLINE_SOURCE.selectedFields.join(','),
         returnGeometry: 'true',
         orderByFields: 'objectid ASC',
-        resultRecordCount: String(countResponse.count),
         f: 'geojson',
       },
     });
+    featureCollection.features = featureCollection.features?.map(({ id, ...feature }) => (
+      id === feature.properties?.objectid ? feature : {}
+    ));
     const metadataAfter = admitCenterlineMetadata(await requestJson(
       request, PHILADELPHIA_CENTERLINE_SOURCE.layerUrl,
       { method: 'GET', signal: transactionSignal, query: { f: 'pjson' } },

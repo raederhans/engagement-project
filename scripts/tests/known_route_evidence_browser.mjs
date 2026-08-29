@@ -101,8 +101,10 @@ await runBrowserSuite({
   ]);
   assert.deepEqual([...transactionPosts[1].keys()].sort(), [
     'f', 'geometry', 'geometryType', 'inSR', 'orderByFields', 'outFields', 'outSR',
-    'resultRecordCount', 'returnGeometry', 'spatialRel', 'where',
+    'returnGeometry', 'spatialRel', 'where',
   ]);
+  assert.equal(transactionPosts[1].has('resultRecordCount'), false);
+  assert.equal(transactionPosts[1].get('orderByFields'), 'objectid ASC');
   const spatialPost = centerlineRequests.find((request) => request.method === 'POST'
     && request.body.includes('geometry=') && request.body.includes('outFields='));
   assert.ok(spatialPost, 'consented M4 request must send the disclosed bbox POST');
@@ -355,6 +357,7 @@ function centerlineMetadata() {
 function centerlineFeatures() {
   const edge = (objectid, segId, from, to, coordinates) => ({
     type: 'Feature',
+    id: objectid,
     properties: {
       objectid,
       seg_id: segId,

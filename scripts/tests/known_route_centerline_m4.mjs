@@ -76,6 +76,12 @@ function featureCollection() {
   };
 }
 
+function transportFeatureCollection() {
+  const value = featureCollection();
+  for (const feature of value.features) feature.id = feature.properties.objectid;
+  return value;
+}
+
 function blockedRecord(value = true) {
   return JSON.parse(`{"__proto__":{"polluted":${JSON.stringify(value)}}}`);
 }
@@ -135,7 +141,7 @@ test('Centerline metadata admits only the safe consumed projection', () => {
 
 test('Centerline transaction requires explicit consent and exact URLSearchParams POSTs', async () => {
   const calls = [];
-  const responses = [metadata(), { count: 2 }, featureCollection(), metadata()];
+  const responses = [metadata(), { count: 2 }, transportFeatureCollection(), metadata()];
   const request = async (url, options) => {
     calls.push({ url, options });
     return { ok: true, json: async () => responses[calls.length - 1] };
@@ -166,6 +172,8 @@ test('Centerline transaction requires explicit consent and exact URLSearchParams
   assert.equal(posts[1].options.body.get('geometryType'), 'esriGeometryEnvelope');
   assert.equal(posts[1].options.body.get('inSR'), '4326');
   assert.equal(posts[1].options.body.get('outSR'), '4326');
+  assert.equal(posts[1].options.body.has('resultRecordCount'), false);
+  assert.equal(posts[1].options.body.get('orderByFields'), 'objectid ASC');
   assert.doesNotMatch(posts.map(({ options }) => options.body.toString()).join('\n'), /LineString|walking|address|destination|Diary/i);
 });
 
@@ -173,11 +181,21 @@ test('Centerline transaction rejects schema drift, truncation, duplicate/unknown
   const drifted = metadata();
   drifted.fields = drifted.fields.map((field) => field.name === 'class'
     ? { ...field, type: 'esriFieldTypeInteger' } : field);
-  assert.equal((await transaction([metadata(), { count: 2 }, featureCollection(), drifted])).reason, 'source-drift');
+  assert.equal((await transaction([metadata(), { count: 2 }, transportFeatureCollection(), drifted])).reason, 'source-drift');
   assert.equal((await transaction([
-    metadata(), { count: 2 }, featureCollection(), metadata({ maxRecordCount: 3000 }),
+    metadata(), { count: 2 }, transportFeatureCollection(), metadata({ maxRecordCount: 3000 }),
   ])).reason, 'source-drift');
-  assert.equal((await transaction([metadata(), { count: 3 }, featureCollection(), metadata()])).reason, 'source-drift');
+  assert.equal((await transaction([metadata(), { count: 3 }, transportFeatureCollection(), metadata()])).reason, 'source-drift');
+  const mismatchedGeoJsonId = transportFeatureCollection();
+  mismatchedGeoJsonId.features[0].id += 1;
+  assert.equal((await transaction([
+    metadata(), { count: 2 }, mismatchedGeoJsonId, metadata(),
+  ])).reason, 'source-drift');
+  const missingGeoJsonId = transportFeatureCollection();
+  delete missingGeoJsonId.features[0].id;
+  assert.equal((await transaction([
+    metadata(), { count: 2 }, missingGeoJsonId, metadata(),
+  ])).reason, 'source-drift');
 
   const sourceVersion = admitCenterlineMetadata(metadata());
   assert.equal(admitCenterlineFeatureCollection(featureCollection(), {
