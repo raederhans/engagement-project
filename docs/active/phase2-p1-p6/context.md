@@ -38,6 +38,10 @@
 | 2026-08-30 | evaluator 独立审查先返回 REQUEST CHANGES，修复后整合 | 深校验改为绑定调用方 frozen protocol/mart/checkpoint 并独立重算；complete checkpoint 先于 manifest；`.dfev1` realpath/junction 越界零写入；39/39 integration tests PASS |
 | 2026-08-30 | exact M1 在新协议下重建 P3 M2 | artifact `sha256:df200d11666b314285750a4914eb35f6377c7534aef14bac2fbc2b4419749861`；canonical 3,586,620、mart 1,611,918 rows、128 parts、825,033,042 bytes；旧 `5c6361...` M2 保持历史证据 |
 | 2026-08-30 | 真实 P3 evaluation 与幂等复跑完成 | 64/64 count-model fit states 未在冻结 iteration cap 前收敛，多个 coverage/MAE slices 失败；结果诚实 `not-promoted`、无 local candidate；9 个 artifact 第二次运行逐字节不变，authority 全 false |
+| 2026-08-30 | P4 分派 serving、UI、privacy 三个互斥用户可见任务 | 预算达到 3/3；全部显式使用 `high` 或更低推理，主任务保持唯一 integration/live-test owner |
+| 2026-08-30 | exact P3 证据投影为 Area Intelligence serving/v2 | tracked artifact 为 3,087 bytes / `sha256:5a8733c877983556e80896ea2689eb1b86c4707e6bf17f48bb985f6abca06314`；完整分母、unit/mart rows、2 km block、hundred-block precision 与 64/0/64/0 fit-state outcome 可见；forecast 空且 authority 全 false |
+| 2026-08-30 | P4 URL/storage/network/share 私隐边界关闭 | 私人地址、raw lng/lat 与派生 EPSG point 仅允许 runtime；私人 address/buffer 在网络任务前 fail closed，公共 district/tract 使用 private-null snapshot；legacy 私人 IndexedDB 行保留但不可 restore/share/resave/export |
+| 2026-08-30 | P4 浏览器独立复核先返回 REQUEST CHANGES，修复后 PASS | `8e540dd` 将 healthy path 绑定到 tracked/built v2 逐字节一致和完整 view/contract/i18n/CSS freshness，四格正向断言 source-as-of、coverage、UTC week、geometry、exclusions 与非个人概率/安全结论 |
 
 ## Live process ownership
 
@@ -56,8 +60,8 @@
 
 ## Handoff
 
-P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing 或 deletion authority。
+P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。P4 已将这些证据投影为中英文、桌面/移动均可验证的 aggregate-only 历史证据界面，并关闭新的私人值 URL/storage/network/share 通路。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing 或 deletion authority。
 
 ## Next step
 
-实施 P4 Area Intelligence productization：先收紧 public serving contract 与 P3 aggregate allowlist projection，再补双语桌面/移动的 method/time/space/uncertainty/Why unavailable 解释，最后关闭私人地址和原始坐标进入 URL/storage/network/share 的路径；最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
+实施 P5 Home Compare 真实城市数据：先为每个官方来源建立独立 identity/freshness/coverage/DQ lifecycle，PPD 只复用 exact M1 authority，HIN 只复用既有 receipt；再生成不含地址、坐标、parcel/source IDs 的 citywide aggregate join ledger；最后接入 Home Compare source-health，routing 在无 authority 时继续 `unavailable`。任何缺少不可变 revision、可再分发许可或 exact payload 的来源必须保持 `partial`/`unavailable`；最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
