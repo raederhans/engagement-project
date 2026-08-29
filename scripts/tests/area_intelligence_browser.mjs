@@ -16,9 +16,35 @@ const areaIntelligenceKey = charts.dynamicImports?.find((key) => key.endsWith('s
 const areaIntelligence = manifest[areaIntelligenceKey];
 assert.ok(areaIntelligence?.file, 'Area Intelligence browser smoke requires its production lazy chunk');
 assert.ok(entry?.css?.[0], 'Area Intelligence browser smoke requires the production stylesheet');
-const sourceMtime = (await stat('src/area_intelligence/view.js')).mtimeMs;
-const builtMtime = (await stat(path.resolve('dist', areaIntelligence.file))).mtimeMs;
-assert.ok(builtMtime >= sourceMtime, 'Area Intelligence browser smoke requires build:manifest after current source changes');
+const areaIntelligenceJavaScriptInputs = [
+  'src/area_intelligence/view.js',
+  'src/area_intelligence/serving_contract.js',
+  'src/i18n/index.js',
+  'src/i18n/messages.js',
+  'src/i18n/area_intelligence.js',
+];
+const areaIntelligenceStyleInput = 'src/styles/crime-charts-responsive.css';
+const trackedArtifactPath = 'public/data/area_intelligence_baseline.v2.json';
+const builtArtifactPath = 'dist/data/area_intelligence_baseline.v2.json';
+const builtJavaScriptMtime = (await stat(path.resolve('dist', areaIntelligence.file))).mtimeMs;
+const builtStyleMtime = (await stat(path.resolve('dist', entry.css[0]))).mtimeMs;
+for (const input of areaIntelligenceJavaScriptInputs) {
+  assert.ok(
+    builtJavaScriptMtime >= (await stat(input)).mtimeMs,
+    `Area Intelligence browser smoke requires build:manifest after ${input} changes`,
+  );
+}
+assert.ok(
+  builtStyleMtime >= (await stat(areaIntelligenceStyleInput)).mtimeMs,
+  `Area Intelligence browser smoke requires build:manifest after ${areaIntelligenceStyleInput} changes`,
+);
+const trackedArtifactBytes = await readFile(trackedArtifactPath);
+assert.deepEqual(
+  await readFile(builtArtifactPath),
+  trackedArtifactBytes,
+  'Area Intelligence browser smoke requires dist to contain the exact tracked v2 artifact',
+);
+const trackedArtifact = JSON.parse(trackedArtifactBytes);
 
 const harnessPath = path.resolve('dist/area-intelligence-smoke.html');
 const harness = `<!doctype html>
@@ -57,12 +83,6 @@ await runBrowserSuite({
   },
   cleanupArtifacts: () => rm(harnessPath, { force: true }),
   run: async ({ page }) => {
-    const validArtifact = servingArtifact();
-    await page.route('**/data/area_intelligence_baseline.v2.json', (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(validArtifact),
-    }));
     await page.goto('http://127.0.0.1:4198/area-intelligence-smoke.html', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => Boolean(window.areaIntelligenceSmoke));
 
@@ -88,7 +108,7 @@ await runBrowserSuite({
     for (const scenario of matrix) {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.setViewportSize(scenario.viewport);
-      const result = await render(page, validArtifact, scenario.language);
+      const result = await renderCurrent(page, scenario.language);
       assert.equal(result.status, 'not-promoted', scenario.name);
       await assertMatrixState({ card, page, scenario });
       process.stdout.write(`[Area Intelligence Browser] PASS - ${scenario.name}.\n`);
@@ -96,7 +116,7 @@ await runBrowserSuite({
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(matrix[1].viewport);
-    await render(page, validArtifact, 'en');
+    await renderCurrent(page, 'en');
     const reducedMotion = await card.evaluate((element) => {
       const content = element.querySelector('.area-intelligence__content');
       const unavailable = element.querySelector('.area-intelligence__unavailable');
@@ -110,7 +130,7 @@ await runBrowserSuite({
     assert.ok(seconds(reducedMotion.contentDuration) <= 0.01);
     assert.ok(seconds(reducedMotion.unavailableTransition) <= 0.01);
 
-    const invalid = servingArtifact();
+    const invalid = structuredClone(trackedArtifact);
     invalid.lineage.mart = {};
     const invalidResult = await render(page, invalid, 'en');
     assert.equal(invalidResult.status, 'invalid');
@@ -123,7 +143,7 @@ await runBrowserSuite({
     assert.equal(legacyResult.reason, 'legacy-not-current');
     assert.match(await card.innerText(), /legacy v1 artifact may be readable[\s\S]*not used as a fallback/i);
 
-    const hostileModelCount = servingArtifact();
+    const hostileModelCount = structuredClone(trackedArtifact);
     hostileModelCount.forecast = {
       status: 'available',
       reason: 'promotion-gate-not-passed',
@@ -165,6 +185,25 @@ async function assertMatrixState({ card, page, scenario }) {
   assert.match(text, scenario.language === 'en'
     ? /no forecast or model count is shown/
     : /不展示预测或模型计数/);
+  if (scenario.language === 'en') {
+    assert.match(text, /Source as of[\s\S]*2026-08-27T03:59:00\.000Z/);
+    assert.match(text, /Coverage[\s\S]*2006-01-01 through 2026-08-28 \(exclusive end\)/);
+    assert.match(text, /Complete weeks through[\s\S]*Before 2026-08-24/);
+    assert.match(text, /Analysis geometry[\s\S]*Census tract and fixed grid/);
+    assert.match(text, /Week: UTC Monday 00:00 inclusive to next Monday exclusive/);
+    assert.match(text, /Tract and fixed-grid are kept as separate spatial-unit-week denominators/);
+    assert.match(text, /Exclusions: incomplete weeks and ambiguous, unmapped, or unavailable spatial assignments are not counted/);
+    assert.match(text, /It would not establish a person-level probability or a comparative safety conclusion/);
+  } else {
+    assert.match(text, /来源截至[\s\S]*2026-08-27T03:59:00\.000Z/);
+    assert.match(text, /覆盖范围[\s\S]*2006-01-01 至 2026-08-28（不含结束日）/);
+    assert.match(text, /完整周截至[\s\S]*2026-08-24 之前/);
+    assert.match(text, /分析几何[\s\S]*人口普查区与固定网格/);
+    assert.match(text, /周定义：UTC Monday 00:00 inclusive to next Monday exclusive/);
+    assert.match(text, /人口普查区与固定网格保持为独立的 spatial-unit-week 分母/);
+    assert.match(text, /排除项：不完整周，以及空间归属模糊、未映射或不可用的记录均不计入/);
+    assert.match(text, /它不能确定个人层面的概率或比较性的安全结论/);
+  }
   assert.doesNotMatch(text, /\b(score|rank|winner|safest|current[- ]risk)\b/i);
   assert.doesNotMatch(text, /评分|排名|优胜|最安全|当前风险/);
   assert.doesNotMatch(text, /source_record_id|raw event|canonical event|street address|event coordinates/i);
@@ -187,6 +226,12 @@ async function render(page, artifact, language) {
   }), { value: artifact, requestedLanguage: language });
 }
 
+async function renderCurrent(page, language) {
+  return page.evaluate(async (requestedLanguage) => window.areaIntelligenceSmoke({
+    language: requestedLanguage,
+  }), language);
+}
+
 async function assertNoHorizontalOverflow(card) {
   const dimensions = await card.evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -202,106 +247,6 @@ function seconds(value) {
     const multiplier = normalized.endsWith('ms') ? 0.001 : 1;
     return Math.max(maximum, Number.isFinite(parsed) ? parsed * multiplier : 0);
   }, 0);
-}
-
-function servingArtifact() {
-  return {
-    schema: 'engagement-area-intelligence-serving/v2',
-    generated_at: '2026-08-29T16:50:24.298Z',
-    status: 'not-promoted',
-    historical_evidence: {
-      status: 'available',
-      measure: 'PPD reported incident count',
-      source_as_of: '2026-08-27T03:59:00.000Z',
-      source_vintage: 'sha256:445f29fc49067e45285125b7f6b391ff4e930bf3f09cdd7e8cc4040b96c2109e',
-      coverage: {
-        earliest_scope_start: '2006-01-01',
-        latest_scope_end_exclusive: '2026-08-28',
-        complete_week_end_exclusive: '2026-08-24',
-      },
-      counts: {
-        canonical_rows_seen: 3586620,
-        tract: { admitted: 2972905, ambiguous_excluded: 549598, unmapped_excluded: 64117 },
-        fixed_grid: { admitted: 3530212, unavailable_excluded: 56408 },
-      },
-      unit_count: { tract: 408, fixed_grid: 2352 },
-      mart_rows: 1611918,
-      method: {
-        grain: 'spatial-unit-week',
-        week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
-        unit_types: ['tract', 'fixed-grid'],
-        spatial_holdout_from_count_model_training: true,
-        incomplete_source_week_excluded: true,
-        ambiguous_or_unavailable_spatial_assignments_excluded: true,
-        spatial_holdout_block_size_m: 2000,
-        source_location_precision: 'hundred-block-generalized',
-      },
-    },
-    forecast: { status: 'unavailable', reason: 'promotion-gate-not-passed', predictions: [] },
-    evaluation: {
-      promotion_status: 'not-promoted',
-      decision: 'no-promotion',
-      selected_model: null,
-      local_candidate_model: null,
-      local_candidate_only: true,
-      interval_90_outcome: { passed: false, failed_primary_slice_count: 28 },
-      fit_state_outcome: { total: 64, passed: 0, failed: 64, converged_before_iteration_limit: 0 },
-      why_unavailable: {
-        code: 'promotion-gate-not-passed',
-        reason_codes: [
-          'promotion-gate-not-passed',
-          'primary-interval-90-gate-not-passed',
-          'serving-authority-unavailable',
-        ],
-      },
-    },
-    authority: {
-      local_evaluation: false,
-      serving: false,
-      product_promotion: false,
-      scientific: false,
-      causal: false,
-      safety: false,
-      deletion: false,
-    },
-    privacy: {
-      aggregate_only: true,
-      event_level_data_included: false,
-      coordinates_included: false,
-      generalized_locations_included: false,
-      raw_or_canonical_events_included: false,
-      source_record_ids_included: false,
-    },
-    lineage: {
-      protocol: {
-        schema: 'engagement-area-intelligence-evaluation-protocol/v2',
-        sha256: 'sha256:997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde',
-      },
-      evaluation: {
-        schema: 'engagement-area-intelligence-evaluation-run/v2',
-        manifest_sha256: 'a761d003b8ba1972dc1b7aa65c0e4e5bb1809651d5461278a0152852a261d04c',
-      },
-      mart: {
-        schema: 'engagement-area-intelligence-feature-mart/v2',
-        manifest_sha256: '7846d966ec189666f2fa947c8d94fd326556f4be975a18c9289c9454d3779f6d',
-        artifact_identity: 'sha256:df200d11666b314285750a4914eb35f6377c7534aef14bac2fbc2b4419749861',
-        part_bindings_identity: 'sha256:afa2acdfc5040dd812861ba1621f5eda5ba95007eae46e841cb315231a9db146',
-      },
-      m1_receipt: {
-        schema: 'engagement-phl-crime-warehouse-receipt/v3',
-        identity: 'sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315',
-        sha256: 'sha256:2735f174cc978ea6abad31519672c58618fe5602cc9dedef918f8d624f523925',
-      },
-    },
-    forbidden_claims: [
-      'individual victim probability',
-      'absolute safety',
-      'safety score',
-      'safest area',
-      'safest route',
-      'causal effect',
-    ],
-  };
 }
 
 function legacyArtifact() {
