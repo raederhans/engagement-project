@@ -7,6 +7,17 @@ import { readProductCss } from './helpers/css_source.mjs';
 const ratingFlow = await import('../../src/routes_diary/rating_flow.js').catch(() => ({}));
 const formSubmit = await import('../../src/routes_diary/form_submit.js').catch(() => ({}));
 
+const PUBLIC_WRITE_UNAVAILABLE = {
+  ok: false,
+  status: 'unavailable',
+  mode: 'local-only',
+  capability: 'unavailable',
+  network: 'disabled',
+  persisted: false,
+  shared: false,
+  message: 'Public Diary and Community submissions are unavailable. No data left this browser.',
+};
+
 function deferred() {
   let resolve;
   const promise = new Promise((resolvePromise) => { resolve = resolvePromise; });
@@ -38,33 +49,49 @@ test('a new route draft requires an explicit overall rating and normalizes persi
 test('rating submission waits for the durable local commit before it can finalize', async () => {
   const commitGate = deferred();
   const state = { pending: false, signal: new AbortController().signal };
+  let transportCalls = 0;
+  let committedPayload;
   const submission = formSubmit.runRatingSubmission({
     state,
     payload: { route_id: 'route-a' },
-    submit: async () => ({ persisted: false, mode: 'demo' }),
-    commit: async () => commitGate.promise,
+    submit: async () => {
+      transportCalls += 1;
+      return { ok: true, persisted: true };
+    },
+    commit: async ({ payload }) => {
+      committedPayload = payload;
+      return commitGate.promise;
+    },
     isCurrent: () => true,
   });
   await Promise.resolve();
   assert.equal(state.pending, true);
+  assert.deepEqual(committedPayload, { route_id: 'route-a' });
+  assert.equal(transportCalls, 0);
   commitGate.resolve({ applied: true, entry: { id: 'entry-a' } });
   assert.deepEqual(await submission, {
     applied: true,
-    response: { persisted: false, mode: 'demo' },
+    response: PUBLIC_WRITE_UNAVAILABLE,
     commitResult: { applied: true, entry: { id: 'entry-a' } },
   });
+  assert.equal(state.pending, false);
+  assert.equal(transportCalls, 0);
 });
 
-test('a failed local commit releases pending state and the same rating can be retried', async () => {
+test('a failed local commit releases pending state and retries without opening transport', async () => {
   const state = { pending: false, signal: new AbortController().signal };
-  let submitAttempts = 0;
+  let transportCalls = 0;
   let commitAttempts = 0;
   const options = {
     state,
     payload: { route_id: 'route-a' },
     submit: async () => {
-      submitAttempts += 1;
-      return { persisted: true, receipt: 'remote-once' };
+      transportCalls += 1;
+      return {
+        then(resolve) {
+          resolve({ ok: true, persisted: true });
+        },
+      };
     },
     commit: async () => {
       commitAttempts += 1;
@@ -76,14 +103,15 @@ test('a failed local commit releases pending state and the same rating can be re
 
   await assert.rejects(formSubmit.runRatingSubmission(options), /quota exceeded/i);
   assert.equal(state.pending, false);
-  assert.equal(submitAttempts, 1);
+  assert.equal(transportCalls, 0);
   assert.equal(commitAttempts, 1);
   const retried = await formSubmit.runRatingSubmission(options);
   assert.equal(retried.applied, true);
-  assert.deepEqual(retried.response, { persisted: true, receipt: 'remote-once' });
+  assert.deepEqual(retried.response, PUBLIC_WRITE_UNAVAILABLE);
   assert.equal(state.pending, false);
-  assert.equal(submitAttempts, 1);
+  assert.equal(transportCalls, 0);
   assert.equal(commitAttempts, 2);
+  assert.equal(Object.hasOwn(state, 'submissionReceipt'), false);
 });
 
 test('only the three lowest-rated route segments are offered', () => {
@@ -174,15 +202,20 @@ test('rating modal manages focus, background inertness, and radio semantics', as
 test('rating submission remains single-flight while locale rerenders', async () => {
   assert.equal(typeof formSubmit.runRatingSubmission, 'function');
   const gate = deferred();
-  const calls = [];
   const state = { pending: false, signal: new AbortController().signal };
+  let commitCalls = 0;
+  let transportCalls = 0;
   const options = {
     state,
     payload: { route_id: 'route-1' },
-    submit: async (payload) => {
-      calls.push(payload);
+    submit: async () => {
+      transportCalls += 1;
+      return { ok: true, persisted: true };
+    },
+    commit: async () => {
+      commitCalls += 1;
       await gate.promise;
-      return { ok: true };
+      return { applied: true };
     },
     isCurrent: () => true,
   };
@@ -191,10 +224,49 @@ test('rating submission remains single-flight while locale rerenders', async () 
   assert.equal(state.pending, true);
   const duplicate = await formSubmit.runRatingSubmission(options);
   assert.deepEqual(duplicate, { applied: false, reason: 'pending' });
-  assert.equal(calls.length, 1);
+  assert.equal(commitCalls, 1);
+  assert.equal(transportCalls, 0);
 
   gate.resolve();
-  assert.deepEqual(await first, { applied: true, response: { ok: true } });
+  assert.deepEqual(await first, {
+    applied: true,
+    response: PUBLIC_WRITE_UNAVAILABLE,
+    commitResult: { applied: true },
+  });
   assert.equal(state.pending, false);
-  assert.equal(calls.length, 1);
+  assert.equal(commitCalls, 1);
+  assert.equal(transportCalls, 0);
+});
+
+test('a stale owner cannot finalize after its local commit completes', async () => {
+  const commitEntered = deferred();
+  const commitGate = deferred();
+  const state = { pending: false, signal: new AbortController().signal };
+  let ownerCurrent = true;
+  let commitCalls = 0;
+  let transportCalls = 0;
+  const submission = formSubmit.runRatingSubmission({
+    state,
+    payload: { route_id: 'route-stale' },
+    submit: async () => {
+      transportCalls += 1;
+      return { ok: true, persisted: true };
+    },
+    commit: async () => {
+      commitCalls += 1;
+      commitEntered.resolve();
+      return commitGate.promise;
+    },
+    isCurrent: () => ownerCurrent,
+  });
+
+  await commitEntered.promise;
+  assert.equal(state.pending, true);
+  ownerCurrent = false;
+  commitGate.resolve({ applied: true });
+
+  assert.deepEqual(await submission, { applied: false, reason: 'stale' });
+  assert.equal(state.pending, false);
+  assert.equal(commitCalls, 1);
+  assert.equal(transportCalls, 0);
 });
