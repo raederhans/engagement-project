@@ -29,7 +29,7 @@ import {
   hasCrimeViewState,
   replaceCrimeViewState,
 } from './state/crime_view_state.js';
-import { containsPrivateCrimeLocation } from './routes_crime/crime_refresh_owner.js';
+import { containsActivePrivateCrimeLocation } from './routes_crime/crime_refresh_owner.js';
 
 const query = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search || '')
@@ -146,7 +146,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const mapRuntime = createOptionalMapRuntime({
     loadMap: () => loadOptionalMapRuntime({
       mode: store.viewMode,
-      center: store.centerLonLat || undefined,
+      center: store.queryMode === 'buffer' ? store.centerLonLat || undefined : undefined,
     }),
     onStatusChange(snapshot) {
       if (!mapStatus) return;
@@ -394,7 +394,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function ensureMapCoordinator() {
     if (coordinator) return coordinator;
-    if (containsPrivateCrimeLocation(store)) {
+    if (containsActivePrivateCrimeLocation(store)) {
       throw new Error('Private location map analysis is unavailable.');
     }
     const map = await mapRuntime.ensureMap();

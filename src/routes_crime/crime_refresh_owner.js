@@ -17,7 +17,12 @@ export function containsPrivateCrimeLocation(source) {
 }
 
 export function isPrivateCrimeAnalysisSnapshot(source) {
+  if (source?.queryMode === 'district' || source?.queryMode === 'tract') return false;
   return source?.queryMode === 'buffer' || containsPrivateCrimeLocation(source);
+}
+
+export function containsActivePrivateCrimeLocation(source) {
+  return source?.queryMode === 'buffer' && containsPrivateCrimeLocation(source);
 }
 
 export function privateCrimeUnavailableResult() {
@@ -30,6 +35,26 @@ export function privateCrimeUnavailableResult() {
 }
 
 export function readCrimeSnapshot(source) {
+  if (source?.queryMode === 'district' || source?.queryMode === 'tract') {
+    const filters = source.getFilters();
+    return {
+      ...filters,
+      types: [...(filters.types || [])],
+      resolvedOffenseCodes: [...(filters.resolvedOffenseCodes || filters.types || [])],
+      drilldownCodes: [...(filters.drilldownCodes || [])],
+      queryMode: source.queryMode,
+      center3857: null,
+      centerLonLat: null,
+      centerB3857: null,
+      centerBLonLat: null,
+      addressA: null,
+      addressB: null,
+      adminLevel: source.adminLevel,
+      per10k: source.per10k,
+      coverageDate: source.coverageMax || null,
+      overlayTractsLines: source.overlayTractsLines,
+    };
+  }
   if (isPrivateCrimeAnalysisSnapshot(source)) {
     let filters = {};
     try {

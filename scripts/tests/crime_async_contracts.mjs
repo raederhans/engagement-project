@@ -1125,9 +1125,116 @@ test('Crime list private analysis returns unavailable before coverage or any fet
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE|MARKET|75\.16|8364000/);
 });
 
+test('private buffer residue projects to a public district snapshot and runs district jobs', async () => {
+  const { createCrimeListController } = await import('../../src/routes_crime/list_mode_controller.js');
+  const privateToken = '1500 PRIVATE MARKET STREET';
+  const source = {
+    queryMode: 'district',
+    selectedDistrictCode: '05',
+    centerLonLat: [-75.16, 39.95],
+    center3857: [-8364000, 4855000],
+    centerBLonLat: [-75.17, 39.96],
+    centerB3857: [-8365000, 4856000],
+    addressA: privateToken,
+    addressB: privateToken,
+    adminLevel: 'districts',
+    per10k: false,
+    coverageMax: '2026-06-30',
+    overlayTractsLines: false,
+    getFilters() {
+      return {
+        start: '2026-01-01', end: '2026-07-01', types: [], queryMode: 'district',
+        selectedDistrictCode: '05', center3857: this.center3857, centerB3857: this.centerB3857,
+        addressA: this.addressA, addressB: this.addressB, radiusM: 400,
+      };
+    },
+  };
+  const calls = [];
+  const record = (name) => (snapshot) => {
+    calls.push(name);
+    assert.equal(snapshot.queryMode, 'district');
+    assert.equal(snapshot.selectedDistrictCode, '05');
+    assert.doesNotMatch(JSON.stringify(snapshot), /PRIVATE|MARKET|75\.16|8364|8365/);
+    return name === 'incidents'
+      ? { type: 'FeatureCollection', features: [] }
+      : { applied: true, status: 'success' };
+  };
+  const controller = createCrimeListController({
+    readSnapshot: () => refreshContract.readCrimeSnapshot(source),
+    initializeCoverage: async () => calls.push('coverage'),
+    fetchIncidents: record('incidents'),
+    updateSummary: record('summary'),
+    updateCharts: record('charts'),
+    view: { loading() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
+  });
+
+  const result = await controller.requestRefresh();
+  assert.equal(result.status, 'live');
+  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'summary']);
+  assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(source), false);
+  assert.deepEqual(source.centerLonLat, [-75.16, 39.95]);
+  assert.equal(source.addressA, privateToken);
+});
+
+test('private buffer residue projects to a public tract snapshot and runs tract jobs', async () => {
+  const { createCrimeListController } = await import('../../src/routes_crime/list_mode_controller.js');
+  const source = {
+    queryMode: 'tract',
+    selectedTractGEOID: '42101000100',
+    centerLonLat: [-75.16, 39.95],
+    center3857: [-8364000, 4855000],
+    addressA: '1500 PRIVATE MARKET STREET',
+    adminLevel: 'tracts',
+    per10k: true,
+    coverageMax: '2026-06-30',
+    overlayTractsLines: false,
+    getFilters() {
+      return {
+        start: '2026-01-01', end: '2026-07-01', types: [], queryMode: 'tract',
+        selectedTractGEOID: this.selectedTractGEOID, center3857: this.center3857,
+        addressA: this.addressA, radiusM: 400,
+      };
+    },
+  };
+  const calls = [];
+  const record = (name) => (snapshot) => {
+    calls.push(name);
+    assert.equal(snapshot.queryMode, 'tract');
+    assert.equal(snapshot.selectedTractGEOID, '42101000100');
+    assert.doesNotMatch(JSON.stringify(snapshot), /PRIVATE|MARKET|75\.16|8364/);
+    return name === 'incidents'
+      ? { type: 'FeatureCollection', features: [] }
+      : { applied: true, status: 'success' };
+  };
+  const controller = createCrimeListController({
+    readSnapshot: () => refreshContract.readCrimeSnapshot(source),
+    initializeCoverage: async () => calls.push('coverage'),
+    fetchIncidents: record('incidents'),
+    updateSummary: record('summary'),
+    updateCharts: record('charts'),
+    view: { loading() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
+  });
+
+  const result = await controller.requestRefresh();
+  assert.equal(result.status, 'live');
+  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'summary']);
+  assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(source), false);
+  assert.deepEqual(source.centerLonLat, [-75.16, 39.95]);
+  assert.equal(source.addressA, '1500 PRIVATE MARKET STREET');
+});
+
 test('private map points cause zero camera navigation while public districts still fit', async () => {
   assert.equal(refreshContract.containsPrivateCrimeLocation({ queryMode: 'buffer' }), false);
   assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot({ queryMode: 'buffer' }), true);
+  assert.equal(refreshContract.containsActivePrivateCrimeLocation({
+    queryMode: 'buffer', centerLonLat: [-75.16, 39.95],
+  }), true);
+  assert.equal(refreshContract.containsActivePrivateCrimeLocation({
+    queryMode: 'district', centerLonLat: [-75.16, 39.95],
+  }), false);
+  assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot({
+    queryMode: 'district', centerLonLat: [-75.16, 39.95], addressA: 'PRIVATE',
+  }), false);
   const cameraCalls = [];
   const feature = {
     type: 'Feature',
@@ -1173,6 +1280,10 @@ test('private map points cause zero camera navigation while public districts sti
   assert.doesNotMatch(pointEnd, /fitCurrentSelection/u);
   assert.match(
     mainSource,
-    /if \(containsPrivateCrimeLocation\(store\)\)[\s\S]*?throw new Error[\s\S]*?const map = await mapRuntime\.ensureMap\(\)/u,
+    /if \(containsActivePrivateCrimeLocation\(store\)\)[\s\S]*?throw new Error[\s\S]*?const map = await mapRuntime\.ensureMap\(\)/u,
+  );
+  assert.match(
+    mainSource,
+    /center: store\.queryMode === 'buffer' \? store\.centerLonLat \|\| undefined : undefined/u,
   );
 });
