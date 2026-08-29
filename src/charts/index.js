@@ -401,8 +401,6 @@ export async function updateAllCharts(
   if (!sinks) {
     void import('../area_intelligence/view.js')
       .then(({ updateAreaIntelligence }) => updateAreaIntelligence({
-        queryMode,
-        selectedTractGEOID,
         shouldApply: isFresh,
       }))
       .catch(renderAreaIntelligenceLoadFailure);
