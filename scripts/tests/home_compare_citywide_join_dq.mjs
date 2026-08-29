@@ -117,8 +117,54 @@ test('writer is task-owned, atomic, idempotent, and refuses differing output', a
   const second = await writeHomeCompareCitywideJoinDq(output, ledger, { workspace });
   assert.equal(first.status, 'published');
   assert.equal(second.status, 'idempotent');
+  assert.deepEqual(
+    await fs.readdir(path.dirname(first.outputPath)),
+    ['join-dq.json'],
+    'successful publication leaves no staging residue',
+  );
   await assert.rejects(writeHomeCompareCitywideJoinDq(output, buildHomeCompareCitywideJoinDq(fixtureInput({ m1Identity: identityOf('changed') })), { workspace }), /refusing overwrite/i);
   await assert.rejects(writeHomeCompareCitywideJoinDq('outside.json', ledger, { workspace }), /task-owned \.dfev1/i);
+});
+
+test('join DQ writer rejects concurrent replacement and surfaces staging cleanup failure', async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'home-compare-join-dq-race-'));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  const firstLedger = buildFixtureLedger();
+  const secondLedger = buildHomeCompareCitywideJoinDq(fixtureInput({
+    m1Identity: identityOf('changed-concurrent-m1'),
+  }));
+  const raceOutput = '.dfev1/home-compare-p5/race.json';
+  const outcomes = await Promise.allSettled([
+    writeHomeCompareCitywideJoinDq(raceOutput, firstLedger, { workspace }),
+    writeHomeCompareCitywideJoinDq(raceOutput, secondLedger, { workspace }),
+  ]);
+  assert.equal(outcomes.filter(({ status }) => status === 'fulfilled').length, 1);
+  assert.equal(outcomes.filter(({ status }) => status === 'rejected').length, 1);
+  assert.match(outcomes.find(({ status }) => status === 'rejected').reason.message, /refusing overwrite/i);
+  assert.deepEqual(
+    await fs.readdir(path.join(workspace, '.dfev1/home-compare-p5')),
+    ['race.json'],
+  );
+
+  const fileSystem = {
+    ...fs,
+    async rm(target, options) {
+      if (String(target).endsWith('.tmp')) throw new Error('synthetic join DQ cleanup failure');
+      return fs.rm(target, options);
+    },
+  };
+  await assert.rejects(
+    writeHomeCompareCitywideJoinDq(
+      '.dfev1/home-compare-p5/cleanup.json',
+      firstLedger,
+      { workspace, fileSystem },
+    ),
+    /join DQ cleanup failure/i,
+  );
+  assert.ok(
+    (await fs.readdir(path.join(workspace, '.dfev1/home-compare-p5')))
+      .some((name) => name.endsWith('.tmp')),
+  );
 });
 
 function buildFixtureLedger() { return buildHomeCompareCitywideJoinDq(fixtureInput()); }

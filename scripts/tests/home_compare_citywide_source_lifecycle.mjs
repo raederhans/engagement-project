@@ -436,6 +436,11 @@ test('writer is task-owned, byte-idempotent, no-overwrite, and privacy aggregate
   assert.equal(first.status, 'published');
   assert.equal(second.status, 'idempotent');
   assert.equal(secondStat.mtimeMs, firstStat.mtimeMs);
+  assert.deepEqual(
+    await fs.readdir(path.dirname(first.outputPath)),
+    ['lifecycle.json'],
+    'successful publication leaves no staging residue',
+  );
   await assert.rejects(
     writeHomeCompareCitywideSourceLifecycle(
       output,
@@ -452,6 +457,47 @@ test('writer is task-owned, byte-idempotent, no-overwrite, and privacy aggregate
   const serialized = await fs.readFile(first.outputPath, 'utf8');
   assert.doesNotMatch(serialized, /100 TEST ST|-75\.16|39\.95|parcel-123|owner-test|case-123|document-123/i);
   assert.equal(JSON.parse(serialized).privacy.source_rows_included, false);
+});
+
+test('lifecycle writer rejects concurrent replacement and surfaces staging cleanup failure', async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'home-compare-p5-writer-race-'));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  const firstLifecycle = buildFixtureLifecycle();
+  const secondLifecycle = buildFixtureLifecycle({
+    manifest: observationManifest({ rowOffset: 1 }),
+  });
+  const raceOutput = '.dfev1/home-compare-p5/race.json';
+  const outcomes = await Promise.allSettled([
+    writeHomeCompareCitywideSourceLifecycle(raceOutput, firstLifecycle, { workspace }),
+    writeHomeCompareCitywideSourceLifecycle(raceOutput, secondLifecycle, { workspace }),
+  ]);
+  assert.equal(outcomes.filter(({ status }) => status === 'fulfilled').length, 1);
+  assert.equal(outcomes.filter(({ status }) => status === 'rejected').length, 1);
+  assert.match(outcomes.find(({ status }) => status === 'rejected').reason.message, /refusing overwrite/i);
+  assert.deepEqual(
+    await fs.readdir(path.join(workspace, '.dfev1/home-compare-p5')),
+    ['race.json'],
+  );
+
+  const fileSystem = {
+    ...fs,
+    async rm(target, options) {
+      if (String(target).endsWith('.tmp')) throw new Error('synthetic lifecycle cleanup failure');
+      return fs.rm(target, options);
+    },
+  };
+  await assert.rejects(
+    writeHomeCompareCitywideSourceLifecycle(
+      '.dfev1/home-compare-p5/cleanup.json',
+      firstLifecycle,
+      { workspace, fileSystem },
+    ),
+    /lifecycle cleanup failure/i,
+  );
+  assert.ok(
+    (await fs.readdir(path.join(workspace, '.dfev1/home-compare-p5')))
+      .some((name) => name.endsWith('.tmp')),
+  );
 });
 
 function buildFixtureLifecycle({ manifest = observationManifest() } = {}) {

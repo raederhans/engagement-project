@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -145,7 +145,10 @@ export function validateHomeCompareCitywideJoinDq(value) {
   return Object.freeze(structuredClone(value));
 }
 
-export async function writeHomeCompareCitywideJoinDq(outputPath, ledger, { workspace = process.cwd() } = {}) {
+export async function writeHomeCompareCitywideJoinDq(outputPath, ledger, {
+  workspace = process.cwd(),
+  fileSystem = fs,
+} = {}) {
   const target = await assertTaskOwnedDfev1Path(outputPath, {
     workspace, label: 'Home Compare citywide join DQ output',
   });
@@ -153,28 +156,32 @@ export async function writeHomeCompareCitywideJoinDq(outputPath, ledger, { works
   const text = `${JSON.stringify(admitted, null, 2)}\n`;
   const content = Buffer.from(text);
   try {
-    const existing = await fs.readFile(target);
+    const existing = await fileSystem.readFile(target);
     if (existing.equals(content)) return Object.freeze({ status: 'idempotent', outputPath: target, bytes: existing.length });
     throw new Error('Home Compare citywide join DQ output already exists with different bytes; refusing overwrite.');
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}-${Date.now()}.tmp`;
+  await fileSystem.mkdir(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}-${randomUUID()}.tmp`;
+  let result;
   try {
-    await fs.writeFile(temporary, content, { flag: 'wx' });
-    await fs.link(temporary, target);
-  } catch (error) {
-    if (error?.code === 'EEXIST') {
-      const existing = await fs.readFile(target);
-      if (existing.equals(content)) return Object.freeze({ status: 'idempotent', outputPath: target, bytes: existing.length });
-      throw new Error('Home Compare citywide join DQ output already exists with different bytes; refusing overwrite.');
+    await fileSystem.writeFile(temporary, content, { flag: 'wx' });
+    try {
+      await fileSystem.link(temporary, target);
+      result = Object.freeze({ status: 'published', outputPath: target, bytes: content.length });
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      const existing = await fileSystem.readFile(target);
+      if (!existing.equals(content)) {
+        throw new Error('Home Compare citywide join DQ output already exists with different bytes; refusing overwrite.');
+      }
+      result = Object.freeze({ status: 'idempotent', outputPath: target, bytes: existing.length });
     }
-    throw error;
   } finally {
-    await fs.rm(temporary, { force: true }).catch(() => {});
+    await fileSystem.rm(temporary, { force: true });
   }
-  return Object.freeze({ status: 'published', outputPath: target, bytes: content.length });
+  return result;
 }
 
 function readinessOf(receipt) {

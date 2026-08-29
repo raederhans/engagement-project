@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -225,6 +225,7 @@ export function validateHomeCompareCitywideSourceLifecycle(value) {
 
 export async function writeHomeCompareCitywideSourceLifecycle(outputPath, lifecycle, {
   workspace = process.cwd(),
+  fileSystem = fs,
 } = {}) {
   const target = await assertTaskOwnedDfev1Path(outputPath, {
     workspace,
@@ -234,7 +235,7 @@ export async function writeHomeCompareCitywideSourceLifecycle(outputPath, lifecy
   const text = `${JSON.stringify(admitted, null, 2)}\n`;
   let existing;
   try {
-    existing = await fs.readFile(target);
+    existing = await fileSystem.readFile(target);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
@@ -244,16 +245,30 @@ export async function writeHomeCompareCitywideSourceLifecycle(outputPath, lifecy
     }
     throw new Error('Home Compare citywide lifecycle output already exists with different bytes; refusing overwrite.');
   }
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}-${Date.now()}.tmp`;
+  await fileSystem.mkdir(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}-${randomUUID()}.tmp`;
+  let result;
   try {
-    await fs.writeFile(temporary, text, { encoding: 'utf8', flag: 'wx' });
-    await fs.rename(temporary, target);
-  } catch (error) {
-    await fs.rm(temporary, { force: true }).catch(() => {});
-    throw error;
+    await fileSystem.writeFile(temporary, text, { encoding: 'utf8', flag: 'wx' });
+    try {
+      await fileSystem.link(temporary, target);
+      result = Object.freeze({
+        status: 'published',
+        outputPath: target,
+        bytes: Buffer.byteLength(text),
+      });
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      const current = await fileSystem.readFile(target);
+      if (!current.equals(Buffer.from(text))) {
+        throw new Error('Home Compare citywide lifecycle output already exists with different bytes; refusing overwrite.');
+      }
+      result = Object.freeze({ status: 'idempotent', outputPath: target, bytes: current.length });
+    }
+  } finally {
+    await fileSystem.rm(temporary, { force: true });
   }
-  return Object.freeze({ status: 'published', outputPath: target, bytes: Buffer.byteLength(text) });
+  return result;
 }
 
 export function validateObservationManifest(value, registry, validationClock) {

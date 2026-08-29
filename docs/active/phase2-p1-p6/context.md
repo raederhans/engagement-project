@@ -42,6 +42,12 @@
 | 2026-08-30 | exact P3 证据投影为 Area Intelligence serving/v2 | tracked artifact 为 3,087 bytes / `sha256:5a8733c877983556e80896ea2689eb1b86c4707e6bf17f48bb985f6abca06314`；完整分母、unit/mart rows、2 km block、hundred-block precision 与 64/0/64/0 fit-state outcome 可见；forecast 空且 authority 全 false |
 | 2026-08-30 | P4 URL/storage/network/share 私隐边界关闭 | 私人地址、raw lng/lat 与派生 EPSG point 仅允许 runtime；私人 address/buffer 在网络任务前 fail closed，公共 district/tract 使用 private-null snapshot；legacy 私人 IndexedDB 行保留但不可 restore/share/resave/export |
 | 2026-08-30 | P4 浏览器独立复核先返回 REQUEST CHANGES，修复后 PASS | `8e540dd` 将 healthy path 绑定到 tracked/built v2 逐字节一致和完整 view/contract/i18n/CSS freshness，四格正向断言 source-as-of、coverage、UTC week、geometry、exclusions 与非个人概率/安全结论 |
+| 2026-08-30 | P5 分派 source lifecycle、join/DQ、readiness/product 三个互斥用户可见任务 | 预算达到 3/3；全部显式使用 `high`，root 保留 exact M1 scan、真实 artifact、production build 与 browser gate 的唯一所有权 |
+| 2026-08-30 | fresh bounded official observation 取代旧 2026-08-21 smoke 作为 P5 时钟/schema/count 输入 | observation semantic identity `8f37f779...3433a`、exact file `d8c23444...90079`；mutable metadata 仍不等于 immutable payload、completeness、join 或 redistribution authority |
+| 2026-08-30 | 九源 lifecycle 从 fresh observation、exact M1 receipt 与 HIN receipt fail-closed 合成 | lifecycle `3d159c0d...04b09`；只有 reported-crime 从 exact M1 得到 available，HIN 因 legacy review/build clocks 不完整保持 partial，其余缺 exact payload/revision 的来源 partial/unavailable |
+| 2026-08-30 | citywide join/DQ 不读取私人地址、parcel 或 source rows | ledger `f717464a...dcc3d`；9 个维度全部 `total:null`、`available_zero:false`，PPD source-ready 仍是 join not-admitted，HIN 不被升级为 raw crash/current safety |
+| 2026-08-30 | readiness 首轮集成复核连续拒绝 false-green，root 恢复严格门后通过 | runtime/producer 重算 identity、闭合九源九维 nested types/status/cross-bind；writer atomic no-overwrite 且 cleanup failure 可见；被缩减的 integration/browser coverage 已恢复 |
+| 2026-08-30 | Home Compare 严格 private zero-egress 与 citywide readiness 同时产品化 | tracked readiness `cb796760...f04a`, 18,548 bytes / file `b8f04859...7da5`；公开 limitation/reason/DQ 为固定安全模板；真实 build/browser en/zh x desktop/mobile PASS，clipboard/URL/history/web storage/IndexedDB 无私人值，address-level profile 诚实 unavailable |
 
 ## Live process ownership
 
@@ -57,11 +63,13 @@
 | P2 exact spatial attribution B | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p2-spatial-attribution-real-ab57e1d3-b` | completed exit 0; same bundle and all four published files byte-identical to A |
 | P3 exact M2 rebuild | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p3-area-intelligence-997aaf/m2` | completed exit 0; artifact `df200d...9861`, 3,586,620 canonical rows, 1,611,918 mart rows, 128 parts / 825,033,042 bytes, peak RSS 246,677,504 bytes |
 | P3 exact evaluation | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p3-area-intelligence-997aaf/evaluation` | completed then idempotent; `not-promoted`, no candidate, 64/64 fit states non-converged before cap, 9 artifact hashes stable, peak first-run RSS 136,650,752 bytes |
+| P5 source lifecycle | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/home-compare-p5/source-lifecycle-8f37f779/lifecycle.json` | completed from exact inputs; 9 source receipts, identity `3d159c0d...04b09`, authority false |
+| P5 join/DQ ledger | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/home-compare-p5/join-dq-3d159c0d/ledger.json` | completed aggregate-only; 9 dimensions, identity `f717464a...dcc3d`, no admitted address join or zero-filled total |
 
 ## Handoff
 
-P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。P4 已将这些证据投影为中英文、桌面/移动均可验证的 aggregate-only 历史证据界面，并关闭新的私人值 URL/storage/network/share 通路。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing 或 deletion authority。
+P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。P4 已将这些证据投影为中英文、桌面/移动均可验证的 aggregate-only 历史证据界面，并关闭新的私人值 URL/storage/network/share 通路。P5 已将 9 个 Home Compare 来源的独立 identity/freshness/coverage/DQ 状态投影到真实 tracked readiness；exact PPD、partial HIN 和其它 partial/unavailable 来源继续分开，私人地址级 profile 与 routing 仍 fail closed。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing、redistribution 或 deletion authority。
 
 ## Next step
 
-实施 P5 Home Compare 真实城市数据：先为每个官方来源建立独立 identity/freshness/coverage/DQ lifecycle，PPD 只复用 exact M1 authority，HIN 只复用既有 receipt；再生成不含地址、坐标、parcel/source IDs 的 citywide aggregate join ledger；最后接入 Home Compare source-health，routing 在无 authority 时继续 `unavailable`。任何缺少不可变 revision、可再分发许可或 exact payload 的来源必须保持 `partial`/`unavailable`；最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
+实施 P6 Known Route evidence completion：独立建立 raw-crash 与 accessibility 的 receipt/status contract；按 walking/cycling/driving/transit 分开 legality 与 map-match quality；最后把 generalized reported incidents、HIN historical planning context、crash/accessibility/legality 和 corridor/generalization sensitivity 作为独立 aggregate dimensions 接入 segment report。没有获准 source/version/coverage/precision 时必须保持 unavailable；不得把 HIN 或 PPD reported incidents 冒充 raw crash，不得生成 score、winner、safest route 或 routing authority。最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。

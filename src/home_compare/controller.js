@@ -194,7 +194,14 @@ export function createHomeCompareController({
       state.citywideReadiness = null;
     }
     if (destroyed || currentGeneration !== readinessGeneration) return;
-    render();
+    const readinessHost = host.querySelector('[data-home-citywide-readiness]');
+    if (readinessHost) {
+      readinessHost.outerHTML = homeCompareCitywideReadinessHtml(state.citywideReadiness, {
+        locale: getLanguage(),
+      });
+    } else {
+      render();
+    }
   }
 
   function invalidateResult() {

@@ -2,7 +2,7 @@
 
 ## Current status
 
-Scope and isolated integration base frozen. P1-P4 are complete through local clean-room reconstruction, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a real deterministic no-promotion evaluation, and an aggregate-only bilingual Area Intelligence product boundary. P5 is next; no serving, scientific, causal, safety, deployment, or remote authority was inferred.
+Scope and isolated integration base frozen. P1-P5 are complete through local clean-room reconstruction, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a real deterministic no-promotion evaluation, an aggregate-only bilingual Area Intelligence product boundary, and a nine-source Home Compare citywide lifecycle/readiness projection. P6 is next; no serving, scientific, causal, safety, routing, deployment, redistribution, or remote authority was inferred.
 
 ## Checklist
 
@@ -15,7 +15,7 @@ Scope and isolated integration base frozen. P1-P4 are complete through local cle
 - [x] P2 Spatial Attribution v2。
 - [x] P3 Evaluation Protocol v2。
 - [x] P4 Area Intelligence productization。
-- [ ] P5 Home Compare real-data product。
+- [x] P5 Home Compare real-data product boundary and citywide readiness。
 - [ ] P6 Known Route evidence completion。
 - [ ] 最终串行整合、扩大验证与边界复核。
 
@@ -27,7 +27,7 @@ Scope and isolated integration base frozen. P1-P4 are complete through local cle
 | P2 | <= 3 effective | `01a04da8-d5d1-7d53-a1df-a2abbeba157b` denominator; `01a04da8-d5f9-78d1-bef7-ba427a4dc90d` methods; `01a04da8-d60c-7c92-b782-81658da4a116` report | 3/3 completed and integrated; duplicate `01a04da9-3ebd-7d20-987e-abde654de7a0` was stopped and archived before any integration |
 | P3 | <= 3 | `01a04e13-25d0-74f1-a567-7bf93223d769` protocol; `01a04e13-25b4-7ac0-96ef-f0271022b90d` model diagnostics; `01a04e20-5b08-7a71-9cde-24625a9117a3` evaluator | 3/3 completed and integrated; every task used `high` or lower reasoning |
 | P4 | <= 3 | `01a04e71-280c-7a52-ab2c-b764542a7c12` serving; `01a04e9f-e914-77f2-a828-8414e58afaef` UI; `01a04ea0-4c49-72c0-8c50-e2c82c60fe6e` privacy | 3/3 completed and integrated; every task used `high` or lower reasoning |
-| P5 | <= 3 | none | not started |
+| P5 | <= 3 | `01a04eec-55ea-7c13-8d92-6e863c157b83` source lifecycle; `01a04f28-b565-77f3-91b6-bc1f73f7dbe9` join/DQ ledger; `01a04f31-c20b-7741-9a5c-63fe37dc671a` readiness/product integration | 3/3 completed and integrated; every task used `high` or lower reasoning |
 | P6 | <= 3 | none | not started |
 
 ## Validation evidence
@@ -71,6 +71,12 @@ Scope and isolated integration base frozen. P1-P4 are complete through local cle
 | P4 private-data boundary | five-file URL/storage/network/share/runtime suite 187/187 PASS; private address, raw coordinates and derived EPSG point remain runtime-only, private buffer/address external analysis fails before transport, public district/tract jobs retain a private-null projection, and legacy private history is non-destructively `legacy-unavailable` |
 | P4 product browser gate | `npm run -s build:manifest` PASS; `npm run -s test:area-intelligence-browser` PASS for English/Chinese x desktop/mobile, current tracked v2, missing/invalid/legacy/model boundaries, Axe serious/critical=0, overflow and reduced-motion checks |
 | P4 independent reviews | serving/privacy final reviews PASS with no material P0-P2; initial browser review found stale-build/synthetic-fixture false-green risk, fixed in `8e540dd`, then focused re-review PASS |
+| P5 fresh official bounded observation | Fresh 2026-08-30 metadata observation at semantic identity `sha256:8f37f77988ac23be6abc6ef39e68fee17d06dbe9feb2edfc1abeee390743433a`, exact file `sha256:d8c23444aca2e5988f46b9792486c2aa0f85ce08e016c3fa276dd04d55490079`; it is freshness/schema/count evidence, not an immutable citywide payload or redistribution authority |
+| P5 source lifecycle | Real exact build `sha256:3d159c0d827734e2b59e9bdcefca902ba08403d7da363fa4889056ff75304b09`, file 24,101 bytes / `sha256:32720cf76bda915d8f9edbcb58f98fd8aa431558858ef14bf4a2c8020036b218`; city geocoder, OPA current and transfers unavailable; assessment, 311, L&I, vacancy partial; PPD available from exact M1; HIN partial with review/build-clock incompleteness; all authority false |
+| P5 join/DQ ledger | Aggregate-only ledger `sha256:f717464a0ea33b5b611a6acf6e0d364a3d46f373a446b9557b954513d8cdcc3d`, file 7,533 bytes / `sha256:0bafac891d05da4d8cd32839d51513a9da7867959fc1a0e558af84be223b626e`; all 9 dimensions preserve `total:null` and `available_zero:false`; exact PPD source readiness does not manufacture an address/parcel join |
+| P5 tracked readiness artifact | `public/data/home_compare_citywide_readiness.v1.json` is 18,548 bytes / file `sha256:b8f04859a006d1f3fbf429eb119b7218056638af43c86e3fb5812b614ba57da5`, semantic identity `sha256:cb796760bbaaeda4dd80d98a52eebf243ea9cfac064deee114ef6af63309f04a`; exact rerun idempotent, fixed nine-source/nine-dimension identities, statuses, limitation/reason/DQ templates validate, aggregate-only, all authority false |
+| P5 focused and shared gates | `npm run test:home-compare` covers lifecycle, join/DQ, M3, readiness and source privacy at 80/80 PASS, including concurrent no-replace and cleanup-failure regressions; Product Integrity 80/80 PASS; syntax, scoped ESLint and `git diff --check` PASS; the same P5 suite is wired into default `test:data-contract` / `npm test` / `validate` |
+| P5 production browser gate | Real tracked/dist bytes exact; English/Chinese x desktop/mobile PASS; private action emitted zero new requests and zero profiles; clipboard contains only weights/dimensions; URL/history/localStorage/sessionStorage/IndexedDB contain no private fixture; dialog modal/ARIA/focus/close/Escape and readiness overflow PASS; routing remains unavailable |
 
 ## Open risks and remaining work
 
@@ -83,5 +89,8 @@ Scope and isolated integration base frozen. P1-P4 are complete through local cle
 - P4 v2 是本地 tracked 候选，未部署、未 promotion，也不是 serving 或 scientific authority；forecast 仍为 `unavailable`。
 - 严格私隐边界下，私人地址解析和 buffer external analysis 保持 `unavailable`；旧的私人 URL 在 JavaScript 清除前可能已被浏览器或托管方观察，当前 writer 不再创建这类 URL。
 - P4 隐私结论基于生产调用链、注入式零请求测试和真实构建浏览器验收；未另行保存真实浏览器 DevTools Network 抓包。
-- 现有 Home Compare official smoke 为旧的 bounded metadata observation，不是 P5 citywide snapshot/admission 或可再分发权限。
+- P5 之前仅有的 2026-08-21 Home Compare smoke 已被 fresh bounded observation 取代；新 observation 仍只证明时钟/schema/count，不是 immutable citywide payload、join completeness 或可再分发权限。
+- P5 已刷新 bounded official metadata，但除 exact M1 reported-crime 与 legacy HIN receipt 外仍没有获准、不可变、可再分发的逐源 citywide payload；这些来源继续 partial/unavailable，不能从 observed count 推断 address join、零值或完整性。
+- P5 fresh live PPD metadata count 3,587,700 与 exact M1 canonical receipt 3,586,620 不同；产品只把 exact M1 标为 source-ready，仍不准入私人地址级 join，也不把 HIN 当 raw crash 或 current safety evidence。
+- 严格私隐边界下 Home Compare 私人地址、parcel 与目的地分析在任何 geocoder/source/附属请求前保持 unavailable；P5 交付的是可解释 citywide source readiness，而不是恢复地址级 profile。
 - 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。

@@ -35,7 +35,7 @@
 - [x] P2: 对 ambiguous/unmapped 事件按年份、类别、警区、道路/边界与人口特征分层，比较 tract fail-closed、fixed-grid、fractional attribution 与 kernel attribution；事件层继续保留未分配事实。
 - [x] P3: 在读取新表现前冻结 v2 身份，正式纳入 eligible simple models、数值稳定性、interval calibration、slice gates 和审计边界；允许诚实 no-promotion。
 - [x] P4: 围绕一次 Area Intelligence 用户任务交付历史证据、分析几何、source-as-of、precision、excluded-event policy 和 Why unavailable；forecast 只在 promotion gate 通过时出现。
-- [ ] P5: 为 OPA、assessment、transfer、311、L&I、vacancy、crash/HIN 建立 citywide snapshot/admission/DQ lifecycle；住房地址和目的地不进入 share state，routing 无 authority 时保持 unavailable。
+- [x] P5: 为 OPA、assessment、transfer、311、L&I、vacancy、reported-crime/HIN 建立逐源 citywide lifecycle、join/DQ ledger 与产品 readiness 投影；exact PPD 只复用 M1 receipt，HIN 保持 review-incomplete partial，其余缺 exact payload/revision/许可的来源保持 partial/unavailable；住房地址和目的地在任何外发前 fail closed，routing 保持 unavailable。
 - [ ] P6: 为 Known Route 补齐 crash warehouse、accessibility evidence、分交通方式 legality、map-matching 质量、corridor/generalization sensitivity 与稳定 segment contribution；不生成 safest-route 或单一 winner。
 
 ## Acceptance criteria

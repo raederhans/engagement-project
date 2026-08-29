@@ -1,0 +1,518 @@
+{
+  "schema": "engagement-home-compare-citywide-readiness/v1",
+  "input": {
+    "lifecycle": {
+      "schema": "engagement-home-compare-citywide-source-lifecycle/v1",
+      "semantic_identity": "sha256:3d159c0d827734e2b59e9bdcefca902ba08403d7da363fa4889056ff75304b09",
+      "sha256": "sha256:32720cf76bda915d8f9edbcb58f98fd8aa431558858ef14bf4a2c8020036b218",
+      "bytes": 24101
+    },
+    "ledger": {
+      "schema": "engagement-home-compare-citywide-join-dq/v1",
+      "semantic_identity": "sha256:f717464a0ea33b5b611a6acf6e0d364a3d46f373a446b9557b954513d8cdcc3d",
+      "sha256": "sha256:0bafac891d05da4d8cd32839d51513a9da7867959fc1a0e558af84be223b626e",
+      "bytes": 7533
+    }
+  },
+  "status": "partial",
+  "sources": [
+    {
+      "source_id": "citygeo-address-locator",
+      "ordinal": 0,
+      "receipt_identity": "sha256:8f75febaffb93553da0511911efe4daf7c90726a42fce2e6a65d888d1dd8d9d9",
+      "status": "unavailable",
+      "freshness": {
+        "status": "unavailable",
+        "max_age_days": 1,
+        "age_days": null
+      },
+      "clocks": {
+        "source_as_of": null,
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "unavailable",
+        "row_count": null,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "unavailable",
+        "observed_field_count": 18,
+        "missing_fields": [],
+        "flags": [
+          "source-unavailable"
+        ]
+      },
+      "official_source_url": "https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Address_Locator/GeocodeServer",
+      "limitations": [
+        "City geocoder readiness does not admit a citywide address payload or address-level join."
+      ]
+    },
+    {
+      "source_id": "opa-current-property",
+      "ordinal": 1,
+      "receipt_identity": "sha256:5e724c54700be4f0e8b2a10375dea8c566b8fa37e8bd2d6c7cb5f6059131bf8f",
+      "status": "unavailable",
+      "freshness": {
+        "status": "stale",
+        "max_age_days": 2,
+        "age_days": 10.105441724537037
+      },
+      "clocks": {
+        "source_as_of": "2026-08-19T16:36:42.000Z",
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "unavailable",
+        "row_count": null,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "unavailable",
+        "observed_field_count": 82,
+        "missing_fields": [],
+        "flags": [
+          "source-unavailable"
+        ]
+      },
+      "official_source_url": "https://data.phila.gov/visualizations/property-assessments/",
+      "limitations": [
+        "OPA current-property readiness does not admit a complete immutable parcel payload or private address-level join."
+      ]
+    },
+    {
+      "source_id": "opa-assessment-history",
+      "ordinal": 2,
+      "receipt_identity": "sha256:d9ef46db9dfd0f1aa59c6ac5a25d55d829dfac97dcfae1e80032eb0f0ab96707",
+      "status": "partial",
+      "freshness": {
+        "status": "unavailable",
+        "max_age_days": 45,
+        "age_days": null
+      },
+      "clocks": {
+        "source_as_of": null,
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "bounded-metadata-only",
+        "row_count": 7478382,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "partial",
+        "observed_field_count": 11,
+        "missing_fields": [],
+        "flags": [
+          "bounded-metadata-only"
+        ]
+      },
+      "official_source_url": "https://opendataphilly.org/datasets/philadelphia-properties-and-assessment-history/",
+      "limitations": [
+        "Assessment-history readiness is bounded metadata only; no complete immutable parcel history or private join is admitted."
+      ]
+    },
+    {
+      "source_id": "real-estate-transfers",
+      "ordinal": 3,
+      "receipt_identity": "sha256:7503f97e532a573b0c56f1c77f792130d77f301b4abd827866b619860d0c685c",
+      "status": "unavailable",
+      "freshness": {
+        "status": "stale",
+        "max_age_days": 7,
+        "age_days": 52.79353200231481
+      },
+      "clocks": {
+        "source_as_of": "2026-07-08T00:05:51.000Z",
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "unavailable",
+        "row_count": null,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "unavailable",
+        "observed_field_count": 51,
+        "missing_fields": [],
+        "flags": [
+          "source-unavailable"
+        ]
+      },
+      "official_source_url": "https://data.phila.gov/visualizations/real-estate-transfers/",
+      "limitations": [
+        "Transfer readiness does not admit a complete immutable transaction payload or private address-level join."
+      ]
+    },
+    {
+      "source_id": "philly311-requests",
+      "ordinal": 4,
+      "receipt_identity": "sha256:e314547a3108b64b913fde876922d7da9c17a17defbe0381f23dcbc6d013a7a8",
+      "status": "partial",
+      "freshness": {
+        "status": "current",
+        "max_age_days": 2,
+        "age_days": 0.5416685763888889
+      },
+      "clocks": {
+        "source_as_of": "2026-08-29T06:08:32.000Z",
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "bounded-metadata-only",
+        "row_count": 5916965,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "partial",
+        "observed_field_count": 23,
+        "missing_fields": [],
+        "flags": [
+          "bounded-metadata-only"
+        ]
+      },
+      "official_source_url": "https://data.phila.gov/visualizations/311-requests/",
+      "limitations": [
+        "311 readiness is bounded metadata only; no complete request payload or private address-level join is admitted."
+      ]
+    },
+    {
+      "source_id": "li-property-history",
+      "ordinal": 5,
+      "receipt_identity": "sha256:b17d6223e31ba3e2fccb264a304cb7ecac163ec38c4cdf0b6b7c33dcf5089697",
+      "status": "partial",
+      "freshness": {
+        "status": "current",
+        "max_age_days": 3,
+        "age_days": 2.0784625578703704
+      },
+      "clocks": {
+        "source_as_of": "2026-08-27T17:15:33.000Z",
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "bounded-metadata-only",
+        "row_count": 4549521,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "partial",
+        "observed_field_count": 71,
+        "missing_fields": [],
+        "flags": [
+          "bounded-metadata-only"
+        ]
+      },
+      "official_source_url": "https://opendataphilly.org/datasets/licenses-and-inspections-property-history/",
+      "limitations": [
+        "L&I readiness is bounded composite metadata only; no complete property-history payload or private join is admitted."
+      ]
+    },
+    {
+      "source_id": "vacant-property-indicators",
+      "ordinal": 6,
+      "receipt_identity": "sha256:ce817a221f2c6da876cecef989356aed158a4fef117647e41761bbdfafee6e36",
+      "status": "partial",
+      "freshness": {
+        "status": "current",
+        "max_age_days": 45,
+        "age_days": 6.093527824074074
+      },
+      "clocks": {
+        "source_as_of": "2026-08-23T16:53:51.361Z",
+        "retrieved_at": "2026-08-29T19:08:32.165Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "bounded-metadata-only",
+        "row_count": 9041,
+        "available_zero": false,
+        "exact_payload": false,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "partial",
+        "observed_field_count": 14,
+        "missing_fields": [],
+        "flags": [
+          "bounded-metadata-only"
+        ]
+      },
+      "official_source_url": "https://opendataphilly.org/datasets/vacant-property-indicators/",
+      "limitations": [
+        "Vacancy readiness is modeled likely-vacant context only; it is not field-confirmed occupancy or address-level evidence."
+      ]
+    },
+    {
+      "source_id": "philadelphia-reported-crime",
+      "ordinal": 7,
+      "receipt_identity": "sha256:94da2cbd79beb9545a649a95a5eefc4ff45dbcbfeb62777ee273ae5dac455baa",
+      "status": "available",
+      "freshness": {
+        "status": "current",
+        "max_age_days": 14,
+        "age_days": 2.631622280092593
+      },
+      "clocks": {
+        "source_as_of": "2026-08-27T03:59:00.000Z",
+        "retrieved_at": "2026-08-29T05:51:38.545Z",
+        "built_at": "2026-08-29T05:52:14.004Z",
+        "observed_at": "2026-08-29T05:55:49.799Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "complete-exact-receipt",
+        "row_count": 3586620,
+        "available_zero": false,
+        "exact_payload": true,
+        "completeness_admitted": true
+      },
+      "dq": {
+        "status": "pass",
+        "observed_field_count": 17,
+        "missing_fields": [],
+        "flags": [
+          "exact-receipt-admitted"
+        ]
+      },
+      "official_source_url": "https://data.phila.gov/visualizations/crime-incidents/",
+      "limitations": [
+        "Reported-incident readiness reuses exact M1 aggregate identity only; no event payload, address join, or current safety claim is admitted."
+      ]
+    },
+    {
+      "source_id": "vision-zero-hin-2025",
+      "ordinal": 8,
+      "receipt_identity": "sha256:00895c48a35ce7beca67eaf8bf32a99d1e45ac0377a76030ac628efa482652fd",
+      "status": "partial",
+      "freshness": {
+        "status": "current",
+        "max_age_days": 366,
+        "age_days": 262.0687476388889
+      },
+      "clocks": {
+        "source_as_of": "2025-12-10T17:29:32.369Z",
+        "retrieved_at": "2026-08-10T10:29:36.678Z",
+        "built_at": null,
+        "observed_at": "2026-08-29T19:08:32.165Z"
+      },
+      "coverage": {
+        "scope": "citywide",
+        "status": "exact-receipt-review-incomplete",
+        "row_count": 162,
+        "available_zero": false,
+        "exact_payload": true,
+        "completeness_admitted": false
+      },
+      "dq": {
+        "status": "partial",
+        "observed_field_count": 4,
+        "missing_fields": [],
+        "flags": [
+          "exact-receipt-review-incomplete"
+        ]
+      },
+      "official_source_url": "https://opendataphilly.org/datasets/vision-zero-high-injury-network/",
+      "limitations": [
+        "HIN readiness is legacy historical planning context only; it is not raw crash data, current safety evidence, or routing authority."
+      ]
+    }
+  ],
+  "dimensions": [
+    {
+      "dimension": "geocoder_address_resolution",
+      "ordinal": 0,
+      "required_source_receipt_identities": [
+        "sha256:8f75febaffb93553da0511911efe4daf7c90726a42fce2e6a65d888d1dd8d9d9"
+      ],
+      "source_readiness": "unavailable",
+      "join_status": "unavailable",
+      "admission_status": "unavailable",
+      "reason": "Required source receipt is unavailable; no join, rows, values, or zero claim is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:d7f2f5dd67b4d757f0152082aece0427277df3cc6a8f67af1ad5fd7c2fe47977"
+    },
+    {
+      "dimension": "property_current_assessment",
+      "ordinal": 1,
+      "required_source_receipt_identities": [
+        "sha256:5e724c54700be4f0e8b2a10375dea8c566b8fa37e8bd2d6c7cb5f6059131bf8f"
+      ],
+      "source_readiness": "unavailable",
+      "join_status": "unavailable",
+      "admission_status": "unavailable",
+      "reason": "Required source receipt is unavailable; no join, rows, values, or zero claim is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:8826ae7d21ac5f1821c1c03eeff16c0d6d333b1c62e51466aad47a43fad05a2e"
+    },
+    {
+      "dimension": "assessment_history",
+      "ordinal": 2,
+      "required_source_receipt_identities": [
+        "sha256:d9ef46db9dfd0f1aa59c6ac5a25d55d829dfac97dcfae1e80032eb0f0ab96707"
+      ],
+      "source_readiness": "partial",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "No exact payload, private address or parcel join authority, exact join key, coverage, or completeness is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:fe8ca748147b43298b1d3f26ce70b53fd2ef1f7d50e4df549ceba6c92674fb84"
+    },
+    {
+      "dimension": "transfers",
+      "ordinal": 3,
+      "required_source_receipt_identities": [
+        "sha256:7503f97e532a573b0c56f1c77f792130d77f301b4abd827866b619860d0c685c"
+      ],
+      "source_readiness": "unavailable",
+      "join_status": "unavailable",
+      "admission_status": "unavailable",
+      "reason": "Required source receipt is unavailable; no join, rows, values, or zero claim is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:980e8e59f72e6cd02d50be4cf7cda72ed334ad0fdcf8f01471b089d9cdc11c59"
+    },
+    {
+      "dimension": "requests_311",
+      "ordinal": 4,
+      "required_source_receipt_identities": [
+        "sha256:e314547a3108b64b913fde876922d7da9c17a17defbe0381f23dcbc6d013a7a8"
+      ],
+      "source_readiness": "partial",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "No exact payload, private address or parcel join authority, exact join key, coverage, or completeness is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:4bcd7aabef6940c09420971495e4726b3efa5cda4e4890d9ca34b2d20ee476bf"
+    },
+    {
+      "dimension": "li_property_history",
+      "ordinal": 5,
+      "required_source_receipt_identities": [
+        "sha256:b17d6223e31ba3e2fccb264a304cb7ecac163ec38c4cdf0b6b7c33dcf5089697"
+      ],
+      "source_readiness": "partial",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "No exact payload, private address or parcel join authority, exact join key, coverage, or completeness is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:e62fce64333eb47d56a8d8ac3dad0a43577d55f58f4a02d55f49772addf3d8fe"
+    },
+    {
+      "dimension": "vacancy",
+      "ordinal": 6,
+      "required_source_receipt_identities": [
+        "sha256:ce817a221f2c6da876cecef989356aed158a4fef117647e41761bbdfafee6e36"
+      ],
+      "source_readiness": "partial",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "No exact payload, private address or parcel join authority, exact join key, coverage, or completeness is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:4e22ca858f6d7136b6e5e47578c4182450d504a90a25fbb6be4248495bc4b211"
+    },
+    {
+      "dimension": "reported_incidents",
+      "ordinal": 7,
+      "required_source_receipt_identities": [
+        "sha256:94da2cbd79beb9545a649a95a5eefc4ff45dbcbfeb62777ee273ae5dac455baa"
+      ],
+      "source_readiness": "exact-receipt-ready",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "Exact M1 receipt readiness is reused, but no event payload, private address join key, coverage, or parcel authority is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:a6ac25742b5a94f17681a2a2ab4c70656bb47fea404d07f40800a6e1ab721917"
+    },
+    {
+      "dimension": "hin_road_context",
+      "ordinal": 8,
+      "required_source_receipt_identities": [
+        "sha256:00895c48a35ce7beca67eaf8bf32a99d1e45ac0377a76030ac628efa482652fd"
+      ],
+      "source_readiness": "partial",
+      "join_status": "not-admitted",
+      "admission_status": "not-admitted",
+      "reason": "Legacy partial HIN receipt is road context only; no raw crash, current safety, private join, or routing authority is admitted.",
+      "row_availability": "unavailable",
+      "value_availability": "unavailable",
+      "total": null,
+      "available_zero": false,
+      "identity": "sha256:c9ad7281e47e0b7bac2d9f7417f8eb528fa65fd8cb96605acecd73745dff8830"
+    }
+  ],
+  "privacy": {
+    "aggregate_only": true,
+    "address_included": false,
+    "coordinates_included": false,
+    "source_rows_included": false
+  },
+  "authority": {
+    "product_authority": false,
+    "publication_authority": false,
+    "redistribution_authority": false,
+    "safety_authority": false,
+    "routing_authority": false
+  },
+  "limitations": [
+    "Local non-authoritative candidate only; this is not address-level evidence.",
+    "No private address, coordinate, parcel, source row, or event identifier is included.",
+    "No result authorizes product publication, redistribution, safety, routing, travel-time, isochrone, scoring, ranking, or recommendation."
+  ],
+  "identity": "sha256:cb796760bbaaeda4dd80d98a52eebf243ea9cfac064deee114ef6af63309f04a"
+}
