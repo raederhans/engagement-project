@@ -68,11 +68,22 @@ function feature(objectid, segId, from, to, coordinates) {
 function featureCollection() {
   return {
     type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
     features: [
       feature(10, 100, 1, 2, [[-75.17, 39.95], [-75.16, 39.95]]),
       feature(11, 101, 2, 3, [[-75.16, 39.95], [-75.15, 39.95]]),
     ],
   };
+}
+
+function blockedRecord(value = true) {
+  return JSON.parse(`{"__proto__":{"polluted":${JSON.stringify(value)}}}`);
+}
+
+function nestedValue(depth) {
+  let value = 'leaf';
+  for (let index = 0; index < depth; index += 1) value = { child: value };
+  return value;
 }
 
 async function transaction(responses, options = {}) {
@@ -84,6 +95,43 @@ async function transaction(responses, options = {}) {
     ...options,
   });
 }
+
+test('Centerline metadata admits only the safe consumed projection', () => {
+  const liveShape = metadata({
+    unrelatedArcGisSection: {
+      renderer: blockedRecord(),
+      deeplyNestedVendorMetadata: nestedValue(40),
+    },
+  });
+  liveShape.fields = liveShape.fields.map((field) => ({
+    ...field,
+    domain: blockedRecord('ignored-unconsumed-field-metadata'),
+  }));
+  assert.equal(admitCenterlineMetadata(liveShape).sourceId, 'philadelphia-street-centerline');
+
+  assert.throws(() => admitCenterlineMetadata(metadata({
+    serviceItemId: blockedRecord(),
+  })), /blocked property/i);
+  assert.throws(() => admitCenterlineMetadata(metadata({
+    supportedQueryFormats: nestedValue(22),
+  })), /nesting depth/i);
+  assert.throws(() => admitCenterlineMetadata(metadata({
+    maxRecordCount: '2000',
+  })), /unavailable or drifted/i);
+
+  const poisonedEditingInfo = metadata();
+  poisonedEditingInfo.editingInfo.dataLastEditDate = blockedRecord();
+  assert.throws(() => admitCenterlineMetadata(poisonedEditingInfo), /blocked property/i);
+
+  const poisonedField = metadata();
+  poisonedField.fields[0].name = blockedRecord();
+  assert.throws(() => admitCenterlineMetadata(poisonedField), /blocked property/i);
+
+  const driftedField = metadata();
+  driftedField.fields = driftedField.fields.map((field) => field.name === 'class'
+    ? { ...field, type: 'esriFieldTypeInteger' } : field);
+  assert.throws(() => admitCenterlineMetadata(driftedField), /field contract drifted/i);
+});
 
 test('Centerline transaction requires explicit consent and exact URLSearchParams POSTs', async () => {
   const calls = [];
@@ -142,6 +190,11 @@ test('Centerline transaction rejects schema drift, truncation, duplicate/unknown
   assert.throws(() => admitCenterlineFeatureCollection(unknown, {
     expectedCount: 2, sourceVersion,
   }), /unrequested fields/i);
+  const wrongCrs = featureCollection();
+  wrongCrs.crs.properties.name = 'EPSG:3857';
+  assert.throws(() => admitCenterlineFeatureCollection(wrongCrs, {
+    expectedCount: 2, sourceVersion,
+  }), /incomplete or invalid/i);
 
   assert.equal((await requestPhiladelphiaCenterlineCatalog({
     normalizedRoute, consent, request: async () => { throw new TypeError('network'); },

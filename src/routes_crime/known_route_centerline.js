@@ -67,25 +67,38 @@ export function createCenterlineQueryDisclosure() {
 }
 
 export function admitCenterlineMetadata(value) {
-  assertSafeData(value, 'centerline metadata');
-  if (value?.serviceItemId !== PHILADELPHIA_CENTERLINE_SOURCE.serviceItemId
-    || value.name !== 'Street_Centerline'
-    || value.type !== 'Feature Layer'
-    || value.geometryType !== 'esriGeometryPolyline'
-    || value.capabilities !== 'Query'
-    || value.objectIdField !== 'objectid'
-    || !Number.isInteger(value.maxRecordCount)
-    || value.maxRecordCount < PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures
-    || value.hasZ !== false || value.hasM !== false
-    || !Number.isSafeInteger(value.editingInfo?.dataLastEditDate)
-    || value.editingInfo.dataLastEditDate <= 0
-    || !String(value.supportedQueryFormats || '').split(/\s*,\s*/).includes('geoJSON')) {
+  const metadata = {};
+  for (const key of [
+    'serviceItemId', 'name', 'type', 'geometryType', 'capabilities', 'objectIdField',
+    'maxRecordCount', 'hasZ', 'hasM', 'supportedQueryFormats',
+  ]) metadata[key] = value?.[key];
+  metadata.editingInfo = { dataLastEditDate: value?.editingInfo?.dataLastEditDate };
+  metadata.fields = Array.isArray(value?.fields)
+    ? value.fields.map((field) => ({ name: field?.name, type: field?.type }))
+    : value?.fields;
+  assertSafeData(metadata, 'centerline metadata');
+  const {
+    serviceItemId, name, type, geometryType, capabilities, objectIdField,
+    maxRecordCount, hasZ, hasM, supportedQueryFormats, editingInfo, fields: admittedFields,
+  } = metadata;
+  if (serviceItemId !== PHILADELPHIA_CENTERLINE_SOURCE.serviceItemId
+    || name !== 'Street_Centerline'
+    || type !== 'Feature Layer'
+    || geometryType !== 'esriGeometryPolyline'
+    || capabilities !== 'Query'
+    || objectIdField !== 'objectid'
+    || !Number.isInteger(maxRecordCount)
+    || maxRecordCount < PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures
+    || hasZ !== false || hasM !== false
+    || !Number.isSafeInteger(editingInfo.dataLastEditDate)
+    || editingInfo.dataLastEditDate <= 0
+    || !String(supportedQueryFormats || '').split(/\s*,\s*/).includes('geoJSON')) {
     throw new Error('Philadelphia centerline metadata contract is unavailable or drifted.');
   }
-  if (!Array.isArray(value.fields) || !value.fields.length) {
+  if (!Array.isArray(admittedFields) || !admittedFields.length) {
     throw new Error('Philadelphia centerline field schema is unavailable.');
   }
-  const fieldSchema = value.fields.map((field) => {
+  const fieldSchema = admittedFields.map((field) => {
     if (!field || typeof field.name !== 'string' || !field.name
       || typeof field.type !== 'string' || !field.type) {
       throw new Error('Philadelphia centerline field schema is invalid.');
@@ -99,26 +112,26 @@ export function admitCenterlineMetadata(value) {
       throw new Error(`Philadelphia centerline field contract drifted: ${name}.`);
     }
   }
-  const sourceAsOf = new Date(value.editingInfo.dataLastEditDate).toISOString();
+  const sourceAsOf = new Date(editingInfo.dataLastEditDate).toISOString();
   return Object.freeze({
     sourceId: PHILADELPHIA_CENTERLINE_SOURCE.sourceId,
-    serviceItemId: value.serviceItemId,
+    serviceItemId,
     sourceAsOf,
     dataVersion: `city-street-centerline:${sourceAsOf}`,
     schemaIdentity: deterministicIdentity('centerline-schema', {
-      name: value.name,
-      type: value.type,
-      geometryType: value.geometryType,
-      capabilities: value.capabilities,
-      objectIdField: value.objectIdField,
-      maxRecordCount: value.maxRecordCount,
-      hasZ: value.hasZ,
-      hasM: value.hasM,
-      supportedQueryFormats: String(value.supportedQueryFormats).split(/\s*,\s*/).sort(),
+      name,
+      type,
+      geometryType,
+      capabilities,
+      objectIdField,
+      maxRecordCount,
+      hasZ,
+      hasM,
+      supportedQueryFormats: String(supportedQueryFormats).split(/\s*,\s*/).sort(),
       fields: [...fieldSchema].sort((left, right) => left.name.localeCompare(right.name, 'en')),
     }),
-    geometryType: value.geometryType,
-    maxRecordCount: value.maxRecordCount,
+    geometryType,
+    maxRecordCount,
   });
 }
 
@@ -139,7 +152,10 @@ export function createCenterlineQueryEnvelope(normalizedRoute) {
 export function admitCenterlineFeatureCollection(value, { expectedCount, sourceVersion } = {}) {
   assertSafeData(value, 'centerline response');
   if (value?.type !== 'FeatureCollection' || !Array.isArray(value.features)
-    || Object.keys(value).some((key) => !['type', 'features'].includes(key))
+    || Object.keys(value).some((key) => !['type', 'crs', 'features'].includes(key))
+    || (value.crs !== undefined && (value.crs?.type !== 'name'
+      || value.crs?.properties?.name !== 'EPSG:4326'
+      || Object.keys(value.crs).length !== 2 || Object.keys(value.crs.properties).length !== 1))
     || !Number.isInteger(expectedCount) || expectedCount < 1
     || expectedCount > PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures
     || value.features.length !== expectedCount

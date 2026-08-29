@@ -27,6 +27,9 @@ requireTaskOwnedOutput(output);
 requireTaskOwnedOutput(routeFile);
 
 try {
+  if (!options.allowPublicCenterlineRequest) {
+    throw new Error('Official smoke requires --allow-public-centerline-request for the disclosed public fixture bbox request.');
+  }
   const publicRoute = await readPublicRoute(routeFile);
   const normalizedRoute = createKnownRouteEvidenceRequest({
     routeInput: publicRoute.routeInput,
@@ -63,11 +66,19 @@ try {
       geometryIncluded: false,
     },
     consent: {
+      cliAllowPublicCenterlineRequest: options.allowPublicCenterlineRequest,
       publicCenterlineRequest: consent.publicCenterlineRequest,
       disclosureAccepted: true,
     },
     centerline: {
       status: 'matched-reference-topology',
+      transaction: [
+        'metadata-admitted',
+        'count-only-consistent',
+        'geojson-count-consistent',
+        'metadata-recheck-consistent',
+      ],
+      featureCount: catalog.featureCount,
       sourceUrl: PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
       layerUrl: PHILADELPHIA_CENTERLINE_SOURCE.layerUrl,
       licenseUrl: PHILADELPHIA_CENTERLINE_SOURCE.licenseUrl,
@@ -116,6 +127,8 @@ try {
     fixture: report.fixture.classification,
     publicCenterlineRequest: report.consent.publicCenterlineRequest,
     centerlineSourceAsOf: report.centerline.clocks.sourceAsOf,
+    centerlineTransaction: report.centerline.transaction,
+    centerlineFeatureCount: report.centerline.featureCount,
     deterministicRepeat: report.centerline.deterministicRepeat,
     hinSourceAsOf: report.hin.clocks.sourceAsOf,
     hinOfficialCountConsistent: report.hin.officialCountConsistent,
@@ -131,7 +144,8 @@ function parseOptions(args) {
   const result = {};
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
-    if (value.startsWith('--output=')) result.output = value.slice('--output='.length);
+    if (value === '--allow-public-centerline-request') result.allowPublicCenterlineRequest = true;
+    else if (value.startsWith('--output=')) result.output = value.slice('--output='.length);
     else if (value === '--output') result.output = args[++index];
     else if (value.startsWith('--route-input=')) result.routeInput = value.slice('--route-input='.length);
     else if (value === '--route-input') result.routeInput = args[++index];
@@ -181,8 +195,8 @@ async function observeOfficialHin(receipt, timeoutMs) {
     || admitted.objectIdField !== 'objectid'
     || JSON.stringify(admitted.fields) !== JSON.stringify(receipt.source.fields)
     || new Date(admitted.dataLastEditDate).toISOString() !== receipt.source.sourceAsOf
-    || count?.count !== receipt.artifact.featureCount
-    || Object.keys(count).some((key) => key !== 'count')) {
+    || !Number.isSafeInteger(count?.count)
+    || count.count !== receipt.artifact.featureCount) {
     throw new Error('HIN official metadata/count drifted from the tracked snapshot receipt.');
   }
   return { sourceAsOf: receipt.source.sourceAsOf, observedAt: reportClock() };
