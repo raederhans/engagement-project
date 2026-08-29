@@ -18,6 +18,10 @@ import {
   getHomeCompareCopy,
   homeCompareProductHtml,
 } from './view.js';
+import {
+  homeCompareCitywideReadinessHtml,
+  loadHomeCompareCitywideReadiness,
+} from './citywide_readiness.js';
 
 const DEFAULT_WEIGHTS = Object.freeze({
   property: 20,
@@ -69,6 +73,7 @@ export function createHomeCompareController({
   clipboard = globalThis.navigator?.clipboard,
   locationRef = globalThis.location,
   historyRef = globalThis.history,
+  loadCitywideReadiness = loadHomeCompareCitywideReadiness,
 } = {}) {
   if (!dialog?.querySelector) throw new TypeError('Home Compare dialog is required.');
   const host = dialog.querySelector('[data-home-compare-host]');
@@ -85,6 +90,7 @@ export function createHomeCompareController({
     labels: [],
     resultHtml: null,
     resultLocale: null,
+    citywideReadiness: null,
   };
   let returnFocus = null;
   let generation = 0;
@@ -92,6 +98,7 @@ export function createHomeCompareController({
   let renderResults = null;
 
   applyShareStateFromUrl();
+  void refreshCitywideReadiness();
 
   function render() {
     const locale = getLanguage();
@@ -101,6 +108,7 @@ export function createHomeCompareController({
       addressCount: state.addresses.length,
       weights: state.weights,
       busy: state.busy,
+      citywideReadinessHtml: homeCompareCitywideReadinessHtml(state.citywideReadiness, { locale }),
     });
     state.addresses.forEach((value, index) => {
       const input = host.querySelector(`[data-home-address="${index}"]`);
@@ -173,6 +181,15 @@ export function createHomeCompareController({
     dialog.setAttribute('aria-busy', String(state.busy));
   }
 
+  async function refreshCitywideReadiness() {
+    try {
+      state.citywideReadiness = await loadCitywideReadiness();
+    } catch {
+      state.citywideReadiness = null;
+    }
+    render();
+  }
+
   function invalidateResult() {
     if (state.busy) return;
     clearResult();
@@ -226,100 +243,10 @@ export function createHomeCompareController({
 
   async function compare() {
     if (state.busy) return { status: 'busy' };
-    const request = Object.freeze({
-      addresses: Object.freeze(state.addresses.map((value) => value.trim())),
-      destinations: Object.freeze(state.destinations.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)),
-      weights: Object.freeze({ ...state.weights }),
-    });
-    if (request.addresses.some((value) => value.length < 3 || value.length > 160)) {
-      state.status = 'invalid-addresses';
-      render();
-      return { status: 'invalid' };
-    }
-    if (request.destinations.length > 3 || request.destinations.some((value) => value.length > 160)) {
-      state.status = 'invalid-destinations';
-      render();
-      return { status: 'invalid' };
-    }
-    const requestGeneration = ++generation;
-    requestController?.abort();
-    const activeRequestController = new AbortController();
-    requestController = activeRequestController;
-    // Results contain profile cards and localized formatting that are not needed
-    // to open/configure Home Compare. Observe a failure immediately so a lazy
-    // chunk failure never escapes as an unhandled rejection while source work runs.
-    const resultsView = Promise.resolve().then(loadResultsView);
-    const observedResultsView = resultsView.then(
-      (view) => ({ view }),
-      (error) => ({ error }),
-    );
-    state.busy = true;
-    state.status = 'loading';
     clearResult();
+    state.status = 'address-unavailable';
     render();
-    try {
-      const [registry, areaIntelligence, identities] = await Promise.all([
-        loadRegistry({ signal: activeRequestController.signal }),
-        loadAreaIntelligence({ signal: activeRequestController.signal }),
-        Promise.all(request.addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
-      ]);
-      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
-      const admittedAreaIntelligence = validateHomeCompareAreaIntelligenceBoundary(areaIntelligence);
-      const admittedIdentities = admitComparisonIdentities(identities);
-      const results = await Promise.all(admittedIdentities.map((identity) => fetchEvidence(identity, {
-        signal: activeRequestController.signal,
-      })));
-      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
-      const profiles = results.map((result, index) => ({
-        ...result.profile,
-        profileId: `home-${index + 1}`,
-      }));
-      const projection = createHomeCompareProjection({
-        profiles,
-        sources: await combineHomeCompareSources(registry, results),
-        areaIntelligence: admittedAreaIntelligence,
-        sensitivity: buildWeightSensitivity(request.weights),
-      });
-      const labels = results.map(({ privateLabel }) => privateLabel);
-      const { view, error: resultsViewError } = await observedResultsView;
-      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
-      if (resultsViewError || typeof view?.homeCompareResultsHtml !== 'function') {
-        throw createResultsViewUnavailableError(resultsViewError);
-      }
-      let resultHtml;
-      try {
-        resultHtml = view.homeCompareResultsHtml(projection, { labels, locale: getLanguage() });
-      } catch (error) {
-        throw createResultsViewUnavailableError(error);
-      }
-      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
-      // Commit only after all local work belongs to the active generation. This
-      // prevents a closed/destroyed dialog from retaining an old projection.
-      renderResults = view.homeCompareResultsHtml;
-      state.result = projection;
-      state.labels = labels;
-      state.resultHtml = resultHtml;
-      state.resultLocale = getLanguage();
-      state.status = projection.status === 'available' ? 'available' : 'partial';
-      state.busy = false;
-      if (requestController === activeRequestController) requestController = null;
-      render();
-      const resultHost = host.querySelector('[data-home-results]');
-      resultHost?.focus?.({ preventScroll: true });
-      resultHost?.scrollIntoView?.({ block: 'nearest' });
-      return { status: projection.status, projection };
-    } catch (error) {
-      if (requestGeneration !== generation || activeRequestController.signal.aborted || error?.name === 'AbortError') return { status: 'superseded' };
-      activeRequestController.abort();
-      if (requestController === activeRequestController) requestController = null;
-      if (error?.code === 'RESULTS_VIEW_UNAVAILABLE') setResultsUnavailable(error);
-      else {
-        state.busy = false;
-        state.status = errorStatus(error);
-      }
-      render();
-      return { status: 'unavailable', reason: state.status };
-    }
+    return Object.freeze({ status: 'unavailable', reason: 'private-address-unavailable-before-egress', travelTimes: [], isochrones: [] });
   }
 
   async function shareSettings() {
@@ -419,6 +346,7 @@ function getStatusMessages(locale) {
       'address-ambiguous': '存在多个高分地址候选；请细化地址。',
       'address-duplicate': '多个住宅解析为同一个规范化地址，已 fail closed。',
       'address-geography-conflict': '等价地址候选的地理位置不一致，已 fail closed。',
+      'address-unavailable': '私人地址比较不可用；在任何 geocoder、parcel、地图或附属请求前已 fail closed。',
       'parcel-missing': '没有找到精确 OPA parcel 关联，已 fail closed。',
       'parcel-ambiguous': '地址关联到多个 parcel，已 fail closed。',
       'parcel-duplicate': '多个住宅解析为同一个 parcel，已 fail closed。',
@@ -440,6 +368,7 @@ function getStatusMessages(locale) {
     'address-ambiguous': 'Multiple high-confidence addresses remain; refine the address.',
     'address-duplicate': 'Multiple homes resolve to the same normalized address; the request failed closed.',
     'address-geography-conflict': 'Equivalent address candidates disagree geographically; the request failed closed.',
+    'address-unavailable': 'Private address comparison is unavailable and failed closed before any geocoder, parcel, map, or ancillary request.',
     'parcel-missing': 'No exact OPA parcel join was found; the request failed closed.',
     'parcel-ambiguous': 'The address joins to multiple parcels; the request failed closed.',
     'parcel-duplicate': 'Multiple homes resolve to the same parcel; the request failed closed.',

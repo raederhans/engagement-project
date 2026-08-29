@@ -2,6 +2,7 @@ import { CARTO_SQL_BASE } from '../config.js';
 import { findPhiladelphiaPropertyAddressCandidates } from '../api/geocoder.js';
 import { admitCoverageResponse, COVERAGE_SQL } from '../api/meta.js';
 import { fetchJson } from '../utils/http.js';
+import { rejectPrivateLocationEgress } from '../utils/http.js';
 import { buildCountBufferSQL } from '../utils/sql.js';
 import { validateAreaIntelligenceServingArtifact } from '../area_intelligence/serving_contract.js';
 import { admitPropertyAddressCandidates, admitPropertyParcelJoin } from './address.js';
@@ -29,6 +30,7 @@ export async function resolveHomePropertyAddress(input, {
   signal,
   minScore = 90,
 } = {}) {
+  rejectPrivateLocationEgress();
   const candidates = await findPhiladelphiaPropertyAddressCandidates(input, {
     request: (url, options = {}) => postSensitiveArcGisQuery(url, {
       request,
@@ -51,6 +53,7 @@ export async function fetchHomeProfileEvidence(identity, {
   radiusMeters = 400,
   incidentMonths = 12,
 } = {}) {
+  rejectPrivateLocationEgress();
   validatePrivateIdentity(identity);
   const retrievedAt = requiredRetrievalDate(now);
   const [assessments, transfers, serviceRequests, liHistory, vacancy, hinContext, reportedIncidents] = await Promise.allSettled([

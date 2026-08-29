@@ -134,6 +134,12 @@
   gap: var(--space-3);
 }
 
+.home-compare__readiness { margin-block-start: var(--space-4); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-muted); }
+.home-compare__readiness h3 { margin-block-start: 0; }
+.home-compare__readiness-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-block-start: var(--space-3); }
+.home-compare__readiness-list article { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-card); overflow-wrap: anywhere; }
+.home-compare__readiness-list h4, .home-compare__readiness-list p { margin-block: 0 var(--space-2); }
+
 .home-compare__boundary-grid article,
 .home-compare__sensitivity,
 .home-compare__profile {
@@ -230,6 +236,7 @@
 
   .home-compare__addresses,
   .home-compare__boundary-grid,
+  .home-compare__readiness-list,
   .home-compare__weights > div {
     grid-template-columns: 1fr;
   }

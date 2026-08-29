@@ -4,9 +4,9 @@ const COPY = Object.freeze({
   en: Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
-    intro: 'Enter full street addresses. Addresses, coordinates, and parcel IDs are used ephemerally to query the listed official public sources; commute destinations remain in this session. None are retained in the comparison artifact or shared settings.',
+    intro: 'Private address comparison is unavailable before any geocoder, parcel, map, or ancillary request. Citywide readiness below is local aggregate metadata only and is not address-level evidence.',
     address: 'Home address',
-    addressHint: 'A unique City geocoder match and exact OPA parcel join are required.',
+    addressHint: 'Private address, coordinate, and parcel resolution are unavailable and are never sent.',
     add: 'Add another home',
     remove: 'Remove',
     commute: 'Optional commute destinations',
@@ -19,7 +19,7 @@ const COPY = Object.freeze({
     share: 'Copy settings link',
     shareHint: 'The link contains weights and visible dimensions only—no address, parcel, coordinate, or destination.',
     idle: 'Enter 2–4 addresses to begin.',
-    loading: 'Resolving addresses and querying official public records…',
+    loading: 'Loading local citywide readiness metadata…',
     results: 'Evidence profiles',
     profile: 'Home',
     sourceDetails: 'Source, coverage, and limitations',
@@ -61,9 +61,9 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
-    intro: '请输入完整街道地址。地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源；通勤目的地只保留在本次会话中。这些内容都不会写入比较产物或共享设置。',
+    intro: '私人地址比较会在任何 geocoder、parcel、地图或附属请求前保持不可用。下方全市就绪度仅为本地聚合元数据，不是地址级证据。',
     address: '住宅地址',
-    addressHint: '必须同时通过 City geocoder 唯一匹配与 OPA parcel 精确关联。',
+    addressHint: '私人地址、坐标和 parcel 解析不可用，也绝不会被发送。',
     add: '添加住宅',
     remove: '移除',
     commute: '可选通勤目的地',
@@ -121,7 +121,7 @@ export function getHomeCompareCopy(locale) {
   return COPY[locale] || COPY.en;
 }
 
-export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false } = {}) {
+export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false, citywideReadinessHtml = '' } = {}) {
   scrubInvalidShareStateFromUrl();
   const copy = getHomeCompareCopy(locale);
   const addresses = Array.from({ length: addressCount }, (_, index) => `
@@ -165,6 +165,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
         <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>
+      ${citywideReadinessHtml}
       <section class="home-compare__results" data-home-results aria-label="${escapeHtml(copy.results)}" tabindex="-1"></section>
     </div>`;
 }
