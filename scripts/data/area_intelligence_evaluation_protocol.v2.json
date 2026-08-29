@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "schema": "engagement-area-intelligence-evaluation-protocol/v2",
-  "frozen_at": "2026-08-29T06:58:31.174Z",
+  "frozen_at": "2026-08-29T15:13:38.184Z",
   "frozen_before_model_performance": true,
   "target": {
     "grain": "spatial-unit-week",
@@ -21,6 +21,7 @@
   "exact_input_gate": {
     "receipt_schema": "engagement-phl-crime-warehouse-receipt/v3",
     "receipt_identity": "sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315",
+    "receipt_sha256": "sha256:2735f174cc978ea6abad31519672c58618fe5602cc9dedef918f8d624f523925",
     "required_mode": "official-local-candidate",
     "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
     "serving_eligible": false,
@@ -117,6 +118,24 @@
     "training_policy": "Poisson and negative-binomial fits exclude held-out blocks",
     "report_slices": ["temporal-non-heldout", "spatial-heldout"]
   },
+  "primary_tuple_vocabulary": [
+    { "fold": "fold-2019", "unit_type": "tract", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2019", "unit_type": "tract", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2019", "unit_type": "fixed-grid", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2019", "unit_type": "fixed-grid", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2021", "unit_type": "tract", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2021", "unit_type": "tract", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2021", "unit_type": "fixed-grid", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2021", "unit_type": "fixed-grid", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2023", "unit_type": "tract", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2023", "unit_type": "tract", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2023", "unit_type": "fixed-grid", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2023", "unit_type": "fixed-grid", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2025-2026", "unit_type": "tract", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2025-2026", "unit_type": "tract", "holdout_slice": "spatial-heldout" },
+    { "fold": "fold-2025-2026", "unit_type": "fixed-grid", "holdout_slice": "temporal-non-heldout" },
+    { "fold": "fold-2025-2026", "unit_type": "fixed-grid", "holdout_slice": "spatial-heldout" }
+  ],
   "models": [
     { "id": "seasonal-naive-52w", "kind": "seasonal-naive", "lag_weeks": 52 },
     { "id": "moving-average-4w", "kind": "moving-average", "window_weeks": 4 },
@@ -180,10 +199,66 @@
     "all_primary_slices_must_pass": true,
     "failure_result": "honest-no-promotion-historical-trends-only"
   },
+  "numerical_stability_gate": {
+    "finite_coefficients_required": true,
+    "coefficient_abs_limit_inclusive": 12,
+    "convergence": {
+      "metric": "maximum-absolute-coefficient-change",
+      "threshold_exclusive": 1e-7,
+      "required_before_iteration_limit": true
+    },
+    "singular_fit_allowed": false,
+    "prediction": {
+      "finite_required": true,
+      "minimum_inclusive": 0,
+      "maximum_inclusive": 162754.79141900392,
+      "log_mean_abs_limit_inclusive": 12
+    },
+    "dispersion_alpha_inclusive": [0.000001, 10],
+    "interval": {
+      "nominal_probability": 0.9,
+      "baseline_calibration": "training-only-absolute-residual-90th-percentile",
+      "count_model_calibration": "distributional-central-90-percent",
+      "primary_slice_coverage_inclusive": [0.85, 0.95],
+      "aggregate_bypass_allowed": false
+    },
+    "failure_result": "honest-no-promotion-historical-trends-only"
+  },
   "artifact_policy": {
     "large_outputs": "ignored-task-owned-only",
     "committable": "schemas-code-small-safe-reports-serving-status-and-synthetic-tests",
     "forbidden": ["event-level-coordinates", "generalized-addresses", "raw-events", "canonical-events"],
     "hash_meaning": "input-or-artifact-byte-identity-only-not-model-correctness"
-  }
+  },
+  "privacy": {
+    "aggregate_only": true,
+    "event_level_data_included": false,
+    "coordinates_included": false,
+    "generalized_locations_included": false,
+    "raw_or_canonical_events_included": false,
+    "source_record_ids_included": false
+  },
+  "authority": {
+    "local_evaluation": false,
+    "serving": false,
+    "product_promotion": false,
+    "scientific": false,
+    "causal": false,
+    "safety": false,
+    "deletion": false
+  },
+  "current_evaluation_state": {
+    "status": "not-promoted",
+    "availability": "unavailable",
+    "selected_model": null,
+    "failure_result": "honest-no-promotion-historical-trends-only"
+  },
+  "forbidden_claims": [
+    "individual victim probability",
+    "absolute safety",
+    "safety score",
+    "safest area",
+    "safest route",
+    "causal effect"
+  ]
 }
