@@ -310,6 +310,27 @@ test('production publisher is wired to contextual P3 deep validators before proj
   assert.doesNotMatch(source, /validateModelEvaluationReport\(report\);/);
 });
 
+test('producer context inherits the frozen protocol measure and rejects measure drift', async () => {
+  const protocolBytes = await fs.readFile(path.join(
+    repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v2.json',
+  ));
+  const frozenProtocol = JSON.parse(protocolBytes);
+  const context = syntheticP3Context();
+  assert.equal(frozenProtocol.target.measure, 'PPD reported incident count');
+  assert.equal(context.protocol.target.measure, frozenProtocol.target.measure);
+  assert.equal(
+    createAreaIntelligencePublicProjection(context).historical_evidence.measure,
+    frozenProtocol.target.measure,
+  );
+
+  const drifted = structuredClone(context);
+  drifted.protocol.target.measure = 'PPD reported incidents';
+  assert.throws(
+    () => createAreaIntelligencePublicProjection(drifted),
+    /historical evidence or method drifted/i,
+  );
+});
+
 export function syntheticP3Context({ decision = 'no-promotion', intervalFailures = 2 } = {}) {
   const localCandidateModel = decision === 'local-candidate' ? 'negative-binomial-log-link-v1' : null;
   const authority = {
@@ -341,7 +362,7 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
     exact_input_gate: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
     target: {
       grain: 'spatial-unit-week',
-      measure: 'PPD reported incidents',
+      measure: 'PPD reported incident count',
       week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
       exclude_incomplete_source_week: true,
     },

@@ -2,6 +2,7 @@ export const AREA_INTELLIGENCE_SERVING_SCHEMA = 'engagement-area-intelligence-se
 
 const LEGACY_SERVING_SCHEMA = 'engagement-area-intelligence-serving/v1';
 const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
+const CURRENT_TARGET_MEASURE = 'PPD reported incident count';
 const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v2';
 const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const M1_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v3';
@@ -105,7 +106,7 @@ function validateHistoricalEvidence(value, generatedAt) {
     'incomplete_source_week_excluded', 'ambiguous_or_unavailable_spatial_assignments_excluded',
   ], 'method');
   if (value.status !== 'available'
-    || value.measure !== 'PPD reported incidents'
+    || value.measure !== CURRENT_TARGET_MEASURE
     || !exactTimestamp(value.source_as_of)
     || value.source_as_of > generatedAt
     || !digest(value.source_vintage)
@@ -243,6 +244,7 @@ function validateExternalContext(candidate, context) {
     || candidate.lineage.m1_receipt.sha256 !== martManifest.exact_input?.receipt_sha256
     || candidate.lineage.m1_receipt.sha256 !== manifest.lineage_seam?.m1_receipt?.sha256
     || candidate.lineage.m1_receipt.sha256 !== checkpoint.receipt_sha256
+    || candidate.historical_evidence.measure !== protocol.target?.measure
     || candidate.historical_evidence.source_as_of !== m1Receipt.clocks?.source_as_of
     || candidate.historical_evidence.source_vintage !== report.data?.source_vintage
     || candidate.historical_evidence.source_vintage !== m1Receipt.warehouse?.current_snapshot_id

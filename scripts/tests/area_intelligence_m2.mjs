@@ -491,7 +491,7 @@ function servingArtifact() {
     status: 'not-promoted',
     historical_evidence: {
       status: 'available',
-      measure: 'PPD reported incidents',
+      measure: 'PPD reported incident count',
       source_as_of: '2026-08-20T03:47:00.000Z',
       source_vintage: `sha256:${'1'.repeat(64)}`,
       coverage: {

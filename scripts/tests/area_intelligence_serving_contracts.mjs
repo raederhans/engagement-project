@@ -136,7 +136,7 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
     schema: 'engagement-area-intelligence-evaluation-protocol/v2',
     exact_input_gate: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
     target: {
-      grain: 'spatial-unit-week', measure: 'PPD reported incidents',
+      grain: 'spatial-unit-week', measure: 'PPD reported incident count',
       week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
       exclude_incomplete_source_week: true,
     },
