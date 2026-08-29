@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
@@ -20,6 +22,7 @@ import { diagnoseModelNumerics } from '../lib/area_intelligence_model.mjs';
 import {
   AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
   loadAreaIntelligenceEvaluationProtocol,
+  stableSerialization,
 } from '../lib/area_intelligence_evaluation_protocol.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -158,56 +161,73 @@ test('primary numerical failure blocks aggregate bypass and produces honest no-p
 });
 
 test('report validator deep-checks exact fit states, coverage, finite JSON, and aggregate-only privacy', () => {
-  const report = healthyReport();
-  assert.equal(validateModelEvaluationReport(report), true);
+  const fixture = healthyValidationFixture();
+  const { report } = fixture;
+  assert.equal(validateModelEvaluationReport(report, fixture), true);
   assert.equal(JSON.stringify(report), JSON.stringify(structuredClone(report)));
 
   const missingFit = structuredClone(report);
   missingFit.numerical_diagnostics.fit_states.splice(3, 1);
-  assert.throws(() => validateModelEvaluationReport(missingFit), /fit state set/);
+  assert.throws(() => validateModelEvaluationReport(missingFit, { ...fixture, report: missingFit }), /fit state set/);
 
   const invalidCoverage = structuredClone(report);
   invalidCoverage.numerical_diagnostics.primary_slices[0].coverage = 1.01;
-  assert.throws(() => validateModelEvaluationReport(invalidCoverage), /primary slice bounds/);
+  assert.throws(() => validateModelEvaluationReport(invalidCoverage, { ...fixture, report: invalidCoverage }), /checks drifted/);
 
   const nonfinite = structuredClone(report);
   nonfinite.metrics.aggregate_primary[0].mae = Number.NaN;
-  assert.throws(() => validateModelEvaluationReport(nonfinite), /non-finite/);
+  assert.throws(() => validateModelEvaluationReport(nonfinite, { ...fixture, report: nonfinite }), /non-finite/);
 
   const raw = structuredClone(report);
   raw.event_id = 'must-not-escape';
-  assert.throws(() => validateModelEvaluationReport(raw), /aggregate-only/);
+  assert.throws(() => validateModelEvaluationReport(raw, { ...fixture, report: raw }), /aggregate-only/);
+
+  const synchronizedGateTamper = structuredClone(report);
+  synchronizedGateTamper.promotion.gate.minimum_aggregate_relative_mae_gain = 0;
+  synchronizedGateTamper.promotion.candidates.forEach((candidate) => { candidate.passed = true; });
+  assert.throws(() => validateModelEvaluationReport(synchronizedGateTamper, {
+    ...fixture, report: synchronizedGateTamper,
+  }), /embedded protocol gates/);
+
+  const synchronizedAggregateTamper = structuredClone(report);
+  synchronizedAggregateTamper.metrics.aggregate_primary[0].mae = 0;
+  synchronizedAggregateTamper.promotion.candidates.forEach((candidate) => {
+    candidate.aggregate_relative_mae_gain = 1;
+  });
+  assert.throws(() => validateModelEvaluationReport(synchronizedAggregateTamper, {
+    ...fixture, report: synchronizedAggregateTamper,
+  }), /aggregate mae/);
+
+  const synchronizedDiagnosticTamper = structuredClone(report);
+  synchronizedDiagnosticTamper.numerical_diagnostics.fit_states[0].checks.irls.singular = true;
+  synchronizedDiagnosticTamper.numerical_diagnostics.fit_states[0].failures = [];
+  synchronizedDiagnosticTamper.numerical_diagnostics.fit_states[0].passed = true;
+  assert.throws(() => validateModelEvaluationReport(synchronizedDiagnosticTamper, {
+    ...fixture, report: synchronizedDiagnosticTamper,
+  }), /checkpoint state/);
+
+  const synchronizedPassFailureTamper = structuredClone(report);
+  synchronizedPassFailureTamper.numerical_diagnostics.fit_states[0].failures = ['irls-singular'];
+  synchronizedPassFailureTamper.numerical_diagnostics.fit_states[0].passed = false;
+  synchronizedPassFailureTamper.numerical_diagnostics.all_applicable_fit_states_passed = false;
+  const synchronizedCheckpoint = structuredClone(fixture.checkpoint);
+  synchronizedCheckpoint.numerical_gate.fit_states_passed = false;
+  synchronizedCheckpoint.numerical_gate.failed_fit_state_count = 1;
+  assert.throws(() => validateModelEvaluationReport(synchronizedPassFailureTamper, {
+    ...fixture,
+    report: synchronizedPassFailureTamper,
+    checkpoint: synchronizedCheckpoint,
+  }), /failures drifted/);
 });
 
 test('checkpoint, manifest, and serving validators preserve candidate-only authority', () => {
-  const report = healthyReport();
-  const martManifest = { artifact_identity: digest('mart') };
-  const martManifestIdentity = digest('manifest');
-  const checkpoint = {
-    schema: 'engagement-area-intelligence-evaluation-checkpoint/v2',
-    status: 'complete',
-    mart_manifest_sha256: martManifestIdentity,
-    mart_artifact_identity: martManifest.artifact_identity,
-    protocol_schema: protocol.schema,
-    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
-    receipt_sha256: protocol.exact_input_gate.receipt_sha256,
-    poisson_iterations_completed: 2,
-    dispersion_completed: true,
-    nb_iterations_completed: 2,
-    baseline_intervals_completed: true,
-    numerical_gate: {
-      fit_states_passed: true,
-      primary_slices_passed: true,
-      failed_fit_state_count: 0,
-      failed_primary_slice_count: 0,
-    },
-    states: healthyCheckpointStates(),
-  };
+  const { report, martManifest, martManifestIdentity, checkpoint } = healthyValidationFixture();
   assert.equal(validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
     martManifestIdentity,
     martArtifactIdentity: martManifest.artifact_identity,
     receiptSha256: protocol.exact_input_gate.receipt_sha256,
     protocol,
+    report,
   }), true);
   const missingCheckpointState = structuredClone(checkpoint);
   delete missingCheckpointState.states[Object.keys(missingCheckpointState.states)[0]];
@@ -219,7 +239,9 @@ test('checkpoint, manifest, and serving validators preserve candidate-only autho
   }), /checkpoint fit state/);
 
   const serving = healthyServing(report);
-  assert.equal(validateAreaIntelligenceEvaluationServingArtifact(serving, { report, protocol }), true);
+  assert.equal(validateAreaIntelligenceEvaluationServingArtifact(serving, {
+    report, protocol, martManifest, martManifestIdentity, checkpoint,
+  }), true);
   const manifest = {
     schema: 'engagement-area-intelligence-evaluation-run/v2',
     protocol: {
@@ -246,12 +268,57 @@ test('checkpoint, manifest, and serving validators preserve candidate-only autho
     ].map((name) => ({ name, bytes: 1, sha256: '0'.repeat(64) })),
   };
   assert.equal(validateAreaIntelligenceEvaluationManifest(manifest, {
-    protocol, martManifest, martManifestIdentity, report, servingArtifact: serving,
+    protocol, martManifest, martManifestIdentity, report, servingArtifact: serving, checkpoint,
   }), true);
+  const fittingCheckpoint = structuredClone(checkpoint);
+  fittingCheckpoint.status = 'fitting';
+  assert.throws(() => validateAreaIntelligenceEvaluationManifest(manifest, {
+    protocol, martManifest, martManifestIdentity, report, servingArtifact: serving, checkpoint: fittingCheckpoint,
+  }), /cannot complete before/);
   manifest.authority.serving = true;
   assert.throws(() => validateAreaIntelligenceEvaluationManifest(manifest, {
-    protocol, martManifest, martManifestIdentity,
+    protocol, martManifest, martManifestIdentity, report, servingArtifact: serving, checkpoint,
   }), /exact P3 contract/);
+});
+
+test('existing-run recovery never treats a fitting checkpoint beside a manifest as complete', async (t) => {
+  const root = path.join(repoRoot, '.dfev1', `p3-interruption-${process.pid}-${Date.now()}`);
+  const martRoot = path.join(root, 'mart');
+  const outputRoot = path.join(root, 'evaluation');
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const { martManifest, martManifestIdentity, martInventory } = await writeExactEmptyMart(martRoot);
+  const states = healthyCheckpointStates();
+  const report = healthyReport({ martManifest, martManifestIdentity, states });
+  const checkpoint = healthyCheckpoint({ martManifest, martManifestIdentity, states, status: 'fitting' });
+  const serving = healthyServing(report);
+  await fs.mkdir(outputRoot, { recursive: true });
+  const artifactContents = {
+    'bias-error-audit.json': '{}\n',
+    'data-lineage-summary.json': '{}\n',
+    'model-card.md': 'local candidate only\n',
+    'model-evaluation-report.json': `${JSON.stringify(report, null, 2)}\n`,
+    'model-state.json': '{}\n',
+    'residual-map.json': '{}\n',
+    'serving-artifact.json': `${JSON.stringify(serving, null, 2)}\n`,
+  };
+  const artifacts = [];
+  for (const [name, contents] of Object.entries(artifactContents)) {
+    await fs.writeFile(path.join(outputRoot, name), contents);
+    artifacts.push({ name, bytes: Buffer.byteLength(contents), sha256: hashHex(contents) });
+  }
+  artifacts.sort((left, right) => left.name.localeCompare(right.name));
+  const manifest = healthyEvaluationManifest({
+    report, martManifest, martManifestIdentity, martInventory, artifacts,
+  });
+  await fs.writeFile(path.join(outputRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  await fs.writeFile(path.join(outputRoot, 'checkpoint.json'), `${JSON.stringify(checkpoint, null, 2)}\n`);
+
+  await assert.rejects(evaluateAreaIntelligence({ martRoot, outputRoot, protocolPath }), /invalid completed run/);
+
+  checkpoint.status = 'complete';
+  await fs.writeFile(path.join(outputRoot, 'checkpoint.json'), `${JSON.stringify(checkpoint, null, 2)}\n`);
+  const recovered = await evaluateAreaIntelligence({ martRoot, outputRoot, protocolPath });
+  assert.equal(recovered.idempotent, true);
 });
 
 test('legacy protocol-bound M2 is rejected before part access and before output creation', async (t) => {
@@ -279,6 +346,31 @@ test('legacy protocol-bound M2 is rejected before part access and before output 
     /frozen evaluation gate/,
   );
   await assert.rejects(fs.access(outputRoot));
+});
+
+test('evaluation output rejects a symlink or junction escape before creating external files', async (t) => {
+  const ownedRoot = path.join(repoRoot, '.dfev1', `p3-path-${process.pid}-${Date.now()}`);
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'area-intelligence-p3-outside-'));
+  const linkPath = path.join(ownedRoot, 'escape');
+  t.after(() => fs.rm(ownedRoot, { recursive: true, force: true }));
+  t.after(() => fs.rm(outsideRoot, { recursive: true, force: true }));
+  await fs.mkdir(ownedRoot, { recursive: true });
+  try {
+    await fs.symlink(outsideRoot, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    assert.deepEqual(await fs.readdir(outsideRoot), []);
+    if (['EPERM', 'EACCES', 'UNKNOWN'].includes(error.code)) {
+      t.skip(`environment cannot create a directory link: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(evaluateAreaIntelligence({
+    martRoot: path.join(ownedRoot, 'missing-mart'),
+    outputRoot: path.join(linkPath, 'evaluation'),
+    protocolPath,
+  }), /symbolic link or junction/);
+  assert.deepEqual(await fs.readdir(outsideRoot), []);
 });
 
 test('CLI rejects unknown, duplicate, empty, and missing output arguments without path disclosure', async () => {
@@ -331,6 +423,137 @@ function healthyFinalized() {
   };
 }
 
+async function writeExactEmptyMart(martRoot) {
+  const partPath = 'marts/tract/part-000.jsonl';
+  const absolutePartPath = path.join(martRoot, ...partPath.split('/'));
+  await fs.mkdir(path.dirname(absolutePartPath), { recursive: true });
+  await fs.mkdir(path.join(martRoot, 'marts/fixed-grid'), { recursive: true });
+  await fs.writeFile(absolutePartPath, '');
+  const part = {
+    path: partPath,
+    unit_type: 'tract',
+    partition: 0,
+    row_count: 0,
+    bytes: 0,
+    sha256: hashHex(''),
+  };
+  const partBindingsIdentity = stableIdentity([part]);
+  const martManifest = {
+    schema: 'engagement-area-intelligence-feature-mart/v2',
+    protocol: {
+      schema: protocol.schema,
+      sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+      receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+      frozen_before_model_performance: true,
+    },
+    exact_input: {
+      receipt_schema: protocol.exact_input_gate.receipt_schema,
+      receipt_identity: protocol.exact_input_gate.receipt_identity,
+      receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+      warehouse_current_snapshot_id: digest('snapshot'),
+      canonical: { row_count: 0 },
+      counts: { canonical_rows: 0 },
+    },
+    source_coverage: { first: null, last: null },
+    evaluation_complete_week_end_exclusive: '2026-01-05',
+    unit_count: { tract: 0, 'fixed-grid': 0 },
+    admission: {
+      canonical_rows_seen: 0,
+      tract: { admitted: 0, ambiguous_excluded: 0, unmapped_excluded: 0 },
+      'fixed-grid': { admitted: 0, unavailable_excluded: 0 },
+      unknown_category: 0,
+      invalid_event_time: 0,
+      non_active: 0,
+    },
+    parts: [part],
+    row_count: 0,
+    bytes: 0,
+    part_bindings_identity: partBindingsIdentity,
+    artifact_policy: { event_level_data_included: false },
+    generated_at: '2026-08-29T00:00:00.000Z',
+  };
+  const core = structuredClone(martManifest);
+  delete core.generated_at;
+  martManifest.artifact_identity = stableIdentity(core);
+  const manifestContents = `${JSON.stringify(martManifest, null, 2)}\n`;
+  await fs.writeFile(path.join(martRoot, 'manifest.json'), manifestContents);
+  return {
+    martManifest,
+    martManifestIdentity: hashHex(manifestContents),
+    martInventory: { parts: [part], row_count: 0, bytes: 0, part_bindings_identity: partBindingsIdentity },
+  };
+}
+
+function healthyCheckpoint({ martManifest, martManifestIdentity, states, status = 'complete' }) {
+  return {
+    schema: 'engagement-area-intelligence-evaluation-checkpoint/v2',
+    status,
+    mart_manifest_sha256: martManifestIdentity,
+    mart_artifact_identity: martManifest.artifact_identity,
+    protocol_schema: protocol.schema,
+    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+    receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+    poisson_iterations_completed: 2,
+    dispersion_completed: true,
+    nb_iterations_completed: 2,
+    baseline_intervals_completed: true,
+    numerical_gate: {
+      fit_states_passed: true,
+      primary_slices_passed: true,
+      failed_fit_state_count: 0,
+      failed_primary_slice_count: 0,
+    },
+    states,
+  };
+}
+
+function healthyEvaluationManifest({ report, martManifest, martManifestIdentity, martInventory, artifacts }) {
+  return {
+    schema: 'engagement-area-intelligence-evaluation-run/v2',
+    protocol: {
+      schema: protocol.schema,
+      sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+      receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+    },
+    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+    mart_manifest_sha256: martManifestIdentity,
+    mart_artifact_identity: martManifest.artifact_identity,
+    lineage_seam: {
+      schema: 'engagement-area-intelligence-lineage-seam/v1',
+      protocol: { schema: protocol.schema, sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256 },
+      mart: {
+        schema: martManifest.schema,
+        manifest_sha256: martManifestIdentity,
+        artifact_identity: martManifest.artifact_identity,
+        part_bindings_identity: martInventory.part_bindings_identity,
+        part_count: martInventory.parts.length,
+        row_count: martInventory.row_count,
+        bytes: martInventory.bytes,
+        parts: martInventory.parts,
+      },
+      m1_receipt: {
+        schema: martManifest.exact_input.receipt_schema,
+        identity: martManifest.exact_input.receipt_identity,
+        sha256: martManifest.exact_input.receipt_sha256,
+      },
+      outcome: {
+        promotion_status: report.promotion.status,
+        selected_model: report.promotion.selected_model,
+        availability: 'unavailable',
+      },
+    },
+    promotion: report.promotion,
+    availability: 'unavailable',
+    selected_audit_model: 'negative-binomial-log-link-v1',
+    local_candidate_only: true,
+    authority: structuredClone(protocol.authority),
+    privacy: structuredClone(protocol.privacy),
+    artifacts,
+    generated_at: '2026-08-29T00:00:00.000Z',
+    identity_meaning: 'Artifact byte identity only.',
+  };
+}
+
 function healthyFitDiagnosticInput() {
   return {
     irls: {
@@ -354,7 +577,47 @@ function healthyFitDiagnosticInput() {
   };
 }
 
-function healthyReport() {
+function healthyValidationFixture() {
+  const martManifest = healthyMartManifest();
+  const martManifestIdentity = digest('manifest');
+  const states = healthyCheckpointStates();
+  const report = healthyReport({ martManifest, martManifestIdentity, states });
+  const checkpoint = {
+    schema: 'engagement-area-intelligence-evaluation-checkpoint/v2',
+    status: 'complete',
+    mart_manifest_sha256: martManifestIdentity,
+    mart_artifact_identity: martManifest.artifact_identity,
+    protocol_schema: protocol.schema,
+    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+    receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+    poisson_iterations_completed: 2,
+    dispersion_completed: true,
+    nb_iterations_completed: 2,
+    baseline_intervals_completed: true,
+    numerical_gate: {
+      fit_states_passed: true,
+      primary_slices_passed: true,
+      failed_fit_state_count: 0,
+      failed_primary_slice_count: 0,
+    },
+    states,
+  };
+  return { protocol, martManifest, martManifestIdentity, report, checkpoint };
+}
+
+function healthyMartManifest() {
+  return {
+    artifact_identity: digest('mart'),
+    exact_input: { warehouse_current_snapshot_id: digest('snapshot') },
+    source_coverage: { first: '2018-01-01', last: '2026-01-01' },
+    evaluation_complete_week_end_exclusive: '2026-01-05',
+    unit_count: { tract: 1, 'fixed-grid': 1 },
+    row_count: 32,
+    admission: { canonical_rows_seen: 32 },
+  };
+}
+
+function healthyReport({ martManifest, martManifestIdentity, states }) {
   const allPrimary = protocol.models.flatMap(({ id }) => (
     protocol.primary_tuple_vocabulary.map((tuple) => metricRow(id, tuple))
   ));
@@ -362,8 +625,21 @@ function healthyReport() {
   const primarySliceVocabulary = protocol.models.flatMap(({ id: model }) => (
     protocol.primary_tuple_vocabulary.map((tuple) => ({ model, ...tuple }))
   ));
-  const finalized = healthyFinalized();
-  return {
+  const numericalDiagnostics = {
+    schema: 'engagement-area-intelligence-numerical-diagnostics/v1',
+    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+    gate: structuredClone(protocol.numerical_stability_gate),
+    fit_state_vocabulary: fitStateVocabulary,
+    primary_slice_vocabulary: primarySliceVocabulary,
+    fit_states: fitStateVocabulary.map((value) => diagnosticFit(value, states)),
+    primary_slices: primarySliceVocabulary.map((value) => diagnosticSlice(value)),
+    all_applicable_fit_states_passed: true,
+    all_primary_slices_passed: true,
+    expected_fit_state_count_per_count_model: fitDescriptors(protocol.promotion_gate.eligible_models[0]).length,
+    local_candidate_only: true,
+    authority: structuredClone(protocol.authority),
+  };
+  const report = {
     schema: 'ModelEvaluationReport/v1',
     generated_at: '2026-08-29T00:00:00.000Z',
     protocol: {
@@ -373,36 +649,44 @@ function healthyReport() {
       frozen_before_model_performance: true,
     },
     target: structuredClone(protocol.target),
-    data: {},
+    data: {
+      mart_artifact_identity: martManifest.artifact_identity,
+      mart_manifest_sha256: martManifestIdentity,
+      source_vintage: martManifest.exact_input.warehouse_current_snapshot_id,
+      coverage: structuredClone(martManifest.source_coverage),
+      complete_week_end_exclusive: martManifest.evaluation_complete_week_end_exclusive,
+      unit_count: structuredClone(martManifest.unit_count),
+      mart_rows: martManifest.row_count,
+      admission: structuredClone(martManifest.admission),
+    },
     folds: structuredClone(protocol.rolling_folds),
     spatial_holdout: structuredClone(protocol.spatial_holdout),
     primary_tuple_vocabulary: structuredClone(protocol.primary_tuple_vocabulary),
     models: protocol.models.map((value) => ({ ...structuredClone(value), fit_diagnostics: {} })),
     metrics: {
-      aggregate_primary: protocol.models.map(({ id: model }) => ({ ...metricTotals(), model })),
+      aggregate_primary: protocol.models.map(({ id: model }) => ({
+        model,
+        observations: protocol.primary_tuple_vocabulary.length * 2000,
+        ...metricTotals(model),
+      })).sort((left, right) => left.model.localeCompare(right.model)),
       primary_by_fold_space_holdout: allPrimary,
       by_category: [],
       by_data_volume: [],
       by_acs_population_when_temporally_compatible: [],
     },
-    numerical_diagnostics: {
-      schema: 'engagement-area-intelligence-numerical-diagnostics/v1',
-      protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
-      gate: structuredClone(protocol.numerical_stability_gate),
-      fit_state_vocabulary: fitStateVocabulary,
-      primary_slice_vocabulary: primarySliceVocabulary,
-      fit_states: fitStateVocabulary.map((value) => diagnosticFit(value)),
-      primary_slices: primarySliceVocabulary.map((value) => diagnosticSlice(value)),
-      all_applicable_fit_states_passed: true,
-      all_primary_slices_passed: true,
-      local_candidate_only: true,
-      authority: structuredClone(protocol.authority),
-    },
-    promotion: evaluatePromotion(finalized, protocol),
+    numerical_diagnostics: numericalDiagnostics,
+    promotion: null,
     privacy: structuredClone(protocol.privacy),
     authority: structuredClone(protocol.authority),
     limitations: [],
   };
+  report.promotion = evaluatePromotion({
+    primary: report.metrics.primary_by_fold_space_holdout,
+    category: report.metrics.by_category,
+    aggregate: report.metrics.aggregate_primary,
+    numerical_diagnostics: numericalDiagnostics,
+  }, protocol);
+  return report;
 }
 
 function fitDescriptors(model) {
@@ -417,30 +701,73 @@ function fitDescriptors(model) {
 }
 
 function metricRow(model, tuple) {
-  return { model, ...structuredClone(tuple), observations: 2000, ...metricTotals() };
+  return { model, ...structuredClone(tuple), observations: 2000, ...metricTotals(model) };
 }
 
-function metricTotals() {
+function metricTotals(model) {
+  const seasonal = model === 'seasonal-naive-52w';
   return {
-    mae: 1,
+    mae: seasonal ? 1 : 0.92,
     poisson_deviance: 1,
     negative_binomial_deviance: 1,
     prediction_interval_90_coverage: 0.9,
-    relative_mae_gain_vs_seasonal_naive: 0.08,
+    mean_residual_actual_minus_predicted: 0,
+    mean_actual: 2,
+    mean_predicted: 2,
+    over_estimate_rate: 0.5,
+    under_estimate_rate: 0.5,
+    relative_mae_gain_vs_seasonal_naive: seasonal ? 0 : (1 - 0.92) / 1,
   };
 }
 
-function diagnosticFit(value) {
+function diagnosticFit(value, states = healthyCheckpointStates()) {
+  const state = states[`${value.fold}|${value.unit_type}|${value.category}`];
+  const isPoisson = value.model === 'poisson-log-link-v1';
+  const definition = protocol.models.find(({ id }) => id === value.model);
+  const diagnostic = diagnoseModelNumerics({
+    irls: {
+      iterationsCompleted: isPoisson ? state.poisson_iterations_completed : state.nb_iterations_completed,
+      maximumIterations: definition.max_iterations,
+      lastChange: isPoisson ? state.poisson_last_change : state.nb_last_change,
+      convergenceTolerance: protocol.numerical_stability_gate.convergence.threshold_exclusive,
+      singular: isPoisson ? state.poisson_singular : state.nb_singular,
+      coefficients: isPoisson ? state.poisson_beta : state.nb_beta,
+    },
+    coefficientAbsoluteMaximum: protocol.numerical_stability_gate.coefficient_abs_limit_inclusive,
+    dispersion: isPoisson ? null : {
+      value: state.alpha,
+      minimum: protocol.numerical_stability_gate.dispersion_alpha_inclusive[0],
+      maximum: protocol.numerical_stability_gate.dispersion_alpha_inclusive[1],
+    },
+    predictions: [1],
+    maximumPrediction: protocol.numerical_stability_gate.prediction.maximum_inclusive,
+    intervals: [{ lower: 0, upper: 2 }],
+    coverages: [protocol.numerical_stability_gate.interval.nominal_probability],
+  });
   return {
     ...structuredClone(value), observations: 2000, prediction_count: 2000, interval_count: 2000,
-    checks: {}, failures: [], passed: true,
+    checks: diagnostic.checks, failures: diagnostic.failures, passed: diagnostic.ok,
   };
 }
 
 function diagnosticSlice(value) {
+  const diagnostic = diagnoseEvaluationSlice({
+    predictions: [1],
+    intervals: [{ lower: 0, upper: 2 }],
+    coverages: [0.9],
+    maximumPrediction: protocol.numerical_stability_gate.prediction.maximum_inclusive,
+  });
   return {
     ...structuredClone(value), prediction_count: 2000, interval_count: 2000,
-    maximum_prediction_observed: 2, coverage: 0.9, checks: {}, failures: [], passed: true,
+    maximum_prediction_observed: 2,
+    coverage: 0.9,
+    checks: {
+      predictions: diagnostic.checks.predictions,
+      intervals: diagnostic.checks.intervals,
+      coverages: diagnostic.checks.coverages,
+    },
+    failures: diagnostic.failures,
+    passed: diagnostic.ok,
   };
 }
 
@@ -499,4 +826,12 @@ function candidateReasons(result) {
 
 function digest(value) {
   return `sha256:${String(value).padEnd(64, '0').slice(0, 64)}`;
+}
+
+function hashHex(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function stableIdentity(value) {
+  return `sha256:${hashHex(stableSerialization(value))}`;
 }

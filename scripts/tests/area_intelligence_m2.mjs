@@ -147,7 +147,8 @@ test('promotion gate requires every exact tuple and only yields a local candidat
   assert.match(rejected.candidates[0].reasons.join(','), /mae-gain-below-gate/);
 });
 
-test('legacy shallow ModelEvaluationReport is rejected by the P3 deep contract', () => {
+test('legacy shallow ModelEvaluationReport is rejected by the P3 deep contract', async () => {
+  const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
   const legacy = {
     schema: 'ModelEvaluationReport/v1',
     protocol: { frozen_before_model_performance: true },
@@ -163,7 +164,7 @@ test('legacy shallow ModelEvaluationReport is rejected by the P3 deep contract',
     },
     promotion: { status: 'not-promoted' },
   };
-  assert.throws(() => validateModelEvaluationReport(legacy), /machine-checkable contract/);
+  assert.throws(() => validateModelEvaluationReport(legacy, { protocol }), /machine-checkable contract/);
 });
 
 test('serving contract and bilingual-safe view keep promoted and no-promotion states explicit', () => {

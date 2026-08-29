@@ -13,6 +13,7 @@ import {
   loadAreaIntelligenceEvaluationProtocol,
   validateAreaIntelligenceEvaluationProtocol,
 } from './area_intelligence_evaluation_protocol.mjs';
+import { assertTaskOwnedDfev1Path } from './dfev1_path.mjs';
 
 const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-mart-checkpoint/v2';
@@ -28,7 +29,10 @@ export async function buildAreaIntelligenceMarts({
   now = () => new Date(),
   onProgress = () => {},
 } = {}) {
-  const resolvedOutput = assertOwnedOutputRoot(outputRoot);
+  const resolvedOutput = await assertTaskOwnedDfev1Path(outputRoot, {
+    workspace: process.cwd(),
+    label: 'Area Intelligence mart output',
+  });
   const protocol = await loadAreaIntelligenceEvaluationProtocol({ protocolPath });
   const protocolIdentity = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256;
   const gate = await validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture });
@@ -963,15 +967,6 @@ async function inventoryRelativeFiles(outputRoot, files) {
     });
   }
   return records;
-}
-
-function assertOwnedOutputRoot(outputRoot) {
-  const root = path.resolve(outputRoot || '');
-  const workspace = process.cwd();
-  if (!isInside(workspace, root) || !root.split(path.sep).includes('.dfev1')) {
-    throw new Error('Area Intelligence output root must be a task-owned .dfev1 directory inside the current worktree.');
-  }
-  return root;
 }
 
 async function removeOwnedSubdirectory(outputRoot, target) {
