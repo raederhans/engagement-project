@@ -1,6 +1,6 @@
 {
   "schema": "engagement-home-compare-source-registry/v1",
-  "verified_at": "2026-08-28T20:07:58.855Z",
+  "verified_at": "2026-08-29T19:08:32.165Z",
   "publisher": "City of Philadelphia unless a source entry says otherwise",
   "terms": {
     "label": "City of Philadelphia terms of use",
@@ -150,7 +150,7 @@
       "selected_fields": ["build_rank", "date_update"],
       "revision_policy": "Bind to ArcGIS lastEditDate, schema fingerprint, feature count, and retrieval time.",
       "coverage": "Buildings whose administrative-data vacancy rank is above the source threshold",
-      "update_cadence": "source layer last edited 2026-08-17T06:14:16.207Z at verification",
+      "update_cadence": "source layer last edited 2026-08-23T16:53:51.361Z at verification",
       "accuracy_limitations": [
         "The dataset identifies buildings likely to be vacant; it is a model, not field confirmation.",
         "No matching feature means not listed by this model at this revision, not confirmed occupied."
