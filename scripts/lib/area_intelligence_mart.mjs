@@ -415,11 +415,17 @@ export async function validateExactWarehouse(sourceRoot, protocol, { allowSynthe
     if (!snapshotIds.has(entry.snapshot_id) || entry.availability !== 'available') {
       throw new Error('Area Intelligence lineage contains an unavailable or unapplied source snapshot.');
     }
-    const sourceManifestPath = path.resolve(entry.manifest_path);
-    if (!isInside(root, sourceManifestPath)) throw new Error('Area Intelligence source manifest escaped the authorized M1 root.');
-    const sourceManifest = JSON.parse(await fs.readFile(sourceManifestPath, 'utf8'));
-    if (sourceManifest.snapshot_id !== entry.snapshot_id || sourceManifest.row_count !== entry.row_count) {
-      throw new Error(`Area Intelligence source manifest lineage mismatch for ${entry.snapshot_id}.`);
+    // Official admission above already resolves portable paths, safely relocates
+    // legacy absolute paths, and validates the exact source-manifest bytes.  Do
+    // not reopen the stale producer path here.  Synthetic fixtures do not pass
+    // through that producer validator, so retain their local manifest check.
+    if (allowSyntheticFixture) {
+      const sourceManifestPath = path.resolve(entry.manifest_path);
+      if (!isInside(root, sourceManifestPath)) throw new Error('Area Intelligence source manifest escaped the authorized M1 root.');
+      const sourceManifest = JSON.parse(await fs.readFile(sourceManifestPath, 'utf8'));
+      if (sourceManifest.snapshot_id !== entry.snapshot_id || sourceManifest.row_count !== entry.row_count) {
+        throw new Error(`Area Intelligence source manifest lineage mismatch for ${entry.snapshot_id}.`);
+      }
     }
     lineageRowCount += entry.row_count;
   }
