@@ -49,6 +49,7 @@ const ENCODED_FIELDS = Object.freeze([
 ]);
 const MODE_UNAVAILABLE_REASONS = new Set([
   'mode-restriction-source-unavailable',
+  'map-match-unavailable',
   'mode-restriction-contract-mismatch',
   'mode-restriction-source-version-missing',
   'mode-restriction-source-version-mismatch',
@@ -155,6 +156,13 @@ export function validateKnownRouteModeLegalityQualityEvidence(value) {
     validateModeLegality(value.mode_legality[mode], mode, value);
   }
   validateMatchQuality(value.match_quality);
+  if (value.match_quality.match_status !== 'matched'
+    && KNOWN_ROUTE_LEGALITY_MODES.some((mode) => (
+      value.mode_legality[mode].status !== 'unavailable'
+      || value.mode_legality[mode].reason !== 'map-match-unavailable'
+    ))) {
+    throw new Error('A non-mapped Known Route cannot admit any mode legality receipt.');
+  }
   if (value.semantic_identity !== semanticIdentityOf(value)) {
     throw new Error('Known Route mode legality evidence semantic identity drifted.');
   }
@@ -219,6 +227,7 @@ function admitCoreBinding({ normalizedRoute, catalog, match }) {
     corridorIdentity,
     centerlineIdentity: catalog.catalogIdentity,
     sourceVersion: catalog.source.dataVersion,
+    matchAdmitted: match.status === 'matched',
   });
 }
 
@@ -246,6 +255,7 @@ function admitRestrictionEnvelope(value) {
 }
 
 function evaluateModeLegality({ mode, binding, envelope }) {
+  if (!binding.matchAdmitted) return unavailableMode('map-match-unavailable');
   if (!envelope) return unavailableMode('mode-restriction-source-unavailable');
   if (envelope.schema !== KNOWN_ROUTE_MODE_RESTRICTION_EVIDENCE_SCHEMA
     || !SOURCE_ID.test(envelope.source_id || '')) {

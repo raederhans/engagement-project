@@ -175,6 +175,7 @@
             "reason": {
               "enum": [
                 "mode-restriction-source-unavailable",
+                "map-match-unavailable",
                 "mode-restriction-contract-mismatch",
                 "mode-restriction-source-version-missing",
                 "mode-restriction-source-version-mismatch",

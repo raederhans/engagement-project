@@ -157,10 +157,14 @@ test('ambiguous, off-network, and disconnected map matches remain bounded and un
     }),
   ]);
   assert.equal(ambiguousInputs.match.reason, 'multiple-candidate-ambiguity');
-  const ambiguous = buildKnownRouteModeLegalityQualityEvidence(ambiguousInputs);
+  const ambiguous = buildKnownRouteModeLegalityQualityEvidence({
+    ...ambiguousInputs,
+    modeRestrictionEvidence: maliciousUnavailableMatchEnvelope(ambiguousInputs),
+  });
   assert.equal(ambiguous.match_quality.reason, 'ambiguous-map-match-candidate');
   assert.equal(ambiguous.match_quality.ambiguity_count, 1);
   assert.equal(ambiguous.match_quality.status, 'unavailable');
+  assertModesBlockedByMatch(ambiguous);
 
   const offNetworkInputs = admittedInputs(defaultFeatures().map((entry) => ({
     ...entry,
@@ -170,10 +174,14 @@ test('ambiguous, off-network, and disconnected map matches remain bounded and un
     },
   })));
   assert.equal(offNetworkInputs.match.reason, 'off-network');
-  const offNetwork = buildKnownRouteModeLegalityQualityEvidence(offNetworkInputs);
+  const offNetwork = buildKnownRouteModeLegalityQualityEvidence({
+    ...offNetworkInputs,
+    modeRestrictionEvidence: maliciousUnavailableMatchEnvelope(offNetworkInputs),
+  });
   assert.equal(offNetwork.match_quality.reason, 'off-network-map-match-candidate');
   assert.equal(offNetwork.match_quality.off_network_count, 1);
   assert.equal(offNetwork.match_quality.status, 'unavailable');
+  assertModesBlockedByMatch(offNetwork);
 
   const disconnectedFeatures = defaultFeatures();
   disconnectedFeatures[1] = feature({
@@ -185,10 +193,25 @@ test('ambiguous, off-network, and disconnected map matches remain bounded and un
   });
   const disconnectedInputs = admittedInputs(disconnectedFeatures);
   assert.equal(disconnectedInputs.match.reason, 'disconnected-centerline-chain');
-  const disconnected = buildKnownRouteModeLegalityQualityEvidence(disconnectedInputs);
+  const disconnected = buildKnownRouteModeLegalityQualityEvidence({
+    ...disconnectedInputs,
+    modeRestrictionEvidence: maliciousUnavailableMatchEnvelope(disconnectedInputs),
+  });
   assert.equal(disconnected.match_quality.reason, 'disconnected-map-match-candidate');
   assert.equal(disconnected.match_quality.disconnect_count, 1);
   assert.equal(disconnected.match_quality.status, 'unavailable');
+  assertModesBlockedByMatch(disconnected);
+
+  const hostileArtifact = clone(offNetwork);
+  hostileArtifact.mode_legality.walking = {
+    status: 'available',
+    reason: 'complete-version-bound-mode-restriction-receipt',
+    source_receipt: unavailableMatchReceipt(offNetworkInputs, offNetwork.corridor_identity),
+  };
+  assert.throws(
+    () => validateKnownRouteModeLegalityQualityEvidence(hostileArtifact),
+    /non-mapped Known Route/i,
+  );
 });
 
 test('source, mode, route, corridor, and centerline receipt mismatches fail closed per mode', () => {
@@ -323,6 +346,36 @@ function restrictionReceipt(inputs, mode) {
     centerlineIdentity: inputs.catalog.catalogIdentity,
     encodedEvidence: ENCODED,
   });
+}
+
+function maliciousUnavailableMatchEnvelope(inputs) {
+  const baseline = buildKnownRouteModeLegalityQualityEvidence(inputs);
+  return restrictionEnvelope(inputs, {
+    walking: unavailableMatchReceipt(inputs, baseline.corridor_identity),
+  });
+}
+
+function unavailableMatchReceipt(inputs, corridorIdentity) {
+  assert.equal(inputs.match.status, 'unavailable');
+  return createKnownRouteModeRestrictionReceipt({
+    sourceId: SOURCE_ID,
+    sourceVersion: inputs.catalog.source.dataVersion,
+    mode: 'walking',
+    routeIdentity: inputs.normalizedRoute.sessionRouteIdentity,
+    corridorIdentity,
+    centerlineIdentity: inputs.catalog.catalogIdentity,
+    encodedEvidence: ENCODED,
+  });
+}
+
+function assertModesBlockedByMatch(evidence) {
+  for (const mode of ['walking', 'cycling', 'driving', 'transit']) {
+    assert.deepEqual(evidence.mode_legality[mode], {
+      status: 'unavailable',
+      reason: 'map-match-unavailable',
+    });
+    assert.equal(Object.hasOwn(evidence.mode_legality[mode], 'source_receipt'), false);
+  }
 }
 
 function metadata() {
