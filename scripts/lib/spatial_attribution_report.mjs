@@ -665,8 +665,7 @@ function validateStratumValue(dimension, value, index) {
     return;
   }
   if (['district', 'psa'].includes(dimension)) {
-    if (value !== null && (!nonemptyString(value)
-      || /^(?:0|missing|unavailable|unknown)$/i.test(value.trim()))) invalid();
+    if (value !== null && !nonemptyString(value)) invalid();
     return;
   }
   const allowed = {
@@ -721,8 +720,8 @@ function validateDistrictPsaAttribution(value, audit, exact) {
     || value.psa_missing > exact.canonical
     || district.status !== 'available'
     || psa.status !== 'available'
-    || nullStratumCount(district) > value.district_missing
-    || nullStratumCount(psa) > value.psa_missing) {
+    || nullStratumCount(district) !== value.district_missing
+    || nullStratumCount(psa) !== value.psa_missing) {
     throw new Error('District/PSA available attribution is inconsistent.');
   }
 }

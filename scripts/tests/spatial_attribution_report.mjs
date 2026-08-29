@@ -168,12 +168,12 @@ test('builder accepts real audit and methods producers with nonzero eligibility 
   ];
   const denominatorAudit = buildSpatialAttributionAudit({
     exact_input: exactInput,
-    rows: canonicalEvents.map((canonicalEvent) => ({
+    rows: canonicalEvents.map((canonicalEvent, index) => ({
       canonical_event: canonicalEvent,
       raw_dimensions: {
         source_snapshot_id: snapshotId,
         dc_dist: '09',
-        psa: '1',
+        psa: index === 0 ? '0' : '1',
         location_block_available: true,
       },
     })),
@@ -193,6 +193,10 @@ test('builder accepts real audit and methods producers with nonzero eligibility 
   assert.equal(report.canonical_denominator.total, 5);
   assert.equal(report.methods.every(({ input_rows: inputRows }) => inputRows === 2), true);
   assert.equal(report.tract_grid_comparison.spatial_status_matrix.total, 2);
+  assert.deepEqual(report.strata.psa.values, [
+    { value: '0', count: 1, quality: { status: 'available' } },
+    { value: '1', count: 1, quality: { status: 'available' } },
+  ]);
 });
 
 test('exact_input, producer schema and identities fail closed', async (t) => {
@@ -431,7 +435,7 @@ test('strata remain unique and preserve unavailable versus available zero', asyn
       refreshAuditIdentity(denominatorAudit);
     }, /Road stratum|missing or unknown schema fields/],
     ['null district converted to code', ({ denominatorAudit }) => {
-      denominatorAudit.strata.district.values[1].value = 'UNKNOWN';
+      denominatorAudit.strata.district.values[0].value = 'UNKNOWN';
       refreshAuditIdentity(denominatorAudit);
     }, /value is invalid|available attribution is inconsistent/],
     ['district status conflicts with join status', ({ denominatorAudit }) => {
