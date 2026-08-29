@@ -218,7 +218,6 @@ export async function publishValidatedAreaIntelligenceProjection({
   let lease;
   let publicationPath;
   let publication;
-  let passiveLeaseWarning;
   let operationFailure;
   try {
     // The lease coordinates this publisher's own concurrent instances. Portable Node does
@@ -226,14 +225,18 @@ export async function publishValidatedAreaIntelligenceProjection({
     // identity checks are detection/rollback guards, not a zero-risk claim against an
     // OS-privileged, non-cooperating process that can replace directories between syscalls.
     publicationPath = await preparePublicationDestination(rootDirectory, PUBLIC_PROJECTION_PATH);
-    // An exact immutable destination is a read-only terminal state. It may bypass the
-    // lease, but an existing lease is never opened, interpreted, unlinked, or recovered.
+    // An exact immutable destination is a read-only terminal state only while no
+    // publisher lease exists. Existing leases are never opened, interpreted, unlinked,
+    // or recovered because their writer may still roll back an installed hard link.
+    await assertPublisherLeaseAbsent(rootDirectory);
     const preflight = await preflightPublicationDestination(publicationPath, contents);
     if (preflight === 'equal') {
-      publication = { idempotent: true };
-      if (await publisherLeasePathExists(rootDirectory)) {
-        passiveLeaseWarning = 'publisher-lease-remains';
+      await assertPublisherLeaseAbsent(rootDirectory);
+      if (await preflightPublicationDestination(publicationPath, contents) !== 'equal') {
+        throw new Error('Area Intelligence publication destination drifted during unlocked idempotence verification.');
       }
+      await assertPublisherLeaseAbsent(rootDirectory);
+      publication = { idempotent: true };
     } else {
       lease = await acquirePublisherLease(rootDirectory);
       const leasedPreflight = await preflightPublicationDestination(publicationPath, contents);
@@ -341,7 +344,6 @@ export async function publishValidatedAreaIntelligenceProjection({
   const publicationStatus = publication.idempotent
     ? 'verified-existing-public-projection'
     : 'published-local-serving-candidate';
-  const cleanupWarningReason = leaseCleanupWarning?.reason ?? passiveLeaseWarning;
   return {
     status: leaseCleanupWarning ? 'committed-with-cleanup-warning' : publicationStatus,
     ...(leaseCleanupWarning ? {
@@ -349,12 +351,6 @@ export async function publishValidatedAreaIntelligenceProjection({
       cleanup_warning: {
         status: 'warning',
         reason: leaseCleanupWarning.reason,
-      },
-    } : {}),
-    ...(!leaseCleanupWarning && cleanupWarningReason ? {
-      cleanup_warning: {
-        status: 'warning',
-        reason: cleanupWarningReason,
       },
     } : {}),
     promotion: 'not-promoted',
@@ -691,17 +687,20 @@ async function preflightPublicationDestination(record, expectedContents) {
   return Buffer.compare(second, expectedContents) === 0 ? 'equal' : 'different';
 }
 
-async function publisherLeasePathExists(rootDirectory) {
+async function assertPublisherLeaseAbsent(rootDirectory) {
   await assertPinnedDirectory(rootDirectory);
   const leasePath = path.join(rootDirectory.path, PUBLISHER_LEASE_NAME);
   try {
     await fs.lstat(leasePath);
   } catch (error) {
-    if (error?.code === 'ENOENT') return false;
+    if (error?.code === 'ENOENT') {
+      await assertPinnedDirectory(rootDirectory);
+      return;
+    }
     throw error;
   }
   await assertPinnedDirectory(rootDirectory);
-  return true;
+  throw new Error('Area Intelligence publisher lease already exists; publication is rejected.');
 }
 
 async function acquirePublisherLease(rootDirectory) {
@@ -710,7 +709,7 @@ async function acquirePublisherLease(rootDirectory) {
     return await createPublisherLease(rootDirectory);
   } catch (error) {
     if (error?.code === 'EEXIST') {
-      throw new Error('Area Intelligence publisher lease already exists; publication requiring writes is rejected.');
+      throw new Error('Area Intelligence publisher lease already exists; publication is rejected.');
     }
     throw error;
   }

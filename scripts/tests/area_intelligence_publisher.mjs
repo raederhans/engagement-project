@@ -73,7 +73,7 @@ test('temporary unlink failure rolls back only the link installed by this public
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
-test('committed projection returns a lease cleanup warning and exact rerun stays read-only', async (t) => {
+test('committed projection returns a lease cleanup warning and residual lease blocks exact rerun', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-remains-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await seedTrackedV1(root);
@@ -103,25 +103,18 @@ test('committed projection returns a lease cleanup warning and exact rerun stays
   const remainingLeaseBytes = await fs.readFile(leasePath);
   const remainingLeaseIdentity = await stableFileIdentity(leasePath);
 
-  const verified = await publishValidatedAreaIntelligenceProjection({
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
     repositoryRoot: root,
     projection,
     context,
-  });
-  assert.equal(verified.status, 'verified-existing-public-projection');
-  assert.equal(verified.idempotent, true);
-  assert.deepEqual(verified.cleanup_warning, {
-    status: 'warning',
-    reason: 'publisher-lease-remains',
-  });
-  assert.doesNotMatch(JSON.stringify(verified), /pid|nonce|root_identity/);
+  }), /lease already exists; publication is rejected/i);
   assert.deepEqual(await fs.readFile(destination), committedBytes);
   assert.deepEqual(await fs.readFile(leasePath), remainingLeaseBytes);
   assert.deepEqual(await stableFileIdentity(leasePath), remainingLeaseIdentity);
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
-test('active, dead, malformed, and replaced lease bytes preserve exact-target read-only idempotence', async (t) => {
+test('active, dead, malformed, and replaced lease bytes block exact-target idempotence', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-equal-leases-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await seedTrackedV1(root);
@@ -136,10 +129,9 @@ test('active, dead, malformed, and replaced lease bytes preserve exact-target re
   for (const [label, leaseBytes] of await leaseVariants(root)) {
     await fs.writeFile(leasePath, leaseBytes, { flag: 'wx' });
     const leaseIdentity = await stableFileIdentity(leasePath);
-    const result = await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
-    assert.equal(result.status, 'verified-existing-public-projection', label);
-    assert.equal(result.idempotent, true, label);
-    assert.equal(result.cleanup_warning?.reason, 'publisher-lease-remains', label);
+    await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+      repositoryRoot: root, projection, context,
+    }), /lease already exists; publication is rejected/i, label);
     assert.deepEqual(await fs.readFile(leasePath), leaseBytes, label);
     assert.deepEqual(await stableFileIdentity(leasePath), leaseIdentity, label);
     assert.deepEqual(await fs.readFile(destination), destinationBytes, label);
@@ -212,6 +204,55 @@ test('a concurrent publisher never removes the active writer lease', async (t) =
   assert.equal(result.status, 'published-local-serving-candidate');
   assert.equal(JSON.parse(await fs.readFile(destination, 'utf8')).forecast.status, 'unavailable');
   await assert.rejects(fs.stat(leasePath), { code: 'ENOENT' });
+});
+
+test('an exact target linked by a rollback-capable writer cannot be verified by a second publisher', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-linked-race-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const leasePath = path.join(root, publisherLeaseName);
+  const destination = path.join(root, ...publicPath.split('/'));
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+  let releaseWriter;
+  let signalLinked;
+  const writerLinked = new Promise((resolve) => { signalLinked = resolve; });
+  const writerRelease = new Promise((resolve) => { releaseWriter = resolve; });
+  const writer = publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      async afterInstall() {
+        signalLinked();
+        await writerRelease;
+        throw new Error('synthetic post-link rollback');
+      },
+    },
+  });
+  await writerLinked;
+  assert.equal(JSON.parse(await fs.readFile(destination, 'utf8')).forecast.status, 'unavailable');
+  const activeLeaseIdentity = await stableFileIdentity(leasePath);
+  let secondSucceeded = false;
+  try {
+    await assert.rejects(
+      () => publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context })
+        .then((result) => {
+          secondSucceeded = true;
+          return result;
+        }),
+      /lease already exists; publication is rejected/i,
+    );
+    assert.equal(secondSucceeded, false);
+    assert.deepEqual(await stableFileIdentity(leasePath), activeLeaseIdentity);
+  } finally {
+    releaseWriter();
+  }
+  await assert.rejects(writer, /synthetic post-link rollback/);
+  assert.equal(secondSucceeded, false);
+  await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(leasePath), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
 test('a non-lease target cleanup failure remains an AggregateError after projection commit', async (t) => {
@@ -289,6 +330,18 @@ test('publisher refuses to overwrite different bytes and public output contains 
   await assert.rejects(fs.stat(path.join(root, publisherLeaseName)), { code: 'ENOENT' });
   await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.writeFile(destination, 'owner bytes\n');
+
+  const leasePath = path.join(root, publisherLeaseName);
+  const leaseBytes = Buffer.from('opaque lease bytes\n');
+  await fs.writeFile(leasePath, leaseBytes, { flag: 'wx' });
+  const leaseIdentity = await stableFileIdentity(leasePath);
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root, projection, context,
+  }), /lease already exists; publication is rejected/i);
+  assert.equal(await fs.readFile(destination, 'utf8'), 'owner bytes\n');
+  assert.deepEqual(await fs.readFile(leasePath), leaseBytes);
+  assert.deepEqual(await stableFileIdentity(leasePath), leaseIdentity);
+  await fs.unlink(leasePath);
 
   await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
     repositoryRoot: root, projection, context,
