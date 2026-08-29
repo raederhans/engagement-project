@@ -12,15 +12,13 @@ import {
 } from '../../src/route_alternatives_m5/index.js';
 import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
 import { installDeterministicRoutes } from './support/deterministic_browser_fixture.mjs';
+import {
+  M5_PRIVATE_SENTINELS,
+  assertNoPrivateSentinels,
+} from './support/m5_private_value_gate.mjs';
 
 const PORT = 4195;
 const ALLOWED_PRODUCT_CAPABILITY_STATES = new Set(['unavailable', 'local-batch-only']);
-const PRIVATE_VALUES = Object.freeze([
-  'M5 PRIVATE ADDRESS 7919',
-  'M5 PRIVATE DIARY NOTE 8841',
-  '-75.123456789',
-  '39.987654321',
-]);
 const MATRIX = Object.freeze([
   { name: 'desktop', viewport: { width: 1440, height: 900 }, diarySentinel: true },
   { name: 'mobile', viewport: { width: 390, height: 844 }, diarySentinel: false },
@@ -113,46 +111,55 @@ async function verifyVariant(page, variant) {
   assert.equal(await surface.getAttribute('aria-labelledby'), 'route-corridor-title');
   assert.equal(await surface.evaluate((node) => document.activeElement === node), true);
   await verifyHonestEnglishSurface(surface);
-  await verifyAria(page, surface);
+  const languageChecks = {
+    en: {
+      aria: await verifyAria(page, surface, /Enter route waypoints/i),
+      layout: await verifyLayout(page, surface, variant.viewport),
+    },
+  };
   assertNoM5ProductGlobals(await page.evaluate(() => Object.getOwnPropertyNames(globalThis)));
 
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   await surface.getByRole('heading', { name: '已知路线历史记录' }).waitFor();
   await verifyHonestChineseSurface(surface);
+  languageChecks['zh-CN'] = {
+    aria: await verifyAria(page, surface, /输入路线途经点/),
+    layout: await verifyLayout(page, surface, variant.viewport),
+  };
   await page.getByRole('button', { name: '切换到英文' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'en');
 
   const probeBefore = await privacyProbe(page);
   const requestCheckpoint = observations.requests.length;
-  const consoleCheckpoint = observations.consoleMessages.length;
-  await page.locator('#addrA').fill(PRIVATE_VALUES[0]);
+  await page.locator('#addrA').fill(M5_PRIVATE_SENTINELS[0]);
   const rows = surface.locator('[data-route-waypoint-list] > li');
   assert.equal(await rows.count(), 2);
-  await rows.nth(0).locator('[data-route-waypoint-field="lon"]').fill(PRIVATE_VALUES[2]);
-  await rows.nth(0).locator('[data-route-waypoint-field="lat"]').fill(PRIVATE_VALUES[3]);
+  await rows.nth(0).locator('[data-route-waypoint-field="lon"]').fill(M5_PRIVATE_SENTINELS[2]);
+  await rows.nth(0).locator('[data-route-waypoint-field="lat"]').fill(M5_PRIVATE_SENTINELS[3]);
   await rows.nth(1).locator('[data-route-waypoint-field="lon"]').fill('-75.113456789');
   await rows.nth(1).locator('[data-route-waypoint-field="lat"]').fill('39.997654321');
   await rows.nth(1).locator('[data-route-waypoint-field="lat"]').dispatchEvent('change');
   await page.waitForTimeout(250);
 
   const privateActionRequests = observations.requests.slice(requestCheckpoint);
+  assertNoPrivateSentinels(observations.consoleMessages, 'console-messages');
+  assertNoPrivateSentinels(observations.requests, 'network-requests');
+  assertNoPrivateSentinels(observations.urls, 'browser-urls');
+  assertNoPrivateSentinels(page.url(), 'current-url');
+  const probeAfter = await privacyProbe(page);
+  assertNoPrivateSentinels(probeAfter, 'privacy-probe');
   assert.deepEqual(privateActionRequests, [], 'entering private address/coordinates must not request any resource');
   assert.equal(page.url(), urlBefore, 'private address/coordinates must not enter URL state');
-  assertNoPrivateValues(observations.requests, 'network requests');
-  assertNoPrivateValues(observations.consoleMessages.slice(consoleCheckpoint), 'console messages');
-  const probeAfter = await privacyProbe(page);
   assert.deepEqual(probeAfter.history.slice(probeBefore.history.length), [], 'private input must not mutate history/share state');
   assert.deepEqual(probeAfter.clipboard.slice(probeBefore.clipboard.length), [], 'private input must not enter clipboard/share state');
   assert.deepEqual(probeAfter.storage.slice(probeBefore.storage.length), [], 'private input must not mutate Web Storage');
   assert.deepEqual(probeAfter.indexedDb.slice(probeBefore.indexedDb.length), [], 'private input must not mutate IndexedDB');
-  assertNoPrivateValues(probeAfter, 'privacy probe');
   assert.deepEqual(observations.consoleErrors, [], 'browser console errors');
   assert.deepEqual(observations.pageErrors, [], 'browser page errors');
   assertNoCandidateOrOsrmNetwork(observations.requests);
   assert.equal(observations.scriptUrls.some((url) => /route[_-]alternatives|m5/i.test(url)), false);
 
-  const layout = await verifyLayout(page, surface, variant.viewport);
   await surface.press('Escape');
   await surface.waitFor({ state: 'hidden' });
   assert.equal(await opener.getAttribute('aria-expanded'), 'false');
@@ -161,14 +168,12 @@ async function verifyVariant(page, variant) {
   return {
     viewport: variant.name,
     size: variant.viewport,
-    languages: ['en', 'zh-CN'],
+    languages: languageChecks,
     keyboard: 'escape-focus-return',
-    aria: 'axe-serious-critical-zero',
     consoleErrors: observations.consoleErrors.length,
     pageErrors: observations.pageErrors.length,
     privateActionRequests: privateActionRequests.length,
     candidateOrOsrmRequests: 0,
-    layout,
   };
 }
 
@@ -197,9 +202,9 @@ async function verifyHonestChineseSurface(surface) {
   assert.match(buttons.join(' | '), /查看历史记录/);
 }
 
-async function verifyAria(page, surface) {
+async function verifyAria(page, surface, expectedLegend) {
   assert.equal(await surface.locator('fieldset').count(), 1);
-  assert.match(await surface.locator('fieldset legend').innerText(), /Enter route waypoints/i);
+  assert.match(await surface.locator('fieldset legend').innerText(), expectedLegend);
   const numberInputs = surface.locator('input[type="number"]');
   assert.ok(await numberInputs.count() >= 5);
   for (const input of await numberInputs.all()) {
@@ -212,6 +217,7 @@ async function verifyAria(page, surface) {
     .analyze();
   const serious = results.violations.filter(({ impact }) => ['critical', 'serious'].includes(impact));
   assert.deepEqual(serious, [], `serious/critical ARIA violations: ${JSON.stringify(serious)}`);
+  return { seriousCriticalViolations: serious.length };
 }
 
 async function verifyLayout(page, surface, viewport) {
@@ -244,9 +250,9 @@ async function seedPrivateDiaryMemory(page) {
   await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByRole('radio', { name: '4 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
-  await page.locator('#diary-rating-notes').fill(PRIVATE_VALUES[1]);
+  await page.locator('#diary-rating-notes').fill(M5_PRIVATE_SENTINELS[1]);
   await page.waitForTimeout(250);
-  assert.equal(await page.locator('#diary-rating-notes').inputValue(), PRIVATE_VALUES[1]);
+  assert.equal(await page.locator('#diary-rating-notes').inputValue(), M5_PRIVATE_SENTINELS[1]);
 }
 
 async function ensureEnglish(page) {
@@ -256,7 +262,14 @@ async function ensureEnglish(page) {
 }
 
 function attachObservations(page) {
-  const observations = { requests: [], scriptUrls: [], consoleMessages: [], consoleErrors: [], pageErrors: [] };
+  const observations = {
+    requests: [],
+    urls: [],
+    scriptUrls: [],
+    consoleMessages: [],
+    consoleErrors: [],
+    pageErrors: [],
+  };
   page.on('request', (request) => {
     observations.requests.push({ url: request.url(), body: request.postData() || '' });
     if (request.resourceType() === 'script') observations.scriptUrls.push(request.url());
@@ -266,6 +279,9 @@ function attachObservations(page) {
     if (message.type() === 'error') observations.consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => observations.pageErrors.push(error.message));
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) observations.urls.push(frame.url());
+  });
   return observations;
 }
 
@@ -325,14 +341,6 @@ function assertNoM5ProductGlobals(names) {
 function assertNoCandidateOrOsrmNetwork(requests) {
   const offending = requests.filter(({ url }) => /(?:\/route\/v\d\/|osrm|route[_-]alternatives|candidate[_-]generation)/i.test(url));
   assert.deepEqual(offending, [], `product requested candidate/OSRM network: ${JSON.stringify(offending)}`);
-}
-
-function assertNoPrivateValues(value, label) {
-  let text = JSON.stringify(value);
-  try { text = decodeURIComponent(text.replaceAll('+', ' ')); } catch {}
-  for (const privateValue of PRIVATE_VALUES) {
-    assert.equal(text.includes(privateValue), false, `${label} contains private value ${privateValue}`);
-  }
 }
 
 function collectCapabilityStatuses(value, statuses = []) {
