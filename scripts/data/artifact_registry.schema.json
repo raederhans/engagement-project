@@ -1,0 +1,298 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.engagement-project.invalid/artifact-registry-v1.schema.json",
+  "title": "Provider-neutral ArtifactRegistry/v1",
+  "$comment": "This schema validates document shape only. A schema pass is never artifact admission, observation, authority, or drift verification. Consumers MUST run admitArtifactRegistry for semantic admission and independently observe artifact bytes, SHA-256, and row counts before comparing an inventory observation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "artifactSetId",
+    "sourceScope",
+    "clocks",
+    "versions",
+    "locations",
+    "objects",
+    "partitionInventory",
+    "retention",
+    "authority",
+    "registryIdentity"
+  ],
+  "properties": {
+    "protocol": { "const": "ArtifactRegistry/v1" },
+    "artifactSetId": {
+      "type": "string",
+      "pattern": "^artifact-set:[A-Za-z0-9][A-Za-z0-9._:+/-]{0,114}$"
+    },
+    "sourceScope": { "$ref": "#/definitions/sourceScope" },
+    "clocks": { "$ref": "#/definitions/clocks" },
+    "versions": { "$ref": "#/definitions/versions" },
+    "locations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/location" },
+      "allOf": [
+        {
+          "not": {
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["scheme"],
+              "properties": { "scheme": { "const": "file" } }
+            }
+          }
+        },
+        {
+          "not": {
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["scheme"],
+              "properties": { "scheme": { "const": "https" } }
+            }
+          }
+        }
+      ]
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/artifactObject" }
+    },
+    "partitionInventory": { "$ref": "#/definitions/partitionInventory" },
+    "retention": { "$ref": "#/definitions/retention" },
+    "authority": { "$ref": "#/definitions/authority" },
+    "registryIdentity": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "sourceScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "scopeId", "revision", "dataClassification"],
+      "properties": {
+        "sourceId": { "$ref": "#/definitions/identifier" },
+        "scopeId": { "$ref": "#/definitions/identifier" },
+        "revision": { "$ref": "#/definitions/identifier" },
+        "dataClassification": { "$ref": "#/definitions/identifier" }
+      }
+    },
+    "clocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceAsOf", "retrievedAt", "builtAt", "observedAt"],
+      "properties": {
+        "sourceAsOf": { "$ref": "#/definitions/timestamp" },
+        "retrievedAt": { "$ref": "#/definitions/timestamp" },
+        "builtAt": { "$ref": "#/definitions/timestamp" },
+        "observedAt": { "$ref": "#/definitions/timestamp" }
+      }
+    },
+    "versionDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "$ref": "#/definitions/identifier" },
+        "version": { "$ref": "#/definitions/version" }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producer", "schema", "transform"],
+      "properties": {
+        "producer": { "$ref": "#/definitions/versionDescriptor" },
+        "schema": { "$ref": "#/definitions/versionDescriptor" },
+        "transform": { "$ref": "#/definitions/versionDescriptor" }
+      }
+    },
+    "fileLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "basePath"],
+      "properties": {
+        "scheme": { "const": "file" },
+        "basePath": { "$ref": "#/definitions/relativePath" }
+      }
+    },
+    "httpsLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "baseUrl"],
+      "properties": {
+        "scheme": { "const": "https" },
+        "baseUrl": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2048,
+          "pattern": "^https://[^/?#]+/(?:[^/?#]+/)+$",
+          "allOf": [
+            { "not": { "pattern": "^https://[^/?#]*@" } },
+            { "not": { "pattern": "/(?:[^/]*[-_.])?(?:[Ll][Aa][Tt][Ee][Ss][Tt]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Hh][Ee][Aa][Dd]|[Ll][Ii][Vv][Ee]|[Mm][Aa][Ii][Nn])(?:[-_.][^/]*)?/" } }
+          ]
+        }
+      }
+    },
+    "location": {
+      "oneOf": [
+        { "$ref": "#/definitions/fileLocation" },
+        { "$ref": "#/definitions/httpsLocation" }
+      ]
+    },
+    "artifactObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objectId", "relativePath", "mediaType", "bytes", "sha256", "rowCount"],
+      "properties": {
+        "objectId": { "$ref": "#/definitions/identifier" },
+        "relativePath": { "$ref": "#/definitions/relativePath" },
+        "mediaType": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 127,
+          "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$"
+        },
+        "bytes": { "$ref": "#/definitions/count" },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "rowCount": {
+          "anyOf": [
+            { "$ref": "#/definitions/count" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "rowCount": { "type": "integer" }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "mediaType": {
+                    "type": "string",
+                    "enum": ["application/jsonl", "application/ndjson", "application/x-ndjson"]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "relativePath": { "type": "string", "pattern": "\\.(jsonl|ndjson)$" }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partitionId", "objectIds", "rowCount"],
+      "properties": {
+        "partitionId": { "$ref": "#/definitions/identifier" },
+        "objectIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/identifier" }
+        },
+        "rowCount": { "$ref": "#/definitions/count" }
+      }
+    },
+    "partitionInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "partitions",
+        "unpartitionedObjectIds",
+        "totalObjectCount",
+        "totalBytes",
+        "totalRowCount"
+      ],
+      "properties": {
+        "partitions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/partition" }
+        },
+        "unpartitionedObjectIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/identifier" }
+        },
+        "totalObjectCount": { "$ref": "#/definitions/count" },
+        "totalBytes": { "$ref": "#/definitions/count" },
+        "totalRowCount": { "$ref": "#/definitions/count" }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "decisionOwner", "deletePrerequisites"],
+      "properties": {
+        "state": { "enum": ["hold", "retained", "review-required"] },
+        "decisionOwner": { "$ref": "#/definitions/identifier" },
+        "deletePrerequisites": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/identifier" },
+          "allOf": [
+            { "contains": { "const": "artifact-integrity-rechecked" } },
+            { "contains": { "const": "downstream-dependencies-cleared" } },
+            { "contains": { "const": "explicit-owner-decision-recorded" } },
+            { "contains": { "const": "retention-period-satisfied" } }
+          ]
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serving", "promotion", "deletion"],
+      "properties": {
+        "serving": { "const": false },
+        "promotion": { "const": false },
+        "deletion": { "const": false }
+      }
+    }
+  }
+}

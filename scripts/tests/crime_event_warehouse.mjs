@@ -197,11 +197,11 @@ test('real backfill producer publishes one official frozen receipt and validates
   );
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.source_schema.cartodb_id = 'string';
-  }, /source schema|approved source contract|manifest drifted/i);
+  }, /source schema|approved source contract|manifest drifted|manifest bytes drifted/i);
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.snapshot_id = `sha256:${'0'.repeat(64)}`;
     sourceManifest.source_vintage.id = sourceManifest.snapshot_id;
-  }, /identity|lineage source manifest drifted/i);
+  }, /identity|lineage source manifest drifted|manifest bytes drifted/i);
 
   const qualityPath = path.join(root, ...admitted.receipt.artifacts.latest_quality_report.path.split('/'));
   const revisionPath = path.join(root, ...admitted.receipt.artifacts.latest_revision_report.path.split('/'));
@@ -243,7 +243,7 @@ test('real backfill producer publishes one official frozen receipt and validates
   }, /exact continuous range/i);
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.scope.start = '2025-12-31';
-  }, /scope|manifest drifted|identity/i);
+  }, /scope|manifest drifted|manifest bytes drifted|identity/i);
   await fs.writeFile(receiptPath, receiptBytes);
   await createCrimeWarehouseAdmissionReceipt(root);
 
@@ -295,6 +295,80 @@ test('real backfill producer publishes one official frozen receipt and validates
     receipt.artifacts.latest_quality_report.path = 'warehouse/quality/../quality.json';
   }, /canonical safe relative path/i);
   await validateCrimeWarehouseAdmissionReceipt(root);
+});
+
+test('source lineage survives an evidence-root move and relocates legacy v1 paths fail closed', async (context) => {
+  const suffix = `${process.pid}-${Date.now()}`;
+  const root = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-${suffix}`);
+  const movedRoot = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-moved-${suffix}`);
+  const outsideAcquisitions = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-outside-${suffix}`);
+  context.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(movedRoot, { recursive: true, force: true });
+    await fs.rm(outsideAcquisitions, { recursive: true, force: true });
+  });
+
+  await backfillCrimeEventWarehouse([
+    '--start=2025-12-31',
+    '--through=2026-01-02',
+    `--root=${root}`,
+    '--page-size=10',
+    `--partitions=${EVENT_CONTRACT.default_partition_count}`,
+  ], officialBackfillRuntime());
+  const lineageRelative = path.join('warehouse', 'lineage', 'registry.json');
+  const originalLineage = await readJson(path.join(root, lineageRelative));
+  assert.deepEqual(
+    originalLineage.source_snapshots.map(({ manifest_path: manifestPath }) => manifestPath),
+    [
+      'acquisitions/2025-12-31_2026-01-01/manifest.json',
+      'acquisitions/2026-01-01_2026-01-02/manifest.json',
+    ],
+  );
+  for (const source of originalLineage.source_snapshots) {
+    assert.ok(Number.isSafeInteger(source.manifest_bytes) && source.manifest_bytes > 0);
+    assert.match(source.manifest_sha256, /^sha256:[a-f0-9]{64}$/);
+  }
+
+  await fs.rename(root, movedRoot);
+  const admitted = await validateCrimeWarehouseAdmissionReceipt(movedRoot);
+  assert.equal(admitted.receipt.counts.source_snapshots, 2);
+
+  const movedLineagePath = path.join(movedRoot, lineageRelative);
+  const legacy = structuredClone(originalLineage);
+  for (const source of legacy.source_snapshots) {
+    source.manifest_path = `${root.replaceAll('\\', '/')}/${source.manifest_path}`;
+    delete source.manifest_bytes;
+    delete source.manifest_sha256;
+  }
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(legacy, null, 2)}\n`, 'utf8');
+  const legacyReceipt = await createCrimeWarehouseAdmissionReceipt(movedRoot);
+  assert.equal(legacyReceipt.counts.source_snapshots, 2);
+
+  const hostileLegacy = structuredClone(legacy);
+  hostileLegacy.source_snapshots[0].manifest_path = `${root.replaceAll('\\', '/')}/other/manifest.json`;
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(hostileLegacy, null, 2)}\n`, 'utf8');
+  await assert.rejects(
+    createCrimeWarehouseAdmissionReceipt(movedRoot),
+    /cannot be safely relocated under its acquisition root/i,
+  );
+
+  const byteDrift = structuredClone(originalLineage);
+  byteDrift.source_snapshots[0].manifest_sha256 = `sha256:${'0'.repeat(64)}`;
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(byteDrift, null, 2)}\n`, 'utf8');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /manifest bytes drifted/i);
+
+  const pathEscape = structuredClone(originalLineage);
+  pathEscape.source_snapshots[0].manifest_path = '../manifest.json';
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(pathEscape, null, 2)}\n`, 'utf8');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /canonical safe relative path/i);
+
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(originalLineage, null, 2)}\n`, 'utf8');
+  const acquisitions = path.join(movedRoot, 'acquisitions');
+  await fs.rename(acquisitions, outsideAcquisitions);
+  await fs.symlink(outsideAcquisitions, acquisitions, process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /symbolic link or junction/i);
+  await fs.unlink(acquisitions);
+  await fs.rename(outsideAcquisitions, acquisitions);
 });
 
 test('first metadata publication recovers every pre-manifest boundary without orphan lineage', async (context) => {

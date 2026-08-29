@@ -770,8 +770,9 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest, sourceCont
       throw new Error('Crime warehouse lineage source identities must be unique and complete.');
     }
     seen.add(entry.snapshot_id);
-    const relative = await relativePathInsideRoot(root, entry.manifest_path, 'source manifest');
+    const relative = lineageSourceManifestRelative(entry, expectedPeriod);
     const artifact = await readRelativeJsonArtifact(root, relative, 'source manifest');
+    validateLineageSourceManifestBytes(entry, artifact);
     const value = artifact.value;
     await validateCrimeSourceSnapshot(value, path.dirname(artifact.absolute), { sourceContract });
     if (value?.schema !== SOURCE_SNAPSHOT_SCHEMA
@@ -1596,18 +1597,6 @@ async function canonicalDirectoryRoot(value, label) {
   return { absolute, real: await fs.realpath(absolute) };
 }
 
-async function relativePathInsideRoot(root, candidate, label) {
-  if (typeof candidate !== 'string' || !path.isAbsolute(candidate)) {
-    throw new Error(`Crime warehouse ${label} must identify an absolute producer path before receipt canonicalization.`);
-  }
-  const targetReal = await fs.realpath(candidate);
-  const relative = path.relative(root.real, targetReal);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Crime warehouse ${label} escaped its evidence root.`);
-  }
-  return canonicalRelativePath(relative.split(path.sep).join('/'), label);
-}
-
 async function readRelativeJsonArtifact(root, relative, label) {
   const artifact = await readRelativeBytes(root, relative, label);
   try {
@@ -1809,9 +1798,12 @@ async function buildLineageRegistry({
 }) {
   const existing = await readJsonIfExists(path.join(warehouseDir, 'lineage', 'registry.json'));
   const sources = Array.isArray(existing?.source_snapshots) ? [...existing.source_snapshots] : [];
+  const sourceManifest = await sourceManifestLineageBinding(warehouseDir, snapshotDir, snapshotManifest);
   sources.push({
     snapshot_id: snapshotManifest.snapshot_id,
-    manifest_path: portablePath(snapshotDir, 'manifest.json'),
+    manifest_path: sourceManifest.relative,
+    manifest_bytes: sourceManifest.bytes.length,
+    manifest_sha256: rawSha256(sourceManifest.bytes),
     source_kind: snapshotManifest.source_kind,
     source_as_of: snapshotManifest.source_vintage.source_as_of,
     retrieved_at: snapshotManifest.source_vintage.retrieved_at,
@@ -1859,6 +1851,52 @@ async function buildLineageRegistry({
       serving_status: 'not-published',
     },
   };
+}
+
+async function sourceManifestLineageBinding(warehouseDir, snapshotDir, snapshotManifest) {
+  const evidenceRoot = await canonicalDirectoryRoot(
+    path.dirname(path.resolve(warehouseDir)),
+    'crime warehouse evidence root',
+  );
+  const manifestAbsolute = path.resolve(snapshotDir, 'manifest.json');
+  const relative = path.relative(evidenceRoot.absolute, manifestAbsolute).split(path.sep).join('/');
+  const artifact = await readRelativeJsonArtifact(evidenceRoot, relative, 'source manifest');
+  if (stableSerialization(artifact.value) !== stableSerialization(snapshotManifest)) {
+    throw new Error('Crime warehouse source manifest changed while its lineage binding was built.');
+  }
+  return artifact;
+}
+
+function lineageSourceManifestRelative(entry, expectedPeriod) {
+  const candidate = entry.manifest_path;
+  const absolute = path.posix.isAbsolute(candidate) || path.win32.isAbsolute(candidate);
+  if (!absolute) {
+    canonicalRelativePath(candidate, 'source manifest');
+    if (!Number.isSafeInteger(entry.manifest_bytes) || entry.manifest_bytes < 1
+      || !/^sha256:[a-f0-9]{64}$/.test(entry.manifest_sha256 || '')) {
+      throw new Error('Crime warehouse relative source manifest lacks an exact byte binding.');
+    }
+    return candidate;
+  }
+
+  if (Object.hasOwn(entry, 'manifest_bytes') || Object.hasOwn(entry, 'manifest_sha256')) {
+    throw new Error('Crime warehouse legacy source manifest path cannot claim a portable byte binding.');
+  }
+  const periodId = `${expectedPeriod.start}_${expectedPeriod.end_exclusive}`;
+  const legacySuffix = `/acquisitions/${periodId}/manifest.json`;
+  const normalized = candidate.replaceAll('\\', '/');
+  if (!normalized.endsWith(legacySuffix)) {
+    throw new Error('Crime warehouse legacy source manifest cannot be safely relocated under its acquisition root.');
+  }
+  return `acquisitions/${periodId}/manifest.json`;
+}
+
+function validateLineageSourceManifestBytes(entry, artifact) {
+  if (path.posix.isAbsolute(entry.manifest_path) || path.win32.isAbsolute(entry.manifest_path)) return;
+  if (artifact.bytes.length !== entry.manifest_bytes
+    || rawSha256(artifact.bytes) !== entry.manifest_sha256) {
+    throw new Error(`Crime warehouse lineage source manifest bytes drifted for ${entry.snapshot_id || '(missing)'}.`);
+  }
 }
 
 function createQualityAccumulator(snapshotManifest, dependencies, observedAt) {
@@ -2414,8 +2452,4 @@ async function hashFile(filePath) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(filePath)) hash.update(chunk);
   return `sha256:${hash.digest('hex')}`;
-}
-
-function portablePath(directory, fileName) {
-  return path.resolve(directory, fileName).replaceAll('\\', '/');
 }

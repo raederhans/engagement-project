@@ -1,0 +1,19 @@
+{
+  "m1": {
+    "acquisitions": 21,
+    "rawShardsPerAcquisition": 64,
+    "canonicalParts": 64
+  },
+  "m2": {
+    "martParts": 128,
+    "evaluationArtifacts": [
+      "bias-error-audit.json",
+      "data-lineage-summary.json",
+      "model-card.md",
+      "model-evaluation-report.json",
+      "model-state.json",
+      "residual-map.json",
+      "serving-artifact.json"
+    ]
+  }
+}

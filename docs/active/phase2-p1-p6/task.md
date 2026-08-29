@@ -1,0 +1,60 @@
+# Phase 2 P1-P6 Task
+
+## Current status
+
+Scope and isolated integration base frozen; P1 implementation and local mirror complete, with security review and clean-room reconstruction in progress.
+
+## Checklist
+
+- [x] 读取用户指定对话并提取最新第二阶段主线。
+- [x] 将第二阶段 P1-P6 明确映射为对话 R1-R6，排除 R0/R7。
+- [x] 检查 primary、local main、persistent DFEV1 candidate、worktrees 和 dirty ownership。
+- [x] 建立 `codex/phase2-p1-p6@122bba9` 隔离 integration worktree。
+- [x] 创建单一可恢复 task record。
+- [ ] P1 DataOps / versioned evidence registry。
+- [ ] P2 Spatial Attribution v2。
+- [ ] P3 Evaluation Protocol v2。
+- [ ] P4 Area Intelligence productization。
+- [ ] P5 Home Compare real-data product。
+- [ ] P6 Known Route evidence completion。
+- [ ] 最终串行整合、扩大验证与边界复核。
+
+## User-visible task budget
+
+| Phase | New task limit | Created task IDs | State |
+| --- | --- | --- | --- |
+| P1 | <= 3 | `01a04d53-45e8-74b0-b767-6283715ea189` registry; `01a04d53-455b-7281-96e9-efba48a81de2` restore; `01a04d53-455b-7281-96e9-efdf919cc1d6` workflow | 3/3 completed and integrated |
+| P2 | <= 3 | none | not started |
+| P3 | <= 3 | none | not started |
+| P4 | <= 3 | none | not started |
+| P5 | <= 3 | none | not started |
+| P6 | <= 3 | none | not started |
+
+## Validation evidence
+
+| Command or check | Result |
+| --- | --- |
+| Browser read of linked conversation | Current branch contains latest R1-R6 serial plan; no browser mutation or message send |
+| `git status --short --branch` on primary | tracked clean; user-owned untracked logs/output preserved |
+| `git status` on persistent DFEV1 worktree | clean at `122bba9` |
+| `git merge-base --is-ancestor main 122bba9` | exit 0; candidate is a descendant of local main |
+| `git worktree add -b codex/phase2-p1-p6 ... 122bba9` | exit 0 |
+| P1 artifact inventory | M1 stable/preservation whitelist and M2 stable/resume whitelist frozen; legacy absolute lineage path found |
+| `node --test scripts/tests/artifact_registry_contracts.mjs` | 20/20 PASS in integration worktree |
+| Ajv strict compile of `artifact_registry.schema.json` | PASS using the repository's existing dependency installation |
+| Real `materialize_data_artifact_registry.mjs` against persistent M1/M2 controls | PASS; bundle `c254caf...86c5e`, M1 1,456 objects / 9,984,857,453 bytes, M2 140 objects / 827,041,387 bytes; restore status `not-observed` |
+| Official GitHub action commit/release lookup | checkout `3d3c42e` = v7.0.1, setup-node `8207627` = v7.0.0, upload-artifact `043fb46` = v7.0.1 |
+| P1 local mirror session `60979` | exit 0; result `DataFoundationArtifactMirrorResult/v1`, 1,596 files / 10,811,898,840 bytes / 8,785,158 rows, bundle `c254caf...86c5e`, authority all false |
+| Combined P1 implementation and lineage tests | 82 total: 81 PASS, 1 Windows file-symlink permission SKIP, 0 FAIL (equivalent full set plus final registry/restore compatibility regression) |
+| `node --test scripts/tests/crime_event_warehouse.mjs` | 17/17 PASS, including relative lineage, safe legacy relocation, drift and path-escape rejection |
+| Ajv strict schema compile | PASS for `ArtifactRegistry/v1` |
+| `js-yaml` workflow parse | PASS for `.github/workflows/data-foundation-maintenance.yml` |
+| P1 security/final-diff review and remediation | Initial security P2=4 fixed; final staged review P2=1 fixed; focused re-review PASS with no new P0-P2 |
+
+## Open risks and remaining work
+
+- 尚未选择或获权使用外部对象存储；P1 必须将 provider-neutral 实现、本地 clean-room 验证与跨机器发布权限分开。
+- P1 尚未在 clean checkout 中完成 M1/M2 restore、exact validators 和 identity reproduction；本地镜像完成不等于 clean-room PASS。
+- P1 workflow 仅通过本地静态/契约验证，未推送或触发远端 CI。
+- 安全审查的四个 P2 与 final staged review 的一个 P2 均已修复；focused re-review PASS。clean-room gate 仍未完成。
+- 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。

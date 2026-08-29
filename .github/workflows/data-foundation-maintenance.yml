@@ -1,0 +1,746 @@
+name: Data foundation maintenance
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/data-foundation-maintenance.yml
+      - scripts/tests/dataops_workflow_contracts.mjs
+      - scripts/fixtures/dataops-workflow/**
+  schedule:
+    - cron: '17 5 * * 2'
+  workflow_dispatch:
+    inputs:
+      maintenance_mode:
+        description: Run only contracts unless an authorized rebuild is explicitly selected.
+        required: true
+        default: contract-only
+        type: choice
+        options:
+          - contract-only
+          - rebuild
+      expected_git_sha:
+        description: Exact 40-hex workflow source revision.
+        required: false
+        type: string
+      registry_path:
+        description: Runner-local path to one immutable ArtifactRegistry/v1 document.
+        required: false
+        type: string
+      registry_sha256:
+        description: Exact raw registry bytes SHA-256 without a prefix.
+        required: false
+        type: string
+      registry_identity:
+        description: Exact canonical ArtifactRegistry/v1 sha256 identity.
+        required: false
+        type: string
+      artifact_set_id:
+        description: Exact artifact-set namespace identifier in the registry.
+        required: false
+        type: string
+      receipt_object_id:
+        description: Exact registry object identifier for the M1 receipt.
+        required: false
+        type: string
+      receipt_sha256:
+        description: Exact raw M1 receipt bytes SHA-256 without a prefix.
+        required: false
+        type: string
+      receipt_identity:
+        description: Exact semantic M1 receipt sha256 identity.
+        required: false
+        type: string
+      authorized_location_scheme:
+        description: Explicitly authorize one immutable registry location for this run.
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - file
+          - https
+      file_location_root:
+        description: Explicit runner root for file artifacts; never inferred from the registry directory.
+        required: false
+        type: string
+      through_date:
+        description: Exclusive YYYY-MM-DD end for the 45-day overlap review candidate.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-foundation-maintenance-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'rebuild' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact contract source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Run lightweight DataOps workflow contracts
+        run: node --test scripts/tests/dataops_workflow_contracts.mjs
+
+  rebuild:
+    needs: contracts
+    if: >-
+      always() &&
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.maintenance_mode == 'rebuild'))
+    runs-on: [self-hosted, Windows, data-foundation]
+    timeout-minutes: 240
+    environment: data-foundation-maintenance
+    env:
+      DATAOPS_EXPECTED_GIT_SHA: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_EXPECTED_GIT_SHA || inputs.expected_git_sha }}
+      DATAOPS_REGISTRY_PATH: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_REGISTRY_PATH || inputs.registry_path }}
+      DATAOPS_REGISTRY_SHA256: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_REGISTRY_SHA256 || inputs.registry_sha256 }}
+      DATAOPS_REGISTRY_IDENTITY: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_REGISTRY_IDENTITY || inputs.registry_identity }}
+      DATAOPS_ARTIFACT_SET_ID: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_ARTIFACT_SET_ID || inputs.artifact_set_id }}
+      DATAOPS_RECEIPT_OBJECT_ID: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_RECEIPT_OBJECT_ID || inputs.receipt_object_id }}
+      DATAOPS_RECEIPT_SHA256: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_RECEIPT_SHA256 || inputs.receipt_sha256 }}
+      DATAOPS_RECEIPT_IDENTITY: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_RECEIPT_IDENTITY || inputs.receipt_identity }}
+      DATAOPS_AUTHORIZED_LOCATION_SCHEME: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_LOCATION_SCHEME || inputs.authorized_location_scheme }}
+      DATAOPS_FILE_LOCATION_ROOT: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_FILE_LOCATION_ROOT || inputs.file_location_root }}
+      DATAOPS_THROUGH_DATE: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_THROUGH_DATE || inputs.through_date }}
+      DATAOPS_REPORT_DIR: ${{ runner.temp }}/dataops-reports
+      DATAOPS_UPLOAD_DIR: ${{ runner.temp }}/dataops-upload
+      DATAOPS_CONTRACT_RESULT: ${{ needs.contracts.result }}
+    steps:
+      - name: Checkout exact rebuild source
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        id: setup
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Admit exact Git, registry, receipt, and location inputs
+        id: input_gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path $env:DATAOPS_REPORT_DIR -Force | Out-Null
+          $status = 0
+          try {
+            if ($env:DATAOPS_CONTRACT_RESULT -ne 'success') {
+              throw 'The lightweight workflow contract job did not pass.'
+            }
+            if ($env:DATAOPS_EXPECTED_GIT_SHA -notmatch '^[a-f0-9]{40}$') {
+              throw 'expected_git_sha must be an exact lowercase 40-hex revision.'
+            }
+            $head = (& git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $head -ne $env:DATAOPS_EXPECTED_GIT_SHA) {
+              throw "Checked out Git SHA $head does not match the authorized exact SHA."
+            }
+            if ([string]::IsNullOrWhiteSpace($env:DATAOPS_REGISTRY_PATH)) {
+              throw 'registry_path is required before any data root may be created.'
+            }
+            if ($env:DATAOPS_REGISTRY_PATH -match '(?i)(^|[\\/])(latest|current|head|live)([\\/]|$)') {
+              throw 'registry_path must not use a mutable latest/current/head/live segment.'
+            }
+            if (-not (Test-Path -LiteralPath $env:DATAOPS_REGISTRY_PATH -PathType Leaf)) {
+              throw 'The exact ArtifactRegistry/v1 path is unavailable on this runner.'
+            }
+            if ($env:DATAOPS_REGISTRY_SHA256 -notmatch '^[a-f0-9]{64}$') {
+              throw 'registry_sha256 must be an exact lowercase 64-hex digest.'
+            }
+            if ($env:DATAOPS_REGISTRY_IDENTITY -notmatch '^sha256:[a-f0-9]{64}$') {
+              throw 'registry_identity must be an exact sha256 identity.'
+            }
+            if ($env:DATAOPS_RECEIPT_SHA256 -notmatch '^[a-f0-9]{64}$') {
+              throw 'receipt_sha256 must be an exact lowercase 64-hex digest.'
+            }
+            if ($env:DATAOPS_RECEIPT_IDENTITY -notmatch '^sha256:[a-f0-9]{64}$') {
+              throw 'receipt_identity must be an exact sha256 identity.'
+            }
+            if ($env:DATAOPS_AUTHORIZED_LOCATION_SCHEME -notin @('file', 'https')) {
+              throw 'An explicit file or https ArtifactRegistry/v1 location is required.'
+            }
+            if ($env:DATAOPS_AUTHORIZED_LOCATION_SCHEME -eq 'file') {
+              if ([string]::IsNullOrWhiteSpace($env:DATAOPS_FILE_LOCATION_ROOT)) {
+                throw 'file_location_root is required for an authorized file location; the registry directory is never a fallback.'
+              }
+              if (-not (Test-Path -LiteralPath $env:DATAOPS_FILE_LOCATION_ROOT -PathType Container)) {
+                throw 'The explicit file artifact location root is unavailable on this runner.'
+              }
+              $registryDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $env:DATAOPS_REGISTRY_PATH).Path
+              $fileLocationRoot = (Resolve-Path -LiteralPath $env:DATAOPS_FILE_LOCATION_ROOT).Path
+              if ($fileLocationRoot -eq $registryDirectory) {
+                throw 'The file artifact location root must be separate from the metadata registry directory.'
+              }
+            } elseif (-not [string]::IsNullOrWhiteSpace($env:DATAOPS_FILE_LOCATION_ROOT)) {
+              throw 'file_location_root is forbidden when the authorized registry location is https.'
+            }
+            $parsedDate = [datetime]::ParseExact(
+              $env:DATAOPS_THROUGH_DATE,
+              'yyyy-MM-dd',
+              [Globalization.CultureInfo]::InvariantCulture
+            )
+            if ($parsedDate.ToString('yyyy-MM-dd') -ne $env:DATAOPS_THROUGH_DATE) {
+              throw 'through_date must be an exact YYYY-MM-DD date.'
+            }
+            $env:DATAOPS_REGISTRY_SNAPSHOT_PATH = Join-Path $env:RUNNER_TEMP "dataops-registry-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
+
+            $admissionScript = @'
+          import { createHash } from 'node:crypto';
+          import { appendFile, readFile, writeFile } from 'node:fs/promises';
+          import { parseArtifactRegistry } from './scripts/lib/artifact_registry/index.mjs';
+
+          const registryBytes = await readFile(process.env.DATAOPS_REGISTRY_PATH);
+          const observedRegistrySha = createHash('sha256').update(registryBytes).digest('hex');
+          if (observedRegistrySha !== process.env.DATAOPS_REGISTRY_SHA256) {
+            throw new Error('ArtifactRegistry/v1 raw bytes SHA-256 drifted.');
+          }
+          const registry = parseArtifactRegistry(registryBytes.toString('utf8'));
+          if (registry.protocol !== 'ArtifactRegistry/v1') throw new Error('Unsupported registry protocol.');
+          if (registry.registryIdentity !== process.env.DATAOPS_REGISTRY_IDENTITY) {
+            throw new Error('ArtifactRegistry/v1 canonical registryIdentity drifted.');
+          }
+          if (registry.artifactSetId !== process.env.DATAOPS_ARTIFACT_SET_ID) {
+            throw new Error('ArtifactRegistry/v1 artifactSetId drifted.');
+          }
+          const location = registry.locations.find(
+            ({ scheme }) => scheme === process.env.DATAOPS_AUTHORIZED_LOCATION_SCHEME,
+          );
+          if (!location || !['file', 'https'].includes(location.scheme)) {
+            throw new Error('The explicitly authorized immutable location is absent from the exact registry.');
+          }
+          const receiptObject = registry.objects.find(
+            ({ objectId }) => objectId === process.env.DATAOPS_RECEIPT_OBJECT_ID,
+          );
+          if (!receiptObject) throw new Error('The exact receipt object is absent from the registry.');
+          if (receiptObject.sha256 !== `sha256:${process.env.DATAOPS_RECEIPT_SHA256}`) {
+            throw new Error('The exact receipt object bytes SHA-256 drifted from the registry.');
+          }
+          if (registry.authority.serving !== false
+            || registry.authority.promotion !== false
+            || registry.authority.deletion !== false) {
+            throw new Error('ArtifactRegistry/v1 must grant no serving, promotion, or deletion authority.');
+          }
+          await writeFile(process.env.DATAOPS_REGISTRY_SNAPSHOT_PATH, registryBytes, {
+            flag: 'wx',
+            mode: 0o400,
+          });
+          const pinnedBytes = await readFile(process.env.DATAOPS_REGISTRY_SNAPSHOT_PATH);
+          const pinnedSha = createHash('sha256').update(pinnedBytes).digest('hex');
+          const pinnedRegistry = parseArtifactRegistry(pinnedBytes.toString('utf8'));
+          if (pinnedSha !== process.env.DATAOPS_REGISTRY_SHA256
+            || pinnedRegistry.registryIdentity !== process.env.DATAOPS_REGISTRY_IDENTITY) {
+            throw new Error('Pinned ArtifactRegistry/v1 snapshot identity or raw bytes drifted.');
+          }
+          const report = {
+            schema: 'engagement-dataops-input-admission/v1',
+            status: 'admitted',
+            git_sha: process.env.DATAOPS_EXPECTED_GIT_SHA,
+            registry: {
+              protocol: registry.protocol,
+              artifact_set_id: registry.artifactSetId,
+              registry_identity: registry.registryIdentity,
+              raw_sha256: process.env.DATAOPS_REGISTRY_SHA256,
+              object_count: registry.partitionInventory.totalObjectCount,
+              total_bytes: registry.partitionInventory.totalBytes,
+              total_row_count: registry.partitionInventory.totalRowCount,
+              snapshot_path: process.env.DATAOPS_REGISTRY_SNAPSHOT_PATH,
+              snapshot_verified: true,
+            },
+            receipt: {
+              object_id: receiptObject.objectId,
+              relative_path: receiptObject.relativePath,
+              bytes: receiptObject.bytes,
+              raw_sha256: process.env.DATAOPS_RECEIPT_SHA256,
+              expected_identity: process.env.DATAOPS_RECEIPT_IDENTITY,
+            },
+            authorized_location_scheme: location.scheme,
+            file_location_root_explicit: process.env.DATAOPS_AUTHORIZED_LOCATION_SCHEME !== 'file'
+              || Boolean(process.env.DATAOPS_FILE_LOCATION_ROOT),
+            authority: registry.authority,
+          };
+          await writeFile(
+            `${process.env.DATAOPS_REPORT_DIR}/input-admission.json`,
+            `${JSON.stringify(report, null, 2)}\n`,
+          );
+          await appendFile(
+            process.env.GITHUB_ENV,
+            `DATAOPS_RECEIPT_RELATIVE_PATH=${receiptObject.relativePath}\n`
+              + `DATAOPS_REGISTRY_SNAPSHOT_PATH=${process.env.DATAOPS_REGISTRY_SNAPSHOT_PATH}\n`,
+          );
+          '@
+            $admissionScript | node --input-type=module -
+            if ($LASTEXITCODE -ne 0) {
+              throw 'ArtifactRegistry/v1 or receipt-object admission failed.'
+            }
+            Set-ItemProperty -LiteralPath $env:DATAOPS_REGISTRY_SNAPSHOT_PATH -Name IsReadOnly -Value $true
+
+            $registryShort = $env:DATAOPS_REGISTRY_IDENTITY.Substring(7, 12)
+            $receiptShort = $env:DATAOPS_RECEIPT_IDENTITY.Substring(7, 12)
+            $target = Join-Path '.dfev1/dataops-maintenance/v1' "$registryShort/$receiptShort/run-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+            "DATAOPS_TARGET_ROOT=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } catch {
+            $status = 1
+            $failure = [ordered]@{
+              schema = 'engagement-dataops-input-admission/v1'
+              status = 'rejected'
+              reason = $_.Exception.Message
+              git_sha = $env:DATAOPS_EXPECTED_GIT_SHA
+              registry_identity = $env:DATAOPS_REGISTRY_IDENTITY
+              receipt_identity = $env:DATAOPS_RECEIPT_IDENTITY
+              root_created = $false
+              restore_started = $false
+              promotion_applied = $false
+            }
+            $failure | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $env:DATAOPS_REPORT_DIR 'input-admission.json')
+          }
+          "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Install dependencies after admission
+        id: install
+        if: steps.input_gate.outputs.status == '0'
+        run: npm ci
+
+      - name: Plan receipt-bound clean-room restore
+        id: restore_plan
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fileLocationArgs = if ($env:DATAOPS_AUTHORIZED_LOCATION_SCHEME -eq 'file') {
+            @("--file-location-root=$env:DATAOPS_FILE_LOCATION_ROOT")
+          } else {
+            @()
+          }
+          & node scripts/restore_data_artifacts.mjs `
+            plan `
+            --registry="$env:DATAOPS_REGISTRY_SNAPSHOT_PATH" `
+            --registry-sha256="$env:DATAOPS_REGISTRY_SHA256" `
+            --registry-identity="$env:DATAOPS_REGISTRY_IDENTITY" `
+            --target="$env:DATAOPS_TARGET_ROOT" `
+            --location="$env:DATAOPS_AUTHORIZED_LOCATION_SCHEME" `
+            @fileLocationArgs `
+            --concurrency=2 |
+            Tee-Object -FilePath (Join-Path $env:DATAOPS_REPORT_DIR 'restore-plan.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (Test-Path -LiteralPath $env:DATAOPS_TARGET_ROOT) {
+            throw 'Restore plan mode mutated the target root.'
+          }
+
+      - name: Create a new versioned maintenance root
+        id: root
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path -LiteralPath $env:DATAOPS_TARGET_ROOT) {
+            throw 'Versioned maintenance target already exists; refusing overwrite or fallback.'
+          }
+          $targetParent = Split-Path -Parent $env:DATAOPS_TARGET_ROOT
+          New-Item -ItemType Directory -Path $targetParent -Force | Out-Null
+          $receiptParent = Split-Path -Parent $env:DATAOPS_RECEIPT_RELATIVE_PATH
+          $m1Root = if ([string]::IsNullOrEmpty($receiptParent)) {
+            $env:DATAOPS_TARGET_ROOT
+          } else {
+            Join-Path $env:DATAOPS_TARGET_ROOT $receiptParent
+          }
+          $m2Root = "$env:DATAOPS_TARGET_ROOT-model-review/m2-v2"
+          $overlapRoot = Join-Path $m1Root "overlap-acquisitions/run-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          "DATAOPS_M1_ROOT=$m1Root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATAOPS_M2_ROOT=$m2Root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATAOPS_OVERLAP_ROOT=$overlapRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore exact registry artifact set
+        id: restore
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $fileLocationArgs = if ($env:DATAOPS_AUTHORIZED_LOCATION_SCHEME -eq 'file') {
+            @("--file-location-root=$env:DATAOPS_FILE_LOCATION_ROOT")
+          } else {
+            @()
+          }
+          & node scripts/restore_data_artifacts.mjs `
+            restore `
+            --registry="$env:DATAOPS_REGISTRY_SNAPSHOT_PATH" `
+            --registry-sha256="$env:DATAOPS_REGISTRY_SHA256" `
+            --registry-identity="$env:DATAOPS_REGISTRY_IDENTITY" `
+            --target="$env:DATAOPS_TARGET_ROOT" `
+            --location="$env:DATAOPS_AUTHORIZED_LOCATION_SCHEME" `
+            @fileLocationArgs `
+            --concurrency=2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify restored registry inventory
+        id: verify
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $fileLocationArgs = if ($env:DATAOPS_AUTHORIZED_LOCATION_SCHEME -eq 'file') {
+            @("--file-location-root=$env:DATAOPS_FILE_LOCATION_ROOT")
+          } else {
+            @()
+          }
+          & node scripts/restore_data_artifacts.mjs `
+            verify `
+            --registry="$env:DATAOPS_REGISTRY_SNAPSHOT_PATH" `
+            --registry-sha256="$env:DATAOPS_REGISTRY_SHA256" `
+            --registry-identity="$env:DATAOPS_REGISTRY_IDENTITY" `
+            --target="$env:DATAOPS_TARGET_ROOT" `
+            --location="$env:DATAOPS_AUTHORIZED_LOCATION_SCHEME" `
+            @fileLocationArgs `
+            --concurrency=2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reconcile full-history receipt and partition counts
+        id: full_reconcile
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receiptPath = Join-Path $env:DATAOPS_TARGET_ROOT $env:DATAOPS_RECEIPT_RELATIVE_PATH
+          $receiptSha = (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($receiptSha -ne $env:DATAOPS_RECEIPT_SHA256) {
+            throw 'Restored receipt raw bytes SHA-256 drifted.'
+          }
+          $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 100
+          if ($receipt.schema -ne 'engagement-phl-crime-warehouse-receipt/v3' -or
+            $receipt.identity -ne $env:DATAOPS_RECEIPT_IDENTITY -or
+            $receipt.serving_eligible -ne $false) {
+            throw 'Restored receipt schema, semantic identity, or serving boundary drifted.'
+          }
+          if ($receipt.authority.integration_authority -ne $false -or
+            $receipt.authority.serving_authority -ne $false -or
+            $receipt.authority.deletion_authority -ne $false) {
+            throw 'Restored receipt attempted to grant authority.'
+          }
+          & node scripts/backfill_crime_event_warehouse.mjs --validate-only "--root=$env:DATAOPS_M1_ROOT"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $checkpointPath = Join-Path $env:DATAOPS_M1_ROOT 'backfill-checkpoint.json'
+          $checkpoint = Get-Content -LiteralPath $checkpointPath -Raw | ConvertFrom-Json -Depth 100
+          if ($receipt.counts.acquired_rows -ne $receipt.counts.expected_date_scoped_rows -or
+            $receipt.counts.canonical_rows -ne ($receipt.counts.active_rows + $receipt.counts.removal_candidate_rows) -or
+            $checkpoint.final_quality.date_scoped_count_complete -ne $true) {
+            throw 'Full-history acquired_rows, expected_date_scoped_rows, or canonical_rows reconciliation failed.'
+          }
+          $partitionBindings = @($receipt.artifacts.canonical.partition_bindings)
+          $partitionRows = ($partitionBindings | Measure-Object -Property row_count -Sum).Sum
+          $partitionBytes = ($partitionBindings | Measure-Object -Property bytes -Sum).Sum
+          if ($partitionBindings.Count -ne $receipt.counts.canonical_partitions -or
+            $partitionRows -ne $receipt.counts.canonical_rows -or
+            $partitionBytes -ne $receipt.artifacts.canonical.bytes) {
+            throw 'Full-history partition_bindings rows or bytes drifted.'
+          }
+
+      - name: Preserve full-history DQ and drift reports
+        id: full_reports
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receiptPath = Join-Path $env:DATAOPS_TARGET_ROOT $env:DATAOPS_RECEIPT_RELATIVE_PATH
+          $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 100
+          $qualityPath = Join-Path $env:DATAOPS_M1_ROOT $receipt.artifacts.latest_quality_report.path
+          $revisionPath = Join-Path $env:DATAOPS_M1_ROOT $receipt.artifacts.latest_revision_report.path
+          $sourceManifestPath = Join-Path $env:DATAOPS_M1_ROOT $receipt.artifacts.current_source_manifest.path
+          $quality = Get-Content -LiteralPath $qualityPath -Raw | ConvertFrom-Json -Depth 100
+          $sourceManifest = Get-Content -LiteralPath $sourceManifestPath -Raw | ConvertFrom-Json -Depth 100
+          $requiredQuality = @('source', 'canonical', 'coordinate', 'labels', 'join_coverage', 'revisions', 'lifecycle')
+          foreach ($name in $requiredQuality) {
+            if ($null -eq $quality.$name) { throw "Full-history DQ omitted $name." }
+          }
+          $requiredRevisions = @('added', 'late-arriving', 'modified', 'reclassified', 'unchanged', 'reappeared', 'removal-candidate', 'transformation-updated')
+          foreach ($name in $requiredRevisions) {
+            if ($null -eq $quality.revisions.$name) { throw "Full-history revision DQ omitted $name." }
+          }
+          if ($quality.source.schema_drift -ne $false -or
+            $quality.source.duplicate_source_id_count -ne 0 -or
+            $sourceManifest.scope.ordering -ne 'cartodb_id ASC' -or
+            $sourceManifest.acquisition.source_ids_unique -ne $true -or
+            $null -eq $sourceManifest.source_schema.cartodb_id -or
+            $null -eq $quality.source.counts_by_category -or
+            $null -eq $quality.labels.unknown_observed -or
+            $null -eq $quality.coordinate -or
+            $null -eq $quality.join_coverage.tract -or
+            $null -eq $quality.join_coverage.fixed_grid -or
+            $null -eq $quality.join_coverage.route_corridor) {
+            throw 'Full-history schema/category/cartodb_id/coordinate/spatial coverage gate failed.'
+          }
+          Copy-Item -LiteralPath $receiptPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'full-history-receipt.json')
+          Copy-Item -LiteralPath $qualityPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'data-quality-full-history.json')
+          Copy-Item -LiteralPath $revisionPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'drift-full-history.json')
+          Copy-Item -LiteralPath $sourceManifestPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'full-history-source-manifest.json')
+
+      - name: Build receipt-bound Area Intelligence review candidate
+        id: model_build
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          npm run data:build:area-intelligence -- "--source=$env:DATAOPS_M1_ROOT" "--output=$env:DATAOPS_M2_ROOT"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run data:evaluate:area-intelligence -- "--mart=$env:DATAOPS_M2_ROOT" "--output=$env:DATAOPS_M2_ROOT/evaluation"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Freeze model output as review-only
+        id: model_review
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evaluationRoot = Join-Path $env:DATAOPS_M2_ROOT 'evaluation'
+          $manifest = Get-Content -LiteralPath (Join-Path $evaluationRoot 'manifest.json') -Raw | ConvertFrom-Json -Depth 100
+          $workflowDecision = 'review-required'
+          $reviewArtifactOnly = $true
+          $promotionApplied = $false
+          $servingPublished = $false
+          $mainWritten = $false
+          $deployed = $false
+          $review = [ordered]@{
+            schema = 'engagement-dataops-model-review/v1'
+            workflow_decision = $workflowDecision
+            review_artifact_only = $reviewArtifactOnly
+            observed_evaluation_status = $manifest.promotion.status
+            observed_selected_model = $manifest.promotion.selected_model
+            promotion_applied = $promotionApplied
+            serving_published = $servingPublished
+            main_written = $mainWritten
+            deployed = $deployed
+            authority = [ordered]@{
+              scientific_promotion = $false
+              serving = $false
+              repository_write = $false
+              deployment = $false
+            }
+          }
+          $review | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $env:DATAOPS_REPORT_DIR 'model-review.json')
+          Copy-Item -LiteralPath (Join-Path $evaluationRoot 'model-evaluation-report.json') -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'model-evaluation-report.json')
+
+      - name: Acquire 45-day overlap candidate
+        id: overlap_acquire
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          & node scripts/acquire_crime_events.mjs `
+            "--warehouse=$env:DATAOPS_M1_ROOT/warehouse" `
+            --overlap-days=45 `
+            "--end=$env:DATAOPS_THROUGH_DATE" `
+            "--output=$env:DATAOPS_OVERLAP_ROOT" `
+            --source-contract=scripts/data/crime_event_source_contract.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Ingest overlap as an unreceipted review candidate
+        id: overlap_ingest
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receiptPath = Join-Path $env:DATAOPS_TARGET_ROOT $env:DATAOPS_RECEIPT_RELATIVE_PATH
+          $inputOnlyReceipt = "$receiptPath.input-only-before-overlap"
+          Move-Item -LiteralPath $receiptPath -Destination $inputOnlyReceipt
+          & node scripts/ingest_crime_events.mjs `
+            "--snapshot=$env:DATAOPS_OVERLAP_ROOT" `
+            "--warehouse=$env:DATAOPS_M1_ROOT/warehouse" `
+            --source-contract=scripts/data/crime_event_source_contract.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (Test-Path -LiteralPath $receiptPath) {
+            throw 'Overlap review candidate must not publish a receipt.'
+          }
+
+      - name: Collect overlap DQ and drift reports
+        id: overlap_reports
+        if: steps.input_gate.outputs.status == '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $warehouseRoot = Join-Path $env:DATAOPS_M1_ROOT 'warehouse'
+          $manifest = Get-Content -LiteralPath (Join-Path $warehouseRoot 'manifest.json') -Raw | ConvertFrom-Json -Depth 100
+          $qualityPath = Join-Path $warehouseRoot $manifest.latest_quality_report
+          $revisionPath = Join-Path $warehouseRoot $manifest.latest_revision_report
+          $sourceManifestPath = Join-Path $env:DATAOPS_OVERLAP_ROOT 'manifest.json'
+          $quality = Get-Content -LiteralPath $qualityPath -Raw | ConvertFrom-Json -Depth 100
+          $sourceManifest = Get-Content -LiteralPath $sourceManifestPath -Raw | ConvertFrom-Json -Depth 100
+          $requiredRevisions = @('added', 'late-arriving', 'modified', 'reclassified', 'unchanged', 'reappeared', 'removal-candidate', 'transformation-updated')
+          foreach ($name in $requiredRevisions) {
+            if ($null -eq $quality.revisions.$name) { throw "Overlap revision DQ omitted $name." }
+          }
+          if ($quality.source.schema_drift -ne $false -or
+            $quality.source.duplicate_source_id_count -ne 0 -or
+            $sourceManifest.scope.ordering -ne 'cartodb_id ASC' -or
+            $sourceManifest.acquisition.source_ids_unique -ne $true -or
+            $null -eq $quality.source.counts_by_category -or
+            $null -eq $quality.labels.unknown_observed -or
+            $null -eq $quality.coordinate -or
+            $null -eq $quality.join_coverage) {
+            throw 'Overlap schema/category/cartodb_id/coordinate/spatial coverage gate failed.'
+          }
+          $revisionItem = Get-Item -LiteralPath $revisionPath
+          $drift = [ordered]@{
+            schema = 'engagement-dataops-overlap-drift/v1'
+            status = 'review-required'
+            overlap_days = 45
+            source_snapshot_id = $sourceManifest.snapshot_id
+            source_rows = $sourceManifest.row_count
+            source_schema_drift = $quality.source.schema_drift
+            duplicate_cartodb_id_count = $quality.source.duplicate_source_id_count
+            category_unknown_observed = @($quality.labels.unknown_observed)
+            revision_counts = $quality.revisions
+            coordinate = $quality.coordinate
+            spatial_coverage = $quality.join_coverage
+            revision_artifact = [ordered]@{
+              path = $manifest.latest_revision_report
+              bytes = $revisionItem.Length
+              sha256 = "sha256:$((Get-FileHash -LiteralPath $revisionPath -Algorithm SHA256).Hash.ToLowerInvariant())"
+            }
+            receipt_published = $false
+            promotion_applied = $false
+            serving_eligible = $false
+          }
+          Copy-Item -LiteralPath $qualityPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'data-quality-overlap.json')
+          Copy-Item -LiteralPath $sourceManifestPath -Destination (Join-Path $env:DATAOPS_REPORT_DIR 'overlap-source-manifest.json')
+          $drift | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $env:DATAOPS_REPORT_DIR 'drift-overlap.json')
+
+      - name: Write terminal machine-readable status
+        id: terminal_report
+        if: always()
+        shell: pwsh
+        env:
+          INPUT_STATUS: ${{ steps.input_gate.outputs.status }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SETUP_OUTCOME: ${{ steps.setup.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          PLAN_OUTCOME: ${{ steps.restore_plan.outcome }}
+          ROOT_OUTCOME: ${{ steps.root.outcome }}
+          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          FULL_RECONCILE_OUTCOME: ${{ steps.full_reconcile.outcome }}
+          FULL_REPORTS_OUTCOME: ${{ steps.full_reports.outcome }}
+          MODEL_BUILD_OUTCOME: ${{ steps.model_build.outcome }}
+          MODEL_REVIEW_OUTCOME: ${{ steps.model_review.outcome }}
+          OVERLAP_ACQUIRE_OUTCOME: ${{ steps.overlap_acquire.outcome }}
+          OVERLAP_INGEST_OUTCOME: ${{ steps.overlap_ingest.outcome }}
+          OVERLAP_REPORTS_OUTCOME: ${{ steps.overlap_reports.outcome }}
+        run: |
+          New-Item -ItemType Directory -Path $env:DATAOPS_REPORT_DIR -Force | Out-Null
+          $outcomes = [ordered]@{
+            checkout = $env:CHECKOUT_OUTCOME
+            setup = $env:SETUP_OUTCOME
+            install = $env:INSTALL_OUTCOME
+            restore_plan = $env:PLAN_OUTCOME
+            root = $env:ROOT_OUTCOME
+            restore = $env:RESTORE_OUTCOME
+            verify = $env:VERIFY_OUTCOME
+            full_history_reconciliation = $env:FULL_RECONCILE_OUTCOME
+            full_history_reports = $env:FULL_REPORTS_OUTCOME
+            model_build = $env:MODEL_BUILD_OUTCOME
+            model_review = $env:MODEL_REVIEW_OUTCOME
+            overlap_acquire = $env:OVERLAP_ACQUIRE_OUTCOME
+            overlap_ingest = $env:OVERLAP_INGEST_OUTCOME
+            overlap_reports = $env:OVERLAP_REPORTS_OUTCOME
+          }
+          $success = $env:INPUT_STATUS -eq '0' -and @($outcomes.Values | Where-Object { $_ -ne 'success' }).Count -eq 0
+          $report = [ordered]@{
+            schema = 'engagement-dataops-maintenance-run/v1'
+            status = if ($success) { 'review-required' } else { 'failed' }
+            input_admitted = $env:INPUT_STATUS -eq '0'
+            outcomes = $outcomes
+            reports_preserved_on_failure = $true
+            promotion_applied = $false
+            serving_published = $false
+            main_written = $false
+            deployed = $false
+          }
+          $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $env:DATAOPS_REPORT_DIR 'run-status.json')
+
+      - name: Stage bounded reports only
+        id: report_gate
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path $env:DATAOPS_UPLOAD_DIR -Force | Out-Null
+          $allowed = @(
+            'run-status.json',
+            'input-admission.json',
+            'restore-plan.json',
+            'full-history-receipt.json',
+            'full-history-source-manifest.json',
+            'data-quality-full-history.json',
+            'drift-full-history.json',
+            'data-quality-overlap.json',
+            'drift-overlap.json',
+            'overlap-source-manifest.json',
+            'model-review.json',
+            'model-evaluation-report.json'
+          )
+          $files = @(Get-ChildItem -LiteralPath $env:DATAOPS_REPORT_DIR -File -ErrorAction SilentlyContinue)
+          $unexpected = @($files | Where-Object { $_.Name -notin $allowed })
+          $selected = @($files | Where-Object { $_.Name -in $allowed })
+          $maximumUploadBytes = 52428800
+          $totalBytes = ($selected | Measure-Object -Property Length -Sum).Sum
+          if ($null -eq $totalBytes) { $totalBytes = 0 }
+          $passed = $unexpected.Count -eq 0 -and $totalBytes -le $maximumUploadBytes
+          $gate = [ordered]@{
+            schema = 'engagement-dataops-report-size-gate/v1'
+            status = if ($passed) { 'passed' } else { 'failed' }
+            maximum_upload_bytes = $maximumUploadBytes
+            observed_upload_bytes = $totalBytes
+            unexpected_files = @($unexpected.Name)
+            data_root_uploaded = $false
+          }
+          $gatePath = Join-Path $env:DATAOPS_UPLOAD_DIR 'artifact-size-gate.json'
+          $gate | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $gatePath
+          $runStatus = Join-Path $env:DATAOPS_REPORT_DIR 'run-status.json'
+          if (Test-Path -LiteralPath $runStatus) {
+            Copy-Item -LiteralPath $runStatus -Destination $env:DATAOPS_UPLOAD_DIR
+          }
+          if ($passed) {
+            foreach ($file in $selected) {
+              if ($file.Name -ne 'run-status.json') {
+                Copy-Item -LiteralPath $file.FullName -Destination $env:DATAOPS_UPLOAD_DIR
+              }
+            }
+          } else {
+            exit 1
+          }
+
+      - name: Upload bounded machine-readable reports
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dataops-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dataops-upload
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail closed after preserving reports
+        if: always()
+        shell: pwsh
+        env:
+          REPORT_GATE_OUTCOME: ${{ steps.report_gate.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+        run: |
+          $runStatusPath = Join-Path $env:DATAOPS_REPORT_DIR 'run-status.json'
+          if (-not (Test-Path -LiteralPath $runStatusPath)) { exit 1 }
+          $runStatus = Get-Content -LiteralPath $runStatusPath -Raw | ConvertFrom-Json
+          if ($runStatus.status -ne 'review-required' -or
+            $env:REPORT_GATE_OUTCOME -ne 'success' -or
+            $env:UPLOAD_OUTCOME -ne 'success') {
+            exit 1
+          }

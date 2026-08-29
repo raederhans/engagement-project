@@ -1,0 +1,182 @@
+{
+  "schema": "engagement-dataops-workflow-contract/v1",
+  "synthetic_contract_fixture": true,
+  "authority_source": false,
+  "workflow": {
+    "heavy_data_default": false,
+    "pull_request_mode": "contract-only",
+    "rebuild_triggers": [
+      "workflow_dispatch",
+      "schedule"
+    ],
+    "rebuild_concurrency_group": "data-foundation-maintenance-rebuild",
+    "cancel_rebuild_in_progress": false
+  },
+  "input_gate": {
+    "must_complete_before_data_root_creation": true,
+    "git_sha_pattern": "^[a-f0-9]{40}$",
+    "registry_schema": "ArtifactRegistry/v1",
+    "registry_sha256_pattern": "^[a-f0-9]{64}$",
+    "registry_identity_pattern": "^sha256:[a-f0-9]{64}$",
+    "receipt_schema": "engagement-phl-crime-warehouse-receipt/v3",
+    "receipt_object_id_required": true,
+    "receipt_sha256_pattern": "^[a-f0-9]{64}$",
+    "receipt_identity_pattern": "^sha256:[a-f0-9]{64}$",
+    "receipt_object_bindings": [
+      "path",
+      "bytes",
+      "sha256",
+      "row_count",
+      "partition_inventory"
+    ],
+    "allowed_location_schemes": [
+      "file",
+      "https"
+    ],
+    "location_scheme_requires_explicit_authorization": true,
+    "file_location_root_required_for_file_scheme": true,
+    "file_location_root_must_be_explicit": true,
+    "registry_directory_fallback_allowed": false,
+    "file_location_root_must_differ_from_registry_directory": true,
+    "registry_snapshot_required_after_admission": true,
+    "registry_snapshot_job_local": true,
+    "registry_snapshot_raw_sha256_rechecked": true,
+    "registry_snapshot_identity_rechecked": true,
+    "downstream_registry_source_path_allowed": false,
+    "missing_location_status": "unauthorized",
+    "identity_mismatch_status": "rejected",
+    "fallback_to_latest": false,
+    "fallback_to_sibling_root": false
+  },
+  "restore_interface": {
+    "entrypoint": "scripts/restore_data_artifacts.mjs",
+    "mode_shape": "first-positional",
+    "modes": [
+      "plan",
+      "restore",
+      "verify"
+    ],
+    "named_options_after_mode": [
+      "--registry",
+      "--target",
+      "--location",
+      "--file-location-root",
+      "--concurrency",
+      "--registry-sha256",
+      "--registry-identity",
+      "--replace-existing"
+    ],
+    "file_location_root_passed_for_file_scheme_in_all_modes": true,
+    "registry_pins_passed_in_all_modes": true,
+    "replace_existing_restore_only": true,
+    "replace_existing_default": false,
+    "mode_option_allowed": false
+  },
+  "reconstruction": {
+    "root_template": ".dfev1/dataops-maintenance/v1/<registry-identity>/<receipt-identity>/run-<run-id>-<run-attempt>",
+    "new_root_required": true,
+    "checkpoint_required": true,
+    "checkpoint_identity_fields": [
+      "registry_identity",
+      "receipt_identity",
+      "source_scope",
+      "period_set"
+    ],
+    "full_history_reconciliation": [
+      "acquired_rows",
+      "expected_date_scoped_rows",
+      "canonical_rows",
+      "active_rows",
+      "removal_candidate_rows",
+      "partition_rows",
+      "partition_bytes",
+      "partition_sha256"
+    ],
+    "incremental_refresh": {
+      "mode": "overlap-review-candidate",
+      "overlap_days": 45,
+      "requires_full_history_reconciliation_first": true,
+      "publishes_receipt": false,
+      "serving_eligible": false
+    }
+  },
+  "reports": {
+    "machine_readable": true,
+    "unknown_or_unavailable_is_zero": false,
+    "maximum_upload_bytes": 52428800,
+    "upload_directory": "${RUNNER_TEMP}/dataops-upload",
+    "allowed_files": [
+      "run-status.json",
+      "input-admission.json",
+      "restore-plan.json",
+      "full-history-receipt.json",
+      "full-history-source-manifest.json",
+      "data-quality-full-history.json",
+      "drift-full-history.json",
+      "data-quality-overlap.json",
+      "drift-overlap.json",
+      "overlap-source-manifest.json",
+      "model-review.json",
+      "model-evaluation-report.json",
+      "artifact-size-gate.json"
+    ],
+    "quality_dimensions": {
+      "schema": [
+        "required_fields",
+        "types",
+        "field_order"
+      ],
+      "category": [
+        "counts_by_category",
+        "unknown_labels"
+      ],
+      "cartodb_id": [
+        "missing",
+        "invalid",
+        "duplicate",
+        "ordering",
+        "canonical_one_to_one"
+      ],
+      "late_arrival_and_revision": [
+        "added",
+        "late-arriving",
+        "modified",
+        "reclassified",
+        "unchanged",
+        "reappeared",
+        "removal-candidate",
+        "transformation-updated"
+      ],
+      "coordinate": [
+        "available",
+        "missing",
+        "invalid",
+        "outside_city_bounds"
+      ],
+      "spatial_coverage": [
+        "tract_mapped",
+        "tract_unmapped",
+        "tract_ambiguous",
+        "fixed_grid_mapped",
+        "fixed_grid_unavailable",
+        "route_corridor_available",
+        "route_corridor_unavailable"
+      ]
+    }
+  },
+  "model_boundary": {
+    "workflow_decision": "review-required",
+    "review_artifact_only": true,
+    "automatic_promotion": false,
+    "serving_publish": false,
+    "write_main": false,
+    "deployment": false
+  },
+  "external_side_effects": {
+    "requires_cloud_credentials": false,
+    "creates_bucket_or_container": false,
+    "uploads_data_roots": false,
+    "opens_or_merges_pull_request": false,
+    "pushes_branch": false
+  }
+}
