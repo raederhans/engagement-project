@@ -38,8 +38,9 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
   不确定性与会话内路线隐私；禁止 raw GPS 与 “safest route” 表述。
 - [x] M5: 已准入本机成熟 OSRM 图，并完成 authority-neutral 的 Pareto、敏感性与独立 oracle；
   产品仍固定 `NO_PRODUCT_PROMOTION/unavailable`，没有私人路线生成或运行时晋级权限。
-- [ ] M6: 完成本地 Diary 记录、导出、删除与隐私回归；公共提交只建立默认关闭的严格契约，
-  在 moderation/abuse/deletion/k-anonymity/authority 未闭合时不得启用。
+- [x] M6: 已完成 IndexedDB v2 本地记录、重启持久化、逐项删除、用户手势导出和一次性
+  token-confirmed replace；公共提交固定 `unavailable`/零网络，Sample Community 固定静态虚构
+  只读，并通过 exact `6eed490` 独立阶段验收。
 
 ## Acceptance criteria
 
@@ -66,4 +67,6 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
 - 当前主工作树含未归属 logs/output；监督工作只在隔离 worktree，禁止清理或覆盖。
 - M5 的本地图与公开固定 probe 已成立，但产品 candidate generation、私人 runtime、accessibility、
   safety 与 realtime authority 仍未授权；receipt/test seam 不得绕过 `NO_PRODUCT_PROMOTION`。
+- M6 只证明本机 Windows Chromium 的本地生命周期与隐私边界；不证明 Safari/Firefox、无痕模式、
+  quota/eviction、断电恢复或长期耐久性，也不创建公共上传、共享或社区写入权限。
 - 全量下载、mart 和模型为长进程，必须有唯一 owner、日志、checkpoint 和可恢复路径。

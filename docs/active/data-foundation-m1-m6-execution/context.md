@@ -66,6 +66,10 @@
 | 2026-08-29 | M5-4 在 exact `d7f55aa` 首轮给出 P0=0/P1=0/P2=4/P3=1：public-probe responder causality、accessibility unknown flatten、terminal candidate contradiction、late console checkpoint 和中文 Axe/layout 缺口。 | 暂停 M6，复用 M5-1/2/3 修复；阶段任务继续冻结为 4/4，不创建第五任务。 |
 | 2026-08-29 | M5-1 v3 sibling 将公开 probe 绑定 OS-assigned loopback port 与 spawned child PID 的 readiness/query 前后唯一 TCP ownership；hostile canned pre-owner fail closed 且不被杀死。5-file / 37,546-byte final receipt identity 为 `1cbbf205…fced8`。 | 原 v2 root 字节不变且不得 fallback；v3 authority 仍仅是 same-session private handle，`candidateGenerationAuthorized:false`、`privateRuntimeProductPromotion:false`。 |
 | 2026-08-29 | 监督 exact `7a8cd80` 通过 v3 validate、route-real 350/350、core 16/16、private gate 2/2、四格 Chromium、M4 回归、build、bundle 与 ESLint；M5-4 focused re-review 为 APPROVE，原 findings 全关闭且新 P0/P1/P2/P3=0。 | M5 local stage gate PASS；fresh bundle 3,999,824/4,000,000，余 176 bytes。没有 remote CI、deploy、publish、redistribution 或 product promotion。 |
+| 2026-08-29 | M6-1/2/3 从 M5 closeout 分别完成本地 Diary 生命周期、公共写硬禁用和中立 Sample Community；初始整合 exact `4360960` 通过中央合约、Diary/M4/M5 browser 与 bundle。 | 本阶段任务数冻结为 4/4；公共 submit/agree/improve 对 hostile env/adapter/request aliases 仍固定 unavailable/零网络，Diary 私人值只在本地 IndexedDB/用户导出边界内。 |
+| 2026-08-29 | M6-4 首轮在 exact `4360960` 返回 P0=0/P1=2/P2=2：storage unavailable/partial 在 Insights port 丢失，示例卡片仍有人数/confidence/write CTA，Data Scope 隐藏/ARIA 不完整，Help 暗示可配置上传。 | M6 暂停收尾并复用 M6-1/M6-3 修复；不创建第五任务，也不以初始 green tests 覆盖 reviewer 的直接消费者证据。 |
+| 2026-08-29 | M6-1 `dd9d809` 保留完整 storage snapshot 到最终 DOM；M6-3 `9e5ce6e` 将路段卡片、Data Scope、移动端可见文本与 Help 收敛为完整静态虚构只读/no-upload truth。监督依次整合为 `ad97e75`、`6eed490`。 | unavailable/partial 不再投影 empty/available/zero；Sample Community 无人数、confidence、共识或写 CTA，public unavailable 明确为未保存/未共享。 |
+| 2026-08-29 | exact `6eed490` 中央 `npm run validate`、414/414 focused、66/66 baseline policy、Diary/M4/M5 Chromium、build/bundle/lint 全 PASS；M6-4 独立 fresh full visual 为 35 pass/10 policy-skip/0 fail，最终 APPROVE 且 P0/P1/P2/P3=0。 | M1-M6 本地执行完成；bundle 3,993,513/4,000,000，余 6,487 bytes。未运行 remote CI、push、deploy、publish；公共写、M2 forecast 和 M5 product routing 继续关闭。 |
 
 ## Live process ownership
 
@@ -91,20 +95,24 @@
 | M5 alternatives core/oracle | `01a04b4e-e153-7a03-9924-40994308cde0` / `4e9f` | source/repair commits integrated through exact `7a8cd80` | complete; 16/16, accessibility uncertainty preserved, terminal contradictions fail closed, production wrapper unavailable |
 | M5 product/browser no-promotion | `01a04b6e-46ca-7400-b7dc-93b00fe12d45` / `a7b8` | exact supervisor `7a8cd80` built output | complete; private self-test 2/2 and desktop/mobile x en/zh-CN Chromium PASS, zero console/page/private/candidate-OSRM requests |
 | M5 final independent review | `01a04b78-f0a3-7720-9793-afdf8b3bedbd` / `f0ac` | initial `d7f55aa`, focused exact `7a8cd80` | complete; initial P2=4/P3=1 all CLOSED, final APPROVE with P0/P1/P2/P3 zero |
+| M6 local Diary lifecycle | `01a04b9f-7280-7790-9e7b-f416f71d2663` / `b29f` | source `39e2413`, repair `dd9d809`, supervisor integrations `4360960` and `ad97e75` | complete; DB v2 lifecycle, restart/export/delete and one-time replace token PASS; storage unavailable/partial reaches final Insights DOM |
+| M6 public write hard-disable | `01a04b9f-7280-7790-9e7b-f3f6e4ed1832` / `29f9` | sources `1d485d0`, `bbd1827`; supervisor `df39332`, `5c45978` | complete; submit/agree/improve deterministic unavailable, hostile seams and private sentinels produce zero transport |
+| M6 neutral Sample Community | `01a04b9f-729f-7fc1-b19e-f6952b548785` / `778e` | source `ffa519e`, repair `9e5ce6e`; supervisor `441e202`, `6eed490` | complete; static-invented-read-only truth across visible/hidden/ARIA/title/data attrs, mobile disclosure visible, no write CTA |
+| M6 final independent review | `01a04bb4-464f-7b83-9a25-f7ffbdb483f4` / `8313` | initial exact `4360960`, focused exact `6eed490` | complete; initial P1=2/P2=2 all CLOSED, final APPROVE with P0/P1/P2/P3 zero; full visual 35/10 skip/0 fail |
 
 ## Handoff
 
-M5 final `7a8cd80` 已通过独立 reviewer 的 exact-tip focused gate：初始 P2=4/P3=1 全部关闭，
-最终 P0/P1/P2/P3 均为零。本机成熟 OSRM 图、固定公开 probe 因果、authority-neutral Pareto/
-sensitivity/oracle 与四格隐私浏览器证据已闭合；产品继续固定 `NO_PRODUCT_PROMOTION/unavailable`，
-没有私人 candidate generation、accessibility/safety/realtime 或 runtime promotion authority。
-M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general browser-smoke failure、176-byte
-bundle 余量以及未运行 remote CI/deploy/publish/redistribution 继续披露。
+M1-M6 本地执行已在 exact implementation candidate `6eed490` 闭合。M6-4 初始 P1=2/P2=2
+全部修复并独立复验为 APPROVE，最终 P0/P1/P2/P3 均为零；完整 visual 35 pass/10 policy-skip/
+0 fail，Diary/M4/M5 Chromium、`npm run validate`、bundle 与 lint 均 PASS。Diary 只在本地
+IndexedDB/用户手势导出边界内，公共写固定 unavailable/零网络，Sample Community 固定静态虚构
+只读，M5 继续 `NO_PRODUCT_PROMOTION`。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、
+既有 general browser-smoke failure、Windows Chromium 单浏览器边界以及未运行 remote CI/push/
+deploy/publish/redistribution 继续披露；所有 retained ignored data roots/worktrees 原样保留。
 
 ## Next step
 
-提交本记录后，从 exact supervisor closeout tip 创建 M6-1 本地 Diary 生命周期、M6-2 公共提交
-硬禁用、M6-3 中立 Sample Community/insights 三个 high 任务；M6-4 保留给真实整合候选的独立
-exact-tip reviewer。Diary 只能本地 IndexedDB、用户手势导出和 token-confirmed replace/delete；
-公共 agree/improve 及任何 env/adapter/request 注入必须保持无网络和 unavailable。示例社区数据必须
-明确 static/sample/非实时，颜色与措辞不得投影安全等级；bundle ceiling 不提高，阶段最多 4 个任务。
+当前授权范围内没有剩余自动执行步骤。提交 docs-only closeout 后保持 supervisor、M1/M2/M4/M5
+ignored roots 和用户 Desktop WIP 不动，不 push、deploy、publish 或清理。后续若要运行 remote CI、
+发布当前只读产品、扩展 Safari/Firefox/quota/eviction 持久化验证，或设计真正的公共社区写入，必须
+作为单独任务重新取得相应授权；M2 forecast 与 M5 product routing 也不能因本次 M1-M6 完成而晋级。
