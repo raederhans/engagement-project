@@ -32,7 +32,7 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
   corridor 状态、ACS E/M、lineage 与 DQ；仓库默认 `serving_eligible:false`。
 - [x] M2: 从本轮 exact M1 receipt 重建 tract/grid-week marts，复跑冻结评估；只有预定义 gate
   通过才提供 forecast，否则诚实保留 `not-promoted/unavailable`。
-- [ ] M3: 让 2-4 个住房/社区比较维度拥有可验证 source adapters、地址/parcel admission、
+- [x] M3: 让 2-4 个住房/社区比较维度拥有可验证 source adapters、地址/parcel admission、
   partial/unavailable 语义、权重敏感性和会话内隐私边界。
 - [ ] M4: 在真实道路图和来源准入成立后完成 Known Route corridor evidence、分段贡献、
   不确定性与会话内路线隐私；禁止 raw GPS 与 “safest route” 表述。

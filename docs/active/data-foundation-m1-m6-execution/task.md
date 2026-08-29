@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M3 repair candidate ready for focused re-review — initial M3-4 review failed closed; integrated repairs at 0bb709d pass the central Home Compare gate (4/4 high tasks)`。
+`M3 complete — exact 7a0f03c passed the independent final gate with P0/P1/P2 zero and M4 admission PASS (4/4 high tasks)`。
 
 ## Checklist
 
@@ -28,8 +28,8 @@
 - [x] 整合 M3 source-final candidates 并运行中央 Home Compare gate。
 - [x] 创建 M3-4 最终 reviewer；首轮复核在 `a795450` 以 3 个 P1、1 个 P2 fail closed。
 - [x] 复用 M3-1/M3-2 修复全部四项 findings，并在监督 worktree 运行合并态中央门禁。
-- [ ] 让 M3-4 对修复后的精确候选做 focused re-review 并完成 M3 stage gate。
-- [ ] M3 Home and Neighborhood Compare stage gate。
+- [x] 让 M3-4 对修复后的精确候选做 focused re-review 并完成 M3 stage gate。
+- [x] M3 Home and Neighborhood Compare stage gate。
 - [ ] M4 Known Route Evidence stage gate。
 - [ ] M5 Adaptive Route Alternatives stage gate。
 - [ ] M6 Local Diary / closed Community Evidence stage gate。
@@ -97,6 +97,10 @@
 | M3-2 review repair `04a047c` / supervisor `73a3a97` | normalized camel/snake/kebab private keys; recursively rejects identity aliases and unsafe conclusions across metric/source/profile/root text while preserving ordinary `sourceId`/non-identity `ownership`. Task gate 31/31, build, bundle and browser PASS. |
 | M3-1 review repair `98f7b49` / supervisor `0bb709d` | OPA property dates later than retrieval +1 day are withheld and counted; metric becomes partial and `dataAsOf` uses admitted dates only. A synchronous code-owned SHA-256 identity binds all nine source endpoints/datasets/field contracts. |
 | central merged M3 repair gate at `0bb709d` | 32/32 Home Compare/source tests, targeted ESLint, build, diff-check and built-browser PASS; source registry chunk 4,601/1,985 raw/gzip; non-VRE 3,999,488/4,000,000 bytes, leaving 512 bytes; zero console/page errors. |
+| M3 semantic hardening through `4201fcb` | Removed match-wide negation and bounded proximity inference, bound direct/causal predicates locally, scoped metadata to trusted subjects, compacted generated Vite manifest from 18,152 to 14,681 bytes, and passed 51/51 plus built-browser; reviewer still found four classes of ordinary-language variants. |
+| fail-closed semantic candidate `0602a4a` | Replaced open-ended direct/causal/evidence inference with unsafe-lexicon default denial and fully anchored owned disclosure, quantified denial, metadata and operational allowlists; 53/53, ESLint, build, bundle and browser passed, but reviewer reproduced one P1 where `.+` in evidence denial swallowed a later assertion. |
+| evidence-denial repair `9ccabe5` | EN/ZH evidence denials now bind one complete controlled target and reject cross-sentence, inference and second-predicate suffixes; 54/54 PASS, bundle 3,999,738/4,000,000 and browser PASS. Reviewer independently found 0 semantic/source/privacy findings, but exposed an existing close/reopen browser-test race at 2 PASS / 2 FAIL. |
+| final browser-gate repair `7a0f03c` | Test waits for the newly mounted visible dialog and exactly two visible empty address controls before checking a fresh private session; no sleeps/retry swallowing or product-code change. Central and independent reviewer each obtained six consecutive browser PASS runs; final reviewer verdict P0=0/P1=0/P2=0, M3 local gate PASS, M4 admission PASS. |
 
 ## Open risks and remaining work
 
@@ -114,7 +118,7 @@
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
 - M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；M2-4 和后续审计完成前
   不得清理、移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- M3 repair candidate 的 bundle 只余 512 bytes；M4-M6 新 UI 不能提高 ceiling，仍需继续实际 code-splitting/体积收敛。
+- M3 final candidate 的 bundle 为 3,999,738/4,000,000 non-VRE bytes，只余 262 bytes；M4-M6 不能提高 ceiling，任何 bundled 改动必须同步做真实 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，

@@ -54,6 +54,9 @@
 | 2026-08-29 | M3-4 在 exact `a795450` 首轮独立复核给出 FAIL：P0=0、P1=3、P2=1。property future clocks、普通 evidence/source 结论文本、camelCase private aliases 和 source registry drift 均有可复现 hostile admission。 | M4 继续暂停；复用既有 M3-1/M3-2 任务修复，不创建第五个 M3 任务，也不提高 bundle ceiling。 |
 | 2026-08-29 | M3-2 `04a047c` 扩展 conclusion/private-key fail-closed；M3-1 `98f7b49` 过滤未来 OPA 日期并以同步 SHA-256 绑定九源 endpoint/dataset/schema。监督依次整合为 `73a3a97`、`0bb709d`。 | 四项初始 findings 均有 hostile regression；M2 forecast 与 commute 仍 unavailable，地址/坐标/parcel 仍只在会话内和准入的 POST body。 |
 | 2026-08-29 | 合并态中央 gate 在 `0bb709d` 通过 32/32、ESLint、build、bundle 3,999,488/4,000,000 和 built browser；source registry 4,601/1,985 raw/gzip，浏览器 0 console/page errors。 | 只允许把该 exact repair candidate 交回同一 M3-4 reviewer；M3 尚未关闭，M4 尚未启动。 |
+| 2026-08-29 | 多轮 M3-4 对抗证明自然语言肯定语法枚举仍会漏普通复数、修饰词、中文体貌词和省略主语结构；监督在 `0602a4a` 改为 unsafe lexicon 默认拒绝，只允许全字符串受控 disclosures/denials/metadata/operational 文案。 | 未知或歧义安全语义被拒是产品策略；不再把运行时 regex 当成开放式 NLP。typed claim AST 保留为后续架构方向，不扩大本轮范围。 |
+| 2026-08-29 | M3-4 在 `0602a4a` 仍复现 evidence-denial `.+` 跨句吞掉后续肯定结论；`9ccabe5` 将英中文本绑定到单个受控 target，35 hostile/39 legitimate 独立矩阵无逃逸或误拒。 | 语义/source/privacy gate 已闭合；任何新的代码拥有安全词汇文案仍须显式进入全锚定 allowlist。 |
+| 2026-08-29 | M3-4 在同一 fresh dist 上发现 close/reopen browser gate 2 PASS/2 FAIL：测试在 async controller 重建前读取空控件；`7a0f03c` 改为等待新 dialog 与恰好两个可见空地址控件。中央与 reviewer 各自连续 6/6 PASS。 | 这是既有 test race 而非 production tree 回归；最终 exact `7a0f03c` 的独立 verdict 为 P0/P1/P2 zero、M3 local PASS、M4 admission PASS。M4 可以开始。 |
 
 ## Live process ownership
 
@@ -68,20 +71,21 @@
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 | M2 final independent review | `01a049db-fda6-77b1-98fe-e1078002aa23` / `2b86` | exact reviewer bases `d23863b` then `7f167e6` | initial FAIL on runtime lineage P1; focused re-review PASS with P0/P1/P2 zero; worktree clean, no publish or long data rerun |
 | M3 source/admission | `01a049fa-60bc-7070-b635-9650b58e4ed9` / `cf2d` | initial source `3b78b73`, bundle repair `06b1b44`, review repair parent `a795450` | complete; final repair `98f7b49`, integrated as `0bb709d`; live public-landmark gate complete, no active source/browser process |
-| M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | review repair parent `a795450` | complete; initial source `eb51e8f`, final repair `04a047c`, integrated as `73a3a97`; worktree clean |
-| M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | exact integrated parent `b0e629c` | complete; source-final `148cfaa`, fixture repair `c06dcfc`; no active browser/server process |
-| M3 final independent review | `01a04a1d-74f8-7b70-a252-0b7ea1ee55f5` / `73e0` | initial exact candidate `a795450` | initial FAIL with P0=0/P1=3/P2=1; waiting for focused re-review of the exact repair candidate |
+| M3 comparison/privacy contract | `01a049fa-60dc-7e90-862e-b8aed88c23db` / `c979` | final repair bases through exact `0602a4a` | complete; fail-closed source `4a2a72c` and single-target denial repair `d7d8fd1` integrated as `0602a4a` and `9ccabe5`; worktree clean |
+| M3 UI/browser privacy | `01a049fa-bf6b-7c12-b608-c2a236da3fec` / `1f65` | final supervisor exact `7a0f03c` | complete; original source-final `148cfaa`, POST fixture `c06dcfc`; final follow-up returned 0 items, so supervisor made the one-file observable-ready test repair and proved six consecutive PASS runs |
+| M3 final independent review | `01a04a1d-74f8-7b70-a252-0b7ea1ee55f5` / `73e0` | final exact candidate `7a0f03c` | complete; final P0/P1/P2 zero, M3 local gate PASS and M4 admission PASS; no active browser/server process |
 
 ## Handoff
 
-M3 repair candidate `0bb709d` 已关闭首轮 reviewer 的四个 hostile admissions，并通过合并态
-domain/source、build、bundle 与 built-browser gate；地址/坐标/parcel 仅进入准入的官方 POST body，
-未进入 URL、日志、持久存储或 share state。M2 仍为 `not-promoted/unavailable`，commute/routing
-仍 unavailable。M3 尚待同一 reviewer focused re-review；M1 reviewer-channel 缺口、M2
-observer-blinding 偏差、既有 general browser-smoke failure 和商业/再发布许可未确认继续披露。
+M3 final `7a0f03c` 已通过同一独立 reviewer 的 exact-tip gate：P0/P1/P2 均为零，M3 local gate
+与 M4 admission 均 PASS。地址/坐标/parcel 仅进入准入的官方 POST body，未进入 URL、日志、
+持久存储或 share state；未知安全语义默认 fail closed。M2 仍为 `not-promoted/unavailable`，
+commute/routing 仍 unavailable。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general
+browser-smoke failure、262-byte bundle 余量和商业/再发布许可未确认继续披露。
 
 ## Next step
 
-提交本记录后，把精确修复候选交回既有 M3-4（本阶段已达 4/4）做 focused re-review；复算四个
-原 findings、source/parcel、2-4 profiles、weights、privacy、accessibility、M2/commute unavailable、
-bundle 与 built-browser hostile paths。只有 reviewer P0/P1/P2 为零并 PASS 后才关闭 M3 并创建 M4 任务。
+提交本记录后，从 exact supervisor tip 创建 M4-1 builder/receipt 与 M4-2 Centerline/privacy/UI 两个
+互斥 high 任务；先完成代码整合和聚焦门禁，再创建唯一 M4-3 ignored data owner 扫描本轮 M1
+64 partitions，最后以 M4-4 独立 exact-tip reviewer 关闭阶段。M4 仍不得把 Centerline 提升为
+mode/accessibility/routing authority，也不得生成“safest route”结论。
