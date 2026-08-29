@@ -16,7 +16,7 @@ export const M5_SCHEMA_VERSIONS = Object.freeze({
   accessibilityEvidence: 'engagement-route-accessibility-edge-evidence/v1',
   result: 'engagement-route-alternatives-m5-result/v1',
   coreInput: 'engagement-route-alternatives-m5-core-input/v1',
-  coreResult: 'engagement-route-alternatives-m5-core-result/v1',
+  coreResult: 'engagement-route-alternatives-m5-core-result/v2',
 });
 
 const sensitivityPolicy = (scenarioId, durationWeightBasisPoints,
@@ -1147,6 +1147,9 @@ function admitCoreInput(raw) {
   if (value.searchState === 'complete' && candidates.length === 0) {
     fail('complete core input requires candidates');
   }
+  if (value.searchState !== 'complete' && candidates.length !== 0) {
+    fail('terminal core input must not contain candidates');
+  }
   return deepFreeze({
     schemaVersion: M5_SCHEMA_VERSIONS.coreInput,
     searchState: value.searchState,
@@ -1165,10 +1168,15 @@ function coreUnavailable(termination, reasonCode) {
     reasonCode,
     candidateSet: null,
     pareto: { status: 'unavailable', reasonCode, candidateIds: [] },
+    accessibility: {
+      status: 'unavailable',
+      reasonCode,
+      candidateIds: [],
+      unavailableCandidateIds: [],
+    },
     minima: {
       durationMinimumCandidateIds: [],
       exposureMinimumCandidateIds: [],
-      accessibilityCandidateIds: [],
     },
     balanced: { status: 'unavailable', reasonCode, rankedCandidateIds: [], scores: [] },
     sensitivity: { status: 'unavailable', reasonCode, scenarios: [] },
@@ -1218,6 +1226,41 @@ function coreRecord(candidate) {
   };
 }
 
+function coreAccessibility(records) {
+  const candidateIds = records
+    .filter(({ accessibilityEvidenceState }) => (
+      accessibilityEvidenceState === 'complete-meets'
+    ))
+    .map(({ candidateId }) => candidateId)
+    .sort(compareIds);
+  const unavailableCandidateIds = records
+    .filter(({ accessibilityEvidenceState }) => accessibilityEvidenceState === 'unavailable')
+    .map(({ candidateId }) => candidateId)
+    .sort(compareIds);
+  if (unavailableCandidateIds.length === records.length) {
+    return {
+      status: 'unavailable',
+      reasonCode: 'accessibility-evidence-unavailable-for-all-candidates',
+      candidateIds,
+      unavailableCandidateIds,
+    };
+  }
+  if (unavailableCandidateIds.length > 0) {
+    return {
+      status: 'partial',
+      reasonCode: 'accessibility-evidence-partial-across-candidate-set',
+      candidateIds,
+      unavailableCandidateIds,
+    };
+  }
+  return {
+    status: 'available',
+    reasonCode: 'complete-accessibility-evidence-for-all-candidates',
+    candidateIds,
+    unavailableCandidateIds,
+  };
+}
+
 /**
  * Authority-neutral mathematical core for tests and a future private adapter.
  * It accepts already-normalized metrics, performs no admission, and never
@@ -1245,6 +1288,7 @@ export function evaluateRouteAlternativesM5Core(rawInput) {
   const durationMinimum = Math.min(...records.map(({ durationMs }) => durationMs));
   const exposureMinimum = Math.min(...records.map(({ exposure }) => exposure));
   const baseline = balancedRanking(records, M5_BALANCED_POLICY_V1);
+  const accessibility = coreAccessibility(records);
   const reasonCode = 'authority-neutral-mathematical-analysis-complete';
   return deepFreeze({
     schemaVersion: M5_SCHEMA_VERSIONS.coreResult,
@@ -1273,6 +1317,7 @@ export function evaluateRouteAlternativesM5Core(rawInput) {
       reasonCode: 'non-dominated-on-normalized-duration-and-exposure',
       candidateIds: paretoCandidateIds(records),
     },
+    accessibility,
     minima: {
       durationMinimumCandidateIds: records
         .filter(({ durationMs }) => durationMs === durationMinimum)
@@ -1280,12 +1325,6 @@ export function evaluateRouteAlternativesM5Core(rawInput) {
         .sort(compareIds),
       exposureMinimumCandidateIds: records
         .filter(({ exposure }) => exposure === exposureMinimum)
-        .map(({ candidateId }) => candidateId)
-        .sort(compareIds),
-      accessibilityCandidateIds: records
-        .filter(({ accessibilityEvidenceState }) => (
-          accessibilityEvidenceState === 'complete-meets'
-        ))
         .map(({ candidateId }) => candidateId)
         .sort(compareIds),
     },

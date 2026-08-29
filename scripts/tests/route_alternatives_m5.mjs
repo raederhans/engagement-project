@@ -190,6 +190,39 @@ function oracleBalancedRanking(candidates, policy) {
     .map(({ candidateId }) => candidateId);
 }
 
+function oracleAccessibility(candidates) {
+  const unavailableCandidateIds = candidates
+    .filter(({ accessibilityEvidenceState }) => accessibilityEvidenceState === 'unavailable')
+    .map(({ candidateId }) => candidateId)
+    .sort();
+  const candidateIds = candidates
+    .filter(({ accessibilityEvidenceState }) => accessibilityEvidenceState === 'complete-meets')
+    .map(({ candidateId }) => candidateId)
+    .sort();
+  if (unavailableCandidateIds.length === candidates.length) {
+    return {
+      status: 'unavailable',
+      reasonCode: 'accessibility-evidence-unavailable-for-all-candidates',
+      candidateIds,
+      unavailableCandidateIds,
+    };
+  }
+  if (unavailableCandidateIds.length > 0) {
+    return {
+      status: 'partial',
+      reasonCode: 'accessibility-evidence-partial-across-candidate-set',
+      candidateIds,
+      unavailableCandidateIds,
+    };
+  }
+  return {
+    status: 'available',
+    reasonCode: 'complete-accessibility-evidence-for-all-candidates',
+    candidateIds,
+    unavailableCandidateIds,
+  };
+}
+
 test('public production entry ignores two consistent fake verifiers and cannot promote', () => {
   let verifierCalls = 0;
   const fakeOptions = {
@@ -356,7 +389,65 @@ test('pure core matches an independent Pareto oracle and separates metric from e
   assert.deepEqual(result.candidateSet.evidenceEquivalenceGroups, [[
     'candidate:a', 'candidate:e',
   ]]);
-  assert.deepEqual(result.minima.accessibilityCandidateIds, ['candidate:b']);
+  assert.deepEqual(result.accessibility, oracleAccessibility(oracleCandidates));
+});
+
+test('pure core mechanically distinguishes unavailable from complete-does-not-meet', () => {
+  const unavailableCandidate = coreCandidate(
+    'candidate:a', ['edge:a'], 1_000, 1_000_000, 'evidence:a', 'unavailable',
+  );
+  const doesNotMeetCandidate = coreCandidate(
+    'candidate:a', ['edge:a'], 1_000, 1_000_000, 'evidence:a', 'complete-does-not-meet',
+  );
+  const unavailable = evaluateRouteAlternativesM5Core(coreInput([unavailableCandidate]));
+  const doesNotMeet = evaluateRouteAlternativesM5Core(coreInput([doesNotMeetCandidate]));
+
+  assert.deepEqual(unavailable.accessibility, oracleAccessibility([unavailableCandidate]));
+  assert.deepEqual(doesNotMeet.accessibility, oracleAccessibility([doesNotMeetCandidate]));
+  assert.notEqual(JSON.stringify(unavailable), JSON.stringify(doesNotMeet));
+  assert.deepEqual(unavailable.accessibility.unavailableCandidateIds, ['candidate:a']);
+  assert.deepEqual(doesNotMeet.accessibility.unavailableCandidateIds, []);
+
+  const allCompleteCandidates = [
+    coreCandidate(
+      'candidate:meets', ['edge:meets'], 1_000, 1_000_000,
+      'evidence:meets', 'complete-meets',
+    ),
+    coreCandidate(
+      'candidate:no', ['edge:no'], 1_100, 900_000,
+      'evidence:no', 'complete-does-not-meet',
+    ),
+  ];
+  const allComplete = evaluateRouteAlternativesM5Core(coreInput(allCompleteCandidates));
+  assert.deepEqual(allComplete.accessibility, oracleAccessibility(allCompleteCandidates));
+  assert.deepEqual(allComplete.accessibility.candidateIds, ['candidate:meets']);
+});
+
+test('pure core keeps mixed accessibility evidence partial without changing Pareto or balance', () => {
+  const candidates = [
+    coreCandidate(
+      'candidate:meets', ['edge:meets'], 1_000, 2_000_000,
+      'evidence:meets', 'complete-meets',
+    ),
+    coreCandidate(
+      'candidate:unknown', ['edge:unknown'], 1_200, 1_000_000,
+      'evidence:unknown', 'unavailable',
+    ),
+    coreCandidate(
+      'candidate:no', ['edge:no'], 1_400, 3_000_000,
+      'evidence:no', 'complete-does-not-meet',
+    ),
+  ];
+  const result = evaluateRouteAlternativesM5Core(coreInput(candidates));
+
+  assert.deepEqual(result.accessibility, oracleAccessibility(candidates));
+  assert.deepEqual(result.pareto.candidateIds, oraclePareto(candidates));
+  assert.deepEqual(
+    result.balanced.rankedCandidateIds,
+    oracleBalancedRanking(structuredClone(candidates), M5_BALANCED_POLICY_V1),
+  );
+  assert.deepEqual(result.accessibility.candidateIds, ['candidate:meets']);
+  assert.deepEqual(result.accessibility.unavailableCandidateIds, ['candidate:unknown']);
 });
 
 test('pure core fails closed on conflicting evidence for the same route', () => {
@@ -376,7 +467,49 @@ test('pure core exposes budget exhaustion and disconnection without rankings', (
     assert.equal(result.termination, searchState);
     assert.deepEqual(result.balanced.rankedCandidateIds, []);
     assert.deepEqual(result.pareto.candidateIds, []);
+    assert.deepEqual(result.accessibility, {
+      status: 'unavailable',
+      reasonCode: result.reasonCode,
+      candidateIds: [],
+      unavailableCandidateIds: [],
+    });
   }
+});
+
+test('pure core rejects non-empty terminal candidate sets as input contradictions', () => {
+  for (const searchState of ['budget-exhausted', 'disconnected']) {
+    const result = evaluateRouteAlternativesM5Core(coreInput([
+      coreCandidate('candidate:a', ['edge:a'], 1_000, 1_000_000),
+    ], searchState));
+    assert.equal(result.status, 'unavailable');
+    assert.equal(result.termination, 'invalid-input');
+    assert.equal(result.reasonCode, 'input-contract-invalid');
+  }
+});
+
+test('pure core terminal contradictions remain fail-closed for accessors and duplicate IDs', () => {
+  let getterCalls = 0;
+  const accessorCandidate = coreCandidate('candidate:a', ['edge:a'], 1_000, 1_000_000);
+  Object.defineProperty(accessorCandidate, 'travelDurationMs', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return 1_000;
+    },
+  });
+  const accessorResult = evaluateRouteAlternativesM5Core(coreInput(
+    [accessorCandidate],
+    'disconnected',
+  ));
+  assert.equal(getterCalls, 0);
+  assert.equal(accessorResult.termination, 'invalid-input');
+
+  const duplicateResult = evaluateRouteAlternativesM5Core(coreInput([
+    coreCandidate('candidate:a', ['edge:a'], 1_000, 1_000_000),
+    coreCandidate('candidate:a', ['edge:b'], 1_100, 900_000),
+  ], 'budget-exhausted'));
+  assert.equal(duplicateResult.termination, 'invalid-input');
+  assert.equal(duplicateResult.reasonCode, 'input-contract-invalid');
 });
 
 test('pure core sensitivity matches an independent oracle and captures a ranking reversal', () => {
