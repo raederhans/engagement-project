@@ -180,6 +180,35 @@ test('Centerline transaction rejects schema drift, truncation, duplicate/unknown
   assert.equal((await transaction([metadata(), { count: 3 }, featureCollection(), metadata()])).reason, 'source-drift');
 
   const sourceVersion = admitCenterlineMetadata(metadata());
+  assert.equal(admitCenterlineFeatureCollection(featureCollection(), {
+    expectedCount: 2, sourceVersion,
+  }).featureCount, 2);
+
+  for (const mutateCrs of [
+    (collection) => { delete collection.crs; },
+    (collection) => { collection.crs = null; },
+    (collection) => { collection.crs.properties.name = 'EPSG:3857'; },
+    (collection) => { collection.crs.wkid = 4326; },
+    (collection) => { collection.crs.properties.wkid = 4326; },
+  ]) {
+    const hostileCrs = featureCollection();
+    mutateCrs(hostileCrs);
+    assert.throws(() => admitCenterlineFeatureCollection(hostileCrs, {
+      expectedCount: 2, sourceVersion,
+    }), /incomplete or invalid/i);
+  }
+
+  const unknownFeatureKey = featureCollection();
+  unknownFeatureKey.features[0].bbox = [];
+  assert.throws(() => admitCenterlineFeatureCollection(unknownFeatureKey, {
+    expectedCount: 2, sourceVersion,
+  }), /geometry is unsupported/i);
+  const unknownGeometryKey = featureCollection();
+  unknownGeometryKey.features[0].geometry.spatialReference = { wkid: 4326 };
+  assert.throws(() => admitCenterlineFeatureCollection(unknownGeometryKey, {
+    expectedCount: 2, sourceVersion,
+  }), /geometry is unsupported/i);
+
   const duplicate = featureCollection();
   duplicate.features[1].properties.objectid = duplicate.features[0].properties.objectid;
   assert.throws(() => admitCenterlineFeatureCollection(duplicate, {
@@ -190,12 +219,6 @@ test('Centerline transaction rejects schema drift, truncation, duplicate/unknown
   assert.throws(() => admitCenterlineFeatureCollection(unknown, {
     expectedCount: 2, sourceVersion,
   }), /unrequested fields/i);
-  const wrongCrs = featureCollection();
-  wrongCrs.crs.properties.name = 'EPSG:3857';
-  assert.throws(() => admitCenterlineFeatureCollection(wrongCrs, {
-    expectedCount: 2, sourceVersion,
-  }), /incomplete or invalid/i);
-
   assert.equal((await requestPhiladelphiaCenterlineCatalog({
     normalizedRoute, consent, request: async () => { throw new TypeError('network'); },
   })).reason, 'source-network');

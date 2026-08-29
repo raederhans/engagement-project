@@ -369,6 +369,7 @@ function centerlineFeatures() {
   });
   return {
     type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
     features: [
       edge(10, 100, 1, 2, [[-75.17, 39.95], [-75.16, 39.95]]),
       edge(11, 101, 2, 3, [[-75.16, 39.95], [-75.15, 39.95]]),

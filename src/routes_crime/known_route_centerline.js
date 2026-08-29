@@ -152,10 +152,10 @@ export function createCenterlineQueryEnvelope(normalizedRoute) {
 export function admitCenterlineFeatureCollection(value, { expectedCount, sourceVersion } = {}) {
   assertSafeData(value, 'centerline response');
   if (value?.type !== 'FeatureCollection' || !Array.isArray(value.features)
-    || Object.keys(value).some((key) => !['type', 'crs', 'features'].includes(key))
-    || (value.crs !== undefined && (value.crs?.type !== 'name'
-      || value.crs?.properties?.name !== 'EPSG:4326'
-      || Object.keys(value.crs).length !== 2 || Object.keys(value.crs.properties).length !== 1))
+    || Object.keys(value).sort().join() !== 'crs,features,type'
+    || value.crs?.type !== 'name' || value.crs?.properties?.name !== 'EPSG:4326'
+    || Object.keys(value.crs).sort().join() !== 'properties,type'
+    || Object.keys(value.crs.properties).join() !== 'name'
     || !Number.isInteger(expectedCount) || expectedCount < 1
     || expectedCount > PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures
     || value.features.length !== expectedCount
@@ -166,7 +166,10 @@ export function admitCenterlineFeatureCollection(value, { expectedCount, sourceV
   const objectIds = new Set();
   let totalCoordinates = 0;
   const edges = value.features.map((feature, index) => {
-    if (feature?.type !== 'Feature' || feature.geometry?.type !== 'LineString'
+    if (feature?.type !== 'Feature'
+      || Object.keys(feature).sort().join() !== 'geometry,properties,type'
+      || feature.geometry?.type !== 'LineString'
+      || Object.keys(feature.geometry).sort().join() !== 'coordinates,type'
       || !Array.isArray(feature.geometry.coordinates) || feature.geometry.coordinates.length < 2
       || feature.geometry.coordinates.length > MAX_COORDINATES_PER_FEATURE) {
       throw new Error('Philadelphia centerline geometry is unsupported.');
