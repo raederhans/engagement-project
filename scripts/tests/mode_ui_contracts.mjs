@@ -147,9 +147,9 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
   assert.deepEqual(describeDiaryDataScope('community'), {
     mode: 'diary',
     kind: 'sample',
-    shortLabel: 'Sample',
-    accessibleLabel: 'Sample Community is illustrative, read-only sample data.',
-    details: ['Illustrative sample · read-only · not shared'],
+    shortLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    accessibleLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    details: ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.'],
   });
 });
 
@@ -192,17 +192,21 @@ test('ready scope details are cleared or replaced when status returns to loading
   presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
   assert.equal(status.textContent, 'Crime loading');
   assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(status.dataset.scopeDisclosure, undefined);
 
   presenter.showStatus({ mode: 'crime', phase: 'ready', label: 'Crime data ready' });
   assert.equal(status.textContent, 'Fallback · records through Jul 30');
   assert.equal(status.dataset.scopeKind, 'fallback');
+  assert.equal(status.dataset.scopeDisclosure, undefined);
   assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
   assert.deepEqual(details.map((element) => element.textContent), [scope.details[0], scope.details[0]]);
 
   presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
   assert.equal(status.textContent, 'Crime loading');
   assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(status.dataset.scopeDisclosure, undefined);
   assert.ok(details.every((element) => element.dataset.scopeKind === undefined));
+  assert.ok(details.every((element) => element.dataset.scopeDisclosure === undefined));
   assert.deepEqual(details.map((element) => element.textContent), ['', '']);
 
   presenter.showStatus({ mode: 'crime', phase: 'failed', label: 'Crime data unavailable' });

@@ -275,7 +275,7 @@ test('segment popup escapes external tag labels at the actual HTML sink', () => 
   assert.match(html, /&lt;img/);
 });
 
-test('segment CTA state comes from feature data without reading window globals', () => {
+test('segment example remains read-only without reading window globals or feature CTA state', () => {
   const originalWindow = globalThis.window;
   globalThis.window = new Proxy({}, {
     get(_target, property) {
@@ -290,8 +290,8 @@ test('segment CTA state comes from feature data without reading window globals',
       n_eff: 5,
       __diaryVotes: { agreeDisabled: true, saferDisabled: false },
     });
-    assert.match(html, /data-diary-action="agree"[^>]*disabled/);
-    assert.doesNotMatch(html, /data-diary-action="safer"[^>]* disabled/);
+    assert.match(html, /data-sample-status="static-invented-read-only"/);
+    assert.doesNotMatch(html, /data-diary-action|enter-edit|submit-feedback|Experience improved|Add Feedback/iu);
   } finally {
     if (originalWindow === undefined) delete globalThis.window;
     else globalThis.window = originalWindow;

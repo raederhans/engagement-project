@@ -10,13 +10,18 @@ import {
   submitDiary,
   submitImprove,
 } from '../../src/api/diary.js';
+import { helpMessagePairs } from '../../src/i18n/help_messages.js';
+import { setLanguage } from '../../src/i18n/index.js';
 import { messages } from '../../src/i18n/messages.js';
 import '../../src/i18n/p1.js';
+import { buildSegmentCardHtml } from '../../src/map/segments_layer.js';
 import {
   runRatingSubmission,
   submitSegmentFeedback,
 } from '../../src/routes_diary/form_submit.js';
 import * as myRoutes from '../../src/routes_diary/my_routes.js';
+import { describeDiaryDataScope } from '../../src/ui/data_scope.js';
+import { createModeSurfacePresenter } from '../../src/ui/mode_surfaces.js';
 
 const EXPECTED_PUBLIC_WRITE_UNAVAILABLE = {
   ok: false,
@@ -276,4 +281,112 @@ test('Diary copy and Sample Community presentation are personal, illustrative, a
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)/);
   assert.doesNotMatch(css, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
   assert.match(css, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);
+});
+
+test('segment cards are bilingual static fictitious read-only examples with no community write or consensus surface', (t) => {
+  t.after(() => setLanguage('en'));
+  const fixtures = [
+    ['en', [
+      /static/i,
+      /invented/i,
+      /fictitious/i,
+      /read-only/i,
+      /not real-time/i,
+      /not user-submitted/i,
+      /not representative/i,
+      /no official endorsement/i,
+      /not a safety or risk rating/i,
+    ]],
+    ['zh-CN', [/静态/u, /虚构/u, /只读/u, /非实时/u, /非用户提交/u, /不代表任何总体/u, /无官方背书/u, /不是安全或风险评级/u]],
+  ];
+
+  for (const [locale, required] of fixtures) {
+    setLanguage(locale);
+    const boundary = messages[locale]['segment.sampleBoundary'];
+    const html = buildSegmentCardHtml({
+      segment_id: 'seg-hostile',
+      street_name: '<img src=x onerror=alert(1)>',
+      decayed_mean: 4.9,
+      n_eff: 999,
+      top_tags: [{ tag: 'poor_lighting', p: 999 }],
+      __diaryVotes: { agreeDisabled: false, saferDisabled: false },
+    }, {
+      mode: 'input',
+      rating: 5,
+      selectedTags: new Set(['poor_lighting']),
+      submissionResult: { status: 'unavailable', capability: 'unavailable' },
+    });
+
+    assert.ok(html.includes(`aria-label="${boundary}"`));
+    assert.ok(html.includes(`title="${boundary}"`));
+    assert.ok(html.includes('data-sample-status="static-invented-read-only"'));
+    assert.ok(html.includes(`data-sample-disclosure="${boundary}"`));
+    assert.ok(html.includes(`>${boundary}</p>`));
+    for (const pattern of required) assert.match(boundary, pattern);
+    assert.match(html, locale === 'en' ? /deterministically unavailable/i : /确定不可用/u);
+    assert.doesNotMatch(html, /<img|\b999\b|confidence|consensus|based on|data-diary-action|data-role="(?:enter-edit|submit-feedback|tag|star)"|Agree|Add Feedback|Experience improved|Submit rating|人数|可信度|共识|基于|同意|添加反馈|体验有所改善|提交评分/iu);
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/i);
+  }
+
+  setLanguage('en');
+  const capabilityUnavailable = buildSegmentCardHtml({ segment_id: 'capability-unavailable' }, {
+    submissionResult: { capability: 'unavailable' },
+  });
+  assert.match(capabilityUnavailable, /deterministically unavailable/i);
+  assert.doesNotMatch(capabilityUnavailable, /save could not be confirmed|saved locally|本地保存.*确认/iu);
+});
+
+test('Community Data Scope and Help expose the complete bilingual truth boundary without an upload seam', (t) => {
+  t.after(() => setLanguage('en'));
+  const fixtures = [
+    ['en', 0, [/static/i, /invented/i, /read-only/i, /not real-time/i, /not user-submitted/i, /not representative/i, /no official endorsement/i, /not a safety or risk rating/i]],
+    ['zh-CN', 1, [/静态/u, /虚构/u, /只读/u, /非实时/u, /非用户提交/u, /不代表任何总体/u, /无官方背书/u, /不是安全或风险评级/u]],
+  ];
+
+  for (const [locale, helpIndex, required] of fixtures) {
+    setLanguage(locale);
+    const scope = describeDiaryDataScope('community');
+    assert.equal(scope.shortLabel, scope.accessibleLabel);
+    assert.deepEqual(scope.details, [scope.accessibleLabel]);
+    for (const surface of [scope.shortLabel, scope.accessibleLabel, ...scope.details]) {
+      for (const pattern of required) assert.match(surface, pattern);
+    }
+
+    const attributes = new Map();
+    const status = {
+      dataset: {},
+      textContent: '',
+      setAttribute(name, value) { attributes.set(name, value); },
+      removeAttribute(name) { attributes.delete(name); },
+    };
+    const details = { dataset: {}, textContent: '' };
+    const presenter = createModeSurfacePresenter({
+      documentRef: {
+        querySelector(selector) {
+          if (selector === '[data-app-data-status]') return status;
+          if (selector === '[data-app-source-details]') return details;
+          return null;
+        },
+        querySelectorAll(selector) {
+          if (selector === '[data-app-source-details]') return [details];
+          return [];
+        },
+        getElementById() { return null; },
+      },
+    });
+    presenter.showIntent('diary');
+    presenter.showDataScope(scope);
+    presenter.showStatus({ mode: 'diary', phase: 'ready' });
+    assert.equal(status.textContent, scope.accessibleLabel);
+    assert.equal(details.textContent, scope.accessibleLabel);
+    assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
+    assert.equal(attributes.get('title'), scope.accessibleLabel);
+    assert.equal(status.dataset.scopeDisclosure, scope.accessibleLabel);
+    assert.equal(details.dataset.scopeDisclosure, scope.accessibleLabel);
+
+    const help = helpMessagePairs['help.diarySourceLocalDetail'][helpIndex];
+    assert.match(help, locale === 'en' ? /current product has no upload or sharing capability/i : /当前产品不存在上传或共享能力/u);
+    assert.match(help, locale === 'en' ? /future upload or sharing feature.*separate capability.*new .*review/i : /未来若引入上传或共享功能.*独立能力.*重新.*审查/u);
+    assert.doesNotMatch(help, /separately configured service|configured service|另行配置.*服务/iu);
+  }
 });

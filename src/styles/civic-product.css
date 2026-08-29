@@ -141,6 +141,33 @@ summary {
   border: 0;
 }
 
+@media (max-width: 480px) {
+  .app-bar__source-details[data-scope-kind="sample"] {
+    position: fixed;
+    z-index: 29;
+    top: var(--app-bar-height);
+    right: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    padding: 8px 12px;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  body:has(.app-bar__source-details[data-scope-kind="sample"]) .maplibregl-ctrl-top-right {
+    top: calc(var(--app-bar-height) + 84px);
+  }
+}
+
 .result-meta {
   margin: 10px 0;
   padding: 9px 10px;

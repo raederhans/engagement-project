@@ -740,7 +740,8 @@ test('segment popup submission reports the public write as unavailable without t
   assert.equal(renders, 1);
 
   const html = buildSegmentCardHtml({ segment_id: 'seg_popup_1' }, state);
-  assert.match(html, /browser-local save could not be confirmed/i);
+  assert.match(html, /public community feedback is deterministically unavailable/i);
+  assert.doesNotMatch(html, /browser-local save could not be confirmed/i);
   assert.doesNotMatch(html, /community aggregates/i);
   assert.doesNotMatch(html, /appear in the aggregate soon/i);
 });
@@ -817,7 +818,7 @@ test('stale segment popup submission aborts transport and commits no popup state
   assert.equal(popupAdds, 0);
 });
 
-test('a popup CTA can act only for the Diary owner that created it', (t) => {
+test('a mounted segment popup has no Community CTA event seam', (t) => {
   const OriginalPopup = maplibregl.Popup;
   const popups = [];
   class FakePopup {
@@ -839,7 +840,7 @@ test('a popup CTA can act only for the Diary owner that created it', (t) => {
       };
     }
     setLngLat() { return this; }
-    setHTML() { return this; }
+    setHTML(html) { this.html = html; return this; }
     addTo() { this.adds = (this.adds || 0) + 1; return this; }
     on() { return this; }
     remove() { this.removed = true; return this; }
@@ -891,73 +892,20 @@ test('a popup CTA can act only for the Diary owner that created it', (t) => {
     features: [structuredClone(segments.features[0])],
     lngLat: { lng: -75.16, lat: 39.95 },
   });
-  const createCta = (action) => {
-    const attributes = new Map([
-      ['data-diary-action', action],
-      ['data-segment-id', 'seg-owner'],
-    ]);
-    const target = {
-      style: {},
-      closest: () => target,
-      hasAttribute: (name) => attributes.has(name),
-      getAttribute: (name) => attributes.get(name) ?? null,
-      setAttribute: (name, value) => attributes.set(name, String(value)),
-    };
-    return target;
-  };
-  const trigger = (popup, target) => popup.clickHandler({
-    target,
-    preventDefault() {},
-    stopPropagation() {},
-  });
-
   const ownerA = new AbortController();
-  let aCurrent = true;
   const aCommits = [];
   mountSegmentsLayer(map, 'diary-segments', segments, {
     signal: ownerA.signal,
-    isCurrent: () => aCurrent,
+    isCurrent: () => true,
     onAction: (payload) => aCommits.push(payload),
   });
   clickPopup();
   const popupA = popups.at(-1);
-  const oldAgree = createCta('agree');
-  const oldSafer = createCta('safer');
-
-  removeSegmentsLayer(map, 'diary-segments');
-  aCurrent = false;
-  ownerA.abort(new Error('Session A replaced'));
-
-  const ownerB = new AbortController();
-  const bState = { aggregate: 0, toast: 0, ctaFlags: 0 };
-  const bAction = (payload) => {
-    bState.aggregate += 1;
-    bState.toast += 1;
-    bState.ctaFlags += 1;
-    mapMutations.push(['B-action', payload.action]);
-  };
-  mountSegmentsLayer(map, 'diary-segments', segments, {
-    signal: ownerB.signal,
-    isCurrent: () => true,
-    onAction: bAction,
-  });
-  clickPopup();
-  const popupB = popups.at(-1);
-  const newAgree = createCta('agree');
-  const mutationsBeforeOldCtas = mapMutations.length;
-
-  trigger(popupA, oldAgree);
-  trigger(popupA, oldSafer);
-
+  assert.equal(popupA.clickHandler, undefined);
+  assert.match(popupA.html, /data-sample-status="static-invented-read-only"/);
+  assert.doesNotMatch(popupA.html, /data-diary-action|enter-edit|submit-feedback|Add Feedback|Experience improved/iu);
   assert.deepEqual(aCommits, []);
-  assert.deepEqual(bState, { aggregate: 0, toast: 0, ctaFlags: 0 });
-  assert.equal(mapMutations.length, mutationsBeforeOldCtas);
-  assert.equal(oldAgree.hasAttribute('disabled'), false);
-  assert.equal(oldSafer.hasAttribute('disabled'), false);
-
-  trigger(popupB, newAgree);
-  assert.deepEqual(bState, { aggregate: 1, toast: 1, ctaFlags: 1 });
-  assert.equal(newAgree.hasAttribute('disabled'), true);
+  removeSegmentsLayer(map, 'diary-segments');
 });
 
 test('an already-aborted caller wins before cache lookup or fetch', async (t) => {

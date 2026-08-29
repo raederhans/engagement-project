@@ -72,10 +72,13 @@ export function createModeSurfacePresenter({
     status.textContent = showScope ? scope.shortLabel : statusLabel;
     if (showScope) {
       status.dataset.scopeKind = scope.kind;
+      if (scope.kind === 'sample') status.dataset.scopeDisclosure = scope.accessibleLabel;
+      else delete status.dataset.scopeDisclosure;
       status.setAttribute('aria-label', scope.accessibleLabel);
       status.setAttribute('title', scope.accessibleLabel);
     } else {
       delete status.dataset.scopeKind;
+      delete status.dataset.scopeDisclosure;
       status.removeAttribute?.('aria-label');
       status.removeAttribute?.('title');
     }
@@ -88,9 +91,12 @@ export function createModeSurfacePresenter({
     for (const details of detailSurfaces) {
       if (showScope && scope.details?.length) {
         details.dataset.scopeKind = scope.kind;
+        if (scope.kind === 'sample') details.dataset.scopeDisclosure = scope.accessibleLabel;
+        else delete details.dataset.scopeDisclosure;
         details.textContent = scope.details.join(' · ');
       } else {
         delete details.dataset.scopeKind;
+        delete details.dataset.scopeDisclosure;
         details.textContent = currentStatus.phase === 'failed' ? statusLabel : '';
       }
     }
