@@ -58,11 +58,30 @@ test('base and candidate validators reject unknown, gate, governance, numeric, s
   }
 });
 
+test('lineage enforces protocol and identity digests while manifest hashes remain raw hex', () => {
+  const healthy = createAreaIntelligencePublicProjection(syntheticContext());
+  const cases = [
+    ['protocol byte identity missing prefix', (value) => { value.lineage.protocol.sha256 = 'a'.repeat(64); }],
+    ['protocol byte identity wrong prefix', (value) => { value.lineage.protocol.sha256 = `sha512:${'a'.repeat(64)}`; }],
+    ['evaluation manifest hash prefixed', (value) => { value.lineage.evaluation.manifest_sha256 = `sha256:${'c'.repeat(64)}`; }],
+    ['mart manifest hash prefixed', (value) => { value.lineage.mart.manifest_sha256 = `sha256:${'b'.repeat(64)}`; }],
+    ['mart artifact identity missing prefix', (value) => { value.lineage.mart.artifact_identity = 'f'.repeat(64); }],
+    ['mart part bindings identity missing prefix', (value) => { value.lineage.mart.part_bindings_identity = '1'.repeat(64); }],
+    ['M1 receipt identity missing prefix', (value) => { value.lineage.m1_receipt.identity = 'd'.repeat(64); }],
+    ['M1 receipt byte identity missing prefix', (value) => { value.lineage.m1_receipt.sha256 = 'e'.repeat(64); }],
+  ];
+  for (const [label, mutate] of cases) {
+    const drifted = structuredClone(healthy);
+    mutate(drifted);
+    assert.throws(() => validateAreaIntelligenceServingArtifact(drifted), /lineage is invalid/i, label);
+  }
+});
+
 test('candidate validator rejects external protocol, receipt, mart, report, gate, clock, coverage, authority, and privacy drift', () => {
   const context = syntheticContext();
   const healthy = createAreaIntelligencePublicProjection(context);
   const cases = [
-    ['protocol identity', (ctx) => { ctx.report.protocol.sha256 = '9'.repeat(64); }],
+    ['protocol identity', (ctx) => { ctx.report.protocol.sha256 = `sha256:${'9'.repeat(64)}`; }],
     ['receipt identity', (ctx) => { ctx.m1Receipt.identity = `sha256:${'9'.repeat(64)}`; }],
     ['mart identity', (ctx) => { ctx.martManifest.artifact_identity = `sha256:${'9'.repeat(64)}`; }],
     ['report outcome', (ctx) => { ctx.report.promotion.decision = 'local-candidate'; }],
@@ -128,7 +147,7 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
     raw_or_canonical_events_included: false,
     source_record_ids_included: false,
   };
-  const protocolSha = 'a'.repeat(64);
+  const protocolSha = `sha256:${'a'.repeat(64)}`;
   const receiptIdentity = `sha256:${'d'.repeat(64)}`;
   const receiptSha = `sha256:${'e'.repeat(64)}`;
   const localCandidateModel = decision === 'local-candidate' ? 'negative-binomial-log-link-v1' : null;

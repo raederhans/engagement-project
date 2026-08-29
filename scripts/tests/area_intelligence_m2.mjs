@@ -538,7 +538,10 @@ function servingArtifact() {
       source_record_ids_included: false,
     },
     lineage: {
-      protocol: { schema: 'engagement-area-intelligence-evaluation-protocol/v2', sha256: 'a'.repeat(64) },
+      protocol: {
+        schema: 'engagement-area-intelligence-evaluation-protocol/v2',
+        sha256: `sha256:${'a'.repeat(64)}`,
+      },
       evaluation: { schema: 'engagement-area-intelligence-evaluation-run/v2', manifest_sha256: 'b'.repeat(64) },
       mart: {
         schema: 'engagement-area-intelligence-feature-mart/v2',

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,6 +8,11 @@ import {
   createAreaIntelligencePublicProjection,
   publishValidatedAreaIntelligenceProjection,
 } from '../publish_area_intelligence_evaluation.mjs';
+import {
+  AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SEMANTIC_SHA256,
+  AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+  stableSerialization,
+} from '../lib/area_intelligence_evaluation_protocol.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const legacyPublicPath = 'public/data/area_intelligence_baseline.v1.json';
@@ -310,13 +316,22 @@ test('production publisher is wired to contextual P3 deep validators before proj
   assert.doesNotMatch(source, /validateModelEvaluationReport\(report\);/);
 });
 
-test('producer context inherits the frozen protocol measure and rejects measure drift', async () => {
+test('producer context inherits frozen protocol measure and identities and rejects measure drift', async () => {
   const protocolBytes = await fs.readFile(path.join(
     repoRoot, 'scripts/data/area_intelligence_evaluation_protocol.v2.json',
   ));
   const frozenProtocol = JSON.parse(protocolBytes);
+  const byteIdentity = `sha256:${createHash('sha256').update(protocolBytes).digest('hex')}`;
+  const semanticIdentity = `sha256:${createHash('sha256')
+    .update(stableSerialization(frozenProtocol)).digest('hex')}`;
   const context = syntheticP3Context();
   assert.equal(frozenProtocol.target.measure, 'PPD reported incident count');
+  assert.match(byteIdentity, /^sha256:[a-f0-9]{64}$/);
+  assert.match(semanticIdentity, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(byteIdentity, AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256);
+  assert.equal(semanticIdentity, AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SEMANTIC_SHA256);
+  assert.equal(context.report.protocol.sha256, byteIdentity);
+  assert.equal(context.manifest.protocol_sha256, byteIdentity);
   assert.equal(context.protocol.target.measure, frozenProtocol.target.measure);
   assert.equal(
     createAreaIntelligencePublicProjection(context).historical_evidence.measure,
@@ -350,7 +365,7 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
     raw_or_canonical_events_included: false,
     source_record_ids_included: false,
   };
-  const protocolSha = 'a'.repeat(64);
+  const protocolSha = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256;
   const martManifestIdentity = 'b'.repeat(64);
   const manifestIdentity = 'c'.repeat(64);
   const receiptIdentity = `sha256:${'d'.repeat(64)}`;

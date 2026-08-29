@@ -187,7 +187,7 @@ function validateLineage(value) {
   assertExactKeys(value.mart, ['schema', 'manifest_sha256', 'artifact_identity', 'part_bindings_identity'], 'mart lineage');
   assertExactKeys(value.m1_receipt, ['schema', 'identity', 'sha256'], 'M1 receipt lineage');
   if (value.protocol.schema !== PROTOCOL_SCHEMA
-    || !hashHex(value.protocol.sha256)
+    || !digest(value.protocol.sha256)
     || value.evaluation.schema !== EVALUATION_MANIFEST_SCHEMA
     || !hashHex(value.evaluation.manifest_sha256)
     || value.mart.schema !== MART_SCHEMA
