@@ -14,6 +14,8 @@ import {
 } from '../../src/charts/diary_insights.js';
 import { setLanguage, t } from '../../src/i18n/index.js';
 import { createDiaryInsightsPort } from '../../src/routes_diary/diary_insights_port.js';
+import { createDiaryLocalController } from '../../src/routes_diary/diary_local_controller.js';
+import { publishDiarySnapshotToInsights } from '../../src/routes_diary/index.js';
 import { createDiaryInsightsHost } from '../../src/routes_diary/ui_insights_panel.js';
 import {
   createSampleCommunityModel,
@@ -139,9 +141,21 @@ test('local insight status keeps empty, partial, and unavailable distinct from z
   assert.equal(deriveLocalDiaryInsights([]).status, 'empty');
   assert.deepEqual(deriveLocalDiaryInsights([]).trend, []);
 
-  const unavailable = deriveLocalDiaryInsights([
+  const malformed = deriveLocalDiaryInsights([
     { createdAt: 'unknown', score: null, tags: ['poor_lighting'] },
   ]);
+  assert.equal(malformed.status, 'partial');
+  assert.equal(malformed.omittedCount, 1);
+  assert.equal(malformed.invalidCount, 1);
+  assert.deepEqual(malformed.trend, []);
+
+  const unavailable = deriveLocalDiaryInsights({
+    entries: [],
+    storageStatus: 'unavailable',
+    warnings: [{ scope: 'storage', code: 'storage-unavailable' }],
+    omittedCount: 0,
+    invalidCount: 0,
+  });
   assert.equal(unavailable.status, 'unavailable');
   assert.deepEqual(unavailable.trend, []);
 
@@ -258,6 +272,79 @@ test('unavailable local insight records do not render zero-valued heat cells', (
     assert.equal(elementsWithClass(heat, 'diary-insights__heatmap-cell').length, 0);
   } finally {
     setDiaryInsightEntries([]);
+    globalThis.document = originalDocument;
+  }
+});
+
+test('controller snapshot status survives the Insights port and hostile final rendering', async () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: (tagName) => new FakeElement(tagName) };
+  setLanguage('en');
+
+  const run = async (snapshot) => {
+    const trend = new FakeElement();
+    const tags = new FakeElement();
+    const heat = new FakeElement();
+    const received = [];
+    const port = createDiaryInsightsPort({
+      setEntries(value) {
+        received.push(structuredClone(value));
+        setDiaryInsightEntries(value);
+      },
+      refresh() {
+        renderInsightsSections(trend, tags, heat, { context: { mode: 'history' } });
+      },
+    });
+    const repository = typeof snapshot === 'function'
+      ? { snapshot }
+      : { snapshot: async () => structuredClone(snapshot) };
+    const controller = createDiaryLocalController({
+      repository,
+      lifecycle: { dispose() {} },
+      onChange(view, { snapshotChanged } = {}) {
+        if (snapshotChanged) publishDiarySnapshotToInsights(port, view.snapshot);
+      },
+    });
+    const result = await controller.initialize();
+    return {
+      result,
+      snapshot: received.at(-1),
+      text: [trend, tags, heat].map(surfaceText).join('\n'),
+      heatCells: elementsWithClass(heat, 'diary-insights__heatmap-cell').length,
+    };
+  };
+
+  try {
+    const unavailable = await run(async () => {
+      throw new Error('hostile-storage-failure-<img src=x onerror=alert(1)>');
+    });
+    assert.equal(unavailable.result.reason, 'unavailable');
+    assert.equal(unavailable.snapshot.storageStatus, 'unavailable');
+    assert.equal(unavailable.snapshot.omittedCount, 0);
+    assert.equal(unavailable.snapshot.invalidCount, 0);
+    assert.deepEqual(unavailable.snapshot.warnings, [{ scope: 'storage', code: 'storage-unavailable' }]);
+    assert.match(unavailable.text, /local insight data is unavailable/i);
+    assert.doesNotMatch(unavailable.text, /no local ratings|hostile-storage-failure/i);
+    assert.equal(unavailable.heatCells, 0);
+
+    const hostileSentinel = 'PRIVATE-ROW-<svg onload=alert(1)>';
+    const partial = await run({
+      entries: [],
+      drafts: [],
+      warnings: [{ scope: 'entry', key: '0', message: hostileSentinel }],
+    });
+    assert.equal(partial.result.applied, true);
+    assert.equal(partial.snapshot.storageStatus, 'partial');
+    assert.equal(partial.snapshot.omittedCount, 1);
+    assert.equal(partial.snapshot.invalidCount, 1);
+    assert.equal(partial.snapshot.warnings[0].message, hostileSentinel);
+    assert.match(partial.text, /partial view/i);
+    assert.doesNotMatch(partial.text, /no local ratings|local insight data is unavailable/i);
+    assert.doesNotMatch(partial.text, /PRIVATE-ROW|svg|onload/i);
+    assert.equal(partial.heatCells, 0);
+  } finally {
+    setDiaryInsightEntries([]);
+    setLanguage('en');
     globalThis.document = originalDocument;
   }
 });

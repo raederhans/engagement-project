@@ -35,7 +35,7 @@ const heatmapValues = [
 ];
 
 let insightsContext = { mode: 'live', routeId: null };
-let localInsightEntries = [];
+let localInsightSnapshot = [];
 
 const CONTEXT_COPY = {
   live: {
@@ -88,8 +88,28 @@ export function selectDiaryInsightEntries(entries = [], value = insightsContext)
   return entries.filter((entry) => String(entry?.routeId ?? entry?.route_id ?? '') === context.routeId);
 }
 
-export function deriveLocalDiaryInsights(entries = []) {
-  const sourceEntries = Array.isArray(entries) ? entries : [];
+function normalizeDiaryInsightSnapshot(value) {
+  const snapshot = Array.isArray(value) ? { entries: value } : value;
+  const readable = snapshot && typeof snapshot === 'object' && Array.isArray(snapshot.entries);
+  const warnings = readable && Array.isArray(snapshot.warnings) ? snapshot.warnings : [];
+  const inferredInvalidCount = warnings.filter(({ scope } = {}) => ['entry', 'draft'].includes(scope)).length;
+  const invalidCount = Number.isSafeInteger(snapshot?.invalidCount) && snapshot.invalidCount >= 0
+    ? snapshot.invalidCount
+    : inferredInvalidCount;
+  const omittedCount = Number.isSafeInteger(snapshot?.omittedCount) && snapshot.omittedCount >= 0
+    ? snapshot.omittedCount
+    : invalidCount;
+  const storageStatus = !readable || snapshot.storageStatus === 'unavailable'
+    ? 'unavailable'
+    : snapshot.storageStatus === 'partial' || omittedCount > 0 || invalidCount > 0
+      ? 'partial'
+      : 'available';
+  return { entries: readable ? snapshot.entries : [], storageStatus, warnings, omittedCount, invalidCount };
+}
+
+export function deriveLocalDiaryInsights(value = []) {
+  const snapshot = normalizeDiaryInsightSnapshot(value);
+  const sourceEntries = snapshot.entries;
   const normalized = sourceEntries
     .filter((entry) => Number.isFinite(Number(entry?.score))
       && Number.isFinite(new Date(entry?.createdAt).getTime()))
@@ -106,16 +126,20 @@ export function deriveLocalDiaryInsights(entries = []) {
       heatmap[day][bucket] += 1;
     }
   }
-  const status = !Array.isArray(entries) || (sourceEntries.length && !normalized.length)
+  const locallyOmittedCount = sourceEntries.length - normalized.length;
+  const omittedCount = snapshot.omittedCount + locallyOmittedCount;
+  const invalidCount = snapshot.invalidCount + locallyOmittedCount;
+  const status = snapshot.storageStatus === 'unavailable'
     ? 'unavailable'
-    : normalized.length < sourceEntries.length
+    : snapshot.storageStatus === 'partial' || omittedCount > 0 || invalidCount > 0
       ? 'partial'
       : normalized.length
         ? 'available'
         : 'empty';
   return {
     status,
-    omittedCount: sourceEntries.length - normalized.length,
+    omittedCount,
+    invalidCount,
     trend: normalized.slice(-8).map((entry) => Number(entry.score)),
     tags: [...tagCounts.entries()]
       .map(([label, value]) => ({ label: label.replaceAll('_', ' '), value }))
@@ -124,8 +148,8 @@ export function deriveLocalDiaryInsights(entries = []) {
   };
 }
 
-export function setDiaryInsightEntries(entries) {
-  localInsightEntries = Array.isArray(entries) ? structuredClone(entries) : null;
+export function setDiaryInsightEntries(value) {
+  localInsightSnapshot = structuredClone(normalizeDiaryInsightSnapshot(value));
 }
 
 function neutralIntensityColor(pct) {
@@ -142,15 +166,16 @@ function translatedTagLabel(label) {
 }
 
 function entriesForWindow(windowName) {
-  if (!Array.isArray(localInsightEntries)) return null;
-  const scopedEntries = selectDiaryInsightEntries(localInsightEntries, insightsContext);
-  if (windowName === 'all') return scopedEntries;
+  const snapshot = normalizeDiaryInsightSnapshot(localInsightSnapshot);
+  if (snapshot.storageStatus === 'unavailable') return snapshot;
+  const scopedEntries = selectDiaryInsightEntries(snapshot.entries, insightsContext);
+  if (windowName === 'all') return { ...snapshot, entries: scopedEntries };
   const days = windowName === '7d' ? 7 : windowName === '90d' ? 90 : 30;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return scopedEntries.filter((entry) => {
+  return { ...snapshot, entries: scopedEntries.filter((entry) => {
     const timestamp = new Date(entry?.createdAt).getTime();
     return !Number.isFinite(timestamp) || timestamp >= cutoff;
-  });
+  }) };
 }
 
 function appendPartialNotice(container, insights) {
@@ -159,6 +184,16 @@ function appendPartialNotice(container, insights) {
   notice.className = 'diary-muted-text diary-insights__status';
   setTranslatedText(notice, 'diary.insights.partial', { count: insights.omittedCount });
   container.appendChild(notice);
+}
+
+function appendNoDataState(container, insights, emptyKey) {
+  if (insights?.status === 'partial') return appendPartialNotice(container, insights);
+  const empty = document.createElement('div');
+  empty.className = 'diary-muted-text';
+  setTranslatedText(empty, insights?.status === 'unavailable'
+    ? 'diary.insights.unavailable'
+    : emptyKey);
+  container.appendChild(empty);
 }
 
 function renderTrend(container) {
@@ -182,12 +217,7 @@ function renderTrend(container) {
     : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
   const trend = localInsights ? localInsights.trend : demoTrend;
   if (!trend.length) {
-    const empty = document.createElement('div');
-    empty.className = 'diary-muted-text';
-    setTranslatedText(empty, localInsights?.status === 'unavailable'
-      ? 'diary.insights.unavailable'
-      : CONTEXT_COPY[insightsContext.mode].emptyTrend);
-    container.appendChild(empty);
+    appendNoDataState(container, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTrend);
     return;
   }
   appendPartialNotice(container, localInsights);
@@ -312,12 +342,7 @@ function renderTags(container) {
     const dataset = localInsights ? localInsights.tags : (DEMO_TAGS[insightsState.scope] || []);
     barsWrap.innerHTML = '';
     if (!dataset.length) {
-      const empty = document.createElement('div');
-      empty.className = 'diary-muted-text';
-      setTranslatedText(empty, localInsights?.status === 'unavailable'
-        ? 'diary.insights.unavailable'
-        : CONTEXT_COPY[insightsContext.mode].emptyTags);
-      barsWrap.appendChild(empty);
+      appendNoDataState(barsWrap, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTags);
       return;
     }
     appendPartialNotice(barsWrap, localInsights);
@@ -385,6 +410,10 @@ function renderHeatmap(container) {
       ? 'diary.insights.unavailable'
       : CONTEXT_COPY[insightsContext.mode].emptyTrend);
     container.appendChild(unavailable);
+    return;
+  }
+  if (localInsights?.status === 'partial' && !localInsights.trend.length) {
+    appendPartialNotice(container, localInsights);
     return;
   }
   appendPartialNotice(container, localInsights);

@@ -488,8 +488,20 @@ test('local-data controller refreshes its immutable read model from repository t
 
   assert.deepEqual(result, { applied: true, entry });
   assert.deepEqual(calls, ['snapshot', ['commit', 'entry-a', 'route-a'], 'snapshot']);
-  assert.deepEqual(before.snapshot, { entries: [], drafts: [{ routeId: 'route-a' }], warnings: [] });
-  assert.deepEqual(after.snapshot, durableSnapshot);
+  assert.deepEqual(before.snapshot, {
+    entries: [],
+    drafts: [{ routeId: 'route-a' }],
+    storageStatus: 'available',
+    warnings: [],
+    omittedCount: 0,
+    invalidCount: 0,
+  });
+  assert.deepEqual(after.snapshot, {
+    ...durableSnapshot,
+    storageStatus: 'available',
+    omittedCount: 0,
+    invalidCount: 0,
+  });
   assert.equal(Object.isFrozen(after.snapshot), true);
   assert.equal(Object.isFrozen(after.snapshot.entries), true);
   assert.equal(Object.hasOwn(after, 'entries'), false);

@@ -7,15 +7,37 @@ import { downloadTextFile as downloadDefaultTextFile } from '../utils/export_ana
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 function freezeSnapshot(value = {}) {
+  const warnings = (Array.isArray(value.warnings) ? value.warnings : [])
+    .map((warning) => Object.freeze({ ...(warning && typeof warning === 'object' ? warning : {}) }));
+  const inferredInvalidCount = warnings.filter(({ scope }) => scope === 'entry' || scope === 'draft').length;
+  const invalidCount = Number.isSafeInteger(value.invalidCount) && value.invalidCount >= 0
+    ? value.invalidCount
+    : inferredInvalidCount;
+  const omittedCount = Number.isSafeInteger(value.omittedCount) && value.omittedCount >= 0
+    ? value.omittedCount
+    : invalidCount;
+  const storageStatus = value.storageStatus === 'unavailable'
+    ? 'unavailable'
+    : value.storageStatus === 'partial' || omittedCount > 0 || invalidCount > 0
+      ? 'partial'
+      : 'available';
   const snapshot = {
     entries: Object.freeze([...(Array.isArray(value.entries) ? value.entries : [])]),
     drafts: Object.freeze([...(Array.isArray(value.drafts) ? value.drafts : [])]),
-    warnings: Object.freeze([...(Array.isArray(value.warnings) ? value.warnings : [])]),
+    storageStatus,
+    warnings: Object.freeze(warnings),
+    omittedCount,
+    invalidCount,
   };
   return Object.freeze(snapshot);
 }
 
-const EMPTY_SNAPSHOT = freezeSnapshot();
+const EMPTY_SNAPSHOT = freezeSnapshot({
+  storageStatus: 'unavailable',
+  warnings: [{ scope: 'storage', code: 'storage-unavailable' }],
+  omittedCount: 0,
+  invalidCount: 0,
+});
 
 function localizeControllerError(error, fallbackKey, translate) {
   const message = error?.message || String(error || '');
@@ -75,8 +97,8 @@ export function createDiaryLocalController({
 
   const applySnapshot = (snapshot) => {
     const normalized = freezeSnapshot(snapshot);
-    const storageWarning = normalized.warnings.length
-      ? translate('diary.storageRowsSkipped', { count: normalized.warnings.length })
+    const storageWarning = normalized.invalidCount
+      ? translate('diary.storageRowsSkipped', { count: normalized.invalidCount })
       : null;
     return publish({ snapshot: normalized, storageWarning }, { snapshotChanged: true });
   };
