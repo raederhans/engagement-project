@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M1-M6 local execution complete — exact implementation candidate 6eed490 passed the independent M6 final gate with P0/P1/P2/P3 zero (M6 4/4 high tasks); public Diary writes and product routing remain unavailable/NO_PRODUCT_PROMOTION`。
+`M1-M6 local execution complete — persistent M1/M2/M4 evidence rebuilt; current integrated candidate 6308bbd passed full local validation and focused M5/M6 review with P0/P1/P2/P3 zero; public Diary writes and product routing remain unavailable/NO_PRODUCT_PROMOTION`。
 
 ## Checklist
 
@@ -33,8 +33,15 @@
 - [x] M4 Known Route Evidence stage gate。
 - [x] M5 Adaptive Route Alternatives stage gate。
 - [x] M6 Local Diary / closed Community Evidence stage gate。
+- [x] 识别旧 `ac89`/`79c2`/`f1a1` ignored evidence roots 已随临时 worktree 删除，禁止继续把历史路径当作当前证据。
+- [x] 建立持久数据工作树并从当前 exact code 重新生成 M1、M2 和 M4；逐阶段完成首次运行、精确复跑和 validate-only/lineage gate。
+- [x] 将 M2 protocol 只重冻到当前 M1 exact receipt，将 M5 receipt 只重绑定到当前 M4 handoff；科学字段、图 identities 与 authority 语义不变。
+- [x] 在 exact `6308bbd` 完成 `npm run validate`、bundle、M5 浏览器门禁及 M5/M6 聚焦独立复核。
 
 ## Validation evidence
+
+下表保留完整执行时间线；其中引用已删除 `ac89`/`79c2`/`f1a1` roots 的行仅是历史记录。
+当前可重验数据声明以其后的 “Persistent recovery evidence” 为唯一准线。
 
 | Command or check | Result |
 | --- | --- |
@@ -118,10 +125,25 @@
 | M6 central exact-candidate gate | 14 focused groups 414/414 plus visual baseline policy 66/66, targeted ESLint/Stylelint/diff-check, Diary/M4/M5 Chromium, and full `npm run validate` all PASS. Fresh 264-module bundle is 3,993,513 / 4,000,000 non-VRE bytes, leaving 6,487 bytes; ceiling unchanged. |
 | M6-4 focused re-review of exact `6eed490` | APPROVE with all four original findings CLOSED and new P0/P1/P2/P3 zero. Independent fresh evidence: M6 contracts 349/349, focused truth 20/20, full visual 35 passed / 10 policy-skipped / 0 failed, Diary/M4/M5 browsers PASS, 3 private sentinels with zero console/URL/request/WebSocket leakage. |
 
+## Persistent recovery evidence (supersedes deleted-root rows)
+
+| Current artifact or gate | Result |
+| --- | --- |
+| Persistent worktree | `C:/Users/raede/Desktop/dev/engagement_project-data-foundation`, branch `codex/dfev1-data-foundation-persistent`; retained with the supervisor worktree. |
+| M1 current warehouse | 1,496 files / 10,060,285,521 bytes; 64 canonical parts / 3,586,620 rows / 8,741,798,048 bytes; aggregate `sha256:f936b166…16cb6`; coverage `[2006-01-01, 2026-08-28)`. |
+| M1 current receipt and reruns | Exact receipt identity `sha256:bc439541…5e315`; first full run, exact rerun and validate-only exit 0; all 21 acquisition/ingest scopes idempotent. |
+| M1 current DQ | coordinate available/missing/invalid/outside = 3,530,212/56,034/338/36; tract mapped/ambiguous/unmapped = 2,972,905/549,598/64,117; grid mapped/unavailable = 3,530,212/56,408; all corridor states unavailable; ACS available/unavailable/incompatible = 651,264/613,715/2,321,641. |
+| M2 protocol refresh | Protocol remains 6,935-byte LF-only; current SHA `5c6361a3…e7eac` binds only the current M1 receipt. Frozen v1-derived models, folds, metrics, thresholds, slices and promotion rules were not changed. |
+| M2 current mart/evaluation | Root 8,331 files / 1,548,712,302 bytes; 128 mart parts / 1,611,918 rows / 825,033,042 part bytes; artifact identity `sha256:be26fcab…96d76`; exact mart and evaluation reruns are idempotent. Evaluation remains `not-promoted`, selected model `null`, forecast `unavailable`; publisher was not run. |
+| M4 current Known Route | 3 files / 27,205 bytes; semantic identity `sha256:d153850a…b4c38`, handoff identity `sha256:c0ea04ce…1c63f`; first build and completed-checkpoint rerun exit 0/idempotent. 2,024 rows contribute 609.840838 units; report remains `partial`, Centerline reference-only, safety/accessibility/routing authority false. |
+| M5 current M4 rebind | Current M4 copy is exactly 5,401 bytes / raw SHA `68aa8579…c470`; new receipt identity `sha256:378bf673…9ebf0` exactly matches the private registry. GraphArtifact/topology/geometry remain `3adc0b82…901e0` / `25f3d33d…0e3a` / `eef990bb…c75b`; old receipt is audit-only with no fallback. |
+| Exact `6308bbd` central gates | `npm run validate` exit 0; route-real 350/350, alternatives 16/16, private gate 2/2, desktop/mobile × en/zh Chromium PASS, fresh bundle 3,993,513 / 4,000,000. |
+| Exact `6308bbd` focused reviews | M5 rebind and M6 regression each APPROVE with P0/P1/P2/P3=0. M6 current diff contains no Diary/Community files; its original full visual approval remains anchored at `6eed490`. |
+
 ## Open risks and remaining work
 
-- M1 ignored root 约 9.37 GiB 且只存在于 retained `ac89` worktree；本次 M1-M6 closeout 后仍原样保留，未经单独清理授权不得移动、回收或删除该 worktree。
-- M1-1 的 50,000-row partial 明确无效且仍原样保留；任何下游不得发现后自动 fallback 到该旧根。
+- 旧 M1 `ac89`、M2 `79c2` 和 M4 `f1a1` worktree/ignored roots 已被自动移除；其表中数字只保留为历史审计，不能重新验证或作为当前证据。当前可读根只以本节的持久工作树为准，未经单独清理授权不得移动、回收或删除。
+- M1-1 的历史 50,000-row partial 明确无效且其旧根现不可读；任何下游不得发现旧路径后自动 fallback。
 - 新 pre-ingest full scan is intentionally O(canonical bytes + rows)；exact rerun 观测到约 190.7 GiB
   机械扫描下界和 93,252,120 row inspections，后续增量性能需单独优化但不能削弱 fail-closed gate。
 - 独立 final data reviewer 通道没有返回 evidence；M1 只能声明 local mechanical gate PASS，不能声明
@@ -132,24 +154,23 @@
   本轮结果，因此没有结果驱动调参，但不得声称严格观察者盲态无污染，M2-4 必须独立评估。
 - 本轮 frozen gate 未选出可发布模型：Poisson 与 negative-binomial 均有 primary/category/coverage
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
-- M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；本次 closeout 后仍原样保留，
-  未经单独清理授权不得移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- M4 reviewer 的历史观测为 3,999,920/4,000,000 non-VRE bytes；M5 exact fresh build 为
-  3,999,824/4,000,000；M6 final exact `6eed490` 为 3,993,513/4,000,000，余 6,487 bytes。
+- M2 当前 ignored root 位于持久工作树；publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
+- M4 reviewer 的历史观测为 3,999,920/4,000,000 non-VRE bytes；M5 历史 exact build 为
+  3,999,824/4,000,000；当前 exact `6308bbd` 为 3,993,513/4,000,000，余 6,487 bytes。
   这些属于不同 exact checkout/fresh build 观测；ceiling 始终未变，后续 bundled 改动仍须先做
   真实 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
   不能只比较解析后的 JSON 语义。
-- M4 source-final ignored root 只存在于 retained `f1a1` worktree；精确三工件及其本轮 M1/M2
-  lineage 在本次 closeout 后继续保留，旧 `full-warehouse` 仅作审计历史，禁止自动 fallback。
+- M4 当前精确三工件和本轮 M1/M2 lineage 位于持久工作树；旧 `full-warehouse` 路径仅作审计历史，禁止自动 fallback。
 - M4 Centerline 只拥有 reference topology/geometry authority；M5 的 accessibility、safety 与
   realtime 权限不能从它继承。M5 现有 OSRM authority 仅限本机、固定公开 probe 与 same-session
   private handle；`candidateGenerationAuthorized:false`、`privateRuntimeProductPromotion:false`，
   不得作为任意私人路线或产品 routing authority。
-- M5 原始 86-file ignored 根与 v3 5-file sibling 在本次 closeout 后继续保留；不得 fallback 到旧 v2
-  receipt，也不得把 v3 receipt、测试 seam 或序列化 handle 当作调用者可扩展权限。
+- M5 原始图、旧 receipts 和当前新 sibling receipt 在本次 closeout 后继续保留；代码只接受当前
+  `sha256:378bf673…9ebf0`，不得 fallback 到旧 receipt，也不得把测试 seam 或序列化 handle
+  当作调用者可扩展权限。
 - M6 浏览器证据限于本机 Windows Chromium；未覆盖 Safari/Firefox、无痕模式、quota/eviction、
   断电/崩溃或长期耐久性。IndexedDB 事务与应用级 replace guards 不构成灾难恢复保证。
 - M6 当前不存在上传、共享或公共社区写入能力；任何未来 moderation/abuse/deletion/k-anonymity/

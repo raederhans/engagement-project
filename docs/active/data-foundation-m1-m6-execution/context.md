@@ -4,13 +4,20 @@
 
 - 监督 worktree：`C:/Users/raede/.codex/worktrees/dfev1-m1-m6-supervisor/engagement_project`。
 - Branch：`codex/dfev1-m1-m6-supervisor`；base `9d93df211a6a51fe99d9002d494937519fd79780`。
+- 持久数据 worktree：`C:/Users/raede/Desktop/dev/engagement_project-data-foundation`，branch
+  `codex/dfev1-data-foundation-persistent`；当前 M1/M2/M4 ignored evidence 只以该根为准。
+- 当前 implementation exact candidate（本 closeout 文档提交之前）：
+  `6308bbd4a7cf8dea732945c30d3e130f4b8562f1`。原始 M6 功能
+  candidate 为 `6eed4908ec20b4e05ef052402a223fbe9051a43f`；其后只改 M2 protocol receipt
+  binding 与 M5 current-M4 receipt binding，没有 Diary/Community 文件变更。
 - 本地 `main` clean，但相对本地 `origin/main@f300cfe` 超前 93 commits；未 fetch/push。
 - 当前 primary worktree 在 `codex/route-decision-s6-real-data@4d5c34c`，含未跟踪 logs/output；
   它们不属于本任务。
 - M0 transactional tract snapshot/full receipt/runtime projection 代码在本地 main；本轮需以
   聚焦测试确认不回归，不重新实现。
 - M1-M4 tracked 代码已存在；旧 `.dfev1` 事件仓库和 Area Intelligence mart 已随临时
-  worktree 消失。当前 phase1-main `.dfev1/crime` 无文件，known old roots `c180/fed9` 不存在。
+  worktree 消失。当前 phase1-main `.dfev1/crime` 无文件，known old roots `c180/fed9` 及本轮早期
+  `ac89/79c2/f1a1` 均不存在；其历史 hashes/汇总不得作为当前输入。
 
 ## Decisions and deviations
 
@@ -70,17 +77,23 @@
 | 2026-08-29 | M6-4 首轮在 exact `4360960` 返回 P0=0/P1=2/P2=2：storage unavailable/partial 在 Insights port 丢失，示例卡片仍有人数/confidence/write CTA，Data Scope 隐藏/ARIA 不完整，Help 暗示可配置上传。 | M6 暂停收尾并复用 M6-1/M6-3 修复；不创建第五任务，也不以初始 green tests 覆盖 reviewer 的直接消费者证据。 |
 | 2026-08-29 | M6-1 `dd9d809` 保留完整 storage snapshot 到最终 DOM；M6-3 `9e5ce6e` 将路段卡片、Data Scope、移动端可见文本与 Help 收敛为完整静态虚构只读/no-upload truth。监督依次整合为 `ad97e75`、`6eed490`。 | unavailable/partial 不再投影 empty/available/zero；Sample Community 无人数、confidence、共识或写 CTA，public unavailable 明确为未保存/未共享。 |
 | 2026-08-29 | exact `6eed490` 中央 `npm run validate`、414/414 focused、66/66 baseline policy、Diary/M4/M5 Chromium、build/bundle/lint 全 PASS；M6-4 独立 fresh full visual 为 35 pass/10 policy-skip/0 fail，最终 APPROVE 且 P0/P1/P2/P3=0。 | M1-M6 本地执行完成；bundle 3,993,513/4,000,000，余 6,487 bytes。未运行 remote CI、push、deploy、publish；公共写、M2 forecast 和 M5 product routing 继续关闭。 |
+| 2026-08-29 | 收尾核查发现承载早期 M1/M2/M4 ignored roots 的 `ac89`、`79c2`、`f1a1` worktree 已被自动移除；精确名称扫描（含回收站）没有找到副本。 | 历史 rows/hashes/path 仍可作审计线索，但不可作为当前可重验 evidence；必须从 tracked pipeline 在持久工作树重建。 |
+| 2026-08-29 | 在 `C:/Users/raede/Desktop/dev/engagement_project-data-foundation` 重建当前 M1：1,496 files / 10,060,285,521 bytes、64 canonical parts / 3,586,620 rows，first run、exact rerun、validate-only 均 exit 0；receipt identity `bc439541…5e315`。 | 当前 M1 exact input 可读且幂等；旧 `cd7585ae…e16e4` receipt 不再是当前 evidence。 |
+| 2026-08-29 | 在任何新 performance 前，只将 protocol v2 的 exact receipt identity/frozen clock 重冻到当前 M1，保留所有 v1-derived scientific fields；新 protocol 为 6,935 bytes、LF-only、SHA `5c6361a3…e7eac`。随后重建 M2：128 parts / 1,611,918 rows，mart/evaluation exact rerun 幂等。 | M2 仍 `not-promoted/unavailable`、selected model `null`；publisher 未运行，未授予 serving authority。 |
+| 2026-08-29 | 在持久根重建 M4 三工件：semantic identity `d153850a…b4c38`、handoff identity `c0ea04ce…1c63f`，completed rerun 幂等；2,024 contributing rows / 609.840838 units，report `partial`。 | Centerline 仅 reference-only；mode/accessibility/routing/safety/M2 route authority 仍全部 false。 |
+| 2026-08-29 | M5 以新 sibling receipt 重绑定当前 M4 handoff；新 receipt identity `378bf673…9ebf0`，GraphArtifact/topology/geometry identities 未漂移。代码只接受新路径，旧 receipt 保留但 no-match、无 fallback。 | `candidateGenerationAuthorized`、private runtime promotion、publication、redistribution、deployment 继续 false；Source Health `not-applied`。 |
+| 2026-08-29 | exact `6308bbd` 通过 `npm run validate`、route-real 350/350、alternatives 16/16、private 2/2、四格 Chromium 和 3,993,513/4,000,000 bundle；M5 rebind 与 M6 regression 聚焦独立复核均 APPROVE，P0/P1/P2/P3=0。 | 当前 tracked candidate 本地 gate 闭合；M6 完整 fresh visual 仍锚定未改功能候选 `6eed490`，不将聚焦复核冒充重复全视觉验证。 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
-| M1 full PPD backfill and exact rerun | `01a0489b-18b7-73e0-9264-902155a8b99d` / `ac89` | `.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-source-final-037c615/logs/metrics-summary.json` | complete; detached `8325842`, no active backfill, retained because downstream inputs are path-bound |
+| M1 persistent rebuild, exact rerun and validate-only | integration owner / persistent worktree | `.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-persistent-20260829` | complete; 1,496 files / 10,060,285,521 bytes; receipt `bc439541…5e315`; no active backfill |
 | M1 tracked source/warehouse audit | `01a0489b-188b-7d30-b0e5-f2289c13f0e3` / `954b` | task-owned worktree | complete; repair source-final `34b90bd` |
 | M1 spatial/ACS/DQ gate | `01a0489b-188b-7d30-b0e5-f2073fa849c2` / `6ad0` | task-owned worktree | source-final `35c6cee`; final data follow-ups returned 0 items, so main performed bounded metadata gate |
 | M1 independent integration/data gate | `01a048ac-1559-7323-a9a8-ad3598754140` / `0062` | isolated worktree from supervisor branch | code PASS on `037c615`; final data follow-up returned 0 items and provides no verdict |
 | M2 protocol-v2 and integrity | `01a04973-bb21-7cc1-9b39-4b12a56b9f97` / `51c8` | task-owned worktree from `a055752` | complete; source-final `5607949`, integrated as `285ede0`; exact M1 gate exit 0 |
-| M2 mart/evaluation build | `01a04973-bbab-7f71-81c9-1eb21cdc537f` / `79c2` | `.dfev1/area-intelligence/m2-v2-source-final-9d1f243-d7d75ce0/logs/*.exit.json` | complete at detached `37359d7`; mart/evaluation run1+runs2 exit 0 and idempotent; exact root retained, no active process, no publish |
+| M2 current mart/evaluation build | integration owner / persistent worktree | `.dfev1/area-intelligence/m2-v2-persistent-20260829` | complete; 8,331 files / 1,548,712,302 bytes; mart/evaluation reruns idempotent; no active process or publish |
 | M2 serving/UI gate | `01a04973-badc-7aa1-b307-b08bfd66965c` / `e034` | task-owned worktree from `a055752` | complete; source-final `3c8b3d4`, integrated as `dcd31ce`; no real publish/performance read |
 | M2 final independent review | `01a049db-fda6-77b1-98fe-e1078002aa23` / `2b86` | exact reviewer bases `d23863b` then `7f167e6` | initial FAIL on runtime lineage P1; focused re-review PASS with P0/P1/P2 zero; worktree clean, no publish or long data rerun |
 | M3 source/admission | `01a049fa-60bc-7070-b635-9650b58e4ed9` / `cf2d` | initial source `3b78b73`, bundle repair `06b1b44`, review repair parent `a795450` | complete; final repair `98f7b49`, integrated as `0bb709d`; live public-landmark gate complete, no active source/browser process |
@@ -89,30 +102,33 @@
 | M3 final independent review | `01a04a1d-74f8-7b70-a252-0b7ea1ee55f5` / `73e0` | final exact candidate `7a0f03c` | complete; final P0/P1/P2 zero, M3 local gate PASS and M4 admission PASS; no active browser/server process |
 | M4 builder/receipt | `01a04ad4-c4d4-7013-b315-f22eefb56c69` | tracked source-final commits through exact supervisor `b4fcc63` | complete; receipt/validator/aggregation repairs integrated, no active process |
 | M4 Centerline/privacy/UI | `01a04ad4-c50c-7800-8128-1056e4d4b2df` | exact live Centerline transaction and focused browser gates | complete; 47-feature public reference smoke PASS, no active server/listener |
-| M4 unique ignored-data writer | `01a04af3-c867-7770-bd3d-e97c2eda5e1b` / `f1a1` | `.dfev1/known-route-evidence-v1/full-warehouse-source-final-b4fcc63` | complete; exact three-artifact root retained, fresh writer and completed rerun PASS |
+| M4 current ignored-data writer | integration owner / persistent worktree | `.dfev1/known-route-evidence-v1/full-warehouse-persistent-20260829` | complete; exact three-artifact root, fresh writer and completed rerun PASS; no active process |
 | M4 final independent review | `01a04b18-68d7-7810-b23d-f854a1064575` / `7897` | exact `b4fcc63` plus source-final root | complete; P0/P1/P2/P3 zero, all original findings CLOSED, tracked clean |
-| M5 mature engine/graph/authority | `01a04b4d-64e2-7db0-bf35-80e0b580aa1b` / `db9b` | supervisor `.dfev1/route-real-graph-m5-1` plus `route-real-graph-m5-1-repair-p2/source-final-owned-queries` | complete; graph `3adc0b82…901e0`, v3 receipt `1cbbf205…fced8`, spawned-child ownership and hostile pre-owner gate PASS |
+| M5 mature engine/graph/current M4 binding | integration owner / persistent + supervisor worktrees | `.dfev1/route-real-graph-m5-1` plus `route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-persistent-20260829-v3.json` | complete; graph `3adc0b82…901e0`, current receipt `378bf673…9ebf0`; old receipt audit-only/no fallback |
 | M5 alternatives core/oracle | `01a04b4e-e153-7a03-9924-40994308cde0` / `4e9f` | source/repair commits integrated through exact `7a8cd80` | complete; 16/16, accessibility uncertainty preserved, terminal contradictions fail closed, production wrapper unavailable |
 | M5 product/browser no-promotion | `01a04b6e-46ca-7400-b7dc-93b00fe12d45` / `a7b8` | exact supervisor `7a8cd80` built output | complete; private self-test 2/2 and desktop/mobile x en/zh-CN Chromium PASS, zero console/page/private/candidate-OSRM requests |
-| M5 final independent review | `01a04b78-f0a3-7720-9793-afdf8b3bedbd` / `f0ac` | initial `d7f55aa`, focused exact `7a8cd80` | complete; initial P2=4/P3=1 all CLOSED, final APPROVE with P0/P1/P2/P3 zero |
+| M5 final independent review | visible reviewer plus current focused reviewer | original exact `7a8cd80`; current exact `6308bbd` | original full review APPROVE; current rebind focused APPROVE with P0/P1/P2/P3 zero; visible current follow-up returned 0 items and is not claimed as evidence |
 | M6 local Diary lifecycle | `01a04b9f-7280-7790-9e7b-f416f71d2663` / `b29f` | source `39e2413`, repair `dd9d809`, supervisor integrations `4360960` and `ad97e75` | complete; DB v2 lifecycle, restart/export/delete and one-time replace token PASS; storage unavailable/partial reaches final Insights DOM |
 | M6 public write hard-disable | `01a04b9f-7280-7790-9e7b-f3f6e4ed1832` / `29f9` | sources `1d485d0`, `bbd1827`; supervisor `df39332`, `5c45978` | complete; submit/agree/improve deterministic unavailable, hostile seams and private sentinels produce zero transport |
 | M6 neutral Sample Community | `01a04b9f-729f-7fc1-b19e-f6952b548785` / `778e` | source `ffa519e`, repair `9e5ce6e`; supervisor `441e202`, `6eed490` | complete; static-invented-read-only truth across visible/hidden/ARIA/title/data attrs, mobile disclosure visible, no write CTA |
-| M6 final independent review | `01a04bb4-464f-7b83-9a25-f7ffbdb483f4` / `8313` | initial exact `4360960`, focused exact `6eed490` | complete; initial P1=2/P2=2 all CLOSED, final APPROVE with P0/P1/P2/P3 zero; full visual 35/10 skip/0 fail |
+| M6 final independent review | visible reviewer plus current focused reviewer | original exact `4360960`/`6eed490`; current exact `6308bbd` | original findings CLOSED and full visual 35/10 skip/0 fail at `6eed490`; current no-Diary-diff regression focused APPROVE with P0/P1/P2/P3 zero |
 
 ## Handoff
 
-M1-M6 本地执行已在 exact implementation candidate `6eed490` 闭合。M6-4 初始 P1=2/P2=2
-全部修复并独立复验为 APPROVE，最终 P0/P1/P2/P3 均为零；完整 visual 35 pass/10 policy-skip/
-0 fail，Diary/M4/M5 Chromium、`npm run validate`、bundle 与 lint 均 PASS。Diary 只在本地
-IndexedDB/用户手势导出边界内，公共写固定 unavailable/零网络，Sample Community 固定静态虚构
-只读，M5 继续 `NO_PRODUCT_PROMOTION`。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、
-既有 general browser-smoke failure、Windows Chromium 单浏览器边界以及未运行 remote CI/push/
-deploy/publish/redistribution 继续披露；所有 retained ignored data roots/worktrees 原样保留。
+M1-M6 本地执行已在当前 exact tracked candidate `6308bbd` 闭合。旧临时 ignored roots 已不可读，
+因此当前声明只绑定持久工作树中重新生成的 M1 receipt `bc439541…5e315`、M2 artifact
+`be26fcab…96d76`、M4 handoff `c0ea04ce…1c63f`，以及新 M5 receipt `378bf673…9ebf0`。
+中央 `npm run validate`、bundle 和四格 M5 Chromium 均 PASS；M5 current rebind 与 M6 current
+regression 聚焦复核均 APPROVE、P0/P1/P2/P3=0。M6 完整 visual 35 pass/10 policy-skip/0 fail
+仍准确锚定原始未改功能候选 `6eed490`。Diary 只在本地 IndexedDB/用户手势导出边界内，公共写
+固定 unavailable/零网络，Sample Community 固定静态虚构只读，M5 继续
+`NO_PRODUCT_PROMOTION`。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general
+browser-smoke failure、Windows Chromium 单浏览器边界以及未运行 remote CI/push/deploy/
+publish/redistribution 继续披露；监督与持久数据 worktree 原样保留。
 
 ## Next step
 
-当前授权范围内没有剩余自动执行步骤。提交 docs-only closeout 后保持 supervisor、M1/M2/M4/M5
-ignored roots 和用户 Desktop WIP 不动，不 push、deploy、publish 或清理。后续若要运行 remote CI、
+当前授权范围内没有剩余自动执行步骤。提交 docs-only closeout 后保持 supervisor、持久数据
+worktree、其 M1/M2/M4/M5 ignored roots 和用户 Desktop WIP 不动，不 push、deploy、publish 或清理。后续若要运行 remote CI、
 发布当前只读产品、扩展 Safari/Firefox/quota/eviction 持久化验证，或设计真正的公共社区写入，必须
 作为单独任务重新取得相应授权；M2 forecast 与 M5 product routing 也不能因本次 M1-M6 完成而晋级。

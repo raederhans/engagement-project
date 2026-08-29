@@ -40,7 +40,24 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
   产品仍固定 `NO_PRODUCT_PROMOTION/unavailable`，没有私人路线生成或运行时晋级权限。
 - [x] M6: 已完成 IndexedDB v2 本地记录、重启持久化、逐项删除、用户手势导出和一次性
   token-confirmed replace；公共提交固定 `unavailable`/零网络，Sample Community 固定静态虚构
-  只读，并通过 exact `6eed490` 独立阶段验收。
+  只读；原始功能候选 `6eed490` 已通过完整独立阶段验收，当前整合候选 `6308bbd` 未改 Diary/
+  Community 文件，并通过完整中央验证及聚焦回归复核。
+
+## Persistent evidence roots
+
+- 持久工作树：`C:/Users/raede/Desktop/dev/engagement_project-data-foundation`，branch
+  `codex/dfev1-data-foundation-persistent`；它与监督分支共同保留，未经单独授权不清理。
+- M1：`.dfev1/crime/event-warehouse-v1-2006-through-2026-08-28-persistent-20260829`，
+  1,496 files / 10,060,285,521 bytes；64 canonical parts / 3,586,620 rows，receipt identity
+  `sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315`。
+- M2：`.dfev1/area-intelligence/m2-v2-persistent-20260829`，8,331 files /
+  1,548,712,302 bytes（含 evaluation）；128 mart parts / 1,611,918 rows，结果仍为
+  `not-promoted/unavailable`。
+- M4：`.dfev1/known-route-evidence-v1/full-warehouse-persistent-20260829`，3 files /
+  27,205 bytes；完成态复跑幂等，scientific report 为 `partial`，无 routing/safety authority。
+- M5：既有真实图保持 26 graph files / 2,533,170,416 bytes；当前 M4 handoff 以新 sibling
+  receipt 重绑定，receipt identity 为
+  `sha256:378bf673e8435e769b2052e4069c735e79e3c39ff87140a06edd895d2469ebf0`，旧 receipt 仅供审计。
 
 ## Acceptance criteria
 
@@ -61,8 +78,8 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
 
 ## Risks and constraints
 
-- 旧 M1 约 9.9 GB 仓库与 M2 约 1.5 GB mart 所在临时 worktree 已不存在；本轮必须重建，
-  且不能把历史行数/identity 当作当前完成证据。
+- 旧 M1/M2/M4 临时 worktree 与 ignored roots 已不存在；本轮已在用户目录下的持久工作树重建
+  当前证据。旧行数、identity 和 path 仅为历史记录，不得冒充本轮当前输入。
 - 本地 `main` 比 `origin/main` 超前 93 commits；未 fetch，远端当前状态未知。
 - 当前主工作树含未归属 logs/output；监督工作只在隔离 worktree，禁止清理或覆盖。
 - M5 的本地图与公开固定 probe 已成立，但产品 candidate generation、私人 runtime、accessibility、
