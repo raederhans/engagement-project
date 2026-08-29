@@ -6,10 +6,16 @@ import {
   createGeneralizedIncidentAccumulator,
   finalizeGeneralizedIncidentAccumulator,
 } from '../../src/routes_crime/known_route_contributions.js';
+import {
+  KNOWN_ROUTE_EVIDENCE_P6_SCHEMA,
+  validateKnownRouteEvidenceP6Projection,
+} from '../../src/routes_crime/known_route_evidence_p6_projection.js';
 
 export const KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION = 'known-route-generalized-incident-aggregate/v2';
 export const KNOWN_ROUTE_EVIDENCE_CHECKPOINT_SCHEMA = 'known-route-evidence-checkpoint/v2';
 export const KNOWN_ROUTE_EVIDENCE_HANDOFF_SCHEMA = 'engagement-known-route-evidence-handoff/v2';
+export const KNOWN_ROUTE_EVIDENCE_P6_CHECKPOINT_SCHEMA = 'known-route-evidence-checkpoint/v3';
+export const KNOWN_ROUTE_EVIDENCE_P6_REPORT_SCHEMA = 'known-route-corridor-aggregate/v3';
 
 const FINAL_TRANSACTION_DIRECTORY = '.final-transaction';
 const EXCLUSION_KEYS = Object.freeze([
@@ -72,6 +78,19 @@ const REPORT_KEYS = Object.freeze([
 const M2_GOVERNANCE_KEYS = Object.freeze([
   'identity', 'revision', 'receiptDigest', 'canonicalPath', 'evidenceRoot', 'implementationTip',
   'executionRecordTip', 'cumulativeTip', 'dq', 'dqRechecked', 'outcome', 'routeEvidenceAuthority',
+]);
+const P6_AUTHORITY_KEYS = Object.freeze([
+  'accessibility', 'crash', 'mapMatch', 'mode', 'routeChoice', 'routing', 'safety',
+]);
+const P6_CHECKPOINT_KEYS = Object.freeze([
+  'schema', 'legacyCheckpointIdentity', 'routeIdentity', 'aggregateRouteIdentity', 'corridorIdentity',
+  'centerlineIdentity', 'aggregateCatalogIdentity', 'dataVersion',
+  'crashAccessibilityProducerIdentity', 'modeLegalityQualityProducerIdentity',
+  'projectionIdentity', 'authority', 'privacy', 'identity',
+]);
+const P6_REPORT_KEYS = Object.freeze([
+  'schema', 'status', 'completedAt', 'legacySemanticIdentity', 'projection',
+  'crossDimensionAggregation', 'authority', 'privacy', 'semanticIdentity',
 ]);
 
 export function createKnownRouteEvidenceCheckpoint({
@@ -536,6 +555,146 @@ export function validateKnownRouteEvidenceArtifactSet({ checkpoint, report, hand
   return { checkpoint, report, handoff };
 }
 
+export function createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, projection } = {}) {
+  validateKnownRouteEvidenceCheckpoint(legacyCheckpoint);
+  validateKnownRouteEvidenceP6Projection(projection);
+  const checkpoint = {
+    schema: KNOWN_ROUTE_EVIDENCE_P6_CHECKPOINT_SCHEMA,
+    legacyCheckpointIdentity: legacyCheckpoint.checkpointIdentity,
+    routeIdentity: projection.identity.routeIdentity,
+    aggregateRouteIdentity: projection.identity.aggregateRouteIdentity,
+    corridorIdentity: projection.identity.corridorIdentity,
+    centerlineIdentity: projection.identity.centerlineIdentity,
+    aggregateCatalogIdentity: projection.identity.aggregateCatalogIdentity,
+    dataVersion: projection.identity.dataVersion,
+    crashAccessibilityProducerIdentity: projection.identity.crashAccessibilityProducerIdentity,
+    modeLegalityQualityProducerIdentity: projection.identity.modeLegalityQualityProducerIdentity,
+    projectionIdentity: projection.projectionIdentity,
+    authority: p6AuthorityDeclaration(),
+    privacy: privacyDeclaration(),
+  };
+  checkpoint.identity = identityOf(checkpoint);
+  validateKnownRouteEvidenceP6Checkpoint(checkpoint, { legacyCheckpoint, projection });
+  return checkpoint;
+}
+
+export function validateKnownRouteEvidenceP6Checkpoint(value, { legacyCheckpoint, projection } = {}) {
+  validateKnownRouteEvidenceCheckpoint(legacyCheckpoint);
+  validateKnownRouteEvidenceP6Projection(projection);
+  requireExactKeys(value, P6_CHECKPOINT_KEYS, 'P6 checkpoint');
+  requireExactKeys(value.authority, P6_AUTHORITY_KEYS, 'P6 checkpoint authority');
+  const candidate = structuredClone(value);
+  const declaredIdentity = candidate.identity;
+  delete candidate.identity;
+  if (value.schema !== KNOWN_ROUTE_EVIDENCE_P6_CHECKPOINT_SCHEMA
+    || declaredIdentity !== identityOf(candidate)
+    || value.legacyCheckpointIdentity !== legacyCheckpoint.checkpointIdentity
+    || value.routeIdentity !== projection.identity.routeIdentity
+    || value.aggregateRouteIdentity !== legacyCheckpoint.routeIdentity
+    || value.aggregateRouteIdentity !== projection.identity.aggregateRouteIdentity
+    || value.corridorIdentity !== legacyCheckpoint.corridorIdentity
+    || value.corridorIdentity !== projection.identity.corridorIdentity
+    || value.centerlineIdentity !== projection.identity.centerlineIdentity
+    || value.aggregateCatalogIdentity !== legacyCheckpoint.catalogIdentity
+    || value.aggregateCatalogIdentity !== projection.identity.aggregateCatalogIdentity
+    || value.dataVersion !== legacyCheckpoint.centerlineDataVersion
+    || value.dataVersion !== projection.identity.dataVersion
+    || value.crashAccessibilityProducerIdentity
+      !== projection.identity.crashAccessibilityProducerIdentity
+    || value.modeLegalityQualityProducerIdentity
+      !== projection.identity.modeLegalityQualityProducerIdentity
+    || value.projectionIdentity !== projection.projectionIdentity
+    || Object.values(value.authority).some((entry) => entry !== false)) {
+    throw new Error('Known Route P6 checkpoint identity or authority binding is invalid.');
+  }
+  validatePrivacyDeclaration(value.privacy);
+  validateSafeArtifact(value);
+  return value;
+}
+
+export function createSafeKnownRouteAggregateReportV3({ legacyReport, projection } = {}) {
+  validateKnownRouteEvidenceAggregateReport(legacyReport);
+  validateKnownRouteEvidenceP6Projection(projection);
+  if (legacyReport.publicRoute.sessionIdentity !== projection.identity.aggregateRouteIdentity
+    || legacyReport.centerline.corridorIdentity !== projection.identity.corridorIdentity
+    || legacyReport.centerline.catalogIdentity !== projection.identity.aggregateCatalogIdentity
+    || legacyReport.centerline.dataVersion !== projection.identity.dataVersion
+    || legacyReport.semanticIdentity !== projection.identity.aggregateSemanticIdentity) {
+    throw new Error('Known Route P6 report does not bind to the exact legacy aggregate identity.');
+  }
+  const report = {
+    schema: KNOWN_ROUTE_EVIDENCE_P6_REPORT_SCHEMA,
+    status: 'partial',
+    completedAt: legacyReport.completedAt,
+    legacySemanticIdentity: legacyReport.semanticIdentity,
+    projection: structuredClone(projection),
+    crossDimensionAggregation: false,
+    authority: p6AuthorityDeclaration(),
+    privacy: privacyDeclaration(),
+  };
+  report.semanticIdentity = identityOf(report);
+  validateKnownRouteEvidenceAggregateReportV3(report, { legacyReport, projection });
+  return report;
+}
+
+export function validateKnownRouteEvidenceAggregateReportV3(value, { legacyReport, projection } = {}) {
+  validateKnownRouteEvidenceAggregateReport(legacyReport);
+  validateKnownRouteEvidenceP6Projection(projection);
+  requireExactKeys(value, P6_REPORT_KEYS, 'P6 aggregate report');
+  requireExactKeys(value.authority, P6_AUTHORITY_KEYS, 'P6 aggregate report authority');
+  const candidate = structuredClone(value);
+  const declaredIdentity = candidate.semanticIdentity;
+  delete candidate.semanticIdentity;
+  if (value.schema !== KNOWN_ROUTE_EVIDENCE_P6_REPORT_SCHEMA
+    || value.status !== 'partial'
+    || !exactTimestamp(value.completedAt)
+    || declaredIdentity !== identityOf(candidate)
+    || value.legacySemanticIdentity !== legacyReport.semanticIdentity
+    || value.completedAt !== legacyReport.completedAt
+    || stableText(value.projection) !== stableText(projection)
+    || value.projection?.schema !== KNOWN_ROUTE_EVIDENCE_P6_SCHEMA
+    || value.projection?.identity?.aggregateRouteIdentity !== legacyReport.publicRoute.sessionIdentity
+    || value.projection?.identity?.corridorIdentity !== legacyReport.centerline.corridorIdentity
+    || value.projection?.identity?.aggregateCatalogIdentity !== legacyReport.centerline.catalogIdentity
+    || value.projection?.identity?.dataVersion !== legacyReport.centerline.dataVersion
+    || value.projection?.identity?.aggregateSemanticIdentity !== legacyReport.semanticIdentity
+    || value.crossDimensionAggregation !== false
+    || Object.values(value.authority).some((entry) => entry !== false)) {
+    throw new Error('Known Route P6 aggregate report identity, lineage, or authority is invalid.');
+  }
+  validateKnownRouteEvidenceP6Projection(value.projection);
+  validatePrivacyDeclaration(value.privacy);
+  validateSafeArtifact(value);
+  return value;
+}
+
+export function validateKnownRouteEvidenceP6ArtifactSet({
+  legacyCheckpoint,
+  legacyReport,
+  projection,
+  checkpoint,
+  report,
+} = {}) {
+  validateKnownRouteEvidenceP6Checkpoint(checkpoint, { legacyCheckpoint, projection });
+  validateKnownRouteEvidenceAggregateReportV3(report, { legacyReport, projection });
+  if (legacyReport.publicRoute.sessionIdentity !== legacyCheckpoint.routeIdentity
+    || legacyReport.centerline.corridorIdentity !== legacyCheckpoint.corridorIdentity
+    || checkpoint.projectionIdentity !== report.projection.projectionIdentity
+    || checkpoint.routeIdentity !== report.projection.identity.routeIdentity
+    || checkpoint.aggregateRouteIdentity !== report.projection.identity.aggregateRouteIdentity
+    || checkpoint.corridorIdentity !== report.projection.identity.corridorIdentity
+    || checkpoint.centerlineIdentity !== report.projection.identity.centerlineIdentity
+    || checkpoint.aggregateCatalogIdentity !== report.projection.identity.aggregateCatalogIdentity
+    || checkpoint.dataVersion !== report.projection.identity.dataVersion
+    || checkpoint.crashAccessibilityProducerIdentity
+      !== report.projection.identity.crashAccessibilityProducerIdentity
+    || checkpoint.modeLegalityQualityProducerIdentity
+      !== report.projection.identity.modeLegalityQualityProducerIdentity) {
+    throw new Error('Known Route P6 checkpoint/report bindings are inconsistent.');
+  }
+  return { checkpoint, report };
+}
+
 export async function publishKnownRouteFinalArtifacts({ outputRoot, artifacts, failAfterPublish = null } = {}) {
   const entries = Object.entries(artifacts || {});
   if (!entries.length || entries.some(([name]) => !/^[a-z0-9][a-z0-9.-]*\.json$/.test(name))) {
@@ -769,6 +928,10 @@ function privacyDeclaration() {
     containsRouteEndpoints: false,
     containsCenterlineSourceEdgeIds: false,
   };
+}
+
+function p6AuthorityDeclaration() {
+  return Object.fromEntries(P6_AUTHORITY_KEYS.map((key) => [key, false]));
 }
 
 function validatePrivacyDeclaration(value) {

@@ -587,6 +587,7 @@ test('M2 governance stays order-only and final handoff rejects hostile lineage, 
     expectedM1Coverage: m2.coverage,
     expectedM1Rows: 64,
     validateMart: async () => m2.martGate,
+    validateReport: m2.validateReport,
     verifyTips: async () => {},
   });
   assert.equal(governance.dqRechecked, true);
@@ -610,6 +611,7 @@ test('M2 governance stays order-only and final handoff rejects hostile lineage, 
       expectedM1Coverage: m2.coverage,
       expectedM1Rows: 64,
       validateMart: async () => m2.martGate,
+      validateReport: m2.validateReport,
       verifyTips: async () => {},
     }), /artifact binding|DQ recheck/i);
   });
@@ -628,6 +630,7 @@ test('M2 governance stays order-only and final handoff rejects hostile lineage, 
       expectedM1Coverage: m2.coverage,
       expectedM1Rows: 64,
       validateMart: async () => m2.martGate,
+      validateReport: m2.validateReport,
       verifyTips: async () => {},
     }), /lineage/i);
   });
@@ -798,6 +801,7 @@ test('builder completes from exact synthetic upstream harnesses and a completed 
       return catalog();
     },
     validateMart: async () => m2.martGate,
+    validateReport: m2.validateReport,
     verifyTips: async () => {},
     now: () => times.shift(),
   };
@@ -897,6 +901,7 @@ test('builder aggregation rejects same-row-count partition byte drift after exac
       await fs.writeFile(part, hostile);
       return m2.martGate;
     },
+    validateReport: m2.validateReport,
     verifyTips: async () => {},
     now: () => new Date('2026-08-29T04:00:00.000Z'),
   }), /rows, bytes, or SHA-256 changed after exact preflight/i);
@@ -1183,11 +1188,35 @@ async function createM2Fixture(overrides = {}) {
   };
   const evaluationPath = path.join(evaluationRoot, 'manifest.json');
   await fs.writeFile(evaluationPath, `${JSON.stringify(evaluation, null, 2)}\n`);
+  const evaluationCheckpoint = { schema: 'synthetic-m2-evaluation-checkpoint/v1' };
+  await fs.writeFile(
+    path.join(evaluationRoot, 'checkpoint.json'),
+    `${JSON.stringify(evaluationCheckpoint, null, 2)}\n`,
+  );
+  const protocol = {
+    schema: report.protocol.schema,
+    frozen_at: report.protocol.frozen_at,
+    frozen_before_model_performance: true,
+  };
+  const martManifest = { artifact_identity: martIdentity, row_count: 10, bytes: 20 };
   const martGate = {
-    martManifest: { artifact_identity: martIdentity, row_count: 10, bytes: 20 },
+    protocol,
+    martManifest,
+    martManifestIdentity: report.data.mart_manifest_sha256,
     martInventory: { row_count: 10, bytes: 20 },
   };
-  return { testRoot, root, reportPath, evaluationPath, martIdentity, m1ReceiptIdentity, m1Revision, coverage, martGate };
+  const validateReport = (value, context) => {
+    assert.equal(value.schema, 'ModelEvaluationReport/v1');
+    assert.equal(context.protocol, protocol);
+    assert.equal(context.martManifest, martManifest);
+    assert.equal(context.martManifestIdentity, report.data.mart_manifest_sha256);
+    assert.deepEqual(context.checkpoint, evaluationCheckpoint);
+    return true;
+  };
+  return {
+    testRoot, root, reportPath, evaluationPath, martIdentity, m1ReceiptIdentity,
+    m1Revision, coverage, martGate, validateReport,
+  };
 }
 
 async function withRestoredFile(file, callback) {

@@ -23,6 +23,8 @@ import {
   KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION,
   createKnownRouteEvidenceCheckpoint,
   createKnownRouteEvidenceFinalHandoff,
+  createKnownRouteEvidenceP6Checkpoint,
+  createSafeKnownRouteAggregateReportV3,
   createSafeKnownRouteAggregateReport,
   identityOf,
   publishKnownRouteFinalArtifacts,
@@ -30,6 +32,7 @@ import {
   restoreKnownRouteEvidenceAccumulator,
   stableText,
   validateKnownRouteEvidenceArtifactSet,
+  validateKnownRouteEvidenceP6ArtifactSet,
   writeJsonAtomic,
 } from './lib/known_route_evidence_checkpoint.mjs';
 
@@ -86,6 +89,7 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
     expectedM1Rows: warehouseGate.receipt.counts.canonical_rows,
     protocolPath: options.m2ProtocolPath || DEFAULT_PROTOCOL_PATH,
     validateMart: dependencies.validateMart,
+    validateReport: dependencies.validateReport,
     verifyTips: dependencies.verifyTips,
   });
   const expected = {
@@ -418,6 +422,7 @@ export async function validateM2Governance({
   expectedM1Rows,
   protocolPath = DEFAULT_PROTOCOL_PATH,
   validateMart = validateAreaIntelligenceMartForEvaluation,
+  validateReport = validateModelEvaluationReport,
   verifyTips = verifyCommitChain,
 } = {}) {
   if (!evidenceRoot || !digest(expectedMartIdentity)
@@ -435,7 +440,16 @@ export async function validateM2Governance({
   }
   const evaluation = await readJsonArtifact(path.join(root, 'evaluation', 'manifest.json'), 'M2 evaluation manifest');
   const report = await readJsonArtifact(path.join(root, 'evaluation', 'model-evaluation-report.json'), 'M2 evaluation receipt');
-  validateModelEvaluationReport(report.value);
+  const evaluationCheckpoint = await readJsonArtifact(
+    path.join(root, 'evaluation', 'checkpoint.json'),
+    'M2 evaluation checkpoint',
+  );
+  validateReport(report.value, {
+    protocol: martGate.protocol,
+    martManifest: martGate.martManifest,
+    martManifestIdentity: martGate.martManifestIdentity,
+    checkpoint: evaluationCheckpoint.value,
+  });
   const descriptor = evaluation.value.artifacts?.find((artifact) => artifact.name === 'model-evaluation-report.json');
   const seam = evaluation.value.lineage_seam;
   if (evaluation.value.schema !== 'engagement-area-intelligence-evaluation-run/v2'
@@ -489,6 +503,19 @@ export async function validateM2Governance({
     outcome: { promotionStatus: 'not-promoted', selectedModel: null, availability: 'unavailable' },
     routeEvidenceAuthority: false,
   };
+}
+
+export function createKnownRouteEvidenceP6Artifacts({ legacyCheckpoint, legacyReport, projection } = {}) {
+  const checkpoint = createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, projection });
+  const report = createSafeKnownRouteAggregateReportV3({ legacyReport, projection });
+  validateKnownRouteEvidenceP6ArtifactSet({
+    legacyCheckpoint,
+    legacyReport,
+    projection,
+    checkpoint,
+    report,
+  });
+  return { checkpoint, report };
 }
 
 async function verifyCommitChain({ implementationTip, executionRecordTip, cumulativeTip }) {

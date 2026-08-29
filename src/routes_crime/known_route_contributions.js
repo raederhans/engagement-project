@@ -72,15 +72,23 @@ export function addRuntimeReportedRecord(accumulator, feature) {
 }
 
 export function finalizeGeneralizedIncidentAccumulator(accumulator) {
-  const segments = accumulator.segments.map((segment) => Object.freeze({
-    analysisSegmentId: segment.analysisSegmentId,
-    streetLabel: segment.streetLabel,
-    contributionUnits: round(segment.contributionUnits, 6),
-    contributingRows: segment.contributingRows,
-    categories: Object.freeze([...segment.categories.entries()]
-      .map(([category, contributionUnits]) => Object.freeze({ category, contributionUnits: round(contributionUnits, 6) }))
-      .sort((left, right) => right.contributionUnits - left.contributionUnits || left.category.localeCompare(right.category))),
-  }));
+  const segments = accumulator.segments.map((segment) => {
+    const contributionUnits = round(segment.contributionUnits, 6);
+    const categories = conserveRoundedMass({
+      entries: [...segment.categories.entries()].map(([category, units]) => ({ category, units })),
+      target: contributionUnits,
+      digits: 6,
+    }).map(({ category, units }) => Object.freeze({ category, contributionUnits: units }))
+      .sort((left, right) => right.contributionUnits - left.contributionUnits
+        || left.category.localeCompare(right.category));
+    return Object.freeze({
+      analysisSegmentId: segment.analysisSegmentId,
+      streetLabel: segment.streetLabel,
+      contributionUnits,
+      contributingRows: segment.contributingRows,
+      categories: Object.freeze(categories),
+    });
+  });
   const routeContributionUnits = round(segments.reduce((sum, segment) => sum + segment.contributionUnits, 0), 6);
   return Object.freeze({
     schema: accumulator.schema,
@@ -148,4 +156,21 @@ function isLonLat(value) {
 function round(value, digits) {
   const factor = 10 ** digits;
   return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+function conserveRoundedMass({ entries, target, digits }) {
+  if (!entries.length) return [];
+  const factor = 10 ** digits;
+  const projected = entries.map(({ category, units }) => {
+    const scaled = units * factor;
+    const base = Math.floor(scaled + Number.EPSILON);
+    return { category, base, remainder: scaled - base };
+  });
+  let remaining = Math.round(target * factor) - projected.reduce((sum, entry) => sum + entry.base, 0);
+  const allocationOrder = [...projected].sort((left, right) => right.remainder - left.remainder
+    || left.category.localeCompare(right.category));
+  for (let index = 0; remaining > 0; index += 1, remaining -= 1) {
+    allocationOrder[index % allocationOrder.length].base += 1;
+  }
+  return projected.map(({ category, base }) => ({ category, units: base / factor }));
 }
