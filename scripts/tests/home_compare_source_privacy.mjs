@@ -6,9 +6,17 @@ import registry from '../../public/data/home_compare_sources.v1.json' with { typ
 
 test('Home Compare registry remains a trusted bounded nine-source baseline', () => {
   assert.equal(registry.sources.length, 9);
-  assert.deepEqual(validateHomeCompareSourceRegistry(structuredClone(registry)), registry);
-  const hostile = structuredClone(registry); hostile.sources[0].canonical_url = 'https://example.invalid/hostile';
-  assert.throws(() => validateHomeCompareSourceRegistry(hostile), /source/i);
+  for (const [index, source] of registry.sources.entries()) {
+    const mutations = {
+      canonical_url: 'https://example.invalid/hostile-source', dataset: `${source.dataset}-hostile-drift`,
+      expected_fields: [...source.expected_fields, 'hostile_field'], selected_fields: source.selected_fields.slice(0, -1),
+      ...(source.api_url ? { api_url: 'https://example.invalid/hostile-api', transport: source.transport === 'carto-sql' ? 'arcgis-feature-service' : 'carto-sql' } : {}),
+    };
+    for (const [field, hostileValue] of Object.entries(mutations)) {
+      const hostile = structuredClone(registry); hostile.sources[index][field] = hostileValue;
+      assert.throws(() => validateHomeCompareSourceRegistry(hostile), /source (?:identit|registr)/i, `${source.id} accepted hostile ${field}`);
+    }
+  }
 });
 
 test('private Home Compare address and evidence entry points reject before every request', async () => {

@@ -22,6 +22,7 @@ import {
   homeCompareCitywideReadinessHtml,
   loadHomeCompareCitywideReadiness,
 } from './citywide_readiness.js';
+import { rejectPrivateLocationEgress } from '../utils/http.js';
 
 const DEFAULT_WEIGHTS = Object.freeze({
   property: 20,
@@ -74,6 +75,7 @@ export function createHomeCompareController({
   locationRef = globalThis.location,
   historyRef = globalThis.history,
   loadCitywideReadiness = loadHomeCompareCitywideReadiness,
+  privateAnalysisGate = rejectPrivateLocationEgress,
 } = {}) {
   if (!dialog?.querySelector) throw new TypeError('Home Compare dialog is required.');
   const host = dialog.querySelector('[data-home-compare-host]');
@@ -96,6 +98,8 @@ export function createHomeCompareController({
   let generation = 0;
   let requestController = null;
   let renderResults = null;
+  let destroyed = false;
+  let readinessGeneration = 0;
 
   applyShareStateFromUrl();
   void refreshCitywideReadiness();
@@ -182,11 +186,14 @@ export function createHomeCompareController({
   }
 
   async function refreshCitywideReadiness() {
+    const currentGeneration = ++readinessGeneration;
     try {
       state.citywideReadiness = await loadCitywideReadiness();
     } catch {
+      if (destroyed || currentGeneration !== readinessGeneration) return;
       state.citywideReadiness = null;
     }
+    if (destroyed || currentGeneration !== readinessGeneration) return;
     render();
   }
 
@@ -243,10 +250,46 @@ export function createHomeCompareController({
 
   async function compare() {
     if (state.busy) return { status: 'busy' };
-    clearResult();
-    state.status = 'address-unavailable';
-    render();
-    return Object.freeze({ status: 'unavailable', reason: 'private-address-unavailable-before-egress', travelTimes: [], isochrones: [] });
+    // Production's default gate is synchronous and runs before any lazy chunk,
+    // registry, M2, geocoder, evidence, or ancillary request. Tests alone may
+    // inject a no-op to preserve the pure local compare-domain harness.
+    try { privateAnalysisGate(); } catch (error) {
+      clearResult(); state.status = 'address-unavailable'; render();
+      return Object.freeze({ status: 'unavailable', reason: 'private-address-unavailable-before-egress', travelTimes: [], isochrones: [] });
+    }
+    const request = Object.freeze({
+      addresses: Object.freeze(state.addresses.map((value) => value.trim())),
+      destinations: Object.freeze(state.destinations.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)),
+      weights: Object.freeze({ ...state.weights }),
+    });
+    if (request.addresses.some((value) => value.length < 3 || value.length > 160)) { state.status = 'invalid-addresses'; render(); return { status: 'invalid' }; }
+    if (request.destinations.length > 3 || request.destinations.some((value) => value.length > 160)) { state.status = 'invalid-destinations'; render(); return { status: 'invalid' }; }
+    const requestGeneration = ++generation;
+    requestController?.abort();
+    const activeRequestController = new AbortController(); requestController = activeRequestController;
+    const resultsView = Promise.resolve().then(loadResultsView);
+    const observedResultsView = resultsView.then((view) => ({ view }), (error) => ({ error }));
+    state.busy = true; state.status = 'loading'; clearResult(); render();
+    try {
+      const [registry, areaIntelligence, identities] = await Promise.all([
+        loadRegistry({ signal: activeRequestController.signal }), loadAreaIntelligence({ signal: activeRequestController.signal }),
+        Promise.all(request.addresses.map((address) => resolveAddress(address, { signal: activeRequestController.signal }))),
+      ]);
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
+      const admittedAreaIntelligence = validateHomeCompareAreaIntelligenceBoundary(areaIntelligence);
+      const results = await Promise.all(admitComparisonIdentities(identities).map((identity) => fetchEvidence(identity, { signal: activeRequestController.signal })));
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
+      const projection = createHomeCompareProjection({ profiles:results.map((result,index)=>({ ...result.profile, profileId:`home-${index + 1}` })), sources:await combineHomeCompareSources(registry,results), areaIntelligence:admittedAreaIntelligence, sensitivity:buildWeightSensitivity(request.weights) });
+      const { view, error:resultsViewError } = await observedResultsView;
+      if (requestGeneration !== generation || activeRequestController.signal.aborted) return { status: 'superseded' };
+      if (resultsViewError || typeof view?.homeCompareResultsHtml !== 'function') throw createResultsViewUnavailableError(resultsViewError);
+      renderResults = view.homeCompareResultsHtml; state.result=projection; state.labels=results.map(({privateLabel})=>privateLabel); state.resultHtml=renderResults(projection,{labels:state.labels,locale:getLanguage()}); state.resultLocale=getLanguage(); state.status=projection.status==='available'?'available':'partial'; state.busy=false;
+      if(requestController===activeRequestController)requestController=null; render(); host.querySelector('[data-home-results]')?.focus?.({preventScroll:true}); return {status:projection.status,projection};
+    } catch (error) {
+      if(requestGeneration!==generation||activeRequestController.signal.aborted||error?.name==='AbortError')return {status:'superseded'};
+      activeRequestController.abort(); if(requestController===activeRequestController)requestController=null;
+      if(error?.code==='RESULTS_VIEW_UNAVAILABLE')setResultsUnavailable(error); else {state.busy=false;state.status=errorStatus(error);} render(); return {status:'unavailable',reason:state.status};
+    }
   }
 
   async function shareSettings() {
@@ -318,6 +361,8 @@ export function createHomeCompareController({
       weights: { ...state.weights },
     }),
     destroy() {
+      destroyed = true;
+      readinessGeneration += 1;
       cancelInFlight({ renderAfter: false });
       unsubscribeLanguage();
       dialog.removeEventListener('cancel', onCancel);

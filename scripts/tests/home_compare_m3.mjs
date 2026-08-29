@@ -833,11 +833,11 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
     assert.equal((shell.match(/data-home-address=/g) || []).length, count);
     assert.match(shell, count === 3 ? /并排比较 2–4 个费城住宅/ : /Compare 2–4 Philadelphia homes/);
     assert.match(shell, count === 3
-      ? /地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源/
-      : /used ephemerally to query the listed official public sources/);
+      ? /私人地址比较会在任何 geocoder、parcel、地图或附属请求前保持不可用/
+      : /Private address comparison is unavailable before any geocoder/);
     assert.match(shell, count === 3
-      ? /通勤目的地只保留在本次会话中/
-      : /commute destinations remain in this session/);
+      ? /不是地址级证据/
+      : /not address-level evidence/);
   }
   const rendered = homeCompareResultsHtml(makeProjection(2), {
     labels: ['<img src=x onerror=alert(1)>', '<script>alert(2)</script>'],
@@ -848,6 +848,15 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
   assert.match(rendered, /预测继续不可用/);
   assert.match(rendered, /通勤时间与 isochrone 不可用/);
   assert.match(rendered, /不计算 safety score/);
+});
+
+test('Home Compare ignores deferred citywide readiness after destroy', async () => {
+  const readiness = deferred();
+  const { controller, host } = createControllerHarness({ loadCitywideReadiness: () => readiness.promise });
+  controller.destroy();
+  readiness.resolve({ hostile: 'must-not-render' });
+  await nextTurn();
+  assert.equal(host.innerHTML, '');
 });
 
 test('Home Compare discards a computed projection when a deferred results renderer outlives close or destroy', async () => {
@@ -1183,6 +1192,7 @@ test('runtime evidence keeps geocoder provenance, unknown counts, source revisio
   );
   const result = await fetchHomeProfileEvidence(identity, {
     request: syntheticRuntimeRequest,
+    privateAnalysisGate: () => {},
     now: () => '2026-08-21T00:00:00.000Z',
     incidentReader: async () => 0,
     coverageReader: async () => ({ min: '2006-01-01', max: '2026-08-20' }),
@@ -1458,6 +1468,7 @@ function createControllerHarness({
   clipboard,
   locationRef = { href: 'https://example.test/' },
   historyRef = { replaceState() {} },
+  loadCitywideReadiness,
 } = {}) {
   const host = new ControllerHost();
   const dialog = new ControllerDialog(host);
@@ -1470,7 +1481,9 @@ function createControllerHarness({
     fetchEvidence,
     clipboard,
     locationRef,
-    historyRef,
+      historyRef,
+      privateAnalysisGate: () => {},
+    loadCitywideReadiness,
   });
   return { controller, dialog, host };
 }
