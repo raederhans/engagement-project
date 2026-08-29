@@ -8,3 +8,4 @@ export * from './persistent_store_contract.mjs';
 export * from './runtime_adapter_contract.mjs';
 export * from './tool_contracts.mjs';
 export * from './trace_contract.mjs';
+export * from './osrm_public_probe.mjs';
