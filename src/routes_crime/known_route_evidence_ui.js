@@ -87,6 +87,13 @@ registerMessagePairs({
   'knownRouteEvidence.sensitivityAvailable': ['{count} caller-provided identity-valid comparison(s). Deltas apply only to generalized reported-incident contribution units.', '{count} 个由调用方提供且 identity 有效的比较；差值仅适用于泛化已记录事件贡献单位。'],
   'knownRouteEvidence.availableAggregate': ['Available aggregate context', '可用的聚合背景'],
   'knownRouteEvidence.admittedZero': ['Admitted zero under complete verified coverage', '在完整已验证覆盖下准入为零'],
+  'knownRouteEvidence.p6Missing': ['No identity-bound P6 artifact was supplied for this route and data version.', '未提供与本路线和数据版本绑定的 P6 工件。'],
+  'knownRouteEvidence.p6Invalid': ['The supplied P6 artifact was invalid or did not match this route and data version.', '所提供的 P6 工件无效，或与本路线及数据版本不匹配。'],
+  'knownRouteEvidence.hinHistoricalStatus': ['Partial historical planning context', '部分历史规划背景'],
+  'knownRouteEvidence.hinHistoricalSummary': ['HIN 2025 is historical planning context, not a raw crash warehouse or current route condition.', 'HIN 2025 仅为历史规划背景，不是原始事故仓库或当前路线状况。'],
+  'knownRouteEvidence.modeLegalityUnavailable': ['No complete version-bound mode-restriction receipt is admitted.', '尚无完整且绑定版本的出行方式限制收据获准入。'],
+  'knownRouteEvidence.mapMatchQualityUnavailable': ['The deterministic reference match is uncalibrated; repeatability is not correctness.', '确定性的参考匹配尚未校准；可重复不等于正确。'],
+  'knownRouteEvidence.sensitivityProducerUnavailable': ['No admitted versioned corridor or generalization sensitivity producer is available.', '尚无获准入且已版本化的走廊或泛化敏感性生产者。'],
 });
 
 export function initKnownRouteEvidenceUi({
@@ -94,8 +101,10 @@ export function initKnownRouteEvidenceUi({
   requestCatalog = requestPhiladelphiaCenterlineCatalog,
   matchRoute = matchKnownRouteToCenterline,
   aggregateIncidents = aggregateRuntimeReportedRecords,
+  loadP6Projection = () => null,
 } = {}) {
-  if (!root?.querySelector || typeof requestCatalog !== 'function') {
+  if (!root?.querySelector || typeof requestCatalog !== 'function'
+    || typeof loadP6Projection !== 'function') {
     throw new Error('Known Route evidence UI requires a root and request port.');
   }
   root.innerHTML = surfaceHtml();
@@ -172,8 +181,37 @@ export function initKnownRouteEvidenceUi({
         matches: prepared.incidentResult?.matches || [],
         matchedEdges: matched.matchedEdges,
       });
+      let p6Projection = null;
+      let p6UnavailableReason = 'missing';
+      try {
+        const candidate = await loadP6Projection({
+          routeIdentity: normalizedRoute.sessionRouteIdentity,
+          corridorIdentity: matched.corridorIdentity,
+          dataVersion: matched.dataVersion,
+        });
+        if (requestGeneration !== generation) return;
+        if (candidate !== null && candidate !== undefined) {
+          validateKnownRouteEvidenceP6Projection(candidate);
+          if (candidate.identity.routeIdentity !== normalizedRoute.sessionRouteIdentity
+            || candidate.identity.corridorIdentity !== matched.corridorIdentity
+            || candidate.identity.dataVersion !== matched.dataVersion) {
+            throw new Error('Known Route P6 session identity mismatch.');
+          }
+          p6Projection = candidate;
+        }
+      } catch {
+        p6Projection = null;
+        p6UnavailableReason = 'invalid';
+      }
       controller = null;
-      render({ status: 'ready', matched, incidents, incidentResult: prepared.incidentResult });
+      render({
+        status: 'ready',
+        matched,
+        incidents,
+        incidentResult: prepared.incidentResult,
+        p6Projection,
+        p6UnavailableReason,
+      });
     } catch (error) {
       if (requestGeneration !== generation || error?.name === 'AbortError') return;
       controller = null;
@@ -229,7 +267,9 @@ function surfaceHtml() {
 }
 
 function renderReady(documentRef, root, presentation) {
-  const { matched, incidents, incidentResult } = presentation;
+  const {
+    matched, incidents, incidentResult, p6Projection, p6UnavailableReason,
+  } = presentation;
   root.append(
     sourceCard(documentRef, {
       title: t('knownRouteEvidence.centerlineTitle'),
@@ -270,6 +310,18 @@ function renderReady(documentRef, root, presentation) {
       unavailableReason: t('knownRouteEvidence.accessibilityLimits'),
     }),
   );
+  const p6 = documentRef.createElement('section');
+  p6.dataset.knownRouteP6 = p6Projection ? 'partial' : 'unavailable';
+  if (p6Projection) {
+    renderKnownRouteEvidenceP6Projection({ documentRef, root: p6, projection: p6Projection });
+  } else {
+    renderKnownRouteEvidenceP6Unavailable({
+      documentRef,
+      root: p6,
+      reason: p6UnavailableReason,
+    });
+  }
+  root.append(p6);
   const aggregate = documentRef.createElement('section');
   const aggregateTitle = documentRef.createElement('h4');
   aggregateTitle.textContent = t('knownRouteEvidence.routeAggregate');
@@ -375,6 +427,55 @@ export function renderKnownRouteEvidenceP6Projection({ documentRef, root, projec
     : t('knownRouteEvidence.sensitivityAvailable', {
       count: projection.sensitivity.comparisons.length,
     });
+  sensitivity.append(heading, summary);
+  root.append(sensitivity);
+  return root;
+}
+
+export function renderKnownRouteEvidenceP6Unavailable({ documentRef, root, reason = 'missing' } = {}) {
+  if (!documentRef?.createElement || !root?.append || !['missing', 'invalid'].includes(reason)) {
+    throw new Error('Known Route P6 unavailable renderer requires a document, root, and bounded reason.');
+  }
+  const boundary = documentRef.createElement('p');
+  boundary.className = 'route-corridor__truth';
+  boundary.textContent = t('knownRouteEvidence.p6Boundary');
+  root.append(boundary);
+  root.append(sourceCard(documentRef, {
+    title: t('knownRouteEvidence.hinPlanningTitle'),
+    href: HIN_SOURCE_URL,
+    status: t('knownRouteEvidence.hinHistoricalStatus'),
+    asOf: 'network-2025; crashes-2019-2023',
+    coverage: t('knownRouteEvidence.hinHistoricalSummary'),
+    precision: t('knownRouteEvidence.hinHistoricalSummary'),
+    uncertainty: t('knownRouteEvidence.hinHistoricalSummary'),
+  }));
+  for (const mode of KNOWN_ROUTE_EVIDENCE_TRANSPORT_MODES) {
+    root.append(sourceCard(documentRef, {
+      title: t('knownRouteEvidence.modeLegalityTitle', { mode: t(`knownRouteEvidence.${mode}`) }),
+      href: PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
+      status: t('knownRouteEvidence.unavailableValue'),
+      asOf: '—',
+      coverage: t('knownRouteEvidence.unavailableValue'),
+      precision: t('knownRouteEvidence.unavailableValue'),
+      uncertainty: t('knownRouteEvidence.modeLegalityUnavailable'),
+      unavailableReason: t('knownRouteEvidence.modeLegalityUnavailable'),
+    }));
+  }
+  root.append(sourceCard(documentRef, {
+    title: t('knownRouteEvidence.mapMatchQualityTitle'),
+    href: PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
+    status: t('knownRouteEvidence.unavailableValue'),
+    asOf: '—',
+    coverage: t('knownRouteEvidence.unavailableValue'),
+    precision: t('knownRouteEvidence.mapMatchQualityUnavailable'),
+    uncertainty: t('knownRouteEvidence.mapMatchQualityUnavailable'),
+    unavailableReason: t('knownRouteEvidence.mapMatchQualityUnavailable'),
+  }));
+  const sensitivity = documentRef.createElement('section');
+  const heading = documentRef.createElement('h4');
+  heading.textContent = t('knownRouteEvidence.sensitivityTitle');
+  const summary = documentRef.createElement('p');
+  summary.textContent = `${t(`knownRouteEvidence.p6${reason === 'invalid' ? 'Invalid' : 'Missing'}`)} ${t('knownRouteEvidence.sensitivityProducerUnavailable')}`;
   sensitivity.append(heading, summary);
   root.append(sensitivity);
   return root;

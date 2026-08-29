@@ -1,12 +1,26 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 
+import {
+  admitKnownRouteEvidenceRequest,
+  deterministicIdentity,
+} from '../../src/routes_crime/known_route_evidence_contract.js';
+import {
+  admitCenterlineFeatureCollection,
+  admitCenterlineMetadata,
+  matchKnownRouteToCenterline,
+} from '../../src/routes_crime/known_route_centerline.js';
+import {
+  createKnownRouteModeLegalityQualityEvidence,
+  validateKnownRouteModeLegalityQualityEvidence,
+} from '../../src/routes_crime/known_route_mode_legality_quality.js';
 import {
   addCanonicalGeneralizedIncident,
   createGeneralizedIncidentAccumulator,
 } from '../../src/routes_crime/known_route_contributions.js';
-import { deterministicIdentity } from '../../src/routes_crime/known_route_evidence_contract.js';
 import {
   createKnownRouteEvidenceP6Projection,
   createKnownRouteEvidenceSensitivityScenario,
@@ -15,6 +29,7 @@ import {
 } from '../../src/routes_crime/known_route_evidence_p6_projection.js';
 import {
   createKnownRouteEvidenceCheckpoint,
+  createKnownRouteEvidenceFinalHandoff,
   createKnownRouteEvidenceP6Checkpoint,
   createSafeKnownRouteAggregateReport,
   createSafeKnownRouteAggregateReportV3,
@@ -23,7 +38,15 @@ import {
   validateKnownRouteEvidenceAggregateReportV3,
   validateKnownRouteEvidenceP6ArtifactSet,
   validateKnownRouteEvidenceP6Checkpoint,
+  validateKnownRouteP6CatalogIdentityBinding,
 } from '../lib/known_route_evidence_checkpoint.mjs';
+import {
+  KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+  buildKnownRouteCrashAccessibilityEvidence,
+  createKnownRouteSourceReceipt,
+  validateKnownRouteCrashAccessibilityEvidence,
+} from '../lib/known_route_crash_accessibility_evidence.mjs';
+import { publishKnownRouteP6Artifacts } from '../build_known_route_evidence.mjs';
 
 const routeIdentity = deterministicIdentity('known-route-session', { route: 'fixture' });
 const aggregateRouteIdentity = identityOf({ sessionRouteIdentity: routeIdentity });
@@ -52,7 +75,7 @@ test('P6 projection keeps dimensions separate, stable, conservative, and unavail
     ), 0), segment.contributionUnits);
   }
   assert.equal(first.sensitivity.status, 'unavailable');
-  assert.match(first.sensitivity.reason, /No caller-provided/i);
+  assert.match(first.sensitivity.reason, /No admitted versioned/i);
   assert.deepEqual(first.sensitivity.comparisons, []);
   assert.ok(Object.values(first.authority).every((value) => value === false));
   assert.ok(Object.values(first.privacy).every((value) => value === false));
@@ -74,13 +97,13 @@ test('P6 fails closed on A/B route, corridor, producer, and validator boundaries
   mode.corridor_identity = deterministicIdentity('known-route-corridor', { corridor: 'other' });
   assert.throws(() => createProjection({ aggregate, mode }), /does not match.*corridor/i);
 
-  const centerlineDrift = modeLegalityFixture();
-  centerlineDrift.centerline_identity = deterministicIdentity('centerline-catalog', { catalog: 'other' });
-  assert.throws(() => createProjection({ aggregate, mode: centerlineDrift }), /A\/B route, centerline/i);
-
   const versionDrift = modeLegalityFixture();
   versionDrift.match_quality.source_version = 'city-street-centerline:2026-08-30T00:00:00.000Z';
   assert.throws(() => createProjection({ aggregate, mode: versionDrift }), /corridor and data version/i);
+
+  const catalogDrift = modeLegalityFixture();
+  catalogDrift.centerline_identity = deterministicIdentity('centerline-catalog', { catalog: 'other' });
+  assert.throws(() => createProjection({ aggregate, mode: catalogDrift }), /catalog identity bridge/i);
 
   assert.throws(() => createKnownRouteEvidenceP6Projection({
     aggregateReport: aggregate,
@@ -111,7 +134,52 @@ test('P6 fails closed on A/B route, corridor, producer, and validator boundaries
   assert.throws(() => createProjection({ aggregate, mode: promotedMode }), /every mode.*unavailable/i);
 });
 
-test('sensitivity compares only explicit identity-bound different scenarios and detects config drift', () => {
+test('P6 consumes the actual A/B producers and validators without fixture-only identity fields', () => {
+  const inputs = admittedProducerInputs();
+  const crash = buildKnownRouteCrashAccessibilityEvidence({
+    schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+    route_identity: inputs.normalizedRoute.sessionRouteIdentity,
+    corridor_identity: inputs.match.corridorIdentity,
+    source_receipts: [
+      unavailableProducerReceipt('raw-crash', inputs),
+      unavailableProducerReceipt('accessibility', inputs),
+    ],
+  });
+  const mode = createKnownRouteModeLegalityQualityEvidence(inputs);
+  const aggregate = aggregateFixture();
+  aggregate.publicRoute.sessionIdentity = identityOf({
+    sessionRouteIdentity: inputs.normalizedRoute.sessionRouteIdentity,
+  });
+  aggregate.centerline.corridorIdentity = inputs.match.corridorIdentity;
+  aggregate.centerline.catalogIdentity = identityOf({
+    catalogIdentity: inputs.catalog.catalogIdentity,
+  });
+  aggregate.centerline.dataVersion = inputs.catalog.source.dataVersion;
+  aggregate.semanticIdentity = identityOf({ aggregate: 'real-producer-binding' });
+
+  const projection = createKnownRouteEvidenceP6Projection({
+    aggregateReport: aggregate,
+    validateAggregateReport: validateAggregateFixture,
+    crashAccessibilityEvidence: crash,
+    validateCrashAccessibilityEvidence: validateKnownRouteCrashAccessibilityEvidence,
+    modeLegalityQualityEvidence: mode,
+    validateModeLegalityQualityEvidence: validateKnownRouteModeLegalityQualityEvidence,
+    validateCatalogIdentityBinding: validateKnownRouteP6CatalogIdentityBinding,
+  });
+
+  assert.equal(projection.identity.routeIdentity, inputs.normalizedRoute.sessionRouteIdentity);
+  assert.equal(projection.identity.corridorIdentity, inputs.match.corridorIdentity);
+  assert.equal(projection.identity.centerlineIdentity, inputs.catalog.catalogIdentity);
+  assert.equal(projection.identity.dataVersion, inputs.catalog.source.dataVersion);
+  assert.equal(projection.dimensions.rawCrash.status, 'unavailable');
+  assert.equal(projection.dimensions.accessibility.status, 'unavailable');
+  assert.deepEqual(
+    Object.values(projection.dimensions.modeLegality).map(({ status }) => status),
+    ['unavailable', 'unavailable', 'unavailable', 'unavailable'],
+  );
+});
+
+test('P6 v1 rejects caller-self-signed sensitivity values without an admitted variant producer', () => {
   const projection = createProjection({ aggregate: aggregateFixture() });
   const baseline = createKnownRouteEvidenceSensitivityScenario({
     kind: 'generalization',
@@ -131,29 +199,14 @@ test('sensitivity compares only explicit identity-bound different scenarios and 
     identity: projection.identity,
     reportedIncidentEvidence: variantEvidence,
   });
-  const result = runKnownRouteEvidenceSensitivity({ baselineScenario: baseline, variants: [variant] });
-  assert.equal(result.status, 'available');
-  assert.equal(result.comparisons.length, 1);
-  assert.equal(result.comparisons[0].deltaFromBaseline, -0.166667);
-  assert.ok(Object.values(result.authority).every((value) => value === false));
-
-  const drifted = structuredClone(variant);
-  drifted.configIdentity = deterministicIdentity('generalization-config', { name: 'drifted' });
   assert.throws(() => runKnownRouteEvidenceSensitivity({
     baselineScenario: baseline,
-    variants: [drifted],
-  }), /identity or config drifted/i);
-
-  const mismatchedProducer = createKnownRouteEvidenceSensitivityScenario({
-    kind: 'generalization',
-    configIdentity: deterministicIdentity('generalization-config', { name: 'mismatch' }),
-    identity: { ...projection.identity, crashAccessibilityProducerIdentity: identityOf({ producer: 'other' }) },
-    reportedIncidentEvidence: variantEvidence,
-  });
-  assert.throws(() => runKnownRouteEvidenceSensitivity({
-    baselineScenario: baseline,
-    variants: [mismatchedProducer],
-  }), /producer or corridor identity drifted/i);
+    variants: [variant],
+  }), /no admitted versioned sensitivity variant producer/i);
+  assert.throws(() => createProjection({
+    aggregate: aggregateFixture(),
+    sensitivityScenarios: [variant],
+  }), /no admitted versioned sensitivity variant producer/i);
 });
 
 test('same or missing variants remain unavailable and never fabricate distance bands', () => {
@@ -165,23 +218,39 @@ test('same or missing variants remain unavailable and never fabricate distance b
     reportedIncidentEvidence: projection.dimensions.generalizedReportedPpdIncidents,
   });
   const missing = runKnownRouteEvidenceSensitivity({ baselineScenario: baseline, variants: [] });
-  const same = runKnownRouteEvidenceSensitivity({ baselineScenario: baseline, variants: [baseline] });
   assert.equal(missing.status, 'unavailable');
-  assert.equal(same.status, 'unavailable');
-  assert.doesNotMatch(JSON.stringify([missing, same]), /100\s*m|300\s*m/i);
+  assert.throws(() => runKnownRouteEvidenceSensitivity({ baselineScenario: baseline, variants: [baseline] }),
+    /no admitted versioned sensitivity variant producer/i);
+  assert.doesNotMatch(JSON.stringify(missing), /100\s*m|300\s*m/i);
   assert.match(projection.limitations.join(' '), /hundred-block generalized report points near a route/i);
   assert.match(projection.limitations.join(' '), /not raw crash evidence.*exact street-segment fact/i);
 });
 
 test('P6 artifacts use v3 wrappers while legacy v2 validation remains strict', () => {
-  const { checkpoint: legacyCheckpoint, report: legacyReport } = realLegacyArtifacts();
+  const {
+    checkpoint: legacyCheckpoint,
+    report: legacyReport,
+    handoff: legacyHandoff,
+  } = realLegacyArtifacts();
+  const expectedM2ProtocolSha256 = legacyHandoff.governance.m2.revision['protocol.sha256'];
   const projection = createProjection({ aggregate: legacyReport });
-  const checkpoint = createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, projection });
-  const report = createSafeKnownRouteAggregateReportV3({ legacyReport, projection });
-  assert.equal(validateKnownRouteEvidenceP6Checkpoint(checkpoint, { legacyCheckpoint, projection }), checkpoint);
-  assert.equal(validateKnownRouteEvidenceAggregateReportV3(report, { legacyReport, projection }), report);
+  const checkpoint = createKnownRouteEvidenceP6Checkpoint({
+    legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
+  const report = createSafeKnownRouteAggregateReportV3({
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
+  assert.equal(validateKnownRouteEvidenceP6Checkpoint(
+    checkpoint,
+    { legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection },
+  ), checkpoint);
+  assert.equal(validateKnownRouteEvidenceAggregateReportV3(
+    report,
+    { legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection },
+  ), report);
   assert.deepEqual(validateKnownRouteEvidenceP6ArtifactSet({
-    legacyCheckpoint, legacyReport, projection, checkpoint, report,
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256,
+    projection, checkpoint, report,
   }), { checkpoint, report });
   assert.equal(checkpoint.schema, 'known-route-evidence-checkpoint/v3');
   assert.equal(report.schema, 'known-route-corridor-aggregate/v3');
@@ -197,8 +266,110 @@ test('P6 artifacts use v3 wrappers while legacy v2 validation remains strict', (
   ));
   assert.throws(() => validateKnownRouteEvidenceP6Checkpoint(
     driftedCheckpoint,
-    { legacyCheckpoint, projection },
+    { legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection },
   ), /identity or authority binding/i);
+
+  const hostileHandoff = structuredClone(legacyHandoff);
+  hostileHandoff.governance.m2.revision['protocol.sha256'] = '0'.repeat(64);
+  hostileHandoff.identity = identityOf(Object.fromEntries(
+    Object.entries(hostileHandoff).filter(([key]) => key !== 'identity'),
+  ));
+  assert.throws(() => createKnownRouteEvidenceP6Checkpoint({
+    legacyCheckpoint,
+    legacyHandoff: hostileHandoff,
+    expectedM2ProtocolSha256,
+    projection,
+  }), /caller-loaded frozen M2 protocol/i);
+});
+
+test('main Known Route builder publishes real-validator P6 artifacts only from an exact A input', async (t) => {
+  const inputs = admittedProducerInputs();
+  const legacy = realLegacyArtifacts({ inputs });
+  const crash = buildKnownRouteCrashAccessibilityEvidence({
+    schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+    route_identity: inputs.normalizedRoute.sessionRouteIdentity,
+    corridor_identity: inputs.match.corridorIdentity,
+    source_receipts: [
+      unavailableProducerReceipt('raw-crash', inputs),
+      unavailableProducerReceipt('accessibility', inputs),
+    ],
+  });
+  const testRoot = path.resolve(
+    '.dfev1',
+    'known-route-evidence-v1',
+    `p6-publication-test-${process.pid}`,
+  );
+  const inputPath = path.join(testRoot, 'inputs', 'crash-accessibility.json');
+  const outputRoot = path.join(testRoot, 'p6-output');
+  await fs.mkdir(path.dirname(inputPath), { recursive: true });
+  await fs.writeFile(inputPath, `${JSON.stringify(crash)}\n`, { flag: 'wx' });
+  t.after(() => fs.rm(testRoot, { recursive: true, force: true }));
+  const options = {
+    output: path.join(testRoot, 'm4-output'),
+    p6CrashAccessibilityInput: inputPath,
+    p6Output: outputRoot,
+  };
+  const args = {
+    options,
+    legacyArtifacts: {
+      'checkpoint.json': legacy.checkpoint,
+      'aggregate-report.json': legacy.report,
+      'final-handoff.json': legacy.handoff,
+    },
+    normalizedRoute: inputs.normalizedRoute,
+    catalog: inputs.catalog,
+    match: inputs.match,
+    m2Governance: legacy.handoff.governance.m2,
+  };
+  for (const [legacyRoot, p6Root] of [
+    [options.output, options.output],
+    [options.output, path.join(options.output, 'p6-nested')],
+    [path.join(testRoot, 'reverse-nested', 'legacy'), path.join(testRoot, 'reverse-nested')],
+  ]) {
+    await assert.rejects(publishKnownRouteP6Artifacts({
+      ...args,
+      options: { ...options, output: legacyRoot, p6Output: p6Root },
+    }), /must be separate and must not contain one another/i);
+  }
+
+  const first = await publishKnownRouteP6Artifacts(args);
+  const second = await publishKnownRouteP6Artifacts(args);
+  assert.equal(first.status, 'partial');
+  assert.equal(first.idempotent, false);
+  assert.equal(second.idempotent, true);
+  assert.equal(first.projectionIdentity, second.projectionIdentity);
+  assert.deepEqual((await fs.readdir(outputRoot)).sort(), ['aggregate-report.json', 'checkpoint.json']);
+
+  const driftedRawCrash = createKnownRouteSourceReceipt({
+    ...structuredClone(unavailableProducerReceipt('raw-crash', inputs)),
+    sha256: identityOf({ payload: 'raw-crash-drifted' }),
+    version: 'synthetic-integration-v2',
+  });
+  const driftedCrash = buildKnownRouteCrashAccessibilityEvidence({
+    schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+    route_identity: inputs.normalizedRoute.sessionRouteIdentity,
+    corridor_identity: inputs.match.corridorIdentity,
+    source_receipts: [
+      driftedRawCrash,
+      unavailableProducerReceipt('accessibility', inputs),
+    ],
+  });
+  const driftedInputPath = path.join(testRoot, 'inputs', 'crash-accessibility-drifted.json');
+  await fs.writeFile(driftedInputPath, `${JSON.stringify(driftedCrash)}\n`, { flag: 'wx' });
+  await assert.rejects(publishKnownRouteP6Artifacts({
+    ...args,
+    options: { ...options, p6CrashAccessibilityInput: driftedInputPath },
+  }), /P6 artifact .* drifted; refusing to rewrite/i);
+
+  await fs.writeFile(path.join(outputRoot, 'unexpected.json'), '{}\n', { flag: 'wx' });
+  await assert.rejects(publishKnownRouteP6Artifacts(args),
+    /P6 output root must contain exactly its final ordinary files/i);
+
+  const missing = await publishKnownRouteP6Artifacts({ options: {} });
+  assert.deepEqual(missing, {
+    status: 'unavailable',
+    reason: 'identity-bound-p6-input-unavailable',
+  });
 });
 
 test('P6 serialized output excludes private full-text fields and cross-dimensional product claims', () => {
@@ -209,9 +380,38 @@ test('P6 serialized output excludes private full-text fields and cross-dimension
   assert.match(text, /sourceAsOf/);
   assert.match(text, /precision/);
   assert.match(text, /unavailableReason/);
+
+  const inputs = admittedProducerInputs();
+  for (const phrase of [
+    'A safety score says this route is low risk.',
+    'A safety_score says this route is low risk.',
+    'A risk-score says this route is low risk.',
+    'An overall-risk-score says this route is low risk.',
+  ]) {
+    const claim = crashAccessibilityFixture();
+    claim.crash.reason = phrase;
+    assert.throws(() => createProjection({ aggregate: aggregateFixture(), crash: claim }),
+      /prohibited product claim|unavailable reason is invalid/i);
+
+    const unsafeReceipt = createKnownRouteSourceReceipt({
+      ...structuredClone(unavailableProducerReceipt('raw-crash', inputs)),
+      reason: phrase,
+    });
+    assert.throws(() => buildKnownRouteCrashAccessibilityEvidence({
+      schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+      route_identity: inputs.normalizedRoute.sessionRouteIdentity,
+      corridor_identity: inputs.match.corridorIdentity,
+      source_receipts: [unsafeReceipt, unavailableProducerReceipt('accessibility', inputs)],
+    }), /prohibited cross-dimensional product claim/i);
+  }
 });
 
-function createProjection({ aggregate, crash = crashAccessibilityFixture(), mode = modeLegalityFixture() }) {
+function createProjection({
+  aggregate,
+  crash = crashAccessibilityFixture(),
+  mode = modeLegalityFixture(),
+  sensitivityScenarios = [],
+}) {
   return createKnownRouteEvidenceP6Projection({
     aggregateReport: aggregate,
     validateAggregateReport: validateAggregateFixture,
@@ -219,6 +419,8 @@ function createProjection({ aggregate, crash = crashAccessibilityFixture(), mode
     validateCrashAccessibilityEvidence: validateCrashFixture,
     modeLegalityQualityEvidence: mode,
     validateModeLegalityQualityEvidence: validateModeFixture,
+    validateCatalogIdentityBinding: validateKnownRouteP6CatalogIdentityBinding,
+    sensitivityScenarios,
   });
 }
 
@@ -279,8 +481,6 @@ function crashAccessibilityFixture() {
     semantic_identity: crashProducerIdentity,
     route_identity: routeIdentity,
     corridor_identity: corridorIdentity,
-    centerline_identity: centerlineIdentity,
-    data_version: centerlineDataVersion,
     source_receipts: [
       producerReceipt('raw-crash'),
       producerReceipt('accessibility'),
@@ -310,6 +510,106 @@ function modeLegalityFixture() {
   };
 }
 
+function admittedProducerInputs() {
+  const normalizedRoute = admitKnownRouteEvidenceRequest({
+    schema: 'known-route-evidence-request/v1',
+    routeInput: {
+      inputKind: 'known-polyline',
+      source: 'manual-draw',
+      geometry: {
+        type: 'LineString',
+        coordinates: [[-75.17, 39.95], [-75.16, 39.95], [-75.15, 39.95]],
+      },
+    },
+    transportMode: 'walking',
+    requestedDataVersion: 'current-observed',
+  });
+  const sourceVersion = admitCenterlineMetadata({
+    serviceItemId: 'c36d828494cd44b5bd8b038be696c839',
+    name: 'Street_Centerline',
+    type: 'Feature Layer',
+    geometryType: 'esriGeometryPolyline',
+    capabilities: 'Query',
+    objectIdField: 'objectid',
+    maxRecordCount: 2_000,
+    hasZ: false,
+    hasM: false,
+    supportedQueryFormats: 'JSON, geoJSON',
+    editingInfo: { dataLastEditDate: 1_754_054_132_074 },
+    fields: [
+      ['objectid', 'esriFieldTypeOID'],
+      ['seg_id', 'esriFieldTypeInteger'],
+      ['fnode_', 'esriFieldTypeInteger'],
+      ['tnode_', 'esriFieldTypeInteger'],
+      ['oneway', 'esriFieldTypeString'],
+      ['class', 'esriFieldTypeSmallInteger'],
+      ['streetlabe', 'esriFieldTypeString'],
+      ['update_', 'esriFieldTypeDate'],
+    ].map(([name, type]) => ({ name, type })),
+  });
+  const features = [
+    producerCenterlineFeature(10, 100, 1, 2, [[-75.17, 39.95], [-75.16, 39.95]]),
+    producerCenterlineFeature(11, 101, 2, 3, [[-75.16, 39.95], [-75.15, 39.95]]),
+  ];
+  const catalog = admitCenterlineFeatureCollection({
+    type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
+    features,
+  }, {
+    expectedCount: features.length,
+    sourceVersion,
+  });
+  const match = matchKnownRouteToCenterline({ normalizedRoute, catalog });
+  assert.equal(match.status, 'matched');
+  return { normalizedRoute, catalog, match };
+}
+
+function producerCenterlineFeature(objectid, segId, from, to, coordinates) {
+  return {
+    type: 'Feature',
+    properties: {
+      objectid,
+      seg_id: segId,
+      fnode_: from,
+      tnode_: to,
+      oneway: ' ',
+      class: 5,
+      streetlabe: 'SYNTHETIC P6 INTEGRATION STREET',
+      update_: null,
+    },
+    geometry: { type: 'LineString', coordinates },
+  };
+}
+
+function unavailableProducerReceipt(role, inputs) {
+  return createKnownRouteSourceReceipt({
+    schema: role === 'raw-crash'
+      ? 'official-raw-crash-receipt/v1'
+      : 'official-accessibility-receipt/v1',
+    role,
+    sha256: identityOf({ payload: role }),
+    version: 'synthetic-integration-v1',
+    status: 'unavailable',
+    reason: `Official ${role} payload is unavailable.`,
+    route_identity: inputs.normalizedRoute.sessionRouteIdentity,
+    corridor_identity: inputs.match.corridorIdentity,
+    clocks: {
+      source_as_of: null,
+      retrieved_at: null,
+      built_at: null,
+      observed_at: '2026-08-30T00:00:00.000Z',
+    },
+    coverage: {
+      status: 'unavailable',
+      scope: 'bound-route-corridor',
+      start: null,
+      end_exclusive: null,
+      verified: false,
+    },
+    precision: { status: 'unavailable', unit: null },
+  });
+}
+
 function producerReceipt(role) {
   return {
     role,
@@ -337,11 +637,18 @@ function validateModeFixture(value) {
   return value;
 }
 
-function realLegacyArtifacts() {
-  const matchedEdges = [
+function realLegacyArtifacts({ inputs = null } = {}) {
+  const matchedEdges = inputs?.match?.matchedEdges || [
     { analysisSegmentId: 'segment-001', streetLabel: 'PUBLIC TEST A', coordinates: [[-75.17, 39.95], [-75.16, 39.95]] },
     { analysisSegmentId: 'segment-002', streetLabel: 'PUBLIC TEST B', coordinates: [[-75.16, 39.95], [-75.15, 39.95]] },
   ];
+  const sourceRouteIdentity = inputs?.normalizedRoute?.sessionRouteIdentity || routeIdentity;
+  const legacyRouteIdentity = identityOf({ sessionRouteIdentity: sourceRouteIdentity });
+  const legacyCatalogIdentity = inputs?.catalog?.catalogIdentity
+    ? identityOf({ catalogIdentity: inputs.catalog.catalogIdentity })
+    : aggregateCatalogIdentity;
+  const legacyCorridorIdentity = inputs?.match?.corridorIdentity || corridorIdentity;
+  const legacyDataVersion = inputs?.catalog?.source?.dataVersion || centerlineDataVersion;
   const accumulator = createGeneralizedIncidentAccumulator({ matchedEdges });
   addCanonicalGeneralizedIncident(accumulator, {
     lifecycle: { state: 'active' },
@@ -358,10 +665,10 @@ function realLegacyArtifacts() {
     warehouseReceiptDigest: identityOf({ receipt: 'fixture' }),
     warehouseManifestIdentity: identityOf({ manifest: 'fixture' }),
     partitionSetIdentity: identityOf({ parts: 'fixture' }),
-    routeIdentity: aggregateRouteIdentity,
-    centerlineDataVersion,
-    catalogIdentity: aggregateCatalogIdentity,
-    corridorIdentity,
+    routeIdentity: legacyRouteIdentity,
+    centerlineDataVersion: legacyDataVersion,
+    catalogIdentity: legacyCatalogIdentity,
+    corridorIdentity: legacyCorridorIdentity,
     completedPartitions: 1,
     completedPartitionBindings: [{
       partition: 0, path: 'canonical/part-000.jsonl', rowCount: 1, bytes: 1,
@@ -390,11 +697,11 @@ function realLegacyArtifacts() {
     warehouseReceiptDigest: checkpoint.warehouseReceiptDigest,
     warehouseManifestIdentity: checkpoint.warehouseManifestIdentity,
     partitionSetIdentity: checkpoint.partitionSetIdentity,
-    routeIdentity: aggregateRouteIdentity,
+    routeIdentity: legacyRouteIdentity,
     catalogIdentity: checkpoint.catalogIdentity,
     match: {
-      dataVersion: centerlineDataVersion,
-      corridorIdentity,
+      dataVersion: legacyDataVersion,
+      corridorIdentity: legacyCorridorIdentity,
       sourceAsOf: '2026-07-29T13:55:32.074Z',
       matchedEdges,
       maximumMatchDistanceM: 2,
@@ -405,7 +712,48 @@ function realLegacyArtifacts() {
     accumulator,
     completion,
   });
-  return { checkpoint, report };
+  const handoff = createKnownRouteEvidenceFinalHandoff({
+    checkpoint,
+    warehouseReceipt: {
+      clocks: {
+        source_as_of: '2026-08-28T00:00:00.000Z',
+        retrieved_at: '2026-08-28T01:00:00.000Z',
+      },
+    },
+    m2Governance: m2GovernanceFixture(),
+    publicCenterlineRequest: true,
+  });
+  return { checkpoint, report, handoff };
+}
+
+function m2GovernanceFixture() {
+  return {
+    identity: {
+      'data.mart_artifact_identity': identityOf({ mart: 'fixture' }),
+      'data.source_vintage': identityOf({ source: 'fixture' }),
+    },
+    revision: {
+      generated_at: '2026-08-28T02:00:00.000Z',
+      'protocol.sha256': 'a'.repeat(64),
+    },
+    receiptDigest: identityOf({ evaluation: 'fixture' }),
+    canonicalPath: path.resolve('.dfev1', 'p6-test', 'evaluation.json'),
+    evidenceRoot: path.resolve('.dfev1', 'p6-test'),
+    implementationTip: '1'.repeat(40),
+    executionRecordTip: '2'.repeat(40),
+    cumulativeTip: '3'.repeat(40),
+    dq: {
+      canonical_rows_seen: 1,
+      tract: { admitted: 1, ambiguous_excluded: 0, unmapped_excluded: 0 },
+      'fixed-grid': { admitted: 1, unavailable_excluded: 0 },
+      unknown_category: 0,
+      invalid_event_time: 0,
+      non_active: 0,
+    },
+    dqRechecked: true,
+    outcome: { promotionStatus: 'not-promoted', selectedModel: null, availability: 'unavailable' },
+    routeEvidenceAuthority: false,
+  };
 }
 
 function round(value) {

@@ -26,7 +26,7 @@ const PRIVACY_KEYS = Object.freeze([
   'containsSourceRecordIds',
 ]);
 const FORBIDDEN_PRIVATE_FIELD = /"(?:address|coordinates|eventRow|eventRows|generalized_location|latitude|longitude|matchedEdges|rawRoute|routeGeometry|routeInput|source_record_id|sourceRecordId)"\s*:/i;
-const FORBIDDEN_PRODUCT_CLAIM = /\b(?:rank(?:ed|ing)?|safest|winner)\b|\brecommend(?:ation|ed|ing)?\b/i;
+const FORBIDDEN_PRODUCT_CLAIM = /\b(?:overall[\s_-]+)?(?:(?:risk|safety)[\s_-]*)?score\b|\b(?:rank(?:ed|ing)?|safest|winner)\b|\brecommend(?:ation|ed|ing)?\b/i;
 
 export function createKnownRouteEvidenceP6Projection({
   aggregateReport,
@@ -37,6 +37,7 @@ export function createKnownRouteEvidenceP6Projection({
   modeLegalityQualityEvidence,
   validateModeLegalityQualityEvidence,
   adaptModeLegalityQualityEvidence = adaptKnownRouteModeLegalityQualityEvidence,
+  validateCatalogIdentityBinding,
   sensitivityScenarios = [],
 } = {}) {
   const aggregate = admitWithValidator(
@@ -67,30 +68,30 @@ export function createKnownRouteEvidenceP6Projection({
   );
   requireProducerBoundary(crashAccessibility, CRASH_ACCESSIBILITY_SCHEMA, ['rawCrash', 'accessibility']);
   requireProducerBoundary(modeLegalityQuality, MODE_LEGALITY_QUALITY_SCHEMA, ['modeLegality', 'mapMatchQuality']);
+  if (typeof validateCatalogIdentityBinding !== 'function') {
+    throw new Error('Known Route P6 requires the canonical M4/B catalog identity bridge validator.');
+  }
+  validateCatalogIdentityBinding({
+    centerlineIdentity: modeLegalityQuality.identity.centerlineIdentity,
+    aggregateCatalogIdentity: aggregate.centerline.catalogIdentity,
+  });
 
   const aggregateRouteIdentity = aggregate.publicRoute.sessionIdentity;
   const corridorIdentity = aggregate.centerline.corridorIdentity;
-  for (const [label, artifact] of [
-    ['crash/accessibility', crashAccessibility],
-    ['mode-legality/map-match', modeLegalityQuality],
-  ]) {
-    if (artifact.identity.corridorIdentity !== corridorIdentity
-      || artifact.identity.dataVersion !== aggregate.centerline.dataVersion) {
-      throw new Error(`Known Route P6 ${label} identity does not match the M4 corridor and data version.`);
-    }
+  if (crashAccessibility.identity.corridorIdentity !== corridorIdentity
+    || modeLegalityQuality.identity.corridorIdentity !== corridorIdentity
+    || modeLegalityQuality.identity.dataVersion !== aggregate.centerline.dataVersion) {
+    throw new Error('Known Route P6 producer identity does not match the M4 corridor and data version.');
   }
-  if (crashAccessibility.identity.routeIdentity !== modeLegalityQuality.identity.routeIdentity
-    || crashAccessibility.identity.centerlineIdentity
-      !== modeLegalityQuality.identity.centerlineIdentity
-    || crashAccessibility.identity.dataVersion !== modeLegalityQuality.identity.dataVersion) {
-    throw new Error('Known Route P6 A/B route, centerline, or data-version identity does not match.');
+  if (crashAccessibility.identity.routeIdentity !== modeLegalityQuality.identity.routeIdentity) {
+    throw new Error('Known Route P6 A/B route identity does not match.');
   }
 
   const identity = Object.freeze({
     routeIdentity: crashAccessibility.identity.routeIdentity,
     aggregateRouteIdentity,
     corridorIdentity,
-    centerlineIdentity: crashAccessibility.identity.centerlineIdentity,
+    centerlineIdentity: modeLegalityQuality.identity.centerlineIdentity,
     aggregateCatalogIdentity: aggregate.centerline.catalogIdentity,
     dataVersion: aggregate.centerline.dataVersion,
     crashAccessibilityProducerIdentity: crashAccessibility.identity.producerIdentity,
@@ -166,8 +167,6 @@ export function adaptKnownRouteCrashAccessibilityEvidence(value) {
     identity: {
       routeIdentity: value.route_identity,
       corridorIdentity: value.corridor_identity,
-      centerlineIdentity: value.centerline_identity,
-      dataVersion: value.data_version,
       producerIdentity: value.semantic_identity,
     },
     dimensions: {
@@ -302,127 +301,32 @@ export function createKnownRouteEvidenceSensitivityScenario({
 export function runKnownRouteEvidenceSensitivity({ baselineScenario, variants = [] } = {}) {
   validateSensitivityScenario(baselineScenario);
   if (!Array.isArray(variants)) throw new Error('Known Route sensitivity variants must be an array.');
-  if (!variants.length) return unavailableSensitivity(
-    baselineScenario.scenarioIdentity,
-    'No caller-provided sensitivity variants were supplied.',
-  );
-  const admitted = variants.map((variant) => validateSensitivityScenario(variant));
-  const distinct = admitted.filter((variant) => {
-    if (variant.routeIdentity !== baselineScenario.routeIdentity) {
-      throw new Error('Known Route sensitivity route identity drifted.');
-    }
-    if (variant.scenarioIdentity === baselineScenario.scenarioIdentity
-      || variant.configIdentity === baselineScenario.configIdentity) return false;
-    if (variant.kind === 'generalization') {
-      if (variant.corridorIdentity !== baselineScenario.corridorIdentity
-        || variant.crashAccessibilityProducerIdentity !== baselineScenario.crashAccessibilityProducerIdentity
-        || variant.modeLegalityQualityProducerIdentity !== baselineScenario.modeLegalityQualityProducerIdentity
-        || variant.centerlineIdentity !== baselineScenario.centerlineIdentity
-        || variant.aggregateCatalogIdentity !== baselineScenario.aggregateCatalogIdentity
-        || variant.dataVersion !== baselineScenario.dataVersion
-        || variant.aggregateRouteIdentity !== baselineScenario.aggregateRouteIdentity) {
-        throw new Error('Known Route generalization scenario producer or corridor identity drifted.');
-      }
-    } else if (variant.corridorIdentity === baselineScenario.corridorIdentity) {
-      return false;
-    }
-    return true;
-  });
-  if (!distinct.length) {
-    return unavailableSensitivity(
-      baselineScenario.scenarioIdentity,
-      'No genuinely different, identity-valid corridor or generalization variant was supplied.',
+  if (variants.length) {
+    throw new Error(
+      'Known Route P6 v1 has no admitted versioned sensitivity variant producer; caller-signed variants are rejected.',
     );
   }
-  const comparisons = distinct.map((variant) => Object.freeze({
-    scenarioIdentity: variant.scenarioIdentity,
-    kind: variant.kind,
-    configIdentity: variant.configIdentity,
-    corridorIdentity: variant.corridorIdentity,
-    aggregateRouteIdentity: variant.aggregateRouteIdentity,
-    centerlineIdentity: variant.centerlineIdentity,
-    aggregateCatalogIdentity: variant.aggregateCatalogIdentity,
-    dataVersion: variant.dataVersion,
-    crashAccessibilityProducerIdentity: variant.crashAccessibilityProducerIdentity,
-    modeLegalityQualityProducerIdentity: variant.modeLegalityQualityProducerIdentity,
-    contributionUnits: variant.reportedIncidentEvidence.route.contributionUnits,
-    deltaFromBaseline: round(
-      variant.reportedIncidentEvidence.route.contributionUnits
-        - baselineScenario.reportedIncidentEvidence.route.contributionUnits,
-      6,
-    ),
-  })).sort((left, right) => left.kind.localeCompare(right.kind)
-    || left.configIdentity.localeCompare(right.configIdentity)
-    || left.scenarioIdentity.localeCompare(right.scenarioIdentity));
-  const result = {
-    schema: KNOWN_ROUTE_EVIDENCE_SENSITIVITY_SCHEMA,
-    status: 'available',
-    reason: null,
-    baselineScenarioIdentity: baselineScenario.scenarioIdentity,
-    comparisons: Object.freeze(comparisons),
-    authority: falseAuthority(),
-  };
-  result.identity = deterministicIdentity('known-route-sensitivity-result', result);
-  return deepFreeze(result);
+  return unavailableSensitivity(
+    baselineScenario.scenarioIdentity,
+    'No admitted versioned corridor or generalization sensitivity producer is available.',
+  );
 }
 
-export function validateKnownRouteEvidenceSensitivity(value, { baselineIdentity } = {}) {
+export function validateKnownRouteEvidenceSensitivity(value) {
   requireExactKeys(value, [
     'schema', 'status', 'reason', 'baselineScenarioIdentity', 'comparisons', 'authority', 'identity',
   ], 'sensitivity');
   requireExactKeys(value.authority, AUTHORITY_KEYS, 'sensitivity authority');
   if (value.schema !== KNOWN_ROUTE_EVIDENCE_SENSITIVITY_SCHEMA
-    || !['available', 'unavailable'].includes(value.status)
+    || value.status !== 'unavailable'
     || !identityText(value.baselineScenarioIdentity)
     || !identityText(value.identity)
     || !Array.isArray(value.comparisons)
     || Object.values(value.authority).some((entry) => entry !== false)) {
     throw new Error('Known Route sensitivity schema or authority is invalid.');
   }
-  if (value.status === 'unavailable') {
-    if (!safeText(value.reason) || value.comparisons.length) {
-      throw new Error('Known Route unavailable sensitivity must explain why and contain no comparisons.');
-    }
-  } else if (value.reason !== null || !value.comparisons.length) {
-    throw new Error('Known Route available sensitivity requires identity-valid comparisons.');
-  }
-  const sorted = [...value.comparisons].sort((left, right) => left.kind.localeCompare(right.kind)
-    || left.configIdentity.localeCompare(right.configIdentity)
-    || left.scenarioIdentity.localeCompare(right.scenarioIdentity));
-  if (stableCanonicalText(sorted) !== stableCanonicalText(value.comparisons)) {
-    throw new Error('Known Route sensitivity comparison ordering is unstable.');
-  }
-  for (const comparison of value.comparisons) {
-    requireExactKeys(comparison, [
-      'scenarioIdentity', 'kind', 'configIdentity', 'corridorIdentity',
-      'aggregateRouteIdentity',
-      'centerlineIdentity', 'dataVersion',
-      'aggregateCatalogIdentity',
-      'crashAccessibilityProducerIdentity', 'modeLegalityQualityProducerIdentity',
-      'contributionUnits', 'deltaFromBaseline',
-    ], 'sensitivity comparison');
-    if (!['corridor', 'generalization'].includes(comparison.kind)
-      || [comparison.scenarioIdentity, comparison.configIdentity, comparison.corridorIdentity,
-        comparison.aggregateRouteIdentity,
-        comparison.centerlineIdentity, comparison.dataVersion,
-        comparison.aggregateCatalogIdentity,
-        comparison.crashAccessibilityProducerIdentity,
-        comparison.modeLegalityQualityProducerIdentity].some((entry) => !identityText(entry))
-      || !nonnegativeNumber(comparison.contributionUnits)
-      || !Number.isFinite(comparison.deltaFromBaseline)) {
-      throw new Error('Known Route sensitivity comparison is invalid.');
-    }
-  }
-  if (baselineIdentity && value.status === 'available'
-    && value.comparisons.some((comparison) => comparison.kind === 'generalization'
-      && (comparison.corridorIdentity !== baselineIdentity.corridorIdentity
-        || comparison.aggregateRouteIdentity !== baselineIdentity.aggregateRouteIdentity
-        || comparison.centerlineIdentity !== baselineIdentity.centerlineIdentity
-        || comparison.aggregateCatalogIdentity !== baselineIdentity.aggregateCatalogIdentity
-        || comparison.dataVersion !== baselineIdentity.dataVersion
-        || comparison.crashAccessibilityProducerIdentity !== baselineIdentity.crashAccessibilityProducerIdentity
-        || comparison.modeLegalityQualityProducerIdentity !== baselineIdentity.modeLegalityQualityProducerIdentity))) {
-    throw new Error('Known Route sensitivity comparison drifted from baseline producer binding.');
+  if (!safeText(value.reason) || value.comparisons.length) {
+    throw new Error('Known Route unavailable sensitivity must explain why and contain no comparisons.');
   }
   const candidate = structuredClone(value);
   delete candidate.identity;
@@ -590,9 +494,10 @@ function requireAggregateBoundary(value) {
 
 function requireProducerBoundary(value, schema, dimensionKeys) {
   if (value?.schema !== schema) throw new Error(`Known Route P6 requires validated ${schema}.`);
-  requireExactKeys(value.identity, [
-    'routeIdentity', 'corridorIdentity', 'centerlineIdentity', 'dataVersion', 'producerIdentity',
-  ], `${schema} identity`);
+  const identityKeys = schema === MODE_LEGALITY_QUALITY_SCHEMA
+    ? ['routeIdentity', 'corridorIdentity', 'centerlineIdentity', 'dataVersion', 'producerIdentity']
+    : ['routeIdentity', 'corridorIdentity', 'producerIdentity'];
+  requireExactKeys(value.identity, identityKeys, `${schema} identity`);
   if (Object.values(value.identity).some((entry) => !identityText(entry))) {
     throw new Error(`Known Route P6 ${schema} identity is invalid.`);
   }

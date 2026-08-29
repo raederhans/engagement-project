@@ -83,13 +83,15 @@ const P6_AUTHORITY_KEYS = Object.freeze([
   'accessibility', 'crash', 'mapMatch', 'mode', 'routeChoice', 'routing', 'safety',
 ]);
 const P6_CHECKPOINT_KEYS = Object.freeze([
-  'schema', 'legacyCheckpointIdentity', 'routeIdentity', 'aggregateRouteIdentity', 'corridorIdentity',
+  'schema', 'legacyCheckpointIdentity', 'legacyHandoffIdentity', 'm2ProtocolSha256',
+  'routeIdentity', 'aggregateRouteIdentity', 'corridorIdentity',
   'centerlineIdentity', 'aggregateCatalogIdentity', 'dataVersion',
   'crashAccessibilityProducerIdentity', 'modeLegalityQualityProducerIdentity',
   'projectionIdentity', 'authority', 'privacy', 'identity',
 ]);
 const P6_REPORT_KEYS = Object.freeze([
-  'schema', 'status', 'completedAt', 'legacySemanticIdentity', 'projection',
+  'schema', 'status', 'completedAt', 'legacySemanticIdentity', 'legacyHandoffIdentity',
+  'm2ProtocolSha256', 'projection',
   'crossDimensionAggregation', 'authority', 'privacy', 'semanticIdentity',
 ]);
 
@@ -555,12 +557,39 @@ export function validateKnownRouteEvidenceArtifactSet({ checkpoint, report, hand
   return { checkpoint, report, handoff };
 }
 
-export function createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, projection } = {}) {
+export function validateKnownRouteP6CatalogIdentityBinding({
+  centerlineIdentity,
+  aggregateCatalogIdentity,
+} = {}) {
+  if (typeof centerlineIdentity !== 'string' || !centerlineIdentity
+    || aggregateCatalogIdentity !== identityOf({ catalogIdentity: centerlineIdentity })) {
+    throw new Error('Known Route P6 B/M4 catalog identity bridge is invalid.');
+  }
+  return true;
+}
+
+export function createKnownRouteEvidenceP6Checkpoint({
+  legacyCheckpoint,
+  legacyHandoff,
+  expectedM2ProtocolSha256,
+  projection,
+} = {}) {
   validateKnownRouteEvidenceCheckpoint(legacyCheckpoint);
+  validateKnownRouteEvidenceFinalHandoff(legacyHandoff, { checkpoint: legacyCheckpoint });
+  if (!sha256Hex(expectedM2ProtocolSha256)
+    || legacyHandoff.governance.m2.revision['protocol.sha256'] !== expectedM2ProtocolSha256) {
+    throw new Error('Known Route P6 requires the caller-loaded frozen M2 protocol SHA-256.');
+  }
   validateKnownRouteEvidenceP6Projection(projection);
+  validateKnownRouteP6CatalogIdentityBinding({
+    centerlineIdentity: projection.identity.centerlineIdentity,
+    aggregateCatalogIdentity: projection.identity.aggregateCatalogIdentity,
+  });
   const checkpoint = {
     schema: KNOWN_ROUTE_EVIDENCE_P6_CHECKPOINT_SCHEMA,
     legacyCheckpointIdentity: legacyCheckpoint.checkpointIdentity,
+    legacyHandoffIdentity: legacyHandoff.identity,
+    m2ProtocolSha256: expectedM2ProtocolSha256,
     routeIdentity: projection.identity.routeIdentity,
     aggregateRouteIdentity: projection.identity.aggregateRouteIdentity,
     corridorIdentity: projection.identity.corridorIdentity,
@@ -574,13 +603,27 @@ export function createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, project
     privacy: privacyDeclaration(),
   };
   checkpoint.identity = identityOf(checkpoint);
-  validateKnownRouteEvidenceP6Checkpoint(checkpoint, { legacyCheckpoint, projection });
+  validateKnownRouteEvidenceP6Checkpoint(checkpoint, {
+    legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
   return checkpoint;
 }
 
-export function validateKnownRouteEvidenceP6Checkpoint(value, { legacyCheckpoint, projection } = {}) {
+export function validateKnownRouteEvidenceP6Checkpoint(
+  value,
+  { legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection } = {},
+) {
   validateKnownRouteEvidenceCheckpoint(legacyCheckpoint);
+  validateKnownRouteEvidenceFinalHandoff(legacyHandoff, { checkpoint: legacyCheckpoint });
+  if (!sha256Hex(expectedM2ProtocolSha256)
+    || legacyHandoff.governance.m2.revision['protocol.sha256'] !== expectedM2ProtocolSha256) {
+    throw new Error('Known Route P6 requires the caller-loaded frozen M2 protocol SHA-256.');
+  }
   validateKnownRouteEvidenceP6Projection(projection);
+  validateKnownRouteP6CatalogIdentityBinding({
+    centerlineIdentity: projection.identity.centerlineIdentity,
+    aggregateCatalogIdentity: projection.identity.aggregateCatalogIdentity,
+  });
   requireExactKeys(value, P6_CHECKPOINT_KEYS, 'P6 checkpoint');
   requireExactKeys(value.authority, P6_AUTHORITY_KEYS, 'P6 checkpoint authority');
   const candidate = structuredClone(value);
@@ -589,6 +632,8 @@ export function validateKnownRouteEvidenceP6Checkpoint(value, { legacyCheckpoint
   if (value.schema !== KNOWN_ROUTE_EVIDENCE_P6_CHECKPOINT_SCHEMA
     || declaredIdentity !== identityOf(candidate)
     || value.legacyCheckpointIdentity !== legacyCheckpoint.checkpointIdentity
+    || value.legacyHandoffIdentity !== legacyHandoff.identity
+    || value.m2ProtocolSha256 !== expectedM2ProtocolSha256
     || value.routeIdentity !== projection.identity.routeIdentity
     || value.aggregateRouteIdentity !== legacyCheckpoint.routeIdentity
     || value.aggregateRouteIdentity !== projection.identity.aggregateRouteIdentity
@@ -612,9 +657,27 @@ export function validateKnownRouteEvidenceP6Checkpoint(value, { legacyCheckpoint
   return value;
 }
 
-export function createSafeKnownRouteAggregateReportV3({ legacyReport, projection } = {}) {
-  validateKnownRouteEvidenceAggregateReport(legacyReport);
+export function createSafeKnownRouteAggregateReportV3({
+  legacyCheckpoint,
+  legacyReport,
+  legacyHandoff,
+  expectedM2ProtocolSha256,
+  projection,
+} = {}) {
+  validateKnownRouteEvidenceArtifactSet({
+    checkpoint: legacyCheckpoint,
+    report: legacyReport,
+    handoff: legacyHandoff,
+  });
+  if (!sha256Hex(expectedM2ProtocolSha256)
+    || legacyHandoff.governance.m2.revision['protocol.sha256'] !== expectedM2ProtocolSha256) {
+    throw new Error('Known Route P6 requires the caller-loaded frozen M2 protocol SHA-256.');
+  }
   validateKnownRouteEvidenceP6Projection(projection);
+  validateKnownRouteP6CatalogIdentityBinding({
+    centerlineIdentity: projection.identity.centerlineIdentity,
+    aggregateCatalogIdentity: projection.identity.aggregateCatalogIdentity,
+  });
   if (legacyReport.publicRoute.sessionIdentity !== projection.identity.aggregateRouteIdentity
     || legacyReport.centerline.corridorIdentity !== projection.identity.corridorIdentity
     || legacyReport.centerline.catalogIdentity !== projection.identity.aggregateCatalogIdentity
@@ -627,19 +690,40 @@ export function createSafeKnownRouteAggregateReportV3({ legacyReport, projection
     status: 'partial',
     completedAt: legacyReport.completedAt,
     legacySemanticIdentity: legacyReport.semanticIdentity,
+    legacyHandoffIdentity: legacyHandoff.identity,
+    m2ProtocolSha256: expectedM2ProtocolSha256,
     projection: structuredClone(projection),
     crossDimensionAggregation: false,
     authority: p6AuthorityDeclaration(),
     privacy: privacyDeclaration(),
   };
   report.semanticIdentity = identityOf(report);
-  validateKnownRouteEvidenceAggregateReportV3(report, { legacyReport, projection });
+  validateKnownRouteEvidenceAggregateReportV3(report, {
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
   return report;
 }
 
-export function validateKnownRouteEvidenceAggregateReportV3(value, { legacyReport, projection } = {}) {
-  validateKnownRouteEvidenceAggregateReport(legacyReport);
+export function validateKnownRouteEvidenceAggregateReportV3(
+  value,
+  {
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection,
+  } = {},
+) {
+  validateKnownRouteEvidenceArtifactSet({
+    checkpoint: legacyCheckpoint,
+    report: legacyReport,
+    handoff: legacyHandoff,
+  });
+  if (!sha256Hex(expectedM2ProtocolSha256)
+    || legacyHandoff.governance.m2.revision['protocol.sha256'] !== expectedM2ProtocolSha256) {
+    throw new Error('Known Route P6 requires the caller-loaded frozen M2 protocol SHA-256.');
+  }
   validateKnownRouteEvidenceP6Projection(projection);
+  validateKnownRouteP6CatalogIdentityBinding({
+    centerlineIdentity: projection.identity.centerlineIdentity,
+    aggregateCatalogIdentity: projection.identity.aggregateCatalogIdentity,
+  });
   requireExactKeys(value, P6_REPORT_KEYS, 'P6 aggregate report');
   requireExactKeys(value.authority, P6_AUTHORITY_KEYS, 'P6 aggregate report authority');
   const candidate = structuredClone(value);
@@ -650,6 +734,8 @@ export function validateKnownRouteEvidenceAggregateReportV3(value, { legacyRepor
     || !exactTimestamp(value.completedAt)
     || declaredIdentity !== identityOf(candidate)
     || value.legacySemanticIdentity !== legacyReport.semanticIdentity
+    || value.legacyHandoffIdentity !== legacyHandoff.identity
+    || value.m2ProtocolSha256 !== expectedM2ProtocolSha256
     || value.completedAt !== legacyReport.completedAt
     || stableText(value.projection) !== stableText(projection)
     || value.projection?.schema !== KNOWN_ROUTE_EVIDENCE_P6_SCHEMA
@@ -671,12 +757,23 @@ export function validateKnownRouteEvidenceAggregateReportV3(value, { legacyRepor
 export function validateKnownRouteEvidenceP6ArtifactSet({
   legacyCheckpoint,
   legacyReport,
+  legacyHandoff,
+  expectedM2ProtocolSha256,
   projection,
   checkpoint,
   report,
 } = {}) {
-  validateKnownRouteEvidenceP6Checkpoint(checkpoint, { legacyCheckpoint, projection });
-  validateKnownRouteEvidenceAggregateReportV3(report, { legacyReport, projection });
+  validateKnownRouteEvidenceArtifactSet({
+    checkpoint: legacyCheckpoint,
+    report: legacyReport,
+    handoff: legacyHandoff,
+  });
+  validateKnownRouteEvidenceP6Checkpoint(checkpoint, {
+    legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
+  validateKnownRouteEvidenceAggregateReportV3(report, {
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
   if (legacyReport.publicRoute.sessionIdentity !== legacyCheckpoint.routeIdentity
     || legacyReport.centerline.corridorIdentity !== legacyCheckpoint.corridorIdentity
     || checkpoint.projectionIdentity !== report.projection.projectionIdentity
@@ -689,7 +786,9 @@ export function validateKnownRouteEvidenceP6ArtifactSet({
     || checkpoint.crashAccessibilityProducerIdentity
       !== report.projection.identity.crashAccessibilityProducerIdentity
     || checkpoint.modeLegalityQualityProducerIdentity
-      !== report.projection.identity.modeLegalityQualityProducerIdentity) {
+      !== report.projection.identity.modeLegalityQualityProducerIdentity
+    || checkpoint.legacyHandoffIdentity !== report.legacyHandoffIdentity
+    || checkpoint.m2ProtocolSha256 !== report.m2ProtocolSha256) {
     throw new Error('Known Route P6 checkpoint/report bindings are inconsistent.');
   }
   return { checkpoint, report };

@@ -17,6 +17,13 @@ import {
   addCanonicalGeneralizedIncident,
   createGeneralizedIncidentAccumulator,
 } from '../src/routes_crime/known_route_contributions.js';
+import {
+  createKnownRouteModeLegalityQualityEvidence,
+  validateKnownRouteModeLegalityQualityEvidence,
+} from '../src/routes_crime/known_route_mode_legality_quality.js';
+import {
+  createKnownRouteEvidenceP6Projection,
+} from '../src/routes_crime/known_route_evidence_p6_projection.js';
 import { validateAreaIntelligenceMartForEvaluation } from './lib/area_intelligence_evaluation.mjs';
 import { validateModelEvaluationReport } from './lib/area_intelligence_evaluation.mjs';
 import {
@@ -31,15 +38,22 @@ import {
   recoverKnownRouteFinalTransaction,
   restoreKnownRouteEvidenceAccumulator,
   stableText,
+  validateKnownRouteEvidenceAggregateReport,
   validateKnownRouteEvidenceArtifactSet,
   validateKnownRouteEvidenceP6ArtifactSet,
+  validateKnownRouteP6CatalogIdentityBinding,
   writeJsonAtomic,
 } from './lib/known_route_evidence_checkpoint.mjs';
+import {
+  validateKnownRouteCrashAccessibilityEvidence,
+} from './lib/known_route_crash_accessibility_evidence.mjs';
+import { assertTaskOwnedDfev1Path } from './lib/dfev1_path.mjs';
 
 const execFileAsync = promisify(execFile);
 const RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v3';
 const WAREHOUSE_SCHEMA = 'engagement-phl-crime-event-warehouse/v1';
 const FINAL_ARTIFACT_NAMES = Object.freeze(['aggregate-report.json', 'checkpoint.json', 'final-handoff.json']);
+const P6_FINAL_ARTIFACT_NAMES = Object.freeze(['aggregate-report.json', 'checkpoint.json']);
 const REQUIRED_RECEIPT_ARTIFACTS = Object.freeze([
   'warehouse_manifest',
   'backfill_checkpoint',
@@ -116,6 +130,12 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
         corridorIdentity: match.corridorIdentity,
         matchedAnalysisSegmentCount: match.matchedEdges.length,
       },
+      p6: {
+        status: 'unavailable',
+        reason: options.p6CrashAccessibilityInput
+          ? 'validate-only-does-not-publish-p6-artifacts'
+          : 'identity-bound-p6-input-unavailable',
+      },
     };
   }
 
@@ -163,7 +183,7 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
       m2Governance,
     });
     await assertExactFinalArtifacts(outputRoot, artifacts);
-    return buildResult({
+    const result = buildResult({
       report: artifacts['aggregate-report.json'],
       handoff: artifacts['final-handoff.json'],
       checkpoint,
@@ -171,6 +191,17 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
       restoredCompletedCheckpoint: true,
       idempotent: true,
     });
+    return {
+      ...result,
+      p6: await publishKnownRouteP6Artifacts({
+        options,
+        legacyArtifacts: artifacts,
+        normalizedRoute,
+        catalog,
+        match,
+        m2Governance,
+      }),
+    };
   }
   if (await pathExists(reportPath) || await pathExists(handoffPath)) {
     throw new Error('Known Route partial checkpoint cannot coexist with final artifacts.');
@@ -228,7 +259,7 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
     m2Governance,
   });
   const publication = await publishKnownRouteFinalArtifacts({ outputRoot, artifacts });
-  return buildResult({
+  const result = buildResult({
     report: artifacts['aggregate-report.json'],
     handoff: artifacts['final-handoff.json'],
     checkpoint,
@@ -236,6 +267,17 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
     restoredCompletedCheckpoint: false,
     idempotent: publication.idempotent,
   });
+  return {
+    ...result,
+    p6: await publishKnownRouteP6Artifacts({
+      options,
+      legacyArtifacts: artifacts,
+      normalizedRoute,
+      catalog,
+      match,
+      m2Governance,
+    }),
+  };
 }
 
 export async function validateKnownRouteWarehouseInput({ warehouseRoot, expectedReceiptIdentity } = {}) {
@@ -505,17 +547,153 @@ export async function validateM2Governance({
   };
 }
 
-export function createKnownRouteEvidenceP6Artifacts({ legacyCheckpoint, legacyReport, projection } = {}) {
-  const checkpoint = createKnownRouteEvidenceP6Checkpoint({ legacyCheckpoint, projection });
-  const report = createSafeKnownRouteAggregateReportV3({ legacyReport, projection });
+export function createKnownRouteEvidenceP6Artifacts({
+  legacyCheckpoint,
+  legacyReport,
+  legacyHandoff,
+  expectedM2ProtocolSha256,
+  projection,
+} = {}) {
+  const checkpoint = createKnownRouteEvidenceP6Checkpoint({
+    legacyCheckpoint, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
+  const report = createSafeKnownRouteAggregateReportV3({
+    legacyCheckpoint, legacyReport, legacyHandoff, expectedM2ProtocolSha256, projection,
+  });
   validateKnownRouteEvidenceP6ArtifactSet({
     legacyCheckpoint,
     legacyReport,
+    legacyHandoff,
+    expectedM2ProtocolSha256,
     projection,
     checkpoint,
     report,
   });
   return { checkpoint, report };
+}
+
+export async function publishKnownRouteP6Artifacts({
+  options = {},
+  legacyArtifacts,
+  normalizedRoute,
+  catalog,
+  match,
+  m2Governance,
+} = {}) {
+  if (!options.p6CrashAccessibilityInput) {
+    return {
+      status: 'unavailable',
+      reason: 'identity-bound-p6-input-unavailable',
+    };
+  }
+  const inputPath = path.resolve(options.p6CrashAccessibilityInput);
+  const legacyOutputRoot = path.resolve(options.output
+    || path.join('.dfev1', 'known-route-evidence-v1', 'full-warehouse'));
+  const outputRoot = path.resolve(options.p6Output
+    || path.join(path.dirname(legacyOutputRoot), `${path.basename(legacyOutputRoot)}-p6`));
+  requireTaskOwnedPath(inputPath);
+  requireTaskOwnedPath(legacyOutputRoot);
+  requireTaskOwnedPath(outputRoot);
+  await assertTaskOwnedDfev1Path(inputPath, { label: 'Known Route P6 input' });
+  await assertTaskOwnedDfev1Path(legacyOutputRoot, { label: 'Known Route legacy output root' });
+  await assertTaskOwnedDfev1Path(outputRoot, { label: 'Known Route P6 output root' });
+  const physicalInputPath = await resolvePhysicalTarget(inputPath);
+  const physicalLegacyOutputRoot = await resolvePhysicalTarget(legacyOutputRoot);
+  const physicalOutputRoot = await resolvePhysicalTarget(outputRoot);
+  assertDisjointOutputRoots(physicalLegacyOutputRoot, physicalOutputRoot);
+  const inputInsideOutput = path.relative(physicalOutputRoot, physicalInputPath);
+  if (!inputInsideOutput.startsWith('..') && !path.isAbsolute(inputInsideOutput)) {
+    throw new Error('Known Route P6 input must remain outside the P6 publication directory.');
+  }
+  const legacyCheckpoint = legacyArtifacts?.['checkpoint.json'];
+  const legacyReport = legacyArtifacts?.['aggregate-report.json'];
+  const legacyHandoff = legacyArtifacts?.['final-handoff.json'];
+  validateKnownRouteEvidenceArtifactSet({
+    checkpoint: legacyCheckpoint,
+    report: legacyReport,
+    handoff: legacyHandoff,
+  });
+  const crashArtifact = await readJsonArtifact(inputPath, 'P6 crash/accessibility evidence');
+  const crashAccessibilityEvidence = validateKnownRouteCrashAccessibilityEvidence(crashArtifact.value);
+  const modeLegalityQualityEvidence = createKnownRouteModeLegalityQualityEvidence({
+    normalizedRoute,
+    catalog,
+    match,
+  });
+  const projection = createKnownRouteEvidenceP6Projection({
+    aggregateReport: legacyReport,
+    validateAggregateReport: validateKnownRouteEvidenceAggregateReport,
+    crashAccessibilityEvidence,
+    validateCrashAccessibilityEvidence: validateKnownRouteCrashAccessibilityEvidence,
+    modeLegalityQualityEvidence,
+    validateModeLegalityQualityEvidence: validateKnownRouteModeLegalityQualityEvidence,
+    validateCatalogIdentityBinding: validateKnownRouteP6CatalogIdentityBinding,
+  });
+  const expectedM2ProtocolSha256 = m2Governance?.revision?.['protocol.sha256'];
+  const artifacts = createKnownRouteEvidenceP6Artifacts({
+    legacyCheckpoint,
+    legacyReport,
+    legacyHandoff,
+    expectedM2ProtocolSha256,
+    projection,
+  });
+  const publication = await publishExactKnownRouteP6Artifacts({
+    outputRoot,
+    artifacts: {
+      'checkpoint.json': artifacts.checkpoint,
+      'aggregate-report.json': artifacts.report,
+    },
+  });
+  return {
+    status: projection.status,
+    reason: null,
+    idempotent: publication.idempotent,
+    projectionIdentity: projection.projectionIdentity,
+    reportIdentity: artifacts.report.semanticIdentity,
+    output: path.relative(process.cwd(), outputRoot).replaceAll('\\', '/'),
+  };
+}
+
+async function publishExactKnownRouteP6Artifacts({ outputRoot, artifacts }) {
+  await fs.mkdir(outputRoot, { recursive: true });
+  await recoverKnownRouteFinalTransaction(outputRoot);
+  const entries = await fs.readdir(outputRoot, { withFileTypes: true });
+  if (entries.length) {
+    await assertExactArtifactDirectory(outputRoot, artifacts, P6_FINAL_ARTIFACT_NAMES, 'P6');
+    return { idempotent: true };
+  }
+  const publication = await publishKnownRouteFinalArtifacts({ outputRoot, artifacts });
+  await assertExactArtifactDirectory(outputRoot, artifacts, P6_FINAL_ARTIFACT_NAMES, 'P6');
+  return publication;
+}
+
+function assertDisjointOutputRoots(legacyOutputRoot, p6OutputRoot) {
+  const p6FromLegacy = path.relative(legacyOutputRoot, p6OutputRoot);
+  const legacyFromP6 = path.relative(p6OutputRoot, legacyOutputRoot);
+  if (p6FromLegacy === '' || isContainedRelativePath(p6FromLegacy) || isContainedRelativePath(legacyFromP6)) {
+    throw new Error('Known Route legacy and P6 output roots must be separate and must not contain one another.');
+  }
+}
+
+function isContainedRelativePath(relative) {
+  return relative !== '' && relative !== '..'
+    && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+async function resolvePhysicalTarget(target) {
+  let current = path.resolve(target);
+  const suffix = [];
+  while (true) {
+    try {
+      return path.resolve(await fs.realpath(current), ...suffix);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      suffix.unshift(path.basename(current));
+      current = parent;
+    }
+  }
 }
 
 async function verifyCommitChain({ implementationTip, executionRecordTip, cumulativeTip }) {
@@ -726,6 +904,9 @@ function normalizeOptions(options) {
     'm2ImplementationTip', 'm2ExecutionRecordTip', 'm2CumulativeTip',
   ];
   for (const key of required) if (!options[key]) throw new Error(`Known Route build requires ${optionName(key)}.`);
+  if (options.p6Output && !options.p6CrashAccessibilityInput) {
+    throw new Error('Known Route build requires --p6-crash-accessibility-input with --p6-output.');
+  }
   return { ...options };
 }
 
@@ -746,6 +927,8 @@ function parseOptions(args) {
     ['m2-execution-record-tip', 'm2ExecutionRecordTip'],
     ['m2-cumulative-tip', 'm2CumulativeTip'],
     ['m2-protocol-path', 'm2ProtocolPath'],
+    ['p6-crash-accessibility-input', 'p6CrashAccessibilityInput'],
+    ['p6-output', 'p6Output'],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
@@ -806,23 +989,29 @@ async function readJsonIfPresent(file) {
 }
 
 async function assertExactFinalArtifacts(outputRoot, artifacts) {
+  await assertExactArtifactDirectory(outputRoot, artifacts, FINAL_ARTIFACT_NAMES, 'legacy');
+}
+
+async function assertExactArtifactDirectory(outputRoot, artifacts, expectedNames, label) {
   const artifactNames = Object.keys(artifacts).sort();
   const entries = (await fs.readdir(outputRoot, { withFileTypes: true }))
     .sort((left, right) => left.name.localeCompare(right.name));
-  if (stableText(artifactNames) !== stableText(FINAL_ARTIFACT_NAMES)
-    || entries.length !== FINAL_ARTIFACT_NAMES.length
-    || entries.some((entry, index) => entry.name !== FINAL_ARTIFACT_NAMES[index]
+  if (stableText(artifactNames) !== stableText(expectedNames)
+    || entries.length !== expectedNames.length
+    || entries.some((entry, index) => entry.name !== expectedNames[index]
       || !entry.isFile() || entry.isSymbolicLink())) {
-    throw new Error('Completed Known Route output root must contain exactly the three final ordinary files.');
+    throw new Error(label === 'legacy'
+      ? 'Completed Known Route output root must contain exactly the three final ordinary files.'
+      : `Completed Known Route ${label} output root must contain exactly its final ordinary files.`);
   }
   for (const [name, value] of Object.entries(artifacts)) {
     const expected = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
     let actual;
     try { actual = await fs.readFile(path.join(outputRoot, name)); } catch (error) {
-      throw new Error(`Completed Known Route artifact ${name} is missing: ${error?.message || error}`);
+      throw new Error(`Completed Known Route ${label} artifact ${name} is missing: ${error?.message || error}`);
     }
     if (!actual.equals(expected)) {
-      throw new Error(`Completed Known Route artifact ${name} drifted; refusing to rewrite a completed exact run.`);
+      throw new Error(`Completed Known Route ${label} artifact ${name} drifted; refusing to rewrite a completed exact run.`);
     }
   }
 }

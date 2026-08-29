@@ -48,6 +48,11 @@
 | 2026-08-30 | citywide join/DQ 不读取私人地址、parcel 或 source rows | ledger `f717464a...dcc3d`；9 个维度全部 `total:null`、`available_zero:false`，PPD source-ready 仍是 join not-admitted，HIN 不被升级为 raw crash/current safety |
 | 2026-08-30 | readiness 首轮集成复核连续拒绝 false-green，root 恢复严格门后通过 | runtime/producer 重算 identity、闭合九源九维 nested types/status/cross-bind；writer atomic no-overwrite 且 cleanup failure 可见；被缩减的 integration/browser coverage 已恢复 |
 | 2026-08-30 | Home Compare 严格 private zero-egress 与 citywide readiness 同时产品化 | tracked readiness `cb796760...f04a`, 18,548 bytes / file `b8f04859...7da5`；公开 limitation/reason/DQ 为固定安全模板；真实 build/browser en/zh x desktop/mobile PASS，clipboard/URL/history/web storage/IndexedDB 无私人值，address-level profile 诚实 unavailable |
+| 2026-08-30 | P6 冻结为 crash/accessibility、mode-legality/match-quality、segment-sensitivity/product 三条互斥车道 | 预算 3/3，全部 `high`；A/B 只产独立 aggregate-only v1 evidence，C 只消费已验证身份；HIN、PPD、OSM 与 M5 不得代替 raw crash/accessibility/mode authority |
+| 2026-08-30 | P6 三条车道完成并在 root 接入真实 build/UI 边界 | A/B/M4 route、corridor、data-version 与 canonical catalog identity 全部交叉绑定；v3 artifacts 绑定完整 v2 handoff 和 frozen M2 protocol；默认产品零新增 evidence 请求并明确显示 unavailable |
+| 2026-08-30 | 没有获准的 raw-crash、citywide accessibility、per-mode legality 或 sensitivity variant producer | crash/accessibility、四个 mode、match quality 与 sensitivity 分维度 fail closed；HIN 仅 historical planning context，generalized reported incidents 不升级为 raw crash，禁止 score/rank/winner/safest/recommendation |
+| 2026-08-30 | P6 扩大本地验证完成 | focused 45/45、Known Route/HIN/corridor 113/113、Product Integrity 80/80、Architecture Ports 7/7、production build 与 en/zh desktop/mobile browser gate 全部 PASS；未 push、deploy 或扩大 authority |
+| 2026-08-30 | P6 final focused re-review PASS | 已关闭 product reachability、self-signed sensitivity、v2 handoff/protocol、catalog bridge、score spelling 与 exact publication findings；无剩余 material correctness/privacy/authority 问题 |
 
 ## Live process ownership
 
@@ -68,8 +73,8 @@
 
 ## Handoff
 
-P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。P4 已将这些证据投影为中英文、桌面/移动均可验证的 aggregate-only 历史证据界面，并关闭新的私人值 URL/storage/network/share 通路。P5 已将 9 个 Home Compare 来源的独立 identity/freshness/coverage/DQ 状态投影到真实 tracked readiness；exact PPD、partial HIN 和其它 partial/unavailable 来源继续分开，私人地址级 profile 与 routing 仍 fail closed。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing、redistribution 或 deletion authority。
+P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。P4 已将这些证据投影为中英文、桌面/移动均可验证的 aggregate-only 历史证据界面，并关闭新的私人值 URL/storage/network/share 通路。P5 已将 9 个 Home Compare 来源的独立 identity/freshness/coverage/DQ 状态投影到真实 tracked readiness；exact PPD、partial HIN 和其它 partial/unavailable 来源继续分开，私人地址级 profile 与 routing 仍 fail closed。P6 已建立 Known Route crash/accessibility、四 mode legality、match quality、segment projection 与 product boundary；由于真实 source/variant authority 不足，对应维度诚实 unavailable，未生成 safety score、winner 或 safest route。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing、redistribution 或 deletion authority。
 
 ## Next step
 
-实施 P6 Known Route evidence completion：独立建立 raw-crash 与 accessibility 的 receipt/status contract；按 walking/cycling/driving/transit 分开 legality 与 map-match quality；最后把 generalized reported incidents、HIN historical planning context、crash/accessibility/legality 和 corridor/generalization sensitivity 作为独立 aggregate dimensions 接入 segment report。没有获准 source/version/coverage/precision 时必须保持 unavailable；不得把 HIN 或 PPD reported incidents 冒充 raw crash，不得生成 score、winner、safest route 或 routing authority。最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
+Phase 2 P1-P6 的本地 integration scope 已完成。若继续，必须由用户另行授权远端 push/PR/CI/部署、外部对象存储，或为 P5/P6 选择并许可真实 citywide/raw-crash/accessibility/mode-legality 数据；在此之前保持现有 local candidate、partial/unavailable 状态与全 false authority，不清理 primary WIP 或 ignored evidence。

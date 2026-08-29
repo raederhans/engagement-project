@@ -2,6 +2,7 @@
 export async function loadRouteCorridorUiRuntime({
   readCanonicalSnapshot,
   getMap = () => null,
+  loadKnownRouteP6Projection = () => null,
   onSourceHealthObservation = () => {},
 } = {}) {
   const controller = await import('./route_corridor_ui_controller.js');
@@ -13,6 +14,7 @@ export async function loadRouteCorridorUiRuntime({
           mount: options.host || options.mount,
           readCanonicalSnapshot,
           getMap,
+          loadKnownRouteP6Projection,
           onSourceHealthObservation,
         }),
       });
@@ -24,6 +26,7 @@ function createRouteCorridorRuntimePorts({
   mount,
   readCanonicalSnapshot,
   getMap,
+  loadKnownRouteP6Projection,
   onSourceHealthObservation,
 }) {
   let requestModulePromise = null;
@@ -53,7 +56,10 @@ function createRouteCorridorRuntimePorts({
       const root = mount?.querySelector?.('[data-known-route-evidence]');
       if (!root) return;
       evidenceUiPromise ||= import('./known_route_evidence_ui.js')
-        .then((module) => module.initKnownRouteEvidenceUi({ root }));
+        .then((module) => module.initKnownRouteEvidenceUi({
+          root,
+          loadP6Projection: loadKnownRouteP6Projection,
+        }));
       void evidenceUiPromise
         .then((ui) => (requestGeneration === evidenceGeneration ? ui.prepare(options) : null))
         .catch(() => {

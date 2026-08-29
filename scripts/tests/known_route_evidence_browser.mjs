@@ -83,8 +83,19 @@ await runBrowserSuite({
   assert.match(validText, /Analysis-segment contributions/i);
   assert.match(validText, /Generalized reported incidents contribute through modeled uncertainty/i);
   assert.match(validText, /modeled uncertainty/i);
+  assert.match(validText, /Walking legality context/i);
+  assert.match(validText, /Cycling legality context/i);
+  assert.match(validText, /Driving legality context/i);
+  assert.match(validText, /Transit legality context/i);
+  assert.match(validText, /Map-match quality context/i);
+  assert.match(validText, /Explicit scenario sensitivity/i);
+  assert.match(validText, /No admitted versioned corridor or generalization sensitivity producer/i);
   assert.doesNotMatch(validText, /safe|safer|safest|recommend|individual probability|causal|current guarantee/i);
-  assert.equal(await evidence.locator('[data-known-route-evidence-results] > section').count(), 6);
+  assert.equal(await evidence.locator('[data-known-route-evidence-results] > section').count(), 7);
+  const p6 = evidence.locator('[data-known-route-p6]');
+  assert.equal(await p6.getAttribute('data-known-route-p6'), 'unavailable');
+  assert.equal(await p6.locator(':scope > section').count(), 7);
+  assert.doesNotMatch(await p6.innerText(), /raw crash[^\n]*\b(?:0|[1-9]\d*)\b/i);
   const segmentItems = evidence.locator('[data-known-route-evidence-results] > section:last-child li');
   assert.equal(await segmentItems.count(), 2);
   for (const item of await segmentItems.all()) {
@@ -131,6 +142,9 @@ await runBrowserSuite({
   assert.match(chineseText, /保持独立/);
   assert.match(chineseText, /建模不确定性/);
   assert.match(chineseText, /无障碍证据/);
+  assert.match(chineseText, /步行\s*合法性背景/);
+  assert.match(chineseText, /地图匹配质量背景/);
+  assert.match(chineseText, /显式场景敏感性/);
   await page.locator('.language-switch').click();
   await page.waitForFunction(() => document.documentElement.lang === 'en');
 

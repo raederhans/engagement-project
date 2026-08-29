@@ -63,7 +63,7 @@ test('Crime state port reads canonical snapshots without exposing mutable store 
   assert.equal(snapshot.center3857, undefined);
 });
 
-test('Crime URL, preset, and history actions reuse the canonical codec and restore semantics', () => {
+test('Crime URL, preset, and history actions reuse the public codec without restoring private points', () => {
   const state = createCrimeState();
   const modes = [];
   const port = createCrimeStatePort({
@@ -96,9 +96,9 @@ test('Crime URL, preset, and history actions reuse the canonical codec and resto
     durationMonths: 12,
     radius: 400,
   });
-  assert.deepEqual(state.centerLonLat, [-75.16, 39.95]);
-  assert.deepEqual(state.center3857, ['projected-A']);
-  assert.equal(state.addressA, 'Saved point');
+  assert.equal(state.centerLonLat, null);
+  assert.equal(state.center3857, null);
+  assert.equal(state.addressA, null);
   assert.deepEqual(modes, ['tract', 'tract', 'buffer']);
 });
 

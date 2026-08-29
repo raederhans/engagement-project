@@ -418,6 +418,9 @@ function rejectPrivatePayloadKeys(value) {
   if (/(?:"event_id"|"event_ids"|"source_id"|"source_ids"|"source_record_id"|"source_record_ids"|"coordinates"|"coordinate"|"geometry"|"address"|"addresses"|"latitude"|"longitude"|"lat"|"lng"|"rows"|"events")\s*:/i.test(serialized)) {
     throw new Error('Known Route evidence violates the aggregate-only privacy contract.');
   }
+  if (/\b(?:overall[\s_-]+)?(?:(?:risk|safety)[\s_-]*)?score\b|\b(?:rank(?:ed|ing)?|safest|winner)\b|\brecommend(?:ation|ed|ing)?\b/i.test(serialized)) {
+    throw new Error('Known Route evidence contains a prohibited cross-dimensional product claim.');
+  }
 }
 
 function validateEvidenceStructure(value) {

@@ -76,7 +76,7 @@
     "test:browser-smoke": "node scripts/tests/browser_smoke.mjs",
     "test:area-intelligence-browser": "node scripts/tests/area_intelligence_browser.mjs",
     "test:home-compare": "node --test scripts/tests/home_compare_m3.mjs scripts/tests/home_compare_citywide_source_lifecycle.mjs scripts/tests/home_compare_citywide_join_dq.mjs scripts/tests/home_compare_p5_integration.mjs scripts/tests/home_compare_source_privacy.mjs",
-    "test:known-route-evidence": "node --test scripts/tests/known_route_evidence_m4.mjs",
+    "test:known-route-evidence": "node --test scripts/tests/known_route_crash_accessibility_evidence.mjs scripts/tests/known_route_mode_legality_quality.mjs scripts/tests/known_route_evidence_m4.mjs scripts/tests/known_route_evidence_p6_projection.mjs",
     "test:known-route-evidence-browser": "node scripts/tests/known_route_evidence_browser.mjs",
     "test:route-alternatives-m5": "node --test scripts/tests/route_alternatives_m5.mjs",
     "test:route-alternatives-m5-gate-self": "node --test scripts/tests/m5_private_value_gate.mjs",

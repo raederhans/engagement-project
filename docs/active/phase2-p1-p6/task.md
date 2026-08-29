@@ -2,7 +2,7 @@
 
 ## Current status
 
-Scope and isolated integration base frozen. P1-P5 are complete through local clean-room reconstruction, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a real deterministic no-promotion evaluation, an aggregate-only bilingual Area Intelligence product boundary, and a nine-source Home Compare citywide lifecycle/readiness projection. P6 is next; no serving, scientific, causal, safety, routing, deployment, redistribution, or remote authority was inferred.
+P1-P6 are locally complete on the isolated integration branch. The result includes clean-room DataOps, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a deterministic no-promotion evaluation, aggregate-only bilingual Area Intelligence, a nine-source Home Compare readiness projection, and an identity-bound Known Route P6 evidence/product boundary. No serving, scientific, causal, safety, routing, deployment, redistribution, or remote authority was inferred.
 
 ## Checklist
 
@@ -16,8 +16,8 @@ Scope and isolated integration base frozen. P1-P5 are complete through local cle
 - [x] P3 Evaluation Protocol v2。
 - [x] P4 Area Intelligence productization。
 - [x] P5 Home Compare real-data product boundary and citywide readiness。
-- [ ] P6 Known Route evidence completion。
-- [ ] 最终串行整合、扩大验证与边界复核。
+- [x] P6 Known Route evidence completion。
+- [x] 最终串行整合、扩大验证与边界复核。
 
 ## User-visible task budget
 
@@ -28,7 +28,7 @@ Scope and isolated integration base frozen. P1-P5 are complete through local cle
 | P3 | <= 3 | `01a04e13-25d0-74f1-a567-7bf93223d769` protocol; `01a04e13-25b4-7ac0-96ef-f0271022b90d` model diagnostics; `01a04e20-5b08-7a71-9cde-24625a9117a3` evaluator | 3/3 completed and integrated; every task used `high` or lower reasoning |
 | P4 | <= 3 | `01a04e71-280c-7a52-ab2c-b764542a7c12` serving; `01a04e9f-e914-77f2-a828-8414e58afaef` UI; `01a04ea0-4c49-72c0-8c50-e2c82c60fe6e` privacy | 3/3 completed and integrated; every task used `high` or lower reasoning |
 | P5 | <= 3 | `01a04eec-55ea-7c13-8d92-6e863c157b83` source lifecycle; `01a04f28-b565-77f3-91b6-bc1f73f7dbe9` join/DQ ledger; `01a04f31-c20b-7741-9a5c-63fe37dc671a` readiness/product integration | 3/3 completed and integrated; every task used `high` or lower reasoning |
-| P6 | <= 3 | none | not started |
+| P6 | <= 3 | `01a04f62-29e6-7540-b9fc-d5b44bbef79f` crash/accessibility; `01a04f62-2a0e-7280-95ad-569518eebbbf` mode legality/match quality; `01a04f62-91ee-7b12-bf53-dc858e717128` segment sensitivity/product boundary | 3/3 completed and integrated; every task used `high`, with mutually exclusive write ownership and root-only integration/live tests |
 
 ## Validation evidence
 
@@ -77,6 +77,11 @@ Scope and isolated integration base frozen. P1-P5 are complete through local cle
 | P5 tracked readiness artifact | `public/data/home_compare_citywide_readiness.v1.json` is 18,548 bytes / file `sha256:b8f04859a006d1f3fbf429eb119b7218056638af43c86e3fb5812b614ba57da5`, semantic identity `sha256:cb796760bbaaeda4dd80d98a52eebf243ea9cfac064deee114ef6af63309f04a`; exact rerun idempotent, fixed nine-source/nine-dimension identities, statuses, limitation/reason/DQ templates validate, aggregate-only, all authority false |
 | P5 focused and shared gates | `npm run test:home-compare` covers lifecycle, join/DQ, M3, readiness and source privacy at 80/80 PASS, including concurrent no-replace and cleanup-failure regressions; Product Integrity 80/80 PASS; syntax, scoped ESLint and `git diff --check` PASS; the same P5 suite is wired into default `test:data-contract` / `npm test` / `validate` |
 | P5 production browser gate | Real tracked/dist bytes exact; English/Chinese x desktop/mobile PASS; private action emitted zero new requests and zero profiles; clipboard contains only weights/dimensions; URL/history/localStorage/sessionStorage/IndexedDB contain no private fixture; dialog modal/ARIA/focus/close/Escape and readiness overflow PASS; routing remains unavailable |
+| P6 implementation commits | `b978d89`, `2264177`, `7d8c9ca`, `9aa1a10`, `20d2506` plus root integration hardening; crash/accessibility, four-mode legality, match-quality and P6 projection remain separate versioned aggregate-only contracts |
+| P6 identity and authority gates | A/B/M4 route, corridor and data-version identities cross-bind; canonical catalog identity is bridged explicitly; v3 checkpoint/report bind the complete legacy v2 handoff and frozen M2 protocol; HIN, reported incidents, OSM and M5 never acquire raw-crash, accessibility, mode-legality or routing authority |
+| P6 focused and expanded gates | `npm run -s test:known-route-evidence` 45/45 PASS; expanded Known Route/HIN/corridor suite 113/113 PASS; Product Integrity 80/80 PASS; Architecture Ports 7/7 PASS; syntax, scoped ESLint and `git diff --check` PASS |
+| P6 production build/browser gate | `npm run -s build:manifest` PASS; `npm run -s test:known-route-evidence-browser` PASS for English/Chinese x desktop/mobile, no console/page errors, aggregate-only privacy, four unavailable mode states, unavailable match quality and unavailable sensitivity; no score, winner, safest-route or raw-crash count is rendered |
+| P6 independent integration review | Initial review findings on product reachability, sensitivity admission, v2 handoff/protocol binding, catalog identity, product claims and exact publication were remediated; final focused re-review PASS with no remaining material correctness, privacy or authority finding |
 
 ## Open risks and remaining work
 
@@ -93,4 +98,7 @@ Scope and isolated integration base frozen. P1-P5 are complete through local cle
 - P5 已刷新 bounded official metadata，但除 exact M1 reported-crime 与 legacy HIN receipt 外仍没有获准、不可变、可再分发的逐源 citywide payload；这些来源继续 partial/unavailable，不能从 observed count 推断 address join、零值或完整性。
 - P5 fresh live PPD metadata count 3,587,700 与 exact M1 canonical receipt 3,586,620 不同；产品只把 exact M1 标为 source-ready，仍不准入私人地址级 join，也不把 HIN 当 raw crash 或 current safety evidence。
 - 严格私隐边界下 Home Compare 私人地址、parcel 与目的地分析在任何 geocoder/source/附属请求前保持 unavailable；P5 交付的是可解释 citywide source readiness，而不是恢复地址级 profile。
+- P6 没有获准、版本化且 coverage/precision 完整的官方 raw-crash 或 citywide accessibility source；这些维度保持 `unavailable`，HIN 只保留 historical planning context，reported incidents 只保留 generalized aggregate。
+- 当前 centerline、OSM candidate 与 M5 fixture 都不足以证明 walking/cycling/driving/transit 的完整 legality；四个 mode 分别保持 `unavailable`，deterministic map match 也不被解释为 calibrated correctness。
+- 当前没有 identity-bound corridor/generalization variant producer；P6 sensitivity v1 因此保持 `unavailable`，并拒绝调用方自签的变体输入，而不是制造可比较结果。
 - 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。
