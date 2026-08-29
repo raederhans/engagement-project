@@ -386,16 +386,28 @@ test('producer context inherits frozen protocol measure and identities and rejec
   assert.equal(context.report.protocol.sha256, byteIdentity);
   assert.equal(context.manifest.protocol_sha256, byteIdentity);
   assert.equal(context.protocol.target.measure, frozenProtocol.target.measure);
-  assert.equal(
-    createAreaIntelligencePublicProjection(context).historical_evidence.measure,
-    frozenProtocol.target.measure,
-  );
+  assert.deepEqual(context.protocol.spatial_holdout.block_definition, frozenProtocol.spatial_holdout.block_definition);
+  const projection = createAreaIntelligencePublicProjection(context);
+  assert.equal(projection.historical_evidence.measure, frozenProtocol.target.measure);
+  assert.equal(projection.historical_evidence.method.spatial_holdout_block_size_m, 2000);
+  assert.equal(projection.historical_evidence.method.source_location_precision, 'hundred-block-generalized');
+  assert.equal(context.report.numerical_diagnostics.fit_states.filter((row) => row.checks.irls.converged).length, 8);
+  assert.deepEqual(projection.evaluation.fit_state_outcome, {
+    total: 64, passed: 0, failed: 64, converged_before_iteration_limit: 0,
+  });
 
   const drifted = structuredClone(context);
   drifted.protocol.target.measure = 'PPD reported incidents';
   assert.throws(
     () => createAreaIntelligencePublicProjection(drifted),
     /historical evidence or method drifted/i,
+  );
+
+  const blockDrift = structuredClone(context);
+  blockDrift.protocol.spatial_holdout.block_definition['fixed-grid'] = 'contiguous 5-by-5 source grid cells';
+  assert.throws(
+    () => createAreaIntelligencePublicProjection(blockDrift),
+    /do not prove the 2km scheme/i,
   );
 });
 
@@ -435,7 +447,13 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
       exclude_incomplete_source_week: true,
     },
     marts: { unit_types: ['tract', 'fixed-grid'] },
-    spatial_holdout: { training_policy: 'Poisson and negative-binomial fits exclude held-out blocks' },
+    spatial_holdout: {
+      block_definition: {
+        'fixed-grid': 'contiguous 4-by-4 source grid cells',
+        tract: 'tract representative point assigned to the same 2km projected block scheme',
+      },
+      training_policy: 'Poisson and negative-binomial fits exclude held-out blocks',
+    },
     admission: { ambiguous_or_unavailable: 'exclude-and-audit-never-force-assign' },
     promotion_gate: {
       eligible_models: ['poisson-log-link-v1', 'negative-binomial-log-link-v1'],
@@ -453,6 +471,13 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
     protocol: { sha256: protocolSha },
     exact_input: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
     source_coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
+    admission: {
+      canonical_rows_seen: 10,
+      tract: { admitted: 7, ambiguous_excluded: 1, unmapped_excluded: 2 },
+      'fixed-grid': { admitted: 8, unavailable_excluded: 2 },
+    },
+    unit_count: { tract: 3, 'fixed-grid': 4 },
+    row_count: 24,
     artifact_identity: martArtifactIdentity,
     part_bindings_identity: partBindingsIdentity,
   };
@@ -464,7 +489,14 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
       source_vintage: `sha256:${'2'.repeat(64)}`,
       coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
       complete_week_end_exclusive: '2026-08-24',
+      admission: structuredClone(martManifest.admission),
+      unit_count: structuredClone(martManifest.unit_count),
+      mart_rows: martManifest.row_count,
     },
+    numerical_diagnostics: { fit_states: syntheticFitStates() },
+    limitations: [
+      'Spatial units inherit hundred-block generalization and fail-closed admission; ambiguous tract events are excluded rather than assigned.',
+    ],
     promotion: {
       status: 'not-promoted', decision, selected_model: null,
       local_candidate_model: localCandidateModel, local_candidate_only: true,
@@ -507,9 +539,12 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
     m1Receipt: {
       schema: 'engagement-phl-crime-warehouse-receipt/v3',
       identity: receiptIdentity,
+      mode: 'official-local-candidate',
+      serving_eligible: false,
       clocks: { source_as_of: '2026-08-29T00:00:00.000Z' },
       warehouse: { current_snapshot_id: report.data.source_vintage },
       coverage: { start: '2006-01-01', end_exclusive: '2026-08-29' },
+      authority: { producer_validated_local_candidate: true, serving_authority: false },
     },
     m1ReceiptSha256: receiptSha,
     report,
@@ -524,6 +559,13 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
       receipt_sha256: receiptSha,
     },
   };
+}
+
+function syntheticFitStates() {
+  return Array.from({ length: 64 }, (_, index) => ({
+    passed: false,
+    checks: { irls: { converged: index < 8, reached_iteration_cap: index < 8 } },
+  }));
 }
 
 async function exerciseParentJunctionRace(t, hookName) {

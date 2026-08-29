@@ -499,6 +499,13 @@ function servingArtifact() {
         latest_scope_end_exclusive: '2026-08-28',
         complete_week_end_exclusive: '2026-08-17',
       },
+      counts: {
+        canonical_rows_seen: 10,
+        tract: { admitted: 7, ambiguous_excluded: 1, unmapped_excluded: 2 },
+        fixed_grid: { admitted: 8, unavailable_excluded: 2 },
+      },
+      unit_count: { tract: 3, fixed_grid: 4 },
+      mart_rows: 24,
       method: {
         grain: 'spatial-unit-week',
         week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
@@ -506,6 +513,8 @@ function servingArtifact() {
         spatial_holdout_from_count_model_training: true,
         incomplete_source_week_excluded: true,
         ambiguous_or_unavailable_spatial_assignments_excluded: true,
+        spatial_holdout_block_size_m: 2000,
+        source_location_precision: 'hundred-block-generalized',
       },
     },
     forecast: { status: 'unavailable', reason: 'promotion-gate-not-passed', predictions: [] },
@@ -516,6 +525,7 @@ function servingArtifact() {
       local_candidate_model: null,
       local_candidate_only: true,
       interval_90_outcome: { passed: false, failed_primary_slice_count: 1 },
+      fit_state_outcome: { total: 64, passed: 0, failed: 64, converged_before_iteration_limit: 0 },
       why_unavailable: {
         code: 'promotion-gate-not-passed',
         reason_codes: [

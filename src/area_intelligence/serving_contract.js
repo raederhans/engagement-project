@@ -6,6 +6,11 @@ const CURRENT_TARGET_MEASURE = 'PPD reported incident count';
 const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v2';
 const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const M1_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v3';
+const SOURCE_LOCATION_PRECISION = 'hundred-block-generalized';
+const SPATIAL_HOLDOUT_BLOCK_SIZE_M = 2000;
+const FIXED_GRID_BLOCK_DEFINITION = 'contiguous 4-by-4 source grid cells';
+const TRACT_BLOCK_DEFINITION = 'tract representative point assigned to the same 2km projected block scheme';
+const SOURCE_PRECISION_LIMITATION = 'Spatial units inherit hundred-block generalization and fail-closed admission; ambiguous tract events are excluded rather than assigned.';
 const REQUIRED_FORBIDDEN_CLAIMS = Object.freeze([
   'individual victim probability', 'absolute safety', 'safety score',
   'safest area', 'safest route', 'causal effect',
@@ -97,14 +102,18 @@ function validateLegacyArtifact(value) {
 }
 
 function validateHistoricalEvidence(value, generatedAt) {
-  assertExactKeys(value, ['status', 'measure', 'source_as_of', 'source_vintage', 'coverage', 'method'], 'historical evidence');
+  assertExactKeys(value, [
+    'status', 'measure', 'source_as_of', 'source_vintage', 'coverage', 'counts', 'unit_count', 'mart_rows', 'method',
+  ], 'historical evidence');
   assertExactKeys(value.coverage, [
     'earliest_scope_start', 'latest_scope_end_exclusive', 'complete_week_end_exclusive',
   ], 'coverage');
   assertExactKeys(value.method, [
     'grain', 'week_definition', 'unit_types', 'spatial_holdout_from_count_model_training',
     'incomplete_source_week_excluded', 'ambiguous_or_unavailable_spatial_assignments_excluded',
+    'spatial_holdout_block_size_m', 'source_location_precision',
   ], 'method');
+  validateHistoricalCounts(value.counts, value.unit_count, value.mart_rows);
   if (value.status !== 'available'
     || value.measure !== CURRENT_TARGET_MEASURE
     || !exactTimestamp(value.source_as_of)
@@ -118,8 +127,35 @@ function validateHistoricalEvidence(value, generatedAt) {
     || stableSerialization(value.method.unit_types) !== stableSerialization(['tract', 'fixed-grid'])
     || value.method.spatial_holdout_from_count_model_training !== true
     || value.method.incomplete_source_week_excluded !== true
-    || value.method.ambiguous_or_unavailable_spatial_assignments_excluded !== true) {
+    || value.method.ambiguous_or_unavailable_spatial_assignments_excluded !== true
+    || value.method.spatial_holdout_block_size_m !== SPATIAL_HOLDOUT_BLOCK_SIZE_M
+    || value.method.source_location_precision !== SOURCE_LOCATION_PRECISION) {
     throw new TypeError('Area Intelligence historical evidence or method drifted.');
+  }
+}
+
+function validateHistoricalCounts(counts, unitCount, martRows) {
+  assertExactKeys(counts, ['canonical_rows_seen', 'tract', 'fixed_grid'], 'historical counts');
+  assertExactKeys(counts.tract, ['admitted', 'ambiguous_excluded', 'unmapped_excluded'], 'tract historical counts');
+  assertExactKeys(counts.fixed_grid, ['admitted', 'unavailable_excluded'], 'fixed-grid historical counts');
+  assertExactKeys(unitCount, ['tract', 'fixed_grid'], 'historical unit count');
+  const integers = [
+    counts.canonical_rows_seen,
+    counts.tract.admitted,
+    counts.tract.ambiguous_excluded,
+    counts.tract.unmapped_excluded,
+    counts.fixed_grid.admitted,
+    counts.fixed_grid.unavailable_excluded,
+    unitCount.tract,
+    unitCount.fixed_grid,
+    martRows,
+  ];
+  if (integers.some((entry) => !nonnegativeSafeInteger(entry))
+    || counts.tract.admitted + counts.tract.ambiguous_excluded + counts.tract.unmapped_excluded
+      !== counts.canonical_rows_seen
+    || counts.fixed_grid.admitted + counts.fixed_grid.unavailable_excluded
+      !== counts.canonical_rows_seen) {
+    throw new TypeError('Area Intelligence aggregate historical counts are invalid or do not conserve independently.');
   }
 }
 
@@ -136,9 +172,12 @@ function validateUnavailableForecast(value) {
 function validateEvaluationSummary(value) {
   assertExactKeys(value, [
     'promotion_status', 'decision', 'selected_model', 'local_candidate_model', 'local_candidate_only',
-    'interval_90_outcome', 'why_unavailable',
+    'interval_90_outcome', 'fit_state_outcome', 'why_unavailable',
   ], 'evaluation summary');
   assertExactKeys(value.interval_90_outcome, ['passed', 'failed_primary_slice_count'], '90% interval outcome');
+  assertExactKeys(value.fit_state_outcome, [
+    'total', 'passed', 'failed', 'converged_before_iteration_limit',
+  ], 'fit-state outcome');
   assertExactKeys(value.why_unavailable, ['code', 'reason_codes'], 'unavailable summary');
   if (value.promotion_status !== 'not-promoted'
     || !['local-candidate', 'no-promotion'].includes(value.decision)
@@ -149,6 +188,9 @@ function validateEvaluationSummary(value) {
     || !Number.isSafeInteger(value.interval_90_outcome.failed_primary_slice_count)
     || value.interval_90_outcome.failed_primary_slice_count < 0
     || value.interval_90_outcome.passed !== (value.interval_90_outcome.failed_primary_slice_count === 0)
+    || !Object.values(value.fit_state_outcome).every(nonnegativeSafeInteger)
+    || value.fit_state_outcome.passed + value.fit_state_outcome.failed !== value.fit_state_outcome.total
+    || value.fit_state_outcome.converged_before_iteration_limit > value.fit_state_outcome.total
     || !['local-candidate-has-no-serving-authority', 'promotion-gate-not-passed'].includes(value.why_unavailable.code)
     || !Array.isArray(value.why_unavailable.reason_codes)
     || value.why_unavailable.reason_codes.length < 1
@@ -219,6 +261,12 @@ function validateExternalContext(candidate, context) {
     latest_scope_end_exclusive: report.data?.coverage?.latest_scope_end_exclusive,
     complete_week_end_exclusive: report.data?.complete_week_end_exclusive,
   };
+  const expectedCounts = publicHistoricalCounts(report.data?.admission);
+  const expectedUnitCount = {
+    tract: report.data?.unit_count?.tract,
+    fixed_grid: report.data?.unit_count?.['fixed-grid'],
+  };
+  const expectedFitStateOutcome = fitStateOutcome(report);
   if (candidate.lineage.protocol.sha256 !== report.protocol?.sha256
     || candidate.lineage.protocol.sha256 !== manifest.protocol_sha256
     || candidate.lineage.protocol.sha256 !== martManifest.protocol?.sha256
@@ -249,6 +297,23 @@ function validateExternalContext(candidate, context) {
     || candidate.historical_evidence.source_vintage !== report.data?.source_vintage
     || candidate.historical_evidence.source_vintage !== m1Receipt.warehouse?.current_snapshot_id
     || stableSerialization(candidate.historical_evidence.coverage) !== stableSerialization(expectedCoverage)
+    || stableSerialization(candidate.historical_evidence.counts) !== stableSerialization(expectedCounts)
+    || stableSerialization(expectedCounts) !== stableSerialization(publicHistoricalCounts(martManifest.admission))
+    || stableSerialization(candidate.historical_evidence.unit_count) !== stableSerialization(expectedUnitCount)
+    || stableSerialization(expectedUnitCount) !== stableSerialization({
+      tract: martManifest.unit_count?.tract,
+      fixed_grid: martManifest.unit_count?.['fixed-grid'],
+    })
+    || candidate.historical_evidence.mart_rows !== report.data?.mart_rows
+    || candidate.historical_evidence.mart_rows !== martManifest.row_count
+    || protocol.spatial_holdout?.block_definition?.['fixed-grid'] !== FIXED_GRID_BLOCK_DEFINITION
+    || protocol.spatial_holdout?.block_definition?.tract !== TRACT_BLOCK_DEFINITION
+    || !Array.isArray(report.limitations)
+    || !report.limitations.includes(SOURCE_PRECISION_LIMITATION)
+    || m1Receipt.mode !== 'official-local-candidate'
+    || m1Receipt.serving_eligible !== false
+    || m1Receipt.authority?.producer_validated_local_candidate !== true
+    || m1Receipt.authority?.serving_authority !== false
     || report.data?.coverage?.earliest_scope_start !== m1Receipt.coverage?.start
     || report.data?.coverage?.latest_scope_end_exclusive !== m1Receipt.coverage?.end_exclusive
     || stableSerialization(report.data?.coverage) !== stableSerialization(martManifest.source_coverage)
@@ -272,9 +337,40 @@ function validateExternalContext(candidate, context) {
     || stableSerialization(candidate.privacy) !== stableSerialization(report.privacy)
     || stableSerialization(candidate.forbidden_claims) !== stableSerialization(protocol.forbidden_claims)
     || candidate.evaluation.interval_90_outcome.failed_primary_slice_count
-      !== failedIntervalSliceCount(report, protocol)) {
+      !== failedIntervalSliceCount(report, protocol)
+    || stableSerialization(candidate.evaluation.fit_state_outcome) !== stableSerialization(expectedFitStateOutcome)) {
     throw new TypeError('Area Intelligence public projection drifted from its validated external context.');
   }
+}
+
+function publicHistoricalCounts(admission) {
+  return {
+    canonical_rows_seen: admission?.canonical_rows_seen,
+    tract: {
+      admitted: admission?.tract?.admitted,
+      ambiguous_excluded: admission?.tract?.ambiguous_excluded,
+      unmapped_excluded: admission?.tract?.unmapped_excluded,
+    },
+    fixed_grid: {
+      admitted: admission?.['fixed-grid']?.admitted,
+      unavailable_excluded: admission?.['fixed-grid']?.unavailable_excluded,
+    },
+  };
+}
+
+function fitStateOutcome(report) {
+  const rows = report.numerical_diagnostics?.fit_states;
+  if (!Array.isArray(rows)) {
+    return { total: Number.NaN, passed: Number.NaN, failed: Number.NaN, converged_before_iteration_limit: Number.NaN };
+  }
+  return {
+    total: rows.length,
+    passed: rows.filter((row) => row?.passed === true).length,
+    failed: rows.filter((row) => row?.passed === false).length,
+    converged_before_iteration_limit: rows.filter((row) => (
+      row?.checks?.irls?.converged === true && row.checks.irls.reached_iteration_cap === false
+    )).length,
+  };
 }
 
 function failedIntervalSliceCount(report, protocol) {
@@ -357,6 +453,10 @@ function reasonCode(value) {
 
 function modelId(value) {
   return typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}
+
+function nonnegativeSafeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0;
 }
 
 function stableSerialization(value) {

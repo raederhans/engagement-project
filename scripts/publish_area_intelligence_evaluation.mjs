@@ -32,6 +32,9 @@ const PUBLIC_PROJECTION_PATH = 'public/data/area_intelligence_baseline.v2.json';
 const PUBLISHER_LEASE_NAME = '.area-intelligence-publisher.v2.lock';
 const PUBLISHER_LEASE_SCHEMA = 'engagement-area-intelligence-publisher-lease/v1';
 const PUBLICATION_TEMP_PREFIX = '.area-intelligence-baseline.v2.tmp-';
+const FIXED_GRID_BLOCK_DEFINITION = 'contiguous 4-by-4 source grid cells';
+const TRACT_BLOCK_DEFINITION = 'tract representative point assigned to the same 2km projected block scheme';
+const SOURCE_PRECISION_LIMITATION = 'Spatial units inherit hundred-block generalization and fail-closed admission; ambiguous tract events are excluded rather than assigned.';
 
 export async function publishAreaIntelligenceEvaluation({
   repositoryRoot = defaultRoot,
@@ -138,6 +141,8 @@ export function createAreaIntelligencePublicProjection(context) {
   const reason = decision === 'local-candidate'
     ? 'local-candidate-has-no-serving-authority'
     : 'promotion-gate-not-passed';
+  const fitStateOutcome = summarizeFitStates(report);
+  const sourceLocationPrecision = deriveSourceLocationPrecision({ protocol, m1Receipt, report });
   const projection = {
     schema: AREA_INTELLIGENCE_SERVING_SCHEMA,
     generated_at: report.generated_at,
@@ -152,6 +157,12 @@ export function createAreaIntelligencePublicProjection(context) {
         latest_scope_end_exclusive: report.data.coverage.latest_scope_end_exclusive,
         complete_week_end_exclusive: report.data.complete_week_end_exclusive,
       },
+      counts: publicHistoricalCounts(report.data.admission),
+      unit_count: {
+        tract: report.data.unit_count.tract,
+        fixed_grid: report.data.unit_count['fixed-grid'],
+      },
+      mart_rows: report.data.mart_rows,
       method: {
         grain: protocol.target.grain,
         week_definition: protocol.target.week_definition,
@@ -161,6 +172,8 @@ export function createAreaIntelligencePublicProjection(context) {
         incomplete_source_week_excluded: protocol.target.exclude_incomplete_source_week,
         ambiguous_or_unavailable_spatial_assignments_excluded: protocol.admission.ambiguous_or_unavailable
           === 'exclude-and-audit-never-force-assign',
+        spatial_holdout_block_size_m: deriveSpatialHoldoutBlockSize(protocol),
+        source_location_precision: sourceLocationPrecision,
       },
     },
     forecast: { status: 'unavailable', reason, predictions: [] },
@@ -174,6 +187,7 @@ export function createAreaIntelligencePublicProjection(context) {
         passed: intervalPassed,
         failed_primary_slice_count: failedIntervalSliceCount,
       },
+      fit_state_outcome: fitStateOutcome,
       why_unavailable: {
         code: reason,
         reason_codes: [
@@ -199,6 +213,56 @@ export function createAreaIntelligencePublicProjection(context) {
     forbidden_claims: structuredClone(protocol.forbidden_claims),
   };
   return validateAreaIntelligenceServingCandidate(projection, context);
+}
+
+function publicHistoricalCounts(admission) {
+  return {
+    canonical_rows_seen: admission.canonical_rows_seen,
+    tract: {
+      admitted: admission.tract.admitted,
+      ambiguous_excluded: admission.tract.ambiguous_excluded,
+      unmapped_excluded: admission.tract.unmapped_excluded,
+    },
+    fixed_grid: {
+      admitted: admission['fixed-grid'].admitted,
+      unavailable_excluded: admission['fixed-grid'].unavailable_excluded,
+    },
+  };
+}
+
+function deriveSpatialHoldoutBlockSize(protocol) {
+  if (protocol.spatial_holdout?.block_definition?.['fixed-grid'] !== FIXED_GRID_BLOCK_DEFINITION
+    || protocol.spatial_holdout?.block_definition?.tract !== TRACT_BLOCK_DEFINITION) {
+    throw new Error('Area Intelligence frozen spatial holdout block definitions do not prove the 2km scheme.');
+  }
+  return 2000;
+}
+
+function deriveSourceLocationPrecision({ protocol, m1Receipt, report }) {
+  if (protocol.exact_input_gate?.receipt_identity !== m1Receipt.identity
+    || protocol.exact_input_gate?.receipt_sha256 == null
+    || m1Receipt.mode !== 'official-local-candidate'
+    || m1Receipt.serving_eligible !== false
+    || m1Receipt.authority?.producer_validated_local_candidate !== true
+    || m1Receipt.authority?.serving_authority !== false
+    || !Array.isArray(report.limitations)
+    || !report.limitations.includes(SOURCE_PRECISION_LIMITATION)) {
+    throw new Error('Area Intelligence source location precision lacks exact report and verified M1 evidence.');
+  }
+  return 'hundred-block-generalized';
+}
+
+function summarizeFitStates(report) {
+  const rows = report.numerical_diagnostics?.fit_states;
+  if (!Array.isArray(rows)) throw new Error('Area Intelligence fit-state diagnostics are unavailable.');
+  return {
+    total: rows.length,
+    passed: rows.filter((row) => row?.passed === true).length,
+    failed: rows.filter((row) => row?.passed === false).length,
+    converged_before_iteration_limit: rows.filter((row) => (
+      row?.checks?.irls?.converged === true && row.checks.irls.reached_iteration_cap === false
+    )).length,
+  };
 }
 
 export async function publishValidatedAreaIntelligenceProjection({
@@ -407,6 +471,8 @@ function validateM1ReceiptContext({ receipt, receiptBytes, protocol, manifest, m
     || receipt.coverage?.start !== report.data?.coverage?.earliest_scope_start
     || receipt.coverage?.end_exclusive !== report.data?.coverage?.latest_scope_end_exclusive
     || typeof receipt.clocks?.source_as_of !== 'string'
+    || receipt.mode !== 'official-local-candidate'
+    || receipt.authority?.producer_validated_local_candidate !== true
     || receipt.authority?.serving_authority !== false
     || receipt.serving_eligible !== false) {
     throw new Error('Area Intelligence M1 receipt identity, coverage, clock, or authority drifted.');

@@ -5,6 +5,7 @@ import {
   validateAreaIntelligenceServingCandidate,
 } from '../../src/area_intelligence/serving_contract.js';
 import { createAreaIntelligencePublicProjection } from '../publish_area_intelligence_evaluation.mjs';
+import { AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256 } from '../lib/area_intelligence_evaluation_protocol.mjs';
 
 test('healthy synthetic P3 no-promotion becomes a minimal unavailable public projection', () => {
   const context = syntheticContext();
@@ -19,6 +20,18 @@ test('healthy synthetic P3 no-promotion becomes a minimal unavailable public pro
     'primary-interval-90-gate-not-passed',
     'serving-authority-unavailable',
   ]);
+  assert.deepEqual(projection.historical_evidence.counts, {
+    canonical_rows_seen: 10,
+    tract: { admitted: 7, ambiguous_excluded: 1, unmapped_excluded: 2 },
+    fixed_grid: { admitted: 8, unavailable_excluded: 2 },
+  });
+  assert.deepEqual(projection.historical_evidence.unit_count, { tract: 3, fixed_grid: 4 });
+  assert.equal(projection.historical_evidence.mart_rows, 24);
+  assert.equal(projection.historical_evidence.method.spatial_holdout_block_size_m, 2000);
+  assert.equal(projection.historical_evidence.method.source_location_precision, 'hundred-block-generalized');
+  assert.deepEqual(projection.evaluation.fit_state_outcome, {
+    total: 64, passed: 0, failed: 64, converged_before_iteration_limit: 0,
+  });
   assert.ok(Object.values(projection.authority).every((value) => value === false));
 });
 
@@ -46,6 +59,11 @@ test('base and candidate validators reject unknown, gate, governance, numeric, s
     ['authority drift', (value) => { value.authority.serving = true; }],
     ['privacy drift', (value) => { value.privacy.coordinates_included = true; }],
     ['nonfinite', (value) => { value.evaluation.interval_90_outcome.failed_primary_slice_count = Number.NaN; }],
+    ['unsafe count', (value) => { value.historical_evidence.mart_rows = Number.MAX_SAFE_INTEGER + 1; }],
+    ['tract conservation', (value) => { value.historical_evidence.counts.tract.admitted += 1; }],
+    ['grid conservation', (value) => { value.historical_evidence.counts.fixed_grid.admitted += 1; }],
+    ['fit-state conservation', (value) => { value.evaluation.fit_state_outcome.failed -= 1; }],
+    ['unknown count field', (value) => { value.historical_evidence.counts.unit_id = 'private'; }],
     ['sensitive value', (value) => { value.historical_evidence.source_as_of = 'C:\\Users\\person\\receipt.json'; }],
     ['missing safety score prohibition', (value) => { value.forbidden_claims.splice(2, 1); }],
     ['forecast claim', (value) => { value.forecast.status = 'available'; }],
@@ -90,6 +108,14 @@ test('candidate validator rejects external protocol, receipt, mart, report, gate
     ['coverage', (ctx) => { ctx.report.data.coverage.earliest_scope_start = '2007-01-01'; }],
     ['authority', (ctx) => { ctx.manifest.authority.serving = true; }],
     ['privacy', (ctx) => { ctx.protocol.privacy.aggregate_only = false; }],
+    ['report admission', (ctx) => { ctx.report.data.admission.tract.admitted -= 1; }],
+    ['mart admission', (ctx) => { ctx.martManifest.admission['fixed-grid'].admitted -= 1; }],
+    ['report unit count', (ctx) => { ctx.report.data.unit_count.tract += 1; }],
+    ['mart row count', (ctx) => { ctx.martManifest.row_count += 1; }],
+    ['fit state', (ctx) => { ctx.report.numerical_diagnostics.fit_states[0].passed = true; }],
+    ['holdout block definition', (ctx) => { ctx.protocol.spatial_holdout.block_definition.tract = 'unknown'; }],
+    ['precision limitation', (ctx) => { ctx.report.limitations[0] = 'unknown'; }],
+    ['M1 provenance', (ctx) => { ctx.m1Receipt.authority.producer_validated_local_candidate = false; }],
   ];
   for (const [label, mutate] of cases) {
     const drifted = structuredClone(context);
@@ -105,6 +131,7 @@ test('projection allowlist excludes full metrics, slices, residuals, model state
     'aggregate_primary', 'primary_by_fold_space_holdout', 'by_category', 'by_data_volume',
     'residual_map', 'model_state', 'area_ordering', 'source_record_id', 'event_id',
     'generalized_location', 'coordinates', 'unit_id',
+    'week_start', 'week_rows', 'unit_ids',
   ]) assert.doesNotMatch(serialized, new RegExp(`"${forbidden}"`, 'i'));
 });
 
@@ -147,7 +174,7 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
     raw_or_canonical_events_included: false,
     source_record_ids_included: false,
   };
-  const protocolSha = `sha256:${'a'.repeat(64)}`;
+  const protocolSha = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256;
   const receiptIdentity = `sha256:${'d'.repeat(64)}`;
   const receiptSha = `sha256:${'e'.repeat(64)}`;
   const localCandidateModel = decision === 'local-candidate' ? 'negative-binomial-log-link-v1' : null;
@@ -160,7 +187,13 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
       exclude_incomplete_source_week: true,
     },
     marts: { unit_types: ['tract', 'fixed-grid'] },
-    spatial_holdout: { training_policy: 'Poisson and negative-binomial fits exclude held-out blocks' },
+    spatial_holdout: {
+      block_definition: {
+        'fixed-grid': 'contiguous 4-by-4 source grid cells',
+        tract: 'tract representative point assigned to the same 2km projected block scheme',
+      },
+      training_policy: 'Poisson and negative-binomial fits exclude held-out blocks',
+    },
     admission: { ambiguous_or_unavailable: 'exclude-and-audit-never-force-assign' },
     promotion_gate: {
       eligible_models: ['poisson-log-link-v1', 'negative-binomial-log-link-v1'],
@@ -186,6 +219,13 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
     protocol: { sha256: protocolSha },
     exact_input: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
     source_coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
+    admission: {
+      canonical_rows_seen: 10,
+      tract: { admitted: 7, ambiguous_excluded: 1, unmapped_excluded: 2 },
+      'fixed-grid': { admitted: 8, unavailable_excluded: 2 },
+    },
+    unit_count: { tract: 3, 'fixed-grid': 4 },
+    row_count: 24,
     artifact_identity: `sha256:${'f'.repeat(64)}`,
     part_bindings_identity: `sha256:${'1'.repeat(64)}`,
   };
@@ -196,7 +236,14 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
       source_vintage: `sha256:${'2'.repeat(64)}`,
       coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
       complete_week_end_exclusive: '2026-08-24',
+      admission: structuredClone(martManifest.admission),
+      unit_count: structuredClone(martManifest.unit_count),
+      mart_rows: martManifest.row_count,
     },
+    numerical_diagnostics: { fit_states: syntheticFitStates() },
+    limitations: [
+      'Spatial units inherit hundred-block generalization and fail-closed admission; ambiguous tract events are excluded rather than assigned.',
+    ],
     promotion: {
       status: 'not-promoted', decision, selected_model: null,
       local_candidate_model: localCandidateModel, local_candidate_only: true,
@@ -232,9 +279,12 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
     m1Receipt: {
       schema: 'engagement-phl-crime-warehouse-receipt/v3',
       identity: receiptIdentity,
+      mode: 'official-local-candidate',
+      serving_eligible: false,
       clocks: { source_as_of: '2026-08-29T00:00:00.000Z' },
       warehouse: { current_snapshot_id: report.data.source_vintage },
       coverage: { start: '2006-01-01', end_exclusive: '2026-08-29' },
+      authority: { producer_validated_local_candidate: true, serving_authority: false },
     },
     m1ReceiptSha256: receiptSha,
     report,
@@ -249,4 +299,11 @@ function syntheticContext({ decision = 'no-promotion', intervalFailures = 2 } = 
       receipt_sha256: receiptSha,
     },
   };
+}
+
+function syntheticFitStates() {
+  return Array.from({ length: 64 }, (_, index) => ({
+    passed: false,
+    checks: { irls: { converged: index < 8, reached_iteration_cap: index < 8 } },
+  }));
 }
