@@ -28,7 +28,10 @@ import {
   validateAreaIntelligenceMartForEvaluation,
   validateModelEvaluationReport,
 } from '../lib/area_intelligence_evaluation.mjs';
-import { validateAreaIntelligenceServingArtifact } from '../../src/area_intelligence/serving_contract.js';
+import {
+  validateAreaIntelligenceServingArtifact,
+  validateAreaIntelligenceServingCandidate,
+} from '../../src/area_intelligence/serving_contract.js';
 import {
   buildAreaIntelligenceHtml,
   createAreaIntelligencePresentation,
@@ -167,23 +170,20 @@ test('legacy shallow ModelEvaluationReport is rejected by the P3 deep contract',
   assert.throws(() => validateModelEvaluationReport(legacy, { protocol }), /machine-checkable contract/);
 });
 
-test('serving contract and bilingual-safe view keep promoted and no-promotion states explicit', () => {
-  const noPromotion = servingArtifact({ promoted: false });
+test('legacy v1 stays readable but non-current while v2 presentation remains unavailable', async () => {
+  const legacyPath = path.join(repoRoot, 'public/data/area_intelligence_baseline.v1.json');
+  const legacy = JSON.parse(await fs.readFile(legacyPath, 'utf8'));
+  assert.equal(validateAreaIntelligenceServingArtifact(legacy).forecast.status, 'unavailable');
+  assert.throws(() => validateAreaIntelligenceServingCandidate(legacy), /Legacy/);
+  const promotedLegacy = structuredClone(legacy);
+  promotedLegacy.status = 'promoted';
+  assert.throws(() => validateAreaIntelligenceServingArtifact(promotedLegacy), /legacy no-promotion/i);
+
+  const noPromotion = servingArtifact();
   assert.equal(validateAreaIntelligenceServingArtifact(noPromotion).forecast.status, 'unavailable');
-  const unavailableHtml = buildAreaIntelligenceHtml(createAreaIntelligencePresentation(noPromotion, { queryMode: 'tract', selectedTractGEOID: '42101007400' }));
-  assert.match(unavailableHtml, /did not exceed the pre-defined seasonal baseline/i);
+  const unavailableHtml = buildAreaIntelligenceHtml(createAreaIntelligencePresentation(noPromotion));
+  assert.match(unavailableHtml, /promotion gate did not pass/i);
   assert.match(unavailableHtml, /no zero forecast or hidden fallback/i);
-
-  const promoted = servingArtifact({ promoted: true });
-  const presentation = createAreaIntelligencePresentation(promoted, { queryMode: 'tract', selectedTractGEOID: '42101007400' });
-  const promotedHtml = buildAreaIntelligenceHtml(presentation);
-  assert.equal(presentation.status, 'promoted');
-  assert.match(promotedHtml, /Modeled reported-incident count/i);
-  assert.match(promotedHtml, /90% prediction interval/i);
-  assert.match(promotedHtml, /not individual risk, absolute safety, or a route recommendation/i);
-
-  promoted.forecast.predictions[0].prediction_interval_90 = null;
-  assert.throws(() => validateAreaIntelligenceServingArtifact(promoted), /prediction contract is invalid/);
 });
 
 test('streaming mart build resumes, excludes ambiguous/unavailable units, and reruns semantically idempotent', async (t) => {
@@ -483,40 +483,78 @@ function event({ id, tractStatus, gridStatus, week, snapshotId }) {
   };
 }
 
-function servingArtifact({ promoted }) {
+function servingArtifact() {
   const generatedAt = '2026-08-21T08:00:00.000Z';
-  const model = 'negative-binomial-log-link-v1';
   return {
-    schema: 'engagement-area-intelligence-serving/v1',
+    schema: 'engagement-area-intelligence-serving/v2',
     generated_at: generatedAt,
-    status: promoted ? 'promoted' : 'not-promoted',
+    status: 'not-promoted',
     historical_evidence: {
       status: 'available',
       measure: 'PPD reported incidents',
-      coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-28' },
-      source_vintage: 'sha256:source',
-      limitations: ['Historical evidence only.'],
+      source_as_of: '2026-08-20T03:47:00.000Z',
+      source_vintage: `sha256:${'1'.repeat(64)}`,
+      coverage: {
+        earliest_scope_start: '2006-01-01',
+        latest_scope_end_exclusive: '2026-08-28',
+        complete_week_end_exclusive: '2026-08-17',
+      },
+      method: {
+        grain: 'spatial-unit-week',
+        week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
+        unit_types: ['tract', 'fixed-grid'],
+        spatial_holdout_from_count_model_training: true,
+        incomplete_source_week_excluded: true,
+        ambiguous_or_unavailable_spatial_assignments_excluded: true,
+      },
     },
-    forecast: promoted ? {
-      status: 'available',
-      model_version: model,
-      predictions: [{
-        unit_type: 'tract', unit_id: '42101007400', target_week_start: '2026-08-17',
-        predicted_reported_incident_count: 4.2,
-        prediction_interval_90: { lower: 1, upper: 9 },
-        trained_through: '2025-08-18', feature_observed_through: '2026-08-17',
-        model_version: model, generated_at: generatedAt, source_vintage: 'sha256:source',
-        limitations: ['Modeled count only.'],
-      }],
-    } : {
-      status: 'unavailable', reason: 'model-did-not-exceed-predefined-seasonal-baseline', predictions: [],
-    },
+    forecast: { status: 'unavailable', reason: 'promotion-gate-not-passed', predictions: [] },
     evaluation: {
-      promotion_status: promoted ? 'promoted' : 'not-promoted',
-      selected_model: promoted ? model : null,
-      audit_model: model,
-      protocol_sha256: 'protocol',
+      promotion_status: 'not-promoted',
+      decision: 'no-promotion',
+      selected_model: null,
+      local_candidate_model: null,
+      local_candidate_only: true,
+      interval_90_outcome: { passed: false, failed_primary_slice_count: 1 },
+      why_unavailable: {
+        code: 'promotion-gate-not-passed',
+        reason_codes: [
+          'promotion-gate-not-passed',
+          'primary-interval-90-gate-not-passed',
+          'serving-authority-unavailable',
+        ],
+      },
     },
-    forbidden_claims: ['individual victim probability', 'absolute safety', 'safest route'],
+    authority: {
+      local_evaluation: false, serving: false, product_promotion: false,
+      scientific: false, causal: false, safety: false, deletion: false,
+    },
+    privacy: {
+      aggregate_only: true,
+      event_level_data_included: false,
+      coordinates_included: false,
+      generalized_locations_included: false,
+      raw_or_canonical_events_included: false,
+      source_record_ids_included: false,
+    },
+    lineage: {
+      protocol: { schema: 'engagement-area-intelligence-evaluation-protocol/v2', sha256: 'a'.repeat(64) },
+      evaluation: { schema: 'engagement-area-intelligence-evaluation-run/v2', manifest_sha256: 'b'.repeat(64) },
+      mart: {
+        schema: 'engagement-area-intelligence-feature-mart/v2',
+        manifest_sha256: 'c'.repeat(64),
+        artifact_identity: `sha256:${'d'.repeat(64)}`,
+        part_bindings_identity: `sha256:${'e'.repeat(64)}`,
+      },
+      m1_receipt: {
+        schema: 'engagement-phl-crime-warehouse-receipt/v3',
+        identity: `sha256:${'f'.repeat(64)}`,
+        sha256: `sha256:${'0'.repeat(64)}`,
+      },
+    },
+    forbidden_claims: [
+      'individual victim probability', 'absolute safety', 'safety score',
+      'safest area', 'safest route', 'causal effect',
+    ],
   };
 }

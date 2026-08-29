@@ -9,11 +9,13 @@ import {
 } from '../publish_area_intelligence_evaluation.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const publicPath = 'public/data/area_intelligence_baseline.v1.json';
+const legacyPublicPath = 'public/data/area_intelligence_baseline.v1.json';
+const publicPath = 'public/data/area_intelligence_baseline.v2.json';
 
 test('publisher rolls back a failed install, writes once, and verifies an identical rerun idempotently', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-publisher-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const legacyBytes = await seedTrackedV1(root);
   const context = syntheticP3Context();
   const projection = createAreaIntelligencePublicProjection(context);
   const destination = path.join(root, ...publicPath.split('/'));
@@ -26,16 +28,69 @@ test('publisher rolls back a failed install, writes once, and verifies an identi
   }), /synthetic install failure/);
   await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+  assert.deepEqual(await fs.readFile(path.join(root, ...legacyPublicPath.split('/'))), legacyBytes);
 
   const first = await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
   assert.equal(first.status, 'published-local-serving-candidate');
   assert.equal(first.idempotent, false);
+  assert.equal(first.files[0].path, publicPath);
   const firstBytes = await fs.readFile(destination);
   const second = await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
   assert.equal(second.status, 'verified-existing-public-projection');
   assert.equal(second.idempotent, true);
   assert.deepEqual(await fs.readFile(destination), firstBytes);
+  assert.deepEqual(await fs.readFile(path.join(root, ...legacyPublicPath.split('/'))), legacyBytes);
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('temporary unlink failure rolls back only the link installed by this publication', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-unlink-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const legacyBytes = await seedTrackedV1(root);
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+  const destination = path.join(root, ...publicPath.split('/'));
+
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      unlinkTemporary() {
+        throw new Error('synthetic temporary unlink failure');
+      },
+    },
+  }), /synthetic temporary unlink failure/);
+  await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
+  assert.deepEqual(await fs.readFile(path.join(root, ...legacyPublicPath.split('/'))), legacyBytes);
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('publication rejects a symlink or junction path before writing outside the repository root', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-path-'));
+  const external = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-external-'));
+  t.after(() => Promise.all([
+    fs.rm(root, { recursive: true, force: true }),
+    fs.rm(external, { recursive: true, force: true }),
+  ]));
+  await fs.mkdir(path.join(root, 'public'));
+  try {
+    await fs.symlink(external, path.join(root, 'public', 'data'), process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    if (['EPERM', 'EACCES'].includes(error?.code)) {
+      t.skip(`insufficient permission to create path escape fixture: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+  }), /symlink|junction|reparse|redirected/i);
+  assert.deepEqual(await fs.readdir(external), []);
 });
 
 test('publisher refuses to overwrite different bytes and public output contains only the serving allowlist', async (t) => {
@@ -212,4 +267,12 @@ async function listFiles(root, current = root) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function seedTrackedV1(root) {
+  const bytes = await fs.readFile(path.join(repoRoot, ...legacyPublicPath.split('/')));
+  const destination = path.join(root, ...legacyPublicPath.split('/'));
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, bytes);
+  return bytes;
 }
