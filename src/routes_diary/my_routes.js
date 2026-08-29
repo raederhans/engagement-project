@@ -1,48 +1,30 @@
-/**
- * Route Safety Diary - My Routes (Saved Routes List)
- *
- * Purpose: Display and manage user's saved routes.
- * Status: [TODO] Deferred to M3 (not in M1 scope)
- * See: docs/DIARY_EXEC_PLAN_M1.md (Phase 3, "Save as route" feature)
- */
+const MY_ROUTES_UNAVAILABLE = Object.freeze({
+  ok: false,
+  status: 'unavailable',
+  mode: 'local-only',
+  capability: 'unavailable',
+  network: 'disabled',
+  persisted: false,
+  shared: false,
+  message: 'This legacy My Routes surface is unavailable. Use the browser-local Diary history.',
+});
 
 /**
- * Open "My Routes" panel/modal
+ * Legacy API-shaped route actions remain inert. Browser-local route CRUD is
+ * provided by the Diary repository and local history controller, not here.
  */
 export function openMyRoutesPanel() {
-  // TODO: M3 implementation
-  // - Fetch saved routes from API or localStorage
-  // - Display routes in a list (name, date, segments count)
-  // - Wire click handlers to load route on map
-  // - Add delete button per route
-  console.warn('[Diary] My Routes feature not implemented (M3).');
+  return MY_ROUTES_UNAVAILABLE;
 }
 
-/**
- * Close "My Routes" panel/modal
- */
 export function closeMyRoutesPanel() {
-  // TODO: M3 implementation
+  return MY_ROUTES_UNAVAILABLE;
 }
 
-/**
- * Load a saved route onto the map
- * @param {string} routeId - Saved route ID
- */
-export function loadRoute(routeId) {
-  // TODO: M3 implementation
-  // - Fetch route segments from API
-  // - Highlight segments on map
-  // - Optionally fly to route bounds
+export function loadRoute() {
+  return MY_ROUTES_UNAVAILABLE;
 }
 
-/**
- * Delete a saved route
- * @param {string} routeId - Route ID to delete
- */
-export function deleteRoute(routeId) {
-  // TODO: M3 implementation
-  // - Confirm with user (modal or native confirm)
-  // - DELETE /api/diary/routes/:id
-  // - Remove from UI list
+export function deleteRoute() {
+  return MY_ROUTES_UNAVAILABLE;
 }

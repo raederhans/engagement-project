@@ -564,7 +564,7 @@ test('Census Reporter cache hits preserve release vintage and as-of provenance',
   }]);
 });
 
-test('Diary client is strictly local-only even when a legacy API base is supplied', async () => {
+test('Diary public write policy stays unavailable and no-network under injected configuration', async (t) => {
   assert.equal(typeof diary.createDiaryClient, 'function');
   const payload = {
     route_id: 'route_demo_1',
@@ -577,10 +577,23 @@ test('Diary client is strictly local-only even when a legacy API base is supplie
     timestamp: '2026-07-30T00:00:00.000Z',
   };
 
+  const originalFetch = globalThis.fetch;
   let requests = 0;
+  const request = async () => {
+    requests += 1;
+    return { ok: true, persisted: true };
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = request;
   const localClient = diary.createDiaryClient({
     apiBase: 'https://example.test/api/diary/',
-    request: async () => { requests += 1; },
+    endpoint: 'https://example.test/api/diary/public',
+    request,
+    fetch: request,
+    adapter: { submit: request },
+    capability: { publicWrite: true },
   });
   const first = await localClient.submitDiary({
     ...payload,
@@ -589,15 +602,23 @@ test('Diary client is strictly local-only even when a legacy API base is supplie
     draft: { unfinished: true },
   });
   const second = await localClient.submitDiary(payload);
-  assert.deepEqual(first.updated_segments, second.updated_segments);
+  const agree = await localClient.submitAgree('seg_1', 'demo_user', { request });
+  const improve = await localClient.submitImprove('seg_1', 'demo_user', { request });
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, agree);
+  assert.deepEqual(first, improve);
+  assert.equal(first.ok, false);
+  assert.equal(first.status, 'unavailable');
+  assert.equal(first.network, 'disabled');
   assert.equal(first.persisted, false);
-  assert.equal(first.mode, 'demo');
-  assert.equal(first.capability, 'local-only');
-  assert.match(first.message, /browser session/i);
-  assert.match(first.message, /no remote data was written/i);
+  assert.equal(first.shared, false);
+  assert.equal(first.mode, 'local-only');
+  assert.equal(first.capability, 'unavailable');
+  assert.match(first.message, /unavailable/i);
+  assert.match(first.message, /no data left this browser/i);
   assert.doesNotMatch(first.message, /saved|durable|persisted|已保存/iu);
-  assert.deepEqual(first.updated_segments.map((row) => row.rating), [4, 2]);
   assert.equal(requests, 0, 'legacy configuration must not upload ratings, notes, geometry, or drafts');
+  assert.doesNotMatch(JSON.stringify(first), /route_demo|seg_1|private note|39\.9|2026-07-30/);
   assert.equal(Object.hasOwn(config, 'DIARY_API_BASE'), false);
 });
 
@@ -694,7 +715,7 @@ test('mutation requests default to uncached semantics', async (t) => {
   assert.deepEqual(second, { call: 2 });
 });
 
-test('segment popup submission uses truthful demo semantics without claiming community aggregation', async () => {
+test('segment popup submission reports the public write as unavailable without transport access', async () => {
   const state = {
     mode: 'input',
     rating: 4,
@@ -711,15 +732,15 @@ test('segment popup submission uses truthful demo semantics without claiming com
     },
   });
 
-  assert.equal(response.mode, 'demo');
+  assert.equal(response.status, 'unavailable');
+  assert.equal(response.network, 'disabled');
   assert.equal(response.persisted, false);
   assert.equal(state.mode, 'view');
   assert.equal(state.submissionResult, response);
   assert.equal(renders, 1);
 
   const html = buildSegmentCardHtml({ segment_id: 'seg_popup_1' }, state);
-  assert.match(html, /Browser-local demo only/i);
-  assert.match(html, /not stored or shared/i);
+  assert.match(html, /browser-local save could not be confirmed/i);
   assert.doesNotMatch(html, /community aggregates/i);
   assert.doesNotMatch(html, /appear in the aggregate soon/i);
 });
