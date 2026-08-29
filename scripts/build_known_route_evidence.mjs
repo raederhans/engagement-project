@@ -726,10 +726,18 @@ async function requireFreshOutputRoot(outputRoot, ownedFiles) {
 
 async function readPublicRoute(file) {
   const value = JSON.parse(await fs.readFile(file, 'utf8'));
+  return validatePublicRouteFixture(value);
+}
+
+export function validatePublicRouteFixture(value) {
   if (value?.schema !== 'known-route-public-smoke/v1'
-    || typeof value.label !== 'string' || !value.label.trim()
     || typeof value.disclosure !== 'string' || !/public, non-private/i.test(value.disclosure)
-    || !value.routeInput || Object.keys(value).some((key) => !['schema', 'label', 'disclosure', 'routeInput'].includes(key))) {
+    || value.classification !== 'explicit-public-non-private'
+    || value.synthetic !== false
+    || value.consent?.publicCenterlineRequest !== true
+    || Object.keys(value.consent).length !== 1
+    || value.routeInput?.source !== 'manual-draw'
+    || Object.keys(value).some((key) => !['schema', 'classification', 'synthetic', 'consent', 'disclosure', 'routeInput'].includes(key))) {
     throw new Error('Known Route public build input is invalid.');
   }
   return value;

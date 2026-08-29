@@ -39,6 +39,7 @@ import {
 } from '../lib/known_route_evidence_checkpoint.mjs';
 import {
   runKnownRouteEvidenceBuild,
+  validatePublicRouteFixture,
   validateKnownRouteWarehouseInput,
   validateM2Governance,
 } from '../build_known_route_evidence.mjs';
@@ -674,7 +675,30 @@ test('final artifact transaction rolls back failures and identical completed rer
   }
 });
 
-test('builder completes from exact synthetic inputs and a completed same-input rerun performs zero writes', async (t) => {
+test('builder public-route admission matches the explicit public non-private smoke contract', () => {
+  const fixture = publicRouteFixture();
+  assert.equal(validatePublicRouteFixture(fixture), fixture);
+
+  const hostileFixtures = [
+    ['legacy label contract', {
+      schema: 'known-route-public-smoke/v1',
+      label: 'PUBLIC TEST ROUTE',
+      disclosure: fixture.disclosure,
+      routeInput,
+    }],
+    ['missing consent', Object.fromEntries(Object.entries(fixture).filter(([key]) => key !== 'consent'))],
+    ['synthetic route', { ...fixture, synthetic: true }],
+    ['extra top-level key', { ...fixture, unexpected: true }],
+    ['extra consent key', { ...fixture, consent: { publicCenterlineRequest: true, telemetry: false } }],
+    ['non-manual route', { ...fixture, routeInput: { ...routeInput, source: 'geojson-import' } }],
+    ['wrong classification', { ...fixture, classification: 'synthetic-public-fixture' }],
+  ];
+  for (const [description, hostile] of hostileFixtures) {
+    assert.throws(() => validatePublicRouteFixture(hostile), /public build input is invalid/i, description);
+  }
+});
+
+test('builder completes from exact synthetic upstream harnesses and a completed same-input rerun performs zero writes', async (t) => {
   const m1 = await createM1ReceiptFixture();
   const m2 = await createM2Fixture({
     m1ReceiptIdentity: m1.receipt.identity,
@@ -686,12 +710,7 @@ test('builder completes from exact synthetic inputs and a completed same-input r
     await fs.rm(m2.testRoot, { recursive: true, force: true });
   });
   const routeFile = path.join(m1.testRoot, 'public-route.json');
-  await fs.writeFile(routeFile, `${JSON.stringify({
-    schema: 'known-route-public-smoke/v1',
-    label: 'PUBLIC TEST ROUTE',
-    disclosure: 'Public, non-private fixture for the bounded builder test.',
-    routeInput,
-  }, null, 2)}\n`);
+  await fs.writeFile(routeFile, `${JSON.stringify(publicRouteFixture(), null, 2)}\n`);
   const outputRoot = path.join(m1.testRoot, 'completed-output');
   const options = {
     warehouse: m1.root,
@@ -762,6 +781,17 @@ function matchedFixture() {
   const admittedCatalog = catalog();
   const match = matchKnownRouteToCenterline({ normalizedRoute, catalog: admittedCatalog });
   return { normalizedRoute, admittedCatalog, match };
+}
+
+function publicRouteFixture() {
+  return {
+    schema: 'known-route-public-smoke/v1',
+    classification: 'explicit-public-non-private',
+    synthetic: false,
+    consent: { publicCenterlineRequest: true },
+    disclosure: 'Public, non-private fixture for the bounded builder contract test.',
+    routeInput,
+  };
 }
 
 async function createM1ReceiptFixture() {
