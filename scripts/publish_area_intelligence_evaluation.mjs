@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { validateModelEvaluationReport } from './lib/area_intelligence_evaluation.mjs';
 import {
-  validateAreaIntelligenceServingArtifact,
+  validateAreaIntelligenceEvaluationCheckpoint,
+  validateAreaIntelligenceEvaluationManifest,
+  validateAreaIntelligenceEvaluationServingArtifact,
+  validateAreaIntelligenceMartForEvaluation,
+  validateModelEvaluationReport,
+} from './lib/area_intelligence_evaluation.mjs';
+import {
+  AREA_INTELLIGENCE_SERVING_SCHEMA,
   validateAreaIntelligenceServingCandidate,
 } from '../src/area_intelligence/serving_contract.js';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '..');
-const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
-const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v2';
-const LINEAGE_SEAM_SCHEMA = 'engagement-area-intelligence-lineage-seam/v1';
-const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const M1_RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v3';
 const EVALUATION_ARTIFACTS = Object.freeze([
   'bias-error-audit.json',
@@ -27,14 +28,7 @@ const EVALUATION_ARTIFACTS = Object.freeze([
   'residual-map.json',
   'serving-artifact.json',
 ]);
-const PUBLICATION = Object.freeze([
-  ['model-evaluation-report.json', 'reports/area-intelligence/model-evaluation-report.v1.json'],
-  ['residual-map.json', 'reports/area-intelligence/residual-map.v1.json'],
-  ['bias-error-audit.json', 'reports/area-intelligence/bias-error-audit.v1.json'],
-  ['data-lineage-summary.json', 'reports/area-intelligence/data-lineage-summary.v1.json'],
-  ['model-card.md', 'reports/area-intelligence/model-card.md'],
-  ['serving-artifact.json', 'public/data/area_intelligence_baseline.v1.json'],
-]);
+const PUBLIC_PROJECTION_PATH = 'public/data/area_intelligence_baseline.v1.json';
 
 export async function publishAreaIntelligenceEvaluation({
   repositoryRoot = defaultRoot,
@@ -51,78 +45,198 @@ export async function publishAreaIntelligenceEvaluation({
   if (!m1ReceiptPath) throw new Error('Area Intelligence publication requires --m1-receipt=<exact receipt.json>.');
   const receiptFile = path.resolve(m1ReceiptPath);
 
+  const martContext = await validateAreaIntelligenceMartForEvaluation({ martRoot: mart, protocolPath: protocolFile });
   const manifestPath = path.join(evaluation, 'manifest.json');
-  const [manifestBytes, protocolBytes, martManifestBytes, receiptBytes] = await Promise.all([
+  const checkpointPath = path.join(evaluation, 'checkpoint.json');
+  await Promise.all([
+    assertRealFile(manifestPath, 'evaluation manifest'),
+    assertRealFile(checkpointPath, 'evaluation checkpoint'),
+    assertRealFile(receiptFile, 'M1 receipt'),
+    assertRealFile(protocolFile, 'evaluation protocol'),
+  ]);
+  const [manifestBytes, checkpointBytes, receiptBytes] = await Promise.all([
     fs.readFile(manifestPath),
-    fs.readFile(protocolFile),
-    fs.readFile(path.join(mart, 'manifest.json')),
+    fs.readFile(checkpointPath),
     fs.readFile(receiptFile),
   ]);
   const manifest = parseJson(manifestBytes, 'evaluation manifest');
-  const protocol = parseJson(protocolBytes, 'evaluation protocol');
-  const martManifest = parseJson(martManifestBytes, 'mart manifest');
+  const checkpoint = parseJson(checkpointBytes, 'evaluation checkpoint');
   const m1Receipt = parseJson(receiptBytes, 'M1 receipt');
-  const artifactBytes = await validateEvaluationArtifacts(evaluation, manifest);
+  const artifactBytes = await validateEvaluationArtifactBindings(evaluation, manifest);
   const report = parseJson(artifactBytes.get('model-evaluation-report.json'), 'model evaluation report');
-  const rawServing = parseJson(artifactBytes.get('serving-artifact.json'), 'serving artifact');
-  validateModelEvaluationReport(report);
-  validateAreaIntelligenceServingArtifact(rawServing);
+  const evaluationServingArtifact = parseJson(artifactBytes.get('serving-artifact.json'), 'evaluation serving artifact');
+  const manifestIdentity = sha256(manifestBytes);
+  const m1ReceiptSha256 = digest(receiptBytes);
 
-  const lineage = await validatePublicationLineage({
-    manifest,
-    manifestBytes,
-    protocol,
-    protocolBytes,
-    mart,
-    martManifest,
-    martManifestBytes,
-    m1Receipt,
-    receiptBytes,
+  validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
+    protocolIdentity: martContext.protocolIdentity,
+    martManifestIdentity: martContext.martManifestIdentity,
+    martArtifactIdentity: martContext.martManifest.artifact_identity,
+    receiptSha256: martContext.protocol.exact_input_gate.receipt_sha256,
+    protocol: martContext.protocol,
     report,
-    rawServing,
   });
-  const serving = createServingCandidate({ rawServing, report, m1Receipt, lineage });
-  validateAreaIntelligenceServingCandidate(serving);
+  validateModelEvaluationReport(report, {
+    protocol: martContext.protocol,
+    martManifest: martContext.martManifest,
+    martManifestIdentity: martContext.martManifestIdentity,
+    checkpoint,
+  });
+  validateAreaIntelligenceEvaluationServingArtifact(evaluationServingArtifact, {
+    report,
+    protocol: martContext.protocol,
+    martManifest: martContext.martManifest,
+    martManifestIdentity: martContext.martManifestIdentity,
+    checkpoint,
+  });
+  validateAreaIntelligenceEvaluationManifest(manifest, {
+    protocol: martContext.protocol,
+    martManifest: martContext.martManifest,
+    martManifestIdentity: martContext.martManifestIdentity,
+    martInventory: martContext.martInventory,
+    report,
+    servingArtifact: evaluationServingArtifact,
+    checkpoint,
+  });
+  validateM1ReceiptContext({
+    receipt: m1Receipt,
+    receiptBytes,
+    protocol: martContext.protocol,
+    manifest,
+    martManifest: martContext.martManifest,
+    report,
+  });
 
-  const contentsBySource = new Map(artifactBytes);
-  contentsBySource.set('serving-artifact.json', Buffer.from(`${JSON.stringify(serving)}\n`));
-  const staged = [];
+  const context = {
+    protocol: martContext.protocol,
+    manifest,
+    manifestIdentity,
+    martManifest: martContext.martManifest,
+    martManifestIdentity: martContext.martManifestIdentity,
+    m1Receipt,
+    m1ReceiptSha256,
+    report,
+    checkpoint,
+  };
+  const projection = createAreaIntelligencePublicProjection(context);
+  return publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks,
+  });
+}
+
+export function createAreaIntelligencePublicProjection(context) {
+  const { protocol, manifest, manifestIdentity, martManifest, martManifestIdentity, m1Receipt, m1ReceiptSha256, report } = context;
+  const decision = report.promotion.decision;
+  const failedIntervalSliceCount = countFailedIntervalSlices(report, protocol);
+  const intervalPassed = failedIntervalSliceCount === 0;
+  const reason = decision === 'local-candidate'
+    ? 'local-candidate-has-no-serving-authority'
+    : 'promotion-gate-not-passed';
+  const projection = {
+    schema: AREA_INTELLIGENCE_SERVING_SCHEMA,
+    generated_at: report.generated_at,
+    status: 'not-promoted',
+    historical_evidence: {
+      status: 'available',
+      measure: protocol.target.measure,
+      source_as_of: m1Receipt.clocks.source_as_of,
+      source_vintage: report.data.source_vintage,
+      coverage: {
+        earliest_scope_start: report.data.coverage.earliest_scope_start,
+        latest_scope_end_exclusive: report.data.coverage.latest_scope_end_exclusive,
+        complete_week_end_exclusive: report.data.complete_week_end_exclusive,
+      },
+      method: {
+        grain: protocol.target.grain,
+        week_definition: protocol.target.week_definition,
+        unit_types: [...protocol.marts.unit_types],
+        spatial_holdout_from_count_model_training: protocol.spatial_holdout.training_policy
+          === 'Poisson and negative-binomial fits exclude held-out blocks',
+        incomplete_source_week_excluded: protocol.target.exclude_incomplete_source_week,
+        ambiguous_or_unavailable_spatial_assignments_excluded: protocol.admission.ambiguous_or_unavailable
+          === 'exclude-and-audit-never-force-assign',
+      },
+    },
+    forecast: { status: 'unavailable', reason, predictions: [] },
+    evaluation: {
+      promotion_status: 'not-promoted',
+      decision,
+      selected_model: null,
+      local_candidate_model: report.promotion.local_candidate_model,
+      local_candidate_only: true,
+      interval_90_outcome: {
+        passed: intervalPassed,
+        failed_primary_slice_count: failedIntervalSliceCount,
+      },
+      why_unavailable: {
+        code: reason,
+        reason_codes: [
+          decision === 'local-candidate' ? 'local-candidate-only' : 'promotion-gate-not-passed',
+          ...(intervalPassed ? [] : ['primary-interval-90-gate-not-passed']),
+          'serving-authority-unavailable',
+        ],
+      },
+    },
+    authority: structuredClone(protocol.authority),
+    privacy: structuredClone(protocol.privacy),
+    lineage: {
+      protocol: { schema: protocol.schema, sha256: report.protocol.sha256 },
+      evaluation: { schema: manifest.schema, manifest_sha256: manifestIdentity },
+      mart: {
+        schema: martManifest.schema,
+        manifest_sha256: martManifestIdentity,
+        artifact_identity: martManifest.artifact_identity,
+        part_bindings_identity: martManifest.part_bindings_identity,
+      },
+      m1_receipt: { schema: m1Receipt.schema, identity: m1Receipt.identity, sha256: m1ReceiptSha256 },
+    },
+    forbidden_claims: structuredClone(protocol.forbidden_claims),
+  };
+  return validateAreaIntelligenceServingCandidate(projection, context);
+}
+
+export async function publishValidatedAreaIntelligenceProjection({
+  repositoryRoot,
+  projection,
+  context = {},
+  testHooks = {},
+} = {}) {
+  const root = path.resolve(repositoryRoot || defaultRoot);
+  if (!context || Object.keys(context).length === 0) {
+    throw new Error('Area Intelligence publication requires the exact validated P3 external context.');
+  }
+  const validated = validateAreaIntelligenceServingCandidate(projection, context);
+  const contents = Buffer.from(`${JSON.stringify(validated)}\n`);
+  assertProjectionSafe(contents.toString('utf8'));
+  const destination = resolvePublicationDestination(root, PUBLIC_PROJECTION_PATH);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  const temporary = `${destination}.tmp-${process.pid}-${randomUUID()}`;
+  await fs.writeFile(temporary, contents, { flag: 'wx' });
+  let publication;
   try {
-    for (const [sourceName, destinationName] of PUBLICATION) {
-      const contents = contentsBySource.get(sourceName);
-      assertPrivacySafe(contents.toString('utf8'), sourceName);
-      const destination = resolvePublicationDestination(root, destinationName);
-      await fs.mkdir(path.dirname(destination), { recursive: true });
-      const temporary = `${destination}.tmp-${process.pid}-${randomUUID()}`;
-      await fs.writeFile(temporary, contents);
-      staged.push({ destination, temporary, bytes: contents.length });
-    }
-    await commitPublication(staged, testHooks);
+    publication = await commitNoOverwritePublication([{ destination, temporary, contents }], testHooks);
   } catch (error) {
-    await Promise.allSettled(staged.map(({ temporary }) => fs.rm(temporary, { force: true })));
+    await fs.rm(temporary, { force: true });
     throw error;
   }
-
   return {
-    status: 'published-local-serving-candidate',
-    promotion: manifest.promotion.status,
-    files: staged.map((item) => ({
-      path: path.relative(root, item.destination).replaceAll('\\', '/'),
-      bytes: item.bytes,
-    })),
-    lineage,
-    boundary: 'Local tracked artifacts only; not main, remote CI, runtime deployment, or scientific validity.',
+    status: publication.idempotent ? 'verified-existing-public-projection' : 'published-local-serving-candidate',
+    promotion: 'not-promoted',
+    idempotent: publication.idempotent,
+    files: [{ path: PUBLIC_PROJECTION_PATH, bytes: contents.length }],
+    lineage: structuredClone(validated.lineage),
+    boundary: 'Local public projection only; not main, remote CI, runtime deployment, forecast authority, or scientific validity.',
   };
 }
 
-async function validateEvaluationArtifacts(evaluationRoot, manifest) {
-  if (manifest?.schema !== EVALUATION_MANIFEST_SCHEMA || !Array.isArray(manifest.artifacts)) {
-    throw new Error('Area Intelligence evaluation manifest is invalid or incomplete.');
-  }
+async function validateEvaluationArtifactBindings(evaluationRoot, manifest) {
+  if (!Array.isArray(manifest?.artifacts)) throw new Error('Area Intelligence evaluation manifest is invalid or incomplete.');
   const records = new Map();
   for (const artifact of manifest.artifacts) {
     if (!isRecord(artifact)
-      || typeof artifact.name !== 'string'
       || !EVALUATION_ARTIFACTS.includes(artifact.name)
       || records.has(artifact.name)
       || !Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1
@@ -144,286 +258,91 @@ async function validateEvaluationArtifacts(evaluationRoot, manifest) {
     if (!stat.isFile() || stat.isSymbolicLink() || bytes.length !== binding.bytes || sha256(bytes) !== binding.sha256) {
       throw new Error(`Area Intelligence evaluation artifact identity mismatch: ${name}`);
     }
-    assertPrivacySafe(bytes.toString('utf8'), name);
     bytesByName.set(name, bytes);
   }
   return bytesByName;
 }
 
-async function validatePublicationLineage({
-  manifest,
-  manifestBytes,
-  protocol,
-  protocolBytes,
-  mart,
-  martManifest,
-  martManifestBytes,
-  m1Receipt,
-  receiptBytes,
-  report,
-  rawServing,
-}) {
-  const seam = manifest.lineage_seam;
-  const protocolSha256 = sha256(protocolBytes);
-  const martManifestSha256 = sha256(martManifestBytes);
-  const receiptSha256 = digest(receiptBytes);
-  if (!exactKeys(seam, ['schema', 'protocol', 'mart', 'm1_receipt', 'outcome'])
-    || seam.schema !== LINEAGE_SEAM_SCHEMA
-    || !exactKeys(seam.protocol, ['schema', 'sha256'])
-    || !exactKeys(seam.mart, ['schema', 'manifest_sha256', 'artifact_identity', 'part_bindings_identity', 'part_count', 'row_count', 'bytes', 'parts'])
-    || !Array.isArray(seam.mart?.parts)
-    || seam.mart.parts.length === 0
-    || !seam.mart.parts.every((part) => exactKeys(part, ['path', 'unit_type', 'partition', 'row_count', 'bytes', 'sha256']))
-    || !exactKeys(seam.m1_receipt, ['schema', 'identity', 'sha256'])
-    || !exactKeys(seam.outcome, ['promotion_status', 'selected_model', 'availability'])) {
-    throw new Error('Area Intelligence evaluation lineage seam is invalid or ambiguous.');
-  }
-  if (protocol.schema !== PROTOCOL_SCHEMA
-    || protocolSha256 !== seam.protocol.sha256
-    || manifest.protocol_sha256 !== protocolSha256
-    || protocol.exact_input_gate?.receipt_schema !== seam.m1_receipt.schema
-    || protocol.exact_input_gate?.receipt_identity !== seam.m1_receipt.identity) {
-    throw new Error('Area Intelligence protocol identity does not match the evaluation lineage seam.');
-  }
-  if (martManifest.schema !== MART_SCHEMA
-    || martManifestSha256 !== seam.mart.manifest_sha256
-    || manifest.mart_manifest_sha256 !== martManifestSha256
-    || manifest.mart_artifact_identity !== seam.mart.artifact_identity
-    || martManifest.artifact_identity !== seam.mart.artifact_identity
-    || martManifest.part_bindings_identity !== seam.mart.part_bindings_identity
-    || martManifest.protocol?.sha256 !== protocolSha256
-    || martManifest.exact_input?.receipt_identity !== seam.m1_receipt.identity
-    || martManifest.exact_input?.receipt_sha256 !== seam.m1_receipt.sha256) {
-    throw new Error('Area Intelligence mart identity does not match the evaluation lineage seam.');
-  }
-  validateMartArtifactIdentity(martManifest);
-  const martInventory = await validateMartPartBindings(mart, martManifest);
-  if (stableSerialization(martInventory) !== stableSerialization({
-    part_bindings_identity: seam.mart.part_bindings_identity,
-    part_count: seam.mart.part_count,
-    row_count: seam.mart.row_count,
-    bytes: seam.mart.bytes,
-    parts: seam.mart.parts,
-  })) {
-    throw new Error('Area Intelligence actual mart part bindings do not match the evaluation lineage seam.');
-  }
-  const receiptCore = structuredClone(m1Receipt);
+function validateM1ReceiptContext({ receipt, receiptBytes, protocol, manifest, martManifest, report }) {
+  const receiptCore = structuredClone(receipt);
   delete receiptCore.identity;
-  if (m1Receipt.schema !== M1_RECEIPT_SCHEMA
-    || m1Receipt.schema !== seam.m1_receipt.schema
-    || receiptSha256 !== seam.m1_receipt.sha256
-    || m1Receipt.identity !== seam.m1_receipt.identity
-    || identityOf(receiptCore) !== m1Receipt.identity) {
-    throw new Error('Area Intelligence M1 receipt identity does not match the evaluation lineage seam.');
+  if (receipt?.schema !== M1_RECEIPT_SCHEMA
+    || digest(receiptBytes) !== protocol.exact_input_gate.receipt_sha256
+    || receipt.identity !== protocol.exact_input_gate.receipt_identity
+    || identityOf(receiptCore) !== receipt.identity
+    || martManifest.exact_input?.receipt_identity !== receipt.identity
+    || martManifest.exact_input?.receipt_sha256 !== digest(receiptBytes)
+    || manifest.lineage_seam?.m1_receipt?.identity !== receipt.identity
+    || manifest.lineage_seam?.m1_receipt?.sha256 !== digest(receiptBytes)
+    || receipt.warehouse?.current_snapshot_id !== report.data?.source_vintage
+    || receipt.coverage?.start !== report.data?.coverage?.earliest_scope_start
+    || receipt.coverage?.end_exclusive !== report.data?.coverage?.latest_scope_end_exclusive
+    || typeof receipt.clocks?.source_as_of !== 'string'
+    || receipt.authority?.serving_authority !== false
+    || receipt.serving_eligible !== false) {
+    throw new Error('Area Intelligence M1 receipt identity, coverage, clock, or authority drifted.');
   }
-  const reportCoverage = report.data?.coverage;
-  if (typeof m1Receipt.coverage?.start !== 'string'
-    || typeof m1Receipt.coverage?.end_exclusive !== 'string'
-    || typeof reportCoverage?.earliest_scope_start !== 'string'
-    || typeof reportCoverage?.latest_scope_end_exclusive !== 'string'
-    || reportCoverage.earliest_scope_start !== m1Receipt.coverage.start
-    || reportCoverage.latest_scope_end_exclusive !== m1Receipt.coverage.end_exclusive
-    || rawServing.historical_evidence?.source_vintage !== report.data?.source_vintage
-    || stableSerialization(rawServing.historical_evidence?.coverage) !== stableSerialization(reportCoverage)) {
-    throw new Error('Area Intelligence source vintage or coverage lineage is inconsistent.');
-  }
-  const expectedAvailability = manifest.promotion?.status === 'promoted' ? 'available' : 'unavailable';
-  if (!['promoted', 'not-promoted'].includes(manifest.promotion?.status)
-    || manifest.availability !== expectedAvailability
-    || seam.outcome.promotion_status !== manifest.promotion.status
-    || seam.outcome.selected_model !== (manifest.promotion.selected_model ?? null)
-    || seam.outcome.availability !== expectedAvailability
-    || report.promotion?.status !== manifest.promotion.status
-    || (report.promotion.selected_model ?? null) !== seam.outcome.selected_model
-    || report.protocol?.sha256 !== protocolSha256
-    || report.data?.mart_manifest_sha256 !== martManifestSha256
-    || report.data?.mart_artifact_identity !== seam.mart.artifact_identity
-    || report.data?.source_vintage !== m1Receipt.source?.revision
-    || rawServing.status !== manifest.promotion.status
-    || rawServing.evaluation?.promotion_status !== manifest.promotion.status
-    || (rawServing.evaluation?.selected_model ?? null) !== seam.outcome.selected_model
-    || rawServing.evaluation?.protocol_sha256 !== protocolSha256
-    || rawServing.generated_at !== manifest.generated_at
-    || report.generated_at !== manifest.generated_at) {
-    throw new Error('Area Intelligence evaluation outcome or report lineage is inconsistent.');
-  }
-  if (manifest.promotion.status === 'not-promoted'
-    && (rawServing.forecast?.status !== 'unavailable' || rawServing.forecast.predictions?.length !== 0)) {
-    throw new Error('Area Intelligence failed promotion must remain unavailable with empty predictions.');
-  }
-  if (manifest.promotion.status === 'promoted'
-    && (rawServing.forecast?.status !== 'available' || !rawServing.forecast.predictions?.length)) {
-    throw new Error('Area Intelligence promoted outcome lacks admitted predictions.');
-  }
-  return {
-    protocol: structuredClone(seam.protocol),
-    evaluation: { schema: manifest.schema, manifest_sha256: sha256(manifestBytes) },
-    mart: {
-      schema: seam.mart.schema,
-      manifest_sha256: seam.mart.manifest_sha256,
-      artifact_identity: seam.mart.artifact_identity,
-      part_bindings_identity: seam.mart.part_bindings_identity,
-    },
-    m1_receipt: { schema: seam.m1_receipt.schema, identity: seam.m1_receipt.identity },
-  };
 }
 
-async function validateMartPartBindings(martRoot, manifest) {
-  if (!Array.isArray(manifest.parts) || manifest.parts.length === 0) {
-    throw new Error('Area Intelligence mart has no admitted part bindings.');
-  }
-  const bindings = [];
-  const declared = new Set();
-  for (const part of manifest.parts) {
-    if (!exactKeys(part, ['path', 'unit_type', 'partition', 'row_count', 'bytes', 'sha256'])
-      || !/^marts\/(tract|fixed-grid)\/part-\d{3}\.jsonl$/.test(part.path || '')
-      || part.path !== `marts/${part.unit_type}/part-${String(part.partition).padStart(3, '0')}.jsonl`
-      || declared.has(part.path)
-      || !Number.isSafeInteger(part.row_count) || part.row_count < 0
-      || !Number.isSafeInteger(part.bytes) || part.bytes < 0
-      || !hashHex(part.sha256)) {
-      throw new Error('Area Intelligence mart part binding is invalid, duplicated, or hostile.');
-    }
-    declared.add(part.path);
-    const filePath = path.resolve(martRoot, ...part.path.split('/'));
-    if (!isInsideOrEqual(martRoot, filePath)) throw new Error('Area Intelligence mart part escaped its root.');
-    const observed = await inspectJsonl(filePath);
-    if (observed.row_count !== part.row_count || observed.bytes !== part.bytes || observed.sha256 !== part.sha256) {
-      throw new Error(`Area Intelligence mart part binding drifted: ${part.path}`);
-    }
-    bindings.push({
-      path: part.path,
-      unit_type: part.unit_type,
-      partition: part.partition,
-      row_count: part.row_count,
-      bytes: part.bytes,
-      sha256: part.sha256,
-    });
-  }
-  const actual = await listMartParts(path.join(martRoot, 'marts'), martRoot);
-  if (stableSerialization(actual) !== stableSerialization([...declared].sort())) {
-    throw new Error('Area Intelligence mart part set is partial or ambiguous.');
-  }
-  const result = {
-    part_bindings_identity: identityOf(bindings),
-    part_count: bindings.length,
-    row_count: bindings.reduce((sum, part) => sum + part.row_count, 0),
-    bytes: bindings.reduce((sum, part) => sum + part.bytes, 0),
-    parts: bindings,
-  };
-  if (result.part_bindings_identity !== manifest.part_bindings_identity
-    || result.row_count !== manifest.row_count
-    || result.bytes !== manifest.bytes) {
-    throw new Error('Area Intelligence mart aggregate part binding identity drifted.');
-  }
-  return result;
-}
-
-function createServingCandidate({ rawServing, report, m1Receipt, lineage }) {
-  const candidate = {
-    schema: rawServing.schema,
-    generated_at: rawServing.generated_at,
-    status: rawServing.status,
-    historical_evidence: {
-      ...structuredClone(rawServing.historical_evidence),
-      source_as_of: m1Receipt.clocks?.source_as_of,
-      coverage: structuredClone(report.data.coverage),
-      limitations: structuredClone(report.limitations),
-    },
-    forecast: structuredClone(rawServing.forecast),
-    evaluation: {
-      promotion_status: rawServing.evaluation.promotion_status,
-      selected_model: rawServing.evaluation.selected_model,
-      protocol_sha256: lineage.protocol.sha256,
-    },
-    lineage,
-    forbidden_claims: structuredClone(rawServing.forbidden_claims),
-  };
-  if (candidate.status === 'not-promoted') candidate.forecast.reason = 'promotion-gate-not-passed';
-  return candidate;
-}
-
-async function commitPublication(staged, testHooks) {
-  const token = `${process.pid}-${randomUUID()}`;
-  const records = staged.map((item) => ({ ...item, backup: `${item.destination}.bak-${token}`, backedUp: false, installed: false }));
+async function commitNoOverwritePublication(staged, testHooks) {
   try {
-    for (const record of records) {
-      if (await exists(record.destination)) {
-        await fs.rename(record.destination, record.backup);
-        record.backedUp = true;
+    const states = await Promise.all(staged.map(async (record) => {
+      const existing = await readIfExists(record.destination);
+      if (!existing) return 'missing';
+      return Buffer.compare(existing, record.contents) === 0 ? 'equal' : 'different';
+    }));
+    if (states.includes('different')) {
+      throw new Error('Area Intelligence publication refuses to overwrite a different existing projection.');
+    }
+    if (states.every((state) => state === 'equal')) {
+      await Promise.all(staged.map(({ temporary }) => fs.rm(temporary, { force: true })));
+      return { idempotent: true };
+    }
+    if (states.some((state) => state === 'equal')) {
+      throw new Error('Area Intelligence publication destination set is partial or ambiguous.');
+    }
+    const installed = [];
+    try {
+      for (const record of staged) {
+        await fs.link(record.temporary, record.destination);
+        await fs.rm(record.temporary);
+        installed.push(record.destination);
+        await testHooks.afterInstall?.({ installed: installed.length, destination: record.destination });
       }
-    }
-    let installed = 0;
-    for (const record of records) {
-      await fs.rename(record.temporary, record.destination);
-      record.installed = true;
-      installed += 1;
-      await testHooks.afterInstall?.({ installed, destination: record.destination });
-    }
-  } catch (failure) {
-    const rollbackErrors = [];
-    for (const record of [...records].reverse()) {
-      try {
-        if (record.installed) await fs.rm(record.destination, { force: true });
-        if (record.backedUp) await fs.rename(record.backup, record.destination);
-      } catch (error) {
-        rollbackErrors.push(error);
+    } catch (failure) {
+      const rollback = await Promise.allSettled(installed.map((destination) => fs.rm(destination, { force: true })));
+      const rollbackErrors = rollback.filter(({ status }) => status === 'rejected').map(({ reason }) => reason);
+      if (rollbackErrors.length) {
+        throw new AggregateError([failure, ...rollbackErrors], 'Area Intelligence publication failed and rollback was incomplete.');
       }
+      throw failure;
     }
-    await Promise.allSettled(records.map((record) => fs.rm(record.temporary, { force: true })));
-    if (rollbackErrors.length) {
-      throw new AggregateError([failure, ...rollbackErrors], 'Area Intelligence publication failed and rollback was incomplete.');
-    }
-    throw failure;
-  }
-  await Promise.all(records.filter(({ backedUp }) => backedUp).map(({ backup }) => fs.rm(backup, { force: true })));
-}
-
-function validateMartArtifactIdentity(manifest) {
-  const core = structuredClone(manifest);
-  delete core.artifact_identity;
-  delete core.generated_at;
-  if (manifest.artifact_identity !== identityOf(core)) {
-    throw new Error('Area Intelligence mart artifact identity drifted from its manifest fields.');
+    return { idempotent: false };
+  } finally {
+    await Promise.allSettled(staged.map(({ temporary }) => fs.rm(temporary, { force: true })));
   }
 }
 
-async function inspectJsonl(filePath) {
-  const stat = await fs.lstat(filePath);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Area Intelligence mart part is not a real file.');
-  let rowCount = 0;
-  const hash = createHash('sha256');
-  const input = createReadStream(filePath);
-  let pending = '';
-  for await (const chunk of input) {
-    hash.update(chunk);
-    const text = pending + chunk.toString('utf8');
-    const lines = text.split('\n');
-    pending = lines.pop();
-    rowCount += lines.filter(Boolean).length;
+function assertProjectionSafe(contents) {
+  if (/(?:aggregate_primary|primary_by_fold|by_category|by_data_volume|residual[-_]?map|model[-_]?state|area[-_]?order(?:ing)?|"unit_id"|"event_id"|"raw_row")/i.test(contents)) {
+    throw new Error('Area Intelligence public projection contains non-allowlisted metrics, ordering, model state, or private data.');
   }
-  if (pending) rowCount += 1;
-  return { row_count: rowCount, bytes: stat.size, sha256: hash.digest('hex') };
 }
 
-async function listMartParts(directory, martRoot) {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const paths = [];
-  for (const entry of entries) {
-    const absolute = path.join(directory, entry.name);
-    if (entry.isSymbolicLink()) throw new Error('Area Intelligence mart tree contains a symbolic link.');
-    if (entry.isDirectory()) paths.push(...await listMartParts(absolute, martRoot));
-    else if (entry.isFile() && /^part-\d{3}\.jsonl$/.test(entry.name)) {
-      paths.push(path.relative(martRoot, absolute).replaceAll('\\', '/'));
-    }
+function countFailedIntervalSlices(report, protocol) {
+  const eligible = new Set(protocol.promotion_gate?.eligible_models || []);
+  const bounds = protocol.promotion_gate?.acceptable_interval_coverage_inclusive;
+  if (!Array.isArray(bounds) || bounds.length !== 2
+    || !bounds.every(Number.isFinite)
+    || !Array.isArray(report.metrics?.primary_by_fold_space_holdout)) {
+    throw new Error('Area Intelligence 90% interval gate context is incomplete.');
   }
-  return paths.sort();
-}
-
-function assertPrivacySafe(contents, name) {
-  if (/(?:[A-Za-z]:[\\/]+Users[\\/]+|file:\/\/\/|"(?:generalized_location|location_block|source_record_id|point_x|point_y|coordinates?|input_address|normalized_address|parcel_identifier)"\s*:)/i.test(contents)) {
-    throw new Error(`Area Intelligence publication contains a forbidden local path or event/private field: ${name}`);
-  }
+  return report.metrics.primary_by_fold_space_holdout.filter((row) => (
+    eligible.has(row?.model)
+      && (!Number.isFinite(row.prediction_interval_90_coverage)
+        || row.prediction_interval_90_coverage < bounds[0]
+        || row.prediction_interval_90_coverage > bounds[1])
+  )).length;
 }
 
 function resolvePublicationDestination(root, relative) {
@@ -438,11 +357,6 @@ function parseJson(bytes, label) {
   } catch (error) {
     throw new Error(`Area Intelligence ${label} is not valid JSON: ${error.message}`);
   }
-}
-
-function exactKeys(value, keys) {
-  return isRecord(value)
-    && stableSerialization(Object.keys(value).sort()) === stableSerialization([...keys].sort());
 }
 
 function isRecord(value) {
@@ -478,13 +392,19 @@ function isInsideOrEqual(root, target) {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-async function exists(filePath) {
+async function readIfExists(filePath) {
   try {
-    await fs.lstat(filePath);
-    return true;
+    return await fs.readFile(filePath);
   } catch (error) {
-    if (error?.code === 'ENOENT') return false;
+    if (error?.code === 'ENOENT') return null;
     throw error;
+  }
+}
+
+async function assertRealFile(filePath, label) {
+  const stat = await fs.lstat(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(`Area Intelligence ${label} must be a real file.`);
   }
 }
 

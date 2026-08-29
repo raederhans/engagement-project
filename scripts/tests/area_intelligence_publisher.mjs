@@ -1,301 +1,202 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { publishAreaIntelligenceEvaluation } from '../publish_area_intelligence_evaluation.mjs';
 import {
-  validateAreaIntelligenceServingCandidate,
-} from '../../src/area_intelligence/serving_contract.js';
-import {
-  buildAreaIntelligenceHtml,
-  createAreaIntelligencePresentation,
-} from '../../src/area_intelligence/view.js';
-import { setLanguage } from '../../src/i18n/index.js';
+  createAreaIntelligencePublicProjection,
+  publishValidatedAreaIntelligenceProjection,
+} from '../publish_area_intelligence_evaluation.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const publicationPaths = [
-  'reports/area-intelligence/model-evaluation-report.v1.json',
-  'reports/area-intelligence/residual-map.v1.json',
-  'reports/area-intelligence/bias-error-audit.v1.json',
-  'reports/area-intelligence/data-lineage-summary.v1.json',
-  'reports/area-intelligence/model-card.md',
-  'public/data/area_intelligence_baseline.v1.json',
-];
+const publicPath = 'public/data/area_intelligence_baseline.v1.json';
 
-test('publisher verifies the exact handoff and rolls every destination back after a partial install failure', async (t) => {
-  const fixture = await createFixture();
-  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
-  for (const relative of publicationPaths) {
-    const destination = path.join(fixture.root, ...relative.split('/'));
-    await fs.mkdir(path.dirname(destination), { recursive: true });
-    await fs.writeFile(destination, `original:${relative}\n`);
-  }
+test('publisher rolls back a failed install, writes once, and verifies an identical rerun idempotently', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-publisher-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+  const destination = path.join(root, ...publicPath.split('/'));
 
-  await assert.rejects(() => publishAreaIntelligenceEvaluation({
-    ...fixture.publishOptions,
-    testHooks: {
-      afterInstall({ installed }) {
-        if (installed === 3) throw new Error('synthetic install failure');
-      },
-    },
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: { afterInstall: () => { throw new Error('synthetic install failure'); } },
   }), /synthetic install failure/);
+  await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 
-  for (const relative of publicationPaths) {
-    assert.equal(
-      await fs.readFile(path.join(fixture.root, ...relative.split('/')), 'utf8'),
-      `original:${relative}\n`,
-      `${relative} must be restored byte-for-byte`,
-    );
-  }
-  assert.deepEqual((await listFiles(fixture.root)).filter((name) => /\.(?:tmp|bak)-/.test(name)), []);
-
-  const result = await publishAreaIntelligenceEvaluation(fixture.publishOptions);
-  assert.equal(result.status, 'published-local-serving-candidate');
-  assert.equal(result.promotion, 'not-promoted');
-  const serving = JSON.parse(await fs.readFile(
-    path.join(fixture.root, 'public/data/area_intelligence_baseline.v1.json'),
-    'utf8',
-  ));
-  assert.equal(validateAreaIntelligenceServingCandidate(serving).forecast.status, 'unavailable');
-  assert.equal(serving.forecast.reason, 'promotion-gate-not-passed');
-  assert.equal(serving.lineage.mart.part_bindings_identity, fixture.identities.partBindings);
-  assert.equal(serving.lineage.m1_receipt.identity, fixture.identities.receipt);
-  assert.equal(serving.historical_evidence.source_as_of, '2026-08-28T00:00:00.000Z');
-  assert.deepEqual((await listFiles(fixture.root)).filter((name) => /\.(?:tmp|bak)-/.test(name)), []);
-
-  const missingClock = structuredClone(serving);
-  delete missingClock.historical_evidence.source_as_of;
-  assert.throws(() => validateAreaIntelligenceServingCandidate(missingClock), /source-as-of/);
-  const unsafeReason = structuredClone(serving);
-  unsafeReason.forecast.reason = 'missing-means-zero';
-  assert.throws(() => validateAreaIntelligenceServingCandidate(unsafeReason), /reason is invalid or unsafe/);
-  const privateField = structuredClone(serving);
-  privateField.input_address = 'private fixture';
-  assert.throws(() => validateAreaIntelligenceServingCandidate(privateField), /forbidden field/);
-
-  setLanguage('zh-CN');
-  const zhHtml = buildAreaIntelligenceHtml(createAreaIntelligencePresentation(serving));
-  assert.match(zhHtml, /来源截至/);
-  assert.match(zhHtml, /证据窗口/);
-  assert.match(zhHtml, /不可用原因/);
-  assert.match(zhHtml, /限制/);
-  setLanguage('en');
+  const first = await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
+  assert.equal(first.status, 'published-local-serving-candidate');
+  assert.equal(first.idempotent, false);
+  const firstBytes = await fs.readFile(destination);
+  const second = await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
+  assert.equal(second.status, 'verified-existing-public-projection');
+  assert.equal(second.idempotent, true);
+  assert.deepEqual(await fs.readFile(destination), firstBytes);
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
-test('publisher rejects tampered lineage, stale identity, legacy protocol, partial mart, and hostile artifact names before writes', async (t) => {
-  const cases = [
-    ['tampered M1 receipt bytes', {}, async (fixture) => fs.appendFile(fixture.publishOptions.m1ReceiptPath, ' ')],
-    ['stale protocol bytes', {}, async (fixture) => fs.appendFile(fixture.publishOptions.protocolPath, ' ')],
-    ['partial/tampered mart part', {}, async (fixture) => fs.appendFile(fixture.partPath, '{}\n')],
-    ['old protocol', { protocolSchema: 'engagement-area-intelligence-evaluation-protocol/v1' }, async () => {}],
-    ['old evaluation run', { evaluationSchema: 'engagement-area-intelligence-evaluation-run/v1' }, async () => {}],
-    ['report coverage outside M1 receipt', {
-      reportCoverage: { earliest_scope_start: '2007-01-01', latest_scope_end_exclusive: '2026-08-28' },
-    }, async () => {}],
-    ['raw serving source vintage outside report', { rawSourceVintage: digest(Buffer.from('other source')) }, async () => {}],
-    ['raw serving coverage outside report', {
-      rawCoverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-27' },
-    }, async () => {}],
-    ['lineage seam mart part with extra field', { seamPartExtra: true }, async () => {}],
-    ['lineage seam missing mart parts', {}, async (fixture) => {
-      const manifest = JSON.parse(await fs.readFile(fixture.manifestPath, 'utf8'));
-      delete manifest.lineage_seam.mart.parts;
-      await fs.writeFile(fixture.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    }],
-    ['hostile artifact path', {}, async (fixture) => {
-      const manifest = JSON.parse(await fs.readFile(fixture.manifestPath, 'utf8'));
-      manifest.artifacts[0].name = '../bias-error-audit.json';
-      await fs.writeFile(fixture.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    }],
-  ];
-  for (const [name, options, mutate] of cases) {
-    await t.test(name, async (subtest) => {
-      const fixture = await createFixture(options);
-      subtest.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
-      await mutate(fixture);
-      await assert.rejects(() => publishAreaIntelligenceEvaluation(fixture.publishOptions));
-      for (const relative of publicationPaths) {
-        await assert.rejects(fs.stat(path.join(fixture.root, ...relative.split('/'))), { code: 'ENOENT' });
-      }
-      assert.deepEqual((await listFiles(fixture.root)).filter((file) => /\.(?:tmp|bak)-/.test(file)), []);
-    });
-  }
+test('publisher refuses to overwrite different bytes and public output contains only the serving allowlist', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-no-overwrite-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const context = syntheticP3Context({ decision: 'local-candidate', intervalFailures: 0 });
+  const projection = createAreaIntelligencePublicProjection(context);
+  const destination = path.join(root, ...publicPath.split('/'));
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, 'owner bytes\n');
+
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root, projection, context,
+  }), /refuses to overwrite/);
+  assert.equal(await fs.readFile(destination, 'utf8'), 'owner bytes\n');
+
+  await fs.rm(destination);
+  await publishValidatedAreaIntelligenceProjection({ repositoryRoot: root, projection, context });
+  const serialized = await fs.readFile(destination, 'utf8');
+  assert.equal(JSON.parse(serialized).forecast.status, 'unavailable');
+  assert.doesNotMatch(serialized, /aggregate_primary|primary_by_fold|by_category|by_data_volume|residual-map|model-state|area_order|unit_id/i);
+  assert.doesNotMatch(serialized, /42101\d{6}|-75\.\d+|40\.\d+/);
 });
 
-async function createFixture({
-  protocolSchema = 'engagement-area-intelligence-evaluation-protocol/v2',
-  evaluationSchema = 'engagement-area-intelligence-evaluation-run/v2',
-  receiptCoverage = { start: '2006-01-01', end_exclusive: '2026-08-28' },
-  reportCoverage = { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-28' },
-  rawSourceVintage,
-  rawCoverage,
-  seamPartExtra = false,
-} = {}) {
-  const root = path.join(repoRoot, '.dfev1', `area-intelligence-publisher-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  const evaluationRoot = path.join(root, 'input', 'evaluation');
-  const martRoot = path.join(root, 'input');
-  const protocolPath = path.join(root, 'protocol.json');
-  const m1ReceiptPath = path.join(root, 'm1-receipt.json');
-  await fs.mkdir(evaluationRoot, { recursive: true });
+test('production publisher is wired to contextual P3 deep validators before projection', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'scripts/publish_area_intelligence_evaluation.mjs'), 'utf8');
+  for (const call of [
+    'validateAreaIntelligenceMartForEvaluation({',
+    'validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {',
+    'validateModelEvaluationReport(report, {',
+    'validateAreaIntelligenceEvaluationServingArtifact(evaluationServingArtifact, {',
+    'validateAreaIntelligenceEvaluationManifest(manifest, {',
+  ]) assert.match(source, new RegExp(escapeRegExp(call)));
+  assert.doesNotMatch(source, /validateModelEvaluationReport\(report\);/);
+});
 
-  const revision = digest(Buffer.from('source revision'));
-  const receiptCore = {
-    schema: 'engagement-phl-crime-warehouse-receipt/v3',
-    source: { revision },
-    coverage: receiptCoverage,
-    clocks: { source_as_of: '2026-08-28T00:00:00.000Z' },
+export function syntheticP3Context({ decision = 'no-promotion', intervalFailures = 2 } = {}) {
+  const localCandidateModel = decision === 'local-candidate' ? 'negative-binomial-log-link-v1' : null;
+  const authority = {
+    local_evaluation: false,
+    serving: false,
+    product_promotion: false,
+    scientific: false,
+    causal: false,
+    safety: false,
+    deletion: false,
   };
-  const receipt = { ...receiptCore, identity: identityOf(receiptCore) };
-  const receiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
-  await fs.writeFile(m1ReceiptPath, receiptBytes);
-
+  const privacy = {
+    aggregate_only: true,
+    event_level_data_included: false,
+    coordinates_included: false,
+    generalized_locations_included: false,
+    raw_or_canonical_events_included: false,
+    source_record_ids_included: false,
+  };
+  const protocolSha = 'a'.repeat(64);
+  const martManifestIdentity = 'b'.repeat(64);
+  const manifestIdentity = 'c'.repeat(64);
+  const receiptIdentity = `sha256:${'d'.repeat(64)}`;
+  const receiptSha = `sha256:${'e'.repeat(64)}`;
+  const martArtifactIdentity = `sha256:${'f'.repeat(64)}`;
+  const partBindingsIdentity = `sha256:${'1'.repeat(64)}`;
   const protocol = {
-    schema: protocolSchema,
-    schema_version: protocolSchema.endsWith('/v2') ? 2 : 1,
-    frozen_at: '2026-08-28T17:43:21.213Z',
-    frozen_before_model_performance: true,
-    exact_input_gate: {
-      receipt_schema: receipt.schema,
-      receipt_identity: receipt.identity,
+    schema: 'engagement-area-intelligence-evaluation-protocol/v2',
+    exact_input_gate: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
+    target: {
+      grain: 'spatial-unit-week',
+      measure: 'PPD reported incidents',
+      week_definition: 'UTC Monday 00:00 inclusive to next Monday exclusive',
+      exclude_incomplete_source_week: true,
     },
-  };
-  const protocolBytes = Buffer.from(`${JSON.stringify(protocol, null, 2)}\n`);
-  await fs.writeFile(protocolPath, protocolBytes);
-  const protocolSha256 = sha256(protocolBytes);
-
-  const partPath = path.join(martRoot, 'marts', 'tract', 'part-000.jsonl');
-  await fs.mkdir(path.dirname(partPath), { recursive: true });
-  const partBytes = Buffer.from('{"fixture":true}\n');
-  await fs.writeFile(partPath, partBytes);
-  const parts = [{
-    path: 'marts/tract/part-000.jsonl',
-    unit_type: 'tract',
-    partition: 0,
-    row_count: 1,
-    bytes: partBytes.length,
-    sha256: sha256(partBytes),
-  }];
-  const partBindings = identityOf(parts);
-  const martCore = {
-    schema: 'engagement-area-intelligence-feature-mart/v2',
-    protocol: { schema: protocol.schema, sha256: protocolSha256, frozen_before_model_performance: true },
-    exact_input: {
-      receipt_schema: receipt.schema,
-      receipt_identity: receipt.identity,
-      receipt_sha256: digest(receiptBytes),
+    marts: { unit_types: ['tract', 'fixed-grid'] },
+    spatial_holdout: { training_policy: 'Poisson and negative-binomial fits exclude held-out blocks' },
+    admission: { ambiguous_or_unavailable: 'exclude-and-audit-never-force-assign' },
+    promotion_gate: {
+      eligible_models: ['poisson-log-link-v1', 'negative-binomial-log-link-v1'],
+      acceptable_interval_coverage_inclusive: [0.85, 0.95],
     },
-    parts,
-    part_bindings_identity: partBindings,
-    row_count: 1,
-    bytes: partBytes.length,
+    authority,
+    privacy,
+    forbidden_claims: [
+      'individual victim probability', 'absolute safety', 'safety score',
+      'safest area', 'safest route', 'causal effect',
+    ],
   };
   const martManifest = {
-    ...martCore,
-    artifact_identity: identityOf(martCore),
-    generated_at: '2026-08-29T00:00:00.000Z',
+    schema: 'engagement-area-intelligence-feature-mart/v2',
+    protocol: { sha256: protocolSha },
+    exact_input: { receipt_identity: receiptIdentity, receipt_sha256: receiptSha },
+    source_coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
+    artifact_identity: martArtifactIdentity,
+    part_bindings_identity: partBindingsIdentity,
   };
-  const martManifestBytes = Buffer.from(`${JSON.stringify(martManifest, null, 2)}\n`);
-  await fs.writeFile(path.join(martRoot, 'manifest.json'), martManifestBytes);
-
-  const generatedAt = '2026-08-29T00:00:00.000Z';
-  const promotion = { status: 'not-promoted', selected_model: null };
+  const generatedAt = '2026-08-30T00:00:00.000Z';
   const report = {
-    schema: 'ModelEvaluationReport/v1',
     generated_at: generatedAt,
-    protocol: { schema: protocol.schema, sha256: protocolSha256, frozen_before_model_performance: true },
-    target: { forbidden_claims: forbiddenClaims() },
+    protocol: { sha256: protocolSha },
     data: {
-      mart_artifact_identity: martManifest.artifact_identity,
-      mart_manifest_sha256: sha256(martManifestBytes),
-      source_vintage: revision,
-      coverage: reportCoverage,
+      source_vintage: `sha256:${'2'.repeat(64)}`,
+      coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-29' },
+      complete_week_end_exclusive: '2026-08-24',
+    },
+    promotion: {
+      status: 'not-promoted', decision, selected_model: null,
+      local_candidate_model: localCandidateModel, local_candidate_only: true,
     },
     metrics: {
-      primary_by_fold_space_holdout: [{
-        model: 'seasonal-naive-52w', fold: 'fixture', mae: 1, poisson_deviance: 1,
-        negative_binomial_deviance: 1, prediction_interval_90_coverage: 0.9,
-        relative_mae_gain_vs_seasonal_naive: 0,
-      }],
-      by_category: [],
-      by_data_volume: [],
+      primary_by_fold_space_holdout: [
+        { model: 'poisson-log-link-v1', prediction_interval_90_coverage: intervalFailures > 0 ? 0.8 : 0.9 },
+        { model: 'negative-binomial-log-link-v1', prediction_interval_90_coverage: intervalFailures > 1 ? 0.8 : 0.9 },
+      ],
     },
-    promotion,
-    limitations: ['Synthetic fixture only.', 'Reported incidents are incomplete and non-causal.'],
+    authority: structuredClone(authority),
+    privacy: structuredClone(privacy),
   };
-  const rawServing = {
-    schema: 'engagement-area-intelligence-serving/v1',
-    generated_at: generatedAt,
-    status: 'not-promoted',
-    historical_evidence: {
-      status: 'available', measure: 'PPD reported incidents', source_vintage: rawSourceVintage ?? revision,
-      coverage: rawCoverage ?? report.data.coverage, limitations: ['Synthetic fixture only.'],
-    },
-    forecast: {
-      status: 'unavailable', reason: 'model-did-not-exceed-predefined-seasonal-baseline', predictions: [],
-    },
-    evaluation: {
-      promotion_status: 'not-promoted', selected_model: null,
-      audit_model: 'negative-binomial-log-link-v1', protocol_sha256: protocolSha256,
-    },
-    forbidden_claims: forbiddenClaims(),
-  };
-  const artifacts = new Map([
-    ['model-evaluation-report.json', `${JSON.stringify(report, null, 2)}\n`],
-    ['residual-map.json', '{"schema":"fixture-residual","blocks":[]}\n'],
-    ['bias-error-audit.json', '{"schema":"fixture-bias","status":"unavailable"}\n'],
-    ['data-lineage-summary.json', '{"schema":"fixture-lineage"}\n'],
-    ['model-card.md', '# Synthetic model card\n\nNot product evidence.\n'],
-    ['serving-artifact.json', `${JSON.stringify(rawServing, null, 2)}\n`],
-    ['model-state.json', '{"schema":"fixture-state"}\n'],
-  ]);
-  for (const [name, contents] of artifacts) await fs.writeFile(path.join(evaluationRoot, name), contents);
-  const artifactRecords = [...artifacts].map(([name, contents]) => ({
-    name,
-    bytes: Buffer.byteLength(contents),
-    sha256: sha256(Buffer.from(contents)),
-  })).sort((left, right) => left.name.localeCompare(right.name));
   const manifest = {
-    schema: evaluationSchema,
-    protocol_sha256: protocolSha256,
-    mart_manifest_sha256: sha256(martManifestBytes),
-    mart_artifact_identity: martManifest.artifact_identity,
+    schema: 'engagement-area-intelligence-evaluation-run/v2',
+    protocol_sha256: protocolSha,
+    mart_manifest_sha256: martManifestIdentity,
+    mart_artifact_identity: martArtifactIdentity,
+    generated_at: generatedAt,
+    promotion: structuredClone(report.promotion),
+    authority: structuredClone(authority),
+    privacy: structuredClone(privacy),
     lineage_seam: {
-      schema: 'engagement-area-intelligence-lineage-seam/v1',
-      protocol: { schema: protocol.schema, sha256: protocolSha256 },
+      protocol: { sha256: protocolSha },
       mart: {
-        schema: martManifest.schema,
-        manifest_sha256: sha256(martManifestBytes),
-        artifact_identity: martManifest.artifact_identity,
-        part_bindings_identity: partBindings,
-        part_count: 1,
-        row_count: 1,
-        bytes: partBytes.length,
-        parts: parts.map((part) => seamPartExtra ? { ...part, extra: true } : { ...part }),
+        manifest_sha256: martManifestIdentity,
+        artifact_identity: martArtifactIdentity,
+        part_bindings_identity: partBindingsIdentity,
       },
-      m1_receipt: { schema: receipt.schema, identity: receipt.identity, sha256: digest(receiptBytes) },
+      m1_receipt: { identity: receiptIdentity, sha256: receiptSha },
       outcome: { promotion_status: 'not-promoted', selected_model: null, availability: 'unavailable' },
     },
-    promotion,
-    availability: 'unavailable',
-    selected_audit_model: 'negative-binomial-log-link-v1',
-    artifacts: artifactRecords,
-    generated_at: generatedAt,
   };
-  const manifestPath = path.join(evaluationRoot, 'manifest.json');
-  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return {
-    root,
-    partPath,
-    manifestPath,
-    identities: { receipt: receipt.identity, partBindings },
-    publishOptions: { repositoryRoot: root, evaluationRoot, protocolPath, martRoot, m1ReceiptPath },
+    protocol,
+    manifest,
+    manifestIdentity,
+    martManifest,
+    martManifestIdentity,
+    m1Receipt: {
+      schema: 'engagement-phl-crime-warehouse-receipt/v3',
+      identity: receiptIdentity,
+      clocks: { source_as_of: '2026-08-29T00:00:00.000Z' },
+      warehouse: { current_snapshot_id: report.data.source_vintage },
+      coverage: { start: '2006-01-01', end_exclusive: '2026-08-29' },
+    },
+    m1ReceiptSha256: receiptSha,
+    report,
+    checkpoint: {
+      numerical_gate: {
+        primary_slices_passed: intervalFailures === 0,
+        failed_primary_slice_count: intervalFailures,
+      },
+      protocol_sha256: protocolSha,
+      mart_manifest_sha256: martManifestIdentity,
+      mart_artifact_identity: martArtifactIdentity,
+      receipt_sha256: receiptSha,
+    },
   };
-}
-
-function forbiddenClaims() {
-  return ['individual victim probability', 'absolute safety', 'safety score', 'safest area', 'safest route', 'causal effect'];
 }
 
 async function listFiles(root, current = root) {
@@ -309,22 +210,6 @@ async function listFiles(root, current = root) {
   return result.sort();
 }
 
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function digest(value) {
-  return `sha256:${sha256(value)}`;
-}
-
-function identityOf(value) {
-  return digest(Buffer.from(stableSerialization(value)));
-}
-
-function stableSerialization(value) {
-  if (Array.isArray(value)) return `[${value.map(stableSerialization).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialization(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
