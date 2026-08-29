@@ -17,6 +17,7 @@
 - 复用已完成的 DFEV1 M1-M6 本地候选与持久 ignored evidence，不复制平行实现。
 - 每个 P 严格串行：先冻结输入、实现、聚焦验证和状态语义，再进入下一 P。
 - 每个 P 最多创建 3 个新的用户可见 Codex 任务；内部子代理不计入该上限，但也只用于明确独立工作面。
+- P3-P6 后续新建的用户可见任务必须显式使用不高于 `high` 的推理等级；不为变更等级而重建已在运行的 P2 任务。
 - 主任务是唯一 integration owner；其他任务不得整合、推送、清理或改写共享 Git 历史。
 - 本地实现、公开数据读取、可恢复构建、测试和本地提交在范围内。
 - Push、PR、远端 CI、部署、对象存储上传、凭据或权限变更、公开社区写入不在本轮默认授权内。
@@ -30,8 +31,8 @@
 
 ## Stages
 
-- [ ] P1: 为 raw snapshot、canonical warehouse、mart 和 evaluation receipt 建立 provider-neutral registry、下载/校验/恢复流程、retention state、轻重 CI 分层与 clean-room reconstruction 证据；scheduled flow 不自动 promotion。
-- [ ] P2: 对 ambiguous/unmapped 事件按年份、类别、警区、道路/边界与人口特征分层，比较 tract fail-closed、fixed-grid、fractional attribution 与 kernel attribution；事件层继续保留未分配事实。
+- [x] P1: 为 raw snapshot、canonical warehouse、mart 和 evaluation receipt 建立 provider-neutral registry、下载/校验/恢复流程、retention state、轻重 CI 分层与 clean-room reconstruction 证据；scheduled flow 不自动 promotion。
+- [x] P2: 对 ambiguous/unmapped 事件按年份、类别、警区、道路/边界与人口特征分层，比较 tract fail-closed、fixed-grid、fractional attribution 与 kernel attribution；事件层继续保留未分配事实。
 - [ ] P3: 在读取新表现前冻结 v2 身份，正式纳入 eligible simple models、数值稳定性、interval calibration、slice gates 和审计边界；允许诚实 no-promotion。
 - [ ] P4: 围绕一次 Area Intelligence 用户任务交付历史证据、分析几何、source-as-of、precision、excluded-event policy 和 Why unavailable；forecast 只在 promotion gate 通过时出现。
 - [ ] P5: 为 OPA、assessment、transfer、311、L&I、vacancy、crash/HIN 建立 citywide snapshot/admission/DQ lifecycle；住房地址和目的地不进入 share state，routing 无 authority 时保持 unavailable。

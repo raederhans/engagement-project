@@ -2,7 +2,7 @@
 
 ## Current status
 
-Scope and isolated integration base frozen; P1 is complete through local clean-room reconstruction, exact M1/M2 validation, and byte-identical registry reproduction. P2 is next.
+Scope and isolated integration base frozen. P1 and P2 are complete through local clean-room reconstruction, exact M1/M2 validation, deterministic aggregate-only Spatial Attribution v2 evidence, and explicit no-authority boundaries. P3 is next.
 
 ## Checklist
 
@@ -12,7 +12,7 @@ Scope and isolated integration base frozen; P1 is complete through local clean-r
 - [x] 建立 `codex/phase2-p1-p6@122bba9` 隔离 integration worktree。
 - [x] 创建单一可恢复 task record。
 - [x] P1 DataOps / versioned evidence registry。
-- [ ] P2 Spatial Attribution v2。
+- [x] P2 Spatial Attribution v2。
 - [ ] P3 Evaluation Protocol v2。
 - [ ] P4 Area Intelligence productization。
 - [ ] P5 Home Compare real-data product。
@@ -24,7 +24,7 @@ Scope and isolated integration base frozen; P1 is complete through local clean-r
 | Phase | New task limit | Created task IDs | State |
 | --- | --- | --- | --- |
 | P1 | <= 3 | `01a04d53-45e8-74b0-b767-6283715ea189` registry; `01a04d53-455b-7281-96e9-efba48a81de2` restore; `01a04d53-455b-7281-96e9-efdf919cc1d6` workflow | 3/3 completed and integrated |
-| P2 | <= 3 | none | not started |
+| P2 | <= 3 effective | `01a04da8-d5d1-7d53-a1df-a2abbeba157b` denominator; `01a04da8-d5f9-78d1-bef7-ba427a4dc90d` methods; `01a04da8-d60c-7c92-b782-81658da4a116` report | 3/3 completed and integrated; duplicate `01a04da9-3ebd-7d20-987e-abde654de7a0` was stopped and archived before any integration |
 | P3 | <= 3 | none | not started |
 | P4 | <= 3 | none | not started |
 | P5 | <= 3 | none | not started |
@@ -55,10 +55,16 @@ Scope and isolated integration base frozen; P1 is complete through local clean-r
 | Restored M2 and evaluation exact admission | PASS at artifact `be26fcab...6d76`; 128 parts / 1,611,918 rows / 825,033,042 bytes; evaluation idempotent, `unavailable` and `not-promoted` |
 | P1 post-restore portability repair | `1288ae1`; M2 no longer reopens a stale producer path after authoritative M1 admission; 8/8 target tests, ESLint, and focused review PASS with no P0-P2 |
 | Clean-room registry identity reproduction | `bundle.json`, `m1.registry.json`, and `m2.registry.json` are byte-identical to the originals; bundle remains `c254caf...86c5e` |
+| P2 implementation commits | `36d943b`, `e1ef453`, `88e211d`, `1b6ec10`, `56e975d`, `7ca9e7b`, `dd36428`, `8352292`, `b75aeff`; final protocol `sha256:ab57e1d387a30b538952c49aa816773cf1c745a353b505ff0f57a46de9ea8658` |
+| P2 complete focused suite | 119/119 PASS across exact warehouse, denominator audit, four-method comparator, report and evidence runner |
+| P2 exact real-data A/B run | Both runs completed at bundle `sha256:28598f2721d16d22ca338125227ba9d0eb37f2e10848be6b9d1f1d0768b8042a`; identical file set, lengths, SHA-256 values and bytes for all four published files |
+| P2 exact denominator result | 3,586,620 canonical/eligible rows; tract 2,972,905 mapped, 549,598 ambiguous, 64,117 unmapped; grid 3,530,212 mapped, 56,408 unavailable; tract/grid remain parallel, never additive |
+| P2 method result | tract and fixed-grid are `partial`; fractional and area-kernel are honestly `unavailable` with `uncertainty-footprint-artifact-unavailable` and null weighted mass; report is aggregate-only and all authority flags remain false |
 
 ## Open risks and remaining work
 
 - 尚未选择或获权使用外部对象存储；P1 必须将 provider-neutral 实现、本地 clean-room 验证与跨机器发布权限分开。
 - P1 workflow 仅通过本地静态/契约验证，未推送或触发远端 CI。
 - P1 已证明本机隔离路径上的恢复与身份复现；未证明外部对象存储、跨机器传输或灾备演练。
+- P2 没有 identity-bound uncertainty footprint 或 versioned road geometry artifact；fractional、area-kernel 和 road attribution 因此保持 unavailable，而不是补零或强制归属。
 - 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。

@@ -28,6 +28,11 @@
 | 2026-08-29 | M2 exact gate 发现重复打开 legacy producer absolute path | `1288ae1` 让 official mart admission 复用已完成的强 M1 admission；8/8、ESLint 和独立复核 PASS，无开放 P0-P2 |
 | 2026-08-29 | 恢复后的真实 M1、M2、evaluation exact chain PASS | M1 3,586,620 canonical rows；M2 128 parts / 1,611,918 rows；evaluation 幂等且维持 `unavailable` / `not-promoted` |
 | 2026-08-29 | 以冻结 observed-at 从 clean-room roots 重建 metadata | 三个 metadata 文件与原件字节级一致；bundle 仍为 `sha256:c254caf491d161ea4a0d82152a21bdba726ed8bb28c3d30d6d4cbef190e86c5e`；P1 local gate 完成 |
+| 2026-08-29 | P2 分派 denominator、methods、report 三个互斥有效任务 | 有效预算达到 3/3；调度重试误建的重复 denominator task `01a04da9-3ebd-7d20-987e-abde654de7a0` 已立即收到停止指令并归档，不得修改、提交或进入集成 |
+| 2026-08-29 | 用户要求之后部署的其他对话推理等级不超过 `high` | P3-P6 的新用户可见任务显式设置 `high` 或更低；当前进行中的 P2 任务不重建，以免重复执行或丢失进度 |
+| 2026-08-29 | P2 exact producer、report、runner 与协议已整合 | commits `36d943b`、`e1ef453`、`88e211d`、`1b6ec10`、`56e975d`、`7ca9e7b`、`dd36428`、`8352292`、`b75aeff`；最终协议 `sha256:ab57e1d387a30b538952c49aa816773cf1c745a353b505ff0f57a46de9ea8658` |
+| 2026-08-29 | 首次真实 P2 build 在 report-build 阶段 fail closed | 发现 observed PSA 字符串 `"0"` 被误判为 zero-fill；修复后明确区分 observed `"0"` 与 null unavailable，并要求 null stratum 与 missing count 精确守恒 |
+| 2026-08-29 | P2 真实 A/B evidence build 完成且逐字节一致 | 两次 bundle 均为 `sha256:28598f2721d16d22ca338125227ba9d0eb37f2e10848be6b9d1f1d0768b8042a`；四个文件的集合、长度、SHA-256 与 bytes 全部一致；119/119 tests PASS |
 
 ## Live process ownership
 
@@ -39,11 +44,13 @@
 | P1 clean-room M2 restore | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m2.log` | completed exit 0; 140 restored / 140 verified / 827,041,387 bytes declared; target atomically promoted, no backup |
 | P1 clean-room M2/evaluation exact validator | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m2-exact-validator.log` | completed exit 0 at `1288ae1`; M2 `be26fcab...6d76`, 128 parts / 1,611,918 rows / 825,033,042 bytes; evaluation idempotent, unavailable and not-promoted |
 | P1 clean-room identity reproduction | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-identity-reproduction.log` | completed exit 0; bundle ID reproduced and all three metadata files are byte-identical |
+| P2 exact spatial attribution A | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p2-spatial-attribution-real-ab57e1d3-a` | completed exit 0; bundle `28598f...8042a`; canonical 3,586,620; tract mapped/ambiguous/unmapped 2,972,905 / 549,598 / 64,117; grid mapped/unavailable 3,530,212 / 56,408 |
+| P2 exact spatial attribution B | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p2-spatial-attribution-real-ab57e1d3-b` | completed exit 0; same bundle and all four published files byte-identical to A |
 
 ## Handoff
 
-P1 已完成并冻结在 `1288ae1` 加本记录更新：provider-neutral registry、materializer、local mirror、restore、fail-closed workflow、真实 clean-room exact validators 与 identity reproduction 全部通过。本地证据不扩大为 cloud/cross-machine、CI、serving、promotion 或 deletion authority。
+P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact single-pass denominator audit、四方法 comparator、aggregate-only report 与 no-overwrite runner；真实 A/B 复跑逐字节一致。tract/grid 保持平行分母，fractional、area-kernel 与 road attribution 在缺少 identity-bound 输入时保持 unavailable。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、promotion、routing 或 deletion authority。
 
 ## Next step
 
-冻结 P2 Spatial Attribution v2 的数据契约与三个互斥写入面，创建不超过三个用户可见任务；只消费 exact M1/M2 evidence，不修改产品 serving 或 promotion 状态。
+冻结并实施 P3 Area Intelligence Evaluation Protocol v2 的严格协议、数值稳定性、exact primary-slice、maximum prediction、interval calibration 与 no-promotion gates；最多创建三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
