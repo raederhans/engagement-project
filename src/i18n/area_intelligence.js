@@ -69,8 +69,8 @@ registerMessagePairs({
   'areaIntelligence.unavailableKicker': ['Forecast status', '预测状态'],
   'areaIntelligence.unavailableTitle': ['Forecast and model count unavailable', '预测和模型计数不可用'],
   'areaIntelligence.noPromotionReason': [
-    'Why unavailable: no-promotion. {failedPrimarySlices} primary 90% interval slices failed; no forecast or model count is shown.',
-    '不可用原因：未晋级。{failedPrimarySlices} 个主要 90% 区间切片未通过；不展示预测或模型计数。',
+    'Why unavailable: no-promotion. The promotion gate did not pass; {failedPrimarySlices} primary 90% interval slices failed, so no forecast or model count is shown.',
+    '不可用原因：未晋级。晋级门槛未通过；{failedPrimarySlices} 个主要 90% 区间切片失败，因此不展示预测或模型计数。',
   ],
   'areaIntelligence.localCandidateReason': [
     'Why unavailable: the local evaluation has no serving authority, so no forecast or model count is shown.',
@@ -89,8 +89,8 @@ registerMessagePairs({
     '若获准使用，90% 预测区间将在模型假设下描述每周报告事件计数的不确定性；它不能确定个人层面的概率或比较性的安全结论。',
   ],
   'areaIntelligence.historicalOnly': [
-    'Use the complete-coverage ledger above; no zero, prediction, default value, or legacy v1 fallback has been substituted.',
-    '请使用上方完整覆盖台账；系统没有用零、预测、默认值或旧版 v1 降级结果替代不可用状态。',
+    'Use the complete-coverage ledger above. No zero forecast or hidden fallback—including a prediction, default value, or legacy v1—has been substituted.',
+    '请使用上方完整覆盖台账。系统没有用零预测或隐藏回退替代不可用状态，包括预测值、默认值或旧版 v1。',
   ],
   'areaIntelligence.missingV2': [
     'The required v2 baseline was not found. Historical and forecast content are withheld; legacy v1 was not requested.',
