@@ -67,16 +67,12 @@ test('temporary unlink failure rolls back only the link installed by this public
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
-test('an existing repository-root publisher lease fails closed without publication residue', async (t) => {
+test('an active or unprovable repository-root publisher lease is never reclaimed', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await seedTrackedV1(root);
   const leasePath = path.join(root, publisherLeaseName);
-  const heldLease = await fs.open(leasePath, 'wx');
-  t.after(async () => {
-    await heldLease.close().catch(() => {});
-    await fs.rm(leasePath, { force: true });
-  });
+  const activeBytes = await writeLeaseFixture(root, { pid: process.pid });
   const context = syntheticP3Context();
   const projection = createAreaIntelligencePublicProjection(context);
 
@@ -84,8 +80,151 @@ test('an existing repository-root publisher lease fails closed without publicati
     repositoryRoot: root,
     projection,
     context,
-  }), /publisher lease already exists/i);
-  assert.equal(await fs.readFile(leasePath, 'utf8'), '');
+  }), /lease owner is active/i);
+  assert.deepEqual(await fs.readFile(leasePath), activeBytes);
+  await fs.unlink(leasePath);
+
+  const unknownBytes = await writeLeaseFixture(root, { pid: 2_147_483_647 });
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      probeLeaseOwner() {
+        throw Object.assign(new Error('synthetic unknown owner state'), { code: 'EPERM' });
+      },
+    },
+  }), /liveness could not be disproved/i);
+  assert.deepEqual(await fs.readFile(leasePath), unknownBytes);
+  await assert.rejects(fs.stat(path.join(root, ...publicPath.split('/'))), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('committed projection returns a lease cleanup warning and a proven-dead owner recovers idempotently', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-recovery-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const leasePath = path.join(root, publisherLeaseName);
+  const destination = path.join(root, ...publicPath.split('/'));
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+
+  const committed = await publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      unlinkLease() {
+        throw Object.assign(new Error('synthetic lease unlink failure'), { code: 'EIO' });
+      },
+    },
+  });
+  assert.equal(committed.status, 'committed-with-cleanup-warning');
+  assert.equal(committed.publication_status, 'published-local-serving-candidate');
+  assert.deepEqual(committed.cleanup_warning, {
+    status: 'warning',
+    reason: 'publisher-lease-release-failed',
+  });
+  assert.equal(committed.idempotent, false);
+  const committedBytes = await fs.readFile(destination);
+  const staleLease = JSON.parse(await fs.readFile(leasePath, 'utf8'));
+  assert.equal(staleLease.pid, process.pid);
+
+  const recovered = await publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      probeLeaseOwner(pid) {
+        assert.equal(pid, process.pid);
+        throw Object.assign(new Error('synthetic dead owner'), { code: 'ESRCH' });
+      },
+    },
+  });
+  assert.equal(recovered.status, 'verified-existing-public-projection');
+  assert.equal(recovered.idempotent, true);
+  assert.deepEqual(await fs.readFile(destination), committedBytes);
+  await assert.rejects(fs.stat(leasePath), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('a non-lease target cleanup failure remains an AggregateError after projection commit', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-target-cleanup-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const destination = path.join(root, ...publicPath.split('/'));
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      cleanupTemporary() {
+        throw new Error('synthetic target cleanup failure');
+      },
+    },
+  }), (error) => {
+    assert(error instanceof AggregateError);
+    assert.match(error.message, /target cleanup failed/i);
+    return true;
+  });
+  assert.equal(JSON.parse(await fs.readFile(destination, 'utf8')).forecast.status, 'unavailable');
+  await assert.rejects(fs.stat(path.join(root, publisherLeaseName)), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('malformed or unknown lease content is rejected without deletion', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-malformed-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const leasePath = path.join(root, publisherLeaseName);
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+
+  const malformed = Buffer.from('{}\n');
+  await fs.writeFile(leasePath, malformed, { flag: 'wx' });
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root, projection, context,
+  }), /lease is malformed/i);
+  assert.deepEqual(await fs.readFile(leasePath), malformed);
+  await fs.unlink(leasePath);
+
+  const unknown = await writeLeaseFixture(root, { pid: process.pid, extra: { unexpected: true } });
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root, projection, context,
+  }), /lease is malformed/i);
+  assert.deepEqual(await fs.readFile(leasePath), unknown);
+});
+
+test('a lease replaced during proven-dead recovery is rejected and the replacement is not deleted', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-replaced-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const leasePath = path.join(root, publisherLeaseName);
+  const displacedLeasePath = `${leasePath}.displaced`;
+  const originalBytes = await writeLeaseFixture(root, { pid: 2_147_483_647 });
+  const replacementBytes = Buffer.from('replacement lease bytes must survive\n');
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+    testHooks: {
+      probeLeaseOwner() {
+        throw Object.assign(new Error('synthetic dead owner'), { code: 'ESRCH' });
+      },
+      async beforeStaleLeaseUnlink() {
+        await fs.rename(leasePath, displacedLeasePath);
+        await fs.writeFile(leasePath, replacementBytes, { flag: 'wx' });
+      },
+    },
+  }), /lease was replaced/i);
+  assert.deepEqual(await fs.readFile(leasePath), replacementBytes);
+  assert.deepEqual(await fs.readFile(displacedLeasePath), originalBytes);
   await assert.rejects(fs.stat(path.join(root, ...publicPath.split('/'))), { code: 'ENOENT' });
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
@@ -387,5 +526,24 @@ async function seedTrackedV1(root) {
   const destination = path.join(root, ...legacyPublicPath.split('/'));
   await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.writeFile(destination, bytes);
+  return bytes;
+}
+
+async function writeLeaseFixture(root, { pid, extra = {} }) {
+  const stat = await fs.lstat(root, { bigint: true });
+  const payload = {
+    schema: 'engagement-area-intelligence-publisher-lease/v1',
+    pid,
+    nonce: '00000000-0000-4000-8000-000000000001',
+    created_at: '2026-08-30T00:00:00.000Z',
+    root_identity: {
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+      realpath: await fs.realpath(root),
+    },
+    ...extra,
+  };
+  const bytes = Buffer.from(`${JSON.stringify(payload)}\n`);
+  await fs.writeFile(path.join(root, publisherLeaseName), bytes, { flag: 'wx' });
   return bytes;
 }

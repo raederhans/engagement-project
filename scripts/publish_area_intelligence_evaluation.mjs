@@ -30,6 +30,8 @@ const EVALUATION_ARTIFACTS = Object.freeze([
 ]);
 const PUBLIC_PROJECTION_PATH = 'public/data/area_intelligence_baseline.v2.json';
 const PUBLISHER_LEASE_NAME = '.area-intelligence-publisher.v2.lock';
+const PUBLISHER_LEASE_SCHEMA = 'engagement-area-intelligence-publisher-lease/v1';
+const MAX_PUBLISHER_LEASE_BYTES = 4096n;
 const PUBLICATION_TEMP_PREFIX = '.area-intelligence-baseline.v2.tmp-';
 
 export async function publishAreaIntelligenceEvaluation({
@@ -223,10 +225,11 @@ export async function publishValidatedAreaIntelligenceProjection({
     // not expose handle-relative openat/linkat, so the held directory handles and repeated
     // identity checks are detection/rollback guards, not a zero-risk claim against an
     // OS-privileged, non-cooperating process that can replace directories between syscalls.
-    lease = await acquirePublisherLease(rootDirectory);
+    lease = await acquirePublisherLease(rootDirectory, testHooks);
     publicationPath = await preparePublicationDestination(rootDirectory, PUBLIC_PROJECTION_PATH);
     const temporary = path.join(rootDirectory.path, `${PUBLICATION_TEMP_PREFIX}${process.pid}-${randomUUID()}`);
     let temporaryIdentity;
+    let transactionFailure;
     try {
       await testHooks.beforeTemporaryWrite?.({
         repositoryRoot: rootDirectory.path,
@@ -254,18 +257,36 @@ export async function publishValidatedAreaIntelligenceProjection({
         temporaryIdentity,
         contents,
       }], testHooks);
-    } finally {
-      if (temporaryIdentity) {
-        await removeOwnedFileIfPresent(temporary, temporaryIdentity, 'publication temporary file');
+    } catch (error) {
+      transactionFailure = error;
+    }
+    let targetCleanupFailure;
+    if (temporaryIdentity) {
+      try {
+        const cleanupTemporary = testHooks.cleanupTemporary ?? removeOwnedFileIfPresent;
+        await cleanupTemporary(temporary, temporaryIdentity, 'publication temporary file');
+      } catch (error) {
+        targetCleanupFailure = error;
       }
     }
+    if (transactionFailure && targetCleanupFailure) {
+      throw new AggregateError(
+        [transactionFailure, targetCleanupFailure],
+        'Area Intelligence publication transaction and target cleanup both failed.',
+      );
+    }
+    if (targetCleanupFailure) {
+      throw new AggregateError([targetCleanupFailure], 'Area Intelligence publication target cleanup failed.');
+    }
+    if (transactionFailure) throw transactionFailure;
   } catch (error) {
     operationFailure = error;
   }
   const cleanupErrors = [];
+  let leaseCleanupWarning;
   if (lease) {
     try {
-      await releasePublisherLease(lease, rootDirectory);
+      leaseCleanupWarning = await releasePublisherLease(lease, rootDirectory, testHooks);
     } catch (error) {
       cleanupErrors.push(error);
     }
@@ -282,16 +303,35 @@ export async function publishValidatedAreaIntelligenceProjection({
   } catch (error) {
     cleanupErrors.push(error);
   }
-  if (operationFailure && cleanupErrors.length) {
-    throw new AggregateError([operationFailure, ...cleanupErrors], 'Area Intelligence publication and cleanup both failed.');
+  if (operationFailure && (cleanupErrors.length || leaseCleanupWarning)) {
+    throw new AggregateError([
+      operationFailure,
+      ...cleanupErrors,
+      ...(leaseCleanupWarning ? [leaseCleanupWarning.error] : []),
+    ], 'Area Intelligence publication and cleanup both failed.');
   }
   if (operationFailure) throw operationFailure;
-  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Area Intelligence publication cleanup failed.');
+  if (cleanupErrors.length) {
+    throw new AggregateError([
+      ...cleanupErrors,
+      ...(leaseCleanupWarning ? [leaseCleanupWarning.error] : []),
+    ], 'Area Intelligence publication cleanup failed.');
+  }
   if (!publication) {
     throw new Error('Area Intelligence publication completed without a publication result.');
   }
+  const publicationStatus = publication.idempotent
+    ? 'verified-existing-public-projection'
+    : 'published-local-serving-candidate';
   return {
-    status: publication.idempotent ? 'verified-existing-public-projection' : 'published-local-serving-candidate',
+    status: leaseCleanupWarning ? 'committed-with-cleanup-warning' : publicationStatus,
+    ...(leaseCleanupWarning ? {
+      publication_status: publicationStatus,
+      cleanup_warning: {
+        status: 'warning',
+        reason: leaseCleanupWarning.reason,
+      },
+    } : {}),
     promotion: 'not-promoted',
     idempotent: publication.idempotent,
     files: [{ path: PUBLIC_PROJECTION_PATH, bytes: contents.length }],
@@ -616,31 +656,70 @@ async function readPublicationFileIfExists(record) {
   return bytes;
 }
 
-async function acquirePublisherLease(rootDirectory) {
+async function acquirePublisherLease(rootDirectory, testHooks) {
   await assertPinnedDirectory(rootDirectory);
-  const leasePath = path.join(rootDirectory.path, PUBLISHER_LEASE_NAME);
-  let handle;
   try {
-    handle = await fs.open(leasePath, 'wx');
+    return await createPublisherLease(rootDirectory);
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+
+  const existing = await inspectExistingPublisherLease(rootDirectory);
+  let definitelyDead = false;
+  try {
+    definitelyDead = await isLeaseOwnerDefinitelyDead(existing.payload.pid, testHooks);
+    if (!definitelyDead) {
+      throw new Error('Area Intelligence publisher lease owner is active; concurrent publication is rejected.');
+    }
+    await testHooks.beforeStaleLeaseUnlink?.({ pid: existing.payload.pid });
+    await assertPinnedDirectory(rootDirectory);
+    await assertObservedLeaseStable(existing, rootDirectory);
+    await fs.unlink(existing.path);
+  } finally {
+    await existing.handle.close();
+  }
+  if (!definitelyDead) {
+    throw new Error('Area Intelligence publisher lease owner death was not established.');
+  }
+  await assertPinnedDirectory(rootDirectory);
+  try {
+    return await createPublisherLease(rootDirectory);
   } catch (error) {
     if (error?.code === 'EEXIST') {
-      throw new Error('Area Intelligence publisher lease already exists; concurrent or stale publication is rejected.');
+      throw new Error('Area Intelligence publisher lease recovery lost its single atomic wx retry.');
     }
     throw error;
   }
+}
+
+async function createPublisherLease(rootDirectory) {
+  const leasePath = path.join(rootDirectory.path, PUBLISHER_LEASE_NAME);
+  const payload = {
+    schema: PUBLISHER_LEASE_SCHEMA,
+    pid: process.pid,
+    nonce: randomUUID(),
+    created_at: new Date().toISOString(),
+    root_identity: {
+      dev: String(rootDirectory.identity.dev),
+      ino: String(rootDirectory.identity.ino),
+      realpath: rootDirectory.realpath,
+    },
+  };
+  const handle = await fs.open(leasePath, 'wx');
+  let identity;
   try {
-    await handle.writeFile(`${JSON.stringify({ pid: process.pid, nonce: randomUUID() })}\n`);
+    await handle.writeFile(`${JSON.stringify(payload)}\n`);
     await handle.sync();
-    const identity = await openFileIdentity(handle, 'publisher lease');
-    const lease = { path: leasePath, handle, identity };
+    identity = await openLeaseIdentity(handle, 'publisher lease');
+    const lease = { path: leasePath, handle, identity, payload };
     await assertPinnedDirectory(rootDirectory);
-    await assertOwnedFile(leasePath, identity, 'publisher lease');
+    await assertLeasePathIdentity(leasePath, identity, 'publisher lease');
     return lease;
   } catch (error) {
     const cleanupErrors = [];
     try {
-      const identity = await openFileIdentity(handle, 'publisher lease');
-      await removeOwnedFileIfPresent(leasePath, identity, 'publisher lease');
+      identity ??= await openLeaseIdentity(handle, 'publisher lease');
+      await removeObservedLeaseIfPresent(leasePath, identity, 'publisher lease');
     } catch (cleanupError) {
       cleanupErrors.push(cleanupError);
     }
@@ -656,27 +735,189 @@ async function acquirePublisherLease(rootDirectory) {
   }
 }
 
-async function releasePublisherLease(lease, rootDirectory) {
-  let failure;
+async function inspectExistingPublisherLease(rootDirectory) {
+  await assertPinnedDirectory(rootDirectory);
+  const leasePath = path.join(rootDirectory.path, PUBLISHER_LEASE_NAME);
+  const before = await leasePathIdentity(leasePath, 'existing publisher lease');
+  if (before.size < 2n || before.size > MAX_PUBLISHER_LEASE_BYTES) {
+    throw new Error('Area Intelligence existing publisher lease has an invalid bounded size.');
+  }
+  const handle = await fs.open(leasePath, 'r');
+  try {
+    const handleBefore = await openLeaseIdentity(handle, 'existing publisher lease');
+    if (!sameLeaseIdentity(before, handleBefore)) {
+      throw new Error('Area Intelligence existing publisher lease changed while it was opened.');
+    }
+    const bytes = await handle.readFile();
+    const handleAfter = await openLeaseIdentity(handle, 'existing publisher lease');
+    const after = await leasePathIdentity(leasePath, 'existing publisher lease');
+    if (!sameLeaseIdentity(before, handleAfter)
+      || !sameLeaseIdentity(before, after)
+      || BigInt(bytes.length) !== before.size) {
+      throw new Error('Area Intelligence existing publisher lease identity drifted while it was read.');
+    }
+    const payload = parsePublisherLease(bytes, rootDirectory);
+    return { path: leasePath, handle, identity: before, payload };
+  } catch (error) {
+    await handle.close().catch(() => {});
+    throw error;
+  }
+}
+
+function parsePublisherLease(bytes, rootDirectory) {
+  let payload;
+  try {
+    payload = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    throw new Error('Area Intelligence existing publisher lease is malformed JSON.');
+  }
+  const canonicalBytes = Buffer.from(`${JSON.stringify(payload)}\n`);
+  if (Buffer.compare(bytes, canonicalBytes) !== 0
+    || !hasExactKeys(payload, ['schema', 'pid', 'nonce', 'created_at', 'root_identity'])
+    || payload.schema !== PUBLISHER_LEASE_SCHEMA
+    || !Number.isSafeInteger(payload.pid) || payload.pid < 1 || payload.pid > 2_147_483_647
+    || typeof payload.nonce !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(payload.nonce)
+    || typeof payload.created_at !== 'string'
+    || !isCanonicalIsoTimestamp(payload.created_at)
+    || !hasExactKeys(payload.root_identity, ['dev', 'ino', 'realpath'])
+    || !/^\d+$/.test(payload.root_identity.dev)
+    || !/^\d+$/.test(payload.root_identity.ino)
+    || typeof payload.root_identity.realpath !== 'string'
+    || !path.isAbsolute(payload.root_identity.realpath)
+    || payload.root_identity.dev !== String(rootDirectory.identity.dev)
+    || payload.root_identity.ino !== String(rootDirectory.identity.ino)
+    || !pathsEqual(payload.root_identity.realpath, rootDirectory.realpath)) {
+    throw new Error('Area Intelligence existing publisher lease is malformed or bound to another root.');
+  }
+  return payload;
+}
+
+async function isLeaseOwnerDefinitelyDead(pid, testHooks) {
+  const probe = testHooks.probeLeaseOwner ?? ((ownerPid) => process.kill(ownerPid, 0));
+  try {
+    await probe(pid);
+    return false;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return true;
+    throw new Error('Area Intelligence publisher lease owner liveness could not be disproved.');
+  }
+}
+
+async function assertObservedLeaseStable(existing, rootDirectory) {
+  if (!isInsideOrEqual(rootDirectory.path, existing.path)) {
+    throw new Error('Area Intelligence existing publisher lease escaped the real repository root.');
+  }
+  const handleIdentity = await openLeaseIdentity(existing.handle, 'existing publisher lease');
+  const pathIdentity = await leasePathIdentity(existing.path, 'existing publisher lease');
+  if (!sameLeaseIdentity(existing.identity, handleIdentity)
+    || !sameLeaseIdentity(existing.identity, pathIdentity)) {
+    throw new Error('Area Intelligence existing publisher lease was replaced before stale recovery.');
+  }
+}
+
+async function releasePublisherLease(lease, rootDirectory, testHooks) {
+  let validationFailure;
+  let unlinkFailure;
+  let closeFailure;
   try {
     await assertPinnedDirectory(rootDirectory);
-    const handleIdentity = await openFileIdentity(lease.handle, 'publisher lease');
-    if (!sameFileIdentity(handleIdentity, lease.identity)) {
+    const handleIdentity = await openLeaseIdentity(lease.handle, 'publisher lease');
+    if (!sameLeaseIdentity(handleIdentity, lease.identity)) {
       throw new Error('Area Intelligence publisher lease handle identity drifted before release.');
     }
-    await assertOwnedFile(lease.path, lease.identity, 'publisher lease');
-    await fs.unlink(lease.path);
+    await assertLeasePathIdentity(lease.path, lease.identity, 'publisher lease');
+    const unlinkLease = testHooks.unlinkLease ?? fs.unlink;
+    try {
+      await unlinkLease(lease.path);
+    } catch (error) {
+      unlinkFailure = error;
+    }
   } catch (error) {
-    failure = error;
+    validationFailure = error;
   }
   try {
     await lease.handle.close();
   } catch (error) {
-    failure = failure
-      ? new AggregateError([failure, error], 'Area Intelligence publisher lease release was incomplete.')
-      : error;
+    closeFailure = error;
   }
-  if (failure) throw failure;
+  if (validationFailure || closeFailure) {
+    const errors = [validationFailure, unlinkFailure, closeFailure].filter(Boolean);
+    throw errors.length === 1
+      ? errors[0]
+      : new AggregateError(errors, 'Area Intelligence publisher lease release was incomplete.');
+  }
+  return unlinkFailure
+    ? { reason: 'publisher-lease-release-failed', error: unlinkFailure }
+    : null;
+}
+
+async function leasePathIdentity(filePath, label) {
+  const stat = await fs.lstat(filePath, { bigint: true });
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(`Area Intelligence ${label} is not a real ordinary file.`);
+  }
+  const realpath = await fs.realpath(filePath);
+  if (!pathsEqual(filePath, realpath)) {
+    throw new Error(`Area Intelligence ${label} resolves through a reparse point or redirected path.`);
+  }
+  return leaseIdentity(stat);
+}
+
+async function openLeaseIdentity(handle, label) {
+  const stat = await handle.stat({ bigint: true });
+  if (!stat.isFile()) throw new Error(`Area Intelligence ${label} handle is not a file.`);
+  return leaseIdentity(stat);
+}
+
+function leaseIdentity(stat) {
+  return {
+    dev: stat.dev,
+    ino: stat.ino,
+    size: stat.size,
+    mtimeNs: stat.mtimeNs,
+    ctimeNs: stat.ctimeNs,
+  };
+}
+
+function sameLeaseIdentity(left, right) {
+  return left?.dev === right?.dev
+    && left?.ino === right?.ino
+    && left?.size === right?.size
+    && left?.mtimeNs === right?.mtimeNs
+    && left?.ctimeNs === right?.ctimeNs;
+}
+
+async function assertLeasePathIdentity(filePath, expectedIdentity, label) {
+  const current = await leasePathIdentity(filePath, label);
+  if (!sameLeaseIdentity(current, expectedIdentity)) {
+    throw new Error(`Area Intelligence ${label} path identity drifted.`);
+  }
+}
+
+async function removeObservedLeaseIfPresent(filePath, expectedIdentity, label) {
+  let current;
+  try {
+    current = await leasePathIdentity(filePath, label);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  if (!sameLeaseIdentity(current, expectedIdentity)) {
+    throw new Error(`Area Intelligence refused to remove ${label} because its identity drifted.`);
+  }
+  await fs.unlink(filePath);
+}
+
+function hasExactKeys(value, keys) {
+  return isRecord(value)
+    && value !== null
+    && stableSerialization(Object.keys(value).sort()) === stableSerialization([...keys].sort());
+}
+
+function isCanonicalIsoTimestamp(value) {
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value;
 }
 
 async function fileIdentityIfExists(filePath) {
