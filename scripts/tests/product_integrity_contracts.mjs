@@ -1276,10 +1276,8 @@ test('Diary local repository stores normalized route records without a backend',
   const rows = new Map();
   const repository = createDiaryLocalRepository({
     adapter: {
-      async put(value) { rows.set(value.id, structuredClone(value)); },
-      async getAll() { return [...rows.values()].map((value) => structuredClone(value)); },
-      async clear() { rows.clear(); },
-      async replaceAll(values) { rows.clear(); for (const value of values) rows.set(value.id, structuredClone(value)); },
+      async putEntry(value) { rows.set(value.id, structuredClone(value)); },
+      async getAllEntries() { return [...rows.values()].map((value) => structuredClone(value)); },
     },
   });
   const entry = createDiaryEntry({
@@ -1299,28 +1297,33 @@ test('Diary local repository stores normalized route records without a backend',
   assert.equal(entry.routeSourceVersion, 'demo-2026-07');
 });
 
-test('Diary replacement is one adapter operation and unavailable storage fails visibly', async () => {
+test('Diary backup replacement is one adapter operation and unavailable storage fails visibly', async () => {
   const { createDiaryLocalRepository, createIndexedDbAdapter } = await import('../../src/routes_diary/local_repository.js');
   const calls = [];
   const repository = createDiaryLocalRepository({
     adapter: {
-      async put() { calls.push('put'); },
-      async getAll() { return []; },
-      async clear() { calls.push('clear'); },
-      async replaceAll(entries) { calls.push(['replaceAll', entries.length]); },
+      async applyBackup(value, options) {
+        calls.push(['applyBackup', value.kind, options.strategy]);
+        return {
+          plan: { mode: options.strategy },
+          snapshot: { entries: [], drafts: [] },
+        };
+      },
     },
   });
-  await repository.replace([{ id: 'one' }]);
-  assert.deepEqual(calls, [['replaceAll', 1]]);
-  await assert.rejects(createIndexedDbAdapter(null).getAll(), /storage is unavailable/i);
+  await repository.applyBackup({ kind: 'engagement-diary-private-backup' }, { strategy: 'replace' });
+  assert.deepEqual(calls, [['applyBackup', 'engagement-diary-private-backup', 'replace']]);
+  await assert.rejects(createIndexedDbAdapter(null).getAllEntries(), /storage is unavailable/i);
 });
 
 test('Diary backup round-trips normalized entries and rejects unsupported schemas', async () => {
   const {
     createDiaryEntry,
-    parseDiaryBackup,
-    serializeDiaryBackup,
   } = await import('../../src/routes_diary/local_repository.js');
+  const {
+    parseDiaryPrivateBackup,
+    serializeDiaryPrivateBackup,
+  } = await import('../../src/routes_diary/diary_data_portability.js');
   const entry = createDiaryEntry({
     id: 'local-backup-1',
     createdAt: '2026-07-31T00:00:00.000Z',
@@ -1330,14 +1333,14 @@ test('Diary backup round-trips normalized entries and rejects unsupported schema
       properties: { route_id: 'route-2', name: 'Park loop', mode: 'walk' },
     },
   });
-  const backup = serializeDiaryBackup([entry], { generatedAt: '2026-07-31T01:00:00.000Z' });
-  assert.deepEqual(parseDiaryBackup(JSON.stringify(backup)), [entry]);
+  const backup = serializeDiaryPrivateBackup({ entries: [entry], drafts: [] }, { generatedAt: '2026-07-31T01:00:00.000Z' });
+  assert.deepEqual(parseDiaryPrivateBackup(JSON.stringify(backup)).entries, [entry]);
   assert.throws(
-    () => parseDiaryBackup(JSON.stringify({ schemaVersion: 99, entries: [] })),
+    () => parseDiaryPrivateBackup(JSON.stringify({ schemaVersion: 99, entries: [] })),
     /unsupported diary backup/i,
   );
   assert.throws(
-    () => parseDiaryBackup(JSON.stringify({ schemaVersion: 1, entries: [{ id: 'bad' }] })),
+    () => parseDiaryPrivateBackup(JSON.stringify({ schemaVersion: 1, entries: [{ id: 'bad' }] })),
     /invalid diary entry/i,
   );
 });

@@ -45,6 +45,7 @@
     "test:diary-session": "node --test scripts/tests/diary_session.mjs",
     "test:diary-async": "node --test scripts/tests/diary_async_contracts.mjs",
     "test:diary-local": "node --test scripts/tests/diary_local_repository.mjs scripts/tests/diary_local_lifecycle.mjs scripts/tests/diary_my_routes_panel.mjs",
+    "test:diary-local-browser": "npm run build:manifest && node scripts/tests/diary_local_browser.mjs",
     "test:diary-truth": "node --test scripts/tests/diary_truth_contracts.mjs",
     "test:points-lifecycle": "node --test scripts/tests/points_lifecycle.mjs",
     "test:crime-async": "node --test scripts/tests/crime_async_contracts.mjs",

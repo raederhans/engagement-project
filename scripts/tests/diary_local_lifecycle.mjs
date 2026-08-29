@@ -579,6 +579,9 @@ test('local-data controller owns backup preview and refreshes repository truth a
         snapshotToken: `token-${mode}`,
       };
     },
+    createImportToken: () => 'one-time-preview-token',
+    importPreviewTtlMs: 60_000,
+    now: () => new Date('2026-08-04T00:00:00.000Z'),
     onChange(view) { transitions.push(view.dataStatus?.key || null); },
   });
 
@@ -594,6 +597,8 @@ test('local-data controller owns backup preview and refreshes repository truth a
     migratedFrom: null,
     mergeSummary: { entriesAdded: 1 },
     replaceSummary: { entriesAdded: 2 },
+    previewToken: 'one-time-preview-token',
+    expiresAt: '2026-08-04T00:01:00.000Z',
   });
 
   const result = await controller.applyImport('merge');
@@ -609,4 +614,107 @@ test('local-data controller owns backup preview and refreshes repository truth a
   assert.ok(transitions.includes('diary.backupReady'));
   assert.ok(transitions.includes('diary.backupImporting'));
   assert.ok(transitions.includes('diary.backupMerged'));
+});
+
+test('replace requires the reviewed one-time token and explicit confirmation', async () => {
+  let applied = 0;
+  const durableSnapshot = { entries: [{ id: 'local' }], drafts: [], warnings: [] };
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: { snapshot: async () => structuredClone(durableSnapshot) },
+    lifecycle: {
+      async applyImport() {
+        applied += 1;
+        return { applied: true, snapshot: structuredClone(durableSnapshot) };
+      },
+      dispose() {},
+    },
+    createBackupPlan(_snapshot, _text, { mode }) {
+      return {
+        backup: { mode },
+        source: { migratedFrom: null },
+        summary: {},
+        snapshotToken: `snapshot-${mode}`,
+      };
+    },
+    createImportToken: () => 'replace-once',
+    now: () => new Date('2026-08-04T00:00:00.000Z'),
+  });
+
+  await controller.initialize();
+  await controller.prepareImport({ name: 'replace.json', size: 2, text: async () => '{}' });
+  assert.deepEqual(
+    await controller.applyImport('replace', { previewToken: 'wrong-token' }),
+    { applied: false, reason: 'invalid-or-expired-token' },
+  );
+  assert.deepEqual(
+    await controller.applyImport('replace', { previewToken: 'replace-once' }),
+    { applied: false, reason: 'confirmation-required' },
+  );
+  assert.equal(applied, 0);
+  assert.equal(controller.requestReplace('replace-once'), true);
+  assert.equal((await controller.applyImport('replace', { previewToken: 'replace-once' })).applied, true);
+  assert.equal(applied, 1);
+  assert.deepEqual(
+    await controller.applyImport('replace', { previewToken: 'replace-once' }),
+    { applied: false, reason: 'invalid-or-expired-token' },
+  );
+  assert.equal(applied, 1);
+});
+
+test('expired or cancelled preview tokens cannot mutate local Diary data', async () => {
+  let nowMs = Date.parse('2026-08-04T00:00:00.000Z');
+  let tokenNumber = 0;
+  let applied = 0;
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: { snapshot: async () => ({ entries: [{ id: 'keep' }], drafts: [], warnings: [] }) },
+    lifecycle: {
+      async applyImport() { applied += 1; return { applied: true, snapshot: {} }; },
+      dispose() {},
+    },
+    createBackupPlan(_snapshot, _text, { mode }) {
+      return { backup: { mode }, source: {}, summary: {}, snapshotToken: mode };
+    },
+    createImportToken: () => `preview-${++tokenNumber}`,
+    importPreviewTtlMs: 1_000,
+    now: () => new Date(nowMs),
+  });
+  const file = { name: 'replace.json', size: 2, text: async () => '{}' };
+
+  await controller.initialize();
+  await controller.prepareImport(file);
+  controller.requestReplace('preview-1');
+  nowMs += 1_001;
+  assert.deepEqual(
+    await controller.applyImport('replace', { previewToken: 'preview-1' }),
+    { applied: false, reason: 'invalid-or-expired-token' },
+  );
+  assert.equal(applied, 0);
+  assert.equal(controller.getViewState().importPreview, null);
+
+  await controller.prepareImport(file);
+  controller.cancelImport();
+  assert.deepEqual(
+    await controller.applyImport('replace', { previewToken: 'preview-2' }),
+    { applied: false, reason: 'invalid-or-expired-token' },
+  );
+  assert.equal(applied, 0);
+});
+
+test('invalid backup preview errors do not create an import token or call the lifecycle', async () => {
+  let applied = 0;
+  const controller = diaryStorage.createDiaryLocalController({
+    repository: { snapshot: async () => ({ entries: [{ id: 'keep' }], drafts: [], warnings: [] }) },
+    lifecycle: {
+      async applyImport() { applied += 1; },
+      dispose() {},
+    },
+    createBackupPlan() { throw new Error('Diary backup is not valid JSON.'); },
+    createImportToken() { throw new Error('token must not be created'); },
+  });
+
+  await controller.initialize();
+  const result = await controller.prepareImport({ name: 'bad.json', size: 1, text: async () => '{' });
+  assert.equal(result.applied, false);
+  assert.equal(controller.getViewState().importPreview, null);
+  assert.equal(applied, 0);
 });

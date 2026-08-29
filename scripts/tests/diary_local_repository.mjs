@@ -86,6 +86,18 @@ test('v1 rows migrate to the canonical schema without transport payload or user 
   assert.equal(JSON.stringify(migrated.value).includes('secret'), false);
 });
 
+test('legacy migration warnings never include a private entry identifier', () => {
+  const privateId = 'PRIVATE-MIGRATION-ID-DO-NOT-LOG';
+  const migrated = migrateLegacyDiaryEntryRecord({
+    id: privateId,
+    createdAt: 'invalid',
+    payload: { overall_rating: 4 },
+  });
+
+  assert.match(migrated.warning, /could not be fully normalized/i);
+  assert.equal(migrated.warning.includes(privateId), false);
+});
+
 test('transport segment override arrays are converted into the canonical private schema', () => {
   const entry = createDiaryEntry({
     id: 'entry-array-overrides',
@@ -159,7 +171,6 @@ test('repository supports entry and draft CRUD plus atomic entry commit with dra
       async deleteEntry(id) { calls.push(['deleteEntry', id]); },
       async putDraft(value) { calls.push(['putDraft', value.routeId]); },
       async getDraft() { return draft; },
-      async deleteDraft(routeId) { calls.push(['deleteDraft', routeId]); },
       async commitEntry(value, routeId) { calls.push(['commitEntry', value.id, routeId]); },
       async getAllEntries() { return [entry]; },
       async getAllDrafts() { return [draft]; },
@@ -170,14 +181,12 @@ test('repository supports entry and draft CRUD plus atomic entry commit with dra
   await repository.delete(entry.id);
   await repository.saveDraft(draft);
   assert.deepEqual(await repository.getDraft('route-1'), draft);
-  await repository.deleteDraft('route-1');
   await repository.commitEntry(entry, { draftRouteId: 'route-1' });
 
   assert.deepEqual(calls, [
     ['putEntry', 'entry-1'],
     ['deleteEntry', 'entry-1'],
     ['putDraft', 'route-1'],
-    ['deleteDraft', 'route-1'],
     ['commitEntry', 'entry-1', 'route-1'],
   ]);
 });
@@ -350,6 +359,11 @@ test('backup preview defaults to merge and requires an explicit replace decision
   assert.equal(replace.mode, 'replace');
   assert.equal(replace.requiresExplicitConfirmation, true);
   assert.equal(replace.summary.entriesRemoved, 0);
+  assert.equal(Object.isFrozen(replace), true);
+  assert.equal(Object.isFrozen(replace.backup), true);
+  assert.equal(Object.isFrozen(replace.backup.entries), true);
+  assert.equal(Object.isFrozen(replace.snapshot.entries[0]), true);
+  assert.throws(() => { replace.snapshot.entries[0].notes = 'mutated after review'; }, TypeError);
 });
 
 test('replace preview token changes when local content changes but the summary does not', () => {
@@ -387,7 +401,7 @@ test('merge keeps newer local data and reports equal-time conflicts without over
   assert.deepEqual(merge.snapshot.entries, [localNewer, localConflict]);
 });
 
-test('merge preserves local-only records while replace reports and removes omitted entries and drafts', async () => {
+test('merge preserves local-only records while replace reports and removes omitted entries and drafts', () => {
   const shared = makeEntry('shared', '2026-08-04T00:00:00.000Z');
   const localOnly = makeEntry('local-only', '2026-08-03T00:00:00.000Z');
   const localDraft = createDiaryDraft({
@@ -413,28 +427,6 @@ test('merge preserves local-only records while replace reports and removes omitt
   assert.deepEqual(replace.snapshot.entries, [shared]);
   assert.deepEqual(replace.snapshot.drafts, []);
 
-  let stored = { entries: [shared, localOnly], drafts: [localDraft] };
-  const repository = createDiaryLocalRepository({
-    adapter: {
-      async getAllEntries() { return stored.entries; },
-      async getAllDrafts() { return stored.drafts; },
-      async mergeSnapshot(snapshot) {
-        stored = {
-          entries: [...stored.entries, ...snapshot.entries.filter((incoming) => (
-            !stored.entries.some((current) => current.id === incoming.id)
-          ))],
-          drafts: [...stored.drafts, ...snapshot.drafts.filter((incoming) => (
-            !stored.drafts.some((current) => current.routeId === incoming.routeId)
-          ))],
-        };
-      },
-      async replaceSnapshot(snapshot) { stored = structuredClone(snapshot); },
-    },
-  });
-  await repository.mergeSnapshot(merge.snapshot);
-  assert.deepEqual((await repository.snapshot()).entries.map((item) => item.id).sort(), ['local-only', 'shared']);
-  await repository.replaceSnapshot(replace.snapshot);
-  assert.deepEqual(await repository.snapshot(), { entries: [shared], drafts: [], warnings: [] });
 });
 
 test('repository snapshots entries and drafts through one atomic adapter operation', async () => {

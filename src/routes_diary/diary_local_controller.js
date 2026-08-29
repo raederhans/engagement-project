@@ -39,11 +39,13 @@ export function createDiaryLocalController({
   serializeBackup = serializeDefaultBackup,
   downloadTextFile = downloadDefaultTextFile,
   now = () => new Date(),
+  createImportToken,
+  importPreviewTtlMs,
 } = {}) {
   if (!lifecycle) throw new Error('Diary local controller requires a lifecycle.');
 
   let active = true;
-  let importPlans = null;
+  let importSession = null;
   let viewState = Object.freeze({
     snapshot: EMPTY_SNAPSHOT,
     storageWarning: null,
@@ -88,8 +90,23 @@ export function createDiaryLocalController({
   };
 
   const clearImportState = (patch = {}, metadata = {}) => {
-    importPlans = null;
+    importSession?.consume();
+    importSession = null;
     return publish({ importPreview: null, replaceConfirm: false, ...patch }, metadata);
+  };
+
+  const currentImportSession = (previewToken) => {
+    const session = importSession;
+    if (!session) return null;
+    const status = session.status(previewToken, now());
+    if (status === 'current') return session;
+    if (status === 'expired') {
+      clearImportState({
+        dataStatus: { key: 'diary.backupPreviewStale', tone: 'error' },
+        focusTarget: 'data-status',
+      });
+    }
+    return null;
   };
 
   return {
@@ -143,7 +160,8 @@ export function createDiaryLocalController({
         if (!result?.applied || !ownsSession()) return result;
         const refreshed = await refresh();
         if (!refreshed.applied) return refreshed;
-        importPlans = null;
+        importSession?.consume();
+        importSession = null;
         publish({
           importPreview: null,
           replaceConfirm: false,
@@ -182,14 +200,23 @@ export function createDiaryLocalController({
         if (!ownsSession()) return { applied: false, reason: 'stale' };
         const snapshot = await readRepositorySnapshot();
         if (!ownsSession()) return { applied: false, reason: 'stale' };
+        const { createDiaryImportPreviewSession } = await import('./diary_import_preview_session.js');
+        if (!ownsSession()) return { applied: false, reason: 'stale' };
         const merge = createBackupPlan(snapshot, text, { mode: 'merge' });
         const replace = createBackupPlan(snapshot, text, { mode: 'replace' });
-        importPlans = { merge, replace };
+        importSession = createDiaryImportPreviewSession({ merge, replace }, {
+          ...(createImportToken ? { createToken: createImportToken } : {}),
+          ...(importPreviewTtlMs == null ? {} : { ttlMs: importPreviewTtlMs }),
+          now,
+        });
+        const { token: previewToken, expiresAt } = importSession;
         const importPreview = Object.freeze({
           fileName: file.name || '',
           migratedFrom: merge.source.migratedFrom,
           mergeSummary: merge.summary,
           replaceSummary: replace.summary,
+          previewToken,
+          expiresAt: new Date(expiresAt).toISOString(),
         });
         publish({
           importPreview,
@@ -200,7 +227,8 @@ export function createDiaryLocalController({
         return { applied: true, preview: importPreview };
       } catch (error) {
         if (!ownsSession()) return { applied: false, reason: 'stale' };
-        importPlans = null;
+        importSession?.consume();
+        importSession = null;
         publish({
           importPreview: null,
           replaceConfirm: false,
@@ -217,11 +245,21 @@ export function createDiaryLocalController({
       }
     },
 
-    async applyImport(strategy) {
-      const prepared = importPlans?.[strategy];
-      if (!prepared || viewState.busy || !ownsSession()) return { applied: false, reason: 'unavailable' };
+    async applyImport(strategy, { previewToken = importSession?.token } = {}) {
+      if (viewState.busy || !ownsSession()) return { applied: false, reason: 'unavailable' };
+      const session = currentImportSession(previewToken);
+      if (!session) return { applied: false, reason: 'invalid-or-expired-token' };
+      const prepared = session.plans[strategy];
+      if (!prepared) return { applied: false, reason: 'unavailable' };
+      if (strategy === 'replace' && viewState.replaceConfirm !== true) {
+        return { applied: false, reason: 'confirmation-required' };
+      }
+      session.consume();
+      importSession = null;
       publish({
         busy: true,
+        importPreview: null,
+        replaceConfirm: false,
         dataStatus: { key: 'diary.backupImporting' },
         focusTarget: 'data-status',
       });
@@ -233,7 +271,6 @@ export function createDiaryLocalController({
         if (!result?.applied || !ownsSession()) return result;
         const refreshed = await refresh();
         if (!refreshed.applied) return refreshed;
-        importPlans = null;
         publish({
           importPreview: null,
           replaceConfirm: false,
@@ -250,7 +287,6 @@ export function createDiaryLocalController({
       } catch (error) {
         if (!ownsSession()) return { applied: false, reason: 'stale' };
         if (error?.code === 'DIARY_BACKUP_PREVIEW_STALE') {
-          importPlans = null;
           publish({
             importPreview: null,
             replaceConfirm: false,
@@ -310,13 +346,15 @@ export function createDiaryLocalController({
     },
 
     clearImportPreview({ notify = false } = {}) {
-      importPlans = null;
+      importSession?.consume();
+      importSession = null;
       if (notify) return clearImportState();
       viewState = Object.freeze({ ...viewState, importPreview: null, replaceConfirm: false });
       return true;
     },
 
-    requestReplace() {
+    requestReplace(previewToken = importSession?.token) {
+      if (!currentImportSession(previewToken)) return false;
       return publish({ replaceConfirm: true, dataStatus: null, focusTarget: 'replace-confirm' });
     },
 
@@ -352,7 +390,8 @@ export function createDiaryLocalController({
     dispose() {
       if (!active) return;
       active = false;
-      importPlans = null;
+      importSession?.consume();
+      importSession = null;
       lifecycle.dispose();
     },
   };
