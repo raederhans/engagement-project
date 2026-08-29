@@ -11,6 +11,7 @@ import {
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const legacyPublicPath = 'public/data/area_intelligence_baseline.v1.json';
 const publicPath = 'public/data/area_intelligence_baseline.v2.json';
+const publisherLeaseName = '.area-intelligence-publisher.v2.lock';
 
 test('publisher rolls back a failed install, writes once, and verifies an identical rerun idempotently', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-publisher-'));
@@ -66,6 +67,37 @@ test('temporary unlink failure rolls back only the link installed by this public
   assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 });
 
+test('an existing repository-root publisher lease fails closed without publication residue', async (t) => {
+  const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-lease-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await seedTrackedV1(root);
+  const leasePath = path.join(root, publisherLeaseName);
+  const heldLease = await fs.open(leasePath, 'wx');
+  t.after(async () => {
+    await heldLease.close().catch(() => {});
+    await fs.rm(leasePath, { force: true });
+  });
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root,
+    projection,
+    context,
+  }), /publisher lease already exists/i);
+  assert.equal(await fs.readFile(leasePath, 'utf8'), '');
+  await assert.rejects(fs.stat(path.join(root, ...publicPath.split('/'))), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
+});
+
+test('beforeTemporaryWrite parent junction race is rejected or blocked with no unexpected writes', async (t) => {
+  await exerciseParentJunctionRace(t, 'beforeTemporaryWrite');
+});
+
+test('beforeLink parent junction race is rejected or blocked with identity-safe cleanup', async (t) => {
+  await exerciseParentJunctionRace(t, 'beforeLink');
+});
+
 test('publication rejects a symlink or junction path before writing outside the repository root', async (t) => {
   const root = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-path-'));
   const external = await fs.mkdtemp(path.join(repoRoot, '.dfev1-area-intelligence-external-'));
@@ -99,6 +131,11 @@ test('publisher refuses to overwrite different bytes and public output contains 
   const context = syntheticP3Context({ decision: 'local-candidate', intervalFailures: 0 });
   const projection = createAreaIntelligencePublicProjection(context);
   const destination = path.join(root, ...publicPath.split('/'));
+  await assert.rejects(() => publishValidatedAreaIntelligenceProjection({
+    repositoryRoot: root, projection, context,
+  }), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(path.dirname(destination)), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(path.join(root, publisherLeaseName)), { code: 'ENOENT' });
   await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.writeFile(destination, 'owner bytes\n');
 
@@ -252,6 +289,82 @@ export function syntheticP3Context({ decision = 'no-promotion', intervalFailures
       receipt_sha256: receiptSha,
     },
   };
+}
+
+async function exerciseParentJunctionRace(t, hookName) {
+  const root = await fs.mkdtemp(path.join(repoRoot, `.dfev1-area-intelligence-${hookName}-`));
+  const external = await fs.mkdtemp(path.join(repoRoot, `.dfev1-area-intelligence-${hookName}-external-`));
+  t.after(() => Promise.all([
+    fs.rm(root, { recursive: true, force: true }),
+    fs.rm(external, { recursive: true, force: true }),
+  ]));
+  const legacyBytes = await seedTrackedV1(root);
+  const parent = path.join(root, 'public', 'data');
+  const displaced = path.join(root, 'public', `data-displaced-${hookName}`);
+  const destination = path.join(root, ...publicPath.split('/'));
+  const context = syntheticP3Context();
+  const projection = createAreaIntelligencePublicProjection(context);
+  const race = { swapped: false, osBlocked: null, fixturePermission: null };
+  const testHooks = {
+    async [hookName]() {
+      try {
+        await fs.rename(parent, displaced);
+      } catch (error) {
+        if (['EPERM', 'EACCES', 'EBUSY'].includes(error?.code)) {
+          race.osBlocked = error.code;
+          return;
+        }
+        throw error;
+      }
+      try {
+        await fs.symlink(external, parent, process.platform === 'win32' ? 'junction' : 'dir');
+        race.swapped = true;
+      } catch (error) {
+        await fs.rename(displaced, parent);
+        if (['EPERM', 'EACCES'].includes(error?.code)) race.fixturePermission = error.code;
+        throw error;
+      }
+    },
+  };
+
+  let publication;
+  let failure;
+  try {
+    publication = await publishValidatedAreaIntelligenceProjection({
+      repositoryRoot: root,
+      projection,
+      context,
+      testHooks,
+    });
+  } catch (error) {
+    failure = error;
+  } finally {
+    if (race.swapped) {
+      await fs.unlink(parent);
+      await fs.rename(displaced, parent);
+    }
+  }
+
+  if (race.fixturePermission) {
+    t.skip(`insufficient permission to create runtime junction fixture: ${race.fixturePermission}`);
+    return;
+  }
+  if (race.swapped) {
+    t.diagnostic(`${hookName}: runtime junction replacement succeeded and publisher rejected directory drift`);
+    assert(failure, `${hookName} directory drift must fail publication`);
+    assert.match(failure.message, /directory handle\/path identity|reparse|symlink|junction|drifted/i);
+    await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
+  } else {
+    t.diagnostic(`${hookName}: held directory handle caused the OS to reject replacement with ${race.osBlocked}`);
+    assert(race.osBlocked, `${hookName} replacement should either succeed or be rejected by the OS`);
+    assert.ifError(failure);
+    assert.equal(publication.status, 'published-local-serving-candidate');
+    assert.equal(JSON.parse(await fs.readFile(destination, 'utf8')).forecast.status, 'unavailable');
+  }
+  assert.deepEqual(await fs.readdir(external), []);
+  assert.deepEqual(await fs.readFile(path.join(root, ...legacyPublicPath.split('/'))), legacyBytes);
+  await assert.rejects(fs.stat(path.join(root, publisherLeaseName)), { code: 'ENOENT' });
+  assert.deepEqual((await listFiles(root)).filter((name) => /\.tmp-/.test(name)), []);
 }
 
 async function listFiles(root, current = root) {
