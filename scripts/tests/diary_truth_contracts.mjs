@@ -273,8 +273,7 @@ test('Diary copy and Sample Community presentation are personal, illustrative, a
     );
   }
   assert.match(html, /browser-local route experience diary/i);
-  assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad/);
-  assert.match(communitySource, /is-order-low|is-order-middle|is-order-high/);
-  assert.doesNotMatch(css, /\.diary-score-pill\.is-(?:good|mid|bad)/);
-  assert.match(css, /\.diary-score-pill\.is-order-low/);
+  assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)/);
+  assert.doesNotMatch(css, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
+  assert.match(css, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);
 });
