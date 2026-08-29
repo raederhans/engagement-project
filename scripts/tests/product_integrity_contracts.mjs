@@ -209,12 +209,16 @@ test('Diary reader copy and Sample Community visuals stay personal, illustrative
       diaryCopy,
       /Route Safety Diary|safety score|community safety score|High risk|Moderate risk|Generally safe|safer route|safest route|路线安全日记|安全评分|社区安全评分|高风险|中等风险|总体安全/iu,
     );
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /static/i : /静态/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not real-time/i : /非实时/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not user-submitted/i : /非用户投稿/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not representative of any population/i : /不代表任何总体/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /no official endorsement/i : /没有官方背书/u);
   }
   assert.match(html, /browser-local route experience diary/i);
-  assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|high concern/i);
-  assert.match(communitySource, /is-order-low|is-order-middle|is-order-high/);
-  assert.doesNotMatch(diaryCss, /\.diary-score-pill\.is-(?:good|mid|bad)/);
-  assert.match(diaryCss, /\.diary-score-pill\.is-order-low/);
+  assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)|high concern/i);
+  assert.doesNotMatch(diaryCss, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
+  assert.match(diaryCss, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);
 });
 
 function preserveStore(t) {
@@ -1344,6 +1348,7 @@ test('Diary insights derive trend, tags, and time cells from local records', asy
     { createdAt: '2026-07-27T20:00:00.000Z', score: 2, tags: ['poor_lighting'] },
     { createdAt: '2026-07-28T21:00:00.000Z', score: 4, tags: ['poor_lighting', 'speeding_cars'] },
   ]);
+  assert.equal(insights.status, 'available');
   assert.deepEqual(insights.trend, [2, 4]);
   assert.deepEqual(insights.tags[0], { label: 'poor lighting', value: 2 });
   assert.equal(insights.heatmap.flat().reduce((sum, value) => sum + value, 0), 2);

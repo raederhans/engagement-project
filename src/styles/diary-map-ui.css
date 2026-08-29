@@ -1048,7 +1048,10 @@ body.about-is-open {
   flex: 1;
   border: 1px solid rgba(15, 23, 42, 0.05);
   border-radius: 6px;
+  background: var(--density-blue);
 }
+
+.diary-insights__status { margin-bottom: var(--space-2); }
 
 .diary-insights__trend-labels {
   display: flex;
@@ -1547,21 +1550,6 @@ body.about-is-open {
   font-size: 12px;
   color: #0f172a;
   background: #e2e8f0;
-}
-
-.diary-score-pill.is-order-high {
-  background: #ede9fe;
-  color: #5b21b6;
-}
-
-.diary-score-pill.is-order-middle {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.diary-score-pill.is-order-low {
-  background: #e2e8f0;
-  color: #334155;
 }
 
 .diary-community-subtitle {
