@@ -1,0 +1,429 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.engagement-project.invalid/spatial-attribution-methods-v2.schema.json",
+  "title": "Aggregate-only Spatial Attribution Method Comparison v2",
+  "$comment": "This schema describes aggregate-only comparison output. A schema pass does not admit uncertainty geometry or candidate weights, modify the integer M2 mart, authorize ACS/population weighting, or grant evaluation, serving, forecast, ranking, or promotion authority. Semantic admission and identity verification remain mandatory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "exact_input",
+    "input_rows",
+    "source_spatial_rows",
+    "methods",
+    "privacy",
+    "governance",
+    "comparison_identity"
+  ],
+  "properties": {
+    "schema": { "const": "engagement-spatial-attribution-method-comparison/v2" },
+    "exact_input": { "$ref": "#/definitions/exactInput" },
+    "input_rows": { "$ref": "#/definitions/count" },
+    "source_spatial_rows": { "$ref": "#/definitions/sourceSpatialRows" },
+    "methods": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/methodResult" }
+    },
+    "privacy": { "$ref": "#/definitions/privacy" },
+    "governance": { "$ref": "#/definitions/governance" },
+    "comparison_identity": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "mass": {
+      "type": "number",
+      "minimum": 0
+    },
+    "nullableMass": {
+      "anyOf": [
+        { "$ref": "#/definitions/mass" },
+        { "type": "null" }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "hashValue": {
+      "type": "string",
+      "pattern": "^(sha256:)?[a-f0-9]{64}$"
+    },
+    "versionedSchema": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+-]*/v[0-9]+$"
+    },
+    "nullableSha256": {
+      "anyOf": [
+        { "$ref": "#/definitions/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "sourceSpatialRows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tract", "fixed_grid"],
+      "properties": {
+        "tract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapped", "ambiguous", "unmapped", "invalid"],
+          "properties": {
+            "mapped": { "$ref": "#/definitions/count" },
+            "ambiguous": { "$ref": "#/definitions/count" },
+            "unmapped": { "$ref": "#/definitions/count" },
+            "invalid": { "$ref": "#/definitions/count" }
+          }
+        },
+        "fixed_grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapped", "unavailable", "invalid"],
+          "properties": {
+            "mapped": { "$ref": "#/definitions/count" },
+            "unavailable": { "$ref": "#/definitions/count" },
+            "invalid": { "$ref": "#/definitions/count" }
+          }
+        }
+      }
+    },
+    "exactInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "m1", "m2"],
+      "properties": {
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "sha256"],
+          "properties": {
+            "schema": { "const": "engagement-spatial-attribution-protocol/v2" },
+            "sha256": { "$ref": "#/definitions/hashValue" }
+          }
+        },
+        "m1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "receipt_schema",
+            "receipt_identity",
+            "receipt_sha256",
+            "warehouse_schema",
+            "warehouse_current_snapshot_id",
+            "canonical"
+          ],
+          "properties": {
+            "receipt_schema": { "$ref": "#/definitions/versionedSchema" },
+            "receipt_identity": { "$ref": "#/definitions/sha256" },
+            "receipt_sha256": { "$ref": "#/definitions/hashValue" },
+            "warehouse_schema": { "$ref": "#/definitions/versionedSchema" },
+            "warehouse_current_snapshot_id": { "$ref": "#/definitions/sha256" },
+            "canonical": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["partition_count", "row_count", "bytes", "sha256"],
+              "properties": {
+                "partition_count": { "$ref": "#/definitions/count" },
+                "row_count": { "$ref": "#/definitions/count" },
+                "bytes": { "$ref": "#/definitions/count" },
+                "sha256": { "$ref": "#/definitions/hashValue" }
+              }
+            }
+          }
+        },
+        "m2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mart_schema",
+            "manifest_sha256",
+            "artifact_identity",
+            "part_bindings_identity",
+            "part_count",
+            "row_count",
+            "bytes",
+            "admission",
+            "artifact_policy"
+          ],
+          "properties": {
+            "mart_schema": { "$ref": "#/definitions/versionedSchema" },
+            "manifest_sha256": { "$ref": "#/definitions/hashValue" },
+            "artifact_identity": { "$ref": "#/definitions/sha256" },
+            "part_bindings_identity": { "$ref": "#/definitions/sha256" },
+            "part_count": { "$ref": "#/definitions/count" },
+            "row_count": { "$ref": "#/definitions/count" },
+            "bytes": { "$ref": "#/definitions/count" },
+            "admission": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "canonical_rows_seen",
+                "tract",
+                "fixed-grid",
+                "unknown_category",
+                "invalid_event_time",
+                "non_active"
+              ],
+              "properties": {
+                "canonical_rows_seen": { "$ref": "#/definitions/count" },
+                "tract": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["admitted", "ambiguous_excluded", "unmapped_excluded"],
+                  "properties": {
+                    "admitted": { "$ref": "#/definitions/count" },
+                    "ambiguous_excluded": { "$ref": "#/definitions/count" },
+                    "unmapped_excluded": { "$ref": "#/definitions/count" }
+                  }
+                },
+                "fixed-grid": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["admitted", "unavailable_excluded"],
+                  "properties": {
+                    "admitted": { "$ref": "#/definitions/count" },
+                    "unavailable_excluded": { "$ref": "#/definitions/count" }
+                  }
+                },
+                "unknown_category": { "$ref": "#/definitions/count" },
+                "invalid_event_time": { "$ref": "#/definitions/count" },
+                "non_active": { "$ref": "#/definitions/count" }
+              }
+            },
+            "artifact_policy": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["event_level_data_included"],
+              "properties": {
+                "event_level_data_included": { "const": false }
+              }
+            }
+          }
+        }
+      }
+    },
+    "methodResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "method",
+        "method_version",
+        "unit_type",
+        "assignment",
+        "availability",
+        "weight_basis",
+        "candidate_weight_contract_identity",
+        "input_artifact_identity",
+        "unavailable_reason",
+        "acs_weighting",
+        "known_route_segment_kernel",
+        "integer_m2_mart_contract",
+        "method_identity",
+        "config_identity",
+        "input_rows",
+        "assigned_rows",
+        "excluded_rows",
+        "weighted_mass",
+        "tolerance",
+        "exclusions",
+        "aggregates",
+        "result_identity"
+      ],
+      "properties": {
+        "schema": { "const": "engagement-spatial-attribution-method-result/v2" },
+        "method": {
+          "enum": ["tract-fail-closed", "fixed-grid-500m", "fractional", "area-kernel"]
+        },
+        "method_version": {
+          "enum": [
+            "crime-event-tract-fail-closed/v1",
+            "epsg3857-square-grid-v1",
+            "fractional-area-attribution/v2",
+            "area-kernel-attribution/v2"
+          ]
+        },
+        "unit_type": { "enum": ["tract", "fixed-grid"] },
+        "assignment": { "enum": ["integer", "weighted"] },
+        "availability": { "enum": ["available", "partial", "unavailable"] },
+        "weight_basis": {
+          "enum": [
+            "canonical-unit-mass",
+            "caller-supplied-fractional-area-overlap",
+            "caller-supplied-area-kernel-mass"
+          ]
+        },
+        "candidate_weight_contract_identity": { "$ref": "#/definitions/nullableSha256" },
+        "input_artifact_identity": { "$ref": "#/definitions/nullableSha256" },
+        "unavailable_reason": {
+          "anyOf": [
+            { "type": "string", "minLength": 1, "maxLength": 128 },
+            { "type": "null" }
+          ]
+        },
+        "acs_weighting": { "const": "forbidden" },
+        "known_route_segment_kernel": { "const": "not-area-attribution" },
+        "integer_m2_mart_contract": { "const": "independent-unchanged" },
+        "method_identity": { "$ref": "#/definitions/sha256" },
+        "config_identity": { "$ref": "#/definitions/sha256" },
+        "input_rows": { "$ref": "#/definitions/count" },
+        "assigned_rows": { "$ref": "#/definitions/count" },
+        "excluded_rows": { "$ref": "#/definitions/count" },
+        "weighted_mass": { "$ref": "#/definitions/nullableMass" },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0.000000000001,
+          "maximum": 0.000001
+        },
+        "exclusions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/exclusion" }
+        },
+        "aggregates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/aggregate" }
+        },
+        "result_identity": { "$ref": "#/definitions/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "method": { "const": "tract-fail-closed" } } },
+          "then": {
+            "properties": {
+              "method_version": { "const": "crime-event-tract-fail-closed/v1" },
+              "unit_type": { "const": "tract" },
+              "assignment": { "const": "integer" },
+              "weight_basis": { "const": "canonical-unit-mass" },
+              "candidate_weight_contract_identity": { "type": "null" },
+              "input_artifact_identity": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "fixed-grid-500m" } } },
+          "then": {
+            "properties": {
+              "method_version": { "const": "epsg3857-square-grid-v1" },
+              "unit_type": { "const": "fixed-grid" },
+              "assignment": { "const": "integer" },
+              "weight_basis": { "const": "canonical-unit-mass" },
+              "candidate_weight_contract_identity": { "type": "null" },
+              "input_artifact_identity": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "fractional" } } },
+          "then": {
+            "properties": {
+              "method_version": { "const": "fractional-area-attribution/v2" },
+              "unit_type": { "const": "tract" },
+              "assignment": { "const": "weighted" },
+              "weight_basis": { "const": "caller-supplied-fractional-area-overlap" },
+              "candidate_weight_contract_identity": { "$ref": "#/definitions/sha256" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "area-kernel" } } },
+          "then": {
+            "properties": {
+              "method_version": { "const": "area-kernel-attribution/v2" },
+              "unit_type": { "const": "tract" },
+              "assignment": { "const": "weighted" },
+              "weight_basis": { "const": "caller-supplied-area-kernel-mass" },
+              "candidate_weight_contract_identity": { "$ref": "#/definitions/sha256" }
+            }
+          }
+        }
+      ]
+    },
+    "exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "rows"],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "rows": { "$ref": "#/definitions/count" }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "contributing_rows", "weighted_mass"],
+      "properties": {
+        "unit_id": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[0-9]{11}$" },
+            { "type": "string", "pattern": "^epsg3857-500m:-?[0-9]+:-?[0-9]+$" }
+          ]
+        },
+        "contributing_rows": { "$ref": "#/definitions/count" },
+        "weighted_mass": { "$ref": "#/definitions/mass" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_only",
+        "coordinates_included",
+        "generalized_locations_included",
+        "raw_events_included",
+        "source_record_ids_included",
+        "uncertainty_footprints_included"
+      ],
+      "properties": {
+        "aggregate_only": { "const": true },
+        "coordinates_included": { "const": false },
+        "generalized_locations_included": { "const": false },
+        "raw_events_included": { "const": false },
+        "source_record_ids_included": { "const": false },
+        "uncertainty_footprints_included": { "const": false }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integer_m2_mart_contract",
+        "evaluation_contract",
+        "serving_contract",
+        "forecast_contract",
+        "acs_weighting",
+        "demographic_ranking_authority",
+        "serving_authority",
+        "forecast_authority",
+        "promotion_authority",
+        "known_route_segment_kernel"
+      ],
+      "properties": {
+        "integer_m2_mart_contract": { "const": "independent-unchanged" },
+        "evaluation_contract": { "const": "unchanged" },
+        "serving_contract": { "const": "unchanged" },
+        "forecast_contract": { "const": "unchanged" },
+        "acs_weighting": { "const": "forbidden" },
+        "demographic_ranking_authority": { "const": false },
+        "serving_authority": { "const": false },
+        "forecast_authority": { "const": false },
+        "promotion_authority": { "const": false },
+        "known_route_segment_kernel": { "const": "not-area-attribution" }
+      }
+    }
+  }
+}
