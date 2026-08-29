@@ -24,9 +24,9 @@ const ATTEMPTED_HANDLES = new WeakSet();
 // Integration-owner-controlled positive capability root. It is intentionally
 // one exact installed receipt, not a caller-extensible list or JSON registry.
 const INSTALLED = Object.freeze({
-  registryRevision: 'route-real-mature-engine-registry/m5-1-p2-owned-responder-osrm-26.8.0-v3',
+  registryRevision: 'route-real-mature-engine-registry/m5-1-persistent-m4-refresh-osrm-26.8.0-v4',
   receiptSchema: OSRM_MATURE_ENGINE_RECEIPT_SCHEMA,
-  receiptIdentity: 'sha256:1cbbf20561e49bbd812874f8fc480cf77c5fa2d168649818354315f1b66fced8',
+  receiptIdentity: 'sha256:378bf673e8435e769b2052e4069c735e79e3c39ff87140a06edd895d2469ebf0',
   graphArtifactIdentity: 'sha256:3adc0b82ec95257a58eae324dbdd0a469e5e54599461c152bf3b3239049901e0',
   topologyIdentity: 'sha256:25f3d33d33d82cf670c64db2f1bbc7e0bc7f9c1a11a31ba8ad700eb7fc6e0e3a',
   geometryIdentity: 'sha256:eef990bba12ff2891f01e66805bf6c6f84df764b45e6f66eacd8e11ee6b7c75b',
@@ -34,8 +34,8 @@ const INSTALLED = Object.freeze({
   sourcePayloadIdentity: 'sha256:b8f3db07ac7def4d9b7faf66d061e96987edd75e0ec7573eb9c70167327af174',
   profileIdentity: 'sha256:15000dda857c64dd6bf007b8985ad8c1e53ac23e32a0493e9a2cb4918749b709',
   authorityBoundaryIdentity: 'sha256:7cf4bb28468d048f2f775ae6f7a3f9d2db85f861e2b70839c18e097614dc69e2',
-  m4SourceFinalRevision: 'b4fcc63c7540f0a5e31844158a0fc853d2c8c0a6',
-  m4HandoffIdentity: 'sha256:25b7f319e7707932d0bfcf0bc1599d9b0720440e6b58a7c5163ff9e3f2d23f9c',
+  m4SourceFinalRevision: '9c9b6a071aa87af09b7ed351856d3642622926fc',
+  m4HandoffIdentity: 'sha256:c0ea04ced25bc10054f0527d50416dcd16da9f409b6a52e70c9094b18119c63f',
 });
 
 export function inspectInstalledMatureEngineRegistry() {

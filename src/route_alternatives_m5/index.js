@@ -7,7 +7,7 @@ const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
 const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export const M5_M4_SOURCE_FINAL_COMMIT =
-  'b4fcc63c7540f0a5e31844158a0fc853d2c8c0a6';
+  '9c9b6a071aa87af09b7ed351856d3642622926fc';
 
 export const M5_SCHEMA_VERSIONS = Object.freeze({
   input: 'engagement-route-alternatives-m5-input/v1',

@@ -26,11 +26,11 @@ export const OSRM_MATURE_ENGINE_RECEIPT_SCHEMA =
 export const OSRM_GRAPH_ARTIFACT_SCHEMA = 'route-real-engine-graph-artifact/v1';
 
 const EXPECTED_M4_SOURCE_FINAL =
-  'b4fcc63c7540f0a5e31844158a0fc853d2c8c0a6';
+  '9c9b6a071aa87af09b7ed351856d3642622926fc';
 const EXPECTED_M4_HANDOFF_IDENTITY =
-  'sha256:25b7f319e7707932d0bfcf0bc1599d9b0720440e6b58a7c5163ff9e3f2d23f9c';
+  'sha256:c0ea04ced25bc10054f0527d50416dcd16da9f409b6a52e70c9094b18119c63f';
 const EXPECTED_M4_HANDOFF_FILE_SHA256 =
-  'sha256:49755c588b288774044c3dc7ece8b7688c6ff192447eb02c9583968298e2417a';
+  'sha256:68aa8579be0150259ee33094d9b5c57415ef47d733cfc0b54a0f2fe44398c470';
 const ROOTS = Object.freeze({
   build: '.dfev1/route-real-graph-m5-1/build/osrm-26.8.0-foot-pennsylvania-260824',
   engineArchive:
@@ -43,9 +43,9 @@ const ROOTS = Object.freeze({
     '.dfev1/route-real-graph-m5-1/toolchain/osrm-26.8.0-win32-x64/profiles/profiles',
   source: '.dfev1/route-real-graph-m5-1/source/geofabrik-pennsylvania-260824',
   cityBoundary: '.dfev1/route-real-graph-m5-1/source/philadelphia-city-limits',
-  m4Input: '.dfev1/route-real-graph-m5-1/input/m4-source-final-b4fcc63',
+  m4Input: '.dfev1/route-real-graph-m5-1/input/m4-persistent-20260829',
   probeEvidence: '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries',
-  receipt: '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-v3.json',
+  receipt: '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-persistent-20260829-v3.json',
 });
 
 export const OSRM_RECEIPT_HASH_BLOCK_BYTES = 4 * 1_024 * 1_024;
@@ -599,7 +599,7 @@ function inspectM4Handoff(projectRoot) {
   const bytes = statSync(handoffPath).size;
   const sha256 = `sha256:${digestFile(handoffPath, 'sha256')}`;
   const handoff = JSON.parse(readFileSync(handoffPath, 'utf8'));
-  if (bytes !== 5_411 || sha256 !== EXPECTED_M4_HANDOFF_FILE_SHA256
+  if (bytes !== 5_401 || sha256 !== EXPECTED_M4_HANDOFF_FILE_SHA256
     || handoff.identity !== EXPECTED_M4_HANDOFF_IDENTITY
     || handoff.authority?.centerlineTopology !== 'reference-only'
     || handoff.authority?.mode !== false || handoff.authority?.accessibility !== false

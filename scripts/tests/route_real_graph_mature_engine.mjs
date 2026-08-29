@@ -32,7 +32,7 @@ import {
 } from '../lib/route_real_graph_controller/osrm_public_probe.mjs';
 
 const RECEIPT_PATH = path.resolve(
-  '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-v3.json',
+  '.dfev1/route-real-graph-m5-1-repair-p2/source-final-owned-queries/mature-engine-receipt-persistent-20260829-v3.json',
 );
 const PROBE_FIXTURE = path.resolve(
   'scripts/tests/fixtures/route_real_graph_osrm_probe_fixture.mjs',
@@ -52,7 +52,7 @@ test('receipt validates copied relative M4 input and mechanically equal replay f
   if (!existsSync(RECEIPT_PATH)) return t.skip('ignored source-final receipt is not present');
   const receipt = validateInstalledOsrmMatureEngineReceipt();
   assert.equal(receipt.m4Handoff.path,
-    '.dfev1/route-real-graph-m5-1/input/m4-source-final-b4fcc63/final-handoff.json');
+    '.dfev1/route-real-graph-m5-1/input/m4-persistent-20260829/final-handoff.json');
   assert.equal(path.isAbsolute(receipt.m4Handoff.path), false);
   assert.equal(receipt.publicProbe.run1.bytes, receipt.publicProbe.run2.bytes);
   assert.equal(receipt.publicProbe.run1.sha256, receipt.publicProbe.run2.sha256);
