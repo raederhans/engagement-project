@@ -80,6 +80,7 @@ export async function loadHomeCompareCitywideLifecycleInputs({
   hinReceiptPath,
   validationClock,
   expectedObservationIdentity,
+  expectedObservationSha256,
   m1Validator = validateCrimeWarehouseAdmissionReceipt,
   hinSnapshotValidator = validateHin2025Snapshot,
   hinReceiptValidator = validateHin2025Receipt,
@@ -97,6 +98,10 @@ export async function loadHomeCompareCitywideLifecycleInputs({
   if (!SHA256.test(expectedObservationIdentity || '')
     || observation.semanticIdentity !== expectedObservationIdentity) {
     throw new Error('Home Compare source observation does not match the explicitly expected semantic identity.');
+  }
+  if (!SHA256.test(expectedObservationSha256 || '')
+    || observationArtifact.sha256 !== expectedObservationSha256) {
+    throw new Error('Home Compare source observation does not match the explicitly expected exact file SHA-256.');
   }
   const m1Admission = await loadExactM1Admission({
     root: m1Root,
@@ -463,6 +468,12 @@ function createHinReceipt(source, observed, ordinal, manifest, admission) {
   const expectedObservationRevision = `arcgis-last-edit:${Date.parse(receipt.source.sourceAsOf)}`;
   const revisionDrift = observed.revision !== null && observed.revision !== expectedObservationRevision;
   const unavailable = sourceFreshness.status === 'stale' || revisionDrift;
+  const reviewComplete = receipt.review?.status === 'admitted-after-review'
+    && receipt.review.reviewedAt !== null
+    && receipt.review.reviewedBy !== null
+    && receipt.artifact.builtAt !== null
+    && receipt.artifact.buildClockStatus === 'recorded-at-admitted-build';
+  const reviewIncomplete = !unavailable && !reviewComplete;
   const rowCount = unavailable ? null : receipt.artifact.featureCount;
   finiteCount(receipt.artifact.featureCount, 'HIN feature count');
   const observationFlags = [];
@@ -477,7 +488,8 @@ function createHinReceipt(source, observed, ordinal, manifest, admission) {
     source,
     ordinal,
     registryIdentity: identityOf(source),
-    status: unavailable ? 'unavailable' : rowCount === 0 ? 'available-zero' : 'available',
+    status: unavailable ? 'unavailable' : reviewIncomplete ? 'partial'
+      : rowCount === 0 ? 'available-zero' : 'available',
     evidenceKind: 'hin-snapshot-receipt',
     sourceRevision: `arcgis-data-edit:${receipt.source.sourceAsOf}`,
     payloadIdentity: receipt.artifact.identity,
@@ -485,14 +497,15 @@ function createHinReceipt(source, observed, ordinal, manifest, admission) {
     freshnessValue: sourceFreshness,
     coverage: {
       scope: 'citywide',
-      status: unavailable ? 'unavailable' : 'complete-exact-receipt',
+      status: unavailable ? 'unavailable' : reviewIncomplete
+        ? 'exact-receipt-review-incomplete' : 'complete-exact-receipt',
       row_count: rowCount,
-      available_zero: !unavailable && rowCount === 0,
+      available_zero: !unavailable && !reviewIncomplete && rowCount === 0,
       exact_payload: true,
-      completeness_admitted: !unavailable,
+      completeness_admitted: !unavailable && !reviewIncomplete,
     },
     dq: {
-      status: unavailable ? 'unavailable' : 'pass',
+      status: unavailable ? 'unavailable' : reviewIncomplete ? 'partial' : 'pass',
       observed_field_count: observed.schemaFields.length,
       missing_fields: [...observed.missingFields],
       flags: uniqueSorted([
@@ -500,6 +513,11 @@ function createHinReceipt(source, observed, ordinal, manifest, admission) {
         'snapshot-local-identities-not-exported',
         'not-raw-crash-data',
         'not-current-safety-evidence',
+        ...(reviewIncomplete ? [
+          'hin-lifecycle-review-incomplete',
+          'hin-build-clock-not-recorded',
+          'hin-review-clock-not-recorded',
+        ] : []),
         ...observationFlags,
         ...(unavailable ? ['source-stale-fail-closed'] : []),
       ]),
@@ -668,6 +686,13 @@ function validateSourceReceiptSemantics(receipt) {
     if (receipt.coverage.status !== 'unavailable' || receipt.coverage.completeness_admitted !== false) {
       throw new Error(`Unavailable exact source ${receipt.source_id} changed coverage semantics.`);
     }
+  } else if (receipt.source_id === 'vision-zero-hin-2025' && receipt.status === 'partial') {
+    if (receipt.coverage.status !== 'exact-receipt-review-incomplete'
+      || receipt.coverage.completeness_admitted !== false
+      || receipt.dq.status !== 'partial'
+      || !receipt.dq.flags.includes('hin-lifecycle-review-incomplete')) {
+      throw new Error('Partial HIN exact source changed its incomplete-review semantics.');
+    }
   } else if (receipt.coverage.status !== 'complete-exact-receipt'
     || receipt.coverage.completeness_admitted !== true) {
     throw new Error(`Exact source ${receipt.source_id} lacks admitted complete receipt coverage.`);
@@ -702,8 +727,24 @@ function validateHinAdmissionShape(value) {
     || receipt.artifact?.identity !== value.snapshot_artifact.sha256
     || receipt.artifact?.bytes !== value.snapshot_artifact.bytes
     || !Number.isSafeInteger(receipt.artifact?.featureCount)
-    || receipt.artifact.featureCount < 0) {
+    || receipt.artifact.featureCount < 0
+    || !['legacy-admitted', 'admitted-after-review'].includes(receipt.review?.status)
+    || !['not-recorded-in-legacy-snapshot', 'recorded-at-admitted-build']
+      .includes(receipt.artifact?.buildClockStatus)) {
     throw new Error('HIN admission evidence shape is invalid.');
+  }
+  const reviewed = receipt.review.status === 'admitted-after-review';
+  if (reviewed !== (receipt.review.reviewedAt !== null
+      && receipt.review.reviewedBy !== null
+      && receipt.artifact.builtAt !== null
+      && receipt.artifact.buildClockStatus === 'recorded-at-admitted-build')) {
+    throw new Error('HIN admission review and build clocks are inconsistent.');
+  }
+  if (!reviewed && (receipt.review.reviewedAt !== null
+      || receipt.review.reviewedBy !== null
+      || receipt.artifact.builtAt !== null
+      || receipt.artifact.buildClockStatus !== 'not-recorded-in-legacy-snapshot')) {
+    throw new Error('Legacy HIN admission must preserve missing review and build clocks.');
   }
 }
 

@@ -227,7 +227,7 @@
           ],
           "properties": {
             "scope": { "const": "citywide" },
-            "status": { "enum": ["complete-exact-receipt", "bounded-metadata-only", "unavailable"] },
+            "status": { "enum": ["complete-exact-receipt", "exact-receipt-review-incomplete", "bounded-metadata-only", "unavailable"] },
             "row_count": { "$ref": "#/$defs/nullableNonNegativeInteger" },
             "available_zero": { "type": "boolean" },
             "exact_payload": { "type": "boolean" },

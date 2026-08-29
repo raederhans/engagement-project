@@ -92,6 +92,13 @@ test('PPD and HIN reuse exact admission identities without creating live-table a
   assert.equal(hin.evidence_kind, 'hin-snapshot-receipt');
   assert.equal(hin.reuse.payload_sha256, inputs.hinAdmission.snapshot_artifact.sha256);
   assert.equal(hin.reuse.receipt_sha256, inputs.hinAdmission.receipt_artifact.sha256);
+  assert.equal(hin.status, 'partial');
+  assert.equal(hin.coverage.status, 'exact-receipt-review-incomplete');
+  assert.equal(hin.coverage.completeness_admitted, false);
+  assert.equal(hin.dq.status, 'partial');
+  assert.ok(hin.dq.flags.includes('hin-lifecycle-review-incomplete'));
+  assert.ok(hin.dq.flags.includes('hin-build-clock-not-recorded'));
+  assert.ok(hin.dq.flags.includes('hin-review-clock-not-recorded'));
   assert.ok(hin.dq.flags.includes('not-raw-crash-data'));
   assert.ok(hin.dq.flags.includes('not-current-safety-evidence'));
   assert.equal(hin.dq.flags.includes('bounded-observation-source-revision-unavailable'), false);
@@ -100,6 +107,24 @@ test('PPD and HIN reuse exact admission identities without creating live-table a
   ), false);
   assert.equal(hin.claims.raw_crash_data_claimed, false);
   assert.equal(hin.claims.current_safety_claimed, false);
+
+  const reviewedInputs = fixtureInputs();
+  reviewedInputs.hinAdmission.receipt.artifact.builtAt = '2026-08-20T00:00:00.000Z';
+  reviewedInputs.hinAdmission.receipt.artifact.buildClockStatus = 'recorded-at-admitted-build';
+  reviewedInputs.hinAdmission.receipt.review = {
+    status: 'admitted-after-review',
+    reviewedAt: '2026-08-20T01:00:00.000Z',
+    reviewedBy: 'synthetic-test-reviewer',
+    note: 'Synthetic reviewed fixture.',
+  };
+  const reviewedHin = receipt(
+    buildHomeCompareCitywideSourceLifecycle(reviewedInputs),
+    'vision-zero-hin-2025',
+  );
+  assert.equal(reviewedHin.status, 'available');
+  assert.equal(reviewedHin.coverage.status, 'complete-exact-receipt');
+  assert.equal(reviewedHin.coverage.completeness_admitted, true);
+  assert.equal(reviewedHin.dq.status, 'pass');
 });
 
 test('observation identity, source, schema, row-count, clocks, and finite numbers fail closed', () => {
@@ -179,7 +204,7 @@ test('HIN observation count drift is explicit and revision drift makes current a
   countDrift.observations[8].rowCount = 163;
   refreshManifestIdentity(countDrift);
   const countReceipt = receipt(buildFixtureLifecycle({ manifest: countDrift }), 'vision-zero-hin-2025');
-  assert.equal(countReceipt.status, 'available');
+  assert.equal(countReceipt.status, 'partial');
   assert.ok(countReceipt.dq.flags.includes(
     'bounded-observation-count-differs-from-exact-hin-no-delta-claim',
   ));
@@ -272,7 +297,8 @@ test('explicit M1 and HIN paths must match exact validated bytes and identities'
   const hinReceiptPath = path.join(directory, 'hin.receipt.json');
   await fs.mkdir(m1Root);
   await fs.writeFile(registryPath, registryText);
-  await fs.writeFile(observationPath, `${JSON.stringify(observationManifest())}\n`);
+  const observationBytes = Buffer.from(`${JSON.stringify(observationManifest())}\n`);
+  await fs.writeFile(observationPath, observationBytes);
 
   const m1Receipt = m1Admission().receipt;
   await fs.writeFile(m1ReceiptPath, `${JSON.stringify(m1Receipt)}\n`);
@@ -297,6 +323,7 @@ test('explicit M1 and HIN paths must match exact validated bytes and identities'
     hinReceiptPath,
     validationClock: VALIDATION_CLOCK,
     expectedObservationIdentity: observationManifest().semanticIdentity,
+    expectedObservationSha256: sha256(observationBytes),
     m1Validator: async () => {
       m1Calls += 1;
       return {
@@ -315,6 +342,33 @@ test('explicit M1 and HIN paths must match exact validated bytes and identities'
   assert.equal(loaded.m1Admission.receipt_artifact.sha256, sha256(m1Bytes));
   assert.equal(loaded.hinAdmission.snapshot_artifact.sha256, sha256(snapshotBytes));
 
+  const relabelled = observationManifest();
+  relabelled.generatedAt = '2026-08-30T05:00:00.000Z';
+  for (const observed of relabelled.observations) {
+    if (observed.retrievedAt !== null) observed.retrievedAt = relabelled.generatedAt;
+  }
+  refreshManifestIdentity(relabelled);
+  assert.equal(relabelled.semanticIdentity, observationManifest().semanticIdentity);
+  await fs.writeFile(observationPath, `${JSON.stringify(relabelled)}\n`);
+  await assert.rejects(
+    loadHomeCompareCitywideLifecycleInputs({
+      registryPath,
+      observationPath,
+      m1Root,
+      m1ReceiptPath,
+      hinSnapshotPath,
+      hinReceiptPath,
+      validationClock: '2026-08-30T05:30:00.000Z',
+      expectedObservationIdentity: observationManifest().semanticIdentity,
+      expectedObservationSha256: sha256(observationBytes),
+      m1Validator: async () => { throw new Error('M1 validator must not run after observation SHA drift.'); },
+      hinSnapshotValidator: () => {},
+      hinReceiptValidator: (value) => value,
+    }),
+    /expected exact file SHA-256/i,
+  );
+  await fs.writeFile(observationPath, observationBytes);
+
   await fs.appendFile(m1ReceiptPath, ' ');
   await assert.rejects(
     loadHomeCompareCitywideLifecycleInputs({
@@ -326,6 +380,7 @@ test('explicit M1 and HIN paths must match exact validated bytes and identities'
       hinReceiptPath,
       validationClock: VALIDATION_CLOCK,
       expectedObservationIdentity: observationManifest().semanticIdentity,
+      expectedObservationSha256: sha256(observationBytes),
       m1Validator: async () => ({
         receipt: structuredClone(m1Receipt),
         path: m1ReceiptPath,
@@ -347,6 +402,7 @@ test('explicit M1 and HIN paths must match exact validated bytes and identities'
       hinReceiptPath,
       validationClock: VALIDATION_CLOCK,
       expectedObservationIdentity: identityOf('wrong-observation'),
+      expectedObservationSha256: sha256(observationBytes),
       m1Validator: async () => ({
         receipt: structuredClone(m1Receipt),
         path: m1ReceiptPath,
@@ -529,6 +585,13 @@ function hinAdmission() {
         featureCount: 162,
         retrievedAt: '2026-08-10T10:29:36.678Z',
         builtAt: null,
+        buildClockStatus: 'not-recorded-in-legacy-snapshot',
+      },
+      review: {
+        status: 'legacy-admitted',
+        reviewedAt: null,
+        reviewedBy: null,
+        note: 'Synthetic legacy fixture.',
       },
     },
     snapshot_artifact: { sha256: snapshotIdentity, bytes: 2_000 },

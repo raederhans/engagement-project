@@ -21,6 +21,7 @@ export async function main(argv = process.argv.slice(2), dependencies = {}) {
     hinReceiptPath: resolveInput(options['hin-receipt']),
     validationClock: options['validation-clock'],
     expectedObservationIdentity: options['observation-identity'],
+    expectedObservationSha256: options['observation-sha256'],
     ...dependencies,
   });
   const lifecycle = buildHomeCompareCitywideSourceLifecycle(inputs);
@@ -38,6 +39,7 @@ function parseArguments(argv) {
     'hin-receipt',
     'validation-clock',
     'observation-identity',
+    'observation-sha256',
     'output',
   ];
   const options = {};
