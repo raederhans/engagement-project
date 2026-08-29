@@ -210,27 +210,37 @@ test('snapshot mismatch and invalid source projection fail district and PSA clos
   });
 });
 
-test('ACS population bands require available, temporally compatible, model-eligible estimates', () => {
+test('ACS population bands use canonical valueStatus and preserve thresholds and unavailable states', () => {
   const snapshotId = snapshot('acs');
   const rows = [
-    event({ id: 1, snapshot: snapshotId, population: 100 }),
-    event({ id: 2, snapshot: snapshotId, population: 100, acsStatus: 'incompatible-vintage' }),
-    event({ id: 3, snapshot: snapshotId, population: 100, temporal: 'outside-acs-period' }),
-    event({ id: 4, snapshot: snapshotId, population: 100, modelInputEligible: false }),
+    event({ id: 1, snapshot: snapshotId, population: 2499 }),
+    event({ id: 2, snapshot: snapshotId, population: 2500 }),
+    event({ id: 3, snapshot: snapshotId, population: 4499 }),
+    event({ id: 4, snapshot: snapshotId, population: 4500 }),
+    event({ id: 5, snapshot: snapshotId, population: 100, acsStatus: 'partial', valueStatus: 'partial', modelInputEligible: false }),
+    event({ id: 6, snapshot: snapshotId, population: 100, acsStatus: 'incompatible-vintage', valueStatus: 'available', temporal: 'outside-acs-period', modelInputEligible: false }),
+    event({ id: 7, snapshot: snapshotId, population: null, acsStatus: 'unavailable', valueStatus: 'unavailable', temporal: 'unavailable', modelInputEligible: false }),
   ].map((canonicalEvent) => ({
     canonical_event: canonicalEvent,
     raw_dimensions: dimensions({ snapshotId }),
   }));
   const exactInput = exactInputFor({
-    canonical: 4,
-    tract: { admitted: 4, ambiguous_excluded: 0, unmapped_excluded: 0 },
-    grid: { admitted: 4, unavailable_excluded: 0 },
+    canonical: 7,
+    tract: { admitted: 7, ambiguous_excluded: 0, unmapped_excluded: 0 },
+    grid: { admitted: 7, unavailable_excluded: 0 },
   });
   const audit = streamAudit(exactInput, rows);
 
   assert.deepEqual(audit.strata.acs_population_band.values, [
+    { value: 'high', count: 1 },
     { value: 'low', count: 1 },
+    { value: 'medium', count: 2 },
     { value: 'unavailable', count: 3 },
+  ]);
+  assert.deepEqual(audit.strata.acs_temporal_compatibility.values, [
+    { value: 'outside-acs-period', count: 1 },
+    { value: 'unavailable', count: 1 },
+    { value: 'within-acs-period', count: 5 },
   ]);
 });
 
@@ -424,8 +434,8 @@ function primaryRows() {
     [event({ id: 2, snapshot: snapshotA, tract: 'mapped', grid: 'unavailable', population: 2500 }), dimensions({ snapshotId: snapshotA, district: null, psa: '1' })],
     [event({ id: 3, snapshot: snapshotA, tract: 'ambiguous', grid: 'mapped', population: 4499 }), dimensions({ snapshotId: snapshotA, district: '11', psa: null })],
     [event({ id: 1, snapshot: snapshotB, tract: 'ambiguous', grid: 'unavailable', population: 4500 }), dimensions({ snapshotId: snapshotB, district: '99', psa: '2' })],
-    [event({ id: 4, snapshot: snapshotB, tract: 'unmapped', grid: 'mapped', population: 100, acsStatus: 'incompatible-vintage' }), dimensions({ snapshotId: snapshotB, district: '10', psa: '2' })],
-    [event({ id: 5, snapshot: snapshotB, tract: 'unmapped', grid: 'unavailable', population: 100, temporal: 'outside-acs-period' }), dimensions({ snapshotId: snapshotB, district: '10', psa: '3' })],
+    [event({ id: 4, snapshot: snapshotB, tract: 'unmapped', grid: 'mapped', population: 100, acsStatus: 'incompatible-vintage', temporal: 'outside-acs-period', modelInputEligible: false }), dimensions({ snapshotId: snapshotB, district: '10', psa: '2' })],
+    [event({ id: 5, snapshot: snapshotB, tract: 'unmapped', grid: 'unavailable', population: null, acsStatus: 'unavailable', temporal: 'unavailable', modelInputEligible: false }), dimensions({ snapshotId: snapshotB, district: '10', psa: '3' })],
   ];
   const excluded = [
     [event({ id: 6, snapshot: snapshotB, lifecycle: 'superseded', eventAt: 'invalid', categoryStatus: 'unknown', theme: null }), dimensions({ snapshotId: snapshotB, district: '10', psa: '3' })],
@@ -495,6 +505,7 @@ function event({
   grid = 'mapped',
   population = 1000,
   acsStatus = 'available',
+  valueStatus = acsStatus === 'incompatible-vintage' ? 'available' : acsStatus,
   temporal = 'within-acs-period',
   modelInputEligible = true,
 }) {
@@ -518,6 +529,7 @@ function event({
     },
     acs: {
       status: acsStatus,
+      valueStatus,
       estimate: { value: population },
       temporalAlignment: temporal,
       modelInputEligible,

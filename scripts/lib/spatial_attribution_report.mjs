@@ -366,9 +366,6 @@ function validateM2Admission(value, label) {
   counts.forEach((count, index) => assertCount(count, `${label}.m2.admission count ${index}`));
   const exclusions = value.non_active + value.invalid_event_time + value.unknown_category;
   const eligible = value.canonical_rows_seen - exclusions;
-  if (exclusions !== 0) {
-    throw new Error(`${label}.m2 admission anomaly counts must be zero.`);
-  }
   if (eligible < 0
     || value.tract.admitted + value.tract.ambiguous_excluded
       + value.tract.unmapped_excluded !== eligible

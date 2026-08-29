@@ -521,7 +521,7 @@ function acsTemporalBand(value) {
 }
 
 function eligiblePopulationBand(acs) {
-  if (acs?.status !== 'available'
+  if (acs?.valueStatus !== 'available'
     || acs.temporalAlignment !== 'within-acs-period'
     || acs.modelInputEligible !== true) {
     return 'unavailable';

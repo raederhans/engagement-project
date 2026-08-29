@@ -16,7 +16,6 @@ export const SPATIAL_ATTRIBUTION_FOOTPRINT_REFERENCE_SCHEMA =
 export const DEFAULT_SPATIAL_ATTRIBUTION_TOLERANCE = 1e-9;
 
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
-const SHA256_VALUE_PATTERN = /^(?:sha256:)?[a-f0-9]{64}$/;
 const TRACT_PATTERN = /^\d{11}$/;
 const FIXED_GRID_PATTERN = /^epsg3857-500m:-?\d+:-?\d+$/;
 const METHOD_ORDER = Object.freeze([
@@ -625,15 +624,15 @@ function admitExactInput(value) {
     admission.non_active,
   ];
   if (exactInput.protocol.schema !== 'engagement-spatial-attribution-protocol/v2'
-    || !SHA256_VALUE_PATTERN.test(exactInput.protocol.sha256 || '')
+    || !DIGEST_PATTERN.test(exactInput.protocol.sha256 || '')
     || !versionedSchema(exactInput.m1.receipt_schema)
     || !DIGEST_PATTERN.test(exactInput.m1.receipt_identity || '')
-    || !SHA256_VALUE_PATTERN.test(exactInput.m1.receipt_sha256 || '')
+    || !DIGEST_PATTERN.test(exactInput.m1.receipt_sha256 || '')
     || !versionedSchema(exactInput.m1.warehouse_schema)
     || !DIGEST_PATTERN.test(exactInput.m1.warehouse_current_snapshot_id || '')
-    || !SHA256_VALUE_PATTERN.test(canonical.sha256 || '')
+    || !DIGEST_PATTERN.test(canonical.sha256 || '')
     || !versionedSchema(exactInput.m2.mart_schema)
-    || !SHA256_VALUE_PATTERN.test(exactInput.m2.manifest_sha256 || '')
+    || !DIGEST_PATTERN.test(exactInput.m2.manifest_sha256 || '')
     || !DIGEST_PATTERN.test(exactInput.m2.artifact_identity || '')
     || !DIGEST_PATTERN.test(exactInput.m2.part_bindings_identity || '')
     || countValues.some((count) => !nonnegativeInteger(count))

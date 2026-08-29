@@ -18,6 +18,8 @@ import {
   SPATIAL_ATTRIBUTION_REPORT_SCHEMA,
   spatialAttributionValueIdentity,
 } from '../lib/spatial_attribution_report.mjs';
+import { buildSpatialAttributionAudit } from '../lib/spatial_attribution_audit.mjs';
+import { compareSpatialAttributionMethods } from '../lib/spatial_attribution_methods.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const forbiddenJsonKeys = [
@@ -141,6 +143,58 @@ test('builder consumes the two actual aggregate schemas and projects a bounded r
   );
 });
 
+test('builder accepts real audit and methods producers with nonzero eligibility exclusions', () => {
+  const exactInput = createExactInput();
+  exactInput.m1.canonical.row_count = 5;
+  exactInput.m1.canonical.bytes = 500;
+  exactInput.m1.canonical.sha256 = digest('canonical parts with exclusions');
+  exactInput.m2.row_count = 2;
+  exactInput.m2.bytes = 200;
+  exactInput.m2.admission = {
+    canonical_rows_seen: 5,
+    tract: { admitted: 1, ambiguous_excluded: 1, unmapped_excluded: 0 },
+    'fixed-grid': { admitted: 1, unavailable_excluded: 1 },
+    unknown_category: 1,
+    invalid_event_time: 1,
+    non_active: 1,
+  };
+  const snapshotId = digest('producer integration snapshot');
+  const canonicalEvents = [
+    producerEvent({ id: 1, snapshotId, tract: 'mapped', grid: 'mapped' }),
+    producerEvent({ id: 2, snapshotId, tract: 'ambiguous', grid: 'unavailable' }),
+    producerEvent({ id: 3, snapshotId, lifecycle: 'removal-candidate' }),
+    producerEvent({ id: 4, snapshotId, eventAt: 'invalid-time' }),
+    producerEvent({ id: 5, snapshotId, categoryStatus: 'unmapped', themeId: null }),
+  ];
+  const denominatorAudit = buildSpatialAttributionAudit({
+    exact_input: exactInput,
+    rows: canonicalEvents.map((canonicalEvent) => ({
+      canonical_event: canonicalEvent,
+      raw_dimensions: {
+        source_snapshot_id: snapshotId,
+        dc_dist: '09',
+        psa: '1',
+        location_block_available: true,
+      },
+    })),
+  });
+  const methodComparison = compareSpatialAttributionMethods({
+    exactInput,
+    rows: canonicalEvents.slice(0, 2),
+  });
+
+  const report = buildSpatialAttributionReport({ denominatorAudit, methodComparison });
+  assert.deepEqual(report.analysis_eligible_denominator, {
+    name: 'analysis_eligible_rows',
+    parent: 'canonical_rows',
+    total: 2,
+    exclusions: { non_active: 1, invalid_event_time: 1, unknown_category: 1 },
+  });
+  assert.equal(report.canonical_denominator.total, 5);
+  assert.equal(report.methods.every(({ input_rows: inputRows }) => inputRows === 2), true);
+  assert.equal(report.tract_grid_comparison.spatial_status_matrix.total, 2);
+});
+
 test('exact_input, producer schema and identities fail closed', async (t) => {
   const cases = [
     ['denominator schema', ({ denominatorAudit }) => {
@@ -182,18 +236,6 @@ test('exact_input, producer schema and identities fail closed', async (t) => {
       denominatorAudit.exact_input.m2.artifact_policy.event_level_data_included = true;
       refreshAuditIdentity(denominatorAudit);
     }, /must exclude event-level data/],
-    ['M2 non-active anomaly', ({ denominatorAudit }) => {
-      denominatorAudit.exact_input.m2.admission.non_active = 1;
-      refreshAuditIdentity(denominatorAudit);
-    }, /anomaly counts must be zero/],
-    ['M2 invalid-time anomaly', ({ denominatorAudit }) => {
-      denominatorAudit.exact_input.m2.admission.invalid_event_time = 1;
-      refreshAuditIdentity(denominatorAudit);
-    }, /anomaly counts must be zero/],
-    ['M2 unknown-category anomaly', ({ denominatorAudit }) => {
-      denominatorAudit.exact_input.m2.admission.unknown_category = 1;
-      refreshAuditIdentity(denominatorAudit);
-    }, /anomaly counts must be zero/],
     ['M2 zero part count', ({ denominatorAudit }) => {
       denominatorAudit.exact_input.m2.part_count = 0;
       refreshAuditIdentity(denominatorAudit);
@@ -602,6 +644,41 @@ function createFixture() {
   const denominatorAudit = createDenominatorAudit(exactInput);
   const methodComparison = createMethodComparison(exactInput);
   return { denominatorAudit, methodComparison };
+}
+
+function producerEvent({
+  id,
+  snapshotId,
+  lifecycle = 'active',
+  eventAt = '2024-01-01T12:00:00.000Z',
+  categoryStatus = 'mapped',
+  themeId = 'person',
+  tract = 'mapped',
+  grid = 'mapped',
+}) {
+  return {
+    source_record_id: `cartodb:${id}`,
+    source_ids: { cartodb_id: String(id) },
+    event_at: eventAt,
+    lifecycle: { state: lifecycle },
+    normalized_category: { status: categoryStatus, theme_id: themeId },
+    spatial: {
+      tract: tract === 'mapped'
+        ? { status: 'mapped', geoid: '42101000100', candidates: ['42101000100'], reason: null }
+        : { status: 'ambiguous', geoid: null, candidates: ['42101000100', '42101000200'], reason: 'point-on-or-across-tract-boundary' },
+      grid: grid === 'mapped'
+        ? { status: 'mapped', gridId: 'epsg3857-500m:-1:2', scheme: 'epsg3857-square-grid-v1', projectedCellSizeM: 500 }
+        : { status: 'unavailable', gridId: null, scheme: 'epsg3857-square-grid-v1', projectedCellSizeM: 500 },
+    },
+    acs: {
+      status: 'available',
+      valueStatus: 'available',
+      estimate: { value: 2499 },
+      temporalAlignment: 'within-acs-period',
+      modelInputEligible: true,
+    },
+    lineage: { source_snapshot_id: snapshotId },
+  };
 }
 
 function createExactInput() {

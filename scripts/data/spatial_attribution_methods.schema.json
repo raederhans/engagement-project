@@ -51,10 +51,6 @@
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
-    "hashValue": {
-      "type": "string",
-      "pattern": "^(sha256:)?[a-f0-9]{64}$"
-    },
     "versionedSchema": {
       "type": "string",
       "minLength": 4,
@@ -106,7 +102,7 @@
           "required": ["schema", "sha256"],
           "properties": {
             "schema": { "const": "engagement-spatial-attribution-protocol/v2" },
-            "sha256": { "$ref": "#/definitions/hashValue" }
+            "sha256": { "$ref": "#/definitions/sha256" }
           }
         },
         "m1": {
@@ -123,7 +119,7 @@
           "properties": {
             "receipt_schema": { "$ref": "#/definitions/versionedSchema" },
             "receipt_identity": { "$ref": "#/definitions/sha256" },
-            "receipt_sha256": { "$ref": "#/definitions/hashValue" },
+            "receipt_sha256": { "$ref": "#/definitions/sha256" },
             "warehouse_schema": { "$ref": "#/definitions/versionedSchema" },
             "warehouse_current_snapshot_id": { "$ref": "#/definitions/sha256" },
             "canonical": {
@@ -134,7 +130,7 @@
                 "partition_count": { "$ref": "#/definitions/count" },
                 "row_count": { "$ref": "#/definitions/count" },
                 "bytes": { "$ref": "#/definitions/count" },
-                "sha256": { "$ref": "#/definitions/hashValue" }
+                "sha256": { "$ref": "#/definitions/sha256" }
               }
             }
           }
@@ -155,7 +151,7 @@
           ],
           "properties": {
             "mart_schema": { "$ref": "#/definitions/versionedSchema" },
-            "manifest_sha256": { "$ref": "#/definitions/hashValue" },
+            "manifest_sha256": { "$ref": "#/definitions/sha256" },
             "artifact_identity": { "$ref": "#/definitions/sha256" },
             "part_bindings_identity": { "$ref": "#/definitions/sha256" },
             "part_count": { "$ref": "#/definitions/count" },

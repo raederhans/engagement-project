@@ -95,6 +95,24 @@ test('published schema is strict, aggregate-only, M2-independent, and forbids AC
     'm1',
     'm2',
   ]);
+  assert.equal(publishedSchema.definitions.hashValue, undefined);
+  assert.equal(
+    publishedSchema.definitions.exactInput.properties.protocol.properties.sha256.$ref,
+    '#/definitions/sha256',
+  );
+  assert.equal(
+    publishedSchema.definitions.exactInput.properties.m1.properties.receipt_sha256.$ref,
+    '#/definitions/sha256',
+  );
+  assert.equal(
+    publishedSchema.definitions.exactInput.properties.m1.properties.canonical
+      .properties.sha256.$ref,
+    '#/definitions/sha256',
+  );
+  assert.equal(
+    publishedSchema.definitions.exactInput.properties.m2.properties.manifest_sha256.$ref,
+    '#/definitions/sha256',
+  );
   assert.deepEqual(publishedSchema.definitions.governance.properties, {
     integer_m2_mart_contract: { const: 'independent-unchanged' },
     evaluation_contract: { const: 'unchanged' },
@@ -305,6 +323,26 @@ test('exact input rejects M1/M2 canonical and eligible admission drift before ro
     () => createSpatialAttributionAccumulator({ exactInput: m2Drift }),
     hasCode('eligibility-denominator-mismatch'),
   );
+});
+
+test('exact input requires prefixed sha256 byte digests across all producers', () => {
+  for (const fieldPath of [
+    ['protocol', 'sha256'],
+    ['m1', 'receipt_sha256'],
+    ['m1', 'canonical', 'sha256'],
+    ['m2', 'manifest_sha256'],
+  ]) {
+    const hostile = exactInput(1);
+    let target = hostile;
+    for (const segment of fieldPath.slice(0, -1)) target = target[segment];
+    const field = fieldPath.at(-1);
+    target[field] = target[field].slice('sha256:'.length);
+    assert.throws(
+      () => createSpatialAttributionAccumulator({ exactInput: hostile }),
+      hasCode('exact-input-invalid'),
+      fieldPath.join('.'),
+    );
+  }
 });
 
 test('current real-data default cannot activate fractional or kernel from runtime weights', () => {
