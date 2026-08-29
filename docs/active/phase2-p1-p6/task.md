@@ -2,7 +2,7 @@
 
 ## Current status
 
-Scope and isolated integration base frozen; P1 implementation and local mirror complete, with security review and clean-room reconstruction in progress.
+Scope and isolated integration base frozen; P1 is complete through local clean-room reconstruction, exact M1/M2 validation, and byte-identical registry reproduction. P2 is next.
 
 ## Checklist
 
@@ -11,7 +11,7 @@ Scope and isolated integration base frozen; P1 implementation and local mirror c
 - [x] 检查 primary、local main、persistent DFEV1 candidate、worktrees 和 dirty ownership。
 - [x] 建立 `codex/phase2-p1-p6@122bba9` 隔离 integration worktree。
 - [x] 创建单一可恢复 task record。
-- [ ] P1 DataOps / versioned evidence registry。
+- [x] P1 DataOps / versioned evidence registry。
 - [ ] P2 Spatial Attribution v2。
 - [ ] P3 Evaluation Protocol v2。
 - [ ] P4 Area Intelligence productization。
@@ -50,11 +50,15 @@ Scope and isolated integration base frozen; P1 implementation and local mirror c
 | Ajv strict schema compile | PASS for `ArtifactRegistry/v1` |
 | `js-yaml` workflow parse | PASS for `.github/workflows/data-foundation-maintenance.yml` |
 | P1 security/final-diff review and remediation | Initial security P2=4 fixed; final staged review P2=1 fixed; focused re-review PASS with no new P0-P2 |
+| P1 clean-room restore and independent verify | M1 1,456/1,456 objects and 9,984,857,453 bytes; M2 140/140 objects and 827,041,387 bytes; all exit 0 |
+| Restored M1 exact admission | PASS at receipt `bc439541...e315`; 3,586,620 canonical rows / 8,741,798,048 canonical bytes |
+| Restored M2 and evaluation exact admission | PASS at artifact `be26fcab...6d76`; 128 parts / 1,611,918 rows / 825,033,042 bytes; evaluation idempotent, `unavailable` and `not-promoted` |
+| P1 post-restore portability repair | `1288ae1`; M2 no longer reopens a stale producer path after authoritative M1 admission; 8/8 target tests, ESLint, and focused review PASS with no P0-P2 |
+| Clean-room registry identity reproduction | `bundle.json`, `m1.registry.json`, and `m2.registry.json` are byte-identical to the originals; bundle remains `c254caf...86c5e` |
 
 ## Open risks and remaining work
 
 - 尚未选择或获权使用外部对象存储；P1 必须将 provider-neutral 实现、本地 clean-room 验证与跨机器发布权限分开。
-- P1 尚未在 clean checkout 中完成 M1/M2 restore、exact validators 和 identity reproduction；本地镜像完成不等于 clean-room PASS。
 - P1 workflow 仅通过本地静态/契约验证，未推送或触发远端 CI。
-- 安全审查的四个 P2 与 final staged review 的一个 P2 均已修复；focused re-review PASS。clean-room gate 仍未完成。
+- P1 已证明本机隔离路径上的恢复与身份复现；未证明外部对象存储、跨机器传输或灾备演练。
 - 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。

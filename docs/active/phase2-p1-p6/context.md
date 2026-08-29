@@ -24,17 +24,26 @@
 | 2026-08-29 | registry、materializer、mirror、restore 与 workflow 已在 integration worktree 汇合 | 组合契约测试 58 PASS / 1 permission SKIP / 0 FAIL；lineage portability 17/17 PASS；authority 仍全部 false |
 | 2026-08-29 | P1 security review 返回 MEDIUM，P0/P1=0、P2=4；四项均已修复并新增 hostile regressions | materializer link traversal、mirror byte/capacity exhaustion、workflow registry TOCTOU 与 restore implicit replacement 均 fail closed；81-test 组合为 80 PASS / 1 permission SKIP / 0 FAIL |
 | 2026-08-29 | final staged review 发现公共 registry 曾接纳 restore 无 verifier 的 rowCount 组合；修复后 focused re-review PASS | 公共 contract/schema 已统一限制为 line-delimited JSON，registry+restore 39/39 与 Ajv strict PASS；当前无开放 P0-P2，剩余 gate 为真实 clean-room |
+| 2026-08-29 | clean-room M1/M2 restore 与独立 verify 全部 exit 0 | 恢复目标位于独立 artifact root；原持久 source root 未被修改，authority 仍全部 false |
+| 2026-08-29 | M2 exact gate 发现重复打开 legacy producer absolute path | `1288ae1` 让 official mart admission 复用已完成的强 M1 admission；8/8、ESLint 和独立复核 PASS，无开放 P0-P2 |
+| 2026-08-29 | 恢复后的真实 M1、M2、evaluation exact chain PASS | M1 3,586,620 canonical rows；M2 128 parts / 1,611,918 rows；evaluation 幂等且维持 `unavailable` / `not-promoted` |
+| 2026-08-29 | 以冻结 observed-at 从 clean-room roots 重建 metadata | 三个 metadata 文件与原件字节级一致；bundle 仍为 `sha256:c254caf491d161ea4a0d82152a21bdba726ed8bb28c3d30d6d4cbef190e86c5e`；P1 local gate 完成 |
 
 ## Live process ownership
 
 | Process | Owner | Log path | State |
 | --- | --- | --- | --- |
 | P1 local artifact mirror | root integration owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/mirror.log` | completed exit 0 in session `60979`; 1,596 objects / 10,811,898,840 bytes / 8,785,158 declared rows copied and atomically promoted; authority remained all false |
+| P1 clean-room M1 restore | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m1.log` | completed exit 0 in session `11727`; 1,456 restored / 1,456 verified / 9,984,857,453 bytes declared; target atomically promoted, no backup |
+| P1 clean-room M1 exact validator | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m1-exact-validator.log` | completed exit 0 in session `68293`; receipt `bc439541...e315`, 3,586,620 canonical rows; CLI path-policy refusal was separated from the exported exact data validator |
+| P1 clean-room M2 restore | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m2.log` | completed exit 0; 140 restored / 140 verified / 827,041,387 bytes declared; target atomically promoted, no backup |
+| P1 clean-room M2/evaluation exact validator | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-m2-exact-validator.log` | completed exit 0 at `1288ae1`; M2 `be26fcab...6d76`, 128 parts / 1,611,918 rows / 825,033,042 bytes; evaluation idempotent, unavailable and not-promoted |
+| P1 clean-room identity reproduction | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-identity-reproduction.log` | completed exit 0; bundle ID reproduced and all three metadata files are byte-identical |
 
 ## Handoff
 
-当前处于 P1 收口。ArtifactRegistry/v1、lineage portability、registry materializer、local mirror、restore 与 fail-closed workflow 均已进入 integration worktree。真实本地镜像已完成；clean-room 长流程尚未启动。
+P1 已完成并冻结在 `1288ae1` 加本记录更新：provider-neutral registry、materializer、local mirror、restore、fail-closed workflow、真实 clean-room exact validators 与 identity reproduction 全部通过。本地证据不扩大为 cloud/cross-machine、CI、serving、promotion 或 deletion authority。
 
 ## Next step
 
-完成安全审查并冻结 P1 implementation commit；随后从该 commit 建立干净 worktree，由 root 作为唯一 owner 运行 M1/M2 restore、逐对象校验、exact validators 与 identity reproduction。
+冻结 P2 Spatial Attribution v2 的数据契约与三个互斥写入面，创建不超过三个用户可见任务；只消费 exact M1/M2 evidence，不修改产品 serving 或 promotion 状态。
