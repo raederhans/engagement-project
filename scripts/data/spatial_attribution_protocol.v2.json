@@ -143,7 +143,7 @@
         "upper_exclusive": null
       }
     },
-    "acs_policy": "population band only when ACS status is available, temporal alignment is within-period, and modelInputEligible is true",
+    "acs_policy": "population band only when ACS valueStatus is available, temporal alignment is within-period, and modelInputEligible is true",
     "road_policy": {
       "status": "unavailable",
       "reason": "versioned-road-geometry-binding-unavailable"
