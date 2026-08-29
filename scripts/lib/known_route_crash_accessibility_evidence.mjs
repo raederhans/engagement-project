@@ -15,6 +15,8 @@ const SOURCE_ROLES = Object.freeze([
 ]);
 const REQUIRED_SOURCE_ROLES = Object.freeze(['raw-crash', 'accessibility']);
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
+const ROUTE_IDENTITY = /^route:[a-f0-9]{16}$/;
+const CORRIDOR_IDENTITY = /^known-route-corridor:[a-f0-9]{16}$/;
 const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const AUTHORITY = Object.freeze({
   raw_crash: false,
@@ -107,7 +109,8 @@ export function buildKnownRouteCrashAccessibilityEvidence({
   if (schema !== KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA) {
     throw new Error('Known Route crash/accessibility input schema is unsupported.');
   }
-  if (!SHA256.test(routeIdentity || '') || !SHA256.test(corridorIdentity || '')) {
+  if (!ROUTE_IDENTITY.test(routeIdentity || '')
+    || !CORRIDOR_IDENTITY.test(corridorIdentity || '')) {
     throw new Error('Known Route route and corridor semantic identities are required.');
   }
   if (!Array.isArray(sourceReceipts)) {
@@ -141,8 +144,7 @@ export function buildKnownRouteCrashAccessibilityEvidence({
   receipts.sort(compareReceipts);
   const rawCrash = receipts.find(({ role }) => role === 'raw-crash');
   const accessibilityReceipt = receipts.find(({ role }) => role === 'accessibility');
-  const hin = receipts.find(({ role }) => role === 'hin-historical-planning');
-  const crash = crashDimension(rawCrash, hin);
+  const crash = dimensionFromReceipt(rawCrash);
   const accessibility = dimensionFromReceipt(accessibilityReceipt);
   const evidence = {
     schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_EVIDENCE_SCHEMA,
@@ -195,8 +197,7 @@ export function validateKnownRouteCrashAccessibilityEvidence(value) {
 
   const rawCrash = value.source_receipts.find(({ role }) => role === 'raw-crash');
   const accessibilityReceipt = value.source_receipts.find(({ role }) => role === 'accessibility');
-  const hin = value.source_receipts.find(({ role }) => role === 'hin-historical-planning');
-  const expectedCrash = crashDimension(rawCrash, hin);
+  const expectedCrash = dimensionFromReceipt(rawCrash);
   const expectedAccessibility = dimensionFromReceipt(accessibilityReceipt);
   if (stable(value.crash) !== stable(expectedCrash)
     || stable(value.accessibility) !== stable(expectedAccessibility)) {
@@ -213,6 +214,25 @@ export function validateKnownRouteCrashAccessibilityEvidence(value) {
   }
   rejectPrivatePayloadKeys(value);
   return deepFreeze(structuredClone(value));
+}
+
+/**
+ * Formal A/B/C seam: a consumer may admit a Mode Legality Quality (B) or
+ * segment-report binding only when its existing route and deterministic
+ * centerline-corridor identities are byte-for-byte equal to A.
+ */
+export function assertKnownRouteCrashAccessibilityCrossBinding(value, counterpart) {
+  const evidence = validateKnownRouteCrashAccessibilityEvidence(value);
+  if (!counterpart || typeof counterpart !== 'object' || Array.isArray(counterpart)
+    || !ROUTE_IDENTITY.test(counterpart.route_identity || '')
+    || !CORRIDOR_IDENTITY.test(counterpart.corridor_identity || '')) {
+    throw new Error('Known Route counterpart route/corridor binding is invalid.');
+  }
+  if (counterpart.route_identity !== evidence.route_identity
+    || counterpart.corridor_identity !== evidence.corridor_identity) {
+    throw new Error('Known Route A/B route or deterministic centerline corridor identity mismatch.');
+  }
+  return evidence;
 }
 
 export function serializeKnownRouteCrashAccessibilityEvidence(value) {
@@ -322,16 +342,6 @@ function dimensionFromReceipt(receipt) {
   };
 }
 
-function crashDimension(rawCrash, hin) {
-  if (rawCrash.status !== 'unavailable' || !hin) return dimensionFromReceipt(rawCrash);
-  return {
-    status: 'partial',
-    reason: 'Official raw crash payload is unavailable; HIN is partial historical planning context only and supplies no raw crash aggregate.',
-    coverage: structuredClone(hin.coverage),
-    precision: structuredClone(hin.precision),
-  };
-}
-
 function combinedStatus(crashStatus, accessibilityStatus) {
   return crashStatus === accessibilityStatus ? crashStatus : 'partial';
 }
@@ -418,7 +428,8 @@ function validateEvidenceStructure(value) {
   if (value.schema !== KNOWN_ROUTE_CRASH_ACCESSIBILITY_EVIDENCE_SCHEMA
     || !SHA256.test(value.semantic_identity || '')
     || !['available', 'admitted-zero', 'partial', 'unavailable'].includes(value.status)
-    || !SHA256.test(value.route_identity || '') || !SHA256.test(value.corridor_identity || '')
+    || !ROUTE_IDENTITY.test(value.route_identity || '')
+    || !CORRIDOR_IDENTITY.test(value.corridor_identity || '')
     || !Array.isArray(value.source_receipts)
     || value.source_receipts.length < 2 || value.source_receipts.length > 3) {
     throw new Error('Known Route crash/accessibility evidence schema validation failed.');
@@ -446,7 +457,8 @@ function validateReceiptStructure(value) {
     || typeof value.version !== 'string' || value.version.length < 1 || value.version.length > 160
     || !['exact', 'partial', 'unavailable'].includes(value.status)
     || typeof value.reason !== 'string' || value.reason.length < 1 || value.reason.length > 500
-    || !SHA256.test(value.route_identity || '') || !SHA256.test(value.corridor_identity || '')) {
+    || !ROUTE_IDENTITY.test(value.route_identity || '')
+    || !CORRIDOR_IDENTITY.test(value.corridor_identity || '')) {
     throw new Error('Known Route source receipt schema validation failed.');
   }
   exactKeys(value.clocks, ['source_as_of', 'retrieved_at', 'built_at', 'observed_at'], 'source receipt clocks');

@@ -8,6 +8,7 @@ import test from 'node:test';
 import {
   KNOWN_ROUTE_CRASH_ACCESSIBILITY_EVIDENCE_SCHEMA,
   KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
+  assertKnownRouteCrashAccessibilityCrossBinding,
   buildKnownRouteCrashAccessibilityEvidence,
   createKnownRouteSourceReceipt,
   loadKnownRouteCrashAccessibilityInput,
@@ -20,9 +21,18 @@ import {
   main as cliMain,
   parseArguments,
 } from '../build_known_route_crash_accessibility_evidence.mjs';
+import { deterministicIdentity } from '../../src/routes_crime/known_route_evidence_contract.js';
 
-const ROUTE_IDENTITY = `sha256:${'1'.repeat(64)}`;
-const CORRIDOR_IDENTITY = `sha256:${'2'.repeat(64)}`;
+const CENTERLINE_DATA_VERSION = 'city-street-centerline:2026-07-29T13:55:32.074Z';
+const ROUTE_IDENTITY = deterministicIdentity('route', {
+  mode: 'walking',
+  canonical_route: 'synthetic-contract-route',
+});
+const CORRIDOR_IDENTITY = deterministicIdentity('known-route-corridor', {
+  route: ROUTE_IDENTITY,
+  dataVersion: CENTERLINE_DATA_VERSION,
+  edges: ['1001:2001', '1002:2002'],
+});
 const PAYLOAD_SHA = Object.freeze({
   'raw-crash': `sha256:${'3'.repeat(64)}`,
   accessibility: `sha256:${'4'.repeat(64)}`,
@@ -58,6 +68,8 @@ test('published schema is closed and freezes aggregate-only authority boundaries
   assert.equal(schema.$defs.unavailableDimension.additionalProperties, false);
   assert.equal(Object.hasOwn(schema.$defs.unavailableDimension.properties, 'aggregate'), false);
   assert.equal(schema.$defs.zeroDimension.properties.aggregate.properties.count.const, 0);
+  assert.equal(schema.$defs.routeIdentity.pattern, '^route:[a-f0-9]{16}$');
+  assert.equal(schema.$defs.corridorIdentity.pattern, '^known-route-corridor:[a-f0-9]{16}$');
 });
 
 test('healthy exact synthetic receipts admit zero only with complete verified exact coverage', () => {
@@ -101,20 +113,20 @@ test('missing, duplicate, schema, hash, clock, coverage, and identity drift fail
 
   assert.throws(() => buildKnownRouteCrashAccessibilityEvidence({
     schema: KNOWN_ROUTE_CRASH_ACCESSIBILITY_INPUT_SCHEMA,
-    route_identity: `sha256:${'8'.repeat(64)}`,
+    route_identity: `route:${'8'.repeat(16)}`,
     corridor_identity: CORRIDOR_IDENTITY,
     source_receipts: [raw, accessibility],
   }), /identity drifted/i);
 
   const evidence = structuredClone(buildEvidence());
-  evidence.route_identity = `sha256:${'8'.repeat(64)}`;
+  evidence.route_identity = `route:${'8'.repeat(16)}`;
   assert.throws(
     () => validateKnownRouteCrashAccessibilityEvidence(evidence),
     /binding drifted|identity drifted/i,
   );
 });
 
-test('unavailable is never zero and HIN remains partial historical planning context', () => {
+test('unavailable is never zero and HIN remains an independent historical receipt', () => {
   const unavailable = buildEvidence({
     receipts: [sourceReceipt('raw-crash', 'unavailable'), sourceReceipt('accessibility', 'unavailable')],
   });
@@ -132,12 +144,55 @@ test('unavailable is never zero and HIN remains partial historical planning cont
       sourceReceipt('hin-historical-planning', 'partial'),
     ],
   });
-  assert.equal(withHin.status, 'partial');
-  assert.equal(withHin.crash.status, 'partial');
+  assert.equal(withHin.status, 'unavailable');
+  assert.equal(withHin.crash.status, 'unavailable');
   assert.equal(withHin.accessibility.status, 'unavailable');
   assert.equal(Object.hasOwn(withHin.crash, 'aggregate'), false);
-  assert.match(withHin.crash.reason, /no raw crash aggregate/i);
+  assert.deepEqual(withHin.crash.coverage, {
+    status: 'unavailable', scope: 'bound-route-corridor', start: null,
+    end_exclusive: null, verified: false,
+  });
+  assert.deepEqual(withHin.crash.precision, { status: 'unavailable', unit: null });
+  assert.match(withHin.crash.reason, /raw-crash payload is unavailable/i);
+  assert.equal(
+    withHin.source_receipts.find(({ role }) => role === 'hin-historical-planning').status,
+    'partial',
+  );
   assert.equal(withHin.authority.raw_crash, false);
+});
+
+test('A cross-binds to the real B identity grammar by exact route and corridor equality', () => {
+  const evidence = buildEvidence();
+  const bEvidenceBinding = {
+    schema: 'KnownRouteModeLegalityQualityEvidence/v1',
+    route_identity: ROUTE_IDENTITY,
+    corridor_identity: CORRIDOR_IDENTITY,
+    centerline_identity: deterministicIdentity('centerline-catalog', {
+      dataVersion: CENTERLINE_DATA_VERSION,
+      edges: ['1001:2001', '1002:2002'],
+    }),
+  };
+  assert.match(ROUTE_IDENTITY, /^route:[a-f0-9]{16}$/);
+  assert.match(CORRIDOR_IDENTITY, /^known-route-corridor:[a-f0-9]{16}$/);
+  assert.equal(
+    assertKnownRouteCrashAccessibilityCrossBinding(evidence, bEvidenceBinding).semantic_identity,
+    evidence.semantic_identity,
+  );
+
+  assert.throws(
+    () => assertKnownRouteCrashAccessibilityCrossBinding(evidence, {
+      ...bEvidenceBinding,
+      corridor_identity: `known-route-corridor:${'f'.repeat(16)}`,
+    }),
+    /A\/B.*corridor identity mismatch/i,
+  );
+  assert.throws(
+    () => assertKnownRouteCrashAccessibilityCrossBinding(evidence, {
+      ...bEvidenceBinding,
+      route_identity: `sha256:${'f'.repeat(64)}`,
+    }),
+    /binding is invalid/i,
+  );
 });
 
 test('partial receipts cannot smuggle aggregates and admitted-zero cannot use generalized coverage', () => {

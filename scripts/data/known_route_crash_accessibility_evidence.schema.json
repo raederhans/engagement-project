@@ -20,8 +20,8 @@
     "schema": { "const": "KnownRouteCrashAccessibilityEvidence/v1" },
     "semantic_identity": { "$ref": "#/$defs/sha256" },
     "status": { "enum": ["available", "admitted-zero", "partial", "unavailable"] },
-    "route_identity": { "$ref": "#/$defs/sha256" },
-    "corridor_identity": { "$ref": "#/$defs/sha256" },
+    "route_identity": { "$ref": "#/$defs/routeIdentity" },
+    "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
     "source_receipts": {
       "type": "array",
       "minItems": 2,
@@ -72,6 +72,14 @@
     "sha256": {
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "routeIdentity": {
+      "type": "string",
+      "pattern": "^route:[a-f0-9]{16}$"
+    },
+    "corridorIdentity": {
+      "type": "string",
+      "pattern": "^known-route-corridor:[a-f0-9]{16}$"
     },
     "clock": {
       "type": ["string", "null"],
@@ -177,8 +185,8 @@
         "version": { "type": "string", "minLength": 1, "maxLength": 160 },
         "status": { "const": "exact" },
         "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "route_identity": { "$ref": "#/$defs/sha256" },
-        "corridor_identity": { "$ref": "#/$defs/sha256" },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
         "clocks": { "$ref": "#/$defs/clocks" },
         "coverage": { "$ref": "#/$defs/completeCoverage" },
         "precision": { "$ref": "#/$defs/exactPrecision" },
@@ -200,8 +208,8 @@
         "version": { "type": "string", "minLength": 1, "maxLength": 160 },
         "status": { "const": "partial" },
         "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "route_identity": { "$ref": "#/$defs/sha256" },
-        "corridor_identity": { "$ref": "#/$defs/sha256" },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
         "clocks": { "$ref": "#/$defs/clocks" },
         "coverage": { "$ref": "#/$defs/partialCoverage" },
         "precision": { "$ref": "#/$defs/partialPrecision" }
@@ -222,8 +230,8 @@
         "version": { "type": "string", "minLength": 1, "maxLength": 160 },
         "status": { "const": "unavailable" },
         "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "route_identity": { "$ref": "#/$defs/sha256" },
-        "corridor_identity": { "$ref": "#/$defs/sha256" },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
         "clocks": { "$ref": "#/$defs/clocks" },
         "coverage": { "$ref": "#/$defs/unavailableCoverage" },
         "precision": { "$ref": "#/$defs/unavailablePrecision" }
