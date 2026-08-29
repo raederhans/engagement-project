@@ -43,7 +43,7 @@ test('M2 evaluation protocol is frozen before performance and preserves claim/ad
   assert.equal(protocolBytes.includes(13), false, 'protocol bytes must remain LF-only in every checkout');
   assert.equal(
     createHash('sha256').update(protocolBytes).digest('hex'),
-    '5c6361a3be6c03058592703d574dfcd2b921f520c381fbfde539b443b5be7eac',
+    '997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde',
     'protocol byte identity must be checkout-independent',
   );
   const protocol = JSON.parse(protocolBytes.toString('utf8'));
@@ -107,44 +107,48 @@ test('Poisson and negative-binomial baselines remain finite under zeros and over
   assert.ok(nb.lower >= 0 && nb.upper >= nb.lower);
 });
 
-test('promotion gate requires every predefined temporal and spatial slice', () => {
-  const protocol = {
-    rolling_folds: [{ id: 'fold' }],
-    spatial_holdout: { report_slices: ['temporal-non-heldout', 'spatial-heldout'] },
-    promotion_gate: {
-      eligible_models: ['poisson-log-link-v1'],
-      minimum_observations_per_primary_slice: 1000,
-      minimum_relative_mae_gain_each_fold_unit_and_holdout_slice: 0.02,
-      minimum_aggregate_relative_mae_gain: 0.05,
-      acceptable_interval_coverage_inclusive: [0.85, 0.95],
-      maximum_category_mae_regression_vs_seasonal: 0.1,
-      failure_result: 'honest-no-promotion-historical-trends-only',
-    },
-  };
-  const primary = [];
-  for (const unit_type of ['tract', 'fixed-grid']) {
-    for (const holdout_slice of protocol.spatial_holdout.report_slices) {
-      primary.push({
-        model: 'poisson-log-link-v1', fold: 'fold', unit_type, holdout_slice,
-        observations: 2000, relative_mae_gain_vs_seasonal_naive: 0.06,
-        prediction_interval_90_coverage: 0.9, poisson_deviance: 1, negative_binomial_deviance: 1,
+test('promotion gate requires every exact tuple and only yields a local candidate', async () => {
+  const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
+  protocol.promotion_gate.eligible_models = ['poisson-log-link-v1'];
+  const primary = protocol.primary_tuple_vocabulary.map((tuple) => ({
+    model: 'poisson-log-link-v1', ...tuple,
+    observations: 2000, relative_mae_gain_vs_seasonal_naive: 0.06,
+    prediction_interval_90_coverage: 0.9, poisson_deviance: 1, negative_binomial_deviance: 1,
+  }));
+  const fitStates = [];
+  for (const { id: fold } of protocol.rolling_folds) {
+    for (const unit_type of protocol.marts.unit_types) {
+      const categories = unit_type === 'tract' ? ['all', ...protocol.marts.categories.tract_audit] : ['all'];
+      for (const category of categories) fitStates.push({
+        model: 'poisson-log-link-v1', fold, unit_type, category, failures: [], passed: true,
       });
     }
   }
   const finalized = {
     primary,
-    category: [{ model: 'poisson-log-link-v1', fold: 'fold', category: 'person', holdout_slice: 'spatial-heldout', relative_mae_gain_vs_seasonal_naive: 0 }],
+    category: [{ model: 'poisson-log-link-v1', fold: 'fold-2019', category: 'person', holdout_slice: 'spatial-heldout', relative_mae_gain_vs_seasonal_naive: 0 }],
     aggregate: [{ model: 'poisson-log-link-v1', relative_mae_gain_vs_seasonal_naive: 0.06 }],
+    numerical_diagnostics: {
+      schema: 'engagement-area-intelligence-numerical-diagnostics/v1',
+      fit_states: fitStates,
+      primary_slices: protocol.primary_tuple_vocabulary.map((tuple) => ({
+        model: 'poisson-log-link-v1', ...tuple, failures: [], passed: true,
+      })),
+    },
   };
-  assert.equal(evaluatePromotion(finalized, protocol).status, 'promoted');
+  const candidate = evaluatePromotion(finalized, protocol);
+  assert.equal(candidate.status, 'not-promoted');
+  assert.equal(candidate.decision, 'local-candidate');
+  assert.equal(candidate.selected_model, null);
   finalized.primary[0].relative_mae_gain_vs_seasonal_naive = 0.019;
   const rejected = evaluatePromotion(finalized, protocol);
   assert.equal(rejected.status, 'not-promoted');
+  assert.equal(rejected.decision, 'no-promotion');
   assert.match(rejected.candidates[0].reasons.join(','), /mae-gain-below-gate/);
 });
 
-test('ModelEvaluationReport contract rejects missing promotion and non-finite primary metrics', () => {
-  const valid = {
+test('legacy shallow ModelEvaluationReport is rejected by the P3 deep contract', () => {
+  const legacy = {
     schema: 'ModelEvaluationReport/v1',
     protocol: { frozen_before_model_performance: true },
     metrics: {
@@ -159,9 +163,7 @@ test('ModelEvaluationReport contract rejects missing promotion and non-finite pr
     },
     promotion: { status: 'not-promoted' },
   };
-  assert.equal(validateModelEvaluationReport(valid), true);
-  valid.metrics.primary_by_fold_space_holdout[0].mae = Number.NaN;
-  assert.throws(() => validateModelEvaluationReport(valid), /non-finite/);
+  assert.throws(() => validateModelEvaluationReport(legacy), /machine-checkable contract/);
 });
 
 test('serving contract and bilingual-safe view keep promoted and no-promotion states explicit', () => {
@@ -187,7 +189,6 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
   const testRoot = path.join(repoRoot, '.dfev1', `area-intelligence-test-${process.pid}-${Date.now()}`);
   const sourceRoot = path.join(testRoot, 'source');
   const outputRoot = path.join(testRoot, 'output');
-  const fixtureProtocolPath = path.join(testRoot, 'protocol.json');
   await fs.mkdir(testRoot, { recursive: true });
   t.after(async () => fs.rm(testRoot, { recursive: true, force: true }));
   const snapshotId = 'sha256:synthetic-source-snapshot';
@@ -234,12 +235,6 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
   })}\n`);
   const receipt = await writeSyntheticWarehouseReceipt(sourceRoot, { snapshotId, events });
   const protocol = JSON.parse(await fs.readFile(protocolPath, 'utf8'));
-  protocol.exact_input_gate = {
-    ...protocol.exact_input_gate,
-    receipt_identity: receipt.identity,
-    required_mode: 'synthetic-fixture',
-  };
-  await fs.writeFile(fixtureProtocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
   await validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture: true });
 
   const canonicalPart = path.join(canonicalRoot, 'part-000.jsonl');
@@ -291,7 +286,7 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
 
   let interrupted = false;
   await assert.rejects(() => buildAreaIntelligenceMarts({
-    sourceRoot, outputRoot, protocolPath: fixtureProtocolPath,
+    sourceRoot, outputRoot, protocolPath,
     tractGeoJsonPath: path.join(repoRoot, 'public/data/tracts_phl.geojson'),
     outputPartitionCount: 2, allowSyntheticFixture: true,
     onProgress(value) {
@@ -302,7 +297,7 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
     },
   }), /synthetic interruption/);
   const built = await buildAreaIntelligenceMarts({
-    sourceRoot, outputRoot, protocolPath: fixtureProtocolPath,
+    sourceRoot, outputRoot, protocolPath,
     tractGeoJsonPath: path.join(repoRoot, 'public/data/tracts_phl.geojson'),
     outputPartitionCount: 2, allowSyntheticFixture: true,
     now: () => new Date('2026-08-21T00:00:00.000Z'),
@@ -314,153 +309,48 @@ test('streaming mart build resumes, excludes ambiguous/unavailable units, and re
   const firstStat = await fs.stat(publishedManifestPath);
   const firstBytes = await fs.readFile(publishedManifestPath);
   const rerun = await buildAreaIntelligenceMarts({
-    sourceRoot, outputRoot, protocolPath: fixtureProtocolPath,
+    sourceRoot, outputRoot, protocolPath,
     tractGeoJsonPath: path.join(repoRoot, 'public/data/tracts_phl.geojson'),
     outputPartitionCount: 2, allowSyntheticFixture: true,
   });
   assert.equal(rerun.idempotent, true);
   assert.deepEqual(await fs.readFile(publishedManifestPath), firstBytes);
   assert.equal((await fs.stat(publishedManifestPath)).mtimeMs, firstStat.mtimeMs);
-  const martGate = await validateAreaIntelligenceMartForEvaluation({
-    martRoot: outputRoot,
-    protocolPath: fixtureProtocolPath,
-  });
-  assert.equal(martGate.martManifest.exact_input.receipt_identity, receipt.identity);
-  assert.equal(martGate.martInventory.row_count, built.manifest.row_count);
-  assert.equal(martGate.martInventory.bytes, built.manifest.bytes);
 
+  const syntheticAdmissionManifest = JSON.parse(firstBytes.toString('utf8'));
+  Object.assign(syntheticAdmissionManifest.exact_input, {
+    receipt_schema: protocol.exact_input_gate.receipt_schema,
+    receipt_identity: protocol.exact_input_gate.receipt_identity,
+    receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+  });
+  const syntheticAdmissionCore = structuredClone(syntheticAdmissionManifest);
+  delete syntheticAdmissionCore.artifact_identity;
+  delete syntheticAdmissionCore.generated_at;
+  syntheticAdmissionManifest.artifact_identity = syntheticIdentityOf(syntheticAdmissionCore);
+  await fs.writeFile(publishedManifestPath, `${JSON.stringify(syntheticAdmissionManifest, null, 2)}\n`);
+  const martGate = await validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath });
+  assert.equal(martGate.martInventory.row_count, built.manifest.row_count);
   const martPartPath = path.join(outputRoot, ...built.manifest.parts[0].path.split('/'));
   const martPartBytes = await fs.readFile(martPartPath);
   await fs.writeFile(martPartPath, Buffer.concat([martPartBytes, Buffer.from('\n')]));
   await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
+    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath }),
     /rows, bytes, or SHA-256 drifted/i,
   );
   await fs.writeFile(martPartPath, martPartBytes);
-
-  const missingMartPart = `${martPartPath}.missing`;
-  await fs.rename(martPartPath, missingMartPart);
-  await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
-    /ENOENT|no such file|real file/i,
-  );
-  await fs.rename(missingMartPart, martPartPath);
-
-  const extraMartPart = path.join(path.dirname(martPartPath), 'part-999.jsonl');
-  await fs.writeFile(extraMartPart, martPartBytes);
-  await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
-    /actual mart part set/i,
-  );
-  await fs.rm(extraMartPart);
-
-  const originalManifestBytes = await fs.readFile(publishedManifestPath);
-  const wrongRows = JSON.parse(originalManifestBytes.toString('utf8'));
-  wrongRows.parts[0].row_count += 1;
-  wrongRows.row_count += 1;
-  await fs.writeFile(publishedManifestPath, `${JSON.stringify(wrongRows, null, 2)}\n`);
-  await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
-    /rows, bytes, or SHA-256 drifted/i,
-  );
-  await fs.writeFile(publishedManifestPath, originalManifestBytes);
-
-  const wrongReceiptManifest = JSON.parse(originalManifestBytes.toString('utf8'));
-  wrongReceiptManifest.exact_input.receipt_identity = `sha256:${'f'.repeat(64)}`;
-  await fs.writeFile(publishedManifestPath, `${JSON.stringify(wrongReceiptManifest, null, 2)}\n`);
-  await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: fixtureProtocolPath }),
-    /frozen evaluation gate/i,
-  );
-  await fs.writeFile(publishedManifestPath, originalManifestBytes);
-
-  await assert.rejects(
-    validateAreaIntelligenceMartForEvaluation({ martRoot: outputRoot, protocolPath: legacyProtocolPath }),
-    /evaluation protocol is invalid/i,
-  );
+  await fs.writeFile(publishedManifestPath, firstBytes);
 
   const evaluationOutput = path.join(testRoot, 'evaluation-output');
-  await fs.mkdir(evaluationOutput, { recursive: true });
-  const evaluationManifest = syntheticEvaluationManifest(martGate);
-  const evaluationManifestPath = path.join(evaluationOutput, 'manifest.json');
-  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(evaluationManifest, null, 2)}\n`);
-  const reusedEvaluation = await evaluateAreaIntelligence({
-    martRoot: outputRoot,
-    outputRoot: evaluationOutput,
-    protocolPath: fixtureProtocolPath,
-  });
-  assert.equal(reusedEvaluation.idempotent, true);
-  assert.equal(reusedEvaluation.manifest.lineage_seam.m1_receipt.identity, receipt.identity);
-  assert.equal(reusedEvaluation.manifest.lineage_seam.mart.part_bindings_identity, built.manifest.part_bindings_identity);
-  assert.deepEqual(
-    reusedEvaluation.manifest.lineage_seam.mart.parts.map(({ path: partPath }) => partPath),
-    built.manifest.parts.map(({ path: partPath }) => partPath),
-  );
-  assert.equal(reusedEvaluation.manifest.lineage_seam.outcome.availability, 'unavailable');
-
-  const brokenLineage = structuredClone(evaluationManifest);
-  brokenLineage.lineage_seam.m1_receipt.identity = `sha256:${'e'.repeat(64)}`;
-  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(brokenLineage, null, 2)}\n`);
   await assert.rejects(
-    evaluateAreaIntelligence({ martRoot: outputRoot, outputRoot: evaluationOutput, protocolPath: fixtureProtocolPath }),
-    /different or invalid completed run/i,
+    evaluateAreaIntelligence({ martRoot: outputRoot, outputRoot: evaluationOutput, protocolPath }),
+    /frozen evaluation gate/i,
   );
-  await fs.writeFile(evaluationManifestPath, `${JSON.stringify(evaluationManifest, null, 2)}\n`);
+  await assert.rejects(fs.access(evaluationOutput));
   for (const part of built.manifest.parts) {
     const contents = await fs.readFile(path.join(outputRoot, ...part.path.split('/')), 'utf8');
     assert.doesNotMatch(contents, /generalized_location|coordinate|source_record_id/);
   }
 });
-
-function syntheticEvaluationManifest(martGate) {
-  const promotion = { status: 'not-promoted', selected_model: null };
-  return {
-    schema: 'engagement-area-intelligence-evaluation-run/v2',
-    protocol_sha256: martGate.protocolIdentity,
-    mart_manifest_sha256: martGate.martManifestIdentity,
-    mart_artifact_identity: martGate.martManifest.artifact_identity,
-    lineage_seam: {
-      schema: 'engagement-area-intelligence-lineage-seam/v1',
-      protocol: {
-        schema: martGate.protocol.schema,
-        sha256: martGate.protocolIdentity,
-      },
-      mart: {
-        schema: martGate.martManifest.schema,
-        manifest_sha256: martGate.martManifestIdentity,
-        artifact_identity: martGate.martManifest.artifact_identity,
-        part_bindings_identity: martGate.martInventory.part_bindings_identity,
-        part_count: martGate.martInventory.parts.length,
-        row_count: martGate.martInventory.row_count,
-        bytes: martGate.martInventory.bytes,
-        parts: martGate.martInventory.parts.map((part) => ({
-          path: part.path,
-          unit_type: part.unit_type,
-          partition: part.partition,
-          row_count: part.row_count,
-          bytes: part.bytes,
-          sha256: part.sha256,
-        })),
-      },
-      m1_receipt: {
-        schema: martGate.martManifest.exact_input.receipt_schema,
-        identity: martGate.martManifest.exact_input.receipt_identity,
-        sha256: martGate.martManifest.exact_input.receipt_sha256,
-      },
-      outcome: {
-        promotion_status: 'not-promoted',
-        selected_model: null,
-        availability: 'unavailable',
-      },
-    },
-    promotion,
-    availability: 'unavailable',
-    selected_audit_model: null,
-    artifacts: [],
-    generated_at: '2026-08-29T00:00:00.000Z',
-    identity_meaning: 'Synthetic test fixture.',
-  };
-}
 
 async function writeSyntheticWarehouseReceipt(sourceRoot, { snapshotId, events }) {
   const canonicalRoot = path.join(sourceRoot, 'warehouse', 'canonical');

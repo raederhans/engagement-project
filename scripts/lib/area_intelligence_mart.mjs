@@ -8,10 +8,14 @@ import {
   CRIME_WAREHOUSE_RECEIPT_SCHEMA,
   validateCrimeWarehouseAdmissionReceipt,
 } from './crime_event_warehouse.mjs';
+import {
+  AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+  loadAreaIntelligenceEvaluationProtocol,
+  validateAreaIntelligenceEvaluationProtocol,
+} from './area_intelligence_evaluation_protocol.mjs';
 
 const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-mart-checkpoint/v2';
-const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function buildAreaIntelligenceMarts({
@@ -25,10 +29,8 @@ export async function buildAreaIntelligenceMarts({
   onProgress = () => {},
 } = {}) {
   const resolvedOutput = assertOwnedOutputRoot(outputRoot);
-  const protocolBytes = await fs.readFile(protocolPath);
-  const protocol = JSON.parse(protocolBytes.toString('utf8'));
-  validateEvaluationProtocol(protocol);
-  const protocolIdentity = sha256(protocolBytes);
+  const protocol = await loadAreaIntelligenceEvaluationProtocol({ protocolPath });
+  const protocolIdentity = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256;
   const gate = await validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture });
 
   if (!Number.isInteger(outputPartitionCount) || outputPartitionCount < 1 || outputPartitionCount > 128) {
@@ -140,6 +142,7 @@ export async function buildAreaIntelligenceMarts({
     protocol: {
       schema: protocol.schema,
       sha256: protocolIdentity,
+      receipt_sha256: protocol.exact_input_gate.receipt_sha256,
       frozen_at: protocol.frozen_at,
       frozen_before_model_performance: protocol.frozen_before_model_performance,
     },
@@ -321,17 +324,21 @@ async function inspectJsonlIdentity(filePath) {
 }
 
 export async function validateExactWarehouse(sourceRoot, protocol, { allowSyntheticFixture = false } = {}) {
+  validateAreaIntelligenceEvaluationProtocol(protocol);
   const root = path.resolve(sourceRoot || '');
   const warehouseRoot = path.join(root, 'warehouse');
   const expected = protocol.exact_input_gate;
+  await validateReceiptBytesBeforeWarehouseScan(root, expected, { allowSyntheticFixture });
   const admitted = allowSyntheticFixture
     ? await validateSyntheticWarehouseAdmissionReceipt(root)
     : await validateCrimeWarehouseAdmissionReceipt(root);
   const { receipt } = admitted;
   if (receipt.schema !== expected.receipt_schema
     || receipt.schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
-    || receipt.identity !== expected.receipt_identity
-    || receipt.mode !== expected.required_mode
+    || (!allowSyntheticFixture && receipt.identity !== expected.receipt_identity)
+    || (!allowSyntheticFixture && receipt.mode !== expected.required_mode)
+    || (allowSyntheticFixture && receipt.mode !== 'synthetic-fixture')
+    || (!allowSyntheticFixture && admitted.sha256 !== expected.receipt_sha256)
     || receipt.warehouse?.schema !== expected.warehouse_schema
     || receipt.serving_eligible !== expected.serving_eligible
     || stableSerialization(receipt.authority) !== stableSerialization(expected.required_authority)
@@ -469,6 +476,31 @@ export async function validateExactWarehouse(sourceRoot, protocol, { allowSynthe
       },
     },
   };
+}
+
+async function validateReceiptBytesBeforeWarehouseScan(root, expected, { allowSyntheticFixture }) {
+  const receiptPath = path.join(root, 'receipt.json');
+  const stat = await fs.lstat(receiptPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error('Area Intelligence M1 receipt must be a real file.');
+  }
+  const bytes = await fs.readFile(receiptPath);
+  const observedSha256 = `sha256:${sha256(bytes)}`;
+  let receipt;
+  try {
+    receipt = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    throw new Error('Area Intelligence M1 receipt JSON is invalid.');
+  }
+  if (receipt?.schema !== expected.receipt_schema
+    || receipt.schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
+    || (!allowSyntheticFixture && receipt.identity !== expected.receipt_identity)
+    || (!allowSyntheticFixture && receipt.mode !== expected.required_mode)
+    || (!allowSyntheticFixture && observedSha256 !== expected.receipt_sha256)
+    || (allowSyntheticFixture && receipt.mode !== 'synthetic-fixture')) {
+    throw new Error('Area Intelligence M1 receipt bytes or frozen identity failed preflight.');
+  }
+  return { receipt, sha256: observedSha256 };
 }
 
 async function stageCanonicalPartition({
@@ -931,18 +963,6 @@ async function inventoryRelativeFiles(outputRoot, files) {
     });
   }
   return records;
-}
-
-function validateEvaluationProtocol(protocol) {
-  if (protocol?.schema !== PROTOCOL_SCHEMA
-    || protocol.schema_version !== 2
-    || protocol.frozen_before_model_performance !== true
-    || !Array.isArray(protocol.rolling_folds) || protocol.rolling_folds.length < 3
-    || protocol.promotion_gate?.failure_result !== 'honest-no-promotion-historical-trends-only'
-    || protocol.exact_input_gate?.receipt_schema !== CRIME_WAREHOUSE_RECEIPT_SCHEMA
-    || !/^sha256:[a-f0-9]{64}$/.test(protocol.exact_input_gate?.receipt_identity || '')) {
-    throw new Error('Area Intelligence evaluation protocol is invalid or not frozen.');
-  }
 }
 
 function assertOwnedOutputRoot(outputRoot) {

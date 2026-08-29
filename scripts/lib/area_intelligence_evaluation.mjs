@@ -14,6 +14,7 @@ import {
   createMetricAccumulator,
   createResidualHistogram,
   dataVolumeBand,
+  diagnoseModelNumerics,
   empiricalInterval,
   featureVector,
   finalizeDispersion,
@@ -28,6 +29,11 @@ import {
   solveIrls,
 } from './area_intelligence_model.mjs';
 import { addWeeks } from './area_intelligence_mart.mjs';
+import {
+  AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+  loadAreaIntelligenceEvaluationProtocol,
+  stableSerialization,
+} from './area_intelligence_evaluation_protocol.mjs';
 
 const EVALUATION_SCHEMA = 'ModelEvaluationReport/v1';
 const EVALUATION_MANIFEST_SCHEMA = 'engagement-area-intelligence-evaluation-run/v2';
@@ -35,17 +41,35 @@ const CHECKPOINT_SCHEMA = 'engagement-area-intelligence-evaluation-checkpoint/v2
 const PROTOCOL_SCHEMA = 'engagement-area-intelligence-evaluation-protocol/v2';
 const MART_SCHEMA = 'engagement-area-intelligence-feature-mart/v2';
 const LINEAGE_SEAM_SCHEMA = 'engagement-area-intelligence-lineage-seam/v1';
+const NUMERICAL_DIAGNOSTICS_SCHEMA = 'engagement-area-intelligence-numerical-diagnostics/v1';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const BASELINE_MODELS = ['seasonal-naive-52w', 'moving-average-4w', 'moving-average-13w'];
 const COUNT_MODELS = ['poisson-log-link-v1', 'negative-binomial-log-link-v1'];
 const ALL_MODELS = [...BASELINE_MODELS, ...COUNT_MODELS];
+const TRACT_CATEGORIES = ['all', 'person', 'property', 'vehicle', 'financial', 'public_order', 'other'];
+const AUTHORITY_KEYS = ['local_evaluation', 'serving', 'product_promotion', 'scientific', 'causal', 'safety', 'deletion'];
+const PRIVACY_KEYS = [
+  'aggregate_only',
+  'event_level_data_included',
+  'coordinates_included',
+  'generalized_locations_included',
+  'raw_or_canonical_events_included',
+  'source_record_ids_included',
+];
+const EVALUATION_ARTIFACT_NAMES = [
+  'bias-error-audit.json',
+  'data-lineage-summary.json',
+  'model-card.md',
+  'model-evaluation-report.json',
+  'model-state.json',
+  'residual-map.json',
+  'serving-artifact.json',
+];
 
 export async function validateAreaIntelligenceMartForEvaluation({ martRoot, protocolPath } = {}) {
   const resolvedMartRoot = path.resolve(martRoot || '');
-  const protocolBytes = await fs.readFile(protocolPath);
-  const protocol = JSON.parse(protocolBytes.toString('utf8'));
-  const protocolIdentity = sha256(protocolBytes);
-  validateProtocol(protocol);
+  const protocol = await loadAreaIntelligenceEvaluationProtocol({ protocolPath });
+  const protocolIdentity = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256;
   const martManifestBytes = await fs.readFile(path.join(resolvedMartRoot, 'manifest.json'));
   const martManifest = JSON.parse(martManifestBytes.toString('utf8'));
   validateMartManifest(martManifest, protocol, protocolIdentity);
@@ -83,6 +107,7 @@ export async function evaluateAreaIntelligence({
     if (await validateExistingEvaluation(existing, resolvedOutput, {
       martManifestIdentity,
       protocolIdentity,
+      protocol,
       martManifest,
       martInventory,
     })) {
@@ -109,18 +134,23 @@ export async function evaluateAreaIntelligence({
       accumulateFitSeries(series, states, accumulators, 'poisson');
     });
     for (const [key, state] of states) {
-      const result = solveIrls(accumulators.get(key), state.poisson_beta, { coefficientLimit: 12 });
+      const result = solveIrls(accumulators.get(key), state.poisson_beta, {
+        coefficientLimit: protocol.numerical_stability_gate.coefficient_abs_limit_inclusive,
+      });
       state.poisson_beta = result.beta;
       state.poisson_fit_observations = result.observations;
       state.poisson_last_change = result.changed;
-      state.poisson_singular = Boolean(result.singular);
+      state.poisson_singular = Boolean(state.poisson_singular || result.singular);
+      state.poisson_iterations_completed = checkpoint.poisson_iterations_completed + 1;
     }
     checkpoint.poisson_iterations_completed += 1;
     checkpoint.states = serializeStates(states);
     checkpoint.updated_at = exactNow(now);
     await writeJsonAtomic(checkpointPath, checkpoint);
     onProgress({ phase: 'poisson-fit', iteration: checkpoint.poisson_iterations_completed, iterations: poissonIterations });
-    if ([...states.values()].every((state) => state.poisson_last_change < 1e-7)) break;
+    if ([...states.values()].every((state) => (
+      state.poisson_last_change < protocol.numerical_stability_gate.convergence.threshold_exclusive
+    ))) break;
   }
 
   if (!checkpoint.dispersion_completed) {
@@ -129,7 +159,8 @@ export async function evaluateAreaIntelligence({
       accumulateDispersionSeries(series, states, accumulators);
     });
     for (const [key, state] of states) {
-      state.alpha = finalizeDispersion(accumulators.get(key));
+      const [minimum, maximum] = protocol.numerical_stability_gate.dispersion_alpha_inclusive;
+      state.alpha = finalizeDispersion(accumulators.get(key), { minimum, maximum });
       state.nb_beta = [...state.poisson_beta];
     }
     checkpoint.dispersion_completed = true;
@@ -146,18 +177,23 @@ export async function evaluateAreaIntelligence({
       accumulateFitSeries(series, states, accumulators, 'negative-binomial');
     });
     for (const [key, state] of states) {
-      const result = solveIrls(accumulators.get(key), state.nb_beta, { coefficientLimit: 12 });
+      const result = solveIrls(accumulators.get(key), state.nb_beta, {
+        coefficientLimit: protocol.numerical_stability_gate.coefficient_abs_limit_inclusive,
+      });
       state.nb_beta = result.beta;
       state.nb_fit_observations = result.observations;
       state.nb_last_change = result.changed;
-      state.nb_singular = Boolean(result.singular);
+      state.nb_singular = Boolean(state.nb_singular || result.singular);
+      state.nb_iterations_completed = checkpoint.nb_iterations_completed + 1;
     }
     checkpoint.nb_iterations_completed += 1;
     checkpoint.states = serializeStates(states);
     checkpoint.updated_at = exactNow(now);
     await writeJsonAtomic(checkpointPath, checkpoint);
     onProgress({ phase: 'negative-binomial-fit', iteration: checkpoint.nb_iterations_completed, iterations: nbIterations });
-    if ([...states.values()].every((state) => state.nb_last_change < 1e-7)) break;
+    if ([...states.values()].every((state) => (
+      state.nb_last_change < protocol.numerical_stability_gate.convergence.threshold_exclusive
+    ))) break;
   }
 
   if (!checkpoint.baseline_intervals_completed) {
@@ -171,7 +207,7 @@ export async function evaluateAreaIntelligence({
     for (const [key, state] of states) {
       state.baseline_interval_radii = Object.fromEntries(BASELINE_MODELS.map((model) => [
         model,
-        residualQuantile(histograms.get(`${key}|${model}`), 0.9),
+        residualQuantile(histograms.get(`${key}|${model}`), protocol.metrics.interval_nominal),
       ]));
     }
     checkpoint.baseline_intervals_completed = true;
@@ -182,16 +218,27 @@ export async function evaluateAreaIntelligence({
   }
 
   const metrics = createMetricCollections();
+  const numericalEvidence = createNumericalEvidence();
   await scanMartUnits(resolvedMartRoot, martManifest, martInventory, (series) => {
-    evaluateSeries(series, states, protocol, metrics);
+    evaluateSeries(series, states, protocol, metrics, numericalEvidence);
   });
-  const finalized = finalizeMetricCollections(metrics);
+  const finalized = finalizeMetricCollections(metrics, protocol);
+  finalized.numerical_diagnostics = buildNumericalDiagnostics({
+    states,
+    finalized,
+    numericalEvidence,
+    protocol,
+    checkpoint,
+  });
+  checkpoint.numerical_gate = {
+    fit_states_passed: finalized.numerical_diagnostics.all_applicable_fit_states_passed,
+    primary_slices_passed: finalized.numerical_diagnostics.all_primary_slices_passed,
+    failed_fit_state_count: finalized.numerical_diagnostics.fit_states.filter(({ passed }) => !passed).length,
+    failed_primary_slice_count: finalized.numerical_diagnostics.primary_slices.filter(({ passed }) => !passed).length,
+  };
   const promotion = evaluatePromotion(finalized, protocol);
   const generatedAt = exactNow(now);
   const selectedAuditModel = promotion.selected_model || selectBestAuditModel(finalized.aggregate);
-  const forecasts = promotion.status === 'promoted'
-    ? await buildPromotedForecasts(resolvedMartRoot, martManifest, martInventory, states, promotion.selected_model, generatedAt)
-    : [];
   await assertMartInventoryUnchanged(resolvedMartRoot, martManifest, martInventory);
 
   const report = buildEvaluationReport({
@@ -210,20 +257,20 @@ export async function evaluateAreaIntelligence({
   const lineageSummary = buildLineageSummary(martManifest, martManifestIdentity, protocolIdentity, generatedAt);
   const servingArtifact = buildServingArtifact({
     report,
-    forecasts,
     selectedAuditModel,
     generatedAt,
   });
+  validateAreaIntelligenceEvaluationServingArtifact(servingArtifact, { report, protocol });
   const modelCard = buildModelCard({ report, selectedAuditModel });
   const modelState = buildModelState(states, protocolIdentity, martManifestIdentity, generatedAt);
 
   const artifacts = {
-    'model-evaluation-report.json': `${JSON.stringify(report, null, 2)}\n`,
-    'residual-map.json': `${JSON.stringify(residualMap, null, 2)}\n`,
-    'bias-error-audit.json': `${JSON.stringify(biasAudit, null, 2)}\n`,
-    'data-lineage-summary.json': `${JSON.stringify(lineageSummary, null, 2)}\n`,
-    'serving-artifact.json': `${JSON.stringify(servingArtifact, null, 2)}\n`,
-    'model-state.json': `${JSON.stringify(modelState, null, 2)}\n`,
+    'model-evaluation-report.json': serializeJson(report, 'model evaluation report'),
+    'residual-map.json': serializeJson(residualMap, 'residual map'),
+    'bias-error-audit.json': serializeJson(biasAudit, 'bias/error audit'),
+    'data-lineage-summary.json': serializeJson(lineageSummary, 'data lineage summary'),
+    'serving-artifact.json': serializeJson(servingArtifact, 'serving artifact'),
+    'model-state.json': serializeJson(modelState, 'model state'),
     'model-card.md': modelCard,
   };
   const artifactRecords = [];
@@ -233,7 +280,7 @@ export async function evaluateAreaIntelligence({
     artifactRecords.push({ name, bytes: Buffer.byteLength(contents), sha256: sha256(Buffer.from(contents)) });
   }
   artifactRecords.sort((left, right) => left.name.localeCompare(right.name));
-  const availability = promotion.status === 'promoted' ? 'available' : 'unavailable';
+  const availability = 'unavailable';
   const lineageSeam = buildEvaluationLineageSeam({
     protocol,
     protocolIdentity,
@@ -245,6 +292,11 @@ export async function evaluateAreaIntelligence({
   });
   const evaluationManifest = {
     schema: EVALUATION_MANIFEST_SCHEMA,
+    protocol: {
+      schema: protocol.schema,
+      sha256: protocolIdentity,
+      receipt_sha256: protocol.exact_input_gate.receipt_sha256,
+    },
     protocol_sha256: protocolIdentity,
     mart_manifest_sha256: martManifestIdentity,
     mart_artifact_identity: martManifest.artifact_identity,
@@ -252,13 +304,31 @@ export async function evaluateAreaIntelligence({
     promotion,
     availability,
     selected_audit_model: selectedAuditModel,
+    local_candidate_only: true,
+    authority: structuredClone(protocol.authority),
+    privacy: structuredClone(protocol.privacy),
     artifacts: artifactRecords,
     generated_at: generatedAt,
     identity_meaning: 'Artifact byte identity only; model correctness is established by the frozen evaluation protocol and reported metrics, not this identity.',
   };
+  validateAreaIntelligenceEvaluationManifest(evaluationManifest, {
+    protocol,
+    martManifest,
+    martManifestIdentity,
+    martInventory,
+    report,
+    servingArtifact,
+  });
   await writeJsonAtomic(path.join(resolvedOutput, 'manifest.json'), evaluationManifest);
   checkpoint.status = 'complete';
   checkpoint.updated_at = generatedAt;
+  validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
+    protocolIdentity,
+    martManifestIdentity,
+    martArtifactIdentity: martManifest.artifact_identity,
+    receiptSha256: protocol.exact_input_gate.receipt_sha256,
+    protocol,
+  });
   await writeJsonAtomic(checkpointPath, checkpoint);
   onProgress({ phase: 'complete', promotion: promotion.status, selectedModel: promotion.selected_model });
   return { manifest: evaluationManifest, report, idempotent: false };
@@ -277,7 +347,15 @@ function createStates(protocol) {
           category,
           poisson_beta: [0, 0, 0, 0, 0, 0],
           nb_beta: [0, 0, 0, 0, 0, 0],
-          alpha: 0.000001,
+          alpha: protocol.numerical_stability_gate.dispersion_alpha_inclusive[0],
+          poisson_fit_observations: 0,
+          poisson_last_change: null,
+          poisson_singular: false,
+          poisson_iterations_completed: 0,
+          nb_fit_observations: 0,
+          nb_last_change: null,
+          nb_singular: false,
+          nb_iterations_completed: 0,
           baseline_interval_radii: {},
         });
       }
@@ -356,7 +434,7 @@ function createMetricCollections() {
   ]));
 }
 
-function evaluateSeries(series, states, protocol, metrics) {
+function evaluateSeries(series, states, protocol, metrics, numericalEvidence) {
   const heldout = isSpatialHoldout(series.spatial_block_id, protocol.spatial_holdout.holdout_remainder);
   const holdoutSlice = heldout ? 'spatial-heldout' : 'temporal-non-heldout';
   for (const state of states.values()) {
@@ -375,40 +453,156 @@ function evaluateSeries(series, states, protocol, metrics) {
       };
       for (const model of ALL_MODELS) {
         const predicted = predictions[model];
-        const interval = baselineIntervalOrDistribution(state, model, predicted);
+        const interval = baselineIntervalOrDistribution(state, model, predicted, protocol.metrics.interval_nominal);
         const observation = { actual, predicted, interval, alpha: state.alpha };
+        const failures = validateEvaluationObservation({
+          predicted,
+          interval,
+          maximumPrediction: protocol.numerical_stability_gate.prediction.maximum_inclusive,
+        });
+        recordNumericalObservation(numericalEvidence, {
+          model,
+          state,
+          holdoutSlice,
+          predicted,
+          interval,
+          failures,
+          fitStateApplicable: COUNT_MODELS.includes(model),
+        });
+        const admittedObservation = failures.length === 0 ? observation : null;
         if (state.category === 'all') {
           addMetric(metrics.primary, {
             model, fold: state.fold.id, unit_type: state.unit_type, holdout_slice: holdoutSlice,
-          }, observation);
+          }, admittedObservation);
           addMetric(metrics.volume, {
             model, fold: state.fold.id, unit_type: state.unit_type, holdout_slice: holdoutSlice, data_volume_band: volume,
-          }, observation);
+          }, admittedObservation);
           addMetric(metrics.block, {
             model, unit_type: state.unit_type, spatial_block_id: series.spatial_block_id,
-          }, observation);
+          }, admittedObservation);
           const year = Number(weekStart.slice(0, 4));
           if (state.unit_type === 'tract' && year >= 2020 && year <= 2024 && Number.isFinite(series.acs_estimate)) {
             addMetric(metrics.acs_population, {
               model, fold: state.fold.id, holdout_slice: holdoutSlice, population_band: populationBand(series.acs_estimate),
-            }, observation);
+            }, admittedObservation);
           }
         } else {
           addMetric(metrics.category, {
             model, fold: state.fold.id, category: state.category, holdout_slice: holdoutSlice,
-          }, observation);
+          }, admittedObservation);
         }
       }
     });
   }
 }
 
-function baselineIntervalOrDistribution(state, model, predicted) {
+function baselineIntervalOrDistribution(state, model, predicted, nominalProbability) {
   if (BASELINE_MODELS.includes(model)) {
-    return empiricalInterval(predicted, state.baseline_interval_radii[model] || 0);
+    const radius = state.baseline_interval_radii[model];
+    if (!Number.isFinite(radius) || radius < 0) {
+      return { lower: Number.NaN, upper: Number.NaN };
+    }
+    return empiricalInterval(predicted, radius);
   }
-  if (model === 'poisson-log-link-v1') return poissonInterval(predicted, 0.9);
-  return negativeBinomialInterval(predicted, state.alpha, 0.9);
+  if (model === 'poisson-log-link-v1') return poissonInterval(predicted, nominalProbability);
+  return negativeBinomialInterval(predicted, state.alpha, nominalProbability);
+}
+
+export function validateEvaluationObservation({ predicted, interval, maximumPrediction } = {}) {
+  const failures = [];
+  if (!Number.isFinite(predicted)) failures.push('prediction-non-finite');
+  else {
+    if (predicted < 0) failures.push('prediction-negative');
+    if (!Number.isFinite(maximumPrediction) || maximumPrediction < 0) {
+      failures.push('prediction-maximum-invalid');
+    } else if (predicted > maximumPrediction) {
+      failures.push('prediction-exceeds-maximum');
+    }
+  }
+  if (!Number.isFinite(interval?.lower) || !Number.isFinite(interval?.upper)) {
+    failures.push('interval-non-finite');
+  } else {
+    if (interval.lower < 0) failures.push('interval-negative-lower');
+    if (interval.lower > interval.upper) failures.push('interval-inverted');
+  }
+  return failures;
+}
+
+export function diagnoseEvaluationSlice({ predictions, intervals, coverages, maximumPrediction } = {}) {
+  return diagnoseModelNumerics({
+    irls: {
+      iterationsCompleted: 1,
+      maximumIterations: 2,
+      lastChange: 0,
+      convergenceTolerance: 1e-7,
+      singular: false,
+      coefficients: [0],
+    },
+    coefficientAbsoluteMaximum: 12,
+    dispersion: null,
+    predictions,
+    maximumPrediction,
+    intervals,
+    coverages,
+  });
+}
+
+function createNumericalEvidence() {
+  return { fit_states: new Map(), primary_slices: new Map() };
+}
+
+function recordNumericalObservation(evidence, {
+  model,
+  state,
+  holdoutSlice,
+  predicted,
+  interval,
+  failures,
+  fitStateApplicable,
+}) {
+  const stateDescriptor = {
+    model,
+    fold: state.fold.id,
+    unit_type: state.unit_type,
+    category: state.category,
+  };
+  if (fitStateApplicable) {
+    accumulateNumericalEvidence(evidence.fit_states, stateDescriptor, predicted, interval, failures);
+  }
+  if (state.category === 'all') {
+    accumulateNumericalEvidence(evidence.primary_slices, {
+      model,
+      fold: state.fold.id,
+      unit_type: state.unit_type,
+      holdout_slice: holdoutSlice,
+    }, predicted, interval, failures);
+  }
+}
+
+function accumulateNumericalEvidence(collection, descriptor, predicted, interval, failures) {
+  const key = stableSerialization(descriptor);
+  if (!collection.has(key)) {
+    collection.set(key, {
+      descriptor,
+      prediction_count: 0,
+      interval_count: 0,
+      maximum_prediction_observed: 0,
+      representative_prediction: null,
+      representative_interval: null,
+      failures: new Set(),
+    });
+  }
+  const value = collection.get(key);
+  value.prediction_count += 1;
+  value.interval_count += 1;
+  if (Number.isFinite(predicted)) {
+    value.maximum_prediction_observed = Math.max(value.maximum_prediction_observed, predicted);
+    value.representative_prediction = predicted;
+  }
+  if (Number.isFinite(interval?.lower) && Number.isFinite(interval?.upper)) {
+    value.representative_interval = { lower: interval.lower, upper: interval.upper };
+  }
+  for (const failure of failures) value.failures.add(failure);
 }
 
 function addMetric(collection, descriptor, observation) {
@@ -417,10 +611,10 @@ function addMetric(collection, descriptor, observation) {
     collection.values.set(key, createMetricAccumulator());
     collection.descriptors.set(key, descriptor);
   }
-  accumulateMetric(collection.values.get(key), observation);
+  if (observation) accumulateMetric(collection.values.get(key), observation);
 }
 
-function finalizeMetricCollections(collections) {
+function finalizeMetricCollections(collections, protocol) {
   const output = {};
   for (const [name, collection] of Object.entries(collections)) {
     const rows = [];
@@ -431,8 +625,24 @@ function finalizeMetricCollections(collections) {
     addRelativeSeasonalGain(rows);
     output[name] = rows;
   }
+  output.primary = orderPrimaryRows(output.primary, protocol);
   output.aggregate = aggregatePrimary(output.primary);
   return output;
+}
+
+function orderPrimaryRows(rows, protocol) {
+  const modelOrder = new Map(protocol.models.map(({ id }, index) => [id, index]));
+  const tupleOrder = new Map(protocol.primary_tuple_vocabulary.map((tuple, index) => [stableSerialization(tuple), index]));
+  return [...rows].sort((left, right) => {
+    const modelDifference = (modelOrder.get(left.model) ?? Number.MAX_SAFE_INTEGER)
+      - (modelOrder.get(right.model) ?? Number.MAX_SAFE_INTEGER);
+    if (modelDifference) return modelDifference;
+    const leftTuple = stableSerialization(primaryTupleOf(left));
+    const rightTuple = stableSerialization(primaryTupleOf(right));
+    return (tupleOrder.get(leftTuple) ?? Number.MAX_SAFE_INTEGER)
+      - (tupleOrder.get(rightTuple) ?? Number.MAX_SAFE_INTEGER)
+      || leftTuple.localeCompare(rightTuple);
+  });
 }
 
 function addRelativeSeasonalGain(rows) {
@@ -473,32 +683,205 @@ function aggregatePrimary(rows) {
   return output;
 }
 
+function buildNumericalDiagnostics({ states, finalized, numericalEvidence, protocol }) {
+  const gate = protocol.numerical_stability_gate;
+  const fitStates = [];
+  for (const model of COUNT_MODELS) {
+    const definition = protocol.models.find(({ id }) => id === model);
+    const expectedDescriptors = expectedFitStateDescriptors(protocol, model);
+    for (const descriptor of expectedDescriptors) {
+      const state = states.get(stateKey(descriptor.fold, descriptor.unit_type, descriptor.category));
+      const isPoisson = model === 'poisson-log-link-v1';
+      const evidence = numericalEvidence.fit_states.get(stableSerialization(descriptor));
+      if (!state) {
+        fitStates.push({
+          ...descriptor,
+          observations: 0,
+          prediction_count: evidence?.prediction_count || 0,
+          interval_count: evidence?.interval_count || 0,
+          checks: null,
+          failures: ['fit-state-missing'],
+          passed: false,
+        });
+        continue;
+      }
+      const diagnostic = diagnoseModelNumerics({
+        irls: {
+          iterationsCompleted: isPoisson ? state.poisson_iterations_completed : state.nb_iterations_completed,
+          maximumIterations: definition.max_iterations,
+          lastChange: isPoisson ? state.poisson_last_change : state.nb_last_change,
+          convergenceTolerance: gate.convergence.threshold_exclusive,
+          singular: isPoisson ? state.poisson_singular : state.nb_singular,
+          coefficients: isPoisson ? state.poisson_beta : state.nb_beta,
+        },
+        coefficientAbsoluteMaximum: gate.coefficient_abs_limit_inclusive,
+        dispersion: isPoisson ? null : {
+          value: state.alpha,
+          minimum: gate.dispersion_alpha_inclusive[0],
+          maximum: gate.dispersion_alpha_inclusive[1],
+        },
+        predictions: evidence?.prediction_count ? [evidence.representative_prediction] : [],
+        maximumPrediction: gate.prediction.maximum_inclusive,
+        intervals: evidence?.interval_count ? [evidence.representative_interval] : [],
+        coverages: [gate.interval.nominal_probability],
+      });
+      const failures = new Set([...diagnostic.failures, ...(evidence?.failures || [])]);
+      if (diagnostic.checks.irls.reached_iteration_cap) {
+        failures.add('irls-convergence-not-before-iteration-limit');
+      }
+      fitStates.push({
+        ...descriptor,
+        observations: isPoisson ? state.poisson_fit_observations : state.nb_fit_observations,
+        prediction_count: evidence?.prediction_count || 0,
+        interval_count: evidence?.interval_count || 0,
+        checks: diagnostic.checks,
+        failures: [...failures].sort(),
+        passed: failures.size === 0,
+      });
+    }
+  }
+  const primarySlices = [];
+  for (const model of protocol.models.map(({ id }) => id)) {
+    for (const tuple of protocol.primary_tuple_vocabulary) {
+      const descriptor = { model, ...tuple };
+      const evidence = numericalEvidence.primary_slices.get(stableSerialization(descriptor));
+      const metric = finalized.primary.find((row) => row.model === model
+        && stableSerialization(primaryTupleOf(row)) === stableSerialization(tuple));
+      const diagnostic = diagnoseEvaluationSlice({
+        predictions: evidence?.prediction_count ? [evidence.representative_prediction] : [],
+        intervals: evidence?.interval_count ? [evidence.representative_interval] : [],
+        coverages: metric ? [metric.prediction_interval_90_coverage] : [],
+        maximumPrediction: gate.prediction.maximum_inclusive,
+      });
+      const failures = new Set([...diagnostic.failures, ...(evidence?.failures || [])]);
+      if (!metric) failures.add('primary-metric-missing');
+      if ((evidence?.prediction_count || 0) !== (evidence?.interval_count || 0)) {
+        failures.add('prediction-interval-count-mismatch');
+      }
+      primarySlices.push({
+        ...descriptor,
+        prediction_count: evidence?.prediction_count || 0,
+        interval_count: evidence?.interval_count || 0,
+        maximum_prediction_observed: evidence?.maximum_prediction_observed ?? null,
+        coverage: metric?.prediction_interval_90_coverage ?? null,
+        checks: {
+          predictions: diagnostic.checks.predictions,
+          intervals: diagnostic.checks.intervals,
+          coverages: diagnostic.checks.coverages,
+        },
+        failures: [...failures].sort(),
+        passed: failures.size === 0,
+      });
+    }
+  }
+  return {
+    schema: NUMERICAL_DIAGNOSTICS_SCHEMA,
+    protocol_sha256: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+    gate: structuredClone(gate),
+    fit_state_vocabulary: COUNT_MODELS.flatMap((model) => expectedFitStateDescriptors(protocol, model)),
+    primary_slice_vocabulary: protocol.models.flatMap(({ id: model }) => (
+      protocol.primary_tuple_vocabulary.map((tuple) => ({ model, ...tuple }))
+    )),
+    fit_states: fitStates,
+    primary_slices: primarySlices,
+    all_applicable_fit_states_passed: fitStates.every(({ passed }) => passed),
+    all_primary_slices_passed: primarySlices.every(({ passed }) => passed),
+    expected_fit_state_count_per_count_model: expectedFitStateDescriptors(protocol, COUNT_MODELS[0]).length,
+    local_candidate_only: true,
+    authority: structuredClone(protocol.authority),
+  };
+}
+
+function expectedFitStateDescriptors(protocol, model) {
+  const descriptors = [];
+  for (const fold of protocol.rolling_folds.map(({ id }) => id)) {
+    for (const unitType of protocol.marts.unit_types) {
+      const categories = unitType === 'tract' ? ['all', ...protocol.marts.categories.tract_audit] : ['all'];
+      for (const category of categories) {
+        descriptors.push({ model, fold, unit_type: unitType, category });
+      }
+    }
+  }
+  return descriptors;
+}
+
+function primaryTupleOf(row) {
+  return { fold: row.fold, unit_type: row.unit_type, holdout_slice: row.holdout_slice };
+}
+
 export function evaluatePromotion(finalized, protocol) {
   const gate = protocol.promotion_gate;
   const candidates = [];
   for (const model of gate.eligible_models) {
     const reasons = [];
     const primary = finalized.primary.filter((row) => row.model === model);
-    const expectedPrimarySlices = protocol.rolling_folds.length * 2 * protocol.spatial_holdout.report_slices.length;
-    if (primary.length !== expectedPrimarySlices) reasons.push(`expected-${expectedPrimarySlices}-primary-slices-received-${primary.length}`);
+    const expectedKeys = protocol.primary_tuple_vocabulary.map(stableSerialization);
+    const actualKeys = primary.map((row) => stableSerialization(primaryTupleOf(row)));
+    const actualKeySet = new Set(actualKeys);
+    if (actualKeys.length !== actualKeySet.size) reasons.push('primary-tuple-duplicate');
+    for (const expected of expectedKeys) if (!actualKeySet.has(expected)) reasons.push('primary-tuple-missing');
+    for (const actual of actualKeySet) if (!expectedKeys.includes(actual)) reasons.push('primary-tuple-unknown');
+    if (actualKeys.some((key, index) => key !== expectedKeys[index])) reasons.push('primary-tuple-order-invalid');
+    if (actualKeys.length !== expectedKeys.length) {
+      reasons.push(`expected-${expectedKeys.length}-primary-slices-received-${actualKeys.length}`);
+    }
+
+    const numerical = finalized.numerical_diagnostics;
+    if (numerical?.schema !== NUMERICAL_DIAGNOSTICS_SCHEMA) {
+      reasons.push('numerical-diagnostics-missing');
+    } else {
+      const fitStates = numerical.fit_states.filter((row) => row.model === model);
+      const expectedFitKeys = expectedFitStateDescriptors(protocol, model).map(stableSerialization);
+      const actualFitKeys = fitStates.map((row) => stableSerialization({
+        model: row.model,
+        fold: row.fold,
+        unit_type: row.unit_type,
+        category: row.category,
+      }));
+      const actualFitKeySet = new Set(actualFitKeys);
+      if (actualFitKeys.length !== actualFitKeySet.size) reasons.push('fit-state-duplicate');
+      if (expectedFitKeys.some((key) => !actualFitKeySet.has(key))) reasons.push('fit-state-missing');
+      if ([...actualFitKeySet].some((key) => !expectedFitKeys.includes(key))) reasons.push('fit-state-unknown');
+      if (actualFitKeys.some((key, index) => key !== expectedFitKeys[index])) reasons.push('fit-state-order-invalid');
+      if (actualFitKeys.length !== expectedFitKeys.length || fitStates.some((row) => !row.passed)) {
+        reasons.push('fit-state-numerical-gate-failed');
+      }
+      const slices = numerical.primary_slices.filter((row) => row.model === model);
+      const sliceKeys = slices.map((row) => stableSerialization(primaryTupleOf(row)));
+      if (sliceKeys.length !== expectedKeys.length
+        || new Set(sliceKeys).size !== expectedKeys.length
+        || expectedKeys.some((key) => !sliceKeys.includes(key))
+        || sliceKeys.some((key, index) => key !== expectedKeys[index])
+        || slices.some((row) => !row.passed)) {
+        reasons.push('primary-slice-numerical-gate-failed');
+      }
+    }
+
     for (const row of primary) {
       const label = `${row.fold}/${row.unit_type}/${row.holdout_slice}`;
       if (row.observations < gate.minimum_observations_per_primary_slice) reasons.push(`${label}:insufficient-observations`);
       if (!(row.relative_mae_gain_vs_seasonal_naive >= gate.minimum_relative_mae_gain_each_fold_unit_and_holdout_slice)) reasons.push(`${label}:mae-gain-below-gate`);
       const [minimumCoverage, maximumCoverage] = gate.acceptable_interval_coverage_inclusive;
-      if (!(row.prediction_interval_90_coverage >= minimumCoverage && row.prediction_interval_90_coverage <= maximumCoverage)) reasons.push(`${label}:interval-coverage-outside-gate`);
+      if (!Number.isFinite(row.prediction_interval_90_coverage)
+        || row.prediction_interval_90_coverage < 0
+        || row.prediction_interval_90_coverage > 1) reasons.push(`${label}:coverage-invalid`);
+      else if (!(row.prediction_interval_90_coverage >= minimumCoverage && row.prediction_interval_90_coverage <= maximumCoverage)) reasons.push(`${label}:interval-coverage-outside-gate`);
       if (![row.poisson_deviance, row.negative_binomial_deviance].every(Number.isFinite)) reasons.push(`${label}:non-finite-deviance`);
     }
+    const foundationalPassed = reasons.length === 0;
     const aggregate = finalized.aggregate.find((row) => row.model === model);
-    if (!(aggregate?.relative_mae_gain_vs_seasonal_naive >= gate.minimum_aggregate_relative_mae_gain)) reasons.push('aggregate-mae-gain-below-gate');
-    for (const row of finalized.category.filter((entry) => entry.model === model)) {
-      if (!(row.relative_mae_gain_vs_seasonal_naive >= -gate.maximum_category_mae_regression_vs_seasonal)) {
-        reasons.push(`${row.fold}/${row.category}/${row.holdout_slice}:category-mae-regression`);
+    if (foundationalPassed) {
+      if (!(aggregate?.relative_mae_gain_vs_seasonal_naive >= gate.minimum_aggregate_relative_mae_gain)) reasons.push('aggregate-mae-gain-below-gate');
+      for (const row of finalized.category.filter((entry) => entry.model === model)) {
+        if (!(row.relative_mae_gain_vs_seasonal_naive >= -gate.maximum_category_mae_regression_vs_seasonal)) {
+          reasons.push(`${row.fold}/${row.category}/${row.holdout_slice}:category-mae-regression`);
+        }
       }
     }
     candidates.push({
       model,
       passed: reasons.length === 0,
+      aggregate_evaluated: foundationalPassed,
       aggregate_relative_mae_gain: aggregate?.relative_mae_gain_vs_seasonal_naive ?? null,
       reasons: [...new Set(reasons)].sort(),
     });
@@ -506,11 +889,15 @@ export function evaluatePromotion(finalized, protocol) {
   const passing = candidates.filter((candidate) => candidate.passed)
     .sort((left, right) => right.aggregate_relative_mae_gain - left.aggregate_relative_mae_gain);
   return {
-    status: passing.length ? 'promoted' : 'not-promoted',
-    selected_model: passing[0]?.model || null,
+    status: 'not-promoted',
+    decision: passing.length ? 'local-candidate' : 'no-promotion',
+    selected_model: null,
+    local_candidate_model: passing[0]?.model || null,
+    local_candidate_only: true,
     failure_result: passing.length ? null : gate.failure_result,
     candidates,
     gate: structuredClone(gate),
+    authority: structuredClone(protocol.authority),
   };
 }
 
@@ -519,41 +906,6 @@ function selectBestAuditModel(aggregate) {
     .filter((row) => COUNT_MODELS.includes(row.model) && Number.isFinite(row.relative_mae_gain_vs_seasonal_naive))
     .sort((left, right) => right.relative_mae_gain_vs_seasonal_naive - left.relative_mae_gain_vs_seasonal_naive)[0]?.model
     || 'negative-binomial-log-link-v1';
-}
-
-async function buildPromotedForecasts(martRoot, manifest, martInventory, states, model, generatedAt) {
-  const latestFold = [...new Set([...states.values()].map((state) => state.fold.id))].at(-1);
-  const state = states.get(stateKey(latestFold, 'tract', 'all'));
-  const forecasts = [];
-  await scanMartUnits(martRoot, manifest, martInventory, (series) => {
-    if (series.unit_type !== 'tract') return;
-    const index = series.counts.length;
-    const features = featureVector(series.counts, index, manifest.evaluation_complete_week_end_exclusive);
-    if (!features) return;
-    const predicted = model === 'poisson-log-link-v1'
-      ? linearPrediction(state.poisson_beta, features).mean
-      : linearPrediction(state.nb_beta, features).mean;
-    const interval = model === 'poisson-log-link-v1'
-      ? poissonInterval(predicted, 0.9)
-      : negativeBinomialInterval(predicted, state.alpha, 0.9);
-    forecasts.push({
-      unit_type: 'tract',
-      unit_id: series.unit_id,
-      target_week_start: manifest.evaluation_complete_week_end_exclusive,
-      predicted_reported_incident_count: predicted,
-      prediction_interval_90: { lower: interval.lower, upper: interval.upper },
-      trained_through: state.fold.train_end_exclusive,
-      feature_observed_through: manifest.evaluation_complete_week_end_exclusive,
-      model_version: model,
-      generated_at: generatedAt,
-      source_vintage: manifest.exact_input.warehouse_current_snapshot_id,
-      limitations: [
-        'Modeled count of PPD reported incidents, not individual risk or absolute safety.',
-        'One-week forecast inherits preliminary-data, reporting, revision, and spatial-generalization limits.',
-      ],
-    });
-  });
-  return forecasts.sort((left, right) => left.unit_id.localeCompare(right.unit_id));
 }
 
 function buildEvaluationReport({ protocol, protocolIdentity, martManifest, martManifestIdentity, states, finalized, promotion, generatedAt }) {
@@ -579,6 +931,7 @@ function buildEvaluationReport({ protocol, protocolIdentity, martManifest, martM
     },
     folds: protocol.rolling_folds,
     spatial_holdout: protocol.spatial_holdout,
+    primary_tuple_vocabulary: protocol.primary_tuple_vocabulary,
     models: protocol.models.map((definition) => ({
       ...definition,
       fit_diagnostics: summarizeStateDiagnostics(states, definition.id),
@@ -590,7 +943,10 @@ function buildEvaluationReport({ protocol, protocolIdentity, martManifest, martM
       by_data_volume: stripSums(finalized.volume),
       by_acs_population_when_temporally_compatible: stripSums(finalized.acs_population),
     },
+    numerical_diagnostics: finalized.numerical_diagnostics,
     promotion,
+    privacy: structuredClone(protocol.privacy),
+    authority: structuredClone(protocol.authority),
     limitations: [
       'Targets are weekly counts of preliminary PPD reported incidents, not a complete account of harm, individual victim probability, or absolute safety.',
       'Spatial units inherit hundred-block generalization and fail-closed admission; ambiguous tract events are excluded rather than assigned.',
@@ -613,8 +969,8 @@ function summarizeStateDiagnostics(states, model) {
   }));
   return {
     state_count: rows.length,
-    minimum_fit_observations: Math.min(...rows.map((row) => row.observations || 0)),
-    maximum_last_coefficient_change: Math.max(...rows.map((row) => row.last_coefficient_change || 0)),
+    minimum_fit_observations: Math.min(...rows.map((row) => row.observations)),
+    maximum_last_coefficient_change: Math.max(...rows.map((row) => row.last_coefficient_change)),
     singular_state_count: rows.filter((row) => row.singular).length,
     alpha_range: model === 'negative-binomial-log-link-v1'
       ? [Math.min(...rows.map((row) => row.alpha)), Math.max(...rows.map((row) => row.alpha))]
@@ -691,12 +1047,11 @@ function buildLineageSummary(martManifest, martManifestIdentity, protocolIdentit
   };
 }
 
-function buildServingArtifact({ report, forecasts, selectedAuditModel, generatedAt }) {
-  const promoted = report.promotion.status === 'promoted';
+function buildServingArtifact({ report, selectedAuditModel, generatedAt }) {
   return {
     schema: 'engagement-area-intelligence-serving/v1',
     generated_at: generatedAt,
-    status: promoted ? 'promoted' : 'not-promoted',
+    status: 'not-promoted',
     historical_evidence: {
       status: 'available',
       measure: 'PPD reported incidents',
@@ -704,21 +1059,23 @@ function buildServingArtifact({ report, forecasts, selectedAuditModel, generated
       source_vintage: report.data.source_vintage,
       limitations: report.limitations.slice(0, 2),
     },
-    forecast: promoted ? {
-      status: 'available',
-      model_version: report.promotion.selected_model,
-      predictions: forecasts,
-    } : {
+    forecast: {
       status: 'unavailable',
-      reason: 'model-did-not-exceed-predefined-seasonal-baseline',
+      reason: report.promotion.decision === 'local-candidate'
+        ? 'local-candidate-has-no-serving-authority'
+        : 'model-did-not-exceed-predefined-seasonal-baseline',
       predictions: [],
     },
     evaluation: {
       promotion_status: report.promotion.status,
       selected_model: report.promotion.selected_model,
+      local_candidate_model: report.promotion.local_candidate_model,
+      local_candidate_only: true,
       audit_model: selectedAuditModel,
       protocol_sha256: report.protocol.sha256,
     },
+    authority: structuredClone(report.authority),
+    privacy: structuredClone(report.privacy),
     forbidden_claims: report.target.forbidden_claims,
   };
 }
@@ -743,9 +1100,9 @@ function buildModelCard({ report, selectedAuditModel }) {
     '',
     '## Decision',
     '',
-    report.promotion.status === 'promoted'
-      ? `The frozen gate promoted \`${report.promotion.selected_model}\` for one-week tract forecasts.`
-      : 'No count model passed every pre-defined temporal, spatial, interval-coverage, and category gate. Product serving remains historical-only and forecast is explicitly unavailable.',
+    report.promotion.decision === 'local-candidate'
+      ? `The frozen local evaluation gate identified \`${report.promotion.local_candidate_model}\` as a candidate only. Every authority flag remains false; product serving stays historical-only and forecast is explicitly unavailable.`
+      : 'No count model passed every pre-defined temporal, spatial, numerical, interval-coverage, and category gate. Product serving remains historical-only and forecast is explicitly unavailable.',
     '',
     '## Intended use',
     '',
@@ -782,20 +1139,319 @@ function buildModelCard({ report, selectedAuditModel }) {
 
 export function validateModelEvaluationReport(report) {
   if (report?.schema !== EVALUATION_SCHEMA
+    || report.protocol?.sha256 !== AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256
     || report.protocol?.frozen_before_model_performance !== true
     || !Array.isArray(report.metrics?.primary_by_fold_space_holdout)
     || !Array.isArray(report.metrics?.by_category)
     || !Array.isArray(report.metrics?.by_data_volume)
-    || !['promoted', 'not-promoted'].includes(report.promotion?.status)) {
+    || report.promotion?.status !== 'not-promoted'
+    || report.promotion?.selected_model !== null
+    || report.promotion?.local_candidate_only !== true
+    || !allAuthorityFalse(report.authority)
+    || !isAggregateOnlyPrivacy(report.privacy)) {
     throw new Error('ModelEvaluationReport failed its machine-checkable contract.');
   }
+  assertFiniteJsonValue(report, 'ModelEvaluationReport');
+  assertAggregateOnlyArtifact(report, 'ModelEvaluationReport');
   const required = ['mae', 'poisson_deviance', 'negative_binomial_deviance', 'prediction_interval_90_coverage', 'relative_mae_gain_vs_seasonal_naive'];
   for (const row of report.metrics.primary_by_fold_space_holdout) {
-    if (required.some((field) => row[field] == null || !Number.isFinite(row[field]))) {
+    const numericalRow = report.numerical_diagnostics?.primary_slices?.find((candidate) => (
+      candidate.model === row.model
+        && stableSerialization(primaryTupleOf(candidate)) === stableSerialization(primaryTupleOf(row))
+    ));
+    if (numericalRow?.passed && required.some((field) => row[field] == null || !Number.isFinite(row[field]))) {
       throw new Error(`ModelEvaluationReport primary metric is missing or non-finite for ${row.model}/${row.fold}.`);
+    }
+    if (row.prediction_interval_90_coverage != null
+      && (row.prediction_interval_90_coverage < 0 || row.prediction_interval_90_coverage > 1)) {
+      throw new Error('ModelEvaluationReport coverage is outside [0,1].');
+    }
+  }
+  const modelIds = report.models?.map(({ id }) => id) || [];
+  const tupleVocabulary = report.primary_tuple_vocabulary;
+  if (stableSerialization(modelIds) !== stableSerialization(ALL_MODELS)
+    || !Array.isArray(tupleVocabulary)
+    || tupleVocabulary.length !== 16) {
+    throw new Error('ModelEvaluationReport model or primary tuple vocabulary is invalid.');
+  }
+  const expectedPrimaryKeys = modelIds.flatMap((model) => tupleVocabulary.map((tuple) => (
+    stableSerialization({ model, ...tuple })
+  )));
+  const actualPrimaryKeys = report.metrics.primary_by_fold_space_holdout.map((row) => (
+    stableSerialization({ model: row.model, ...primaryTupleOf(row) })
+  ));
+  assertExactKeySequence(actualPrimaryKeys, expectedPrimaryKeys, 'ModelEvaluationReport primary tuple');
+
+  const numerical = report.numerical_diagnostics;
+  if (numerical?.schema !== NUMERICAL_DIAGNOSTICS_SCHEMA
+    || numerical.protocol_sha256 !== report.protocol.sha256
+    || !Array.isArray(numerical.fit_state_vocabulary)
+    || !Array.isArray(numerical.primary_slice_vocabulary)
+    || !Array.isArray(numerical.fit_states)
+    || !Array.isArray(numerical.primary_slices)
+    || numerical.local_candidate_only !== true
+    || !allAuthorityFalse(numerical.authority)) {
+    throw new Error('ModelEvaluationReport numerical diagnostics contract is invalid.');
+  }
+  const expectedFitKeys = numerical.fit_state_vocabulary.map(stableSerialization);
+  const frozenExpectedFitKeys = COUNT_MODELS.flatMap((model) => (
+    report.folds.flatMap(({ id: fold }) => [
+      ...TRACT_CATEGORIES.map((category) => ({ model, fold, unit_type: 'tract', category })),
+      { model, fold, unit_type: 'fixed-grid', category: 'all' },
+    ])
+  )).map(stableSerialization);
+  assertExactKeySequence(expectedFitKeys, frozenExpectedFitKeys, 'ModelEvaluationReport fit state vocabulary');
+  const actualFitKeys = numerical.fit_states.map((row) => stableSerialization({
+    model: row.model, fold: row.fold, unit_type: row.unit_type, category: row.category,
+  }));
+  assertExactKeySequence(actualFitKeys, expectedFitKeys, 'ModelEvaluationReport fit state');
+  const expectedSliceKeys = numerical.primary_slice_vocabulary.map(stableSerialization);
+  const frozenExpectedSliceKeys = ALL_MODELS.flatMap((model) => tupleVocabulary.map((tuple) => (
+    stableSerialization({ model, ...tuple })
+  )));
+  assertExactKeySequence(expectedSliceKeys, frozenExpectedSliceKeys, 'ModelEvaluationReport numerical primary slice vocabulary');
+  const actualSliceKeys = numerical.primary_slices.map((row) => stableSerialization({
+    model: row.model, ...primaryTupleOf(row),
+  }));
+  assertExactKeySequence(actualSliceKeys, expectedSliceKeys, 'ModelEvaluationReport numerical primary slice');
+  for (const row of numerical.fit_states) validateDiagnosticRow(row, 'fit state');
+  for (const row of numerical.primary_slices) {
+    validateDiagnosticRow(row, 'primary slice');
+    if (!Number.isInteger(row.prediction_count) || row.prediction_count < 1
+      || row.interval_count !== row.prediction_count
+      || (row.passed && (!Number.isFinite(row.coverage) || row.coverage < 0 || row.coverage > 1))
+      || (row.passed && (!Number.isFinite(row.maximum_prediction_observed)
+        || row.maximum_prediction_observed < 0
+        || row.maximum_prediction_observed > numerical.gate.prediction.maximum_inclusive))) {
+      throw new Error('ModelEvaluationReport numerical primary slice bounds are invalid.');
+    }
+  }
+  const expectedPromotion = evaluatePromotion({
+    primary: report.metrics.primary_by_fold_space_holdout,
+    category: report.metrics.by_category,
+    aggregate: report.metrics.aggregate_primary,
+    numerical_diagnostics: numerical,
+  }, {
+    ...reportProtocolForPromotion(report),
+    authority: report.authority,
+  });
+  if (stableSerialization(report.promotion) !== stableSerialization(expectedPromotion)) {
+    throw new Error('ModelEvaluationReport promotion drifted from exact tuples and numerical gates.');
+  }
+  return true;
+}
+
+function reportProtocolForPromotion(report) {
+  return {
+    rolling_folds: report.folds,
+    marts: {
+      unit_types: ['tract', 'fixed-grid'],
+      categories: { tract_audit: TRACT_CATEGORIES.slice(1) },
+    },
+    primary_tuple_vocabulary: report.primary_tuple_vocabulary,
+    promotion_gate: report.promotion.gate,
+  };
+}
+
+export function validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
+  protocolIdentity = AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+  martManifestIdentity,
+  martArtifactIdentity,
+  receiptSha256,
+  protocol,
+} = {}) {
+  if (checkpoint?.schema !== CHECKPOINT_SCHEMA
+    || checkpoint.protocol_sha256 !== protocolIdentity
+    || checkpoint.protocol_schema !== PROTOCOL_SCHEMA
+    || checkpoint.receipt_sha256 !== receiptSha256
+    || checkpoint.mart_manifest_sha256 !== martManifestIdentity
+    || checkpoint.mart_artifact_identity !== martArtifactIdentity
+    || !['fitting', 'complete'].includes(checkpoint.status)
+    || !Number.isInteger(checkpoint.poisson_iterations_completed)
+    || !Number.isInteger(checkpoint.nb_iterations_completed)
+    || typeof checkpoint.dispersion_completed !== 'boolean'
+    || typeof checkpoint.baseline_intervals_completed !== 'boolean'
+    || !checkpoint.states || typeof checkpoint.states !== 'object') {
+    throw new Error('Area Intelligence evaluation checkpoint failed its exact protocol and mart contract.');
+  }
+  assertFiniteJsonValue(checkpoint, 'Area Intelligence evaluation checkpoint');
+  assertAggregateOnlyArtifact(checkpoint, 'Area Intelligence evaluation checkpoint');
+  if (protocol) {
+    const expectedStateKeys = [...createStates(protocol).keys()].sort();
+    const actualStateKeys = Object.keys(checkpoint.states).sort();
+    assertExactKeySequence(actualStateKeys, expectedStateKeys, 'Area Intelligence evaluation checkpoint fit state');
+    const coefficientLimit = protocol.numerical_stability_gate.coefficient_abs_limit_inclusive;
+    const [minimumAlpha, maximumAlpha] = protocol.numerical_stability_gate.dispersion_alpha_inclusive;
+    for (const [key, state] of Object.entries(checkpoint.states)) {
+      if (!Array.isArray(state.poisson_beta) || state.poisson_beta.length !== 6
+        || !Array.isArray(state.nb_beta) || state.nb_beta.length !== 6
+        || ![...state.poisson_beta, ...state.nb_beta].every((value) => (
+          Number.isFinite(value) && Math.abs(value) <= coefficientLimit
+        ))
+        || !Number.isFinite(state.alpha) || state.alpha < minimumAlpha || state.alpha > maximumAlpha
+        || typeof state.poisson_singular !== 'boolean'
+        || typeof state.nb_singular !== 'boolean'
+        || state.poisson_iterations_completed !== checkpoint.poisson_iterations_completed
+        || state.nb_iterations_completed !== checkpoint.nb_iterations_completed
+        || key !== stateKey(state.fold?.id, state.unit_type, state.category)) {
+        throw new Error('Area Intelligence evaluation checkpoint model state is invalid.');
+      }
+    }
+    if (checkpoint.status === 'complete') {
+      const numericalGate = checkpoint.numerical_gate;
+      if (typeof numericalGate?.fit_states_passed !== 'boolean'
+        || typeof numericalGate?.primary_slices_passed !== 'boolean'
+        || !Number.isInteger(numericalGate?.failed_fit_state_count)
+        || numericalGate.failed_fit_state_count < 0
+        || !Number.isInteger(numericalGate?.failed_primary_slice_count)
+        || numericalGate.failed_primary_slice_count < 0
+        || numericalGate.fit_states_passed !== (numericalGate.failed_fit_state_count === 0)
+        || numericalGate.primary_slices_passed !== (numericalGate.failed_primary_slice_count === 0)) {
+        throw new Error('Area Intelligence evaluation checkpoint numerical gate summary is invalid.');
+      }
     }
   }
   return true;
+}
+
+export function validateAreaIntelligenceEvaluationServingArtifact(artifact, { report, protocol } = {}) {
+  if (artifact?.schema !== 'engagement-area-intelligence-serving/v1'
+    || artifact.status !== 'not-promoted'
+    || artifact.forecast?.status !== 'unavailable'
+    || !Array.isArray(artifact.forecast?.predictions)
+    || artifact.forecast.predictions.length !== 0
+    || artifact.evaluation?.promotion_status !== 'not-promoted'
+    || artifact.evaluation?.selected_model !== null
+    || artifact.evaluation?.local_candidate_only !== true
+    || artifact.evaluation?.protocol_sha256 !== AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256
+    || !allAuthorityFalse(artifact.authority)
+    || !isAggregateOnlyPrivacy(artifact.privacy)) {
+    throw new Error('Area Intelligence evaluation serving artifact failed closed candidate-only validation.');
+  }
+  if (report && (artifact.evaluation.local_candidate_model !== report.promotion.local_candidate_model
+    || artifact.evaluation.protocol_sha256 !== report.protocol.sha256
+    || artifact.forecast.reason !== (report.promotion.decision === 'local-candidate'
+      ? 'local-candidate-has-no-serving-authority'
+      : 'model-did-not-exceed-predefined-seasonal-baseline'))) {
+    throw new Error('Area Intelligence evaluation serving artifact drifted from its report.');
+  }
+  if (protocol && stableSerialization(artifact.authority) !== stableSerialization(protocol.authority)) {
+    throw new Error('Area Intelligence evaluation serving artifact authority drifted from the frozen protocol.');
+  }
+  assertFiniteJsonValue(artifact, 'Area Intelligence evaluation serving artifact');
+  assertAggregateOnlyArtifact(artifact, 'Area Intelligence evaluation serving artifact');
+  return true;
+}
+
+export function validateAreaIntelligenceEvaluationManifest(manifest, {
+  protocol,
+  martManifest,
+  martManifestIdentity,
+  martInventory,
+  report,
+  servingArtifact,
+} = {}) {
+  if (manifest?.schema !== EVALUATION_MANIFEST_SCHEMA
+    || manifest.protocol?.schema !== PROTOCOL_SCHEMA
+    || manifest.protocol?.sha256 !== AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256
+    || manifest.protocol_sha256 !== manifest.protocol.sha256
+    || manifest.protocol?.receipt_sha256 !== protocol?.exact_input_gate?.receipt_sha256
+    || manifest.mart_manifest_sha256 !== martManifestIdentity
+    || manifest.mart_artifact_identity !== martManifest?.artifact_identity
+    || manifest.availability !== 'unavailable'
+    || manifest.promotion?.status !== 'not-promoted'
+    || manifest.promotion?.selected_model !== null
+    || manifest.local_candidate_only !== true
+    || !allAuthorityFalse(manifest.authority)
+    || !isAggregateOnlyPrivacy(manifest.privacy)
+    || !Array.isArray(manifest.artifacts)
+    || stableSerialization(manifest.artifacts.map(({ name }) => name)) !== stableSerialization(EVALUATION_ARTIFACT_NAMES)
+    || manifest.artifacts.some((artifact) => (
+      !Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1 || !/^[a-f0-9]{64}$/.test(artifact.sha256 || '')
+    ))) {
+    throw new Error('Area Intelligence evaluation manifest failed its exact P3 contract.');
+  }
+  if (martInventory) {
+    const expectedSeam = buildEvaluationLineageSeam({
+      protocol,
+      protocolIdentity: AREA_INTELLIGENCE_EVALUATION_PROTOCOL_SHA256,
+      martManifest,
+      martManifestIdentity,
+      martInventory,
+      promotion: manifest.promotion,
+      availability: 'unavailable',
+    });
+    if (stableSerialization(manifest.lineage_seam) !== stableSerialization(expectedSeam)) {
+      throw new Error('Area Intelligence evaluation manifest lineage seam drifted.');
+    }
+  }
+  if (protocol && (stableSerialization(manifest.authority) !== stableSerialization(protocol.authority)
+    || stableSerialization(manifest.privacy) !== stableSerialization(protocol.privacy))) {
+    throw new Error('Area Intelligence evaluation manifest governance drifted from the frozen protocol.');
+  }
+  if (report) {
+    validateModelEvaluationReport(report);
+    if (stableSerialization(manifest.promotion) !== stableSerialization(report.promotion)) {
+      throw new Error('Area Intelligence evaluation manifest promotion drifted from its report.');
+    }
+  }
+  if (servingArtifact) validateAreaIntelligenceEvaluationServingArtifact(servingArtifact, { report, protocol });
+  assertFiniteJsonValue(manifest, 'Area Intelligence evaluation manifest');
+  assertAggregateOnlyArtifact(manifest, 'Area Intelligence evaluation manifest');
+  return true;
+}
+
+function validateDiagnosticRow(row, label) {
+  if (typeof row?.passed !== 'boolean'
+    || !Array.isArray(row.failures)
+    || new Set(row.failures).size !== row.failures.length
+    || row.passed !== (row.failures.length === 0)) {
+    throw new Error(`ModelEvaluationReport ${label} pass/failure state is invalid.`);
+  }
+}
+
+function assertExactKeySequence(actual, expected, label) {
+  if (actual.length !== expected.length
+    || new Set(actual).size !== actual.length
+    || actual.some((key, index) => key !== expected[index])) {
+    throw new Error(`${label} set, uniqueness, or stable ordering is invalid.`);
+  }
+}
+
+function allAuthorityFalse(value) {
+  return value
+    && stableSerialization(Object.keys(value)) === stableSerialization(AUTHORITY_KEYS)
+    && Object.values(value).every((entry) => entry === false);
+}
+
+function isAggregateOnlyPrivacy(value) {
+  return value
+    && stableSerialization(Object.keys(value)) === stableSerialization(PRIVACY_KEYS)
+    && value.aggregate_only === true
+    && Object.entries(value).every(([key, entry]) => key === 'aggregate_only' || entry === false);
+}
+
+function assertFiniteJsonValue(value, label, seen = new Set()) {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error(`${label} contains a non-finite number.`);
+  }
+  if (!value || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
+  for (const child of Object.values(value)) assertFiniteJsonValue(child, label, seen);
+}
+
+function assertAggregateOnlyArtifact(value, label, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
+  const forbiddenKeys = new Set([
+    'event_id', 'event_ids', 'source_record_id', 'source_record_ids',
+    'coordinate', 'coordinates', 'latitude', 'longitude', 'raw_row', 'raw_rows',
+    'canonical_event', 'canonical_events',
+  ]);
+  for (const [key, child] of Object.entries(value)) {
+    if (forbiddenKeys.has(key)) throw new Error(`${label} violates the aggregate-only privacy contract.`);
+    assertAggregateOnlyArtifact(child, label, seen);
+  }
 }
 
 async function scanMartUnits(martRoot, manifest, martInventory, callback) {
@@ -1027,10 +1683,11 @@ function validateMartManifest(manifest, protocol, protocolIdentity) {
   if (manifest?.schema !== MART_SCHEMA
     || manifest.protocol?.schema !== PROTOCOL_SCHEMA
     || manifest.protocol?.sha256 !== protocolIdentity
+    || manifest.protocol?.receipt_sha256 !== protocol.exact_input_gate.receipt_sha256
     || manifest.protocol?.frozen_before_model_performance !== true
     || manifest.exact_input?.receipt_schema !== protocol.exact_input_gate.receipt_schema
     || manifest.exact_input?.receipt_identity !== protocol.exact_input_gate.receipt_identity
-    || !/^sha256:[a-f0-9]{64}$/.test(manifest.exact_input?.receipt_sha256 || '')
+    || manifest.exact_input?.receipt_sha256 !== protocol.exact_input_gate.receipt_sha256
     || manifest.exact_input?.canonical?.row_count !== manifest.admission?.canonical_rows_seen
     || manifest.exact_input?.counts?.canonical_rows !== manifest.admission?.canonical_rows_seen
     || manifest.admission?.tract?.admitted + manifest.admission?.tract?.ambiguous_excluded
@@ -1046,24 +1703,18 @@ function validateMartManifest(manifest, protocol, protocolIdentity) {
   }
 }
 
-function validateProtocol(protocol) {
-  if (protocol?.schema !== PROTOCOL_SCHEMA
-    || protocol.schema_version !== 2
-    || protocol.frozen_before_model_performance !== true
-    || protocol.rolling_folds?.length !== 4
-    || protocol.models?.length !== 5
-    || !/^sha256:[a-f0-9]{64}$/.test(protocol.exact_input_gate?.receipt_identity || '')) {
-    throw new Error('Area Intelligence evaluation protocol is invalid.');
-  }
-}
-
 async function loadOrCreateCheckpoint(checkpointPath, options) {
   const existing = await readJsonIfExists(checkpointPath);
   if (existing) {
-    if (existing.schema !== CHECKPOINT_SCHEMA
-      || existing.mart_manifest_sha256 !== options.martManifestIdentity
-      || existing.mart_artifact_identity !== options.martArtifactIdentity
-      || existing.protocol_sha256 !== options.protocolIdentity) {
+    try {
+      validateAreaIntelligenceEvaluationCheckpoint(existing, {
+        protocolIdentity: options.protocolIdentity,
+        martManifestIdentity: options.martManifestIdentity,
+        martArtifactIdentity: options.martArtifactIdentity,
+        receiptSha256: options.protocol.exact_input_gate.receipt_sha256,
+        protocol: options.protocol,
+      });
+    } catch {
       throw new Error('Area Intelligence evaluation checkpoint belongs to a different exact mart or protocol.');
     }
     return existing;
@@ -1073,7 +1724,9 @@ async function loadOrCreateCheckpoint(checkpointPath, options) {
     status: 'fitting',
     mart_manifest_sha256: options.martManifestIdentity,
     mart_artifact_identity: options.martArtifactIdentity,
+    protocol_schema: options.protocol.schema,
     protocol_sha256: options.protocolIdentity,
+    receipt_sha256: options.protocol.exact_input_gate.receipt_sha256,
     poisson_iterations_completed: 0,
     dispersion_completed: false,
     nb_iterations_completed: 0,
@@ -1083,6 +1736,13 @@ async function loadOrCreateCheckpoint(checkpointPath, options) {
     updated_at: exactNow(options.now),
     resume: 'Re-run the identical command with the same exact mart, output root, and frozen protocol.',
   };
+  validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
+    protocolIdentity: options.protocolIdentity,
+    martManifestIdentity: options.martManifestIdentity,
+    martArtifactIdentity: options.martArtifactIdentity,
+    receiptSha256: options.protocol.exact_input_gate.receipt_sha256,
+    protocol: options.protocol,
+  });
   await writeJsonAtomic(checkpointPath, checkpoint);
   return checkpoint;
 }
@@ -1090,11 +1750,12 @@ async function loadOrCreateCheckpoint(checkpointPath, options) {
 async function validateExistingEvaluation(manifest, outputRoot, {
   martManifestIdentity,
   protocolIdentity,
+  protocol,
   martManifest,
   martInventory,
 }) {
-  if (!['promoted', 'not-promoted'].includes(manifest?.promotion?.status)) return false;
-  const expectedAvailability = manifest.promotion.status === 'promoted' ? 'available' : 'unavailable';
+  if (manifest?.promotion?.status !== 'not-promoted') return false;
+  const expectedAvailability = 'unavailable';
   const expectedLineageSeam = buildEvaluationLineageSeam({
     protocol: { schema: PROTOCOL_SCHEMA },
     protocolIdentity,
@@ -1115,6 +1776,28 @@ async function validateExistingEvaluation(manifest, outputRoot, {
     const filePath = path.join(outputRoot, artifact.name);
     const stat = await fs.stat(filePath).catch(() => null);
     if (!stat?.isFile() || stat.size !== artifact.bytes || await hashFile(filePath) !== artifact.sha256) return false;
+  }
+  try {
+    const report = JSON.parse(await fs.readFile(path.join(outputRoot, 'model-evaluation-report.json'), 'utf8'));
+    const servingArtifact = JSON.parse(await fs.readFile(path.join(outputRoot, 'serving-artifact.json'), 'utf8'));
+    const checkpoint = JSON.parse(await fs.readFile(path.join(outputRoot, 'checkpoint.json'), 'utf8'));
+    validateAreaIntelligenceEvaluationManifest(manifest, {
+      protocol,
+      martManifest,
+      martManifestIdentity,
+      martInventory,
+      report,
+      servingArtifact,
+    });
+    validateAreaIntelligenceEvaluationCheckpoint(checkpoint, {
+      protocolIdentity,
+      martManifestIdentity,
+      martArtifactIdentity: martManifest.artifact_identity,
+      receiptSha256: protocol.exact_input_gate.receipt_sha256,
+      protocol,
+    });
+  } catch {
+    return false;
   }
   return true;
 }
@@ -1190,7 +1873,12 @@ function isInside(root, target) {
 }
 
 async function writeJsonAtomic(destination, value) {
-  await writeTextAtomic(destination, `${JSON.stringify(value, null, 2)}\n`);
+  await writeTextAtomic(destination, serializeJson(value, 'JSON artifact'));
+}
+
+function serializeJson(value, label) {
+  assertFiniteJsonValue(value, label);
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 async function writeTextAtomic(destination, contents) {
@@ -1228,12 +1916,4 @@ function exactNow(now) {
   const value = now();
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new Error('Area Intelligence evaluation clock returned an invalid Date.');
   return value.toISOString();
-}
-
-function stableSerialization(value) {
-  if (Array.isArray(value)) return `[${value.map(stableSerialization).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialization(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
