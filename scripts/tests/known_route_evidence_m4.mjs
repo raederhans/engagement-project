@@ -35,6 +35,9 @@ import {
   identityOf,
   publishKnownRouteFinalArtifacts,
   restoreKnownRouteEvidenceAccumulator,
+  validateKnownRouteEvidenceAggregateReport,
+  validateKnownRouteEvidenceArtifactSet,
+  validateKnownRouteEvidenceCheckpoint,
   validateKnownRouteEvidenceFinalHandoff,
 } from '../lib/known_route_evidence_checkpoint.mjs';
 import {
@@ -108,7 +111,11 @@ function feature({ objectid, segId, from, to, coordinates, street = 'PUBLIC TEST
 }
 
 function featureCollection(features = defaultFeatures()) {
-  return { type: 'FeatureCollection', features };
+  return {
+    type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
+    features,
+  };
 }
 
 function defaultFeatures() {
@@ -384,6 +391,7 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
     accumulator: interrupted,
     startedAt: '2026-08-21T00:00:00.000Z',
   });
+  assert.equal(validateKnownRouteEvidenceCheckpoint(checkpoint), checkpoint);
   assert.doesNotMatch(JSON.stringify(checkpoint.accumulator), /source_record|generalized_location|coordinates|\[-75\./i);
   const recovered = restoreKnownRouteEvidenceAccumulator(checkpoint, {
     matchedEdges: match.matchedEdges,
@@ -403,7 +411,12 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
     serving_eligible: false,
     warehouse: { schema: 'engagement-phl-crime-event-warehouse/v1', current_snapshot_id: digest('snapshot') },
     counts: { canonical_partitions: 2, active_rows: 2 },
-    coverage: { start: '2006-01-01', end_exclusive: '2026-08-28' },
+    coverage: {
+      start: '2006-01-01',
+      end_exclusive: '2026-08-28',
+      earliest_event_at: '2006-01-01T00:00:00.000Z',
+      latest_event_at: '2026-08-27T00:00:00.000Z',
+    },
   };
   const report = (accumulator, completedAt) => createSafeKnownRouteAggregateReport({
     warehouseReceipt,
@@ -420,6 +433,7 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
   });
   const recoveredReport = report(recovered, '2026-08-21T00:01:00.000Z');
   const freshReport = report(uninterrupted, '2026-08-21T00:02:00.000Z');
+  assert.equal(validateKnownRouteEvidenceAggregateReport(recoveredReport), recoveredReport);
   assert.equal(recoveredReport.semanticIdentity, freshReport.semanticIdentity);
   assert.doesNotMatch(JSON.stringify(recoveredReport), /source_record_id|generalized_location|\[-75\./i);
   assert.deepEqual(recoveredReport.privacy, {
@@ -433,6 +447,28 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
     containsRouteEndpoints: false,
     containsCenterlineSourceEdgeIds: false,
   });
+  const unknownCheckpoint = structuredClone(checkpoint);
+  unknownCheckpoint.unknown = false;
+  unknownCheckpoint.checkpointIdentity = identityOf(Object.fromEntries(
+    Object.entries(unknownCheckpoint).filter(([key]) => key !== 'checkpointIdentity'),
+  ));
+  assert.throws(() => validateKnownRouteEvidenceCheckpoint(unknownCheckpoint), /closed schema/i);
+  const unknownReport = structuredClone(recoveredReport);
+  unknownReport.unknown = false;
+  const reportEvidence = structuredClone(unknownReport);
+  delete reportEvidence.semanticIdentity;
+  delete reportEvidence.completedAt;
+  delete reportEvidence.execution;
+  unknownReport.semanticIdentity = identityOf(reportEvidence);
+  assert.throws(() => validateKnownRouteEvidenceAggregateReport(unknownReport), /closed schema/i);
+  const unsafeReport = structuredClone(recoveredReport);
+  unsafeReport.privacy.containsRouteCoordinates = true;
+  const unsafeReportEvidence = structuredClone(unsafeReport);
+  delete unsafeReportEvidence.semanticIdentity;
+  delete unsafeReportEvidence.completedAt;
+  delete unsafeReportEvidence.execution;
+  unsafeReport.semanticIdentity = identityOf(unsafeReportEvidence);
+  assert.throws(() => validateKnownRouteEvidenceAggregateReport(unsafeReport), /privacy/i);
   assert.throws(() => restoreKnownRouteEvidenceAccumulator({
     ...checkpoint,
     accumulator: { ...checkpoint.accumulator, rowsRead: -1 },
@@ -631,19 +667,23 @@ test('M2 governance stays order-only and final handoff rejects hostile lineage, 
   const handoff = createKnownRouteEvidenceFinalHandoff({
     checkpoint, warehouseReceipt, m2Governance: governance, publicCenterlineRequest: true,
   });
-  assert.equal(validateKnownRouteEvidenceFinalHandoff(handoff), handoff);
+  assert.equal(validateKnownRouteEvidenceFinalHandoff(handoff, { checkpoint }), handoff);
   assert.doesNotMatch(JSON.stringify(handoff), /source_record_id|"coordinates"|routeInput|matchedEdges/i);
   for (const mutate of [
     (value) => { value.consent.publicCenterlineRequest = false; },
     (value) => { value.clocks.observedAt = '2026-08-27T00:00:00.000Z'; },
     (value) => { value.lineage.catalogIdentity = digest('hostile-catalog'); },
+    (value) => { value.lineage.warehouseReceiptDigest = digest('hostile-receipt-bytes'); },
     (value) => { value.governance.m2.dqRechecked = false; },
     (value) => { value.authority.routing = true; },
+    (value) => { value.privacy.containsRouteCoordinates = true; },
+    (value) => { value.authority.recommendedRoute = true; },
+    (value) => { value.unknown = false; },
   ]) {
     const hostile = structuredClone(handoff);
     mutate(hostile);
     hostile.identity = identityOf(Object.fromEntries(Object.entries(hostile).filter(([key]) => key !== 'identity')));
-    assert.throws(() => validateKnownRouteEvidenceFinalHandoff(hostile), /invalid/i);
+    assert.throws(() => validateKnownRouteEvidenceFinalHandoff(hostile, { checkpoint }), /invalid|closed schema/i);
   }
 });
 
@@ -780,11 +820,91 @@ test('builder completes from exact synthetic upstream harnesses and a completed 
     assert.deepEqual(await fs.readFile(path.join(outputRoot, name)), before.get(name).bytes);
     assert.equal((await fs.stat(path.join(outputRoot, name))).mtimeMs, before.get(name).mtimeMs);
   }
-  const handoff = JSON.parse(await fs.readFile(path.join(outputRoot, 'final-handoff.json'), 'utf8'));
+  const [completedCheckpoint, aggregateReport, handoff] = await Promise.all([
+    'checkpoint.json', 'aggregate-report.json', 'final-handoff.json',
+  ].map(async (name) => JSON.parse(await fs.readFile(path.join(outputRoot, name), 'utf8'))));
+  assert.equal(validateKnownRouteEvidenceArtifactSet({
+    checkpoint: completedCheckpoint,
+    report: aggregateReport,
+    handoff,
+  }).handoff, handoff);
+  const driftedCheckpoint = structuredClone(completedCheckpoint);
+  driftedCheckpoint.warehouseReceiptDigest = digest('drifted-receipt-bytes');
+  driftedCheckpoint.checkpointIdentity = identityOf(Object.fromEntries(
+    Object.entries(driftedCheckpoint).filter(([key]) => key !== 'checkpointIdentity'),
+  ));
+  assert.throws(() => validateKnownRouteEvidenceArtifactSet({
+    checkpoint: driftedCheckpoint,
+    report: aggregateReport,
+    handoff,
+  }), /invalid|inconsistent/i);
   assert.equal(handoff.schema, 'engagement-known-route-evidence-handoff/v2');
   assert.equal(first.handoffIdentity, handoff.identity);
   assert.equal(handoff.governance.m2.routeEvidenceAuthority, false);
   assert.doesNotMatch(JSON.stringify(handoff), /source_record_id|"coordinates"|routeInput|matchedEdges/i);
+
+  const hostileExtras = [
+    ['unexpected.json', false],
+    ['unexpected-directory', true],
+    ['.checkpoint.json.123.tmp', false],
+    ['checkpoint.json.backup', false],
+    ['.final-transaction', true],
+  ];
+  for (const [name, directory] of hostileExtras) {
+    const target = path.join(outputRoot, name);
+    if (directory) await fs.mkdir(target);
+    else await fs.writeFile(target, '{}\n');
+    await assert.rejects(runKnownRouteEvidenceBuild(options, {
+      ...dependencies,
+      now: () => { throw new Error('hostile completed rerun must not consume a new clock'); },
+    }), /must contain exactly the three final ordinary files/i);
+    await fs.rm(target, { recursive: directory, force: true });
+  }
+});
+
+test('builder aggregation rejects same-row-count partition byte drift after exact M1 preflight', async (t) => {
+  const m1 = await createM1ReceiptFixture();
+  const m2 = await createM2Fixture({
+    m1ReceiptIdentity: m1.receipt.identity,
+    m1Revision: m1.receipt.warehouse.current_snapshot_id,
+    coverage: m1.receipt.coverage,
+  });
+  t.after(async () => {
+    await fs.rm(m1.testRoot, { recursive: true, force: true });
+    await fs.rm(m2.testRoot, { recursive: true, force: true });
+  });
+  const routeFile = path.join(m1.testRoot, 'public-route.json');
+  const outputRoot = path.join(m1.testRoot, 'toctou-output');
+  const part = path.join(m1.root, 'warehouse', 'canonical', 'part-000.jsonl');
+  await fs.writeFile(routeFile, `${JSON.stringify(publicRouteFixture(), null, 2)}\n`);
+  await assert.rejects(runKnownRouteEvidenceBuild({
+    warehouse: m1.root,
+    warehouseReceiptIdentity: m1.receipt.identity,
+    m2EvidenceRoot: m2.root,
+    m2MartIdentity: m2.martIdentity,
+    m2ImplementationTip: commit('implementation'),
+    m2ExecutionRecordTip: commit('execution'),
+    m2CumulativeTip: commit('cumulative'),
+    routeInput: routeFile,
+    output: outputRoot,
+    allowPublicCenterlineRequest: true,
+  }, {
+    requestCatalog: async () => catalog(),
+    validateMart: async () => {
+      const bytes = await fs.readFile(part);
+      const hostile = Buffer.from(bytes);
+      hostile[hostile.indexOf(0x30)] = 0x39;
+      await fs.writeFile(part, hostile);
+      return m2.martGate;
+    },
+    verifyTips: async () => {},
+    now: () => new Date('2026-08-29T04:00:00.000Z'),
+  }), /rows, bytes, or SHA-256 changed after exact preflight/i);
+  const checkpoint = JSON.parse(await fs.readFile(path.join(outputRoot, 'checkpoint.json'), 'utf8'));
+  assert.equal(checkpoint.completedPartitions, 0);
+  assert.equal(checkpoint.accumulator.rowsRead, 0);
+  await assert.rejects(fs.access(path.join(outputRoot, 'aggregate-report.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.access(path.join(outputRoot, 'final-handoff.json')), { code: 'ENOENT' });
 });
 
 test('M4 lazy UI and build surfaces exclude persistence, share-route, console, and tracked public-route coordinates', async () => {

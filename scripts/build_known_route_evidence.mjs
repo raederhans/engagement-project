@@ -29,12 +29,14 @@ import {
   recoverKnownRouteFinalTransaction,
   restoreKnownRouteEvidenceAccumulator,
   stableText,
+  validateKnownRouteEvidenceArtifactSet,
   writeJsonAtomic,
 } from './lib/known_route_evidence_checkpoint.mjs';
 
 const execFileAsync = promisify(execFile);
 const RECEIPT_SCHEMA = 'engagement-phl-crime-warehouse-receipt/v3';
 const WAREHOUSE_SCHEMA = 'engagement-phl-crime-event-warehouse/v1';
+const FINAL_ARTIFACT_NAMES = Object.freeze(['aggregate-report.json', 'checkpoint.json', 'final-handoff.json']);
 const REQUIRED_RECEIPT_ARTIFACTS = Object.freeze([
   'warehouse_manifest',
   'backfill_checkpoint',
@@ -114,13 +116,16 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
   }
 
   await fs.mkdir(outputRoot, { recursive: true });
-  await recoverKnownRouteFinalTransaction(outputRoot);
   const checkpointPath = path.join(outputRoot, 'checkpoint.json');
   const reportPath = path.join(outputRoot, 'aggregate-report.json');
   const handoffPath = path.join(outputRoot, 'final-handoff.json');
   const runStarted = Date.now();
   let maximumRssBytes = process.memoryUsage().rss;
-  const saved = await readJsonIfPresent(checkpointPath);
+  let saved = await readJsonIfPresent(checkpointPath);
+  if (!saved?.completion) {
+    await recoverKnownRouteFinalTransaction(outputRoot);
+    saved = await readJsonIfPresent(checkpointPath);
+  }
   const resumedPartitions = saved?.completedPartitions || 0;
   let checkpoint;
   let accumulator;
@@ -170,10 +175,13 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
   for (let partition = checkpoint.completedPartitions; partition < warehouseGate.partitions.length; partition += 1) {
     const binding = warehouseGate.partitions[partition];
     const rowsBefore = accumulator.rowsRead;
-    await streamCanonicalPartition(binding.absolutePath, accumulator, partition);
+    const observed = await streamCanonicalPartition(binding.absolutePath, accumulator, partition);
     const rowsAdded = accumulator.rowsRead - rowsBefore;
-    if (rowsAdded !== binding.rowCount) {
-      throw new Error(`Canonical partition ${partition} row count changed after exact preflight.`);
+    if (rowsAdded !== observed.rowCount
+      || observed.rowCount !== binding.rowCount
+      || observed.bytes !== binding.bytes
+      || observed.sha256 !== binding.sha256) {
+      throw new Error(`Canonical partition ${partition} rows, bytes, or SHA-256 changed after exact preflight.`);
     }
     maximumRssBytes = Math.max(maximumRssBytes, process.memoryUsage().rss);
     checkpoint = createKnownRouteEvidenceCheckpoint({
@@ -503,9 +511,22 @@ async function verifyCommitChain({ implementationTip, executionRecordTip, cumula
 }
 
 async function streamCanonicalPartition(file, accumulator, partition) {
-  const input = createReadStream(file, { encoding: 'utf8', highWaterMark: 1024 * 1024 });
+  const handle = await fs.open(file, 'r');
+  const stat = await handle.stat();
+  if (!stat.isFile()) {
+    await handle.close();
+    throw new Error(`Canonical partition ${partition} is no longer an exact regular file.`);
+  }
+  const hash = createHash('sha256');
+  let bytes = 0;
+  const input = handle.createReadStream({ autoClose: false, highWaterMark: 1024 * 1024 });
+  input.on('data', (chunk) => {
+    hash.update(chunk);
+    bytes += chunk.length;
+  });
   const lines = readline.createInterface({ input, crlfDelay: Infinity });
   let lineNumber = 0;
+  let rowCount = 0;
   try {
     for await (const line of lines) {
       lineNumber += 1;
@@ -517,11 +538,14 @@ async function streamCanonicalPartition(file, accumulator, partition) {
         throw new Error(`Canonical partition ${partition} contains invalid JSON at line ${lineNumber}.`);
       }
       addCanonicalGeneralizedIncident(accumulator, event);
+      rowCount += 1;
     }
   } finally {
     lines.close();
     input.destroy();
+    await handle.close();
   }
+  return { rowCount, bytes, sha256: `sha256:${hash.digest('hex')}` };
 }
 
 async function inspectJsonLinesArtifact(file, label) {
@@ -593,11 +617,13 @@ function createFinalArtifacts({ checkpoint, warehouseGate, match, catalog, accum
     m2Governance,
     publicCenterlineRequest: true,
   });
-  return {
+  const artifacts = {
     'checkpoint.json': checkpoint,
     'aggregate-report.json': report,
     'final-handoff.json': handoff,
   };
+  validateKnownRouteEvidenceArtifactSet({ checkpoint, report, handoff });
+  return artifacts;
 }
 
 function buildResult({ report, handoff, checkpoint, outputRoot, restoredCompletedCheckpoint, idempotent }) {
@@ -753,6 +779,15 @@ async function readJsonIfPresent(file) {
 }
 
 async function assertExactFinalArtifacts(outputRoot, artifacts) {
+  const artifactNames = Object.keys(artifacts).sort();
+  const entries = (await fs.readdir(outputRoot, { withFileTypes: true }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  if (stableText(artifactNames) !== stableText(FINAL_ARTIFACT_NAMES)
+    || entries.length !== FINAL_ARTIFACT_NAMES.length
+    || entries.some((entry, index) => entry.name !== FINAL_ARTIFACT_NAMES[index]
+      || !entry.isFile() || entry.isSymbolicLink())) {
+    throw new Error('Completed Known Route output root must contain exactly the three final ordinary files.');
+  }
   for (const [name, value] of Object.entries(artifacts)) {
     const expected = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
     let actual;

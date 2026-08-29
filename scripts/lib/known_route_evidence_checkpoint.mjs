@@ -33,6 +33,46 @@ const INPUT_IDENTITY_KEYS = Object.freeze([
   'algorithmVersion',
   'partitionCount',
 ]);
+const CHECKPOINT_KEYS = Object.freeze([
+  'schema', ...INPUT_IDENTITY_KEYS, 'completedPartitions', 'completedPartitionBindings',
+  'startedAt', 'completion', 'accumulator', 'checkpointIdentity',
+]);
+const COMPLETION_KEYS = Object.freeze([
+  'state', 'completedAt', 'durationMs', 'maximumRssBytes', 'resumedPartitions',
+]);
+const PARTITION_BINDING_KEYS = Object.freeze(['partition', 'path', 'rowCount', 'bytes', 'sha256']);
+const ACCUMULATOR_KEYS = Object.freeze([
+  'rowsRead', 'eligibleGeneralizedRows', 'contributingRows', 'excluded', 'segments',
+]);
+const ACCUMULATOR_SEGMENT_KEYS = Object.freeze([
+  'analysisSegmentId', 'streetLabel', 'contributionUnits', 'contributingRows', 'categories',
+]);
+const PRIVACY_KEYS = Object.freeze([
+  'containsEventRows', 'containsEventCoordinates', 'containsGeneralizedLocations', 'containsAddresses',
+  'containsSourceRecordIds', 'containsRawRoute', 'containsRouteCoordinates', 'containsRouteEndpoints',
+  'containsCenterlineSourceEdgeIds',
+]);
+const HANDOFF_KEYS = Object.freeze([
+  'schema', 'warehouseIdentity', 'routeIdentity', 'centerlineDataVersion', 'catalogIdentity',
+  'corridorIdentity', 'completedPartitions', 'partitionCount', 'startedAt', 'completion', 'accumulator',
+  'dataQuality', 'lineage', 'consent', 'clocks', 'governance', 'authority', 'privacy', 'identity',
+]);
+const HANDOFF_LINEAGE_KEYS = Object.freeze([
+  'warehouseIdentity', 'warehouseReceiptDigest', 'warehouseManifestIdentity', 'partitionSetIdentity',
+  'routeIdentity', 'catalogIdentity', 'corridorIdentity', 'algorithmVersion',
+]);
+const HANDOFF_AUTHORITY_KEYS = Object.freeze([
+  'centerlineTopology', 'mode', 'accessibility', 'routing', 'safety', 'm2RouteEvidence',
+]);
+const REPORT_KEYS = Object.freeze([
+  'schema', 'status', 'completedAt', 'publicRoute', 'warehouse', 'centerline',
+  'reportedIncidentEvidence', 'hin', 'rawCrash', 'accessibility', 'dimensionsCombinedIntoSafetyScore',
+  'privacy', 'execution', 'semanticIdentity',
+]);
+const M2_GOVERNANCE_KEYS = Object.freeze([
+  'identity', 'revision', 'receiptDigest', 'canonicalPath', 'evidenceRoot', 'implementationTip',
+  'executionRecordTip', 'cumulativeTip', 'dq', 'dqRechecked', 'outcome', 'routeEvidenceAuthority',
+]);
 
 export function createKnownRouteEvidenceCheckpoint({
   warehouseIdentity,
@@ -118,6 +158,7 @@ export function restoreKnownRouteEvidenceAccumulator(checkpoint, {
 }
 
 export function validateKnownRouteEvidenceCheckpoint(value) {
+  requireExactKeys(value, CHECKPOINT_KEYS, 'checkpoint');
   const candidate = structuredClone(value);
   const declaredIdentity = candidate?.checkpointIdentity;
   delete candidate?.checkpointIdentity;
@@ -142,7 +183,8 @@ export function validateKnownRouteEvidenceCheckpoint(value) {
   }
   value.completedPartitionBindings.forEach((binding, index) => validatePartitionBinding(binding, index));
   if (value.completion !== null) {
-    if (value.completedPartitions !== value.partitionCount
+    if (!hasExactKeys(value.completion, COMPLETION_KEYS)
+      || value.completedPartitions !== value.partitionCount
       || value.completion?.state !== 'complete'
       || !exactTimestamp(value.completion.completedAt)
       || Date.parse(value.completion.completedAt) < Date.parse(value.startedAt)
@@ -242,8 +284,98 @@ export function createSafeKnownRouteAggregateReport({
   };
   const { completedAt, execution, ...semanticEvidence } = report;
   report.semanticIdentity = identityOf(semanticEvidence);
-  validateSafeArtifact(report);
+  validateKnownRouteEvidenceAggregateReport(report);
   return report;
+}
+
+export function validateKnownRouteEvidenceAggregateReport(value) {
+  requireExactKeys(value, REPORT_KEYS, 'aggregate report');
+  requireExactKeys(value.publicRoute, [
+    'labelIncluded', 'sessionIdentity', 'exactGeometryIncluded', 'endpointsIncluded',
+    'privateUserRoute', 'citywideValidityClaim',
+  ], 'aggregate report publicRoute');
+  requireExactKeys(value.warehouse, [
+    'schema', 'receiptSchema', 'receiptIdentity', 'receiptDigest', 'manifestIdentity',
+    'partitionSetIdentity', 'currentSnapshotId', 'partitionCount', 'canonicalRowsRead',
+    'activeRowCount', 'coverage', 'servingEligible',
+  ], 'aggregate report warehouse');
+  requireExactKeys(value.warehouse.coverage, [
+    'start', 'end_exclusive', 'earliest_event_at', 'latest_event_at',
+  ], 'aggregate report warehouse coverage');
+  requireExactKeys(value.centerline, [
+    'sourceId', 'dataVersion', 'catalogIdentity', 'corridorIdentity', 'sourceAsOf',
+    'queryFeatureCount', 'matchedAnalysisSegmentCount', 'connectedNodeChain', 'maximumMatchDistanceM',
+    'method', 'transportSemantics', 'topologyAuthority', 'grantsModeAuthority',
+    'grantsAccessibilityAuthority', 'grantsRoutingAuthority', 'grantsSafetyAuthority',
+    'exactRouteIncluded', 'sourceEdgeIdsIncluded',
+  ], 'aggregate report centerline');
+  requireExactKeys(value.hin, ['status', 'networkVintage', 'crashDataPeriod', 'meaning'], 'aggregate report HIN');
+  requireExactKeys(value.rawCrash, ['status', 'reason'], 'aggregate report raw crash');
+  requireExactKeys(value.accessibility, ['status', 'reason'], 'aggregate report accessibility');
+  requireExactKeys(value.execution, [
+    'algorithmVersion', 'durationMs', 'maximumRssBytes', 'resumedPartitions',
+  ], 'aggregate report execution');
+  const semantic = structuredClone(value);
+  const declaredIdentity = semantic.semanticIdentity;
+  delete semantic.semanticIdentity;
+  delete semantic.completedAt;
+  delete semantic.execution;
+  if (value.schema !== 'known-route-corridor-aggregate/v2'
+    || value.status !== 'partial'
+    || !exactTimestamp(value.completedAt)
+    || declaredIdentity !== identityOf(semantic)
+    || value.publicRoute.labelIncluded !== false
+    || !digest(value.publicRoute.sessionIdentity)
+    || ['exactGeometryIncluded', 'endpointsIncluded', 'privateUserRoute', 'citywideValidityClaim']
+      .some((key) => value.publicRoute[key] !== false)
+    || typeof value.warehouse.schema !== 'string' || !value.warehouse.schema
+    || typeof value.warehouse.receiptSchema !== 'string' || !value.warehouse.receiptSchema
+    || !digest(value.warehouse.receiptIdentity)
+    || !digest(value.warehouse.receiptDigest)
+    || !digest(value.warehouse.manifestIdentity)
+    || !digest(value.warehouse.partitionSetIdentity)
+    || !digest(value.warehouse.currentSnapshotId)
+    || !nonnegativeInteger(value.warehouse.partitionCount) || value.warehouse.partitionCount < 1
+    || !nonnegativeInteger(value.warehouse.canonicalRowsRead)
+    || !nonnegativeInteger(value.warehouse.activeRowCount)
+    || Object.values(value.warehouse.coverage).some((entry) => typeof entry !== 'string' || !entry)
+    || value.warehouse.servingEligible !== false
+    || value.centerline.sourceId !== 'philadelphia-street-centerline'
+    || typeof value.centerline.dataVersion !== 'string' || !value.centerline.dataVersion
+    || !digest(value.centerline.catalogIdentity)
+    || typeof value.centerline.corridorIdentity !== 'string' || !value.centerline.corridorIdentity
+    || !exactTimestamp(value.centerline.sourceAsOf)
+    || !nonnegativeInteger(value.centerline.queryFeatureCount)
+    || !nonnegativeInteger(value.centerline.matchedAnalysisSegmentCount)
+    || value.centerline.matchedAnalysisSegmentCount < 1
+    || value.centerline.connectedNodeChain !== true
+    || !nonnegativeNumber(value.centerline.maximumMatchDistanceM)
+    || typeof value.centerline.method !== 'string' || !value.centerline.method
+    || typeof value.centerline.transportSemantics !== 'string' || !value.centerline.transportSemantics
+    || value.centerline.topologyAuthority !== 'reference-only'
+    || ['grantsModeAuthority', 'grantsAccessibilityAuthority', 'grantsRoutingAuthority',
+      'grantsSafetyAuthority', 'exactRouteIncluded', 'sourceEdgeIdsIncluded']
+      .some((key) => value.centerline[key] !== false)
+    || value.hin.status !== 'partial'
+    || !nonnegativeInteger(value.hin.networkVintage)
+    || !Array.isArray(value.hin.crashDataPeriod) || value.hin.crashDataPeriod.length !== 2
+    || value.hin.crashDataPeriod.some((year) => !nonnegativeInteger(year))
+    || typeof value.hin.meaning !== 'string' || !value.hin.meaning
+    || value.rawCrash.status !== 'unavailable' || typeof value.rawCrash.reason !== 'string' || !value.rawCrash.reason
+    || value.accessibility.status !== 'unavailable'
+    || typeof value.accessibility.reason !== 'string' || !value.accessibility.reason
+    || value.dimensionsCombinedIntoSafetyScore !== false
+    || value.execution.algorithmVersion !== KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION
+    || !nonnegativeInteger(value.execution.durationMs)
+    || !nonnegativeInteger(value.execution.maximumRssBytes)
+    || !nonnegativeInteger(value.execution.resumedPartitions)
+    || value.execution.resumedPartitions > value.warehouse.partitionCount) {
+    throw new Error('Known Route aggregate report schema, identity, lineage, or authority is invalid.');
+  }
+  validateFinalizedEvidence(value.reportedIncidentEvidence, value.warehouse.canonicalRowsRead);
+  validatePrivacyDeclaration(value.privacy);
+  validateSafeArtifact(value);
+  return value;
 }
 
 export function createKnownRouteEvidenceFinalHandoff({
@@ -309,11 +441,22 @@ export function createKnownRouteEvidenceFinalHandoff({
     privacy: privacyDeclaration(),
   };
   handoff.identity = identityOf(handoff);
-  validateKnownRouteEvidenceFinalHandoff(handoff);
+  validateKnownRouteEvidenceFinalHandoff(handoff, { checkpoint });
   return handoff;
 }
 
-export function validateKnownRouteEvidenceFinalHandoff(value) {
+export function validateKnownRouteEvidenceFinalHandoff(value, { checkpoint } = {}) {
+  validateKnownRouteEvidenceCheckpoint(checkpoint);
+  requireExactKeys(value, HANDOFF_KEYS, 'final handoff');
+  requireExactKeys(value.completion, COMPLETION_KEYS, 'final handoff completion');
+  requireExactKeys(value.dataQuality, [
+    'partitionCompletion', 'accumulatorValidated', 'unavailableIsZero', 'partialIsCurrent', 'staleIsCurrent',
+  ], 'final handoff dataQuality');
+  requireExactKeys(value.lineage, HANDOFF_LINEAGE_KEYS, 'final handoff lineage');
+  requireExactKeys(value.consent, ['publicCenterlineRequest'], 'final handoff consent');
+  requireExactKeys(value.clocks, ['sourceAsOf', 'retrievedAt', 'builtAt', 'observedAt'], 'final handoff clocks');
+  requireExactKeys(value.governance, ['m2'], 'final handoff governance');
+  requireExactKeys(value.authority, HANDOFF_AUTHORITY_KEYS, 'final handoff authority');
   const candidate = structuredClone(value);
   const declaredIdentity = candidate?.identity;
   delete candidate?.identity;
@@ -326,8 +469,12 @@ export function validateKnownRouteEvidenceFinalHandoff(value) {
     || typeof value.corridorIdentity !== 'string' || !value.corridorIdentity
     || !Number.isInteger(value.completedPartitions)
     || value.completedPartitions !== value.partitionCount
+    || value.completedPartitions !== checkpoint.completedPartitions
+    || value.partitionCount !== checkpoint.partitionCount
     || !exactTimestamp(value.startedAt)
+    || value.startedAt !== checkpoint.startedAt
     || value.completion?.state !== 'complete'
+    || stableText(value.completion) !== stableText(checkpoint.completion)
     || value.dataQuality?.partitionCompletion !== true
     || value.dataQuality?.accumulatorValidated !== true
     || value.dataQuality?.unavailableIsZero !== false
@@ -338,18 +485,55 @@ export function validateKnownRouteEvidenceFinalHandoff(value) {
     || value.startedAt !== value.clocks.builtAt
     || value.completion.completedAt !== value.clocks.observedAt
     || value.lineage?.warehouseIdentity !== value.warehouseIdentity
+    || ['warehouseIdentity', 'warehouseReceiptDigest', 'warehouseManifestIdentity', 'partitionSetIdentity',
+      'routeIdentity', 'catalogIdentity'].some((key) => !digest(value.lineage?.[key]))
+    || value.lineage?.warehouseReceiptDigest !== checkpoint.warehouseReceiptDigest
+    || value.lineage?.warehouseManifestIdentity !== checkpoint.warehouseManifestIdentity
+    || value.lineage?.partitionSetIdentity !== checkpoint.partitionSetIdentity
     || value.lineage?.routeIdentity !== value.routeIdentity
     || value.lineage?.catalogIdentity !== value.catalogIdentity
     || value.lineage?.corridorIdentity !== value.corridorIdentity
     || value.lineage?.algorithmVersion !== KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION
+    || value.warehouseIdentity !== checkpoint.warehouseIdentity
+    || value.routeIdentity !== checkpoint.routeIdentity
+    || value.centerlineDataVersion !== checkpoint.centerlineDataVersion
+    || value.catalogIdentity !== checkpoint.catalogIdentity
+    || value.corridorIdentity !== checkpoint.corridorIdentity
+    || value.lineage.algorithmVersion !== checkpoint.algorithmVersion
+    || stableText(value.accumulator) !== stableText(checkpoint.accumulator)
     || value.authority?.centerlineTopology !== 'reference-only'
     || ['mode', 'accessibility', 'routing', 'safety', 'm2RouteEvidence'].some((key) => value.authority?.[key] !== false)) {
     throw new Error('Known Route final handoff header, lineage, consent, clock, or authority is invalid.');
   }
   validateAccumulatorSemantics(value.accumulator);
   validateM2GovernanceProjection(value.governance?.m2);
+  validatePrivacyDeclaration(value.privacy);
   validateSafeArtifact(value);
   return value;
+}
+
+export function validateKnownRouteEvidenceArtifactSet({ checkpoint, report, handoff } = {}) {
+  validateKnownRouteEvidenceCheckpoint(checkpoint);
+  validateKnownRouteEvidenceAggregateReport(report);
+  validateKnownRouteEvidenceFinalHandoff(handoff, { checkpoint });
+  if (report.completedAt !== checkpoint.completion?.completedAt
+    || report.publicRoute.sessionIdentity !== checkpoint.routeIdentity
+    || report.warehouse.receiptIdentity !== checkpoint.warehouseIdentity
+    || report.warehouse.receiptDigest !== checkpoint.warehouseReceiptDigest
+    || report.warehouse.manifestIdentity !== checkpoint.warehouseManifestIdentity
+    || report.warehouse.partitionSetIdentity !== checkpoint.partitionSetIdentity
+    || report.warehouse.partitionCount !== checkpoint.partitionCount
+    || report.warehouse.canonicalRowsRead !== checkpoint.accumulator.rowsRead
+    || report.centerline.dataVersion !== checkpoint.centerlineDataVersion
+    || report.centerline.catalogIdentity !== checkpoint.catalogIdentity
+    || report.centerline.corridorIdentity !== checkpoint.corridorIdentity
+    || report.execution.algorithmVersion !== checkpoint.algorithmVersion
+    || report.execution.durationMs !== checkpoint.completion?.durationMs
+    || report.execution.maximumRssBytes !== checkpoint.completion?.maximumRssBytes
+    || report.execution.resumedPartitions !== checkpoint.completion?.resumedPartitions) {
+    throw new Error('Known Route final artifact lineage bindings are inconsistent.');
+  }
+  return { checkpoint, report, handoff };
 }
 
 export async function publishKnownRouteFinalArtifacts({ outputRoot, artifacts, failAfterPublish = null } = {}) {
@@ -477,7 +661,9 @@ function safeAccumulator(accumulator) {
 }
 
 function validateAccumulatorSemantics(accumulator) {
-  if (!accumulator || !nonnegativeInteger(accumulator.rowsRead)
+  requireExactKeys(accumulator, ACCUMULATOR_KEYS, 'accumulator');
+  requireExactKeys(accumulator.excluded, EXCLUSION_KEYS, 'accumulator exclusions');
+  if (!nonnegativeInteger(accumulator.rowsRead)
     || !nonnegativeInteger(accumulator.eligibleGeneralizedRows)
     || !nonnegativeInteger(accumulator.contributingRows)
     || accumulator.contributingRows > accumulator.eligibleGeneralizedRows
@@ -495,7 +681,8 @@ function validateAccumulatorSemantics(accumulator) {
     throw new Error('Known Route checkpoint accumulator totals do not reconcile.');
   }
   for (const segment of accumulator.segments) {
-    if (typeof segment?.analysisSegmentId !== 'string' || !/^segment-\d{3}$/.test(segment.analysisSegmentId)
+    requireExactKeys(segment, ACCUMULATOR_SEGMENT_KEYS, 'accumulator segment');
+    if (typeof segment.analysisSegmentId !== 'string' || !/^segment-\d{3}$/.test(segment.analysisSegmentId)
       || typeof segment.streetLabel !== 'string' || !segment.streetLabel
       || !nonnegativeNumber(segment.contributionUnits)
       || !nonnegativeInteger(segment.contributingRows)
@@ -513,7 +700,19 @@ function validateAccumulatorSemantics(accumulator) {
 }
 
 function validateM2GovernanceProjection(value) {
-  if (!value || !isPlainObject(value.identity) || !isPlainObject(value.revision)
+  requireExactKeys(value, M2_GOVERNANCE_KEYS, 'M2 governance');
+  requireExactKeys(value.identity, ['data.mart_artifact_identity', 'data.source_vintage'], 'M2 governance identity');
+  requireExactKeys(value.revision, ['generated_at', 'protocol.sha256'], 'M2 governance revision');
+  requireExactKeys(value.dq, [
+    'canonical_rows_seen', 'tract', 'fixed-grid', 'unknown_category', 'invalid_event_time', 'non_active',
+  ], 'M2 governance DQ');
+  requireExactKeys(value.dq.tract, ['admitted', 'ambiguous_excluded', 'unmapped_excluded'], 'M2 tract DQ');
+  requireExactKeys(value.dq['fixed-grid'], ['admitted', 'unavailable_excluded'], 'M2 fixed-grid DQ');
+  requireExactKeys(value.outcome, ['promotionStatus', 'selectedModel', 'availability'], 'M2 outcome');
+  if (!digest(value.identity['data.mart_artifact_identity'])
+    || !digest(value.identity['data.source_vintage'])
+    || !exactTimestamp(value.revision.generated_at)
+    || !sha256Hex(value.revision['protocol.sha256'])
     || !digest(value.receiptDigest)
     || typeof value.canonicalPath !== 'string' || !path.isAbsolute(value.canonicalPath)
     || typeof value.evidenceRoot !== 'string' || !path.isAbsolute(value.evidenceRoot)
@@ -521,7 +720,13 @@ function validateM2GovernanceProjection(value) {
     || value.implementationTip === value.executionRecordTip
     || value.executionRecordTip === value.cumulativeTip
     || value.implementationTip === value.cumulativeTip
-    || !isPlainObject(value.dq) || value.dqRechecked !== true
+    || ['canonical_rows_seen', 'unknown_category', 'invalid_event_time', 'non_active']
+      .some((key) => !nonnegativeInteger(value.dq[key]))
+    || ['admitted', 'ambiguous_excluded', 'unmapped_excluded']
+      .some((key) => !nonnegativeInteger(value.dq.tract[key]))
+    || ['admitted', 'unavailable_excluded']
+      .some((key) => !nonnegativeInteger(value.dq['fixed-grid'][key]))
+    || value.dqRechecked !== true
     || value.outcome?.promotionStatus !== 'not-promoted'
     || value.outcome?.availability !== 'unavailable'
     || value.outcome?.selectedModel !== null
@@ -532,7 +737,8 @@ function validateM2GovernanceProjection(value) {
 }
 
 function validatePartitionBinding(binding, index) {
-  if (binding?.partition !== index
+  requireExactKeys(binding, PARTITION_BINDING_KEYS, `partition binding ${index}`);
+  if (binding.partition !== index
     || binding.path !== `canonical/part-${String(index).padStart(3, '0')}.jsonl`
     || !nonnegativeInteger(binding.rowCount)
     || !nonnegativeInteger(binding.bytes) || binding.bytes < 1
@@ -563,6 +769,76 @@ function privacyDeclaration() {
     containsRouteEndpoints: false,
     containsCenterlineSourceEdgeIds: false,
   };
+}
+
+function validatePrivacyDeclaration(value) {
+  requireExactKeys(value, PRIVACY_KEYS, 'privacy declaration');
+  if (PRIVACY_KEYS.some((key) => value[key] !== false)) {
+    throw new Error('Known Route privacy declaration is invalid.');
+  }
+  return value;
+}
+
+function validateFinalizedEvidence(value, expectedRows) {
+  requireExactKeys(value, ['schema', 'status', 'method', 'route', 'excluded', 'segments'], 'reported incident evidence');
+  requireExactKeys(value.method, [
+    'schema', 'maximumDistanceM', 'nonAdjacentAmbiguityDifferenceM', 'contribution', 'precision',
+  ], 'reported incident method');
+  requireExactKeys(value.route, [
+    'contributionUnits', 'contributingRows', 'rowsRead', 'eligibleGeneralizedRows',
+  ], 'reported incident route');
+  requireExactKeys(value.excluded, EXCLUSION_KEYS, 'reported incident exclusions');
+  if (typeof value.schema !== 'string' || !value.schema
+    || !['partial', 'admitted-zero'].includes(value.status)
+    || typeof value.method.schema !== 'string' || !value.method.schema
+    || !nonnegativeNumber(value.method.maximumDistanceM)
+    || !nonnegativeNumber(value.method.nonAdjacentAmbiguityDifferenceM)
+    || typeof value.method.contribution !== 'string' || !value.method.contribution
+    || typeof value.method.precision !== 'string' || !value.method.precision
+    || !nonnegativeNumber(value.route.contributionUnits)
+    || !nonnegativeInteger(value.route.contributingRows)
+    || !nonnegativeInteger(value.route.rowsRead) || value.route.rowsRead !== expectedRows
+    || !nonnegativeInteger(value.route.eligibleGeneralizedRows)
+    || value.route.contributingRows > value.route.eligibleGeneralizedRows
+    || EXCLUSION_KEYS.some((key) => !nonnegativeInteger(value.excluded[key]))
+    || !Array.isArray(value.segments) || !value.segments.length
+    || (value.route.contributingRows > 0) !== (value.status === 'partial')) {
+    throw new Error('Known Route reported incident evidence is invalid.');
+  }
+  const preEligibilityExcluded = ['nonActive', 'coordinateUnavailable', 'precisionUnavailable', 'categoryUnavailable', 'malformed']
+    .reduce((sum, key) => sum + value.excluded[key], 0);
+  if (preEligibilityExcluded + value.route.eligibleGeneralizedRows !== value.route.rowsRead
+    || value.route.contributingRows + value.excluded.outsideUncertaintyCorridor
+      + value.excluded.ambiguousNonAdjacent !== value.route.eligibleGeneralizedRows) {
+    throw new Error('Known Route reported incident evidence totals do not reconcile.');
+  }
+  for (const segment of value.segments) {
+    requireExactKeys(segment, ACCUMULATOR_SEGMENT_KEYS, 'reported incident segment');
+    if (typeof segment.analysisSegmentId !== 'string' || !/^segment-\d{3}$/.test(segment.analysisSegmentId)
+      || typeof segment.streetLabel !== 'string' || !segment.streetLabel
+      || !nonnegativeNumber(segment.contributionUnits)
+      || !nonnegativeInteger(segment.contributingRows)
+      || !Array.isArray(segment.categories)) {
+      throw new Error('Known Route reported incident segment is invalid.');
+    }
+    let categoryTotal = 0;
+    for (const category of segment.categories) {
+      requireExactKeys(category, ['category', 'contributionUnits'], 'reported incident category');
+      if (typeof category.category !== 'string' || !category.category
+        || !nonnegativeNumber(category.contributionUnits)) {
+        throw new Error('Known Route reported incident category is invalid.');
+      }
+      categoryTotal += category.contributionUnits;
+    }
+    if (Math.abs(categoryTotal - segment.contributionUnits) > 1e-6) {
+      throw new Error('Known Route reported incident category contributions do not reconcile.');
+    }
+  }
+  const segmentTotal = value.segments.reduce((sum, segment) => sum + segment.contributionUnits, 0);
+  if (Math.abs(segmentTotal - value.route.contributionUnits) > 1e-6) {
+    throw new Error('Known Route reported incident route contributions do not reconcile.');
+  }
+  return value;
 }
 
 function validateSafeArtifact(value) {
@@ -599,6 +875,10 @@ function digest(value) {
   return typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
 }
 
+function sha256Hex(value) {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+}
+
 function commit(value) {
   return typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 }
@@ -614,6 +894,20 @@ function nonnegativeNumber(value) {
 function exactTimestamp(value) {
   return typeof value === 'string' && !Number.isNaN(new Date(value).getTime())
     && new Date(value).toISOString() === value;
+}
+
+function hasExactKeys(value, expectedKeys) {
+  if (!isPlainObject(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function requireExactKeys(value, expectedKeys, label) {
+  if (!hasExactKeys(value, expectedKeys)) {
+    throw new Error(`Known Route ${label} has an invalid closed schema.`);
+  }
+  return value;
 }
 
 function isPlainObject(value) {
