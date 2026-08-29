@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "schema": "engagement-area-intelligence-evaluation-protocol/v2",
-  "frozen_at": "2026-08-28T17:43:21.213Z",
+  "frozen_at": "2026-08-29T06:58:31.174Z",
   "frozen_before_model_performance": true,
   "target": {
     "grain": "spatial-unit-week",
@@ -20,7 +20,7 @@
   },
   "exact_input_gate": {
     "receipt_schema": "engagement-phl-crime-warehouse-receipt/v3",
-    "receipt_identity": "sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4",
+    "receipt_identity": "sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315",
     "required_mode": "official-local-candidate",
     "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
     "serving_eligible": false,

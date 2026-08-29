@@ -43,7 +43,7 @@ test('M2 evaluation protocol is frozen before performance and preserves claim/ad
   assert.equal(protocolBytes.includes(13), false, 'protocol bytes must remain LF-only in every checkout');
   assert.equal(
     createHash('sha256').update(protocolBytes).digest('hex'),
-    'd7d75ce0eb0aaf80b950aa87125e5a98742dca57db38d22938b3851fed048ff6',
+    '5c6361a3be6c03058592703d574dfcd2b921f520c381fbfde539b443b5be7eac',
     'protocol byte identity must be checkout-independent',
   );
   const protocol = JSON.parse(protocolBytes.toString('utf8'));
@@ -52,7 +52,7 @@ test('M2 evaluation protocol is frozen before performance and preserves claim/ad
   assert.equal(protocol.schema_version, 2);
   assert.equal(protocol.frozen_before_model_performance, true);
   assert.equal(protocol.exact_input_gate.receipt_schema, 'engagement-phl-crime-warehouse-receipt/v3');
-  assert.equal(protocol.exact_input_gate.receipt_identity, 'sha256:cd7585ae6de518cbbf57ab5c301073a69ef3c4d6543ec6d3acdadc253b3e16e4');
+  assert.equal(protocol.exact_input_gate.receipt_identity, 'sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315');
   assert.equal('canonical_row_count' in protocol.exact_input_gate, false);
   assert.equal('scope_end_exclusive' in protocol.exact_input_gate, false);
   for (const field of ['target', 'admission', 'marts', 'rolling_folds', 'spatial_holdout', 'models', 'leakage_guards', 'metrics', 'promotion_gate', 'artifact_policy']) {
