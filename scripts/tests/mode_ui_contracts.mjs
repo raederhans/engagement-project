@@ -397,15 +397,15 @@ test('Crime mode URL writes use the latest public query instead of a startup sna
     getCrimeQuery: () => crimeQuery,
   });
 
-  crimeQuery = 'analysis=buffer&start=2025-09&months=12&a=-75.16%2C39.95&labelA=Market+St';
+  crimeQuery = 'analysis=buffer&start=2025-09&months=12';
   writer('crime');
 
   const current = new URL(href);
   assert.equal(current.searchParams.get('view'), 'list');
   assert.equal(current.searchParams.get('start'), '2025-09');
   assert.equal(current.searchParams.get('months'), '12');
-  assert.equal(current.searchParams.get('a'), '-75.16,39.95');
-  assert.equal(current.searchParams.get('labelA'), 'Market St');
+  assert.equal(current.searchParams.has('a'), false);
+  assert.equal(current.searchParams.has('labelA'), false);
 });
 
 test('late Crime synchronization cannot append Crime keys while Diary owns the URL', (t) => {
@@ -435,6 +435,45 @@ test('late Crime synchronization cannot append Crime keys while Diary owns the U
   });
 
   assert.equal(replacedUrl, null);
+});
+
+test('Crime canonical URL removes hostile private keys while preserving unrelated query and hash', (t) => {
+  const originalWindow = globalThis.window;
+  let replacedUrl = null;
+  t.after(() => { globalThis.window = originalWindow; });
+  globalThis.window = {
+    location: {
+      search: '?mode=crime&foo=keep&a=-75.16%2C39.95&b=-75.2%2C39.96&labelA=PRIVATE-A&labelB=PRIVATE-B',
+      pathname: '/app/',
+      hash: '#results',
+    },
+    history: {
+      replaceState(_state, _title, nextUrl) { replacedUrl = nextUrl; },
+    },
+  };
+
+  writeCrimeStateToURL({
+    viewMode: 'crime',
+    queryMode: 'district',
+    selectedDistrictCode: '05',
+    durationMonths: 12,
+    radius: 400,
+    classMethod: 'quantile',
+    classBins: 5,
+    classPalette: 'Blues',
+    classOpacity: 0.75,
+    centerLonLat: [-75.16, 39.95],
+    addressA: 'PRIVATE-A',
+  });
+
+  const next = new URL(replacedUrl, 'https://example.test');
+  assert.equal(next.searchParams.get('foo'), 'keep');
+  assert.equal(next.searchParams.get('district'), '05');
+  assert.equal(next.searchParams.has('a'), false);
+  assert.equal(next.searchParams.has('b'), false);
+  assert.equal(next.searchParams.has('labelA'), false);
+  assert.equal(next.searchParams.has('labelB'), false);
+  assert.equal(next.hash, '#results');
 });
 
 test('Help copy is mode-specific and explains Diary local persistence', () => {

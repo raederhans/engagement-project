@@ -22,6 +22,7 @@ export const CRIME_VIEW_QUERY_KEYS = new Set([
   'tractLines', 'a', 'b', 'labelA', 'labelB', 'rate', 'class', 'bins', 'palette',
   'opacity', 'breaks',
 ]);
+export const PRIVATE_CRIME_VIEW_QUERY_KEYS = new Set(['a', 'b', 'labelA', 'labelB']);
 
 export function hasActiveIncidentSelection(state) {
   return state?.queryMode === 'buffer'
@@ -131,33 +132,74 @@ function label(value) {
   return text ? text.slice(0, 160) : null;
 }
 
+function canonicalPublicFields(state = {}) {
+  const queryMode = MODES.has(state.queryMode) ? state.queryMode : 'buffer';
+  const startMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(state.startMonth || '')
+    ? state.startMonth
+    : null;
+  return {
+    queryMode,
+    startMonth,
+    durationMonths: optionNumber(state.durationMonths, DURATION_OPTIONS, 12),
+    radius: boundedInteger(state.radius, 400, RADIUS_MIN, RADIUS_MAX),
+    selectedGroups: list(Array.isArray(state.selectedGroups) ? state.selectedGroups.join('|') : state.selectedGroups),
+    selectedDrilldownCodes: normalizeHighlightedOffenses(state.selectedDrilldownCodes || []),
+    selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(state.selectedDistrictCode || '')
+      ? state.selectedDistrictCode
+      : null,
+    selectedTractGEOID: queryMode === 'tract' && /^\d{11}$/.test(state.selectedTractGEOID || '')
+      ? state.selectedTractGEOID
+      : null,
+    overlayTractsLines: Boolean(state.overlayTractsLines),
+    per10k: queryMode === 'tract' && Boolean(state.per10k),
+    classMethod: CLASS_METHODS.has(state.classMethod) ? state.classMethod : 'quantile',
+    classBins: boundedInteger(state.classBins, 5, 2, 9),
+    classPalette: CLASS_PALETTES.has(state.classPalette) ? state.classPalette : 'Blues',
+    classOpacity: boundedNumber(state.classOpacity, 0.75, 0.1, 1),
+    classCustomBreaks: numericList(
+      Array.isArray(state.classCustomBreaks) ? state.classCustomBreaks.join('|') : state.classCustomBreaks,
+    ),
+  };
+}
+
+export function projectCrimeViewStateForPublic(state = {}) {
+  return canonicalPublicFields(state);
+}
+
+export function canonicalizeCrimeRuntimeState(state = {}) {
+  return {
+    ...canonicalPublicFields(state),
+    centerLonLat: point(state.centerLonLat),
+    centerBLonLat: point(state.centerBLonLat),
+    addressA: label(state.addressA),
+    addressB: label(state.addressB),
+  };
+}
+
 export function hasCrimeViewState(value) {
   const params = value instanceof URLSearchParams ? value : new URLSearchParams(String(value || '').replace(/^\?/, ''));
   return [...CRIME_VIEW_QUERY_KEYS].some((key) => params.has(key));
 }
 
 export function encodeCrimeViewState(state) {
+  const publicState = projectCrimeViewStateForPublic(state);
   const params = new URLSearchParams();
-  params.set('analysis', MODES.has(state.queryMode) ? state.queryMode : 'buffer');
-  if (state.startMonth) params.set('start', state.startMonth);
-  params.set('months', String(optionNumber(state.durationMonths, DURATION_OPTIONS, 12)));
-  params.set('radius', String(boundedInteger(state.radius, 400, RADIUS_MIN, RADIUS_MAX)));
-  if (state.selectedGroups?.length) params.set('groups', state.selectedGroups.join('|'));
-  const highlightedOffenses = normalizeHighlightedOffenses(state.selectedDrilldownCodes);
+  params.set('analysis', publicState.queryMode);
+  if (publicState.startMonth) params.set('start', publicState.startMonth);
+  params.set('months', String(publicState.durationMonths));
+  params.set('radius', String(publicState.radius));
+  if (publicState.selectedGroups.length) params.set('groups', publicState.selectedGroups.join('|'));
+  const highlightedOffenses = publicState.selectedDrilldownCodes;
   if (highlightedOffenses.length) params.set('codes', highlightedOffenses.join('|'));
-  if (state.selectedDistrictCode) params.set('district', state.selectedDistrictCode);
-  if (state.selectedTractGEOID) params.set('tract', state.selectedTractGEOID);
-  if (state.overlayTractsLines) params.set('tractLines', '1');
-  if (point(state.centerLonLat)) params.set('a', point(state.centerLonLat).join(','));
-  if (point(state.centerBLonLat)) params.set('b', point(state.centerBLonLat).join(','));
-  if (state.addressA) params.set('labelA', state.addressA);
-  if (state.addressB) params.set('labelB', state.addressB);
-  if (state.per10k) params.set('rate', 'per10k');
-  params.set('class', CLASS_METHODS.has(state.classMethod) ? state.classMethod : 'quantile');
-  params.set('bins', String(boundedInteger(state.classBins, 5, 2, 9)));
-  params.set('palette', CLASS_PALETTES.has(state.classPalette) ? state.classPalette : 'Blues');
-  params.set('opacity', String(boundedNumber(state.classOpacity, 0.75, 0.1, 1)));
-  if (state.classCustomBreaks?.length) params.set('breaks', state.classCustomBreaks.join('|'));
+  if (publicState.selectedDistrictCode) params.set('district', publicState.selectedDistrictCode);
+  if (publicState.selectedTractGEOID) params.set('tract', publicState.selectedTractGEOID);
+  if (publicState.overlayTractsLines) params.set('tractLines', '1');
+  if (publicState.per10k) params.set('rate', 'per10k');
+  params.set('class', publicState.classMethod);
+  params.set('bins', String(publicState.classBins));
+  params.set('palette', publicState.classPalette);
+  params.set('opacity', String(publicState.classOpacity));
+  if (publicState.classCustomBreaks.length) params.set('breaks', publicState.classCustomBreaks.join('|'));
   return params.toString();
 }
 
@@ -175,10 +217,10 @@ export function decodeCrimeViewState(value) {
     selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(params.get('district') || '') ? params.get('district') : null,
     selectedTractGEOID: queryMode === 'tract' && /^\d{11}$/.test(params.get('tract') || '') ? params.get('tract') : null,
     overlayTractsLines: params.get('tractLines') === '1',
-    centerLonLat: point(params.get('a')),
-    centerBLonLat: point(params.get('b')),
-    addressA: label(params.get('labelA')),
-    addressB: label(params.get('labelB')),
+    centerLonLat: null,
+    centerBLonLat: null,
+    addressA: null,
+    addressB: null,
     per10k: queryMode === 'tract' && params.get('rate') === 'per10k',
     classMethod: CLASS_METHODS.has(params.get('class')) ? params.get('class') : 'quantile',
     classBins: boundedInteger(params.get('bins'), 5, 2, 9),
@@ -198,7 +240,7 @@ function applyDecodedCrimeViewState(target, decoded, { setMode } = {}) {
 }
 
 function replaceDecodedCrimeViewState(target, decoded, { setMode } = {}) {
-  const canonical = decodeCrimeViewState(encodeCrimeViewState(decoded || {}));
+  const canonical = projectCrimeViewStateForPublic(decoded || {});
   Object.assign(target, {
     centerLonLat: null,
     center3857: null,
@@ -225,6 +267,26 @@ function replaceDecodedCrimeViewState(target, decoded, { setMode } = {}) {
   return target;
 }
 
+function replacePresetCrimeViewState(target, decoded, { setMode } = {}) {
+  const canonical = canonicalizeCrimeRuntimeState({ ...target, ...(decoded || {}) });
+  Object.assign(target, {
+    selectedTypes: [],
+    selectMode: 'idle',
+    selectTarget: 'A',
+  });
+  if (Object.hasOwn(decoded || {}, 'centerLonLat')) target.center3857 = null;
+  if (Object.hasOwn(decoded || {}, 'centerBLonLat')) target.centerB3857 = null;
+  Object.assign(target, canonical);
+  setMode?.(canonical.queryMode);
+  if (canonical.centerLonLat) {
+    target.setComparisonPoint?.('A', ...canonical.centerLonLat, canonical.addressA);
+  }
+  if (canonical.centerBLonLat) {
+    target.setComparisonPoint?.('B', ...canonical.centerBLonLat, canonical.addressB);
+  }
+  return target;
+}
+
 export function mutateCrimeViewState(target, action, payload, options = {}) {
   switch (action) {
     case CRIME_STATE_ACTIONS.RESTORE_URL:
@@ -236,6 +298,7 @@ export function mutateCrimeViewState(target, action, payload, options = {}) {
         options,
       );
     case CRIME_STATE_ACTIONS.REPLACE_PRESET:
+      return replacePresetCrimeViewState(target, payload, options);
     case CRIME_STATE_ACTIONS.RESTORE_HISTORY:
       return replaceDecodedCrimeViewState(target, payload, options);
     case CRIME_STATE_ACTIONS.SELECT_TRACT:
@@ -274,7 +337,7 @@ export function applyCrimeViewState(target, decoded, { setMode } = {}) {
 export function replaceCrimeViewState(target, decoded, { setMode } = {}) {
   return mutateCrimeViewState(
     target,
-    CRIME_STATE_ACTIONS.RESTORE_HISTORY,
+    CRIME_STATE_ACTIONS.REPLACE_PRESET,
     decoded,
     { setMode },
   );

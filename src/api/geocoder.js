@@ -1,4 +1,4 @@
-import { fetchJson } from '../utils/http.js';
+import { fetchJson, rejectPrivateLocationEgress } from '../utils/http.js';
 
 const PHILADELPHIA_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Philly_Composite_Locator/GeocodeServer/findAddressCandidates';
 const PHILADELPHIA_PROPERTY_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Address_Locator/GeocodeServer/findAddressCandidates';
@@ -16,6 +16,7 @@ export async function findPhiladelphiaPropertyAddressCandidates(address, {
   if (query.length < 3 || query.length > 160) {
     throw new Error('Enter a bounded Philadelphia street address.');
   }
+  rejectPrivateLocationEgress();
   const params = new URLSearchParams({
     Street: query,
     f: 'json',
@@ -43,6 +44,7 @@ export async function geocodePhiladelphiaAddress(address, {
 } = {}) {
   const query = String(address || '').trim();
   if (query.length < 3) throw new Error('Enter a Philadelphia address or intersection.');
+  rejectPrivateLocationEgress();
   const params = new URLSearchParams({
     SingleLine: query,
     f: 'json',

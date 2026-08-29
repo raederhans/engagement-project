@@ -478,46 +478,25 @@ test('comparison summary counts each point once and does not synthesize a sparse
   assert.equal(result.b.delta30, null);
 });
 
-test('address search uses the public Philadelphia geocoder and rejects weak matches', async () => {
-  const { geocodePhiladelphiaAddress } = await import('../../src/api/geocoder.js');
-  let requestedUrl;
-  const result = await geocodePhiladelphiaAddress('1500 Market St', {
-    request: async (url) => {
-      requestedUrl = url;
-      return {
-        candidates: [{
-          address: '1500 MARKET ST, 19102',
-          score: 100,
-          location: { x: -75.166154, y: 39.95218 },
-        }],
-      };
-    },
-  });
-  assert.match(requestedUrl, /citygeo-geocoder-pub\.databridge\.phila\.gov/);
-  assert.match(requestedUrl, /SingleLine=1500\+Market\+St/);
-  assert.deepEqual(result, {
-    address: '1500 MARKET ST, 19102',
-    score: 100,
-    lngLat: [-75.166154, 39.95218],
-  });
-
-  const intersection = await geocodePhiladelphiaAddress('Broad and Girard', {
-    request: async () => ({
-      candidates: [{
-        address: 'N BROAD ST & W GIRARD AVE,, 19121',
-        score: 100,
-        location: { x: -75.16, y: 39.97 },
-      }],
-    }),
-  });
-  assert.equal(intersection.address, 'N BROAD ST & W GIRARD AVE, 19121');
+test('private address search is unavailable before any geocoder request', async () => {
+  const {
+    findPhiladelphiaPropertyAddressCandidates,
+    geocodePhiladelphiaAddress,
+  } = await import('../../src/api/geocoder.js');
+  let requestCalls = 0;
   await assert.rejects(
-    geocodePhiladelphiaAddress('uncertain', {
-      minScore: 85,
-      request: async () => ({ candidates: [{ address: 'Maybe', score: 40, location: { x: -75, y: 40 } }] }),
+    geocodePhiladelphiaAddress('1500 Market St', {
+      request: async () => { requestCalls += 1; return { candidates: [] }; },
     }),
-    /confident Philadelphia match/i,
+    /unavailable/i,
   );
+  await assert.rejects(
+    findPhiladelphiaPropertyAddressCandidates('1500 Market St', {
+      request: async () => { requestCalls += 1; return { candidates: [] }; },
+    }),
+    /unavailable/i,
+  );
+  assert.equal(requestCalls, 0);
 });
 
 test('address ownership prevents an older response from replacing a newer result', async () => {
@@ -667,7 +646,7 @@ test('boundary failure cannot disable independent Crime result surfaces', async 
   assert.doesNotMatch(source, /style\.pointerEvents\s*=\s*['"]none['"]/);
 });
 
-test('share state round-trips every user-visible Crime analysis choice', async () => {
+test('public share state round-trips public choices and never encodes private point fields', async () => {
   const { encodeCrimeViewState, decodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
   const encoded = encodeCrimeViewState({
     queryMode: 'tract',
@@ -681,8 +660,8 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     overlayTractsLines: true,
     centerLonLat: [-75.166154, 39.95218],
     centerBLonLat: [-75.2, 39.96],
-    addressA: '1500 MARKET ST',
-    addressB: 'UNIVERSITY CITY',
+    addressA: 'PRIVATE ADDRESS A',
+    addressB: 'PRIVATE ADDRESS B',
     per10k: true,
     classMethod: 'custom',
     classBins: 4,
@@ -700,10 +679,10 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     selectedDistrictCode: null,
     selectedTractGEOID: '42101000100',
     overlayTractsLines: true,
-    centerLonLat: [-75.166154, 39.95218],
-    centerBLonLat: [-75.2, 39.96],
-    addressA: '1500 MARKET ST',
-    addressB: 'UNIVERSITY CITY',
+    centerLonLat: null,
+    centerBLonLat: null,
+    addressA: null,
+    addressB: null,
     per10k: true,
     classMethod: 'custom',
     classBins: 4,
@@ -711,12 +690,27 @@ test('share state round-trips every user-visible Crime analysis choice', async (
     classOpacity: 0.6,
     classCustomBreaks: [1, 2, 3],
   });
+  assert.doesNotMatch(encoded, /(?:^|&)(?:a|b|labelA|labelB)=|PRIVATE|75\.166154/);
+});
+
+test('hostile legacy private query keys are ignored and disappear from the public canonical query', async () => {
+  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const hostile = 'campaign=keep&analysis=buffer&a=-75.16,39.95&b=-75.2,39.96&labelA=PRIVATE-A&labelB=PRIVATE-B&months=6';
+  const decoded = decodeCrimeViewState(hostile);
+  assert.equal(decoded.centerLonLat, null);
+  assert.equal(decoded.centerBLonLat, null);
+  assert.equal(decoded.addressA, null);
+  assert.equal(decoded.addressB, null);
+  const canonical = encodeCrimeViewState(decoded);
+  assert.match(canonical, /analysis=buffer/);
+  assert.match(canonical, /months=6/);
+  assert.doesNotMatch(canonical, /(?:^|&)(?:a|b|labelA|labelB)=|PRIVATE|75\.16/);
 });
 
 test('query preset preview starts from a full canonical snapshot and changes only time fields', async () => {
   const queryPreset = await import('../../src/routes_crime/query_preset_controller.js').catch(() => ({}));
   assert.equal(typeof queryPreset.createQueryPresetPreview, 'function');
-  const { decodeCrimeViewState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
+  const { canonicalizeCrimeRuntimeState, encodeCrimeViewState } = await import('../../src/state/crime_view_state.js');
   const input = {
     queryMode: 'buffer',
     startMonth: '2025-01',
@@ -741,12 +735,12 @@ test('query preset preview starts from a full canonical snapshot and changes onl
     presetId: 'latest-24-months',
     currentState: input,
     coverage: { status: 'ready', min: '2006-01-01', max: '2026-07-30' },
-    normalizeCanonical: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
+    normalizeCanonical: canonicalizeCrimeRuntimeState,
     serializeCanonical: encodeCrimeViewState,
   });
 
   assert.equal(preview.status, 'preview');
-  assert.deepEqual(preview.before, decodeCrimeViewState(encodeCrimeViewState(input)));
+  assert.deepEqual(preview.before, canonicalizeCrimeRuntimeState(input));
   assert.deepEqual(preview.patch, {
     startMonth: '2024-08',
     durationMonths: 24,
@@ -839,11 +833,11 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   const created = createAnalysisArtifact({
     title: `  Night safety ${'x'.repeat(180)}  `,
     viewState: {
-      queryMode: 'buffer',
+      queryMode: 'district',
       startMonth: '2025-08',
       durationMonths: 12,
       radius: 400,
-      centerLonLat: [-75.166154, 39.95218],
+      selectedDistrictCode: '05',
       selectedGroups: ['vehicle'],
     },
     resultSummary: {
@@ -862,7 +856,7 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   });
 
   assert.equal(created.kind, ANALYSIS_ARTIFACT_KIND);
-  assert.equal(created.schemaVersion, 2);
+  assert.equal(created.schemaVersion, 3);
   assert.equal(created.id, 'analysis-1');
   assert.equal(created.title.length, 120);
   assert.equal(created.title.startsWith('Night safety'), true);
@@ -898,9 +892,31 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   });
   assert.equal(legacy.schemaVersion, 1);
   assert.equal(legacy.resultSummary.comparison.a.population, undefined);
+  const projectedArtifact = createAnalysisArtifact({
+    viewState: {
+      queryMode: 'district',
+      selectedDistrictCode: '05',
+      addressA: 'PRIVATE',
+      center3857: [-8_365_000, 4_855_000],
+    },
+  });
+  assert.doesNotMatch(JSON.stringify(projectedArtifact), /PRIVATE|8365000|4855000/);
+  assert.throws(
+    () => validateAnalysisArtifact({
+      ...projectedArtifact,
+      viewState: { ...projectedArtifact.viewState, addressA: 'PRIVATE' },
+    }),
+    /unsupported field addressA/i,
+  );
+  assert.throws(
+    () => createAnalysisArtifact({
+      viewState: { queryMode: 'buffer', centerLonLat: [-75.16, 39.95] },
+    }),
+    /private buffer analysis is unavailable/i,
+  );
 });
 
-test('analysis artifact v2 round-trips structured population while v1 remains readable', async () => {
+test('analysis artifact v3 round-trips structured population without private geography', async () => {
   const { createAnalysisArtifact, validateAnalysisArtifact } = await import('../../src/analysis/analysis_artifact.js');
   const population = {
     estimate: 2_000,
@@ -914,7 +930,7 @@ test('analysis artifact v2 round-trips structured population while v1 remains re
   };
   const artifact = createAnalysisArtifact({
     title: 'ACS denominator',
-    viewState: { queryMode: 'buffer', centerLonLat: [-75.16, 39.95] },
+    viewState: { queryMode: 'tract', selectedTractGEOID: '42101000100' },
     resultSummary: {
       generatedAt: '2026-08-10T09:00:00.000Z',
       comparison: { a: { total: 8, per10k: 40, population }, b: null },
@@ -924,7 +940,7 @@ test('analysis artifact v2 round-trips structured population while v1 remains re
     now: () => '2026-08-10T09:01:00.000Z',
   });
 
-  assert.equal(artifact.schemaVersion, 2);
+  assert.equal(artifact.schemaVersion, 3);
   assert.deepEqual(validateAnalysisArtifact(structuredClone(artifact)), artifact);
   assert.deepEqual(artifact.resultSummary.comparison.a.population, population);
 });
@@ -976,7 +992,7 @@ test('analysis save eligibility is deterministic for every Crime query mode', as
   const { canSaveAnalysis, deriveAnalysisDataStatus } = await import('../../src/analysis/analysis_artifact.js');
   assert.equal(canSaveAnalysis({ coverageStatus: 'loading', queryMode: 'buffer', centerLonLat: [-75, 40] }), false);
   assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'buffer', centerLonLat: null }), false);
-  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'buffer', centerLonLat: [-75, 40] }), true);
+  assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'buffer', centerLonLat: [-75, 40] }), false);
   assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'district', selectedDistrictCode: null }), false);
   assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'district', selectedDistrictCode: '01' }), true);
   assert.equal(canSaveAnalysis({ coverageStatus: 'ready', queryMode: 'tract', selectedTractGEOID: null }), false);
@@ -1178,7 +1194,10 @@ test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', asy
   const { buildEvidenceBundleSections, composeEvidenceBundle } = await import(evidenceBundleUrl);
   const { buildCrimeEvidenceSource } = await import('../../src/ui/crime_data_sources.js');
   const payload = buildAnalysisExport({
-    filters: { start: '2025-08-01', end: '2026-08-01', types: ['Theft'] },
+    filters: {
+      start: '2025-08-01', end: '2026-08-01', types: ['Theft'],
+      queryMode: 'district', selectedDistrictCode: '05',
+    },
     comparison: {
       a: { label: '=unsafe', total: 10, population: { estimate: 2500, moe90: 300 } },
       b: { label: 'B', total: 20 },
@@ -1190,7 +1209,28 @@ test('analysis export emits machine-readable JSON and spreadsheet-safe CSV', asy
   assert.equal(payload.comparison.a.population, undefined, 'legacy v1 export must not acquire v2 population fields');
   const csv = analysisExportToCsv(payload);
   assert.match(csv, /point,label,total/);
-  assert.match(csv, /A,"'=unsafe",10/);
+  assert.match(csv, /A,"District 05",10/);
+  const projected = buildAnalysisExport({
+    filters: {
+      start: '2025-08-01',
+      end: '2026-08-01',
+      queryMode: 'district',
+      selectedDistrictCode: '05',
+      center3857: [-8_365_000, 4_855_000],
+      addressA: 'PRIVATE EXPORT TOKEN',
+    },
+    comparison: { a: { label: 'PRIVATE EXPORT TOKEN', total: 7 }, b: null },
+    generatedAt: '2026-07-31T00:00:00.000Z',
+  });
+  assert.doesNotMatch(JSON.stringify(projected), /PRIVATE|8365000|4855000/);
+  assert.doesNotMatch(analysisExportToCsv(projected), /PRIVATE|8365000|4855000/);
+  assert.throws(() => buildAnalysisExport({
+    filters: {
+      start: '2025-08-01', end: '2026-08-01', queryMode: 'buffer',
+      center3857: [-8_365_000, 4_855_000], addressA: 'PRIVATE',
+    },
+    comparison: null,
+  }), /unavailable/i);
 
   assert.equal(isEvidenceBundleEnabled({ VITE_FEATURE_EVIDENCE_BUNDLE: '1' }), true);
   assert.equal(isEvidenceBundleEnabled({ VITE_FEATURE_EVIDENCE_BUNDLE: '0' }), false);

@@ -22,11 +22,11 @@ function artifact(id, updatedAt = '2026-07-31T08:00:00.000Z') {
   return createAnalysisArtifact({
     title: `Analysis ${id}`,
     viewState: {
-      queryMode: 'buffer',
+      queryMode: 'district',
       startMonth: '2026-01',
       durationMonths: 6,
       radius: 400,
-      centerLonLat: [-75.16, 39.95],
+      selectedDistrictCode: '05',
     },
     provenance: { sources: ['crime-api'] },
   }, {
@@ -93,7 +93,7 @@ test('v1 validation rejects malformed external artifacts before repository write
   const valid = artifact('strict-v1');
   const invalidArtifacts = [
     { ...valid, viewState: { ...valid.viewState, centerLonLat: [-181, 39.95] } },
-    { ...valid, viewState: { ...valid.viewState, addressA: 'x'.repeat(161) } },
+    { ...valid, viewState: { ...valid.viewState, addressA: 'PRIVATE ADDRESS' } },
     { ...valid, viewState: { ...valid.viewState, queryMode: 'district', selectedDistrictCode: null } },
     { ...valid, viewState: { ...valid.viewState, unsupportedField: true } },
     { ...valid, unsupportedField: true },
@@ -131,13 +131,13 @@ test('artifact creation rejects lossy view-state canonicalization', () => {
 test('artifact creation ignores runtime-only store fields without persisting them', () => {
   const created = createAnalysisArtifact({
     viewState: {
-      queryMode: 'buffer',
-      centerLonLat: [-75.16, 39.95],
+      queryMode: 'district',
+      selectedDistrictCode: '05',
       coverageStatus: 'ready',
     },
   });
 
-  assert.equal(created.viewState.queryMode, 'buffer');
+  assert.equal(created.viewState.queryMode, 'district');
   assert.equal(Object.hasOwn(created.viewState, 'coverageStatus'), false);
 });
 
@@ -422,4 +422,47 @@ test('corrupt rows retain enough context for recovery warnings', async () => {
   assert.deepEqual(result.items, []);
   assert.equal(result.warnings[0].id, 'future-row');
   assert.match(result.warnings[0].message, /unsupported.*schema version/i);
+});
+
+test('legacy private rows remain stored but are exposed only as legacy-unavailable metadata', async () => {
+  const privateToken = '1500 PRIVATE MARKET STREET';
+  const legacy = {
+    kind: ANALYSIS_ARTIFACT_KIND,
+    schemaVersion: 1,
+    id: 'legacy-private',
+    title: privateToken,
+    createdAt: '2026-07-31T08:00:00.000Z',
+    updatedAt: '2026-07-31T08:00:00.000Z',
+    viewState: {
+      queryMode: 'buffer',
+      centerLonLat: [-75.16, 39.95],
+      addressA: privateToken,
+    },
+    resultSummary: null,
+    provenance: {},
+  };
+  const rows = new Map([[legacy.id, structuredClone(legacy)]]);
+  let writes = 0;
+  let deletes = 0;
+  const repository = createAnalysisRepository({
+    adapter: {
+      async put() { writes += 1; },
+      async get(id) { return rows.get(id) ?? null; },
+      async getAll() { return [...rows.values()]; },
+      async delete() { deletes += 1; },
+    },
+  });
+
+  const item = await repository.get(legacy.id);
+  assert.equal(item.availability, 'legacy-unavailable');
+  assert.equal(item.canRestore, false);
+  assert.equal(item.canShare, false);
+  assert.doesNotMatch(JSON.stringify(item), /1500|75\.16|39\.95|MARKET/);
+  const listed = await repository.list();
+  assert.equal(listed.items[0].availability, 'legacy-unavailable');
+  assert.equal(rows.has(legacy.id), true);
+  assert.equal(writes, 0);
+  assert.equal(deletes, 0);
+  await assert.rejects(() => repository.rename(legacy.id, 'Recovered'), /invalid analysis artifact/i);
+  assert.equal(writes, 0);
 });

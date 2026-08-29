@@ -1,5 +1,5 @@
 import { CARTO_SQL_BASE } from "../config.js";
-import { fetchJson, logQuery } from "../utils/http.js";
+import { fetchJson, logQuery, rejectPrivateLocationEgress } from "../utils/http.js";
 import * as Q from "../utils/sql.js";
 import { expandGroupsToCodes } from "../utils/types.js";
 import { fetchTractsCachedFirst } from "./boundaries.js";
@@ -142,6 +142,7 @@ export async function fetchPoints({
   tractGeometry,
   signal,
 }) {
+  if (center3857 != null) rejectPrivateLocationEgress();
   const sql = Q.buildCrimePointsSQL({
     start, end, types, bbox, center3857, radiusM, dc_dist, drilldownCodes, tractGeometry,
   });
@@ -193,6 +194,7 @@ export async function fetchMonthlySeriesBuffer({
   radiusM,
   signal,
 }) {
+  rejectPrivateLocationEgress();
   const sql = Q.buildMonthlyBufferSQL({
     start,
     end,
@@ -229,6 +231,7 @@ export async function fetchTopTypesBuffer({
   limit,
   signal,
 }) {
+  rejectPrivateLocationEgress();
   const sql = Q.buildTopTypesSQL({
     start,
     end,
@@ -265,6 +268,7 @@ export async function fetch7x24Buffer({
   radiusM,
   signal,
 }) {
+  rejectPrivateLocationEgress();
   const sql = Q.buildHeatmap7x24SQL({
     start,
     end,
@@ -330,6 +334,7 @@ export async function fetch7x24District({ start, end, types, dc_dist, signal }) 
  * @returns {Promise<number>} total count
  */
 export async function fetchCountBuffer({ start, end, types, center3857, radiusM, signal }) {
+  rejectPrivateLocationEgress();
   const sql = Q.buildCountBufferSQL({ start, end, types, center3857, radiusM });
   await logQuery('fetchCountBuffer', sql);
   const json = await fetchJson(CARTO_SQL_BASE, {

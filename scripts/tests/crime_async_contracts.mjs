@@ -932,8 +932,7 @@ test('the default fetchPoints chain propagates cancellation to the transport', a
     end: '2099-02-01',
     types: [],
     bbox: [-8_400_000, 4_800_000, -8_300_000, 4_900_000],
-    center3857: [-8_365_000, 4_855_000],
-    radiusM: 800,
+    dc_dist: '05',
     signal: controller.signal,
   });
   const transportOptions = await enteredTransport.promise;
@@ -943,8 +942,54 @@ test('the default fetchPoints chain propagates cancellation to the transport', a
 
   assert.equal(transportSignal.aborted, true);
   assert.match(sql, /ST_MakeEnvelope/);
-  assert.match(sql, /ST_DWithin\(the_geom_webmercator,/);
+  assert.doesNotMatch(sql, /ST_DWithin\(the_geom_webmercator,/);
   await assert.rejects(request, { name: 'AbortError' });
+});
+
+test('private buffer points fail before transport while public district points still fetch', async (t) => {
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await assert.rejects(fetchPoints({
+    start: '2099-01-01',
+    end: '2099-02-01',
+    center3857: [-8_365_000, 4_855_000],
+    radiusM: 800,
+  }), /unavailable/i);
+  assert.equal(fetchCalls, 0);
+
+  for (const request of [
+    () => crimeApi.fetchMonthlySeriesBuffer({
+      start: '2099-01-01', end: '2099-02-01', center3857: [-8_365_000, 4_855_000], radiusM: 800,
+    }),
+    () => crimeApi.fetchTopTypesBuffer({
+      start: '2099-01-01', end: '2099-02-01', center3857: [-8_365_000, 4_855_000], radiusM: 800,
+    }),
+    () => crimeApi.fetch7x24Buffer({
+      start: '2099-01-01', end: '2099-02-01', center3857: [-8_365_000, 4_855_000], radiusM: 800,
+    }),
+    () => crimeApi.fetchCountBuffer({
+      start: '2099-01-01', end: '2099-02-01', center3857: [-8_365_000, 4_855_000], radiusM: 800,
+    }),
+  ]) {
+    await assert.rejects(request(), /unavailable/i);
+  }
+  assert.equal(fetchCalls, 0);
+
+  await fetchPoints({
+    start: '2099-01-01',
+    end: '2099-02-01',
+    dc_dist: '05',
+  });
+  assert.equal(fetchCalls, 1);
 });
 
 test('Crime synchronous UI actions require both controller and mode ownership', async () => {

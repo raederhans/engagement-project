@@ -1,13 +1,14 @@
-import { decodeCrimeViewState, encodeCrimeViewState } from '../state/crime_view_state.js';
+import { projectCrimeViewStateForPublic } from '../state/crime_view_state.js';
 
 export const ANALYSIS_ARTIFACT_KIND = 'engagement-analysis-artifact';
-export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 2;
+export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 3;
 const LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION = 1;
+const PREVIOUS_ANALYSIS_ARTIFACT_SCHEMA_VERSION = 2;
 export const ANALYSIS_TITLE_MAX_LENGTH = 120;
 const VIEW_STATE_KEYS = new Set([
   'queryMode', 'startMonth', 'durationMonths', 'radius', 'selectedGroups',
   'selectedDrilldownCodes', 'selectedDistrictCode', 'selectedTractGEOID',
-  'overlayTractsLines', 'centerLonLat', 'centerBLonLat', 'addressA', 'addressB',
+  'overlayTractsLines',
   'per10k', 'classMethod', 'classBins', 'classPalette', 'classOpacity',
   'classCustomBreaks',
 ]);
@@ -71,7 +72,7 @@ function normalizeTitle(value) {
 
 function normalizeViewStateForCreation(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact view state.');
-  return decodeCrimeViewState(encodeCrimeViewState(value));
+  return projectCrimeViewStateForPublic(value);
 }
 
 function validateViewState(value, { allowOmittedFields = false } = {}) {
@@ -84,8 +85,8 @@ function validateViewState(value, { allowOmittedFields = false } = {}) {
   if (JSON.stringify(stableJson(value)) !== JSON.stringify(stableJson(expected))) {
     throw new Error('Invalid analysis artifact view state.');
   }
-  if (canonical.queryMode === 'buffer' && !canonical.centerLonLat) {
-    throw new Error('Invalid analysis artifact view state: buffer mode requires Point A.');
+  if (canonical.queryMode === 'buffer') {
+    throw new Error('Invalid analysis artifact view state: private buffer analysis is unavailable.');
   }
   if (canonical.queryMode === 'district' && !/^\d{2}$/.test(canonical.selectedDistrictCode || '')) {
     throw new Error('Invalid analysis artifact view state: district mode requires a district selection.');
@@ -286,7 +287,11 @@ export function validateAnalysisArtifact(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact.');
   requireKeys(value, ARTIFACT_KEYS, 'root');
   if (value.kind !== ANALYSIS_ARTIFACT_KIND) throw new Error('Invalid analysis artifact kind.');
-  if (![LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION, ANALYSIS_ARTIFACT_SCHEMA_VERSION].includes(value.schemaVersion)) {
+  if (![
+    LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+    PREVIOUS_ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+    ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+  ].includes(value.schemaVersion)) {
     throw new Error(`Unsupported analysis artifact schema version: ${value.schemaVersion}.`);
   }
   const artifact = {
@@ -339,13 +344,15 @@ export function canSaveAnalysis(state) {
   if (state?.coverageStatus !== 'ready') return false;
   if (state.queryMode === 'district') return /^\d{2}$/.test(state.selectedDistrictCode || '');
   if (state.queryMode === 'tract') return /^\d{11}$/.test(state.selectedTractGEOID || '');
-  return Array.isArray(state.centerLonLat)
-    && state.centerLonLat.length === 2
-    && state.centerLonLat.every(Number.isFinite)
-    && state.centerLonLat[0] >= -180
-    && state.centerLonLat[0] <= 180
-    && state.centerLonLat[1] >= -90
-    && state.centerLonLat[1] <= 90;
+  return false;
+}
+
+export function projectAnalysisArtifactForPublic(value) {
+  const artifact = validateAnalysisArtifact(value);
+  if (artifact.viewState.queryMode === 'buffer') {
+    throw new Error('Private buffer analysis is unavailable for sharing or export.');
+  }
+  return structuredClone(artifact);
 }
 
 export function deriveAnalysisDataStatus(savedProvenance, currentProvenance) {

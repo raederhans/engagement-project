@@ -9,6 +9,12 @@ export const ANALYSIS_DB_NAME = 'engagement-analysis';
 export const ANALYSIS_DB_VERSION = 1;
 export const ANALYSIS_STORE_NAME = 'analysis_artifacts';
 export const ANALYSIS_UPDATED_AT_INDEX = 'updatedAt';
+export const LEGACY_UNAVAILABLE_STATUS = 'legacy-unavailable';
+
+const PRIVATE_FIELD_NAMES = new Set([
+  'address', 'addressA', 'addressB', 'coordinates', 'lngLat', 'centerLonLat',
+  'centerBLonLat', 'center3857', 'centerB3857', 'longitude', 'latitude', 'lng', 'lat',
+]);
 
 function requireArtifactId(value) {
   const id = String(value ?? '').trim();
@@ -23,12 +29,52 @@ function warningFor(row, error) {
   };
 }
 
+function containsPrivateLocation(value, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return false;
+  seen.add(value);
+  if (Array.isArray(value)) return value.some((item) => containsPrivateLocation(item, seen));
+  return Object.entries(value).some(([key, nested]) => (
+    PRIVATE_FIELD_NAMES.has(key) || containsPrivateLocation(nested, seen)
+  ));
+}
+
+function isLegacyPrivateRow(row) {
+  return Boolean(row)
+    && typeof row === 'object'
+    && [1, 2].includes(row.schemaVersion)
+    && (row.viewState?.queryMode === 'buffer' || containsPrivateLocation(row));
+}
+
+function safeTimestamp(value) {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '1970-01-01T00:00:00.000Z';
+}
+
+export function describeLegacyUnavailableAnalysis(row) {
+  if (!isLegacyPrivateRow(row)) return null;
+  return Object.freeze({
+    id: requireArtifactId(row.id),
+    title: 'Legacy private analysis unavailable',
+    createdAt: safeTimestamp(row.createdAt),
+    updatedAt: safeTimestamp(row.updatedAt),
+    viewState: Object.freeze({ queryMode: LEGACY_UNAVAILABLE_STATUS, startMonth: null }),
+    resultSummary: null,
+    provenance: Object.freeze({}),
+    availability: LEGACY_UNAVAILABLE_STATUS,
+    legacySchemaVersion: row.schemaVersion,
+    canRestore: false,
+    canShare: false,
+    canExport: false,
+  });
+}
+
 export function createAnalysisRepository({ adapter } = {}) {
   if (!adapter) throw new Error('Analysis repository requires a storage adapter.');
 
   async function get(id) {
     const row = await adapter.get(requireArtifactId(id));
-    return row == null ? null : validateAnalysisArtifact(row);
+    if (row == null) return null;
+    return describeLegacyUnavailableAnalysis(row) || validateAnalysisArtifact(row);
   }
 
   return {
@@ -59,7 +105,7 @@ export function createAnalysisRepository({ adapter } = {}) {
       const warnings = [];
       for (const row of rows || []) {
         try {
-          items.push(validateAnalysisArtifact(row));
+          items.push(describeLegacyUnavailableAnalysis(row) || validateAnalysisArtifact(row));
         } catch (error) {
           warnings.push(warningFor(row, error));
         }
