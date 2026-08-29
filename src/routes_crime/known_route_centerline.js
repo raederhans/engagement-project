@@ -1,4 +1,5 @@
 import {
+  admitKnownRouteEvidenceRequest,
   assertSafeData,
   deterministicIdentity,
   haversineDistanceM,
@@ -49,7 +50,9 @@ const OBSERVED_ONEWAY_VALUES = new Set([' ', 'B', 'FT', 'TF']);
 export function createCenterlineQueryDisclosure() {
   return Object.freeze({
     endpoint: `${PHILADELPHIA_CENTERLINE_SOURCE.layerUrl}/query`,
-    method: 'POST',
+    transaction: Object.freeze([
+      'metadata GET', 'count-only POST', 'GeoJSON POST', 'metadata recheck GET',
+    ]),
     sentFields: Object.freeze([
       'route-derived bbox expanded by 75 metres',
       'EPSG:4326 spatial reference',
@@ -64,6 +67,7 @@ export function createCenterlineQueryDisclosure() {
 }
 
 export function admitCenterlineMetadata(value) {
+  assertSafeData(value, 'centerline metadata');
   if (value?.serviceItemId !== PHILADELPHIA_CENTERLINE_SOURCE.serviceItemId
     || value.name !== 'Street_Centerline'
     || value.type !== 'Feature Layer'
@@ -78,7 +82,18 @@ export function admitCenterlineMetadata(value) {
     || !String(value.supportedQueryFormats || '').split(/\s*,\s*/).includes('geoJSON')) {
     throw new Error('Philadelphia centerline metadata contract is unavailable or drifted.');
   }
-  const fields = new Map((value.fields || []).map((field) => [field?.name, field]));
+  if (!Array.isArray(value.fields) || !value.fields.length) {
+    throw new Error('Philadelphia centerline field schema is unavailable.');
+  }
+  const fieldSchema = value.fields.map((field) => {
+    if (!field || typeof field.name !== 'string' || !field.name
+      || typeof field.type !== 'string' || !field.type) {
+      throw new Error('Philadelphia centerline field schema is invalid.');
+    }
+    return { name: field.name, type: field.type };
+  });
+  const fields = new Map(fieldSchema.map((field) => [field.name, field]));
+  if (fields.size !== fieldSchema.length) throw new Error('Philadelphia centerline field schema contains duplicates.');
   for (const [name, type] of Object.entries(REQUIRED_FIELD_TYPES)) {
     if (fields.get(name)?.type !== type) {
       throw new Error(`Philadelphia centerline field contract drifted: ${name}.`);
@@ -90,6 +105,18 @@ export function admitCenterlineMetadata(value) {
     serviceItemId: value.serviceItemId,
     sourceAsOf,
     dataVersion: `city-street-centerline:${sourceAsOf}`,
+    schemaIdentity: deterministicIdentity('centerline-schema', {
+      name: value.name,
+      type: value.type,
+      geometryType: value.geometryType,
+      capabilities: value.capabilities,
+      objectIdField: value.objectIdField,
+      maxRecordCount: value.maxRecordCount,
+      hasZ: value.hasZ,
+      hasM: value.hasM,
+      supportedQueryFormats: String(value.supportedQueryFormats).split(/\s*,\s*/).sort(),
+      fields: [...fieldSchema].sort((left, right) => left.name.localeCompare(right.name, 'en')),
+    }),
     geometryType: value.geometryType,
     maxRecordCount: value.maxRecordCount,
   });
@@ -112,6 +139,7 @@ export function createCenterlineQueryEnvelope(normalizedRoute) {
 export function admitCenterlineFeatureCollection(value, { expectedCount, sourceVersion } = {}) {
   assertSafeData(value, 'centerline response');
   if (value?.type !== 'FeatureCollection' || !Array.isArray(value.features)
+    || Object.keys(value).some((key) => !['type', 'features'].includes(key))
     || !Number.isInteger(expectedCount) || expectedCount < 1
     || expectedCount > PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures
     || value.features.length !== expectedCount
@@ -119,6 +147,7 @@ export function admitCenterlineFeatureCollection(value, { expectedCount, sourceV
     throw new Error('Philadelphia centerline response is incomplete or invalid.');
   }
   const edgeKeys = new Set();
+  const objectIds = new Set();
   let totalCoordinates = 0;
   const edges = value.features.map((feature, index) => {
     if (feature?.type !== 'Feature' || feature.geometry?.type !== 'LineString'
@@ -132,8 +161,11 @@ export function admitCenterlineFeatureCollection(value, { expectedCount, sourceV
     }
     const properties = normalizeProperties(feature.properties);
     const edgeKey = `${properties.seg_id}:${properties.objectid}`;
-    if (edgeKeys.has(edgeKey)) throw new Error('Philadelphia centerline response contains duplicate edges.');
+    if (edgeKeys.has(edgeKey) || objectIds.has(properties.objectid)) {
+      throw new Error('Philadelphia centerline response contains duplicate edges.');
+    }
     edgeKeys.add(edgeKey);
+    objectIds.add(properties.objectid);
     const coordinates = feature.geometry.coordinates.map((coordinate) => normalizeCoordinate(coordinate));
     return Object.freeze({
       sourceEdgeKey: edgeKey,
@@ -262,51 +294,76 @@ export async function requestPhiladelphiaCenterlineCatalog({
   consent,
   request = fetch,
   signal,
+  timeoutMs = 15_000,
 } = {}) {
-  if (consent !== true) return failure('consent-required');
-  const metadataBeforeRaw = await requestJson(request, PHILADELPHIA_CENTERLINE_SOURCE.layerUrl, {
-    method: 'GET', signal, query: { f: 'pjson' },
-  });
-  const metadataBefore = admitCenterlineMetadata(metadataBeforeRaw);
-  if (normalizedRoute.requestedDataVersion !== 'current-observed'
-    && normalizedRoute.requestedDataVersion !== metadataBefore.dataVersion) {
-    return failure('requested-data-version-unavailable');
+  if (consent?.publicCenterlineRequest !== true) return failure('consent-required');
+  try {
+    normalizedRoute = admitKnownRouteEvidenceRequest({
+      schema: normalizedRoute?.schema,
+      routeInput: {
+        inputKind: 'known-polyline', source: normalizedRoute?.source, geometry: normalizedRoute?.geometry,
+      },
+      transportMode: normalizedRoute?.transportMode,
+      requestedDataVersion: normalizedRoute?.requestedDataVersion,
+    });
+  } catch {
+    return failure('invalid-route');
   }
-  const envelope = createCenterlineQueryEnvelope(normalizedRoute);
-  const spatialQuery = {
-    where: '1=1',
-    geometry: envelope.join(','),
-    geometryType: 'esriGeometryEnvelope',
-    inSR: '4326',
-    spatialRel: 'esriSpatialRelIntersects',
-  };
-  const countResponse = await requestJson(request, `${PHILADELPHIA_CENTERLINE_SOURCE.layerUrl}/query`, {
-    method: 'POST', signal, body: { ...spatialQuery, returnCountOnly: 'true', f: 'json' },
-  });
-  if (!Number.isInteger(countResponse?.count) || countResponse.count < 1) return failure('source-coverage-unavailable');
-  if (countResponse.count > PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures) {
-    return failure('source-query-limit-exceeded', { featureCount: countResponse.count });
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return failure('invalid-timeout');
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const transactionSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+  try {
+    const metadataBefore = admitCenterlineMetadata(await requestJson(
+      request, PHILADELPHIA_CENTERLINE_SOURCE.layerUrl,
+      { method: 'GET', signal: transactionSignal, query: { f: 'pjson' } },
+    ));
+    if (normalizedRoute.requestedDataVersion !== 'current-observed'
+      && normalizedRoute.requestedDataVersion !== metadataBefore.dataVersion) {
+      return failure('requested-data-version-unavailable');
+    }
+    const envelope = createCenterlineQueryEnvelope(normalizedRoute);
+    const spatialQuery = {
+      where: '1=1', geometry: envelope.join(','), geometryType: 'esriGeometryEnvelope',
+      inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+    };
+    const countResponse = await requestJson(request, `${PHILADELPHIA_CENTERLINE_SOURCE.layerUrl}/query`, {
+      method: 'POST', signal: transactionSignal,
+      body: { ...spatialQuery, returnCountOnly: 'true', f: 'json' },
+    });
+    if (!Number.isInteger(countResponse?.count) || Object.keys(countResponse).some((key) => key !== 'count')) {
+      return failure('source-drift');
+    }
+    if (countResponse.count < 1) return failure('source-coverage-unavailable');
+    if (countResponse.count > PHILADELPHIA_CENTERLINE_SOURCE.maximumQueryFeatures) {
+      return failure('source-query-limit-exceeded', { featureCount: countResponse.count });
+    }
+    const featureCollection = await requestJson(request, `${PHILADELPHIA_CENTERLINE_SOURCE.layerUrl}/query`, {
+      method: 'POST', signal: transactionSignal, body: {
+        ...spatialQuery,
+        outSR: '4326',
+        outFields: PHILADELPHIA_CENTERLINE_SOURCE.selectedFields.join(','),
+        returnGeometry: 'true',
+        orderByFields: 'objectid ASC',
+        resultRecordCount: String(countResponse.count),
+        f: 'geojson',
+      },
+    });
+    const metadataAfter = admitCenterlineMetadata(await requestJson(
+      request, PHILADELPHIA_CENTERLINE_SOURCE.layerUrl,
+      { method: 'GET', signal: transactionSignal, query: { f: 'pjson' } },
+    ));
+    if (metadataAfter.serviceItemId !== metadataBefore.serviceItemId
+      || metadataAfter.schemaIdentity !== metadataBefore.schemaIdentity
+      || metadataAfter.dataVersion !== metadataBefore.dataVersion) return failure('source-drift');
+    return admitCenterlineFeatureCollection(featureCollection, {
+      expectedCount: countResponse.count,
+      sourceVersion: metadataBefore,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (timeoutSignal.aborted) return failure('source-timeout');
+    return failure(error instanceof TypeError ? 'source-network' : (error.sourceReason || 'source-drift'));
   }
-  const featureCollection = await requestJson(request, `${PHILADELPHIA_CENTERLINE_SOURCE.layerUrl}/query`, {
-    method: 'POST', signal, body: {
-      ...spatialQuery,
-      outSR: '4326',
-      outFields: PHILADELPHIA_CENTERLINE_SOURCE.selectedFields.join(','),
-      returnGeometry: 'true',
-      orderByFields: 'objectid ASC',
-      resultRecordCount: String(countResponse.count),
-      f: 'geojson',
-    },
-  });
-  const metadataAfterRaw = await requestJson(request, PHILADELPHIA_CENTERLINE_SOURCE.layerUrl, {
-    method: 'GET', signal, query: { f: 'pjson' },
-  });
-  const metadataAfter = admitCenterlineMetadata(metadataAfterRaw);
-  if (metadataAfter.dataVersion !== metadataBefore.dataVersion) return failure('source-version-drift');
-  return admitCenterlineFeatureCollection(featureCollection, {
-    expectedCount: countResponse.count,
-    sourceVersion: metadataBefore,
-  });
 }
 
 async function requestJson(request, url, { method, signal, query, body } = {}) {
@@ -322,10 +379,14 @@ async function requestJson(request, url, { method, signal, query, body } = {}) {
   };
   if (body) {
     options.headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
-    options.body = new URLSearchParams(body).toString();
+    options.body = new URLSearchParams(body);
   }
   const response = await request(target.toString(), options);
-  if (!response?.ok) throw new Error(`Philadelphia centerline request failed (${response?.status || 'unknown'}).`);
+  if (!response?.ok) {
+    const error = new Error(`Philadelphia centerline request failed (${response?.status || 'unknown'}).`);
+    error.sourceReason = 'source-unavailable';
+    throw error;
+  }
   const value = await response.json();
   if (value?.error) throw new Error('Philadelphia centerline service returned an error.');
   return value;
@@ -335,7 +396,12 @@ function normalizeProperties(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Philadelphia centerline properties are invalid.');
   }
-  const lower = Object.fromEntries(Object.entries(value).map(([key, fieldValue]) => [key.toLowerCase(), fieldValue]));
+  const lower = {};
+  for (const [key, fieldValue] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase();
+    if (Object.hasOwn(lower, normalizedKey)) throw new Error('Philadelphia centerline response contains duplicate fields.');
+    lower[normalizedKey] = fieldValue;
+  }
   if (Object.keys(lower).some((key) => !PHILADELPHIA_CENTERLINE_SOURCE.selectedFields.includes(key))) {
     throw new Error('Philadelphia centerline response contains unrequested fields.');
   }
@@ -355,7 +421,7 @@ function normalizeProperties(value) {
 }
 
 function normalizeCoordinate(value) {
-  if (!Array.isArray(value) || value.length < 2
+  if (!Array.isArray(value) || value.length !== 2
     || !Number.isFinite(value[0]) || !Number.isFinite(value[1])
     || value[0] < -75.35 || value[0] > -74.90 || value[1] < 39.80 || value[1] > 40.20) {
     throw new Error('Philadelphia centerline coordinate is invalid.');

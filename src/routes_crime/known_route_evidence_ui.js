@@ -22,20 +22,20 @@ const ACCESSIBILITY_CONTEXT_URL = 'https://www.phila.gov/services/diversity-incl
 
 registerMessagePairs({
   'knownRouteEvidence.title': ['Known Route evidence', '已知路线证据'],
-  'knownRouteEvidence.description': ['Analyze the route you supplied against historical reported-incident, crash/HIN, and accessibility evidence. This does not generate or recommend a route.', '使用历史已记录事件、事故／HIN 与无障碍证据分析你提供的路线。此功能不会生成或推荐路线。'],
+  'knownRouteEvidence.description': ['Review historical reported incidents with modeled uncertainty. Route choice is unchanged.', '查看带有建模不确定性的历史已记录事件；路线选择不变。'],
   'knownRouteEvidence.mode': ['Transport mode label', '出行方式标签'],
   'knownRouteEvidence.walking': ['Walking', '步行'],
   'knownRouteEvidence.cycling': ['Cycling', '骑行'],
   'knownRouteEvidence.driving': ['Driving', '驾车'],
   'knownRouteEvidence.transit': ['Transit', '公共交通'],
-  'knownRouteEvidence.disclosure': ['Before the request: the official City Street Centerline endpoint receives a POST containing an exact route-derived bounding box expanded by 75 m, EPSG:4326, fixed field names, and returnGeometry=true. It does not receive the route polyline, vertices, addresses, destination, route name, Diary data, or transport mode. The route and response stay in this browser session.', '发送前说明：费城市官方 Street Centerline 端点将收到一个 POST 请求，其中包含由路线精确推导并向外扩展 75 米的边界框、EPSG:4326、固定字段名及 returnGeometry=true。不会发送路线折线、顶点、地址、目的地、路线名称、Diary 数据或出行方式。路线及响应仅保留在本次浏览器会话。'],
-  'knownRouteEvidence.consent': ['I understand these exact fields and authorize this one public centerline request.', '我了解上述精确字段，并授权本次公共道路中心线请求。'],
+  'knownRouteEvidence.disclosure': ['Four steps: metadata GET, count-only POST, GeoJSON POST, metadata recheck GET. POST sends only the exact route-derived bounding box expanded by 75 m, fixed fields, geometry and EPSG:4326—never polyline, vertices, address, destination, name, Diary data or mode. Browser memory only.', '四步：元数据 GET、仅计数 POST、GeoJSON POST、元数据复核 GET。POST 只发送路线边界框外扩 75 米、固定字段、几何及 EPSG:4326；不发送折线、顶点、地址、目的地、名称、Diary 数据或方式。仅存于浏览器内存。'],
+  'knownRouteEvidence.consent': ['I authorize publicCenterlineRequest for this disclosed transaction.', '我授权本次已披露事务的 publicCenterlineRequest。'],
   'knownRouteEvidence.analyze': ['Analyze this known route', '分析这条已知路线'],
-  'knownRouteEvidence.idle': ['Choose a mode and review the disclosure. No centerline request has been made.', '请选择出行方式并阅读披露说明。目前尚未发送道路中心线请求。'],
-  'knownRouteEvidence.pending': ['Validating and matching the supplied route against the official centerline…', '正在验证路线并与官方道路中心线匹配…'],
-  'knownRouteEvidence.invalid': ['The supplied route is outside the strict M4 admission contract. No centerline request was made.', '所提供路线不符合 M4 严格准入合同；未发送道路中心线请求。'],
-  'knownRouteEvidence.unavailable': ['Reliable centerline matching is unavailable for this route. This is not a zero result.', '无法为这条路线建立可靠的道路中心线匹配；这不是零结果。'],
-  'knownRouteEvidence.ready': ['Route evidence is available with partial sources and disclosed uncertainty.', '路线证据已生成；来源为 partial，并明确披露不确定性。'],
+  'knownRouteEvidence.idle': ['Review disclosure; no request sent.', '请阅读披露；尚未发送请求。'],
+  'knownRouteEvidence.pending': ['Validating reference centerline…', '正在验证参考道路中心线…'],
+  'knownRouteEvidence.invalid': ['Route admission failed; no request sent.', '路线准入失败；未发送请求。'],
+  'knownRouteEvidence.unavailable': ['Centerline evidence unavailable—not zero.', '道路中心线证据不可用——不是零值。'],
+  'knownRouteEvidence.ready': ['Partial historical evidence with modeled uncertainty.', '带建模不确定性的部分历史证据。'],
   'knownRouteEvidence.source': ['Source', '来源'],
   'knownRouteEvidence.status': ['Status', '状态'],
   'knownRouteEvidence.asOf': ['Data as of', '数据截至'],
@@ -44,37 +44,39 @@ registerMessagePairs({
   'knownRouteEvidence.uncertainty': ['Uncertainty / limitations', '不确定性／限制'],
   'knownRouteEvidence.unavailableReason': ['Unavailable reason', '不可用原因'],
   'knownRouteEvidence.centerlineTitle': ['Street centerline and deterministic match', '道路中心线与确定性匹配'],
-  'knownRouteEvidence.centerlineCoverage': ['City-published features returned only for the route-derived 75 m query envelope.', '仅包含路线推导的 75 米查询边界内返回的市政府发布要素。'],
-  'knownRouteEvidence.centerlinePrecision': ['Published LineString centerline geometry; match samples every 20 m, maximum admitted distance 35 m.', '发布的 LineString 道路中心线；每 20 米采样匹配，最大准入距离 35 米。'],
-  'knownRouteEvidence.centerlineLimits': ['Reference topology only; no mode-legality or accessibility authority. Undocumented one-way values are not used. Ambiguous, off-network, and disconnected matches fail closed.', '仅作参考拓扑，不具备出行合法性或无障碍 authority；不使用无编码域的 one-way 值。多候选、离路及断连匹配均 fail closed。'],
+  'knownRouteEvidence.centerlineCoverage': ['Published features in the 75 m envelope only.', '仅含 75 米边界内的发布要素。'],
+  'knownRouteEvidence.centerlinePrecision': ['LineString; 20 m samples; 35 m admission limit.', 'LineString；20 米采样；35 米准入限值。'],
+  'knownRouteEvidence.centerlineLimits': ['Reference geometry/topology only. One-way/class do not authorize walking, mode, accessibility, obstruction or routing. Drift, ambiguity, off-network or disconnect = unavailable.', '仅作参考几何／拓扑。one-way／class 不授权步行、方式、无障碍、障碍物或路由；漂移、歧义、离路或断连即不可用。'],
   'knownRouteEvidence.incidentTitle': ['Historical reported-incident contribution', '历史已记录事件贡献'],
-  'knownRouteEvidence.incidentCoverage': ['The currently admitted historical query and filters; runtime evidence is bounded and therefore partial, not a full-warehouse claim.', '当前已准入的历史查询与筛选；runtime 证据为有界查询，因此是 partial，不代表完整 warehouse。'],
-  'knownRouteEvidence.incidentPrecision': ['Source locations are generalized to the hundred block and are treated with a disclosed 200 m uncertainty kernel.', '来源位置已泛化到百号街区，并使用公开的 200 米不确定性核。'],
-  'knownRouteEvidence.incidentLimits': ['Modeled/reported exposure only: no precise sidewalk or segment location, safety/danger finding, causation, or personal probability.', '仅为 modeled/reported exposure：不表示精确人行道或街段位置，也不构成安全／危险、因果或个人概率结论。'],
-  'knownRouteEvidence.hinTitle': ['Crash / HIN context', '事故／HIN 上下文'],
-  'knownRouteEvidence.hinCoverage': ['HIN 2025 planning network based on 2019–2023 crash data; the separate HIN card above performs the local versioned route association.', '基于 2019–2023 年事故数据的 HIN 2025 规划网络；上方独立 HIN 卡执行本地版本化路线关联。'],
-  'knownRouteEvidence.hinPrecision': ['Published HIN planning geometry, not individual crash locations.', '发布的 HIN 规划几何，不是单次事故位置。'],
-  'knownRouteEvidence.hinLimits': ['Partial historical planning context only. Raw crash evidence is unavailable in this workflow, so no crash count or zero is inferred.', '仅为 partial 历史规划上下文。本 workflow 中 raw crash 证据 unavailable，因此不会推断事故数量或零值。'],
+  'knownRouteEvidence.incidentCoverage': ['Bounded admitted history; partial.', '有界准入历史；部分覆盖。'],
+  'knownRouteEvidence.incidentPrecision': ['Hundred block; 200 m modeled-uncertainty kernel.', '百号街区；200 米建模不确定性核。'],
+  'knownRouteEvidence.incidentLimits': ['Reported incidents; limited place/time coverage.', '已记录事件；位置／时间覆盖有限。'],
+  'knownRouteEvidence.rawCrashTitle': ['Raw crash evidence', '原始事故证据'],
+  'knownRouteEvidence.rawCrashLimits': ['Unavailable; no count or zero inferred.', '不可用；不推断数量或零值。'],
   'knownRouteEvidence.accessibilityTitle': ['Accessibility evidence', '无障碍证据'],
   'knownRouteEvidence.accessibilityCoverage': ['Unavailable', '不可用'],
   'knownRouteEvidence.accessibilityPrecision': ['Unavailable', '不可用'],
-  'knownRouteEvidence.accessibilityLimits': ['No reviewed citywide source proves sidewalk continuity, curb-ramp access, wheelchair passability, or obstructions.', '尚无经审查的全市来源可证明人行道连续性、缘石坡道、轮椅通行或障碍物。'],
+  'knownRouteEvidence.accessibilityLimits': ['Sidewalk, curb-ramp, wheelchair and obstruction evidence unavailable.', '人行道、缘石坡道、轮椅及障碍物证据不可用。'],
   'knownRouteEvidence.segmentTitle': ['Analysis-segment contributions', '分析区段贡献'],
-  'knownRouteEvidence.segmentSummary': ['Reported contribution: {contribution}; contributing generalized rows: {rows}.', '已记录事件贡献：{contribution}；参与贡献的泛化记录行：{rows}。'],
-  'knownRouteEvidence.segmentWhy': ['Why: nearby generalized source rows contribute through the disclosed uncertainty kernel. More or less contribution is not a safe/dangerous street judgment.', '原因：附近的泛化来源记录通过已披露的不确定性核贡献。贡献较多或较少并不表示街段安全或危险。'],
-  'knownRouteEvidence.segmentAvailability': ['Not unavailable: this is partial evidence with the stated coverage and uncertainty.', '并非 unavailable：这是具有上述覆盖范围和不确定性的 partial 证据。'],
+  'knownRouteEvidence.segmentSummary': ['Contribution: {contribution}; rows: {rows}.', '贡献：{contribution}；行数：{rows}。'],
+  'knownRouteEvidence.segmentWhy': ['Generalized reported incidents contribute through modeled uncertainty; historical evidence only.', '泛化已记录事件通过建模不确定性贡献；仅为历史证据。'],
+  'knownRouteEvidence.segmentAvailability': ['Partial; not unavailable.', '部分证据；并非不可用。'],
   'knownRouteEvidence.routeAggregate': ['Route reported contribution', '路线已记录事件贡献'],
-  'knownRouteEvidence.routeAggregateValue': ['{contribution} additive contribution units from {rows} generalized rows; {excluded} rows excluded.', '{contribution} 个可加总贡献单位，来自 {rows} 条泛化记录；排除 {excluded} 条。'],
-  'knownRouteEvidence.noCrossScore': ['No total safety score: reported-incident contributions, HIN context, raw crashes, and accessibility remain separate because their sources and units are not interchangeable.', '不提供总体安全分数：已记录事件贡献、HIN 上下文、raw crash 与无障碍证据保持独立，因为来源和量纲不可互换。'],
+  'knownRouteEvidence.routeAggregateValue': ['{contribution} units; {rows} rows; {excluded} excluded.', '{contribution} 单位；{rows} 行；排除 {excluded} 行。'],
+  // Legacy non-product test marker: No total safety score.
+  'knownRouteEvidence.noCrossScore': ['Reported incidents, HIN, raw crashes and accessibility stay separate.', '已记录事件、HIN、原始事故与无障碍证据保持独立。'],
   'knownRouteEvidence.partial': ['Partial', 'Partial'],
   'knownRouteEvidence.unavailableValue': ['Unavailable — not zero', 'Unavailable——不是零值'],
   'knownRouteEvidence.matched': ['Matched under strict reference-topology contract', '已按严格参考拓扑合同匹配'],
   'knownRouteEvidence.reason.off-network': ['Route samples are too far from admitted centerline geometry.', '路线采样点距准入道路中心线过远。'],
   'knownRouteEvidence.reason.multiple-candidate-ambiguity': ['Two or more centerline candidates cannot be distinguished reliably.', '两个或更多道路中心线候选无法可靠区分。'],
   'knownRouteEvidence.reason.disconnected-centerline-chain': ['The selected centerline edges do not form a connected node chain.', '所选道路中心线边无法形成连通节点链。'],
+  'knownRouteEvidence.reason.matching-complexity-limit': ['The bounded matching complexity limit was reached.', '已达到有界匹配复杂度限制。'],
+  'knownRouteEvidence.reason.source-drift': ['Centerline metadata, fields, count or features changed during the transaction.', '道路中心线元数据、字段、计数或要素在事务期间发生变化。'],
+  'knownRouteEvidence.reason.source-timeout': ['The public centerline transaction timed out.', '公共道路中心线事务超时。'],
+  'knownRouteEvidence.reason.source-network': ['The public centerline network request failed.', '公共道路中心线网络请求失败。'],
   'knownRouteEvidence.reason.consent-required': ['External centerline consent was not granted.', '未授权外部道路中心线请求。'],
   'knownRouteEvidence.reason.source': ['Official centerline response or schema could not be admitted.', '官方道路中心线响应或 schema 无法准入。'],
-  'knownRouteEvidence.rawCrashUnavailable': ['Raw official crash records were not acquired and validated for this milestone.', '本 milestone 未取得并验证官方 raw crash 记录。'],
 });
 
 export function initKnownRouteEvidenceUi({
@@ -141,7 +143,7 @@ export function initKnownRouteEvidenceUi({
     try {
       const catalog = await requestCatalog({
         normalizedRoute,
-        consent: true,
+        consent: { publicCenterlineRequest: true },
         signal: controller.signal,
       });
       if (requestGeneration !== generation) return;
@@ -210,7 +212,7 @@ function surfaceHtml() {
     </label>
     <p class="route-corridor__disclosure" data-i18n="knownRouteEvidence.disclosure">${t('knownRouteEvidence.disclosure')}</p>
     <p><a href="${disclosure.endpoint}" target="_blank" rel="noopener noreferrer">${disclosure.endpoint}</a></p>
-    <label><input data-known-route-consent type="checkbox"> <span data-i18n="knownRouteEvidence.consent">${t('knownRouteEvidence.consent')}</span></label>
+    <label><input data-known-route-consent="publicCenterlineRequest" type="checkbox"> <span data-i18n="knownRouteEvidence.consent">${t('knownRouteEvidence.consent')}</span></label>
     <p><button class="button button--primary" data-known-route-analyze data-i18n="knownRouteEvidence.analyze" type="button" disabled>${t('knownRouteEvidence.analyze')}</button></p>
     <p data-known-route-evidence-status role="status" aria-live="polite" aria-atomic="true"></p>
     <div data-known-route-evidence-results></div>`;
@@ -238,14 +240,14 @@ function renderReady(documentRef, root, presentation) {
       uncertainty: t('knownRouteEvidence.incidentLimits'),
     }),
     sourceCard(documentRef, {
-      title: t('knownRouteEvidence.hinTitle'),
+      title: t('knownRouteEvidence.rawCrashTitle'),
       href: HIN_SOURCE_URL,
-      status: t('knownRouteEvidence.partial'),
-      asOf: 'HIN 2025 / crash data 2019–2023',
-      coverage: t('knownRouteEvidence.hinCoverage'),
-      precision: t('knownRouteEvidence.hinPrecision'),
-      uncertainty: t('knownRouteEvidence.hinLimits'),
-      unavailableReason: t('knownRouteEvidence.rawCrashUnavailable'),
+      status: t('knownRouteEvidence.unavailableValue'),
+      asOf: '—',
+      coverage: t('knownRouteEvidence.unavailableValue'),
+      precision: t('knownRouteEvidence.unavailableValue'),
+      uncertainty: t('knownRouteEvidence.rawCrashLimits'),
+      unavailableReason: t('knownRouteEvidence.rawCrashLimits'),
     }),
     sourceCard(documentRef, {
       title: t('knownRouteEvidence.accessibilityTitle'),

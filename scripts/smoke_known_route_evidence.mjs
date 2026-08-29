@@ -6,7 +6,6 @@ import {
   createKnownRouteEvidenceRequest,
 } from '../src/routes_crime/known_route_evidence_contract.js';
 import {
-  CENTERLINE_MATCH_CONTRACT,
   PHILADELPHIA_CENTERLINE_SOURCE,
   matchKnownRouteToCenterline,
   requestPhiladelphiaCenterlineCatalog,
@@ -15,7 +14,6 @@ import {
   associateKnownRouteWithHin2025,
 } from '../src/routes_crime/hin_2025_context.js';
 import {
-  acquireOfficialHin2025,
   validateHin2025Snapshot,
 } from './lib/hin_2025_snapshot.mjs';
 import { validateHin2025Receipt } from './lib/hin_2025_receipt.mjs';
@@ -34,8 +32,10 @@ try {
     routeInput: publicRoute.routeInput,
     transportMode: 'walking',
   });
-  const catalog = await requestPhiladelphiaCenterlineCatalog({ normalizedRoute, consent: true });
+  const consent = { publicCenterlineRequest: true };
+  const catalog = await requestPhiladelphiaCenterlineCatalog({ normalizedRoute, consent });
   if (catalog?.status === 'unavailable') throw new Error(`centerline-${catalog.reason}`);
+  const centerlineRetrievedAt = reportClock();
   const match = matchKnownRouteToCenterline({ normalizedRoute, catalog });
   if (match.status !== 'matched') throw new Error(`map-match-${match.reason}`);
   const repeatMatch = matchKnownRouteToCenterline({ normalizedRoute, catalog });
@@ -43,11 +43,11 @@ try {
     && JSON.stringify(repeatMatch.matchedEdges) === JSON.stringify(match.matchedEdges);
   if (!deterministicMatch) throw new Error('map-match-not-deterministic');
 
-  const officialHin = await acquireOfficialHin2025({ timeoutMs: 20_000 });
   const localHinSnapshot = JSON.parse(await fs.readFile(path.join('public', 'data', 'hin_2025.snapshot.json'), 'utf8'));
   const localHinReceipt = JSON.parse(await fs.readFile(path.join('public', 'data', 'hin_2025.receipt.json'), 'utf8'));
   const admittedLocalHin = validateHin2025Snapshot(localHinSnapshot);
   validateHin2025Receipt(localHinReceipt, { snapshot: localHinSnapshot });
+  const officialHin = await observeOfficialHin(localHinReceipt, 20_000);
   const hinAssociation = associateKnownRouteWithHin2025({
     routeInput: publicRoute.routeInput,
     snapshot: { ...localHinSnapshot, lifecycleReceipt: localHinReceipt },
@@ -57,45 +57,41 @@ try {
     schema: 'known-route-evidence-official-smoke/v1',
     status: 'partial',
     observedAt: new Date().toISOString(),
-    publicRoute: {
-      label: publicRoute.label,
-      disclosure: publicRoute.disclosure,
-      exactGeometryIncluded: false,
-      citywideValidityClaim: false,
+    fixture: {
+      classification: 'explicit-public-non-private',
+      synthetic: false,
+      geometryIncluded: false,
+    },
+    consent: {
+      publicCenterlineRequest: consent.publicCenterlineRequest,
+      disclosureAccepted: true,
     },
     centerline: {
       status: 'matched-reference-topology',
-      sourceId: PHILADELPHIA_CENTERLINE_SOURCE.sourceId,
-      serviceItemId: PHILADELPHIA_CENTERLINE_SOURCE.serviceItemId,
       sourceUrl: PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
       layerUrl: PHILADELPHIA_CENTERLINE_SOURCE.layerUrl,
       licenseUrl: PHILADELPHIA_CENTERLINE_SOURCE.licenseUrl,
-      dataVersion: match.dataVersion,
-      sourceAsOf: match.sourceAsOf,
-      queryFeatureCount: catalog.featureCount,
-      matchedAnalysisSegmentCount: match.matchedEdges.length,
-      distinctMatchedNodeCount: new Set(match.matchedEdges.flatMap((edge) => [edge.fromNode, edge.toNode])).size,
-      connectedNodeChain: true,
-      maximumMatchDistanceM: match.maximumMatchDistanceM,
+      clocks: { sourceAsOf: match.sourceAsOf, retrievedAt: centerlineRetrievedAt },
       deterministicRepeat: deterministicMatch,
       method: match.method,
       transportSemantics: match.transportSemantics,
-      admission: { ...CENTERLINE_MATCH_CONTRACT },
       limitations: [...PHILADELPHIA_CENTERLINE_SOURCE.limitations],
     },
     hin: {
       status: 'partial',
-      sourceItemId: localHinReceipt.source.itemId,
       sourceUrl: localHinReceipt.source.officialContext,
       networkVintage: localHinReceipt.source.networkVintage,
       crashDataPeriod: [...localHinReceipt.source.crashDataPeriod],
-      sourceAsOf: new Date(officialHin.layer.editingInfo.dataLastEditDate).toISOString(),
-      officialFeatureCount: officialHin.countResult.count,
-      officialGeometryCounts: admittedLocalHin.geometryCounts,
-      localSnapshotIdentity: localHinReceipt.artifact.identity,
-      associatedStreetNameCount: hinAssociation.status === 'ready' ? hinAssociation.matches.length : 0,
-      admittedZero: hinAssociation.status === 'no-associated-streets',
-      limitation: 'Historical planning-network proximity only; not an individual crash count, route certification, prediction, safety score, or safer-route advice.',
+      clocks: {
+        sourceAsOf: officialHin.sourceAsOf,
+        retrievedAt: localHinReceipt.artifact.retrievedAt,
+        builtAt: localHinReceipt.artifact.builtAt,
+        observedAt: officialHin.observedAt,
+      },
+      trackedFeatureCount: admittedLocalHin.featureCount,
+      officialCountConsistent: true,
+      localAssociationExecuted: ['ready', 'no-associated-streets'].includes(hinAssociation.status),
+      limitation: 'Historical planning-network context only; raw crash and live-condition evidence remain unavailable.',
     },
     rawCrash: {
       status: 'unavailable',
@@ -108,6 +104,8 @@ try {
     privacy: {
       containsRouteCoordinates: false,
       containsRouteEndpoints: false,
+      containsRouteOrEdgeIds: false,
+      containsAddresses: false,
       containsEventRows: false,
       containsSourceRecordIds: false,
     },
@@ -115,18 +113,14 @@ try {
   await writeJsonAtomic(output, report);
   process.stdout.write(`${JSON.stringify({
     status: report.status,
-    publicRoute: report.publicRoute.label,
-    centerlineVersion: report.centerline.dataVersion,
-    queryFeatures: report.centerline.queryFeatureCount,
-    matchedSegments: report.centerline.matchedAnalysisSegmentCount,
-    matchedNodes: report.centerline.distinctMatchedNodeCount,
-    maximumMatchDistanceM: report.centerline.maximumMatchDistanceM,
+    fixture: report.fixture.classification,
+    publicCenterlineRequest: report.consent.publicCenterlineRequest,
+    centerlineSourceAsOf: report.centerline.clocks.sourceAsOf,
     deterministicRepeat: report.centerline.deterministicRepeat,
-    hinFeatures: report.hin.officialFeatureCount,
-    hinAssociationStatus: hinAssociation.status,
+    hinSourceAsOf: report.hin.clocks.sourceAsOf,
+    hinOfficialCountConsistent: report.hin.officialCountConsistent,
     rawCrash: report.rawCrash.status,
     accessibility: report.accessibility.status,
-    output: path.relative(process.cwd(), output).replaceAll('\\', '/'),
   })}\n`);
 } catch (error) {
   process.stderr.write(`[known-route-evidence-smoke] unavailable: ${error?.message || error}\n`);
@@ -149,12 +143,68 @@ function parseOptions(args) {
 async function readPublicRoute(file) {
   const value = JSON.parse(await fs.readFile(file, 'utf8'));
   if (value?.schema !== 'known-route-public-smoke/v1'
-    || typeof value.label !== 'string' || !value.label.trim()
     || typeof value.disclosure !== 'string' || !/public, non-private/i.test(value.disclosure)
-    || !value.routeInput || Object.keys(value).some((key) => !['schema', 'label', 'disclosure', 'routeInput'].includes(key))) {
+    || value.classification !== 'explicit-public-non-private'
+    || value.synthetic !== false
+    || value.consent?.publicCenterlineRequest !== true
+    || Object.keys(value.consent).length !== 1
+    || value.routeInput?.source !== 'manual-draw'
+    || Object.keys(value).some((key) => !['schema', 'classification', 'synthetic', 'consent', 'disclosure', 'routeInput'].includes(key))) {
     throw new Error('Known Route public smoke input is invalid.');
   }
   return value;
+}
+
+async function observeOfficialHin(receipt, timeoutMs) {
+  const metadataUrl = new URL(receipt.source.layerUrl);
+  metadataUrl.searchParams.set('f', 'pjson');
+  const signal = AbortSignal.timeout(timeoutMs);
+  const before = await requestJson(metadataUrl, { method: 'GET', signal });
+  const count = await requestJson(`${receipt.source.layerUrl}/query`, {
+    method: 'POST', signal, body: new URLSearchParams({ where: '1=1', returnCountOnly: 'true', f: 'json' }),
+  });
+  const after = await requestJson(metadataUrl, { method: 'GET', signal });
+  const project = (value) => ({
+    serviceItemId: value?.serviceItemId,
+    name: value?.name,
+    geometryType: value?.geometryType,
+    objectIdField: value?.objectIdField,
+    fields: value?.fields?.map(({ name, type }) => ({ name, type })),
+    dataLastEditDate: value?.editingInfo?.dataLastEditDate,
+    schemaLastEditDate: value?.editingInfo?.schemaLastEditDate,
+  });
+  const admitted = project(before);
+  if (JSON.stringify(admitted) !== JSON.stringify(project(after))
+    || admitted.serviceItemId !== receipt.source.itemId
+    || admitted.name !== receipt.source.layerName
+    || admitted.geometryType !== receipt.source.geometryType
+    || admitted.objectIdField !== 'objectid'
+    || JSON.stringify(admitted.fields) !== JSON.stringify(receipt.source.fields)
+    || new Date(admitted.dataLastEditDate).toISOString() !== receipt.source.sourceAsOf
+    || count?.count !== receipt.artifact.featureCount
+    || Object.keys(count).some((key) => key !== 'count')) {
+    throw new Error('HIN official metadata/count drifted from the tracked snapshot receipt.');
+  }
+  return { sourceAsOf: receipt.source.sourceAsOf, observedAt: reportClock() };
+}
+
+async function requestJson(url, options) {
+  const response = await fetch(url, {
+    credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer',
+    headers: {
+      accept: 'application/json',
+      ...(options.body ? { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' } : {}),
+    },
+    ...options,
+  });
+  if (!response.ok) throw new Error(`Official source request failed (${response.status}).`);
+  const value = await response.json();
+  if (value?.error) throw new Error('Official source returned an error.');
+  return value;
+}
+
+function reportClock() {
+  return new Date().toISOString();
 }
 
 function requireTaskOwnedOutput(file) {

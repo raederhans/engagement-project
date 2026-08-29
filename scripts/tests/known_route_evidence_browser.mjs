@@ -9,6 +9,7 @@ import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
 const PORT = 4194;
 const centerlineRequests = [];
 const networkObservations = { cityLimits: 0, incidentEnvelopes: 0 };
+const consoleMessages = [];
 const consoleErrors = [];
 const pageErrors = [];
 let baseUrl = null;
@@ -23,10 +24,14 @@ await runBrowserSuite({
     baseUrl.searchParams.set('mode', 'crime');
     baseUrl.searchParams.set('start', '2025-06');
     baseUrl.searchParams.set('months', '1');
+    await installPrivacySentinels(context);
     await installSyntheticRoutes(context, centerlineRequests, networkObservations);
   },
   configurePage: (page) => {
-    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('console', (message) => {
+      consoleMessages.push(message.text());
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
     page.on('pageerror', (error) => pageErrors.push(error.message));
   },
   run: async ({ page }) => {
@@ -55,12 +60,14 @@ await runBrowserSuite({
 
   const evidence = page.locator('[data-known-route-evidence]');
   await evidence.getByRole('heading', { name: 'Known Route evidence' }).waitFor();
-  assert.match(await evidence.innerText(), /does not generate or recommend a route/i);
+  assert.match(await evidence.innerText(), /Route choice is unchanged/i);
+  assert.match(await evidence.innerText(), /metadata GET, count-only POST, GeoJSON POST, metadata recheck GET/i);
   assert.match(await evidence.innerText(), /exact route-derived bounding box expanded by 75 m/i);
-  assert.match(await evidence.innerText(), /does not receive the route polyline, vertices, addresses, destination/i);
+  assert.match(await evidence.innerText(), /never polyline, vertices, address, destination/i);
   assert.equal(centerlineRequests.length, 0, 'M4 must not request the centerline before explicit consent');
   const analyze = evidence.getByRole('button', { name: 'Analyze this known route' });
   assert.equal(await analyze.isDisabled(), true);
+  assert.equal(await evidence.locator('[data-known-route-consent]').getAttribute('data-known-route-consent'), 'publicCenterlineRequest');
   await evidence.locator('[data-known-route-consent]').check();
   assert.equal(await analyze.isEnabled(), true);
   await analyze.click();
@@ -68,14 +75,15 @@ await runBrowserSuite({
   const validText = await evidence.innerText();
   assert.match(validText, /Street centerline and deterministic match/i);
   assert.match(validText, /Historical reported-incident contribution/i);
-  assert.match(validText, /Crash \/ HIN context/i);
+  assert.match(await surface.locator('[data-route-hin-context]').innerText(), /HIN 2025 historical context/i);
   assert.match(validText, /Accessibility evidence/i);
+  assert.match(validText, /Raw crash evidence/i);
   assert.match(validText, /Partial/i);
   assert.match(validText, /Unavailable — not zero/i);
   assert.match(validText, /Analysis-segment contributions/i);
-  assert.match(validText, /Why: nearby generalized source rows contribute/i);
-  assert.match(validText, /No total safety score/i);
-  assert.doesNotMatch(validText, /safest route|safer route recommendation|personal victim|is safe|is dangerous/i);
+  assert.match(validText, /Generalized reported incidents contribute through modeled uncertainty/i);
+  assert.match(validText, /modeled uncertainty/i);
+  assert.doesNotMatch(validText, /safe|safer|safest|recommend|individual probability|causal|current guarantee/i);
   assert.equal(await evidence.locator('[data-known-route-evidence-results] > section').count(), 6);
   const segmentItems = evidence.locator('[data-known-route-evidence-results] > section:last-child li');
   assert.equal(await segmentItems.count(), 2);
@@ -85,25 +93,41 @@ await runBrowserSuite({
     assert.match(await item.innerText(), /Data as of.*Coverage.*Location precision.*Uncertainty \/ limitations.*Unavailable reason/is);
   }
   assert.ok(centerlineRequests.length >= 4);
+  assert.deepEqual(centerlineRequests.slice(0, 4).map((request) => request.method), ['GET', 'POST', 'POST', 'GET']);
+  const transactionPosts = centerlineRequests.slice(0, 4).filter((request) => request.method === 'POST')
+    .map((request) => new URLSearchParams(request.body));
+  assert.deepEqual([...transactionPosts[0].keys()].sort(), [
+    'f', 'geometry', 'geometryType', 'inSR', 'returnCountOnly', 'spatialRel', 'where',
+  ]);
+  assert.deepEqual([...transactionPosts[1].keys()].sort(), [
+    'f', 'geometry', 'geometryType', 'inSR', 'orderByFields', 'outFields', 'outSR',
+    'resultRecordCount', 'returnGeometry', 'spatialRel', 'where',
+  ]);
   const spatialPost = centerlineRequests.find((request) => request.method === 'POST'
     && request.body.includes('geometry=') && request.body.includes('outFields='));
   assert.ok(spatialPost, 'consented M4 request must send the disclosed bbox POST');
   assert.match(spatialPost.body, /geometryType=esriGeometryEnvelope/);
   assert.match(spatialPost.body, /outFields=objectid%2Cseg_id%2Cfnode_%2Ctnode_%2Coneway%2Cclass%2Cstreetlabe%2Cupdate_/);
   assert.doesNotMatch(spatialPost.body, /LineString|walking|address|destination|Diary/i);
+  for (const request of centerlineRequests.slice(0, 4)) {
+    assert.equal(request.cookie, undefined);
+  }
   assert.equal(page.url(), urlBefore, 'Known Route analysis must not mutate shareable URL state');
   const persisted = await page.evaluate(() => ({
     local: { ...localStorage },
     session: { ...sessionStorage },
     url: location.href,
+    privacy: globalThis.__knownRoutePrivacySentinel,
   }));
   assert.doesNotMatch(JSON.stringify(persisted), /-75\.1|39\.95|LineString|known-polyline|routeIdentity|corridorIdentity/i);
+  assert.doesNotMatch(consoleMessages.join('\n'), /-75\.1|39\.95|LineString|known-polyline|routeIdentity|corridorIdentity/i);
 
   await page.locator('.language-switch').click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   await evidence.getByRole('heading', { name: '已知路线证据' }).waitFor();
   const chineseText = await evidence.innerText();
-  assert.match(chineseText, /不提供总体安全分数/);
+  assert.match(chineseText, /保持独立/);
+  assert.match(chineseText, /建模不确定性/);
   assert.match(chineseText, /无障碍证据/);
   await page.locator('.language-switch').click();
   await page.waitForFunction(() => document.documentElement.lang === 'en');
@@ -141,6 +165,13 @@ await runBrowserSuite({
   await surface.press('Escape');
   await surface.waitFor({ state: 'hidden' });
   assert.equal(await opener.evaluate((element) => document.activeElement === element), true);
+  await opener.click();
+  await surface.waitFor({ state: 'visible' });
+  assert.equal(await evidence.getAttribute('data-known-route-evidence-status'), 'idle');
+  assert.equal(await evidence.locator('[data-known-route-consent]').isChecked(), false);
+  assert.equal(await evidence.locator('[data-known-route-evidence-results] > section').count(), 0);
+  await surface.press('Escape');
+  await surface.waitFor({ state: 'hidden' });
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
   process.stdout.write(`${JSON.stringify({
@@ -193,7 +224,10 @@ async function installSyntheticRoutes(context, centerlineRequests, networkObserv
   await context.route(/policegis\.phila\.gov/i, (route) => route.fulfill({ status: 503, body: '{}' }));
   await context.route(/Street_Centerline\/FeatureServer\/0(?:\/query)?/i, async (route) => {
     const request = route.request();
-    centerlineRequests.push({ method: request.method(), body: request.postData() || '', url: request.url() });
+    centerlineRequests.push({
+      method: request.method(), body: request.postData() || '', url: request.url(),
+      cookie: request.headers().cookie,
+    });
     if (!/\/query(?:\?|$)/i.test(request.url())) {
       await json(route, centerlineMetadata());
       return;
@@ -204,6 +238,36 @@ async function installSyntheticRoutes(context, centerlineRequests, networkObserv
       return;
     }
     await json(route, centerlineFeatures());
+  });
+}
+
+async function installPrivacySentinels(context) {
+  await context.addInitScript(() => {
+    const state = { history: [], clipboard: [], indexedDb: [] };
+    Object.defineProperty(globalThis, '__knownRoutePrivacySentinel', { value: state });
+    for (const method of ['pushState', 'replaceState']) {
+      const original = History.prototype[method];
+      History.prototype[method] = function wrappedHistory(...args) {
+        state.history.push(args.map((value) => String(value)));
+        return original.apply(this, args);
+      };
+    }
+    if (globalThis.Clipboard?.prototype?.writeText) {
+      const original = Clipboard.prototype.writeText;
+      Clipboard.prototype.writeText = function wrappedClipboard(value) {
+        state.clipboard.push(String(value));
+        return original.call(this, value);
+      };
+    }
+    if (globalThis.IDBFactory?.prototype) {
+      for (const method of ['open', 'deleteDatabase']) {
+        const original = IDBFactory.prototype[method];
+        IDBFactory.prototype[method] = function wrappedIndexedDb(...args) {
+          state.indexedDb.push(args.map((value) => String(value)));
+          return original.apply(this, args);
+        };
+      }
+    }
   });
 }
 
