@@ -125,6 +125,14 @@ test('PPD and HIN reuse exact admission identities without creating live-table a
   assert.equal(reviewedHin.coverage.status, 'complete-exact-receipt');
   assert.equal(reviewedHin.coverage.completeness_admitted, true);
   assert.equal(reviewedHin.dq.status, 'pass');
+
+  const wrongLayerInputs = fixtureInputs();
+  wrongLayerInputs.hinAdmission.receipt.source.layerUrl = wrongLayerInputs.hinAdmission.receipt.source.layerUrl
+    .replace('high_injury_network_2025', 'different_network');
+  assert.throws(
+    () => buildHomeCompareCitywideSourceLifecycle(wrongLayerInputs),
+    /HIN admission source does not match/i,
+  );
 });
 
 test('observation identity, source, schema, row-count, clocks, and finite numbers fail closed', () => {
@@ -572,7 +580,7 @@ function hinAdmission() {
       schema: 'phl-hin-2025-receipt-v1',
       source: {
         layerName: 'high_injury_network_2025',
-        layerUrl: registryValue.sources[8].api_url,
+        layerUrl: registryValue.sources[8].api_url.replace('/arcgis/', '/ArcGIS/'),
         sourceAsOf: '2025-12-10T17:29:32.369Z',
         fields: [
           { name: 'objectid', type: 'esriFieldTypeOID' },

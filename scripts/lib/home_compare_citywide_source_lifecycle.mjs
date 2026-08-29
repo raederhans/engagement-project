@@ -456,7 +456,7 @@ function createM1Receipt(source, observed, ordinal, manifest, admission) {
 function createHinReceipt(source, observed, ordinal, manifest, admission) {
   const receipt = admission.receipt;
   if (receipt.source?.layerName !== source.dataset.split('/')[0]
-    || receipt.source?.layerUrl !== source.api_url) {
+    || !sameArcgisLayerUrl(receipt.source?.layerUrl, source.api_url)) {
     throw new Error('HIN admission source does not match the Home Compare registry.');
   }
   validateClockNotAfter(receipt.artifact?.retrievedAt, manifest.generatedAt, 'HIN retrieval clock');
@@ -745,6 +745,19 @@ function validateHinAdmissionShape(value) {
       || receipt.artifact.builtAt !== null
       || receipt.artifact.buildClockStatus !== 'not-recorded-in-legacy-snapshot')) {
     throw new Error('Legacy HIN admission must preserve missing review and build clocks.');
+  }
+}
+
+function sameArcgisLayerUrl(left, right) {
+  try {
+    const first = new URL(left);
+    const second = new URL(right);
+    if (first.protocol !== 'https:' || second.protocol !== 'https:'
+      || first.username || second.username || first.password || second.password
+      || first.search || second.search || first.hash || second.hash) return false;
+    return first.href.toLowerCase() === second.href.toLowerCase();
+  } catch {
+    return false;
   }
 }
 
