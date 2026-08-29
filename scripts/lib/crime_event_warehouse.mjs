@@ -533,11 +533,37 @@ export async function createCrimeWarehouseAdmissionReceipt(evidenceRoot) {
 }
 
 export async function validateCrimeWarehouseAdmissionReceipt(evidenceRoot) {
+  return validateCrimeWarehouseAdmissionReceiptWithConsumer(evidenceRoot);
+}
+
+/**
+ * Accumulates tentative row-local evidence during the official admission scan.
+ * The callback must be side-effect-free and retain only in-memory aggregate state:
+ * no row is admitted, and no accumulated result is authoritative, until this
+ * entire Promise resolves with the globally verified receipt.
+ */
+export async function consumeCrimeWarehouseAdmissionReceipt(
+  evidenceRoot,
+  { accumulateCanonicalEvent } = {},
+) {
+  if (typeof accumulateCanonicalEvent !== 'function') {
+    throw new TypeError('Crime warehouse admission consumer requires a side-effect-free accumulateCanonicalEvent callback.');
+  }
+  return validateCrimeWarehouseAdmissionReceiptWithConsumer(
+    evidenceRoot,
+    accumulateCanonicalEvent,
+  );
+}
+
+async function validateCrimeWarehouseAdmissionReceiptWithConsumer(
+  evidenceRoot,
+  accumulateCanonicalEvent = null,
+) {
   const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
   const receiptArtifact = await readRelativeJsonArtifact(root, 'receipt.json', 'crime warehouse receipt');
   const receipt = receiptArtifact.value;
   validateCrimeWarehouseReceiptShape(receipt);
-  const evidence = await inspectCrimeWarehouseEvidence(root.absolute);
+  const evidence = await inspectCrimeWarehouseEvidence(root.absolute, { accumulateCanonicalEvent });
   const expectedIdentity = identityOf(evidence);
   if (receipt.identity !== expectedIdentity) {
     throw new Error('Crime warehouse receipt identity drifted from its declared evidence.');
@@ -571,7 +597,10 @@ export async function publishCrimeWarehouseAdmissionReceipt(evidenceRoot) {
   return Object.freeze({ ...admitted, idempotent: false });
 }
 
-async function inspectCrimeWarehouseEvidence(evidenceRoot) {
+async function inspectCrimeWarehouseEvidence(
+  evidenceRoot,
+  { accumulateCanonicalEvent = null } = {},
+) {
   const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
   const [eventContract, sourceContract, taxonomy, tractGeoJson, tractSourceRegistry, acsSnapshot] = await Promise.all([
     readJsonUrl(EVENT_CONTRACT_URL),
@@ -654,6 +683,7 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     eventContract,
     sourceSnapshots,
     dependencies,
+    accumulateCanonicalEvent,
   );
   validateCrimeWarehouseProducerSemantics({
     manifest,
@@ -965,7 +995,14 @@ async function inspectSourceRawShards(root, manifestRelative, manifest, sourceCo
   };
 }
 
-async function inspectCanonicalPartitions(root, manifest, eventContract, sourceSnapshots, dependencies) {
+async function inspectCanonicalPartitions(
+  root,
+  manifest,
+  eventContract,
+  sourceSnapshots,
+  dependencies,
+  accumulateCanonicalEvent = null,
+) {
   const partitionCount = manifest.partition_count;
   finiteInteger(partitionCount, 'warehouse partition_count', { minimum: 1 });
   const directoryRelative = 'warehouse/canonical';
@@ -1032,6 +1069,18 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       const revisionType = classifyRecomputedRevision(occurrences, sourceSnapshots.items, dependencies);
       if (revisionType) revisions[revisionType] += 1;
       accumulateInspectedCanonicalQuality(counts, event, unknownLabels, observedLabels);
+      if (accumulateCanonicalEvent) {
+        const occurrence = occurrences.at(-1);
+        await accumulateCanonicalEvent(Object.freeze({
+          canonical_event: structuredClone(event),
+          raw_dimensions: Object.freeze({
+            source_snapshot_id: occurrence.snapshot.snapshot_id,
+            dc_dist: textOrNull(occurrence.row.dc_dist),
+            psa: textOrNull(occurrence.row.psa),
+            location_block_available: textOrNull(occurrence.row.location_block) !== null,
+          }),
+        }));
+      }
       earliestEventAt = !earliestEventAt || event.event_at < earliestEventAt ? event.event_at : earliestEventAt;
       latestEventAt = !latestEventAt || event.event_at > latestEventAt ? event.event_at : latestEventAt;
       canonicalNext = await canonicalIterator.next();

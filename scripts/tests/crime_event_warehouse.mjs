@@ -24,6 +24,7 @@ import {
 } from '../lib/crime_event_source.mjs';
 import {
   classifyCrimeDataStatus,
+  consumeCrimeWarehouseAdmissionReceipt,
   CRIME_WAREHOUSE_RECEIPT_SCHEMA,
   createCrimeWarehouseAdmissionReceipt,
   createWarehouseDependencies,
@@ -295,6 +296,101 @@ test('real backfill producer publishes one official frozen receipt and validates
     receipt.artifacts.latest_quality_report.path = 'warehouse/quality/../quality.json';
   }, /canonical safe relative path/i);
   await validateCrimeWarehouseAdmissionReceipt(root);
+});
+
+test('official admission consumer tentatively accumulates exact row bindings until global success', async (context) => {
+  const root = path.join(
+    process.cwd(),
+    '.dfev1',
+    'crime',
+    `receipt-consumer-${process.pid}-${Date.now()}`,
+  );
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  await backfillCrimeEventWarehouse([
+    '--start=2025-12-31',
+    '--through=2026-01-02',
+    `--root=${root}`,
+    '--page-size=10',
+    `--partitions=${EVENT_CONTRACT.default_partition_count}`,
+  ], officialBackfillRuntime({
+    dimensionOverrides: [
+      { dc_dist: '', psa: '1', location_block: '   ' },
+      { dc_dist: null, psa: '\t', location_block: null },
+    ],
+  }));
+
+  const validated = await validateCrimeWarehouseAdmissionReceipt(root);
+  const consumed = [];
+  const admitted = await consumeCrimeWarehouseAdmissionReceipt(root, {
+    async accumulateCanonicalEvent(value) {
+      consumed.push(value);
+    },
+  });
+  assert.deepEqual(admitted, validated);
+  assert.equal(consumed.length, admitted.receipt.counts.canonical_rows);
+  assert.equal(new Set(consumed.map(({ canonical_event: event }) => event.source_record_id)).size, consumed.length);
+  const bySourceId = Object.fromEntries(consumed.map((value) => [
+    value.canonical_event.source_ids.cartodb_id,
+    value,
+  ]));
+  assert.deepEqual(bySourceId['1'].raw_dimensions, {
+    source_snapshot_id: bySourceId['1'].canonical_event.lineage.source_snapshot_id,
+    dc_dist: null,
+    psa: '1',
+    location_block_available: false,
+  });
+  assert.deepEqual(bySourceId['2'].raw_dimensions, {
+    source_snapshot_id: bySourceId['2'].canonical_event.lineage.source_snapshot_id,
+    dc_dist: null,
+    psa: null,
+    location_block_available: false,
+  });
+  for (const value of consumed) {
+    assert.deepEqual(Object.keys(value).sort(), ['canonical_event', 'raw_dimensions']);
+    assert.deepEqual(
+      Object.keys(value.raw_dimensions).sort(),
+      ['dc_dist', 'location_block_available', 'psa', 'source_snapshot_id'],
+    );
+    const serialized = JSON.stringify(value);
+    assert.doesNotMatch(serialized, /partition_paths|manifest_path|raw_shard|\.jsonl|"row"\s*:/i);
+  }
+
+  let callbackCount = 0;
+  await assert.rejects(
+    consumeCrimeWarehouseAdmissionReceipt(root, {
+      accumulateCanonicalEvent() {
+        callbackCount += 1;
+        throw new Error('consumer-stop');
+      },
+    }),
+    /consumer-stop/,
+  );
+  assert.equal(callbackCount, 1);
+
+  const driftedId = 2;
+  const driftedPartition = partitionForSourceId(driftedId, EVENT_CONTRACT.default_partition_count);
+  const driftedPath = path.join(
+    root,
+    'warehouse',
+    'canonical',
+    `part-${String(driftedPartition).padStart(3, '0')}.jsonl`,
+  );
+  const original = await fs.readFile(driftedPath);
+  const events = original.toString('utf8').split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  events[0].raw_category.offense_label = 'Drifted after an earlier validated event';
+  await fs.writeFile(driftedPath, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8');
+  let beforeLaterDrift = 0;
+  try {
+    await assert.rejects(
+      consumeCrimeWarehouseAdmissionReceipt(root, {
+        accumulateCanonicalEvent() { beforeLaterDrift += 1; },
+      }),
+      /drifted from its source row transforms/i,
+    );
+    assert.equal(beforeLaterDrift, 1);
+  } finally {
+    await fs.writeFile(driftedPath, original);
+  }
 });
 
 test('source lineage survives an evidence-root move and relocates legacy v1 paths fail closed', async (context) => {
@@ -1018,10 +1114,11 @@ test('source acquisition resumes its exact checkpoint without duplicating commit
   assert.equal(resumed.manifest.acquisition.count_complete, true);
 });
 
-function officialBackfillRuntime() {
+function officialBackfillRuntime({ dimensionOverrides = [] } = {}) {
   const rows = [
     {
       ...sourceRow(1),
+      ...(dimensionOverrides[0] || {}),
       dispatch_date_time: '2025-12-31T01:00:00.000Z',
       dispatch_date: '2025-12-31',
     },
@@ -1033,6 +1130,7 @@ function officialBackfillRuntime() {
       hour: 3,
       point_x: null,
       point_y: null,
+      ...(dimensionOverrides[1] || {}),
     },
   ];
   const fields = Object.fromEntries(
