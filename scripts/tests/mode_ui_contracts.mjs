@@ -437,6 +437,24 @@ test('late Crime synchronization cannot append Crime keys while Diary owns the U
   assert.equal(replacedUrl, null);
 });
 
+test('private Crime unavailability remains the top-level outcome and visible unavailable phase', async () => {
+  const settled = [];
+  const harness = coordinatorOptions({ initialMode: 'crime', crimeRefreshStatus: 'unavailable' });
+  const coordinator = createModeCoordinator({
+    ...harness.options,
+    onModeSettled: (mode, phase) => settled.push([mode, phase]),
+  });
+
+  const result = await coordinator.schedule('crime');
+  assert.deepEqual(result, { status: 'unavailable' });
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'failed',
+    label: 'Crime data unavailable',
+  });
+  assert.deepEqual(settled, [['crime', 'failed']]);
+});
+
 test('Crime canonical URL removes hostile private keys while preserving unrelated query and hash', (t) => {
   const originalWindow = globalThis.window;
   let replacedUrl = null;

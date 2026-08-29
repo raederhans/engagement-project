@@ -65,11 +65,6 @@ function requireNumber(value, label, { min = -Infinity, max = Infinity, integer 
   return value;
 }
 
-function normalizeTitle(value) {
-  const text = String(value ?? '').trim().replace(/\s+/g, ' ');
-  return (text || 'Untitled analysis').slice(0, ANALYSIS_TITLE_MAX_LENGTH);
-}
-
 function normalizeViewStateForCreation(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact view state.');
   return projectCrimeViewStateForPublic(value);
@@ -207,6 +202,29 @@ function normalizeResultSummary(value, schemaVersion) {
   };
 }
 
+function publicGeographyLabel(viewState) {
+  if (viewState.queryMode === 'district') return `District ${viewState.selectedDistrictCode}`;
+  if (viewState.queryMode === 'tract') return `Census tract ${viewState.selectedTractGEOID}`;
+  throw new Error('Private buffer analysis is unavailable.');
+}
+
+function publicAnalysisTitle(viewState) {
+  return `${publicGeographyLabel(viewState)} analysis`;
+}
+
+function projectResultSummaryForPublic(resultSummary, viewState) {
+  if (resultSummary == null) return null;
+  return {
+    ...resultSummary,
+    comparison: {
+      a: resultSummary.comparison.a
+        ? { ...resultSummary.comparison.a, label: publicGeographyLabel(viewState) }
+        : null,
+      b: null,
+    },
+  };
+}
+
 function normalizeProvenance(value) {
   if (value == null) return {};
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact provenance.');
@@ -308,6 +326,15 @@ export function validateAnalysisArtifact(value) {
   if (Date.parse(artifact.updatedAt) < Date.parse(artifact.createdAt)) {
     throw new Error('Invalid analysis artifact timestamps.');
   }
+  if (artifact.schemaVersion === ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+    if (artifact.title !== publicAnalysisTitle(artifact.viewState)) {
+      throw new Error('Invalid analysis artifact title: public geography label required.');
+    }
+    const publicResultSummary = projectResultSummaryForPublic(artifact.resultSummary, artifact.viewState);
+    if (JSON.stringify(stableJson(artifact.resultSummary)) !== JSON.stringify(stableJson(publicResultSummary))) {
+      throw new Error('Invalid analysis artifact comparison: public geography labels required.');
+    }
+  }
   return artifact;
 }
 
@@ -316,26 +343,31 @@ export function createAnalysisArtifact(input, {
   now = () => new Date().toISOString(),
 } = {}) {
   const timestamp = now();
+  const viewState = validateViewStateForCreation(input?.viewState);
+  const resultSummary = projectResultSummaryForPublic(
+    normalizeResultSummaryForCreation(input?.resultSummary ?? null),
+    viewState,
+  );
   return validateAnalysisArtifact({
     kind: ANALYSIS_ARTIFACT_KIND,
     schemaVersion: ANALYSIS_ARTIFACT_SCHEMA_VERSION,
     id: createId(),
-    title: normalizeTitle(input?.title),
+    title: publicAnalysisTitle(viewState),
     createdAt: timestamp,
     updatedAt: timestamp,
-    viewState: validateViewStateForCreation(input?.viewState),
-    resultSummary: normalizeResultSummaryForCreation(input?.resultSummary ?? null),
+    viewState,
+    resultSummary,
     provenance: normalizeProvenanceForCreation(input?.provenance ?? {}),
   });
 }
 
-export function renameAnalysisArtifact(value, title, {
+export function renameAnalysisArtifact(value, _title, {
   now = () => new Date().toISOString(),
 } = {}) {
   const artifact = validateAnalysisArtifact(value);
   return validateAnalysisArtifact({
     ...artifact,
-    title: normalizeTitle(title),
+    title: publicAnalysisTitle(artifact.viewState),
     updatedAt: now(),
   });
 }
@@ -349,6 +381,9 @@ export function canSaveAnalysis(state) {
 
 export function projectAnalysisArtifactForPublic(value) {
   const artifact = validateAnalysisArtifact(value);
+  if (artifact.schemaVersion !== ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+    throw new Error('Legacy analysis artifacts are unavailable for sharing or export.');
+  }
   if (artifact.viewState.queryMode === 'buffer') {
     throw new Error('Private buffer analysis is unavailable for sharing or export.');
   }

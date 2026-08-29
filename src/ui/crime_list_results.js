@@ -41,8 +41,10 @@ export function createCrimeListResultsView({
   const caption = root.querySelector('[data-crime-list-caption]');
   const tokens = new Map();
   let lastFeatures = [];
+  let incidentsUnavailable = false;
 
   const renderIncidents = (features) => {
+    incidentsUnavailable = false;
     lastFeatures = Array.isArray(features) ? features.slice(0, MAX_TABLE_ROWS) : [];
     body?.replaceChildren?.();
     for (const feature of lastFeatures) {
@@ -64,6 +66,10 @@ export function createCrimeListResultsView({
 
   const releaseLanguage = onLanguageChange(() => {
     setTranslatedText(caption, 'crime.list.caption');
+    if (incidentsUnavailable) {
+      setTranslatedText(status, 'resultMeta.unavailable');
+      return;
+    }
     setTranslatedText(status, lastFeatures.length ? 'crime.list.count' : 'crime.list.empty', {
       count: lastFeatures.length,
     });
@@ -74,7 +80,10 @@ export function createCrimeListResultsView({
     loading(scope) {
       const token = resultMeta[scope]?.loading?.() ?? null;
       tokens.set(scope, token);
-      if (scope === 'incidents') setTranslatedText(status, 'crime.list.loading');
+      if (scope === 'incidents') {
+        incidentsUnavailable = false;
+        setTranslatedText(status, 'crime.list.loading');
+      }
       return token;
     },
     incidents(payload) {
@@ -87,8 +96,20 @@ export function createCrimeListResultsView({
       }) ?? true;
     },
     failed(scope, error) {
-      if (scope === 'incidents') setTranslatedText(status, 'crime.list.failed');
+      if (scope === 'incidents') {
+        incidentsUnavailable = false;
+        setTranslatedText(status, 'crime.list.failed');
+      }
       return resultMeta[scope]?.failed?.(error, { token: tokens.get(scope) }) ?? false;
+    },
+    unavailable(scope) {
+      resultMeta[scope]?.clear?.();
+      if (scope === 'incidents') {
+        incidentsUnavailable = true;
+        lastFeatures = [];
+        body?.replaceChildren?.();
+        setTranslatedText(status, 'resultMeta.unavailable');
+      }
     },
     clear(scope) {
       resultMeta[scope]?.clear?.();

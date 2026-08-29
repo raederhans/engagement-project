@@ -858,8 +858,7 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   assert.equal(created.kind, ANALYSIS_ARTIFACT_KIND);
   assert.equal(created.schemaVersion, 3);
   assert.equal(created.id, 'analysis-1');
-  assert.equal(created.title.length, 120);
-  assert.equal(created.title.startsWith('Night safety'), true);
+  assert.equal(created.title, 'District 05 analysis');
   assert.equal(created.createdAt, '2026-07-31T02:00:00.000Z');
   assert.equal(created.updatedAt, created.createdAt);
   assert.equal(created.resultSummary.generatedAt, '2026-07-31T01:00:00.000Z');
@@ -872,7 +871,7 @@ test('analysis artifacts normalize a versioned contract and keep refresh state t
   const renamed = renameAnalysisArtifact(created, '  Safer route  ', {
     now: () => '2026-07-31T03:00:00.000Z',
   });
-  assert.equal(renamed.title, 'Safer route');
+  assert.equal(renamed.title, 'District 05 analysis');
   assert.equal(renamed.createdAt, created.createdAt);
   assert.equal(renamed.updatedAt, '2026-07-31T03:00:00.000Z');
   assert.throws(
@@ -1157,6 +1156,15 @@ test('Crime refresh outcomes never label stale work as live', async () => {
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: true }), { status: 'live' });
   assert.deepEqual(normalizeCrimeRefreshResult({ applied: false }), { status: 'superseded' });
   assert.deepEqual(normalizeCrimeRefreshResult({ status: 'failed' }), { status: 'failed' });
+  assert.deepEqual(normalizeCrimeRefreshResult({
+    status: 'unavailable',
+    reason: 'private-location-analysis',
+  }), {
+    status: 'unavailable',
+    reason: 'private-location-analysis',
+    succeeded: [],
+    failed: [],
+  });
   assert.deepEqual(normalizeCrimeRefreshResult({
     status: 'partial',
     succeeded: ['boundary', 'charts'],

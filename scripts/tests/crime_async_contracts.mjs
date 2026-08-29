@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -18,6 +18,7 @@ import {
   loadTractOutlineResult,
   planCrimeRefresh,
   normalizeCrimeRefreshScope,
+  runPublicCrimeCameraNavigation,
 } from '../../src/routes_crime/index.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 import { joinDistrictCountsToGeoJSON } from '../../src/utils/join.js';
@@ -576,7 +577,7 @@ test('crime snapshots clone mutable filter and center values', () => {
   assert.deepEqual(snapshot.resolvedOffenseCodes, ['A']);
 });
 
-test('A-only Crime snapshots preserve canonical null labels for comparison persistence', async () => {
+test('A-only private Crime snapshots are identified before comparison persistence', () => {
   const filters = {
     start: '2026-01-01',
     end: '2026-02-01',
@@ -598,17 +599,13 @@ test('A-only Crime snapshots preserve canonical null labels for comparison persi
 
   assert.equal(snapshot.addressA, null);
   assert.equal(snapshot.addressB, null);
-  await updateCompare(snapshot, {
-    fetchers: {
-      fetchCountBuffer: async () => 12,
-      fetchTopTypesBuffer: async () => ({ rows: [] }),
-    },
-    view: { pending() {}, success() {}, error(error) { throw error; } },
+  assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(snapshot), true);
+  assert.deepEqual(refreshContract.privateCrimeUnavailableResult(), {
+    status: 'unavailable',
+    reason: 'private-location-analysis',
+    succeeded: [],
+    failed: [],
   });
-  const saved = getLastComparisonSnapshot(filters);
-  assert.ok(saved);
-  assert.equal(saved.comparison.a.label, 'Point A');
-  assert.equal(saved.comparison.b, null);
 });
 
 test('tract summaries adapt tract count, offense, and population data to the shared summary card', async () => {
@@ -1040,12 +1037,13 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
     types: ['Thefts'],
     resolvedOffenseCodes: ['Thefts'],
     drilldownCodes: [],
-    queryMode: 'buffer',
-    center3857: [-8364000, 4855000],
-    centerLonLat: [-75.16, 39.95],
+    queryMode: 'district',
+    selectedDistrictCode: '05',
+    center3857: null,
+    centerLonLat: null,
     centerB3857: null,
     centerBLonLat: null,
-    addressA: '1500 Market St',
+    addressA: null,
     addressB: null,
     radiusM: 400,
     adminLevel: 'districts',
@@ -1058,6 +1056,7 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
     incidents(payload) { calls.push(['incidents', payload]); },
     ready(scope, provenance) { calls.push(['ready', scope, provenance]); },
     failed(scope) { calls.push(['failed', scope]); },
+    unavailable(scope) { calls.push(['unavailable', scope]); },
     clear(scope) { calls.push(['clear', scope]); },
     focusResults() { calls.push(['focus']); },
   };
@@ -1065,21 +1064,20 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
     readSnapshot: () => structuredClone(snapshot),
     initializeCoverage: async () => {},
     fetchIncidents: async (value) => {
-      assert.deepEqual(value.center3857, snapshot.center3857);
-      assert.equal(value.radiusM, 400);
+      assert.equal(value.selectedDistrictCode, '05');
       return { type: 'FeatureCollection', features: [{ properties: { cartodb_id: 1 } }] };
     },
     updateSummary: async (value) => {
-      assert.deepEqual(value.center3857, snapshot.center3857);
+      assert.equal(value.selectedDistrictCode, '05');
       return { applied: true, status: 'success', a: { status: 'success', total: 1 } };
     },
     updateCharts: async (value) => {
-      assert.deepEqual(value.center3857, snapshot.center3857);
+      assert.equal(value.selectedDistrictCode, '05');
       return { applied: true, status: 'success', succeeded: ['monthly', 'top', 'heat'], failed: [] };
     },
     createProvenance: ({ name, snapshot: value }) => {
       assert.deepEqual(value, snapshot);
-      return Object.freeze({ name, selection: value.centerLonLat });
+      return Object.freeze({ name, selection: value.selectedDistrictCode });
     },
     view,
   });
@@ -1093,4 +1091,88 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
     ['charts', 'incidents', 'summary'],
   );
   assert.equal(calls.at(-1)[0], 'focus');
+});
+
+test('Crime list private analysis returns unavailable before coverage or any fetch owner', async () => {
+  const { createCrimeListController } = await import('../../src/routes_crime/list_mode_controller.js');
+  const calls = [];
+  const snapshot = {
+    queryMode: 'buffer',
+    centerLonLat: [-75.16, 39.95],
+    center3857: [-8364000, 4855000],
+    addressA: '1500 PRIVATE MARKET STREET',
+  };
+  const owner = async (name) => { calls.push(name); return { applied: true, status: 'success' }; };
+  const view = {
+    unavailable(scope) { calls.push(`unavailable:${scope}`); },
+  };
+  const controller = createCrimeListController({
+    readSnapshot: () => structuredClone(snapshot),
+    initializeCoverage: () => owner('coverage'),
+    fetchIncidents: () => owner('incidents'),
+    updateSummary: () => owner('summary'),
+    updateCharts: () => owner('charts'),
+    view,
+  });
+
+  const result = await controller.requestRefresh();
+  assert.equal(result.status, 'unavailable');
+  assert.deepEqual(calls, [
+    'unavailable:incidents',
+    'unavailable:summary',
+    'unavailable:charts',
+  ]);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE|MARKET|75\.16|8364000/);
+});
+
+test('private map points cause zero camera navigation while public districts still fit', async () => {
+  assert.equal(refreshContract.containsPrivateCrimeLocation({ queryMode: 'buffer' }), false);
+  assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot({ queryMode: 'buffer' }), true);
+  const cameraCalls = [];
+  const feature = {
+    type: 'Feature',
+    properties: { DIST_NUMC: '05' },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[[-75.2, 39.9], [-75.1, 39.9], [-75.1, 40], [-75.2, 39.9]]],
+    },
+  };
+  const runProgrammaticMapMove = async (action) => {
+    cameraCalls.push('move');
+    action();
+    return true;
+  };
+  const fitBounds = () => cameraCalls.push('fit');
+
+  const privateResult = await runPublicCrimeCameraNavigation({
+    map: {},
+    snapshot: { queryMode: 'buffer', centerLonLat: [-75.16, 39.95] },
+    feature,
+    runProgrammaticMapMove,
+    fitBounds,
+  });
+  assert.equal(privateResult.status, 'unavailable');
+  assert.deepEqual(cameraCalls, []);
+
+  const publicResult = await runPublicCrimeCameraNavigation({
+    map: {},
+    snapshot: { queryMode: 'district', selectedDistrictCode: '05' },
+    feature,
+    runProgrammaticMapMove,
+    fitBounds,
+  });
+  assert.equal(publicResult.status, 'applied');
+  assert.deepEqual(cameraCalls, ['move', 'fit']);
+
+  const [routeSource, mainSource] = await Promise.all([
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
+  ]);
+  const pointEnd = routeSource.match(/onPointSelectionEnded\(\)\s*\{([\s\S]*?)\n\s*\},/u)?.[1] || '';
+  assert.match(pointEnd, /requestRefresh\(\)/u);
+  assert.doesNotMatch(pointEnd, /fitCurrentSelection/u);
+  assert.match(
+    mainSource,
+    /if \(containsPrivateCrimeLocation\(store\)\)[\s\S]*?throw new Error[\s\S]*?const map = await mapRuntime\.ensureMap\(\)/u,
+  );
 });

@@ -41,16 +41,14 @@ import { createMapMarker, localizeMapMarker } from '../map/initMap.js';
 import { tractFeatureGEOID } from '../utils/geoids.js';
 import {
   createCrimeRefreshOwner,
+  isPrivateCrimeAnalysisSnapshot,
   observeCrimeRefreshJob,
+  privateCrimeUnavailableResult,
   readCrimeSnapshot,
 } from './crime_refresh_owner.js';
 import { createCrimeMapSelectionCoordinator } from './crime_map_selection_coordinator.js';
 import { setTranslatedText, t } from '../i18n/index.js';
-import {
-  bufferBounds,
-  fitBoundsWithPanel,
-  geometryBounds,
-} from '../map/camera_fit.js';
+import { fitBoundsWithPanel, geometryBounds } from '../map/camera_fit.js';
 import { describeCrimeDataScope } from '../ui/data_scope.js';
 import {
   classifyCrimeRefreshJobs,
@@ -210,13 +208,18 @@ export async function loadTractOutlineResult({
   }
 }
 
-function unionBounds(...values) {
-  const valid = values.filter(Boolean);
-  if (valid.length === 0) return null;
-  return [
-    [Math.min(...valid.map((bounds) => bounds[0][0])), Math.min(...valid.map((bounds) => bounds[0][1]))],
-    [Math.max(...valid.map((bounds) => bounds[1][0])), Math.max(...valid.map((bounds) => bounds[1][1]))],
-  ];
+export async function runPublicCrimeCameraNavigation({
+  map,
+  snapshot,
+  feature,
+  runProgrammaticMapMove,
+  fitBounds = fitBoundsWithPanel,
+} = {}) {
+  if (isPrivateCrimeAnalysisSnapshot(snapshot)) return privateCrimeUnavailableResult();
+  const bounds = geometryBounds(feature);
+  if (!bounds) return { status: 'idle', applied: false };
+  const applied = await runProgrammaticMapMove(() => fitBounds(map, bounds));
+  return { status: applied ? 'applied' : 'superseded', applied: Boolean(applied) };
 }
 
 export function createCrimeSynchronousActions({
@@ -275,14 +278,20 @@ export async function initCrimeMode(map, {
   let districtData = null;
   let tractData = null;
   let lastCameraSelectionKey = null;
+  let coverageInitialized = false;
   const crimeState = statePort || createCrimeStatePort({ state: store });
 
-  try {
-    await initCoverageAndDefaults();
-    onCoverageChange();
-  } catch (error) {
-    onCoverageChange();
-    throw error;
+  async function ensureCoverage() {
+    if (coverageInitialized) return true;
+    try {
+      await initCoverageAndDefaults();
+      coverageInitialized = true;
+      onCoverageChange();
+      return true;
+    } catch (error) {
+      onCoverageChange();
+      throw error;
+    }
   }
 
   const pointsController = wirePoints(map, {
@@ -319,6 +328,15 @@ export async function initCrimeMode(map, {
 
   async function refreshAll(snapshot, { signal, isCurrent, scope = 'all' }) {
     if (!active || !isActive() || !isCurrent()) return { applied: false };
+    if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
+      const unavailableScopes = scope === 'all'
+        ? ['boundary', 'incidents', 'charts', 'summary']
+        : [scope];
+      for (const name of unavailableScopes) resultMeta[name]?.clear?.();
+      pointsController.clear();
+      hideLegend();
+      return privateCrimeUnavailableResult();
+    }
     const plan = planCrimeRefresh(snapshot, scope);
     if (!plan.valid) return { status: 'failed', error: `Unknown Crime result scope: ${scope}` };
     const requested = new Set(plan.requested);
@@ -434,9 +452,6 @@ export async function initCrimeMode(map, {
 
     syncComparisonOverlays({ centerLonLat, centerBLonLat, radiusM, queryMode });
     publishCurrentSelection(snapshot);
-    const bufferCamera = requested.has('boundary') && queryMode === 'buffer'
-      ? fitCurrentSelection({ snapshot })
-      : Promise.resolve(false);
 
     if (requested.has('boundary')) {
       startResultJob('boundary', (async () => {
@@ -510,8 +525,6 @@ export async function initCrimeMode(map, {
     }
 
     if (!isCurrent()) return { applied: false };
-    await bufferCamera;
-    if (!isCurrent()) return { applied: false };
     if (requested.has('incidents') && hasActiveIncidentSelection(snapshot)) {
       startResultJob(
         'incidents',
@@ -584,6 +597,10 @@ export async function initCrimeMode(map, {
       return { status: 'failed', error: `Unknown Crime result scope: ${scope}` };
     }
     try {
+      if (isPrivateCrimeAnalysisSnapshot(store)) {
+        return normalizeCrimeRefreshResult(await refreshOwner.refresh({ signal, scope }));
+      }
+      await ensureCoverage();
       const result = await refreshOwner.refresh({ signal, scope });
       if (result?.status === 'busy') return result;
       return normalizeCrimeRefreshResult(result);
@@ -630,7 +647,7 @@ export async function initCrimeMode(map, {
       const hint = document.getElementById('useMapHint');
       if (hint) hint.style.display = 'none';
       document.body.style.cursor = '';
-      void fitCurrentSelection({ force: true }).then(() => requestRefresh());
+      void requestRefresh();
     },
   });
 
@@ -678,32 +695,33 @@ export async function initCrimeMode(map, {
     force = false,
   } = {}) {
     if (!active || !isActive()) return false;
+    if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
+      publishCurrentSelection(snapshot);
+      return false;
+    }
     const key = crimeSelectionKey(snapshot);
     publishCurrentSelection(snapshot);
     if (!key || (!force && key === lastCameraSelectionKey)) return false;
-    let bounds = null;
-    if (snapshot.queryMode === 'buffer') {
-      bounds = unionBounds(
-        bufferBounds(snapshot.centerLonLat, snapshot.radiusM),
-        bufferBounds(snapshot.centerBLonLat, snapshot.radiusM),
-      );
-    } else if (snapshot.queryMode === 'district') {
-      const selected = feature || districtData?.features?.find((candidate) => (
+    let selected = feature;
+    if (snapshot.queryMode === 'district') {
+      selected ||= districtData?.features?.find((candidate) => (
         String(candidate?.properties?.DIST_NUMC || '').padStart(2, '0')
           === String(snapshot.selectedDistrictCode || '').padStart(2, '0')
       ));
-      bounds = geometryBounds(selected);
     } else if (snapshot.queryMode === 'tract') {
-      const selected = feature || tractData?.features?.find((candidate) => (
+      selected ||= tractData?.features?.find((candidate) => (
         tractFeatureGEOID(candidate) === snapshot.selectedTractGEOID
       ));
-      bounds = geometryBounds(selected);
     }
-    if (!bounds) return false;
+    if (!selected) return false;
     lastCameraSelectionKey = key;
-    const completed = await pointsController.runProgrammaticMapMove(() => {
-      fitBoundsWithPanel(map, bounds);
+    const result = await runPublicCrimeCameraNavigation({
+      map,
+      snapshot,
+      feature: selected,
+      runProgrammaticMapMove: pointsController.runProgrammaticMapMove,
     });
+    const completed = result.applied;
     if (!completed && lastCameraSelectionKey === key) lastCameraSelectionKey = null;
     return completed;
   }

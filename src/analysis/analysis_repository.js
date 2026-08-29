@@ -1,6 +1,7 @@
 import { openDB } from 'idb';
 
 import {
+  ANALYSIS_ARTIFACT_SCHEMA_VERSION,
   renameAnalysisArtifact,
   validateAnalysisArtifact,
 } from './analysis_artifact.js';
@@ -10,11 +11,6 @@ export const ANALYSIS_DB_VERSION = 1;
 export const ANALYSIS_STORE_NAME = 'analysis_artifacts';
 export const ANALYSIS_UPDATED_AT_INDEX = 'updatedAt';
 export const LEGACY_UNAVAILABLE_STATUS = 'legacy-unavailable';
-
-const PRIVATE_FIELD_NAMES = new Set([
-  'address', 'addressA', 'addressB', 'coordinates', 'lngLat', 'centerLonLat',
-  'centerBLonLat', 'center3857', 'centerB3857', 'longitude', 'latitude', 'lng', 'lat',
-]);
 
 function requireArtifactId(value) {
   const id = String(value ?? '').trim();
@@ -29,20 +25,10 @@ function warningFor(row, error) {
   };
 }
 
-function containsPrivateLocation(value, seen = new Set()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return false;
-  seen.add(value);
-  if (Array.isArray(value)) return value.some((item) => containsPrivateLocation(item, seen));
-  return Object.entries(value).some(([key, nested]) => (
-    PRIVATE_FIELD_NAMES.has(key) || containsPrivateLocation(nested, seen)
-  ));
-}
-
-function isLegacyPrivateRow(row) {
+function isLegacyRow(row) {
   return Boolean(row)
     && typeof row === 'object'
-    && [1, 2].includes(row.schemaVersion)
-    && (row.viewState?.queryMode === 'buffer' || containsPrivateLocation(row));
+    && [1, 2].includes(row.schemaVersion);
 }
 
 function safeTimestamp(value) {
@@ -51,7 +37,7 @@ function safeTimestamp(value) {
 }
 
 export function describeLegacyUnavailableAnalysis(row) {
-  if (!isLegacyPrivateRow(row)) return null;
+  if (!isLegacyRow(row)) return null;
   return Object.freeze({
     id: requireArtifactId(row.id),
     title: 'Legacy private analysis unavailable',
@@ -71,6 +57,14 @@ export function describeLegacyUnavailableAnalysis(row) {
 export function createAnalysisRepository({ adapter } = {}) {
   if (!adapter) throw new Error('Analysis repository requires a storage adapter.');
 
+  function validateCurrentArtifact(value) {
+    const artifact = validateAnalysisArtifact(value);
+    if (artifact.schemaVersion !== ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+      throw new Error('Legacy analysis artifacts are unavailable for storage or import.');
+    }
+    return artifact;
+  }
+
   async function get(id) {
     const row = await adapter.get(requireArtifactId(id));
     if (row == null) return null;
@@ -79,7 +73,7 @@ export function createAnalysisRepository({ adapter } = {}) {
 
   return {
     async save(value) {
-      const artifact = validateAnalysisArtifact(value);
+      const artifact = validateCurrentArtifact(value);
       await adapter.put(artifact);
       return artifact;
     },
@@ -91,7 +85,7 @@ export function createAnalysisRepository({ adapter } = {}) {
       if (typeof adapter.putManyAtomic !== 'function') {
         throw new Error('Atomic analysis import is unavailable.');
       }
-      const artifacts = values.map(validateAnalysisArtifact);
+      const artifacts = values.map(validateCurrentArtifact);
       if (new Set(artifacts.map(({ id }) => id)).size !== artifacts.length) {
         throw new Error('Duplicate analysis import id.');
       }

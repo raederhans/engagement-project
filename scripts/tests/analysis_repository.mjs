@@ -7,6 +7,7 @@ import {
   ANALYSIS_ARTIFACT_SCHEMA_VERSION,
   canSaveAnalysis,
   createAnalysisArtifact,
+  projectAnalysisArtifactForPublic,
   validateAnalysisArtifact,
 } from '../../src/analysis/analysis_artifact.js';
 import {
@@ -141,7 +142,7 @@ test('artifact creation ignores runtime-only store fields without persisting the
   assert.equal(Object.hasOwn(created.viewState, 'coverageStatus'), false);
 });
 
-test('v1 validation accepts the bounded comparison and tract provenance contract', () => {
+test('v3 validation accepts the bounded public comparison and tract provenance contract', () => {
   const valid = artifact('bounded-v1');
   const value = validateAnalysisArtifact({
     ...valid,
@@ -149,7 +150,7 @@ test('v1 validation accepts the bounded comparison and tract provenance contract
       generatedAt: '2026-07-31T07:59:00.000Z',
       comparison: {
         a: {
-          label: 'Point A',
+          label: 'District 05',
           total: 12,
           per10k: 3.5,
           top3: [{ text_general_code: 'Thefts', n: 8 }],
@@ -230,9 +231,9 @@ test('business repository gets, renames, and deletes without bypassing artifact 
   const renamed = await repository.rename('saved', '  Safer route comparison  ', {
     now: () => '2026-07-31T10:00:00.000Z',
   });
-  assert.equal(renamed.title, 'Safer route comparison');
+  assert.equal(renamed.title, 'District 05 analysis');
   assert.equal(renamed.updatedAt, '2026-07-31T10:00:00.000Z');
-  assert.equal((await repository.get('saved')).title, 'Safer route comparison');
+  assert.equal((await repository.get('saved')).title, 'District 05 analysis');
   assert.equal(await repository.rename('missing', 'No row'), null);
   assert.equal(await repository.delete('saved'), true);
   assert.equal(await repository.get('saved'), null);
@@ -465,4 +466,72 @@ test('legacy private rows remain stored but are exposed only as legacy-unavailab
   assert.equal(deletes, 0);
   await assert.rejects(() => repository.rename(legacy.id, 'Recovered'), /invalid analysis artifact/i);
   assert.equal(writes, 0);
+});
+
+test('every v1 and v2 row is non-destructively legacy-unavailable and cannot be re-saved or projected', async () => {
+  for (const schemaVersion of [1, 2]) {
+    const legacy = {
+      ...artifact(`legacy-${schemaVersion}`),
+      schemaVersion,
+      title: `Historic district ${schemaVersion}`,
+    };
+    const original = JSON.stringify(legacy);
+    let writes = 0;
+    let deletes = 0;
+    const repository = createAnalysisRepository({
+      adapter: {
+        async put() { writes += 1; },
+        async get() { return legacy; },
+        async getAll() { return [legacy]; },
+        async delete() { deletes += 1; },
+      },
+    });
+
+    const descriptor = await repository.get(legacy.id);
+    assert.equal(descriptor.availability, 'legacy-unavailable');
+    assert.equal(descriptor.legacySchemaVersion, schemaVersion);
+    assert.equal(JSON.stringify(legacy), original);
+    assert.doesNotMatch(JSON.stringify(descriptor), /Historic district/);
+    await assert.rejects(() => repository.save(legacy), /legacy analysis artifacts are unavailable/i);
+    assert.throws(() => projectAnalysisArtifactForPublic(legacy), /legacy analysis artifacts are unavailable/i);
+    assert.equal(writes, 0);
+    assert.equal(deletes, 0);
+  }
+});
+
+test('v3 creation rewrites hostile free-text labels and validation rejects injected labels', () => {
+  const privateToken = '1500 PRIVATE MARKET STREET';
+  const created = createAnalysisArtifact({
+    title: privateToken,
+    viewState: { queryMode: 'district', selectedDistrictCode: '05' },
+    resultSummary: {
+      generatedAt: '2026-08-30T00:00:00.000Z',
+      comparison: {
+        a: { label: privateToken, total: 1, top3: [] },
+        b: { label: privateToken, total: 2, top3: [] },
+      },
+    },
+  });
+
+  assert.equal(created.title, 'District 05 analysis');
+  assert.equal(created.resultSummary.comparison.a.label, 'District 05');
+  assert.equal(created.resultSummary.comparison.b, null);
+  assert.doesNotMatch(JSON.stringify(created), /PRIVATE|MARKET|1500/);
+  assert.throws(
+    () => validateAnalysisArtifact({ ...created, title: privateToken }),
+    /public geography label required/i,
+  );
+  assert.throws(
+    () => validateAnalysisArtifact({
+      ...created,
+      resultSummary: {
+        ...created.resultSummary,
+        comparison: {
+          ...created.resultSummary.comparison,
+          a: { ...created.resultSummary.comparison.a, label: privateToken },
+        },
+      },
+    }),
+    /public geography labels required/i,
+  );
 });

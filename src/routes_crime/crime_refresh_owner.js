@@ -4,7 +4,61 @@ function isAbortError(error) {
   return error?.name === 'AbortError';
 }
 
+export const PRIVATE_CRIME_UNAVAILABLE_REASON = 'private-location-analysis';
+
+export function containsPrivateCrimeLocation(source) {
+  if (!source || typeof source !== 'object') return false;
+  return Boolean(source.centerLonLat)
+    || Boolean(source.centerBLonLat)
+    || Boolean(source.center3857)
+    || Boolean(source.centerB3857)
+    || Boolean(String(source.addressA || '').trim())
+    || Boolean(String(source.addressB || '').trim());
+}
+
+export function isPrivateCrimeAnalysisSnapshot(source) {
+  return source?.queryMode === 'buffer' || containsPrivateCrimeLocation(source);
+}
+
+export function privateCrimeUnavailableResult() {
+  return {
+    status: 'unavailable',
+    reason: PRIVATE_CRIME_UNAVAILABLE_REASON,
+    succeeded: [],
+    failed: [],
+  };
+}
+
 export function readCrimeSnapshot(source) {
+  if (isPrivateCrimeAnalysisSnapshot(source)) {
+    let filters = {};
+    try {
+      filters = source.getFilters?.() || {};
+    } catch {
+      // Private analysis is rejected before coverage initialization, so filters may be unavailable.
+    }
+    return {
+      ...filters,
+      types: [...(filters.types || [])],
+      resolvedOffenseCodes: [...(filters.resolvedOffenseCodes || filters.types || [])],
+      drilldownCodes: [...(filters.drilldownCodes || [])],
+      queryMode: source.queryMode ?? filters.queryMode,
+      center3857: (filters.center3857 || source.center3857)
+        ? [...(filters.center3857 || source.center3857)]
+        : null,
+      centerLonLat: source.centerLonLat ? [...source.centerLonLat] : null,
+      centerB3857: (filters.centerB3857 || source.centerB3857)
+        ? [...(filters.centerB3857 || source.centerB3857)]
+        : null,
+      centerBLonLat: source.centerBLonLat ? [...source.centerBLonLat] : null,
+      addressA: source.addressA ?? filters.addressA ?? null,
+      addressB: source.addressB ?? filters.addressB ?? null,
+      adminLevel: source.adminLevel ?? filters.adminLevel,
+      per10k: source.per10k ?? filters.per10k,
+      coverageDate: source.coverageMax || null,
+      overlayTractsLines: source.overlayTractsLines,
+    };
+  }
   const filters = source.getFilters();
   return {
     ...filters,
@@ -38,7 +92,7 @@ export function createCrimeRefreshOwner({ readSnapshot, runRefresh }) {
   };
 
   return {
-    async refresh({ signal: ownerSignal, scope = 'all' } = {}) {
+    async refresh({ signal: ownerSignal, scope = 'all', snapshot: suppliedSnapshot } = {}) {
       if (!active) return { applied: false };
       if (ownerSignal?.aborted) return { applied: false };
       if (controller && !controller.signal.aborted && currentScope === 'all' && scope !== 'all') {
@@ -54,7 +108,7 @@ export function createCrimeRefreshOwner({ readSnapshot, runRefresh }) {
       const requestController = new AbortController();
       controller = requestController;
       currentScope = scope;
-      const snapshot = readSnapshot();
+      const snapshot = suppliedSnapshot ?? readSnapshot();
       const context = {
         signal: requestController.signal,
         scope,
