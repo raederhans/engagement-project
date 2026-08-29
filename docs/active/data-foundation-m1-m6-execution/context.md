@@ -61,6 +61,11 @@
 | 2026-08-29 | M4 writer 从本轮 M1 64 partitions 扫描 3,586,620 rows / 8,741,798,048 raw bytes，生成精确三工件；completed rerun idempotent 且 bytes/SHA/100ns mtime 零变化。 | M4 证据覆盖 `[2006-01-01, 2026-08-28)`；2,024 contributing rows 与 609.840838 contribution units 只是聚合历史 evidence，不是个体风险或安全结论。 |
 | 2026-08-29 | M4-4 首轮发现 Centerline schema/CRS、M1 aggregation TOCTOU、v2 validator 和 completed-inventory 四类问题；修复后 reviewer 在 exact `b4fcc63` 独立复验为 P0/P1/P2/P3 全零。 | M4 local stage gate PASS；Centerline 继续 reference-only，mode/accessibility/routing/safety/M2 authority 全为 false，M5 不得继承不存在的路由授权。 |
 | 2026-08-29 | 最终 reviewer 构建观测 non-VRE bundle 3,999,920/4,000,000，M4 chunk 36,497/36,500；浏览器双语、键盘、桌面/移动、隐私与 0 console/page errors 全部 PASS。 | M5-M6 只有 80-byte 总包余量，必须 code-split/压缩现有字节，禁止提高 ceiling。 |
+| 2026-08-29 | M5-1 用 Project OSRM 26.8.0 Windows x64、MLD、`foot.lua` 和 2026-08-24 Pennsylvania extract 构建本地图；26 个 graph files / 2,533,170,416 bytes，GraphArtifact、topology、geometry identity 分别为 `3adc0b82…901e0`、`25f3d33d…e0e3a`、`eef990bb…c75b`。 | 成熟图和公开固定 probe 的本机可复建证据成立；原始 86-file / 2,952,679,139-byte ignored 根保留，不授予任意私人路线或产品 runtime authority。 |
+| 2026-08-29 | M5-2/M5-3 完成 authority-neutral alternatives core、oracle、private-sentinel 与四格 Chromium gate；unknown accessibility 保持 `partial/unavailable`，生产 wrapper 固定 `m5-authority-unavailable`，UI 保持 `NO_PRODUCT_PROMOTION`。 | Pareto/sensitivity 可机械验证，但 candidate generation、accessibility、safety、realtime 和产品 routing 均未晋级；0 私人值进入 URL/network/log/share。 |
+| 2026-08-29 | M5-4 在 exact `d7f55aa` 首轮给出 P0=0/P1=0/P2=4/P3=1：public-probe responder causality、accessibility unknown flatten、terminal candidate contradiction、late console checkpoint 和中文 Axe/layout 缺口。 | 暂停 M6，复用 M5-1/2/3 修复；阶段任务继续冻结为 4/4，不创建第五任务。 |
+| 2026-08-29 | M5-1 v3 sibling 将公开 probe 绑定 OS-assigned loopback port 与 spawned child PID 的 readiness/query 前后唯一 TCP ownership；hostile canned pre-owner fail closed 且不被杀死。5-file / 37,546-byte final receipt identity 为 `1cbbf205…fced8`。 | 原 v2 root 字节不变且不得 fallback；v3 authority 仍仅是 same-session private handle，`candidateGenerationAuthorized:false`、`privateRuntimeProductPromotion:false`。 |
+| 2026-08-29 | 监督 exact `7a8cd80` 通过 v3 validate、route-real 350/350、core 16/16、private gate 2/2、四格 Chromium、M4 回归、build、bundle 与 ESLint；M5-4 focused re-review 为 APPROVE，原 findings 全关闭且新 P0/P1/P2/P3=0。 | M5 local stage gate PASS；fresh bundle 3,999,824/4,000,000，余 176 bytes。没有 remote CI、deploy、publish、redistribution 或 product promotion。 |
 
 ## Live process ownership
 
@@ -82,18 +87,24 @@
 | M4 Centerline/privacy/UI | `01a04ad4-c50c-7800-8128-1056e4d4b2df` | exact live Centerline transaction and focused browser gates | complete; 47-feature public reference smoke PASS, no active server/listener |
 | M4 unique ignored-data writer | `01a04af3-c867-7770-bd3d-e97c2eda5e1b` / `f1a1` | `.dfev1/known-route-evidence-v1/full-warehouse-source-final-b4fcc63` | complete; exact three-artifact root retained, fresh writer and completed rerun PASS |
 | M4 final independent review | `01a04b18-68d7-7810-b23d-f854a1064575` / `7897` | exact `b4fcc63` plus source-final root | complete; P0/P1/P2/P3 zero, all original findings CLOSED, tracked clean |
+| M5 mature engine/graph/authority | `01a04b4d-64e2-7db0-bf35-80e0b580aa1b` / `db9b` | supervisor `.dfev1/route-real-graph-m5-1` plus `route-real-graph-m5-1-repair-p2/source-final-owned-queries` | complete; graph `3adc0b82…901e0`, v3 receipt `1cbbf205…fced8`, spawned-child ownership and hostile pre-owner gate PASS |
+| M5 alternatives core/oracle | `01a04b4e-e153-7a03-9924-40994308cde0` / `4e9f` | source/repair commits integrated through exact `7a8cd80` | complete; 16/16, accessibility uncertainty preserved, terminal contradictions fail closed, production wrapper unavailable |
+| M5 product/browser no-promotion | `01a04b6e-46ca-7400-b7dc-93b00fe12d45` / `a7b8` | exact supervisor `7a8cd80` built output | complete; private self-test 2/2 and desktop/mobile x en/zh-CN Chromium PASS, zero console/page/private/candidate-OSRM requests |
+| M5 final independent review | `01a04b78-f0a3-7720-9793-afdf8b3bedbd` / `f0ac` | initial `d7f55aa`, focused exact `7a8cd80` | complete; initial P2=4/P3=1 all CLOSED, final APPROVE with P0/P1/P2/P3 zero |
 
 ## Handoff
 
-M4 final `b4fcc63` 已通过独立 reviewer 的 exact-tip gate：P0/P1/P2/P3 均为零，原 3 个 P1
-和 1 个 P2 均关闭。source-final 三工件精确绑定本轮 M1/M2 与 live public Centerline transaction；
-M2 仍为 `not-promoted/unavailable`，Centerline 仍是 reference-only，routing/mode/accessibility/
-safety authority 均为 false。M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general
-browser-smoke failure、80-byte bundle 余量和 routing graph/许可/运行 authority 缺口继续披露。
+M5 final `7a8cd80` 已通过独立 reviewer 的 exact-tip focused gate：初始 P2=4/P3=1 全部关闭，
+最终 P0/P1/P2/P3 均为零。本机成熟 OSRM 图、固定公开 probe 因果、authority-neutral Pareto/
+sensitivity/oracle 与四格隐私浏览器证据已闭合；产品继续固定 `NO_PRODUCT_PROMOTION/unavailable`，
+没有私人 candidate generation、accessibility/safety/realtime 或 runtime promotion authority。
+M1 reviewer-channel 缺口、M2 observer-blinding 偏差、既有 general browser-smoke failure、176-byte
+bundle 余量以及未运行 remote CI/deploy/publish/redistribution 继续披露。
 
 ## Next step
 
-提交本记录后，从 exact supervisor tip 创建 M5-1 真实图/许可/authority/engine 任务。只有本地成熟
-routing engine、可复建真实图 receipt 和正向私有 authority 同时成立，才继续 M5-2 Pareto/oracle
-与 M5-3 product/browser；否则 M5 诚实结束为 `unavailable/no routing promotion`。M5-4 保留给独立
-exact-tip reviewer，阶段最多 4 个 high 任务，且不得把私人地址、坐标或路线发送到远端服务。
+提交本记录后，从 exact supervisor closeout tip 创建 M6-1 本地 Diary 生命周期、M6-2 公共提交
+硬禁用、M6-3 中立 Sample Community/insights 三个 high 任务；M6-4 保留给真实整合候选的独立
+exact-tip reviewer。Diary 只能本地 IndexedDB、用户手势导出和 token-confirmed replace/delete；
+公共 agree/improve 及任何 env/adapter/request 注入必须保持无网络和 unavailable。示例社区数据必须
+明确 static/sample/非实时，颜色与措辞不得投影安全等级；bundle ceiling 不提高，阶段最多 4 个任务。

@@ -36,8 +36,8 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
   partial/unavailable 语义、权重敏感性和会话内隐私边界。
 - [x] M4: 在真实道路图和来源准入成立后完成 Known Route corridor evidence、分段贡献、
   不确定性与会话内路线隐私；禁止 raw GPS 与 “safest route” 表述。
-- [ ] M5: 选择并准入 routing engine，生成可复现候选，提供 fastest/balanced/lower modeled
-  exposure/accessible 的 Pareto 与敏感性比较，并用独立 oracle 验证失败路径。
+- [x] M5: 已准入本机成熟 OSRM 图，并完成 authority-neutral 的 Pareto、敏感性与独立 oracle；
+  产品仍固定 `NO_PRODUCT_PROMOTION/unavailable`，没有私人路线生成或运行时晋级权限。
 - [ ] M6: 完成本地 Diary 记录、导出、删除与隐私回归；公共提交只建立默认关闭的严格契约，
   在 moderation/abuse/deletion/k-anonymity/authority 未闭合时不得启用。
 
@@ -64,5 +64,6 @@ Known Route 证据、自适应路线替代，以及默认本地和隐私友好�
   且不能把历史行数/identity 当作当前完成证据。
 - 本地 `main` 比 `origin/main` 超前 93 commits；未 fetch，远端当前状态未知。
 - 当前主工作树含未归属 logs/output；监督工作只在隔离 worktree，禁止清理或覆盖。
-- M4-M5 依赖真实图、许可、边界和 authority；synthetic/candidate 状态不得绕过 admission。
+- M5 的本地图与公开固定 probe 已成立，但产品 candidate generation、私人 runtime、accessibility、
+  safety 与 realtime authority 仍未授权；receipt/test seam 不得绕过 `NO_PRODUCT_PROMOTION`。
 - 全量下载、mart 和模型为长进程，必须有唯一 owner、日志、checkpoint 和可恢复路径。

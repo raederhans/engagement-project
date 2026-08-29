@@ -2,7 +2,7 @@
 
 ## Current status
 
-`M4 complete — exact b4fcc63 passed the independent final gate with P0/P1/P2/P3 zero (4/4 high tasks)`。
+`M5 complete — exact 7a8cd80 passed the independent final gate with P0/P1/P2/P3 zero (4/4 high tasks); product routing remains NO_PRODUCT_PROMOTION/unavailable`。
 
 ## Checklist
 
@@ -31,7 +31,7 @@
 - [x] 让 M3-4 对修复后的精确候选做 focused re-review 并完成 M3 stage gate。
 - [x] M3 Home and Neighborhood Compare stage gate。
 - [x] M4 Known Route Evidence stage gate。
-- [ ] M5 Adaptive Route Alternatives stage gate。
+- [x] M5 Adaptive Route Alternatives stage gate。
 - [ ] M6 Local Diary / closed Community Evidence stage gate。
 
 ## Validation evidence
@@ -106,6 +106,12 @@
 | M4 fresh writer plus completed rerun | first writer exit 0; completed rerun returned `restoredCompletedCheckpoint:true` and `idempotent:true`; exact inventory, bytes, SHA-256 and 100ns mtimes had zero changes and no temp/backup/transaction residue. |
 | M4 evidence semantics | 3,530,212 generalized eligible rows, 2,024 contributors and 609.840838 aggregate contribution units; coverage `[2006-01-01, 2026-08-28)`; M2 remains `not-promoted/unavailable`, Centerline remains reference-only and routing/accessibility/safety authority remains false. |
 | M4-4 exact-tip review of `b4fcc63` | PASS / APPROVE with P0=0, P1=0, P2=0, P3=0; all original 3 P1 and 1 P2 findings CLOSED; reviewer independently repeated public validate-only, data-chain, focused code, build, bundle and browser gates on a clean exact tip. |
+| M5 mature OSRM graph and v3 responder receipt | Project OSRM 26.8.0 / Windows x64 / MLD / `foot.lua`; 26 graph files / 2,533,170,416 bytes; v3 validate-only binds receipt `1cbbf205…fced8`, GraphArtifact `3adc0b82…901e0`, topology `25f3d33d…e0e3a`, geometry `eef990bb…c75b`. |
+| M5 v3 public-probe causality | OS-assigned loopback port; readiness and both query boundaries bind the unique listener owner to the spawned child PID; byte-identical canned port pre-owner fails closed and is not terminated. Final sibling is 5 files / 37,546 bytes; original 86-file / 2,952,679,139-byte root is unchanged. |
+| M5 authority-neutral alternatives core | 16/16 PASS; Pareto, balanced sensitivity, accessibility `available/partial/unavailable`, unknown candidate inventory, duplicate conflicts and terminal contradictions are mechanically distinct. Production wrapper remains fixed `m5-authority-unavailable`. |
+| M5 product/browser no-promotion gate | 2/2 private-sentinel self-tests plus Chromium desktop/mobile x English/Chinese PASS; per-cell Axe serious/critical and overflow are zero; console/page/private/candidate-OSRM requests are zero. |
+| M5 central build and bundle | `build:manifest` PASS at 263 modules; non-VRE bundle 3,999,824 / 4,000,000 bytes, leaving 176 bytes; ceiling unchanged. M4 16/16 and Known Route browser remain PASS. |
+| M5-4 independent review | initial exact `d7f55aa` returned P0=0/P1=0/P2=4/P3=1; repairs reused M5-1/2/3 with no fifth task. Focused re-review of exact `7a8cd80` returned APPROVE with all original findings CLOSED and new P0/P1/P2/P3 zero. |
 
 ## Open risks and remaining work
 
@@ -123,13 +129,18 @@
   失败；M2 forecast/serving 必须保持 `unavailable`，不得把 aggregate gain 或 audit model 当作 promotion。
 - M2 ignored root 约 1.442 GiB 且只存在于 retained `79c2` worktree；本轮 M1-M6 收尾前不得清理、
   移动或回收。publisher 未运行，历史 tracked serving artifact 未被本轮覆盖。
-- M4 final candidate 的 reviewer bundle 为 3,999,920/4,000,000 non-VRE bytes，只余 80 bytes；
-  M5-M6 不能提高 ceiling，任何 bundled 改动必须先做真实 code-splitting/体积收敛。
+- M4 reviewer 的历史观测为 3,999,920/4,000,000 non-VRE bytes；M5 exact fresh build 为
+  3,999,824/4,000,000，余 176 bytes。二者属于不同 exact checkout/fresh build 观测；ceiling 未变，
+  M6 不能提高 ceiling，任何 bundled 改动仍须先做真实 code-splitting/体积收敛。
 - 全局 `test:browser-smoke` 当前稳定停在既有 Analysis History “Needs refresh” 等待；已在精确
   未修改 `d23863b` 新环境复现。M3 不能把该缺口冒充为本轮 Area Intelligence 回归或忽略它。
 - Protocol identity depends on raw bytes by design；所有非 Git/manual copies也必须通过 exact SHA gate，
   不能只比较解析后的 JSON 语义。
 - M4 source-final ignored root 只存在于 retained `f1a1` worktree；精确三工件及其本轮 M1/M2
   lineage 必须保留到 M5-M6 收尾，旧 `full-warehouse` 仅作审计历史，禁止自动 fallback。
-- M4 Centerline 只拥有 reference topology/geometry authority；M5 的真实 routing graph、mode、
-  accessibility、travel-time、许可与正向运行 authority 仍未成立，synthetic graph 不得晋级。
+- M4 Centerline 只拥有 reference topology/geometry authority；M5 的 accessibility、safety 与
+  realtime 权限不能从它继承。M5 现有 OSRM authority 仅限本机、固定公开 probe 与 same-session
+  private handle；`candidateGenerationAuthorized:false`、`privateRuntimeProductPromotion:false`，
+  不得作为任意私人路线或产品 routing authority。
+- M5 原始 86-file ignored 根与 v3 5-file sibling 均须保留至 M6 收尾；不得 fallback 到旧 v2
+  receipt，也不得把 v3 receipt、测试 seam 或序列化 handle 当作调用者可扩展权限。
