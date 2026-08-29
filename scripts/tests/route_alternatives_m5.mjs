@@ -6,13 +6,13 @@ import {
   M5_M4_SOURCE_FINAL_COMMIT,
   M5_SCHEMA_VERSIONS,
   evaluateRouteAlternativesM5,
+  evaluateRouteAlternativesM5Core,
 } from '../../src/route_alternatives_m5/index.js';
 
 const PRODUCED_AT = '2026-08-29T00:00:00.000Z';
-const VERIFIED_AT = '2026-08-29T00:01:00.000Z';
 const AUTHORITY_SOURCE_COMMIT = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
-function candidate(candidateId, edgeIds, durationMs) {
+function engineCandidate(candidateId, edgeIds, durationMs) {
   return {
     candidateId,
     edgeIds,
@@ -38,7 +38,7 @@ function m4Entry(engineEdgeId, exposure, evidenceId = `m4:${engineEdgeId}`) {
   };
 }
 
-function accessibilityEntry(engineEdgeId, evidenceId = `access:${engineEdgeId}`) {
+function accessibilityEntry(engineEdgeId) {
   return {
     engineEdgeId,
     state: 'observed',
@@ -46,28 +46,30 @@ function accessibilityEntry(engineEdgeId, evidenceId = `access:${engineEdgeId}`)
     stepFree: true,
     curbRampPresent: true,
     pavedSurface: true,
-    evidenceId,
+    evidenceId: `access:${engineEdgeId}`,
     authorityId: 'authority:m5-1:test',
   };
 }
 
 function makeInput({
-  candidates = [candidate('candidate:a', ['edge:a'], 1_000)],
+  candidates = [engineCandidate('candidate:a', ['edge:a'], 1_000)],
   termination = 'candidate-set-ready',
-  budgetState = 'within-budget',
+  budgetState = termination === 'search-budget-exhausted' ? 'exhausted' : 'within-budget',
+  profileKind = 'walking',
+  mode = 'walk',
   m4Entries,
   accessibilityEntries,
 } = {}) {
-  const edgeIds = [...new Set(candidates.flatMap((item) => item.edgeIds))];
+  const edgeIds = [...new Set(candidates.flatMap((candidate) => candidate.edgeIds))];
+  const status = termination === 'search-budget-exhausted'
+    ? 'stopped'
+    : termination === 'engine-unavailable' ? 'unavailable' : 'completed';
   return {
     schemaVersion: M5_SCHEMA_VERSIONS.input,
-    request: {
-      requestId: 'request:m5:test',
-      mode: 'walk',
-    },
+    request: { requestId: 'request:m5:test', mode: 'walk' },
     engineResult: {
       schemaVersion: M5_SCHEMA_VERSIONS.engineResult,
-      status: termination === 'search-budget-exhausted' ? 'stopped' : 'completed',
+      status,
       termination,
       bindings: {
         requestId: 'request:m5:test',
@@ -79,11 +81,14 @@ function makeInput({
         graphId: 'graph:test',
         graphReceiptId: 'graph-receipt:test',
         profileId: 'walking-profile:test',
-        profileKind: 'walking',
-        mode: 'walk',
+        profileKind,
+        mode,
         executionEnvironment: 'local',
         engineMaturity: 'mature',
-        networkTransport: 'none',
+        networkTransport: 'local-loopback-http',
+        probeHost: '127.0.0.1',
+        candidateGenerationAuthorized: false,
+        privateRuntimeProductPromotion: false,
         producedAt: PRODUCED_AT,
       },
       budget: {
@@ -108,65 +113,43 @@ function makeInput({
     },
     accessibilityEvidence: {
       schemaVersion: M5_SCHEMA_VERSIONS.accessibilityEvidence,
-      entries: accessibilityEntries ?? edgeIds.map((edgeId) => accessibilityEntry(edgeId)),
+      entries: accessibilityEntries ?? edgeIds.map(accessibilityEntry),
     },
   };
 }
 
-function engineVerdict(overrides = {}) {
+function coreCandidate(
+  candidateId,
+  edgeIds,
+  travelDurationMs,
+  modeledExposureMicrounits,
+  metricEvidenceIdentity = `evidence:${candidateId}`,
+  accessibilityEvidenceState = 'unavailable',
+) {
   return {
-    schemaVersion: M5_SCHEMA_VERSIONS.authorityVerdict,
-    status: 'admitted',
-    requestId: 'request:m5:test',
-    authorityId: 'authority:m5-1:test',
-    authoritySourceCommit: AUTHORITY_SOURCE_COMMIT,
-    engineName: 'local-test-engine',
-    engineBuildId: 'engine-build:test',
-    engineOutputId: 'engine-output:test',
-    graphId: 'graph:test',
-    graphReceiptId: 'graph-receipt:test',
-    profileId: 'walking-profile:test',
-    profileKind: 'walking',
-    mode: 'walk',
-    executionEnvironment: 'local',
-    engineMaturity: 'mature',
-    networkTransport: 'none',
-    travelDurationAuthority: 'admitted',
-    accessibilityAuthority: 'admitted',
-    producedAt: PRODUCED_AT,
-    verifiedAt: VERIFIED_AT,
-    ...overrides,
+    candidateId,
+    edgeIds,
+    travelDurationMs,
+    modeledExposureMicrounits,
+    accessibilityEvidenceState,
+    metricEvidenceIdentity,
   };
 }
 
-function m4Verdict(overrides = {}) {
+function coreInput(candidates, searchState = 'complete') {
   return {
-    schemaVersion: M5_SCHEMA_VERSIONS.m4HandoffVerdict,
-    status: 'admitted',
-    handoffSchema: 'engagement-known-route-evidence-handoff/v2',
-    sourceFinalCommit: M5_M4_SOURCE_FINAL_COMMIT,
-    handoffId: 'm4-handoff:test',
-    artifactIdentity: 'sha256:m4-test-artifact',
-    ...overrides,
+    schemaVersion: M5_SCHEMA_VERSIONS.coreInput,
+    searchState,
+    candidates,
   };
-}
-
-function trustedOptions({ engine = engineVerdict(), m4 = m4Verdict() } = {}) {
-  return {
-    verifyEngineAuthority: () => engine,
-    verifyM4Handoff: () => m4,
-  };
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function oraclePareto(candidates) {
   const dominates = (left, right) => (
-    left.durationMs <= right.durationMs
-    && left.exposure <= right.exposure
-    && (left.durationMs < right.durationMs || left.exposure < right.exposure)
+    left.travelDurationMs <= right.travelDurationMs
+    && left.modeledExposureMicrounits <= right.modeledExposureMicrounits
+    && (left.travelDurationMs < right.travelDurationMs
+      || left.modeledExposureMicrounits < right.modeledExposureMicrounits)
   );
   return candidates
     .filter((right) => !candidates.some((left) => (
@@ -177,279 +160,235 @@ function oraclePareto(candidates) {
 }
 
 function oracleBalancedRanking(candidates, policy) {
-  const fastest = Math.min(...candidates.map(({ durationMs }) => durationMs));
-  const eligible = candidates.filter(({ durationMs }) => (
-    BigInt(durationMs) * 10_000n
-      <= BigInt(fastest) * BigInt(policy.maxDurationOverFastestBasisPoints)
-  ));
-  const numerator = (item) => (
-    BigInt(item.durationMs)
+  const fastest = Math.min(...candidates.map(({ travelDurationMs }) => travelDurationMs));
+  const score = (candidate) => (
+    BigInt(candidate.travelDurationMs)
       * BigInt(policy.durationWeightBasisPoints)
       * BigInt(policy.exposureReferenceMicrounits)
-    + BigInt(item.exposure)
+    + BigInt(candidate.modeledExposureMicrounits)
       * BigInt(policy.exposureWeightBasisPoints)
       * BigInt(policy.durationReferenceMs)
   );
-  return eligible.sort((left, right) => {
-    const leftScore = numerator(left);
-    const rightScore = numerator(right);
-    if (leftScore < rightScore) return -1;
-    if (leftScore > rightScore) return 1;
-    if (left.durationMs !== right.durationMs) return left.durationMs - right.durationMs;
-    if (left.exposure !== right.exposure) return left.exposure - right.exposure;
-    return left.candidateId < right.candidateId ? -1 : left.candidateId > right.candidateId ? 1 : 0;
-  }).map(({ candidateId }) => candidateId);
+  return candidates
+    .filter(({ travelDurationMs }) => (
+      BigInt(travelDurationMs) * 10_000n
+        <= BigInt(fastest) * BigInt(policy.maxDurationOverFastestBasisPoints)
+    ))
+    .sort((left, right) => {
+      const leftScore = score(left);
+      const rightScore = score(right);
+      if (leftScore < rightScore) return -1;
+      if (leftScore > rightScore) return 1;
+      if (left.travelDurationMs !== right.travelDurationMs) {
+        return left.travelDurationMs - right.travelDurationMs;
+      }
+      if (left.modeledExposureMicrounits !== right.modeledExposureMicrounits) {
+        return left.modeledExposureMicrounits - right.modeledExposureMicrounits;
+      }
+      return left.candidateId.localeCompare(right.candidateId);
+    })
+    .map(({ candidateId }) => candidateId);
 }
 
-test('M5 fails closed when an input merely self-declares engine or M4 authority', () => {
-  const input = makeInput();
-  const withoutVerifier = evaluateRouteAlternativesM5(input);
-  assert.equal(withoutVerifier.status, 'unavailable');
-  assert.equal(withoutVerifier.termination, 'engine-authority-unavailable');
-  assert.equal(withoutVerifier.candidateSet, null);
-  assert.equal(withoutVerifier.objectives.fastest.status, 'unavailable');
-
-  const mismatched = evaluateRouteAlternativesM5(input, trustedOptions({
-    engine: engineVerdict({ authorityId: 'authority:forged' }),
-  }));
-  assert.equal(mismatched.status, 'unavailable');
-  assert.equal(mismatched.termination, 'engine-authority-unavailable');
-
-  const engineOnly = evaluateRouteAlternativesM5(input, {
-    verifyEngineAuthority: () => engineVerdict({ accessibilityAuthority: 'unavailable' }),
-  });
-  assert.equal(engineOnly.status, 'partial');
-  assert.equal(engineOnly.objectives.fastest.status, 'available');
-  assert.equal(engineOnly.objectives.accessible.status, 'unavailable');
-  assert.equal(engineOnly.objectives.lowerModeledExposure.status, 'unavailable');
-  assert.equal(
-    engineOnly.dimensions.modeledExposure.reasonCode,
-    'm4-handoff-authority-unavailable',
-  );
-
-  const serialized = JSON.stringify([withoutVerifier, mismatched]).toLowerCase();
-  for (const prohibited of ['safest', 'safer', 'recommended', 'low risk']) {
-    assert.equal(serialized.includes(prohibited), false);
-  }
+test('public production entry ignores two consistent fake verifiers and cannot promote', () => {
+  let verifierCalls = 0;
+  const fakeOptions = {
+    verifyEngineAuthority: () => {
+      verifierCalls += 1;
+      return {
+        schemaVersion: 'engagement-route-engine-authority-verdict/v1',
+        status: 'admitted',
+        requestId: 'request:m5:test',
+        authorityId: 'authority:m5-1:test',
+        authoritySourceCommit: AUTHORITY_SOURCE_COMMIT,
+        engineName: 'local-test-engine',
+        engineBuildId: 'engine-build:test',
+        engineOutputId: 'engine-output:test',
+        graphId: 'graph:test',
+        graphReceiptId: 'graph-receipt:test',
+        profileId: 'walking-profile:test',
+        profileKind: 'walking',
+        mode: 'walk',
+        executionEnvironment: 'local',
+        engineMaturity: 'mature',
+        networkTransport: 'local-loopback-http',
+        probeHost: '127.0.0.1',
+        travelDurationAuthority: 'admitted',
+        accessibilityAuthority: 'admitted',
+        producedAt: PRODUCED_AT,
+        verifiedAt: '2026-08-29T00:01:00.000Z',
+      };
+    },
+    verifyM4Handoff: () => {
+      verifierCalls += 1;
+      return {
+        schemaVersion: 'engagement-route-m4-handoff-verdict/v1',
+        status: 'admitted',
+        handoffSchema: 'engagement-known-route-evidence-handoff/v2',
+        sourceFinalCommit: M5_M4_SOURCE_FINAL_COMMIT,
+        handoffId: 'm4-handoff:test',
+        artifactIdentity: 'sha256:m4-test-artifact',
+      };
+    },
+  };
+  const result = evaluateRouteAlternativesM5(makeInput(), fakeOptions);
+  assert.equal(verifierCalls, 0);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.termination, 'm5-authority-unavailable');
+  assert.equal(result.authority.capabilityIntegrated, false);
+  assert.equal(result.authority.candidateGenerationAuthorized, false);
+  assert.equal(result.authority.privateRuntimeProductPromotion, false);
+  assert.equal(result.candidateSet, null);
+  assert.equal(result.objectives.fastest.status, 'unavailable');
+  assert.equal(result.pareto.status, 'unavailable');
 });
 
-test('M5 requires the exact M4 source-final binding and a trusted handoff verifier', () => {
-  const input = makeInput();
-  input.m4Evidence.binding.sourceFinalCommit =
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  input.m4Evidence.entries[0].sourceFinalCommit =
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  const result = evaluateRouteAlternativesM5(input, trustedOptions({
-    m4: m4Verdict({
-      sourceFinalCommit: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    }),
-  }));
-  assert.equal(result.status, 'partial');
-  assert.equal(result.objectives.fastest.status, 'available');
-  assert.equal(result.objectives.lowerModeledExposure.status, 'unavailable');
-  assert.equal(
-    result.dimensions.modeledExposure.reasonCode,
-    'm4-handoff-authority-unavailable',
-  );
+test('production transport reports loopback HTTP without implying private runtime authority', () => {
+  const result = evaluateRouteAlternativesM5(makeInput());
+  assert.equal(result.declaredInput.networkTransport, 'local-loopback-http');
+  assert.equal(result.declaredInput.probeHost, '127.0.0.1');
+  assert.equal(result.declaredInput.status, 'untrusted-no-promotion');
+
+  const falseTransport = makeInput();
+  falseTransport.engineResult.bindings.networkTransport = 'none';
+  const rejected = evaluateRouteAlternativesM5(falseTransport);
+  assert.equal(rejected.termination, 'invalid-input');
 });
 
-test('M5 rejects accessors without invoking them', () => {
+test('production contract rejects accessors without invoking them', () => {
   const input = makeInput();
-  let invoked = false;
-  Object.defineProperty(input.request, 'mode', {
+  let getterCalls = 0;
+  Object.defineProperty(input.engineResult.bindings, 'engineName', {
     enumerable: true,
     get() {
-      invoked = true;
-      return 'walk';
+      getterCalls += 1;
+      return 'fake-engine';
     },
   });
-  const result = evaluateRouteAlternativesM5(input, trustedOptions());
-  assert.equal(invoked, false);
-  assert.equal(result.status, 'unavailable');
+  const result = evaluateRouteAlternativesM5(input);
+  assert.equal(getterCalls, 0);
   assert.equal(result.termination, 'invalid-input');
 });
 
-test('M5 rejects conflicting metrics for one ordered route identity', () => {
-  const input = makeInput({
+test('complete candidate declarations remain unavailable without an exact M5-1 capability', () => {
+  const result = evaluateRouteAlternativesM5(makeInput({
     candidates: [
-      candidate('candidate:a', ['edge:a'], 1_000),
-      candidate('candidate:b', ['edge:a'], 1_001),
+      engineCandidate('candidate:a', ['edge:a'], 1_000),
+      engineCandidate('candidate:b', ['edge:b'], 1_300),
     ],
-  });
-  const result = evaluateRouteAlternativesM5(input, trustedOptions());
+  }));
   assert.equal(result.status, 'unavailable');
-  assert.equal(result.termination, 'candidate-set-invalid');
-  assert.equal(result.objectives.fastest.status, 'unavailable');
+  assert.equal(result.declaredInput.engineTermination, 'candidate-set-ready');
+  for (const objective of Object.values(result.objectives)) {
+    assert.equal(objective.status, 'unavailable');
+    assert.equal(objective.selectedCandidateId, null);
+  }
 });
 
-test('M5 Pareto and stable candidate semantics match an independent oracle', () => {
-  const candidates = [
-    candidate('candidate:a', ['edge:a'], 1_000),
-    candidate('candidate:z-copy', ['edge:a'], 1_000),
-    candidate('candidate:b', ['edge:b'], 2_000),
-    candidate('candidate:b2', ['edge:b2'], 2_000),
-    candidate('candidate:different-evidence', ['edge:d'], 2_000),
-    candidate('candidate:dominated', ['edge:c'], 2_500),
+test('missing, partial, unavailable, and one-to-many M4 declarations never become zero exposure', () => {
+  const variants = [
+    { state: 'missing', m4EdgeIds: [] },
+    { state: 'partial', m4EdgeIds: [] },
+    { state: 'unavailable', m4EdgeIds: [] },
+    { state: 'ambiguous', m4EdgeIds: ['m4-edge:a', 'm4-edge:b'] },
   ];
-  const input = makeInput({
-    candidates,
-    m4Entries: [
-      m4Entry('edge:a', 9_000_000),
-      m4Entry('edge:b', 1_000_000, 'm4:shared-b'),
-      m4Entry('edge:b2', 1_000_000, 'm4:shared-b'),
-      m4Entry('edge:d', 1_000_000, 'm4:different'),
-      m4Entry('edge:c', 5_000_000),
-    ],
-    accessibilityEntries: [
-      accessibilityEntry('edge:a'),
-      accessibilityEntry('edge:b', 'access:shared-b'),
-      accessibilityEntry('edge:b2', 'access:shared-b'),
-      accessibilityEntry('edge:d', 'access:different'),
-      accessibilityEntry('edge:c'),
-    ],
-  });
-  const result = evaluateRouteAlternativesM5(input, trustedOptions());
-  assert.equal(result.status, 'available');
-  assert.deepEqual(result.candidateSet.candidateIds, [
-    'candidate:a',
-    'candidate:b',
-    'candidate:b2',
-    'candidate:different-evidence',
-    'candidate:dominated',
-  ]);
-  assert.deepEqual(result.candidateSet.duplicates, [{
-    duplicateCandidateId: 'candidate:z-copy',
-    canonicalCandidateId: 'candidate:a',
-    reasonCode: 'same-ordered-directed-edge-sequence',
-  }]);
-
-  const oracleCandidates = [
-    { candidateId: 'candidate:a', durationMs: 1_000, exposure: 9_000_000 },
-    { candidateId: 'candidate:b', durationMs: 2_000, exposure: 1_000_000 },
-    { candidateId: 'candidate:b2', durationMs: 2_000, exposure: 1_000_000 },
-    { candidateId: 'candidate:different-evidence', durationMs: 2_000, exposure: 1_000_000 },
-    { candidateId: 'candidate:dominated', durationMs: 2_500, exposure: 5_000_000 },
-  ];
-  assert.deepEqual(result.pareto.candidateIds, oraclePareto(oracleCandidates));
-  assert.deepEqual(
-    result.objectives.balanced.rankedCandidateIds,
-    oracleBalancedRanking(clone(oracleCandidates), M5_BALANCED_POLICY_V1),
-  );
-  assert.deepEqual(result.candidateSet.metricEquivalenceGroups, [[
-    'candidate:b', 'candidate:b2', 'candidate:different-evidence',
-  ]]);
-  assert.deepEqual(result.candidateSet.evidenceEquivalenceGroups, [[
-    'candidate:b', 'candidate:b2',
-  ]]);
-});
-
-test('M5 preserves fastest only when M4 crosswalk or accessibility evidence is unresolved', () => {
-  for (const state of ['missing', 'partial', 'unavailable']) {
-    const input = makeInput();
-    input.m4Evidence.entries[0] = {
+  for (const variant of variants) {
+    const entry = {
       engineEdgeId: 'edge:a',
-      state,
-      m4EdgeIds: [],
+      state: variant.state,
+      m4EdgeIds: variant.m4EdgeIds,
       modeledExposureMicrounits: null,
       evidenceId: null,
       sourceFinalCommit: M5_M4_SOURCE_FINAL_COMMIT,
     };
-    const result = evaluateRouteAlternativesM5(input, trustedOptions());
-    assert.equal(result.status, 'partial');
-    assert.equal(result.objectives.fastest.status, 'available');
+    const result = evaluateRouteAlternativesM5(makeInput({ m4Entries: [entry] }));
+    assert.equal(result.status, 'unavailable');
     assert.equal(result.objectives.lowerModeledExposure.status, 'unavailable');
-    assert.equal(result.objectives.balanced.status, 'unavailable');
-    assert.equal(result.pareto.status, 'unavailable');
-  }
-
-  const ambiguous = makeInput();
-  ambiguous.m4Evidence.entries[0] = {
-    engineEdgeId: 'edge:a',
-    state: 'ambiguous',
-    m4EdgeIds: ['m4-edge:a', 'm4-edge:b'],
-    modeledExposureMicrounits: null,
-    evidenceId: null,
-    sourceFinalCommit: M5_M4_SOURCE_FINAL_COMMIT,
-  };
-  const ambiguousResult = evaluateRouteAlternativesM5(ambiguous, trustedOptions());
-  assert.equal(ambiguousResult.dimensions.modeledExposure.reasonCode, 'm4-crosswalk-ambiguous');
-  assert.equal(ambiguousResult.objectives.lowerModeledExposure.status, 'unavailable');
-
-  for (const state of ['unknown', 'partial', 'unavailable']) {
-    const input = makeInput();
-    input.accessibilityEvidence.entries[0] = {
-      engineEdgeId: 'edge:a',
-      state,
-      mode: null,
-      stepFree: null,
-      curbRampPresent: null,
-      pavedSurface: null,
-      evidenceId: null,
-      authorityId: 'authority:m5-1:test',
-    };
-    const result = evaluateRouteAlternativesM5(input, trustedOptions());
-    assert.equal(result.status, 'partial');
-    assert.equal(result.objectives.fastest.status, 'available');
-    assert.equal(result.objectives.accessible.status, 'unavailable');
   }
 });
 
-test('M5 reports disconnected and exhausted searches without naming an objective', () => {
-  const disconnected = makeInput({ candidates: [], termination: 'disconnected' });
-  const disconnectedResult = evaluateRouteAlternativesM5(disconnected, trustedOptions());
-  assert.equal(disconnectedResult.status, 'unavailable');
-  assert.equal(disconnectedResult.termination, 'disconnected');
-  assert.deepEqual(disconnectedResult.candidateSet.candidateIds, []);
-  assert.equal(disconnectedResult.objectives.fastest.status, 'unavailable');
-
-  const exhausted = makeInput({
-    candidates: [candidate('candidate:a', ['edge:a'], 1_000)],
+test('budget exhaustion and disconnection preserve terminal facts but never promote', () => {
+  const exhausted = evaluateRouteAlternativesM5(makeInput({
     termination: 'search-budget-exhausted',
-    budgetState: 'exhausted',
-  });
-  const exhaustedResult = evaluateRouteAlternativesM5(exhausted, trustedOptions());
-  assert.equal(exhaustedResult.status, 'partial');
-  assert.equal(exhaustedResult.termination, 'search-budget-exhausted');
-  assert.equal(exhaustedResult.candidateSet.completeness, 'not-proven');
-  assert.equal(exhaustedResult.objectives.fastest.status, 'unavailable');
-  assert.equal(exhaustedResult.pareto.status, 'unavailable');
+  }));
+  assert.equal(exhausted.status, 'unavailable');
+  assert.equal(exhausted.declaredInput.engineTermination, 'search-budget-exhausted');
+  assert.equal(exhausted.declaredInput.budgetState, 'exhausted');
+
+  const disconnected = evaluateRouteAlternativesM5(makeInput({
+    candidates: [],
+    termination: 'disconnected',
+  }));
+  assert.equal(disconnected.status, 'unavailable');
+  assert.equal(disconnected.declaredInput.engineTermination, 'disconnected');
+  assert.equal(disconnected.pareto.status, 'unavailable');
 });
 
-test('M5 never substitutes another cost for admitted travel duration', () => {
-  const input = makeInput();
-  input.engineResult.candidates[0].travelDuration = {
-    state: 'partial',
-    valueMs: null,
-    unit: 'ms',
-    authorityId: 'authority:m5-1:test',
-    engineOutputId: 'engine-output:test',
-    observedAt: PRODUCED_AT,
-  };
-  const result = evaluateRouteAlternativesM5(input, trustedOptions());
+test('an OSRM car profile declaration cannot establish walking accessibility', () => {
+  const result = evaluateRouteAlternativesM5(makeInput({
+    profileKind: 'osrm-car',
+    mode: 'car',
+  }));
   assert.equal(result.status, 'unavailable');
-  assert.equal(result.dimensions.travelDuration.status, 'unavailable');
-  assert.equal(result.objectives.fastest.status, 'unavailable');
+  assert.equal(result.objectives.accessible.status, 'unavailable');
 });
 
-test('M5 sensitivity reports an independent-oracle ranking reversal', () => {
+test('pure core matches an independent Pareto oracle and separates metric from evidence equivalence', () => {
   const candidates = [
-    candidate('candidate:fast', ['edge:fast'], 1_000),
-    candidate('candidate:low-exposure', ['edge:low'], 2_000),
+    coreCandidate('candidate:z', ['edge:a'], 1_000, 3_000_000, 'evidence:shared'),
+    coreCandidate('candidate:a', ['edge:a'], 1_000, 3_000_000, 'evidence:shared'),
+    coreCandidate('candidate:d', ['edge:d'], 1_000, 3_000_000, 'evidence:different'),
+    coreCandidate('candidate:e', ['edge:e'], 1_000, 3_000_000, 'evidence:shared'),
+    coreCandidate('candidate:b', ['edge:b'], 1_500, 1_000_000, 'evidence:b', 'complete-meets'),
+    coreCandidate('candidate:c', ['edge:c'], 1_700, 4_000_000),
   ];
-  const input = makeInput({
-    candidates,
-    m4Entries: [
-      m4Entry('edge:fast', 9_000_000),
-      m4Entry('edge:low', 1_000_000),
-    ],
-  });
-  const result = evaluateRouteAlternativesM5(input, trustedOptions());
-  const oracleCandidates = [
-    { candidateId: 'candidate:fast', durationMs: 1_000, exposure: 9_000_000 },
-    { candidateId: 'candidate:low-exposure', durationMs: 2_000, exposure: 1_000_000 },
+  const result = evaluateRouteAlternativesM5Core(coreInput(candidates));
+  const oracleCandidates = candidates.filter(({ candidateId }) => candidateId !== 'candidate:z');
+  assert.equal(result.authority, 'none');
+  assert.equal(result.productPromotionAuthorized, false);
+  assert.deepEqual(result.pareto.candidateIds, oraclePareto(oracleCandidates));
+  assert.deepEqual(result.candidateSet.candidateIds, [
+    'candidate:a', 'candidate:b', 'candidate:c', 'candidate:d', 'candidate:e',
+  ]);
+  assert.deepEqual(result.candidateSet.metricEquivalenceGroups, [[
+    'candidate:a', 'candidate:d', 'candidate:e',
+  ]]);
+  assert.deepEqual(result.candidateSet.evidenceEquivalenceGroups, [[
+    'candidate:a', 'candidate:e',
+  ]]);
+  assert.deepEqual(result.minima.accessibilityCandidateIds, ['candidate:b']);
+});
+
+test('pure core fails closed on conflicting evidence for the same route', () => {
+  const result = evaluateRouteAlternativesM5Core(coreInput([
+    coreCandidate('candidate:a', ['edge:a'], 1_000, 1_000_000, 'evidence:a'),
+    coreCandidate('candidate:b', ['edge:a'], 1_000, 1_000_000, 'evidence:b'),
+  ]));
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.termination, 'candidate-set-invalid');
+  assert.equal(result.reasonCode, 'duplicate-route-evidence-conflict');
+});
+
+test('pure core exposes budget exhaustion and disconnection without rankings', () => {
+  for (const searchState of ['budget-exhausted', 'disconnected']) {
+    const result = evaluateRouteAlternativesM5Core(coreInput([], searchState));
+    assert.equal(result.status, 'unavailable');
+    assert.equal(result.termination, searchState);
+    assert.deepEqual(result.balanced.rankedCandidateIds, []);
+    assert.deepEqual(result.pareto.candidateIds, []);
+  }
+});
+
+test('pure core sensitivity matches an independent oracle and captures a ranking reversal', () => {
+  const candidates = [
+    coreCandidate('candidate:fast', ['edge:fast'], 1_000, 8_000_000),
+    coreCandidate('candidate:cleaner', ['edge:cleaner'], 1_800, 1_000_000),
   ];
-  const baseline = oracleBalancedRanking(clone(oracleCandidates), M5_BALANCED_POLICY_V1);
-  assert.deepEqual(result.objectives.balanced.rankedCandidateIds, baseline);
+  const result = evaluateRouteAlternativesM5Core(coreInput(candidates));
+  assert.deepEqual(
+    result.balanced.rankedCandidateIds,
+    oracleBalancedRanking(structuredClone(candidates), M5_BALANCED_POLICY_V1),
+  );
   const durationHeavyPolicy = M5_BALANCED_POLICY_V1.sensitivityScenarios.find(
     ({ scenarioId }) => scenarioId === 'duration-heavy',
   );
@@ -458,18 +397,21 @@ test('M5 sensitivity reports an independent-oracle ranking reversal', () => {
   );
   assert.deepEqual(
     durationHeavy.rankedCandidateIds,
-    oracleBalancedRanking(clone(oracleCandidates), durationHeavyPolicy),
+    oracleBalancedRanking(structuredClone(candidates), durationHeavyPolicy),
   );
-  assert.notEqual(durationHeavy.selectedCandidateId, baseline[0]);
+  assert.equal(result.balanced.rankedCandidateIds[0], 'candidate:cleaner');
+  assert.equal(durationHeavy.rankedCandidateIds[0], 'candidate:fast');
   assert.equal(durationHeavy.rankingChangedFromBaseline, true);
 });
 
-test('an OSRM car profile cannot establish the M5 walking accessibility dimension', () => {
-  const input = makeInput();
-  const result = evaluateRouteAlternativesM5(input, trustedOptions({
-    engine: engineVerdict({ profileKind: 'osrm-car', mode: 'car' }),
-  }));
-  assert.equal(result.status, 'unavailable');
-  assert.equal(result.termination, 'engine-authority-unavailable');
-  assert.equal(result.objectives.accessible.status, 'unavailable');
+test('neither public nor pure-core results emit prohibited product claims', () => {
+  const results = [
+    evaluateRouteAlternativesM5(makeInput()),
+    evaluateRouteAlternativesM5Core(coreInput([
+      coreCandidate('candidate:a', ['edge:a'], 1_000, 1_000_000),
+    ])),
+  ];
+  for (const result of results) {
+    assert.doesNotMatch(JSON.stringify(result).toLowerCase(), /safest|safer|recommended|low risk/);
+  }
 });

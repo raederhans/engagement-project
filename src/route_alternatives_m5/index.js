@@ -12,11 +12,11 @@ export const M5_M4_SOURCE_FINAL_COMMIT =
 export const M5_SCHEMA_VERSIONS = Object.freeze({
   input: 'engagement-route-alternatives-m5-input/v1',
   engineResult: 'engagement-route-alternatives-engine-result/v1',
-  authorityVerdict: 'engagement-route-engine-authority-verdict/v1',
   m4Evidence: 'engagement-route-m4-edge-evidence/v1',
-  m4HandoffVerdict: 'engagement-route-m4-handoff-verdict/v1',
   accessibilityEvidence: 'engagement-route-accessibility-edge-evidence/v1',
   result: 'engagement-route-alternatives-m5-result/v1',
+  coreInput: 'engagement-route-alternatives-m5-core-input/v1',
+  coreResult: 'engagement-route-alternatives-m5-core-result/v1',
 });
 
 const sensitivityPolicy = (scenarioId, durationWeightBasisPoints,
@@ -188,6 +188,9 @@ function admitEngineBindings(raw) {
     'executionEnvironment',
     'engineMaturity',
     'networkTransport',
+    'probeHost',
+    'candidateGenerationAuthorized',
+    'privateRuntimeProductPromotion',
     'producedAt',
   ], 'engineResult.bindings');
   if (!['walking', 'osrm-car', 'other'].includes(value.profileKind)) {
@@ -198,7 +201,10 @@ function admitEngineBindings(raw) {
   }
   if (value.executionEnvironment !== 'local'
     || value.engineMaturity !== 'mature'
-    || value.networkTransport !== 'none') {
+    || value.networkTransport !== 'local-loopback-http'
+    || value.probeHost !== '127.0.0.1'
+    || value.candidateGenerationAuthorized !== false
+    || value.privateRuntimeProductPromotion !== false) {
     fail('engineResult.bindings execution boundary is unsupported');
   }
   return {
@@ -218,7 +224,10 @@ function admitEngineBindings(raw) {
     mode: value.mode,
     executionEnvironment: 'local',
     engineMaturity: 'mature',
-    networkTransport: 'none',
+    networkTransport: 'local-loopback-http',
+    probeHost: '127.0.0.1',
+    candidateGenerationAuthorized: false,
+    privateRuntimeProductPromotion: false,
     producedAt: timestamp(value.producedAt, 'engineResult.bindings.producedAt'),
   };
 }
@@ -502,130 +511,6 @@ function admitInput(raw) {
   });
 }
 
-function admitEngineAuthorityVerdict(raw) {
-  const value = exactObject(raw, [
-    'schemaVersion',
-    'status',
-    'requestId',
-    'authorityId',
-    'authoritySourceCommit',
-    'engineName',
-    'engineBuildId',
-    'engineOutputId',
-    'graphId',
-    'graphReceiptId',
-    'profileId',
-    'profileKind',
-    'mode',
-    'executionEnvironment',
-    'engineMaturity',
-    'networkTransport',
-    'travelDurationAuthority',
-    'accessibilityAuthority',
-    'producedAt',
-    'verifiedAt',
-  ], 'engine authority verdict');
-  if (value.schemaVersion !== M5_SCHEMA_VERSIONS.authorityVerdict
-    || value.status !== 'admitted'
-    || value.travelDurationAuthority !== 'admitted'
-    || !['admitted', 'unavailable'].includes(value.accessibilityAuthority)
-    || !['walking', 'osrm-car', 'other'].includes(value.profileKind)
-    || !['walk', 'car', 'other'].includes(value.mode)
-    || value.executionEnvironment !== 'local'
-    || value.engineMaturity !== 'mature'
-    || value.networkTransport !== 'none') {
-    fail('engine authority verdict is unsupported');
-  }
-  const admitted = {
-    schemaVersion: M5_SCHEMA_VERSIONS.authorityVerdict,
-    status: 'admitted',
-    requestId: id(value.requestId, 'engine authority verdict.requestId'),
-    authorityId: id(value.authorityId, 'engine authority verdict.authorityId'),
-    authoritySourceCommit: commit(
-      value.authoritySourceCommit,
-      'engine authority verdict.authoritySourceCommit',
-    ),
-    engineName: id(value.engineName, 'engine authority verdict.engineName'),
-    engineBuildId: id(value.engineBuildId, 'engine authority verdict.engineBuildId'),
-    engineOutputId: id(value.engineOutputId, 'engine authority verdict.engineOutputId'),
-    graphId: id(value.graphId, 'engine authority verdict.graphId'),
-    graphReceiptId: id(value.graphReceiptId, 'engine authority verdict.graphReceiptId'),
-    profileId: id(value.profileId, 'engine authority verdict.profileId'),
-    profileKind: value.profileKind,
-    mode: value.mode,
-    executionEnvironment: 'local',
-    engineMaturity: 'mature',
-    networkTransport: 'none',
-    travelDurationAuthority: 'admitted',
-    accessibilityAuthority: value.accessibilityAuthority,
-    producedAt: timestamp(value.producedAt, 'engine authority verdict.producedAt'),
-    verifiedAt: timestamp(value.verifiedAt, 'engine authority verdict.verifiedAt'),
-  };
-  if (Date.parse(admitted.verifiedAt) < Date.parse(admitted.producedAt)) {
-    fail('engine authority verifiedAt precedes producedAt');
-  }
-  return admitted;
-}
-
-function sameEngineBinding(binding, verdict) {
-  return Object.keys(binding).every((key) => binding[key] === verdict[key]);
-}
-
-function verifyEngineAuthority(input, verifier) {
-  if (typeof verifier !== 'function') return null;
-  try {
-    const verdict = admitEngineAuthorityVerdict(verifier(input.engineResult));
-    if (!sameEngineBinding(input.engineResult.bindings, verdict)
-      || verdict.requestId !== input.request.requestId
-      || verdict.mode !== input.request.mode
-      || verdict.profileKind !== 'walking') {
-      return null;
-    }
-    return deepFreeze(verdict);
-  } catch {
-    return null;
-  }
-}
-
-function admitM4HandoffVerdict(raw) {
-  const value = exactObject(raw, [
-    'schemaVersion',
-    'status',
-    'handoffSchema',
-    'sourceFinalCommit',
-    'handoffId',
-    'artifactIdentity',
-  ], 'M4 handoff verdict');
-  if (value.schemaVersion !== M5_SCHEMA_VERSIONS.m4HandoffVerdict
-    || value.status !== 'admitted'
-    || value.handoffSchema !== 'engagement-known-route-evidence-handoff/v2') {
-    fail('M4 handoff verdict is unsupported');
-  }
-  return {
-    schemaVersion: M5_SCHEMA_VERSIONS.m4HandoffVerdict,
-    status: 'admitted',
-    handoffSchema: value.handoffSchema,
-    sourceFinalCommit: commit(value.sourceFinalCommit, 'M4 handoff verdict.sourceFinalCommit'),
-    handoffId: id(value.handoffId, 'M4 handoff verdict.handoffId'),
-    artifactIdentity: id(value.artifactIdentity, 'M4 handoff verdict.artifactIdentity'),
-  };
-}
-
-function verifyM4Handoff(input, verifier) {
-  if (typeof verifier !== 'function') return null;
-  try {
-    const verdict = admitM4HandoffVerdict(verifier(input.m4Evidence));
-    const binding = input.m4Evidence.binding;
-    if (binding.sourceFinalCommit !== M5_M4_SOURCE_FINAL_COMMIT
-      || Object.keys(binding).some((key) => binding[key] !== verdict[key])) {
-      return null;
-    }
-    return deepFreeze(verdict);
-  } catch {
-    return null;
-  }
-}
-
 function unavailableObjective(reasonCode) {
   return { status: 'unavailable', reasonCode, selectedCandidateId: null, candidateIds: [] };
 }
@@ -660,14 +545,19 @@ function resultEnvelope(value) {
   });
 }
 
-function unavailableResult(termination, reasonCode) {
+function unavailableResult(termination, reasonCode, declaredInput = null) {
   return resultEnvelope({
     status: 'unavailable',
     termination,
     authority: {
-      engine: { status: 'unavailable', reasonCode },
-      m4Handoff: { status: 'unavailable', reasonCode: 'not-evaluated' },
+      status: 'unavailable',
+      reasonCode,
+      capabilityKind: 'module-private-m5-1-same-session-handle',
+      capabilityIntegrated: false,
+      candidateGenerationAuthorized: false,
+      privateRuntimeProductPromotion: false,
     },
+    declaredInput,
     candidateSet: null,
     dimensions: unavailableDimensions(reasonCode),
     pareto: { status: 'unavailable', reasonCode, dimensions: [], candidateIds: [] },
@@ -1172,11 +1062,11 @@ function noRouteResult(input, engineVerdict, termination) {
 }
 
 /**
- * Admit and compare a private, local engine candidate result. Positive engine
- * and M4 authority must come from caller-owned trusted verifiers; input fields
- * are bindings only and can never self-promote.
+ * Production admission seam. Until the exact M5-1 module-private same-session
+ * capability adapter is integrated, declarations can be validated but can
+ * never grant candidate-generation or product-promotion authority.
  */
-export function evaluateRouteAlternativesM5(rawInput, options = {}) {
+export function evaluateRouteAlternativesM5(rawInput) {
   let input;
   try {
     input = admitInput(rawInput);
@@ -1184,30 +1074,245 @@ export function evaluateRouteAlternativesM5(rawInput, options = {}) {
     return unavailableResult('invalid-input', 'input-contract-invalid');
   }
 
-  const engineVerdict = verifyEngineAuthority(input, options.verifyEngineAuthority);
-  if (!engineVerdict || input.engineResult.termination === 'engine-unavailable') {
-    return unavailableResult(
-      'engine-authority-unavailable',
-      'trusted-engine-authority-not-admitted',
-    );
-  }
-
-  const { canonical, duplicates, conflict } = deduplicateCandidates(
-    input.engineResult.candidates,
+  return unavailableResult(
+    'm5-authority-unavailable',
+    'm5-1-exact-capability-not-integrated',
+    {
+      status: 'untrusted-no-promotion',
+      engineTermination: input.engineResult.termination,
+      budgetState: input.engineResult.budget.state,
+      networkTransport: input.engineResult.bindings.networkTransport,
+      probeHost: input.engineResult.bindings.probeHost,
+    },
   );
-  if (conflict) {
-    return invalidCandidateSetResult(
-      engineVerdict,
-      'duplicate-route-travel-duration-conflict',
-    );
+}
+
+const CORE_SEARCH_STATES = new Set(['complete', 'budget-exhausted', 'disconnected']);
+const CORE_ACCESS_STATES = new Set([
+  'complete-meets',
+  'complete-does-not-meet',
+  'unavailable',
+]);
+
+function admitCoreCandidate(raw, index) {
+  const label = `core input.candidates[${index}]`;
+  const value = exactObject(raw, [
+    'candidateId',
+    'edgeIds',
+    'travelDurationMs',
+    'modeledExposureMicrounits',
+    'accessibilityEvidenceState',
+    'metricEvidenceIdentity',
+  ], label);
+  if (!CORE_ACCESS_STATES.has(value.accessibilityEvidenceState)) {
+    fail(`${label}.accessibilityEvidenceState is unsupported`);
   }
-  if (['no-route', 'disconnected'].includes(input.engineResult.termination)) {
-    return noRouteResult(input, engineVerdict, input.engineResult.termination);
+  return {
+    candidateId: id(value.candidateId, `${label}.candidateId`),
+    edgeIds: uniqueIds(value.edgeIds, `${label}.edgeIds`, {
+      min: 1,
+      max: MAX_EDGES_PER_CANDIDATE,
+    }),
+    travelDurationMs: safeInteger(value.travelDurationMs, `${label}.travelDurationMs`, {
+      min: 1,
+    }),
+    modeledExposureMicrounits: safeInteger(
+      value.modeledExposureMicrounits,
+      `${label}.modeledExposureMicrounits`,
+    ),
+    accessibilityEvidenceState: value.accessibilityEvidenceState,
+    metricEvidenceIdentity: id(
+      value.metricEvidenceIdentity,
+      `${label}.metricEvidenceIdentity`,
+    ),
+  };
+}
+
+function admitCoreInput(raw) {
+  const value = exactObject(raw, [
+    'schemaVersion',
+    'searchState',
+    'candidates',
+  ], 'core input');
+  if (value.schemaVersion !== M5_SCHEMA_VERSIONS.coreInput
+    || !CORE_SEARCH_STATES.has(value.searchState)) {
+    fail('core input schemaVersion or searchState is unsupported');
   }
-  if (input.engineResult.termination === 'search-budget-exhausted') {
-    return stoppedResult(input, engineVerdict, canonical, duplicates);
+  const candidates = strictArray(value.candidates, 'core input.candidates', {
+    max: MAX_CANDIDATES,
+  }).map(admitCoreCandidate);
+  if (new Set(candidates.map(({ candidateId }) => candidateId)).size !== candidates.length) {
+    fail('core input candidate ids must be unique');
+  }
+  if (value.searchState === 'complete' && candidates.length === 0) {
+    fail('complete core input requires candidates');
+  }
+  return deepFreeze({
+    schemaVersion: M5_SCHEMA_VERSIONS.coreInput,
+    searchState: value.searchState,
+    candidates,
+  });
+}
+
+function coreUnavailable(termination, reasonCode) {
+  return deepFreeze({
+    schemaVersion: M5_SCHEMA_VERSIONS.coreResult,
+    scope: 'mechanical-candidate-set-analysis-only',
+    authority: 'none',
+    productPromotionAuthorized: false,
+    status: 'unavailable',
+    termination,
+    reasonCode,
+    candidateSet: null,
+    pareto: { status: 'unavailable', reasonCode, candidateIds: [] },
+    minima: {
+      durationMinimumCandidateIds: [],
+      exposureMinimumCandidateIds: [],
+      accessibilityCandidateIds: [],
+    },
+    balanced: { status: 'unavailable', reasonCode, rankedCandidateIds: [], scores: [] },
+    sensitivity: { status: 'unavailable', reasonCode, scenarios: [] },
+  });
+}
+
+function sameCoreEvidence(left, right) {
+  return left.travelDurationMs === right.travelDurationMs
+    && left.modeledExposureMicrounits === right.modeledExposureMicrounits
+    && left.accessibilityEvidenceState === right.accessibilityEvidenceState
+    && left.metricEvidenceIdentity === right.metricEvidenceIdentity;
+}
+
+function deduplicateCoreCandidates(candidates) {
+  const sorted = [...candidates].sort((left, right) => compareIds(
+    left.candidateId,
+    right.candidateId,
+  ));
+  const byRoute = new Map();
+  const canonical = [];
+  const duplicates = [];
+  for (const candidate of sorted) {
+    const routeIdentity = JSON.stringify(candidate.edgeIds);
+    const prior = byRoute.get(routeIdentity);
+    if (!prior) {
+      byRoute.set(routeIdentity, candidate);
+      canonical.push(candidate);
+      continue;
+    }
+    if (!sameCoreEvidence(prior, candidate)) return { conflict: true };
+    duplicates.push({
+      duplicateCandidateId: candidate.candidateId,
+      canonicalCandidateId: prior.candidateId,
+      reasonCode: 'same-ordered-directed-edge-sequence',
+    });
+  }
+  return { conflict: false, canonical, duplicates };
+}
+
+function coreRecord(candidate) {
+  return {
+    candidateId: candidate.candidateId,
+    durationMs: candidate.travelDurationMs,
+    exposure: candidate.modeledExposureMicrounits,
+    accessibilityEvidenceState: candidate.accessibilityEvidenceState,
+    metricEvidenceIdentity: candidate.metricEvidenceIdentity,
+  };
+}
+
+/**
+ * Authority-neutral mathematical core for tests and a future private adapter.
+ * It accepts already-normalized metrics, performs no admission, and never
+ * authorizes production naming or promotion.
+ */
+export function evaluateRouteAlternativesM5Core(rawInput) {
+  let input;
+  try {
+    input = admitCoreInput(rawInput);
+  } catch {
+    return coreUnavailable('invalid-input', 'input-contract-invalid');
+  }
+  if (input.searchState === 'budget-exhausted') {
+    return coreUnavailable('budget-exhausted', 'candidate-search-budget-exhausted');
+  }
+  if (input.searchState === 'disconnected') {
+    return coreUnavailable('disconnected', 'candidate-search-disconnected');
   }
 
-  const m4Verdict = verifyM4Handoff(input, options.verifyM4Handoff);
-  return completeResult(input, engineVerdict, m4Verdict, canonical, duplicates);
+  const deduplicated = deduplicateCoreCandidates(input.candidates);
+  if (deduplicated.conflict) {
+    return coreUnavailable('candidate-set-invalid', 'duplicate-route-evidence-conflict');
+  }
+  const records = deduplicated.canonical.map(coreRecord);
+  const durationMinimum = Math.min(...records.map(({ durationMs }) => durationMs));
+  const exposureMinimum = Math.min(...records.map(({ exposure }) => exposure));
+  const baseline = balancedRanking(records, M5_BALANCED_POLICY_V1);
+  const reasonCode = 'authority-neutral-mathematical-analysis-complete';
+  return deepFreeze({
+    schemaVersion: M5_SCHEMA_VERSIONS.coreResult,
+    scope: 'mechanical-candidate-set-analysis-only',
+    authority: 'none',
+    productPromotionAuthorized: false,
+    status: 'available',
+    termination: 'complete',
+    reasonCode,
+    candidateSet: {
+      candidateIds: records.map(({ candidateId }) => candidateId),
+      duplicates: deduplicated.duplicates,
+      metricEquivalenceGroups: groupsByKey(
+        records,
+        (record) => `${record.durationMs}\u0000${record.exposure}`,
+      ),
+      evidenceEquivalenceGroups: groupsByKey(records, (record) => JSON.stringify([
+        record.durationMs,
+        record.exposure,
+        record.accessibilityEvidenceState,
+        record.metricEvidenceIdentity,
+      ])),
+    },
+    pareto: {
+      status: 'available',
+      reasonCode: 'non-dominated-on-normalized-duration-and-exposure',
+      candidateIds: paretoCandidateIds(records),
+    },
+    minima: {
+      durationMinimumCandidateIds: records
+        .filter(({ durationMs }) => durationMs === durationMinimum)
+        .map(({ candidateId }) => candidateId)
+        .sort(compareIds),
+      exposureMinimumCandidateIds: records
+        .filter(({ exposure }) => exposure === exposureMinimum)
+        .map(({ candidateId }) => candidateId)
+        .sort(compareIds),
+      accessibilityCandidateIds: records
+        .filter(({ accessibilityEvidenceState }) => (
+          accessibilityEvidenceState === 'complete-meets'
+        ))
+        .map(({ candidateId }) => candidateId)
+        .sort(compareIds),
+    },
+    balanced: {
+      status: 'available',
+      reasonCode: 'explicit-fixed-policy-ranking',
+      policy: M5_BALANCED_POLICY_V1,
+      rankedCandidateIds: baseline.rankedCandidateIds,
+      scores: baseline.scores,
+    },
+    sensitivity: {
+      status: 'available',
+      reasonCode: 'frozen-weight-and-threshold-scenarios-evaluated',
+      baselinePolicyId: M5_BALANCED_POLICY_V1.policyId,
+      scenarios: M5_BALANCED_POLICY_V1.sensitivityScenarios.map((policy) => {
+        const ranking = balancedRanking(records, policy);
+        return {
+          ...policy,
+          selectedCandidateId: ranking.rankedCandidateIds[0] ?? null,
+          rankedCandidateIds: ranking.rankedCandidateIds,
+          scores: ranking.scores,
+          rankingChangedFromBaseline: !sameSequence(
+            ranking.rankedCandidateIds,
+            baseline.rankedCandidateIds,
+          ),
+        };
+      }),
+    },
+  });
 }
