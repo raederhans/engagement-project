@@ -675,7 +675,7 @@ test('final artifact transaction rolls back failures and identical completed rer
   }
 });
 
-test('builder public-route admission matches the explicit public non-private smoke contract', () => {
+test('builder public-route admission matches the explicit public non-private smoke contract', async (t) => {
   const fixture = publicRouteFixture();
   assert.equal(validatePublicRouteFixture(fixture), fixture);
 
@@ -696,6 +696,31 @@ test('builder public-route admission matches the explicit public non-private smo
   for (const [description, hostile] of hostileFixtures) {
     assert.throws(() => validatePublicRouteFixture(hostile), /public build input is invalid/i, description);
   }
+
+  const testRoot = path.join(repoRoot, '.dfev1', 'known-route-evidence-v1', `consent-test-${process.pid}-${Date.now()}`);
+  const routeFile = path.join(testRoot, 'invalid-public-route.json');
+  await fs.mkdir(testRoot, { recursive: true });
+  await fs.writeFile(routeFile, `${JSON.stringify({
+    ...fixture,
+    consent: { publicCenterlineRequest: false },
+  }, null, 2)}\n`);
+  t.after(async () => fs.rm(testRoot, { recursive: true, force: true }));
+  let catalogCalls = 0;
+  await assert.rejects(runKnownRouteEvidenceBuild({
+    warehouse: 'must-not-be-read',
+    warehouseReceiptIdentity: 'must-not-be-read',
+    m2EvidenceRoot: 'must-not-be-read',
+    m2MartIdentity: 'must-not-be-read',
+    m2ImplementationTip: 'must-not-be-read',
+    m2ExecutionRecordTip: 'must-not-be-read',
+    m2CumulativeTip: 'must-not-be-read',
+    routeInput: routeFile,
+    output: path.join(testRoot, 'must-not-be-created'),
+    allowPublicCenterlineRequest: true,
+  }, {
+    requestCatalog: async () => { catalogCalls += 1; },
+  }), /public build input is invalid/i);
+  assert.equal(catalogCalls, 0);
 });
 
 test('builder completes from exact synthetic upstream harnesses and a completed same-input rerun performs zero writes', async (t) => {
@@ -725,8 +750,13 @@ test('builder completes from exact synthetic upstream harnesses and a completed 
     allowPublicCenterlineRequest: true,
   };
   const times = [new Date('2026-08-29T03:00:00.000Z'), new Date('2026-08-29T03:01:00.000Z')];
+  let catalogCalls = 0;
   const dependencies = {
-    requestCatalog: async () => catalog(),
+    requestCatalog: async ({ consent }) => {
+      catalogCalls += 1;
+      assert.deepEqual(consent, { publicCenterlineRequest: true });
+      return catalog();
+    },
     validateMart: async () => m2.martGate,
     verifyTips: async () => {},
     now: () => times.shift(),
@@ -745,6 +775,7 @@ test('builder completes from exact synthetic upstream harnesses and a completed 
   });
   assert.equal(rerun.idempotent, true);
   assert.equal(rerun.restoredCompletedCheckpoint, true);
+  assert.equal(catalogCalls, 2);
   for (const name of names) {
     assert.deepEqual(await fs.readFile(path.join(outputRoot, name)), before.get(name).bytes);
     assert.equal((await fs.stat(path.join(outputRoot, name))).mtimeMs, before.get(name).mtimeMs);

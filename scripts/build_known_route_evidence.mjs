@@ -63,7 +63,7 @@ export async function runKnownRouteEvidenceBuild(rawOptions = {}, dependencies =
     transportMode: 'walking',
   });
   const requestCatalog = dependencies.requestCatalog || requestPhiladelphiaCenterlineCatalog;
-  const catalog = await requestCatalog({ normalizedRoute, consent: true });
+  const catalog = await requestCatalog({ normalizedRoute, consent: publicRoute.consent });
   if (catalog?.status === 'unavailable') throw new Error(`centerline-${catalog.reason}`);
   const match = matchKnownRouteToCenterline({ normalizedRoute, catalog });
   if (match.status !== 'matched') throw new Error(`map-match-${match.reason}`);
