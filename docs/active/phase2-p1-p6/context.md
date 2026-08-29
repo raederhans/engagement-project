@@ -33,6 +33,11 @@
 | 2026-08-29 | P2 exact producer、report、runner 与协议已整合 | commits `36d943b`、`e1ef453`、`88e211d`、`1b6ec10`、`56e975d`、`7ca9e7b`、`dd36428`、`8352292`、`b75aeff`；最终协议 `sha256:ab57e1d387a30b538952c49aa816773cf1c745a353b505ff0f57a46de9ea8658` |
 | 2026-08-29 | 首次真实 P2 build 在 report-build 阶段 fail closed | 发现 observed PSA 字符串 `"0"` 被误判为 zero-fill；修复后明确区分 observed `"0"` 与 null unavailable，并要求 null stratum 与 missing count 精确守恒 |
 | 2026-08-29 | P2 真实 A/B evidence build 完成且逐字节一致 | 两次 bundle 均为 `sha256:28598f2721d16d22ca338125227ba9d0eb37f2e10848be6b9d1f1d0768b8042a`；四个文件的集合、长度、SHA-256 与 bytes 全部一致；119/119 tests PASS |
+| 2026-08-29 | P3 分派 protocol、model diagnostics、evaluator 三个互斥用户可见任务 | 预算达到 3/3；任务均显式使用 `high`，主任务保留唯一 integration 与 live-data owner |
+| 2026-08-29 | P3 protocol 在读取真实表现前冻结 | byte SHA `sha256:997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde`；绑定 exact M1 receipt file SHA、16 个 primary tuples、numerical/interval gates 与全 false authority |
+| 2026-08-30 | evaluator 独立审查先返回 REQUEST CHANGES，修复后整合 | 深校验改为绑定调用方 frozen protocol/mart/checkpoint 并独立重算；complete checkpoint 先于 manifest；`.dfev1` realpath/junction 越界零写入；39/39 integration tests PASS |
+| 2026-08-30 | exact M1 在新协议下重建 P3 M2 | artifact `sha256:df200d11666b314285750a4914eb35f6377c7534aef14bac2fbc2b4419749861`；canonical 3,586,620、mart 1,611,918 rows、128 parts、825,033,042 bytes；旧 `5c6361...` M2 保持历史证据 |
+| 2026-08-30 | 真实 P3 evaluation 与幂等复跑完成 | 64/64 count-model fit states 未在冻结 iteration cap 前收敛，多个 coverage/MAE slices 失败；结果诚实 `not-promoted`、无 local candidate；9 个 artifact 第二次运行逐字节不变，authority 全 false |
 
 ## Live process ownership
 
@@ -46,11 +51,13 @@
 | P1 clean-room identity reproduction | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-artifacts/p1-dfev1-122bba9/logs/cleanroom-identity-reproduction.log` | completed exit 0; bundle ID reproduced and all three metadata files are byte-identical |
 | P2 exact spatial attribution A | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p2-spatial-attribution-real-ab57e1d3-a` | completed exit 0; bundle `28598f...8042a`; canonical 3,586,620; tract mapped/ambiguous/unmapped 2,972,905 / 549,598 / 64,117; grid mapped/unavailable 3,530,212 / 56,408 |
 | P2 exact spatial attribution B | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p2-spatial-attribution-real-ab57e1d3-b` | completed exit 0; same bundle and all four published files byte-identical to A |
+| P3 exact M2 rebuild | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p3-area-intelligence-997aaf/m2` | completed exit 0; artifact `df200d...9861`, 3,586,620 canonical rows, 1,611,918 mart rows, 128 parts / 825,033,042 bytes, peak RSS 246,677,504 bytes |
+| P3 exact evaluation | root live-test owner | `C:/Users/raede/Desktop/dev/engagement_project-phase2/.dfev1/p3-area-intelligence-997aaf/evaluation` | completed then idempotent; `not-promoted`, no candidate, 64/64 fit states non-converged before cap, 9 artifact hashes stable, peak first-run RSS 136,650,752 bytes |
 
 ## Handoff
 
-P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact single-pass denominator audit、四方法 comparator、aggregate-only report 与 no-overwrite runner；真实 A/B 复跑逐字节一致。tract/grid 保持平行分母，fractional、area-kernel 与 road attribution 在缺少 identity-bound 输入时保持 unavailable。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、promotion、routing 或 deletion authority。
+P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact denominator、四方法 comparator 与逐字节一致的 aggregate-only evidence。P3 已冻结协议并从 exact M1 重建新 M2；真实 evaluation 因 64/64 count-model fit states 未在 iteration cap 前收敛而诚实 no-promotion，幂等复跑的 9 个 artifact 全部字节不变。所有本地证据均不扩大为 cloud/cross-machine、CI、serving、scientific、causal、safety、routing 或 deletion authority。
 
 ## Next step
 
-冻结并实施 P3 Area Intelligence Evaluation Protocol v2 的严格协议、数值稳定性、exact primary-slice、maximum prediction、interval calibration 与 no-promotion gates；最多创建三个用户可见任务，全部显式使用不高于 `high` 的推理等级。
+实施 P4 Area Intelligence productization：先收紧 public serving contract 与 P3 aggregate allowlist projection，再补双语桌面/移动的 method/time/space/uncertainty/Why unavailable 解释，最后关闭私人地址和原始坐标进入 URL/storage/network/share 的路径；最多三个用户可见任务，全部显式使用不高于 `high` 的推理等级。

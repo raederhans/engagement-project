@@ -2,7 +2,7 @@
 
 ## Current status
 
-Scope and isolated integration base frozen. P1 and P2 are complete through local clean-room reconstruction, exact M1/M2 validation, deterministic aggregate-only Spatial Attribution v2 evidence, and explicit no-authority boundaries. P3 is next.
+Scope and isolated integration base frozen. P1-P3 are complete through local clean-room reconstruction, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, and a real deterministic no-promotion evaluation. P4 is next; no serving, scientific, causal, safety, deployment, or remote authority was inferred.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ Scope and isolated integration base frozen. P1 and P2 are complete through local
 - [x] 创建单一可恢复 task record。
 - [x] P1 DataOps / versioned evidence registry。
 - [x] P2 Spatial Attribution v2。
-- [ ] P3 Evaluation Protocol v2。
+- [x] P3 Evaluation Protocol v2。
 - [ ] P4 Area Intelligence productization。
 - [ ] P5 Home Compare real-data product。
 - [ ] P6 Known Route evidence completion。
@@ -25,7 +25,7 @@ Scope and isolated integration base frozen. P1 and P2 are complete through local
 | --- | --- | --- | --- |
 | P1 | <= 3 | `01a04d53-45e8-74b0-b767-6283715ea189` registry; `01a04d53-455b-7281-96e9-efba48a81de2` restore; `01a04d53-455b-7281-96e9-efdf919cc1d6` workflow | 3/3 completed and integrated |
 | P2 | <= 3 effective | `01a04da8-d5d1-7d53-a1df-a2abbeba157b` denominator; `01a04da8-d5f9-78d1-bef7-ba427a4dc90d` methods; `01a04da8-d60c-7c92-b782-81658da4a116` report | 3/3 completed and integrated; duplicate `01a04da9-3ebd-7d20-987e-abde654de7a0` was stopped and archived before any integration |
-| P3 | <= 3 | none | not started |
+| P3 | <= 3 | `01a04e13-25d0-74f1-a567-7bf93223d769` protocol; `01a04e13-25b4-7ac0-96ef-f0271022b90d` model diagnostics; `01a04e20-5b08-7a71-9cde-24625a9117a3` evaluator | 3/3 completed and integrated; every task used `high` or lower reasoning |
 | P4 | <= 3 | none | not started |
 | P5 | <= 3 | none | not started |
 | P6 | <= 3 | none | not started |
@@ -60,6 +60,11 @@ Scope and isolated integration base frozen. P1 and P2 are complete through local
 | P2 exact real-data A/B run | Both runs completed at bundle `sha256:28598f2721d16d22ca338125227ba9d0eb37f2e10848be6b9d1f1d0768b8042a`; identical file set, lengths, SHA-256 values and bytes for all four published files |
 | P2 exact denominator result | 3,586,620 canonical/eligible rows; tract 2,972,905 mapped, 549,598 ambiguous, 64,117 unmapped; grid 3,530,212 mapped, 56,408 unavailable; tract/grid remain parallel, never additive |
 | P2 method result | tract and fixed-grid are `partial`; fractional and area-kernel are honestly `unavailable` with `uncertainty-footprint-artifact-unavailable` and null weighted mass; report is aggregate-only and all authority flags remain false |
+| P3 implementation commits | `5f83484`, `d834fc5`, `81d81db`, `da44ab8`; protocol byte identity `sha256:997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde` and semantic identity `sha256:0416157d2b02a58809c5cb28f9217e3a5003225105b24a6c25e34e41d0229cb7` |
+| P3 focused integration suite | 39/39 PASS across protocol/schema, model numerical diagnostics, evaluator, exact mart integration, hostile embedded-gate/aggregate/diagnostic tampering, crash completion ordering, CLI privacy, and junction escape rejection; 4 script syntax checks, scoped ESLint, and `git diff --check` PASS |
+| P3 exact rebuilt M2 | artifact `sha256:df200d11666b314285750a4914eb35f6377c7534aef14bac2fbc2b4419749861`; protocol `sha256:997aaf...7dde`; exact receipt `sha256:bc439541...e315`; 128 parts / 1,611,918 rows / 825,033,042 bytes; canonical denominator 3,586,620 with tract 2,972,905 / 549,598 / 64,117 and grid 3,530,212 / 56,408 |
+| P3 real evaluation | completed `not-promoted` / `no-promotion`, no local candidate or selected model; all 64 count-model fit states failed convergence before their iteration cap, so aggregate metrics did not bypass the failure; authority all false and privacy aggregate-only |
+| P3 real evaluation rerun | returned `idempotent` in 5.3 seconds; all 9 artifact SHA-256 values remained byte-identical, including report `sha256:6e8254f226ce65e269e56c96b5ea46d911d2d5efb0825b805ea810e5befbde6c` and manifest `sha256:a761d003b8ba1972dc1b7aa65c0e4e5bb1809651d5461278a0152852a261d04c` |
 
 ## Open risks and remaining work
 
@@ -67,4 +72,6 @@ Scope and isolated integration base frozen. P1 and P2 are complete through local
 - P1 workflow 仅通过本地静态/契约验证，未推送或触发远端 CI。
 - P1 已证明本机隔离路径上的恢复与身份复现；未证明外部对象存储、跨机器传输或灾备演练。
 - P2 没有 identity-bound uncertainty footprint 或 versioned road geometry artifact；fractional、area-kernel 和 road attribution 因此保持 unavailable，而不是补零或强制归属。
+- P3 的 64/64 count-model fit states 均未在冻结迭代上限前收敛，且多个 interval-coverage/MAE-gain slices 未过 gate；当前结果必须保持 `not-promoted`，不能被 P4 转换为 forecast 或 serving candidate。
+- 旧 P1 clean-room M2 绑定旧协议 `5c6361...`，只能作为历史证据；P3 evaluator 会在 part scan 前拒绝它，新的 P3 链只消费 `df200d...` mart。
 - 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。
