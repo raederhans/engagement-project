@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import fs, { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -25,10 +28,26 @@ import {
   parseRouteGeoJsonText,
 } from '../../src/routes_crime/route_input.js';
 import {
+  KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION,
   createKnownRouteEvidenceCheckpoint,
+  createKnownRouteEvidenceFinalHandoff,
   createSafeKnownRouteAggregateReport,
+  identityOf,
+  publishKnownRouteFinalArtifacts,
   restoreKnownRouteEvidenceAccumulator,
+  validateKnownRouteEvidenceAggregateReport,
+  validateKnownRouteEvidenceArtifactSet,
+  validateKnownRouteEvidenceCheckpoint,
+  validateKnownRouteEvidenceFinalHandoff,
 } from '../lib/known_route_evidence_checkpoint.mjs';
+import {
+  runKnownRouteEvidenceBuild,
+  validatePublicRouteFixture,
+  validateKnownRouteWarehouseInput,
+  validateM2Governance,
+} from '../build_known_route_evidence.mjs';
+
+const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 const routeInput = createManualRouteInput([
   [-75.170000, 39.950000],
@@ -92,7 +111,11 @@ function feature({ objectid, segId, from, to, coordinates, street = 'PUBLIC TEST
 }
 
 function featureCollection(features = defaultFeatures()) {
-  return { type: 'FeatureCollection', features };
+  return {
+    type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
+    features,
+  };
 }
 
 function defaultFeatures() {
@@ -330,13 +353,24 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
   const admittedCatalog = catalog();
   const match = matchKnownRouteToCenterline({ normalizedRoute, catalog: admittedCatalog });
   const expected = {
-    warehouseIdentity: 'sha256:warehouse:sha256:snapshot',
-    routeIdentity: normalizedRoute.sessionRouteIdentity,
+    warehouseIdentity: digest('warehouse'),
+    warehouseReceiptDigest: digest('receipt-bytes'),
+    warehouseManifestIdentity: digest('manifest-bytes'),
+    partitionSetIdentity: digest('partition-set'),
+    routeIdentity: identityOf({ sessionRouteIdentity: normalizedRoute.sessionRouteIdentity }),
     centerlineDataVersion: match.dataVersion,
-    catalogIdentity: admittedCatalog.catalogIdentity,
+    catalogIdentity: identityOf({ catalogIdentity: admittedCatalog.catalogIdentity }),
     corridorIdentity: match.corridorIdentity,
+    algorithmVersion: KNOWN_ROUTE_EVIDENCE_ALGORITHM_VERSION,
     partitionCount: 2,
   };
+  const verifiedPartitions = [0, 1].map((partition) => ({
+    partition,
+    path: `canonical/part-${String(partition).padStart(3, '0')}.jsonl`,
+    rowCount: 1,
+    bytes: 10 + partition,
+    sha256: digest(`part-${partition}`),
+  }));
   const firstEvent = {
     lifecycle: { state: 'active' },
     coordinate: { status: 'available', value: [-75.166, 39.9505], exact_location_claim: false },
@@ -353,11 +387,17 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
   const checkpoint = createKnownRouteEvidenceCheckpoint({
     ...expected,
     completedPartitions: 1,
+    completedPartitionBindings: verifiedPartitions.slice(0, 1),
     accumulator: interrupted,
     startedAt: '2026-08-21T00:00:00.000Z',
   });
+  assert.equal(validateKnownRouteEvidenceCheckpoint(checkpoint), checkpoint);
   assert.doesNotMatch(JSON.stringify(checkpoint.accumulator), /source_record|generalized_location|coordinates|\[-75\./i);
-  const recovered = restoreKnownRouteEvidenceAccumulator(checkpoint, { matchedEdges: match.matchedEdges, expected });
+  const recovered = restoreKnownRouteEvidenceAccumulator(checkpoint, {
+    matchedEdges: match.matchedEdges,
+    expected,
+    verifiedPartitions,
+  });
   addCanonicalGeneralizedIncident(recovered, secondEvent);
 
   const uninterrupted = createGeneralizedIncidentAccumulator({ matchedEdges: match.matchedEdges });
@@ -365,17 +405,26 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
   addCanonicalGeneralizedIncident(uninterrupted, secondEvent);
   assert.deepEqual(finalizeGeneralizedIncidentAccumulator(recovered), finalizeGeneralizedIncidentAccumulator(uninterrupted));
 
-  const warehouseManifest = {
-    schema: 'engagement-phl-crime-event-warehouse/v1',
+  const warehouseReceipt = {
+    schema: 'engagement-phl-crime-warehouse-receipt/v3',
+    identity: expected.warehouseIdentity,
     serving_eligible: false,
-    current_snapshot_id: 'sha256:snapshot',
-    partition_count: 2,
-    active_row_count: 2,
-    coverage: { earliest_scope_start: '2006-01-01', latest_scope_end_exclusive: '2026-08-22' },
+    warehouse: { schema: 'engagement-phl-crime-event-warehouse/v1', current_snapshot_id: digest('snapshot') },
+    counts: { canonical_partitions: 2, active_rows: 2 },
+    coverage: {
+      start: '2006-01-01',
+      end_exclusive: '2026-08-28',
+      earliest_event_at: '2006-01-01T00:00:00.000Z',
+      latest_event_at: '2026-08-27T00:00:00.000Z',
+    },
   };
   const report = (accumulator, completedAt) => createSafeKnownRouteAggregateReport({
-    warehouseManifest,
-    warehouseManifestIdentity: 'sha256:manifest',
+    warehouseReceipt,
+    warehouseReceiptDigest: expected.warehouseReceiptDigest,
+    warehouseManifestIdentity: expected.warehouseManifestIdentity,
+    partitionSetIdentity: expected.partitionSetIdentity,
+    routeIdentity: expected.routeIdentity,
+    catalogIdentity: expected.catalogIdentity,
     routeLabel: 'PUBLIC TEST ROUTE',
     match,
     catalogFeatureCount: admittedCatalog.featureCount,
@@ -384,6 +433,7 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
   });
   const recoveredReport = report(recovered, '2026-08-21T00:01:00.000Z');
   const freshReport = report(uninterrupted, '2026-08-21T00:02:00.000Z');
+  assert.equal(validateKnownRouteEvidenceAggregateReport(recoveredReport), recoveredReport);
   assert.equal(recoveredReport.semanticIdentity, freshReport.semanticIdentity);
   assert.doesNotMatch(JSON.stringify(recoveredReport), /source_record_id|generalized_location|\[-75\./i);
   assert.deepEqual(recoveredReport.privacy, {
@@ -392,13 +442,474 @@ test('checkpoint recovery is strict and yields the same additive aggregate and s
     containsGeneralizedLocations: false,
     containsAddresses: false,
     containsSourceRecordIds: false,
+    containsRawRoute: false,
     containsRouteCoordinates: false,
     containsRouteEndpoints: false,
+    containsCenterlineSourceEdgeIds: false,
   });
+  const unknownCheckpoint = structuredClone(checkpoint);
+  unknownCheckpoint.unknown = false;
+  unknownCheckpoint.checkpointIdentity = identityOf(Object.fromEntries(
+    Object.entries(unknownCheckpoint).filter(([key]) => key !== 'checkpointIdentity'),
+  ));
+  assert.throws(() => validateKnownRouteEvidenceCheckpoint(unknownCheckpoint), /closed schema/i);
+  const unknownReport = structuredClone(recoveredReport);
+  unknownReport.unknown = false;
+  const reportEvidence = structuredClone(unknownReport);
+  delete reportEvidence.semanticIdentity;
+  delete reportEvidence.completedAt;
+  delete reportEvidence.execution;
+  unknownReport.semanticIdentity = identityOf(reportEvidence);
+  assert.throws(() => validateKnownRouteEvidenceAggregateReport(unknownReport), /closed schema/i);
+  const unsafeReport = structuredClone(recoveredReport);
+  unsafeReport.privacy.containsRouteCoordinates = true;
+  const unsafeReportEvidence = structuredClone(unsafeReport);
+  delete unsafeReportEvidence.semanticIdentity;
+  delete unsafeReportEvidence.completedAt;
+  delete unsafeReportEvidence.execution;
+  unsafeReport.semanticIdentity = identityOf(unsafeReportEvidence);
+  assert.throws(() => validateKnownRouteEvidenceAggregateReport(unsafeReport), /privacy/i);
   assert.throws(() => restoreKnownRouteEvidenceAccumulator({
     ...checkpoint,
     accumulator: { ...checkpoint.accumulator, rowsRead: -1 },
-  }, { matchedEdges: match.matchedEdges, expected }), /invalid/i);
+  }, { matchedEdges: match.matchedEdges, expected, verifiedPartitions }), /invalid/i);
+  assert.throws(() => restoreKnownRouteEvidenceAccumulator({
+    ...checkpoint,
+    schema: 'known-route-evidence-checkpoint/v1',
+  }, { matchedEdges: match.matchedEdges, expected, verifiedPartitions }), /invalid/i);
+  assert.throws(() => restoreKnownRouteEvidenceAccumulator(checkpoint, {
+    matchedEdges: match.matchedEdges,
+    expected: { ...expected, algorithmVersion: 'hostile-algorithm/v1' },
+    verifiedPartitions,
+  }), /algorithmVersion/i);
+  for (const [key, value] of [
+    ['warehouseIdentity', digest('other-receipt')],
+    ['warehouseManifestIdentity', digest('other-manifest')],
+    ['partitionSetIdentity', digest('other-parts')],
+    ['routeIdentity', digest('other-route')],
+    ['centerlineDataVersion', 'other-centerline-version'],
+    ['catalogIdentity', digest('other-catalog')],
+    ['corridorIdentity', 'other-corridor'],
+  ]) {
+    assert.throws(() => restoreKnownRouteEvidenceAccumulator(checkpoint, {
+      matchedEdges: match.matchedEdges,
+      expected: { ...expected, [key]: value },
+      verifiedPartitions,
+    }), new RegExp(key, 'i'));
+  }
+});
+
+test('M1 receipt/v3 preflight binds every companion and exact 64-part rows, bytes, SHA-256, and name set', async (t) => {
+  const fixture = await createM1ReceiptFixture();
+  t.after(async () => fs.rm(fixture.testRoot, { recursive: true, force: true }));
+  const admitted = await validateKnownRouteWarehouseInput({
+    warehouseRoot: fixture.root,
+    expectedReceiptIdentity: fixture.receipt.identity,
+  });
+  assert.equal(admitted.partitions.length, 64);
+  assert.equal(admitted.summary.canonicalRows, 64);
+  assert.equal(admitted.receipt.identity, fixture.receipt.identity);
+
+  await withRestoredFile(fixture.receiptPath, async (bytes) => {
+    const hostile = JSON.parse(bytes);
+    hostile.identity = digest('forged-receipt');
+    await fs.writeFile(fixture.receiptPath, `${JSON.stringify(hostile, null, 2)}\n`);
+    await assert.rejects(
+      validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+      /receipt\/v3 identity/i,
+    );
+  });
+  await withRestoredFile(fixture.receiptPath, async (bytes) => {
+    const hostile = JSON.parse(bytes);
+    hostile.clocks.retrieved_at = '2026-08-26T00:00:00.000Z';
+    delete hostile.identity;
+    hostile.identity = identityOf(hostile);
+    await fs.writeFile(fixture.receiptPath, `${JSON.stringify(hostile, null, 2)}\n`);
+    await assert.rejects(
+      validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: hostile.identity }),
+      /binding drifted|four-clock|source coverage/i,
+    );
+  });
+
+  await withRestoredFile(fixture.manifestPath, async (bytes) => {
+    await fs.writeFile(fixture.manifestPath, Buffer.concat([bytes, Buffer.from(' ')]));
+    await assert.rejects(
+      validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+      /warehouse_manifest bytes, SHA-256/i,
+    );
+  });
+
+  const part = path.join(fixture.root, 'warehouse', 'canonical', 'part-000.jsonl');
+  await withRestoredFile(part, async (bytes) => {
+    const hostile = Buffer.from(bytes);
+    hostile[hostile.indexOf(0x30)] = 0x39;
+    await fs.writeFile(part, hostile);
+    await assert.rejects(
+      validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+      /rows, bytes, or SHA-256 drifted/i,
+    );
+  });
+  await withRestoredFile(part, async (bytes) => {
+    await fs.writeFile(part, Buffer.concat([bytes, bytes]));
+    await assert.rejects(
+      validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+      /rows, bytes, or SHA-256 drifted/i,
+    );
+  });
+
+  const extra = path.join(path.dirname(part), 'part-999.jsonl');
+  await fs.writeFile(extra, '{"partition":999}\n');
+  await assert.rejects(
+    validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+    /extra, missing, renamed/i,
+  );
+  await fs.rm(extra);
+  const renamed = `${part}.renamed`;
+  await fs.rename(part, renamed);
+  await assert.rejects(
+    validateKnownRouteWarehouseInput({ warehouseRoot: fixture.root, expectedReceiptIdentity: fixture.receipt.identity }),
+    /extra, missing, renamed/i,
+  );
+  await fs.rename(renamed, part);
+});
+
+test('M2 governance stays order-only and final handoff rejects hostile lineage, clocks, consent, and authority', async (t) => {
+  const m2 = await createM2Fixture();
+  t.after(async () => fs.rm(m2.testRoot, { recursive: true, force: true }));
+  const governance = await validateM2Governance({
+    evidenceRoot: m2.root,
+    expectedMartIdentity: m2.martIdentity,
+    implementationTip: commit('implementation'),
+    executionRecordTip: commit('execution'),
+    cumulativeTip: commit('cumulative'),
+    expectedM1ReceiptIdentity: m2.m1ReceiptIdentity,
+    expectedM1Revision: m2.m1Revision,
+    expectedM1Coverage: m2.coverage,
+    expectedM1Rows: 64,
+    validateMart: async () => m2.martGate,
+    validateReport: m2.validateReport,
+    verifyTips: async () => {},
+  });
+  assert.equal(governance.dqRechecked, true);
+  assert.equal(governance.routeEvidenceAuthority, false);
+  assert.deepEqual(governance.outcome, {
+    promotionStatus: 'not-promoted', selectedModel: null, availability: 'unavailable',
+  });
+
+  await withRestoredFile(m2.reportPath, async (bytes) => {
+    const hostile = JSON.parse(bytes);
+    hostile.data.admission.tract.admitted -= 1;
+    await fs.writeFile(m2.reportPath, `${JSON.stringify(hostile, null, 2)}\n`);
+    await assert.rejects(validateM2Governance({
+      evidenceRoot: m2.root,
+      expectedMartIdentity: m2.martIdentity,
+      implementationTip: commit('implementation'),
+      executionRecordTip: commit('execution'),
+      cumulativeTip: commit('cumulative'),
+      expectedM1ReceiptIdentity: m2.m1ReceiptIdentity,
+      expectedM1Revision: m2.m1Revision,
+      expectedM1Coverage: m2.coverage,
+      expectedM1Rows: 64,
+      validateMart: async () => m2.martGate,
+      validateReport: m2.validateReport,
+      verifyTips: async () => {},
+    }), /artifact binding|DQ recheck/i);
+  });
+  await withRestoredFile(m2.evaluationPath, async (bytes) => {
+    const hostile = JSON.parse(bytes);
+    hostile.lineage_seam.m1_receipt.identity = digest('other-m1-receipt');
+    await fs.writeFile(m2.evaluationPath, `${JSON.stringify(hostile, null, 2)}\n`);
+    await assert.rejects(validateM2Governance({
+      evidenceRoot: m2.root,
+      expectedMartIdentity: m2.martIdentity,
+      implementationTip: commit('implementation'),
+      executionRecordTip: commit('execution'),
+      cumulativeTip: commit('cumulative'),
+      expectedM1ReceiptIdentity: m2.m1ReceiptIdentity,
+      expectedM1Revision: m2.m1Revision,
+      expectedM1Coverage: m2.coverage,
+      expectedM1Rows: 64,
+      validateMart: async () => m2.martGate,
+      validateReport: m2.validateReport,
+      verifyTips: async () => {},
+    }), /lineage/i);
+  });
+
+  const { match, admittedCatalog, normalizedRoute } = matchedFixture();
+  const accumulator = createGeneralizedIncidentAccumulator({ matchedEdges: match.matchedEdges });
+  const eventRow = {
+    lifecycle: { state: 'active' },
+    coordinate: { status: 'available', value: [-75.166, 39.9505], exact_location_claim: false },
+    generalized_location: { exact_sidewalk_or_street_segment: false },
+    normalized_category: { status: 'mapped', theme_id: 'reported-theft' },
+  };
+  addCanonicalGeneralizedIncident(accumulator, eventRow);
+  const part = { partition: 0, path: 'canonical/part-000.jsonl', rowCount: 1, bytes: 10, sha256: digest('part') };
+  const checkpoint = createKnownRouteEvidenceCheckpoint({
+    warehouseIdentity: m2.m1ReceiptIdentity,
+    warehouseReceiptDigest: digest('m1-receipt-bytes'),
+    warehouseManifestIdentity: digest('m1-manifest'),
+    partitionSetIdentity: digest('m1-parts'),
+    routeIdentity: identityOf({ sessionRouteIdentity: normalizedRoute.sessionRouteIdentity }),
+    centerlineDataVersion: match.dataVersion,
+    catalogIdentity: identityOf({ catalogIdentity: admittedCatalog.catalogIdentity }),
+    corridorIdentity: match.corridorIdentity,
+    completedPartitions: 1,
+    completedPartitionBindings: [part],
+    partitionCount: 1,
+    accumulator,
+    startedAt: '2026-08-29T01:00:00.000Z',
+    completion: {
+      state: 'complete', completedAt: '2026-08-29T01:01:00.000Z', durationMs: 60_000,
+      maximumRssBytes: 1, resumedPartitions: 0,
+    },
+  });
+  const warehouseReceipt = {
+    clocks: { source_as_of: '2026-08-28T00:00:00.000Z', retrieved_at: '2026-08-28T01:00:00.000Z' },
+  };
+  const handoff = createKnownRouteEvidenceFinalHandoff({
+    checkpoint, warehouseReceipt, m2Governance: governance, publicCenterlineRequest: true,
+  });
+  assert.equal(validateKnownRouteEvidenceFinalHandoff(handoff, { checkpoint }), handoff);
+  assert.doesNotMatch(JSON.stringify(handoff), /source_record_id|"coordinates"|routeInput|matchedEdges/i);
+  for (const mutate of [
+    (value) => { value.consent.publicCenterlineRequest = false; },
+    (value) => { value.clocks.observedAt = '2026-08-27T00:00:00.000Z'; },
+    (value) => { value.lineage.catalogIdentity = digest('hostile-catalog'); },
+    (value) => { value.lineage.warehouseReceiptDigest = digest('hostile-receipt-bytes'); },
+    (value) => { value.governance.m2.dqRechecked = false; },
+    (value) => { value.authority.routing = true; },
+    (value) => { value.privacy.containsRouteCoordinates = true; },
+    (value) => { value.authority.recommendedRoute = true; },
+    (value) => { value.unknown = false; },
+  ]) {
+    const hostile = structuredClone(handoff);
+    mutate(hostile);
+    hostile.identity = identityOf(Object.fromEntries(Object.entries(hostile).filter(([key]) => key !== 'identity')));
+    assert.throws(() => validateKnownRouteEvidenceFinalHandoff(hostile, { checkpoint }), /invalid|closed schema/i);
+  }
+});
+
+test('final artifact transaction rolls back failures and identical completed reruns preserve bytes and mtime', async (t) => {
+  const outputRoot = path.join(repoRoot, '.dfev1', 'known-route-evidence-v1', `transaction-test-${process.pid}-${Date.now()}`);
+  await fs.mkdir(outputRoot, { recursive: true });
+  t.after(async () => fs.rm(outputRoot, { recursive: true, force: true }));
+  const names = ['checkpoint.json', 'aggregate-report.json', 'final-handoff.json'];
+  for (const name of names) await fs.writeFile(path.join(outputRoot, name), `${JSON.stringify({ state: 'before', name })}\n`);
+  const before = new Map(await Promise.all(names.map(async (name) => [name, await fs.readFile(path.join(outputRoot, name))])));
+  const artifacts = Object.fromEntries(names.map((name) => [name, { state: 'after', name }]));
+  await assert.rejects(
+    publishKnownRouteFinalArtifacts({ outputRoot, artifacts, failAfterPublish: 2 }),
+    /Injected Known Route/i,
+  );
+  for (const name of names) assert.deepEqual(await fs.readFile(path.join(outputRoot, name)), before.get(name));
+
+  const first = await publishKnownRouteFinalArtifacts({ outputRoot, artifacts });
+  assert.equal(first.idempotent, false);
+  const completed = new Map(await Promise.all(names.map(async (name) => [name, {
+    bytes: await fs.readFile(path.join(outputRoot, name)),
+    mtimeMs: (await fs.stat(path.join(outputRoot, name))).mtimeMs,
+  }])));
+  const rerun = await publishKnownRouteFinalArtifacts({ outputRoot, artifacts });
+  assert.equal(rerun.idempotent, true);
+  for (const name of names) {
+    assert.deepEqual(await fs.readFile(path.join(outputRoot, name)), completed.get(name).bytes);
+    assert.equal((await fs.stat(path.join(outputRoot, name))).mtimeMs, completed.get(name).mtimeMs);
+  }
+});
+
+test('builder public-route admission matches the explicit public non-private smoke contract', async (t) => {
+  const fixture = publicRouteFixture();
+  assert.equal(validatePublicRouteFixture(fixture), fixture);
+
+  const hostileFixtures = [
+    ['legacy label contract', {
+      schema: 'known-route-public-smoke/v1',
+      label: 'PUBLIC TEST ROUTE',
+      disclosure: fixture.disclosure,
+      routeInput,
+    }],
+    ['missing consent', Object.fromEntries(Object.entries(fixture).filter(([key]) => key !== 'consent'))],
+    ['synthetic route', { ...fixture, synthetic: true }],
+    ['extra top-level key', { ...fixture, unexpected: true }],
+    ['extra consent key', { ...fixture, consent: { publicCenterlineRequest: true, telemetry: false } }],
+    ['non-manual route', { ...fixture, routeInput: { ...routeInput, source: 'geojson-import' } }],
+    ['wrong classification', { ...fixture, classification: 'synthetic-public-fixture' }],
+  ];
+  for (const [description, hostile] of hostileFixtures) {
+    assert.throws(() => validatePublicRouteFixture(hostile), /public build input is invalid/i, description);
+  }
+
+  const testRoot = path.join(repoRoot, '.dfev1', 'known-route-evidence-v1', `consent-test-${process.pid}-${Date.now()}`);
+  const routeFile = path.join(testRoot, 'invalid-public-route.json');
+  await fs.mkdir(testRoot, { recursive: true });
+  await fs.writeFile(routeFile, `${JSON.stringify({
+    ...fixture,
+    consent: { publicCenterlineRequest: false },
+  }, null, 2)}\n`);
+  t.after(async () => fs.rm(testRoot, { recursive: true, force: true }));
+  let catalogCalls = 0;
+  await assert.rejects(runKnownRouteEvidenceBuild({
+    warehouse: 'must-not-be-read',
+    warehouseReceiptIdentity: 'must-not-be-read',
+    m2EvidenceRoot: 'must-not-be-read',
+    m2MartIdentity: 'must-not-be-read',
+    m2ImplementationTip: 'must-not-be-read',
+    m2ExecutionRecordTip: 'must-not-be-read',
+    m2CumulativeTip: 'must-not-be-read',
+    routeInput: routeFile,
+    output: path.join(testRoot, 'must-not-be-created'),
+    allowPublicCenterlineRequest: true,
+  }, {
+    requestCatalog: async () => { catalogCalls += 1; },
+  }), /public build input is invalid/i);
+  assert.equal(catalogCalls, 0);
+});
+
+test('builder completes from exact synthetic upstream harnesses and a completed same-input rerun performs zero writes', async (t) => {
+  const m1 = await createM1ReceiptFixture();
+  const m2 = await createM2Fixture({
+    m1ReceiptIdentity: m1.receipt.identity,
+    m1Revision: m1.receipt.warehouse.current_snapshot_id,
+    coverage: m1.receipt.coverage,
+  });
+  t.after(async () => {
+    await fs.rm(m1.testRoot, { recursive: true, force: true });
+    await fs.rm(m2.testRoot, { recursive: true, force: true });
+  });
+  const routeFile = path.join(m1.testRoot, 'public-route.json');
+  await fs.writeFile(routeFile, `${JSON.stringify(publicRouteFixture(), null, 2)}\n`);
+  const outputRoot = path.join(m1.testRoot, 'completed-output');
+  const options = {
+    warehouse: m1.root,
+    warehouseReceiptIdentity: m1.receipt.identity,
+    m2EvidenceRoot: m2.root,
+    m2MartIdentity: m2.martIdentity,
+    m2ImplementationTip: commit('implementation'),
+    m2ExecutionRecordTip: commit('execution'),
+    m2CumulativeTip: commit('cumulative'),
+    routeInput: routeFile,
+    output: outputRoot,
+    allowPublicCenterlineRequest: true,
+  };
+  const times = [new Date('2026-08-29T03:00:00.000Z'), new Date('2026-08-29T03:01:00.000Z')];
+  let catalogCalls = 0;
+  const dependencies = {
+    requestCatalog: async ({ consent }) => {
+      catalogCalls += 1;
+      assert.deepEqual(consent, { publicCenterlineRequest: true });
+      return catalog();
+    },
+    validateMart: async () => m2.martGate,
+    validateReport: m2.validateReport,
+    verifyTips: async () => {},
+    now: () => times.shift(),
+  };
+  const first = await runKnownRouteEvidenceBuild(options, dependencies);
+  assert.equal(first.idempotent, false);
+  assert.equal(first.warehouseRowsRead, 64);
+  const names = ['checkpoint.json', 'aggregate-report.json', 'final-handoff.json'];
+  const before = new Map(await Promise.all(names.map(async (name) => [name, {
+    bytes: await fs.readFile(path.join(outputRoot, name)),
+    mtimeMs: (await fs.stat(path.join(outputRoot, name))).mtimeMs,
+  }])));
+  const rerun = await runKnownRouteEvidenceBuild(options, {
+    ...dependencies,
+    now: () => { throw new Error('completed rerun must not consume a new clock'); },
+  });
+  assert.equal(rerun.idempotent, true);
+  assert.equal(rerun.restoredCompletedCheckpoint, true);
+  assert.equal(catalogCalls, 2);
+  for (const name of names) {
+    assert.deepEqual(await fs.readFile(path.join(outputRoot, name)), before.get(name).bytes);
+    assert.equal((await fs.stat(path.join(outputRoot, name))).mtimeMs, before.get(name).mtimeMs);
+  }
+  const [completedCheckpoint, aggregateReport, handoff] = await Promise.all([
+    'checkpoint.json', 'aggregate-report.json', 'final-handoff.json',
+  ].map(async (name) => JSON.parse(await fs.readFile(path.join(outputRoot, name), 'utf8'))));
+  assert.equal(validateKnownRouteEvidenceArtifactSet({
+    checkpoint: completedCheckpoint,
+    report: aggregateReport,
+    handoff,
+  }).handoff, handoff);
+  const driftedCheckpoint = structuredClone(completedCheckpoint);
+  driftedCheckpoint.warehouseReceiptDigest = digest('drifted-receipt-bytes');
+  driftedCheckpoint.checkpointIdentity = identityOf(Object.fromEntries(
+    Object.entries(driftedCheckpoint).filter(([key]) => key !== 'checkpointIdentity'),
+  ));
+  assert.throws(() => validateKnownRouteEvidenceArtifactSet({
+    checkpoint: driftedCheckpoint,
+    report: aggregateReport,
+    handoff,
+  }), /invalid|inconsistent/i);
+  assert.equal(handoff.schema, 'engagement-known-route-evidence-handoff/v2');
+  assert.equal(first.handoffIdentity, handoff.identity);
+  assert.equal(handoff.governance.m2.routeEvidenceAuthority, false);
+  assert.doesNotMatch(JSON.stringify(handoff), /source_record_id|"coordinates"|routeInput|matchedEdges/i);
+
+  const hostileExtras = [
+    ['unexpected.json', false],
+    ['unexpected-directory', true],
+    ['.checkpoint.json.123.tmp', false],
+    ['checkpoint.json.backup', false],
+    ['.final-transaction', true],
+  ];
+  for (const [name, directory] of hostileExtras) {
+    const target = path.join(outputRoot, name);
+    if (directory) await fs.mkdir(target);
+    else await fs.writeFile(target, '{}\n');
+    await assert.rejects(runKnownRouteEvidenceBuild(options, {
+      ...dependencies,
+      now: () => { throw new Error('hostile completed rerun must not consume a new clock'); },
+    }), /must contain exactly the three final ordinary files/i);
+    await fs.rm(target, { recursive: directory, force: true });
+  }
+});
+
+test('builder aggregation rejects same-row-count partition byte drift after exact M1 preflight', async (t) => {
+  const m1 = await createM1ReceiptFixture();
+  const m2 = await createM2Fixture({
+    m1ReceiptIdentity: m1.receipt.identity,
+    m1Revision: m1.receipt.warehouse.current_snapshot_id,
+    coverage: m1.receipt.coverage,
+  });
+  t.after(async () => {
+    await fs.rm(m1.testRoot, { recursive: true, force: true });
+    await fs.rm(m2.testRoot, { recursive: true, force: true });
+  });
+  const routeFile = path.join(m1.testRoot, 'public-route.json');
+  const outputRoot = path.join(m1.testRoot, 'toctou-output');
+  const part = path.join(m1.root, 'warehouse', 'canonical', 'part-000.jsonl');
+  await fs.writeFile(routeFile, `${JSON.stringify(publicRouteFixture(), null, 2)}\n`);
+  await assert.rejects(runKnownRouteEvidenceBuild({
+    warehouse: m1.root,
+    warehouseReceiptIdentity: m1.receipt.identity,
+    m2EvidenceRoot: m2.root,
+    m2MartIdentity: m2.martIdentity,
+    m2ImplementationTip: commit('implementation'),
+    m2ExecutionRecordTip: commit('execution'),
+    m2CumulativeTip: commit('cumulative'),
+    routeInput: routeFile,
+    output: outputRoot,
+    allowPublicCenterlineRequest: true,
+  }, {
+    requestCatalog: async () => catalog(),
+    validateMart: async () => {
+      const bytes = await fs.readFile(part);
+      const hostile = Buffer.from(bytes);
+      hostile[hostile.indexOf(0x30)] = 0x39;
+      await fs.writeFile(part, hostile);
+      return m2.martGate;
+    },
+    validateReport: m2.validateReport,
+    verifyTips: async () => {},
+    now: () => new Date('2026-08-29T04:00:00.000Z'),
+  }), /rows, bytes, or SHA-256 changed after exact preflight/i);
+  const checkpoint = JSON.parse(await fs.readFile(path.join(outputRoot, 'checkpoint.json'), 'utf8'));
+  assert.equal(checkpoint.completedPartitions, 0);
+  assert.equal(checkpoint.accumulator.rowsRead, 0);
+  await assert.rejects(fs.access(path.join(outputRoot, 'aggregate-report.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.access(path.join(outputRoot, 'final-handoff.json')), { code: 'ENOENT' });
 });
 
 test('M4 lazy UI and build surfaces exclude persistence, share-route, console, and tracked public-route coordinates', async () => {
@@ -420,3 +931,307 @@ test('M4 lazy UI and build surfaces exclude persistence, share-route, console, a
   assert.match(buildContract, /containsRouteCoordinates:\s*false/);
   assert.match(buildContract, /containsSourceRecordIds:\s*false/);
 });
+
+function matchedFixture() {
+  const normalizedRoute = admitKnownRouteEvidenceRequest(request());
+  const admittedCatalog = catalog();
+  const match = matchKnownRouteToCenterline({ normalizedRoute, catalog: admittedCatalog });
+  return { normalizedRoute, admittedCatalog, match };
+}
+
+function publicRouteFixture() {
+  return {
+    schema: 'known-route-public-smoke/v1',
+    classification: 'explicit-public-non-private',
+    synthetic: false,
+    consent: { publicCenterlineRequest: true },
+    disclosure: 'Public, non-private fixture for the bounded builder contract test.',
+    routeInput,
+  };
+}
+
+async function createM1ReceiptFixture() {
+  const testRoot = path.join(repoRoot, '.dfev1', 'known-route-evidence-v1', `m1-test-${process.pid}-${Date.now()}`);
+  const root = path.join(testRoot, 'm1');
+  const canonicalRoot = path.join(root, 'warehouse', 'canonical');
+  await fs.mkdir(canonicalRoot, { recursive: true });
+  const bindings = [];
+  for (let partition = 0; partition < 64; partition += 1) {
+    const name = `part-${String(partition).padStart(3, '0')}.jsonl`;
+    const bytes = Buffer.from(`${JSON.stringify({ partition })}\n`);
+    await fs.writeFile(path.join(canonicalRoot, name), bytes);
+    bindings.push({
+      partition,
+      path: `canonical/${name}`,
+      row_count: 1,
+      bytes: bytes.length,
+      identity: rawDigest(bytes),
+    });
+  }
+  const snapshot = digest('m1-snapshot');
+  const latestQuality = `quality/${snapshot.slice(7)}.json`;
+  const latestRevision = `revisions/${snapshot.slice(7)}.json`;
+  const sourceManifest = 'acquisitions/current/manifest.json';
+  const manifest = {
+    schema: 'engagement-phl-crime-event-warehouse/v1',
+    mode: 'official-local-candidate',
+    serving_eligible: false,
+    partition_count: 64,
+    canonical_partitions: bindings,
+    canonical_row_count: 64,
+    active_row_count: 64,
+    removal_candidate_count: 0,
+    current_snapshot_id: snapshot,
+    applied_snapshot_ids: [snapshot],
+    coverage: {
+      earliest_scope_start: '2026-01-01',
+      latest_scope_end_exclusive: '2026-08-28',
+      earliest_event_at: '2026-01-01T00:00:00.000Z',
+      latest_event_at: '2026-08-27T00:00:00.000Z',
+    },
+    transforms: { event_schema: 'engagement-phl-crime-event/v1', corridor_registry_id: null },
+    lineage_registry: 'lineage/registry.json',
+    latest_quality_report: latestQuality,
+    latest_revision_report: latestRevision,
+    updated_at: '2026-08-28T01:00:00.000Z',
+  };
+  const checkpoint = {
+    schema: 'engagement-phl-crime-backfill-checkpoint/v1',
+    periods: [{ start: '2026-01-01', end_exclusive: '2026-08-28' }],
+    completed: { current: { canonical_rows: 64 } },
+    final_quality: {
+      acquired_rows: 64,
+      expected_date_scoped_rows: 64,
+      date_scoped_count_complete: true,
+      requested_scope: { start: '2026-01-01', end_exclusive: '2026-08-28' },
+    },
+    updated_at: '2026-08-28T02:00:00.000Z',
+  };
+  const lineage = {
+    schema: 'engagement-phl-crime-lineage/v1',
+    source_snapshots: [{ snapshot_id: snapshot, manifest_path: sourceManifest, row_count: 64 }],
+    canonical_partitions: bindings,
+    model_input_contract: { serving_status: 'not-published' },
+  };
+  const statusSemantics = {
+    unavailable_is_zero: false, partial_is_current: false, stale_is_current: false, zero_requires_complete_query: true,
+  };
+  const quality = {
+    schema: 'engagement-phl-crime-data-quality/v2', snapshot_id: snapshot,
+    data_status: 'available', status_semantics: statusSemantics,
+    coordinate: { available: 64, missing: 0, invalid: 0, outside_city_bounds: 0 },
+    join_coverage: {
+      tract: { mapped: 64, unmapped: 0, ambiguous: 0 },
+      fixed_grid: { mapped: 64, unavailable: 0 },
+      route_corridor: { available: 0, unavailable: 64, matches: 0 },
+      acs_estimate_moe: { available: 64, partial: 0, unavailable: 0, 'incompatible-vintage': 0 },
+    },
+    labels: { unknown_observed: [] },
+  };
+  const revisionCounts = { added: 64, modified: 0 };
+  const revision = { schema: 'engagement-phl-crime-revisions/v1', snapshot_id: snapshot, counts: revisionCounts };
+  const currentSource = {
+    schema: 'engagement-phl-crime-source-snapshot/v1',
+    snapshot_id: snapshot,
+    dataset_id: 'fixture-crime',
+    provider: 'Fixture PPD',
+    source_table: 'fixture_incidents',
+    row_count: 64,
+    source_vintage: {
+      source_as_of: '2026-08-27T00:00:00.000Z',
+      retrieved_at: '2026-08-28T00:00:00.000Z',
+    },
+  };
+  const files = new Map([
+    ['warehouse/manifest.json', manifest],
+    ['backfill-checkpoint.json', checkpoint],
+    ['warehouse/lineage/registry.json', lineage],
+    [`warehouse/${latestQuality}`, quality],
+    [`warehouse/${latestRevision}`, revision],
+    [sourceManifest, currentSource],
+  ]);
+  for (const [relative, value] of files) {
+    const file = path.join(root, ...relative.split('/'));
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
+  }
+  const descriptor = async (relative, schema) => {
+    const bytes = await fs.readFile(path.join(root, ...relative.split('/')));
+    return { path: relative, bytes: bytes.length, sha256: rawDigest(bytes), schema };
+  };
+  const artifacts = {
+    warehouse_manifest: await descriptor('warehouse/manifest.json', manifest.schema),
+    backfill_checkpoint: await descriptor('backfill-checkpoint.json', checkpoint.schema),
+    lineage_registry: await descriptor('warehouse/lineage/registry.json', lineage.schema),
+    latest_quality_report: await descriptor(`warehouse/${latestQuality}`, quality.schema),
+    latest_revision_report: await descriptor(`warehouse/${latestRevision}`, revision.schema),
+    current_source_manifest: await descriptor(sourceManifest, currentSource.schema),
+    source_manifests: { count: 1, bytes: 1, sha256: digest('source-manifests'), raw_shard_count: 64, raw_bytes: 64, raw_sha256: digest('raw') },
+    canonical: {
+      path: 'warehouse/canonical',
+      partition_count: 64,
+      bytes: bindings.reduce((sum, binding) => sum + binding.bytes, 0),
+      sha256: identityOf(bindings.map((binding) => ({ path: `warehouse/${binding.path}`, bytes: binding.bytes, sha256: binding.identity }))),
+      partition_bindings: bindings,
+      revision_counts: revisionCounts,
+    },
+  };
+  const receiptEvidence = {
+    schema: 'engagement-phl-crime-warehouse-receipt/v3',
+    mode: 'official-local-candidate',
+    serving_eligible: false,
+    source: {
+      schema: currentSource.schema, revision: snapshot, dataset_id: currentSource.dataset_id,
+      provider: currentSource.provider, source_table: currentSource.source_table,
+    },
+    warehouse: { schema: manifest.schema, event_schema: manifest.transforms.event_schema, current_snapshot_id: snapshot },
+    coverage: {
+      start: manifest.coverage.earliest_scope_start,
+      end_exclusive: manifest.coverage.latest_scope_end_exclusive,
+      earliest_event_at: manifest.coverage.earliest_event_at,
+      latest_event_at: manifest.coverage.latest_event_at,
+    },
+    counts: {
+      acquired_rows: 64, expected_date_scoped_rows: 64, canonical_rows: 64, active_rows: 64,
+      removal_candidate_rows: 0, source_snapshots: 1, canonical_partitions: 64,
+    },
+    clocks: {
+      source_as_of: currentSource.source_vintage.source_as_of,
+      retrieved_at: currentSource.source_vintage.retrieved_at,
+      built_at: '2026-08-28T01:00:00.000Z', observed_at: '2026-08-28T02:00:00.000Z',
+    },
+    data_quality: {
+      status: 'available', status_semantics: statusSemantics,
+      coordinate: { available: 64, missing: 0, invalid: 0, outside_city_bounds: 0 },
+      tract: { mapped: 64, unmapped: 0, ambiguous: 0 },
+      fixed_grid: { mapped: 64, unavailable: 0 },
+      route_corridor: { available: 0, unavailable: 64, matches: 0 },
+      acs_estimate_moe: { available: 64, partial: 0, unavailable: 0, 'incompatible-vintage': 0 },
+      unknown_label_count: 0,
+    },
+    artifacts,
+    authority: {
+      producer_validated_local_candidate: true, integration_authority: false,
+      serving_authority: false, deletion_authority: false,
+    },
+    limitations: ['fixture'],
+  };
+  const receipt = { ...receiptEvidence, identity: identityOf(receiptEvidence) };
+  const receiptPath = path.join(root, 'receipt.json');
+  await fs.writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  return { testRoot, root, receipt, receiptPath, manifestPath: path.join(root, 'warehouse', 'manifest.json') };
+}
+
+async function createM2Fixture(overrides = {}) {
+  const testRoot = path.join(repoRoot, '.dfev1', 'known-route-evidence-v1', `m2-test-${process.pid}-${Date.now()}`);
+  const root = path.join(testRoot, 'm2');
+  const evaluationRoot = path.join(root, 'evaluation');
+  await fs.mkdir(evaluationRoot, { recursive: true });
+  const martIdentity = digest('m2-mart');
+  const m1ReceiptIdentity = overrides.m1ReceiptIdentity || digest('m1-receipt');
+  const m1Revision = overrides.m1Revision || digest('m1-revision');
+  const coverage = overrides.coverage || {
+    start: '2026-01-01', end_exclusive: '2026-08-28',
+    earliest_event_at: '2026-01-01T00:00:00.000Z', latest_event_at: '2026-08-27T00:00:00.000Z',
+  };
+  const admission = {
+    canonical_rows_seen: 64,
+    tract: { admitted: 60, ambiguous_excluded: 2, unmapped_excluded: 2 },
+    'fixed-grid': { admitted: 63, unavailable_excluded: 1 },
+    unknown_category: 0, invalid_event_time: 0, non_active: 0,
+  };
+  const report = {
+    schema: 'ModelEvaluationReport/v1',
+    generated_at: '2026-08-29T00:00:00.000Z',
+    protocol: {
+      schema: 'engagement-area-intelligence-evaluation-protocol/v2', sha256: 'a'.repeat(64),
+      frozen_at: '2026-08-28T00:00:00.000Z', frozen_before_model_performance: true,
+    },
+    data: {
+      mart_artifact_identity: martIdentity,
+      mart_manifest_sha256: 'b'.repeat(64),
+      source_vintage: m1Revision,
+      coverage: {
+        earliest_scope_start: coverage.start,
+        latest_scope_end_exclusive: coverage.end_exclusive,
+        latest_event_at: coverage.latest_event_at,
+      },
+      admission,
+    },
+    metrics: {
+      primary_by_fold_space_holdout: [{
+        model: 'fixture', fold: 'fixture', mae: 1, poisson_deviance: 1,
+        negative_binomial_deviance: 1, prediction_interval_90_coverage: 0.9,
+        relative_mae_gain_vs_seasonal_naive: 0,
+      }],
+      by_category: [], by_data_volume: [],
+    },
+    promotion: { status: 'not-promoted', selected_model: null },
+  };
+  const reportPath = path.join(evaluationRoot, 'model-evaluation-report.json');
+  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  const reportBytes = await fs.readFile(reportPath);
+  const evaluation = {
+    schema: 'engagement-area-intelligence-evaluation-run/v2',
+    protocol_sha256: report.protocol.sha256,
+    mart_manifest_sha256: report.data.mart_manifest_sha256,
+    mart_artifact_identity: martIdentity,
+    lineage_seam: {
+      protocol: { sha256: report.protocol.sha256 },
+      m1_receipt: { identity: m1ReceiptIdentity },
+      mart: { artifact_identity: martIdentity },
+      outcome: { promotion_status: 'not-promoted', selected_model: null, availability: 'unavailable' },
+    },
+    promotion: { status: 'not-promoted', selected_model: null },
+    availability: 'unavailable',
+    artifacts: [{ name: 'model-evaluation-report.json', bytes: reportBytes.length, sha256: rawDigest(reportBytes).slice(7) }],
+  };
+  const evaluationPath = path.join(evaluationRoot, 'manifest.json');
+  await fs.writeFile(evaluationPath, `${JSON.stringify(evaluation, null, 2)}\n`);
+  const evaluationCheckpoint = { schema: 'synthetic-m2-evaluation-checkpoint/v1' };
+  await fs.writeFile(
+    path.join(evaluationRoot, 'checkpoint.json'),
+    `${JSON.stringify(evaluationCheckpoint, null, 2)}\n`,
+  );
+  const protocol = {
+    schema: report.protocol.schema,
+    frozen_at: report.protocol.frozen_at,
+    frozen_before_model_performance: true,
+  };
+  const martManifest = { artifact_identity: martIdentity, row_count: 10, bytes: 20 };
+  const martGate = {
+    protocol,
+    martManifest,
+    martManifestIdentity: report.data.mart_manifest_sha256,
+    martInventory: { row_count: 10, bytes: 20 },
+  };
+  const validateReport = (value, context) => {
+    assert.equal(value.schema, 'ModelEvaluationReport/v1');
+    assert.equal(context.protocol, protocol);
+    assert.equal(context.martManifest, martManifest);
+    assert.equal(context.martManifestIdentity, report.data.mart_manifest_sha256);
+    assert.deepEqual(context.checkpoint, evaluationCheckpoint);
+    return true;
+  };
+  return {
+    testRoot, root, reportPath, evaluationPath, martIdentity, m1ReceiptIdentity,
+    m1Revision, coverage, martGate, validateReport,
+  };
+}
+
+async function withRestoredFile(file, callback) {
+  const bytes = await fs.readFile(file);
+  try { await callback(bytes); } finally { await fs.writeFile(file, bytes); }
+}
+
+function rawDigest(bytes) {
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function digest(seed) {
+  return `sha256:${createHash('sha256').update(String(seed)).digest('hex')}`;
+}
+
+function commit(seed) {
+  return createHash('sha1').update(String(seed)).digest('hex');
+}

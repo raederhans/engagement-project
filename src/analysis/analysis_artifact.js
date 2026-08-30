@@ -1,13 +1,14 @@
-import { decodeCrimeViewState, encodeCrimeViewState } from '../state/crime_view_state.js';
+import { projectCrimeViewStateForPublic } from '../state/crime_view_state.js';
 
 export const ANALYSIS_ARTIFACT_KIND = 'engagement-analysis-artifact';
-export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 2;
+export const ANALYSIS_ARTIFACT_SCHEMA_VERSION = 3;
 const LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION = 1;
+const PREVIOUS_ANALYSIS_ARTIFACT_SCHEMA_VERSION = 2;
 export const ANALYSIS_TITLE_MAX_LENGTH = 120;
 const VIEW_STATE_KEYS = new Set([
   'queryMode', 'startMonth', 'durationMonths', 'radius', 'selectedGroups',
   'selectedDrilldownCodes', 'selectedDistrictCode', 'selectedTractGEOID',
-  'overlayTractsLines', 'centerLonLat', 'centerBLonLat', 'addressA', 'addressB',
+  'overlayTractsLines',
   'per10k', 'classMethod', 'classBins', 'classPalette', 'classOpacity',
   'classCustomBreaks',
 ]);
@@ -64,14 +65,9 @@ function requireNumber(value, label, { min = -Infinity, max = Infinity, integer 
   return value;
 }
 
-function normalizeTitle(value) {
-  const text = String(value ?? '').trim().replace(/\s+/g, ' ');
-  return (text || 'Untitled analysis').slice(0, ANALYSIS_TITLE_MAX_LENGTH);
-}
-
 function normalizeViewStateForCreation(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact view state.');
-  return decodeCrimeViewState(encodeCrimeViewState(value));
+  return projectCrimeViewStateForPublic(value);
 }
 
 function validateViewState(value, { allowOmittedFields = false } = {}) {
@@ -84,8 +80,8 @@ function validateViewState(value, { allowOmittedFields = false } = {}) {
   if (JSON.stringify(stableJson(value)) !== JSON.stringify(stableJson(expected))) {
     throw new Error('Invalid analysis artifact view state.');
   }
-  if (canonical.queryMode === 'buffer' && !canonical.centerLonLat) {
-    throw new Error('Invalid analysis artifact view state: buffer mode requires Point A.');
+  if (canonical.queryMode === 'buffer') {
+    throw new Error('Invalid analysis artifact view state: private buffer analysis is unavailable.');
   }
   if (canonical.queryMode === 'district' && !/^\d{2}$/.test(canonical.selectedDistrictCode || '')) {
     throw new Error('Invalid analysis artifact view state: district mode requires a district selection.');
@@ -206,6 +202,29 @@ function normalizeResultSummary(value, schemaVersion) {
   };
 }
 
+function publicGeographyLabel(viewState) {
+  if (viewState.queryMode === 'district') return `District ${viewState.selectedDistrictCode}`;
+  if (viewState.queryMode === 'tract') return `Census tract ${viewState.selectedTractGEOID}`;
+  throw new Error('Private buffer analysis is unavailable.');
+}
+
+function publicAnalysisTitle(viewState) {
+  return `${publicGeographyLabel(viewState)} analysis`;
+}
+
+function projectResultSummaryForPublic(resultSummary, viewState) {
+  if (resultSummary == null) return null;
+  return {
+    ...resultSummary,
+    comparison: {
+      a: resultSummary.comparison.a
+        ? { ...resultSummary.comparison.a, label: publicGeographyLabel(viewState) }
+        : null,
+      b: null,
+    },
+  };
+}
+
 function normalizeProvenance(value) {
   if (value == null) return {};
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact provenance.');
@@ -286,7 +305,11 @@ export function validateAnalysisArtifact(value) {
   if (!isPlainObject(value)) throw new Error('Invalid analysis artifact.');
   requireKeys(value, ARTIFACT_KEYS, 'root');
   if (value.kind !== ANALYSIS_ARTIFACT_KIND) throw new Error('Invalid analysis artifact kind.');
-  if (![LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION, ANALYSIS_ARTIFACT_SCHEMA_VERSION].includes(value.schemaVersion)) {
+  if (![
+    LEGACY_ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+    PREVIOUS_ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+    ANALYSIS_ARTIFACT_SCHEMA_VERSION,
+  ].includes(value.schemaVersion)) {
     throw new Error(`Unsupported analysis artifact schema version: ${value.schemaVersion}.`);
   }
   const artifact = {
@@ -303,6 +326,15 @@ export function validateAnalysisArtifact(value) {
   if (Date.parse(artifact.updatedAt) < Date.parse(artifact.createdAt)) {
     throw new Error('Invalid analysis artifact timestamps.');
   }
+  if (artifact.schemaVersion === ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+    if (artifact.title !== publicAnalysisTitle(artifact.viewState)) {
+      throw new Error('Invalid analysis artifact title: public geography label required.');
+    }
+    const publicResultSummary = projectResultSummaryForPublic(artifact.resultSummary, artifact.viewState);
+    if (JSON.stringify(stableJson(artifact.resultSummary)) !== JSON.stringify(stableJson(publicResultSummary))) {
+      throw new Error('Invalid analysis artifact comparison: public geography labels required.');
+    }
+  }
   return artifact;
 }
 
@@ -311,26 +343,31 @@ export function createAnalysisArtifact(input, {
   now = () => new Date().toISOString(),
 } = {}) {
   const timestamp = now();
+  const viewState = validateViewStateForCreation(input?.viewState);
+  const resultSummary = projectResultSummaryForPublic(
+    normalizeResultSummaryForCreation(input?.resultSummary ?? null),
+    viewState,
+  );
   return validateAnalysisArtifact({
     kind: ANALYSIS_ARTIFACT_KIND,
     schemaVersion: ANALYSIS_ARTIFACT_SCHEMA_VERSION,
     id: createId(),
-    title: normalizeTitle(input?.title),
+    title: publicAnalysisTitle(viewState),
     createdAt: timestamp,
     updatedAt: timestamp,
-    viewState: validateViewStateForCreation(input?.viewState),
-    resultSummary: normalizeResultSummaryForCreation(input?.resultSummary ?? null),
+    viewState,
+    resultSummary,
     provenance: normalizeProvenanceForCreation(input?.provenance ?? {}),
   });
 }
 
-export function renameAnalysisArtifact(value, title, {
+export function renameAnalysisArtifact(value, _title, {
   now = () => new Date().toISOString(),
 } = {}) {
   const artifact = validateAnalysisArtifact(value);
   return validateAnalysisArtifact({
     ...artifact,
-    title: normalizeTitle(title),
+    title: publicAnalysisTitle(artifact.viewState),
     updatedAt: now(),
   });
 }
@@ -339,13 +376,18 @@ export function canSaveAnalysis(state) {
   if (state?.coverageStatus !== 'ready') return false;
   if (state.queryMode === 'district') return /^\d{2}$/.test(state.selectedDistrictCode || '');
   if (state.queryMode === 'tract') return /^\d{11}$/.test(state.selectedTractGEOID || '');
-  return Array.isArray(state.centerLonLat)
-    && state.centerLonLat.length === 2
-    && state.centerLonLat.every(Number.isFinite)
-    && state.centerLonLat[0] >= -180
-    && state.centerLonLat[0] <= 180
-    && state.centerLonLat[1] >= -90
-    && state.centerLonLat[1] <= 90;
+  return false;
+}
+
+export function projectAnalysisArtifactForPublic(value) {
+  const artifact = validateAnalysisArtifact(value);
+  if (artifact.schemaVersion !== ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+    throw new Error('Legacy analysis artifacts are unavailable for sharing or export.');
+  }
+  if (artifact.viewState.queryMode === 'buffer') {
+    throw new Error('Private buffer analysis is unavailable for sharing or export.');
+  }
+  return structuredClone(artifact);
 }
 
 export function deriveAnalysisDataStatus(savedProvenance, currentProvenance) {

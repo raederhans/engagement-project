@@ -3,8 +3,6 @@ import {
   createDiarySnapshotToken,
   normalizeDiaryDraft,
   normalizeDiaryEntry,
-  parseDiaryPrivateBackup,
-  serializeDiaryPrivateBackup,
 } from './diary_data_portability.js';
 
 const DB_NAME = 'engagement-diary';
@@ -64,9 +62,8 @@ export function createDiaryDraft({
 }
 
 export function createDiaryLocalRepository({ adapter = createIndexedDbAdapter() } = {}) {
-  const getAllEntries = adapter.getAllEntries?.bind(adapter) || adapter.getAll?.bind(adapter);
-  const putEntry = adapter.putEntry?.bind(adapter) || adapter.put?.bind(adapter);
-  const clearEntries = adapter.clearEntries?.bind(adapter) || adapter.clear?.bind(adapter);
+  const getAllEntries = adapter.getAllEntries?.bind(adapter);
+  const putEntry = adapter.putEntry?.bind(adapter);
   const draftIntentRevisions = new Map();
   let operationTail = Promise.resolve();
 
@@ -111,37 +108,10 @@ export function createDiaryLocalRepository({ adapter = createIndexedDbAdapter() 
       return normalized;
     },
     async list() {
-      return (await api.listWithWarnings()).entries;
-    },
-    async listWithWarnings() {
-      return enqueue(readEntriesWithWarnings);
+      return (await enqueue(readEntriesWithWarnings)).entries;
     },
     async delete(id) {
       await enqueue(() => requireAdapter(adapter.deleteEntry?.bind(adapter), 'delete entries')(String(id)));
-    },
-    async clear() {
-      await enqueue(() => requireAdapter(clearEntries, 'clear entries')());
-    },
-    async replace(entries) {
-      const legacyAdapterValues = adapter.replaceAll && !adapter.getAllEntries
-        ? (entries || []).map((entry) => structuredClone(entry))
-        : null;
-      const normalized = legacyAdapterValues == null
-        ? normalizeRowsStrict(entries, normalizeDiaryEntry, 'entry')
-        : null;
-      await enqueue(async () => {
-        if (adapter.replaceAll) {
-          await adapter.replaceAll(
-            legacyAdapterValues || normalized.map((entry) => structuredClone(entry)),
-          );
-        } else if (adapter.replaceSnapshot) {
-          const drafts = adapter.getAllDrafts ? await adapter.getAllDrafts() : [];
-          await adapter.replaceSnapshot({ entries: normalized, drafts });
-        } else {
-          throw unavailableOperation('replace entries');
-        }
-      });
-      return api.list();
     },
     async saveDraft(draft) {
       const normalized = normalizeDiaryDraft(draft);
@@ -179,15 +149,6 @@ export function createDiaryLocalRepository({ adapter = createIndexedDbAdapter() 
       if (row == null) return null;
       return normalizeDiaryDraft(row);
     },
-    async listDrafts() {
-      return (await api.listDraftsWithWarnings()).drafts;
-    },
-    async listDraftsWithWarnings() {
-      return enqueue(readDraftsWithWarnings);
-    },
-    async deleteDraft(routeId) {
-      await enqueue(() => requireAdapter(adapter.deleteDraft?.bind(adapter), 'delete drafts')(String(routeId)));
-    },
     async commitEntry(entry, { draftRouteId = entry?.routeId } = {}) {
       const normalized = normalizeDiaryEntry(entry);
       const routeId = String(draftRouteId || normalized.routeId || '');
@@ -207,19 +168,6 @@ export function createDiaryLocalRepository({ adapter = createIndexedDbAdapter() 
         plan: result.plan,
         snapshot: normalizeSnapshotWithWarnings(result.snapshot),
       };
-    },
-    async mergeSnapshot(snapshot) {
-      const normalized = normalizeSnapshot(snapshot);
-      await enqueue(() => requireAdapter(adapter.mergeSnapshot?.bind(adapter), 'merge Diary snapshots')(normalized));
-      return api.snapshot();
-    },
-    async replaceSnapshot(snapshot) {
-      const normalized = normalizeSnapshot(snapshot);
-      await enqueue(() => requireAdapter(adapter.replaceSnapshot?.bind(adapter), 'replace Diary snapshots')(normalized));
-      return api.snapshot();
-    },
-    async clearAll() {
-      await enqueue(() => requireAdapter(adapter.clearAll?.bind(adapter), 'clear Diary storage')());
     },
   };
   return api;
@@ -244,21 +192,6 @@ function timestampAfter(candidateTimestamp, currentTimestamp) {
     Number.isFinite(currentTime) ? currentTime : 0,
   );
   return new Date(floor + 1).toISOString();
-}
-
-export function serializeDiaryBackup(entries = [], { generatedAt = new Date().toISOString() } = {}) {
-  return serializeDiaryPrivateBackup({ entries, drafts: [] }, { generatedAt });
-}
-
-export function parseDiaryBackup(value) {
-  return parseDiaryPrivateBackup(value).entries;
-}
-
-function normalizeSnapshot(snapshot) {
-  return {
-    entries: normalizeRowsStrict(snapshot?.entries || [], normalizeDiaryEntry, 'entry'),
-    drafts: normalizeRowsStrict(snapshot?.drafts || [], normalizeDiaryDraft, 'draft'),
-  };
 }
 
 function normalizeSnapshotWithWarnings(snapshot) {
@@ -335,7 +268,7 @@ export function migrateLegacyDiaryEntryRecord(value) {
   } catch (error) {
     return {
       value: lifted,
-      warning: `Legacy Diary entry ${String(raw.id || '(unknown)')} could not be fully normalized: ${error.message}`,
+      warning: `Legacy Diary entry could not be fully normalized: ${error.message}`,
     };
   }
 }
@@ -349,21 +282,12 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
       putEntry: unavailable,
       getAllEntries: unavailable,
       deleteEntry: unavailable,
-      clearEntries: unavailable,
       putDraft: unavailable,
       getDraft: unavailable,
       getAllDrafts: unavailable,
-      deleteDraft: unavailable,
       commitEntry: unavailable,
-      clearAll: unavailable,
-      mergeSnapshot: unavailable,
-      replaceSnapshot: unavailable,
       getSnapshot: unavailable,
       applyBackup: unavailable,
-      put: unavailable,
-      getAll: unavailable,
-      clear: unavailable,
-      replaceAll: unavailable,
     };
   }
 
@@ -426,7 +350,6 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
   const putEntry = (entry) => transact(ENTRY_STORE, 'readwrite', (tx) => tx.objectStore(ENTRY_STORE).put(entry));
   const getAllEntries = () => transact(ENTRY_STORE, 'readonly', (tx) => tx.objectStore(ENTRY_STORE).getAll());
   const deleteEntry = (id) => transact(ENTRY_STORE, 'readwrite', (tx) => tx.objectStore(ENTRY_STORE).delete(id));
-  const clearEntries = () => transact(ENTRY_STORE, 'readwrite', (tx) => tx.objectStore(ENTRY_STORE).clear());
 
   const getSnapshot = () => transact([ENTRY_STORE, DRAFT_STORE], 'readonly', (tx) => {
     const snapshot = { entries: [], drafts: [] };
@@ -436,21 +359,6 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
     draftsRequest.onsuccess = () => { snapshot.drafts = draftsRequest.result || []; };
     return snapshot;
   });
-
-  const replaceStores = (snapshot, clearFirst) => transact(
-    [ENTRY_STORE, DRAFT_STORE],
-    'readwrite',
-    (tx) => {
-      const entries = tx.objectStore(ENTRY_STORE);
-      const drafts = tx.objectStore(DRAFT_STORE);
-      if (clearFirst) {
-        entries.clear();
-        drafts.clear();
-      }
-      for (const entry of snapshot.entries) entries.put(entry);
-      for (const draft of snapshot.drafts) drafts.put(draft);
-    },
-  );
 
   const applyBackup = async (backupValue, { strategy = 'merge', expectedSnapshotToken } = {}) => {
     const db = await open();
@@ -525,7 +433,6 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
     putEntry,
     getAllEntries,
     deleteEntry,
-    clearEntries,
     getSnapshot,
     putDraft: (draft) => transact(DRAFT_STORE, 'readwrite', (tx) => {
       const store = tx.objectStore(DRAFT_STORE);
@@ -547,26 +454,11 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
     }),
     getDraft: (routeId) => transact(DRAFT_STORE, 'readonly', (tx) => tx.objectStore(DRAFT_STORE).get(routeId)),
     getAllDrafts: () => transact(DRAFT_STORE, 'readonly', (tx) => tx.objectStore(DRAFT_STORE).getAll()),
-    deleteDraft: (routeId) => transact(DRAFT_STORE, 'readwrite', (tx) => tx.objectStore(DRAFT_STORE).delete(routeId)),
     commitEntry: (entry, routeId) => transact([ENTRY_STORE, DRAFT_STORE], 'readwrite', (tx) => {
       tx.objectStore(ENTRY_STORE).put(entry);
       tx.objectStore(DRAFT_STORE).delete(routeId);
     }),
-    clearAll: () => transact([ENTRY_STORE, DRAFT_STORE], 'readwrite', (tx) => {
-      tx.objectStore(ENTRY_STORE).clear();
-      tx.objectStore(DRAFT_STORE).clear();
-    }),
-    mergeSnapshot: (snapshot) => replaceStores(snapshot, false),
-    replaceSnapshot: (snapshot) => replaceStores(snapshot, true),
     applyBackup,
-    put: putEntry,
-    getAll: getAllEntries,
-    clear: clearEntries,
-    replaceAll: (entries) => transact(ENTRY_STORE, 'readwrite', (tx) => {
-      const store = tx.objectStore(ENTRY_STORE);
-      store.clear();
-      for (const entry of entries) store.put(entry);
-    }),
   };
 }
 

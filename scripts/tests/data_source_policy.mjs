@@ -564,7 +564,7 @@ test('Census Reporter cache hits preserve release vintage and as-of provenance',
   }]);
 });
 
-test('Diary client is strictly local-only even when a legacy API base is supplied', async () => {
+test('Diary public write policy stays unavailable and no-network under injected configuration', async (t) => {
   assert.equal(typeof diary.createDiaryClient, 'function');
   const payload = {
     route_id: 'route_demo_1',
@@ -577,10 +577,23 @@ test('Diary client is strictly local-only even when a legacy API base is supplie
     timestamp: '2026-07-30T00:00:00.000Z',
   };
 
+  const originalFetch = globalThis.fetch;
   let requests = 0;
+  const request = async () => {
+    requests += 1;
+    return { ok: true, persisted: true };
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = request;
   const localClient = diary.createDiaryClient({
     apiBase: 'https://example.test/api/diary/',
-    request: async () => { requests += 1; },
+    endpoint: 'https://example.test/api/diary/public',
+    request,
+    fetch: request,
+    adapter: { submit: request },
+    capability: { publicWrite: true },
   });
   const first = await localClient.submitDiary({
     ...payload,
@@ -589,15 +602,23 @@ test('Diary client is strictly local-only even when a legacy API base is supplie
     draft: { unfinished: true },
   });
   const second = await localClient.submitDiary(payload);
-  assert.deepEqual(first.updated_segments, second.updated_segments);
+  const agree = await localClient.submitAgree('seg_1', 'demo_user', { request });
+  const improve = await localClient.submitImprove('seg_1', 'demo_user', { request });
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, agree);
+  assert.deepEqual(first, improve);
+  assert.equal(first.ok, false);
+  assert.equal(first.status, 'unavailable');
+  assert.equal(first.network, 'disabled');
   assert.equal(first.persisted, false);
-  assert.equal(first.mode, 'demo');
-  assert.equal(first.capability, 'local-only');
-  assert.match(first.message, /browser session/i);
-  assert.match(first.message, /no remote data was written/i);
+  assert.equal(first.shared, false);
+  assert.equal(first.mode, 'local-only');
+  assert.equal(first.capability, 'unavailable');
+  assert.match(first.message, /unavailable/i);
+  assert.match(first.message, /no data left this browser/i);
   assert.doesNotMatch(first.message, /saved|durable|persisted|已保存/iu);
-  assert.deepEqual(first.updated_segments.map((row) => row.rating), [4, 2]);
   assert.equal(requests, 0, 'legacy configuration must not upload ratings, notes, geometry, or drafts');
+  assert.doesNotMatch(JSON.stringify(first), /route_demo|seg_1|private note|39\.9|2026-07-30/);
   assert.equal(Object.hasOwn(config, 'DIARY_API_BASE'), false);
 });
 
@@ -694,7 +715,7 @@ test('mutation requests default to uncached semantics', async (t) => {
   assert.deepEqual(second, { call: 2 });
 });
 
-test('segment popup submission uses truthful demo semantics without claiming community aggregation', async () => {
+test('segment popup submission reports the public write as unavailable without transport access', async () => {
   const state = {
     mode: 'input',
     rating: 4,
@@ -711,15 +732,16 @@ test('segment popup submission uses truthful demo semantics without claiming com
     },
   });
 
-  assert.equal(response.mode, 'demo');
+  assert.equal(response.status, 'unavailable');
+  assert.equal(response.network, 'disabled');
   assert.equal(response.persisted, false);
   assert.equal(state.mode, 'view');
   assert.equal(state.submissionResult, response);
   assert.equal(renders, 1);
 
   const html = buildSegmentCardHtml({ segment_id: 'seg_popup_1' }, state);
-  assert.match(html, /Browser-local demo only/i);
-  assert.match(html, /not stored or shared/i);
+  assert.match(html, /public community feedback is deterministically unavailable/i);
+  assert.doesNotMatch(html, /browser-local save could not be confirmed/i);
   assert.doesNotMatch(html, /community aggregates/i);
   assert.doesNotMatch(html, /appear in the aggregate soon/i);
 });
@@ -796,7 +818,7 @@ test('stale segment popup submission aborts transport and commits no popup state
   assert.equal(popupAdds, 0);
 });
 
-test('a popup CTA can act only for the Diary owner that created it', (t) => {
+test('a mounted segment popup has no Community CTA event seam', (t) => {
   const OriginalPopup = maplibregl.Popup;
   const popups = [];
   class FakePopup {
@@ -818,7 +840,7 @@ test('a popup CTA can act only for the Diary owner that created it', (t) => {
       };
     }
     setLngLat() { return this; }
-    setHTML() { return this; }
+    setHTML(html) { this.html = html; return this; }
     addTo() { this.adds = (this.adds || 0) + 1; return this; }
     on() { return this; }
     remove() { this.removed = true; return this; }
@@ -870,73 +892,20 @@ test('a popup CTA can act only for the Diary owner that created it', (t) => {
     features: [structuredClone(segments.features[0])],
     lngLat: { lng: -75.16, lat: 39.95 },
   });
-  const createCta = (action) => {
-    const attributes = new Map([
-      ['data-diary-action', action],
-      ['data-segment-id', 'seg-owner'],
-    ]);
-    const target = {
-      style: {},
-      closest: () => target,
-      hasAttribute: (name) => attributes.has(name),
-      getAttribute: (name) => attributes.get(name) ?? null,
-      setAttribute: (name, value) => attributes.set(name, String(value)),
-    };
-    return target;
-  };
-  const trigger = (popup, target) => popup.clickHandler({
-    target,
-    preventDefault() {},
-    stopPropagation() {},
-  });
-
   const ownerA = new AbortController();
-  let aCurrent = true;
   const aCommits = [];
   mountSegmentsLayer(map, 'diary-segments', segments, {
     signal: ownerA.signal,
-    isCurrent: () => aCurrent,
+    isCurrent: () => true,
     onAction: (payload) => aCommits.push(payload),
   });
   clickPopup();
   const popupA = popups.at(-1);
-  const oldAgree = createCta('agree');
-  const oldSafer = createCta('safer');
-
-  removeSegmentsLayer(map, 'diary-segments');
-  aCurrent = false;
-  ownerA.abort(new Error('Session A replaced'));
-
-  const ownerB = new AbortController();
-  const bState = { aggregate: 0, toast: 0, ctaFlags: 0 };
-  const bAction = (payload) => {
-    bState.aggregate += 1;
-    bState.toast += 1;
-    bState.ctaFlags += 1;
-    mapMutations.push(['B-action', payload.action]);
-  };
-  mountSegmentsLayer(map, 'diary-segments', segments, {
-    signal: ownerB.signal,
-    isCurrent: () => true,
-    onAction: bAction,
-  });
-  clickPopup();
-  const popupB = popups.at(-1);
-  const newAgree = createCta('agree');
-  const mutationsBeforeOldCtas = mapMutations.length;
-
-  trigger(popupA, oldAgree);
-  trigger(popupA, oldSafer);
-
+  assert.equal(popupA.clickHandler, undefined);
+  assert.match(popupA.html, /data-sample-status="static-invented-read-only"/);
+  assert.doesNotMatch(popupA.html, /data-diary-action|enter-edit|submit-feedback|Add Feedback|Experience improved/iu);
   assert.deepEqual(aCommits, []);
-  assert.deepEqual(bState, { aggregate: 0, toast: 0, ctaFlags: 0 });
-  assert.equal(mapMutations.length, mutationsBeforeOldCtas);
-  assert.equal(oldAgree.hasAttribute('disabled'), false);
-  assert.equal(oldSafer.hasAttribute('disabled'), false);
-
-  trigger(popupB, newAgree);
-  assert.deepEqual(bState, { aggregate: 1, toast: 1, ctaFlags: 1 });
-  assert.equal(newAgree.hasAttribute('disabled'), true);
+  removeSegmentsLayer(map, 'diary-segments');
 });
 
 test('an already-aborted caller wins before cache lookup or fetch', async (t) => {

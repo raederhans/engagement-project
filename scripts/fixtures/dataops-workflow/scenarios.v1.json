@@ -1,0 +1,182 @@
+{
+  "schema": "engagement-dataops-workflow-scenarios/v1",
+  "synthetic": true,
+  "authoritative_data": false,
+  "scenarios": [
+    {
+      "id": "authorized-dispatch-rebuild",
+      "trigger": "workflow_dispatch",
+      "mode": "rebuild",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "C:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "file",
+        "file_location_root": "C:/dataops/immutable/artifacts-v1",
+        "through_date": "2026-08-29"
+      },
+      "expected": {
+        "input_gate": "admitted",
+        "heavy_job_started": true,
+        "new_versioned_root": true,
+        "terminal_status": "review-required",
+        "promotion_applied": false
+      }
+    },
+    {
+      "id": "authorized-schedule-rebuild",
+      "trigger": "schedule",
+      "mode": "rebuild",
+      "input_source": "repository-variables",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "D:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "file",
+        "file_location_root": "D:/dataops/immutable/artifacts-v1",
+        "through_date": "2026-08-29"
+      },
+      "expected": {
+        "input_gate": "admitted",
+        "heavy_job_started": true,
+        "new_versioned_root": true,
+        "terminal_status": "review-required",
+        "promotion_applied": false
+      }
+    },
+    {
+      "id": "schedule-missing-authorized-location",
+      "trigger": "schedule",
+      "mode": "rebuild",
+      "input_source": "repository-variables",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "D:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "",
+        "file_location_root": "",
+        "through_date": "2026-08-29"
+      },
+      "expected": {
+        "input_gate": "unauthorized",
+        "heavy_job_started": false,
+        "root_created": false,
+        "failure_report_preserved": true
+      }
+    },
+    {
+      "id": "schedule-missing-file-location-root",
+      "trigger": "schedule",
+      "mode": "rebuild",
+      "input_source": "repository-variables",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "D:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "file",
+        "file_location_root": "",
+        "through_date": "2026-08-29"
+      },
+      "expected": {
+        "input_gate": "unauthorized",
+        "heavy_job_started": false,
+        "root_created": false,
+        "registry_directory_fallback_used": false,
+        "failure_report_preserved": true
+      }
+    },
+    {
+      "id": "dispatch-missing-file-location-root",
+      "trigger": "workflow_dispatch",
+      "mode": "rebuild",
+      "input_source": "dispatch-inputs-only",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "C:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "file",
+        "file_location_root": "",
+        "through_date": "2026-08-29"
+      },
+      "schedule_variables_present": {
+        "DATAOPS_SCHEDULE_FILE_LOCATION_ROOT": "D:/dataops/immutable/scheduled-artifacts-v1"
+      },
+      "expected": {
+        "input_gate": "unauthorized",
+        "heavy_job_started": false,
+        "root_created": false,
+        "schedule_variable_fallback_used": false,
+        "registry_directory_fallback_used": false,
+        "failure_report_preserved": true
+      }
+    },
+    {
+      "id": "registry-or-receipt-identity-mismatch",
+      "trigger": "workflow_dispatch",
+      "mode": "rebuild",
+      "inputs": {
+        "expected_git_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "registry_path": "C:/dataops/immutable/registry-v1/registry.json",
+        "registry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_registry_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "registry_identity": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_set_id": "artifact-set:m1-source-final-v1",
+        "receipt_object_id": "m1-receipt-v3",
+        "receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "observed_receipt_identity": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "receipt_identity": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "authorized_location_scheme": "file",
+        "file_location_root": "C:/dataops/immutable/artifacts-v1",
+        "through_date": "2026-08-29"
+      },
+      "expected": {
+        "input_gate": "rejected",
+        "heavy_job_started": false,
+        "root_created": false,
+        "failure_report_preserved": true
+      }
+    },
+    {
+      "id": "hostile-model-requests-promotion",
+      "trigger": "workflow_dispatch",
+      "mode": "rebuild",
+      "model_result": {
+        "promotion": "promoted",
+        "selected_model": "synthetic-hostile-model"
+      },
+      "expected": {
+        "terminal_status": "review-required",
+        "review_artifact_only": true,
+        "promotion_applied": false,
+        "serving_published": false,
+        "main_written": false,
+        "deployed": false
+      }
+    }
+  ]
+}

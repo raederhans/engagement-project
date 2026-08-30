@@ -147,9 +147,9 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
   assert.deepEqual(describeDiaryDataScope('community'), {
     mode: 'diary',
     kind: 'sample',
-    shortLabel: 'Sample',
-    accessibleLabel: 'Sample Community is illustrative, read-only sample data.',
-    details: ['Illustrative sample · read-only · not shared'],
+    shortLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    accessibleLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    details: ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.'],
   });
 });
 
@@ -192,17 +192,21 @@ test('ready scope details are cleared or replaced when status returns to loading
   presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
   assert.equal(status.textContent, 'Crime loading');
   assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(status.dataset.scopeDisclosure, undefined);
 
   presenter.showStatus({ mode: 'crime', phase: 'ready', label: 'Crime data ready' });
   assert.equal(status.textContent, 'Fallback · records through Jul 30');
   assert.equal(status.dataset.scopeKind, 'fallback');
+  assert.equal(status.dataset.scopeDisclosure, undefined);
   assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
   assert.deepEqual(details.map((element) => element.textContent), [scope.details[0], scope.details[0]]);
 
   presenter.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime loading' });
   assert.equal(status.textContent, 'Crime loading');
   assert.equal(status.dataset.scopeKind, undefined);
+  assert.equal(status.dataset.scopeDisclosure, undefined);
   assert.ok(details.every((element) => element.dataset.scopeKind === undefined));
+  assert.ok(details.every((element) => element.dataset.scopeDisclosure === undefined));
   assert.deepEqual(details.map((element) => element.textContent), ['', '']);
 
   presenter.showStatus({ mode: 'crime', phase: 'failed', label: 'Crime data unavailable' });
@@ -393,15 +397,15 @@ test('Crime mode URL writes use the latest public query instead of a startup sna
     getCrimeQuery: () => crimeQuery,
   });
 
-  crimeQuery = 'analysis=buffer&start=2025-09&months=12&a=-75.16%2C39.95&labelA=Market+St';
+  crimeQuery = 'analysis=buffer&start=2025-09&months=12';
   writer('crime');
 
   const current = new URL(href);
   assert.equal(current.searchParams.get('view'), 'list');
   assert.equal(current.searchParams.get('start'), '2025-09');
   assert.equal(current.searchParams.get('months'), '12');
-  assert.equal(current.searchParams.get('a'), '-75.16,39.95');
-  assert.equal(current.searchParams.get('labelA'), 'Market St');
+  assert.equal(current.searchParams.has('a'), false);
+  assert.equal(current.searchParams.has('labelA'), false);
 });
 
 test('late Crime synchronization cannot append Crime keys while Diary owns the URL', (t) => {
@@ -431,6 +435,63 @@ test('late Crime synchronization cannot append Crime keys while Diary owns the U
   });
 
   assert.equal(replacedUrl, null);
+});
+
+test('private Crime unavailability remains the top-level outcome and visible unavailable phase', async () => {
+  const settled = [];
+  const harness = coordinatorOptions({ initialMode: 'crime', crimeRefreshStatus: 'unavailable' });
+  const coordinator = createModeCoordinator({
+    ...harness.options,
+    onModeSettled: (mode, phase) => settled.push([mode, phase]),
+  });
+
+  const result = await coordinator.schedule('crime');
+  assert.deepEqual(result, { status: 'unavailable' });
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'failed',
+    label: 'Crime data unavailable',
+  });
+  assert.deepEqual(settled, [['crime', 'failed']]);
+});
+
+test('Crime canonical URL removes hostile private keys while preserving unrelated query and hash', (t) => {
+  const originalWindow = globalThis.window;
+  let replacedUrl = null;
+  t.after(() => { globalThis.window = originalWindow; });
+  globalThis.window = {
+    location: {
+      search: '?mode=crime&foo=keep&a=-75.16%2C39.95&b=-75.2%2C39.96&labelA=PRIVATE-A&labelB=PRIVATE-B',
+      pathname: '/app/',
+      hash: '#results',
+    },
+    history: {
+      replaceState(_state, _title, nextUrl) { replacedUrl = nextUrl; },
+    },
+  };
+
+  writeCrimeStateToURL({
+    viewMode: 'crime',
+    queryMode: 'district',
+    selectedDistrictCode: '05',
+    durationMonths: 12,
+    radius: 400,
+    classMethod: 'quantile',
+    classBins: 5,
+    classPalette: 'Blues',
+    classOpacity: 0.75,
+    centerLonLat: [-75.16, 39.95],
+    addressA: 'PRIVATE-A',
+  });
+
+  const next = new URL(replacedUrl, 'https://example.test');
+  assert.equal(next.searchParams.get('foo'), 'keep');
+  assert.equal(next.searchParams.get('district'), '05');
+  assert.equal(next.searchParams.has('a'), false);
+  assert.equal(next.searchParams.has('b'), false);
+  assert.equal(next.searchParams.has('labelA'), false);
+  assert.equal(next.searchParams.has('labelB'), false);
+  assert.equal(next.hash, '#results');
 });
 
 test('Help copy is mode-specific and explains Diary local persistence', () => {

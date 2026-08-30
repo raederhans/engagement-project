@@ -39,3 +39,11 @@ export {
   SOURCE_HEALTH_STATUSES,
 } from './contracts.mjs';
 export { RouteRealGraphAuthorityError } from './safe_data.mjs';
+export {
+  MATURE_ENGINE_AUTHORITY_HANDLE_SCHEMA,
+  MATURE_ENGINE_AUTHORIZATION_SCHEMA,
+  authorizeInstalledMatureEngine,
+  inspectInstalledMatureEngineRegistry,
+  matchMatureEngineReceiptAgainstInstalledRegistry,
+  prepareInstalledMatureEngineAuthority,
+} from './mature_engine_authority.mjs';

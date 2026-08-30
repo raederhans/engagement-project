@@ -389,6 +389,14 @@ export function createCrimeResultMetaPresenter({
 }
 
 export function normalizeCrimeRefreshResult(result) {
+  if (result?.status === 'unavailable') {
+    return {
+      status: 'unavailable',
+      reason: result.reason || 'unavailable',
+      succeeded: [],
+      failed: [],
+    };
+  }
   if (result?.status === 'partial') {
     return {
       status: 'partial',

@@ -1,6 +1,7 @@
 import { openDB } from 'idb';
 
 import {
+  ANALYSIS_ARTIFACT_SCHEMA_VERSION,
   renameAnalysisArtifact,
   validateAnalysisArtifact,
 } from './analysis_artifact.js';
@@ -9,6 +10,7 @@ export const ANALYSIS_DB_NAME = 'engagement-analysis';
 export const ANALYSIS_DB_VERSION = 1;
 export const ANALYSIS_STORE_NAME = 'analysis_artifacts';
 export const ANALYSIS_UPDATED_AT_INDEX = 'updatedAt';
+export const LEGACY_UNAVAILABLE_STATUS = 'legacy-unavailable';
 
 function requireArtifactId(value) {
   const id = String(value ?? '').trim();
@@ -23,17 +25,55 @@ function warningFor(row, error) {
   };
 }
 
+function isLegacyRow(row) {
+  return Boolean(row)
+    && typeof row === 'object'
+    && [1, 2].includes(row.schemaVersion);
+}
+
+function safeTimestamp(value) {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '1970-01-01T00:00:00.000Z';
+}
+
+export function describeLegacyUnavailableAnalysis(row) {
+  if (!isLegacyRow(row)) return null;
+  return Object.freeze({
+    id: requireArtifactId(row.id),
+    title: 'Legacy private analysis unavailable',
+    createdAt: safeTimestamp(row.createdAt),
+    updatedAt: safeTimestamp(row.updatedAt),
+    viewState: Object.freeze({ queryMode: LEGACY_UNAVAILABLE_STATUS, startMonth: null }),
+    resultSummary: null,
+    provenance: Object.freeze({}),
+    availability: LEGACY_UNAVAILABLE_STATUS,
+    legacySchemaVersion: row.schemaVersion,
+    canRestore: false,
+    canShare: false,
+    canExport: false,
+  });
+}
+
 export function createAnalysisRepository({ adapter } = {}) {
   if (!adapter) throw new Error('Analysis repository requires a storage adapter.');
 
+  function validateCurrentArtifact(value) {
+    const artifact = validateAnalysisArtifact(value);
+    if (artifact.schemaVersion !== ANALYSIS_ARTIFACT_SCHEMA_VERSION) {
+      throw new Error('Legacy analysis artifacts are unavailable for storage or import.');
+    }
+    return artifact;
+  }
+
   async function get(id) {
     const row = await adapter.get(requireArtifactId(id));
-    return row == null ? null : validateAnalysisArtifact(row);
+    if (row == null) return null;
+    return describeLegacyUnavailableAnalysis(row) || validateAnalysisArtifact(row);
   }
 
   return {
     async save(value) {
-      const artifact = validateAnalysisArtifact(value);
+      const artifact = validateCurrentArtifact(value);
       await adapter.put(artifact);
       return artifact;
     },
@@ -45,7 +85,7 @@ export function createAnalysisRepository({ adapter } = {}) {
       if (typeof adapter.putManyAtomic !== 'function') {
         throw new Error('Atomic analysis import is unavailable.');
       }
-      const artifacts = values.map(validateAnalysisArtifact);
+      const artifacts = values.map(validateCurrentArtifact);
       if (new Set(artifacts.map(({ id }) => id)).size !== artifacts.length) {
         throw new Error('Duplicate analysis import id.');
       }
@@ -59,7 +99,7 @@ export function createAnalysisRepository({ adapter } = {}) {
       const warnings = [];
       for (const row of rows || []) {
         try {
-          items.push(validateAnalysisArtifact(row));
+          items.push(describeLegacyUnavailableAnalysis(row) || validateAnalysisArtifact(row));
         } catch (error) {
           warnings.push(warningFor(row, error));
         }

@@ -96,16 +96,8 @@ let activeOpener = null;
 let backgroundInertState = [];
 let releaseLanguageChange = null;
 
-export function submitSegmentFeedback(payload, { submit = submitDiary, signal } = {}) {
-  const segmentId = String(payload?.segmentId || '').trim();
-  const rating = Number(payload?.rating);
-  return submit({
-    segment_ids: segmentId ? [segmentId] : [],
-    overall_rating: rating,
-    tags: Array.isArray(payload?.tags) ? payload.tags : [],
-    segment_overrides: segmentId ? [{ segment_id: segmentId, rating }] : [],
-    mode: 'walk',
-  }, { signal });
+export function submitSegmentFeedback() {
+  return submitDiary();
 }
 
 function persistDraft(state = currentState) {
@@ -654,7 +646,6 @@ async function handleSubmit(event) {
     const result = await runRatingSubmission({
       state,
       payload,
-      submit: submitDiary,
       commit: state.onCommit,
       isCurrent: () => currentState === state,
       onPendingChange: (pending) => {
@@ -677,35 +668,22 @@ async function handleSubmit(event) {
 export async function runRatingSubmission({
   state,
   payload,
-  submit = submitDiary,
   commit,
   isCurrent = () => true,
   onPendingChange = () => {},
 } = {}) {
   if (!state || state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
   if (state.pending) return { applied: false, reason: 'pending' };
+  const localPayload = structuredClone(payload);
   state.pending = true;
   onPendingChange(true);
   try {
-    const fingerprint = submissionFingerprint(payload);
-    const receipt = state.submissionReceipt?.fingerprint === fingerprint
-      ? state.submissionReceipt
-      : null;
-    const response = receipt
-      ? receipt.response
-      : await submit(payload, { signal: state.signal });
+    const response = await submitDiary();
     if (state.signal?.aborted || !isCurrent()) return { applied: false, reason: 'stale' };
-    if (commit && !receipt) {
-      state.submissionReceipt = { fingerprint, payload, response };
-    }
-    const commitPayload = state.submissionReceipt?.fingerprint === fingerprint
-      ? state.submissionReceipt.payload
-      : payload;
-    const commitResult = commit ? await commit({ payload: commitPayload, response }) : null;
+    const commitResult = commit ? await commit({ payload: localPayload, response }) : null;
     if (state.signal?.aborted || !isCurrent() || commitResult?.applied === false) {
       return { applied: false, reason: commitResult?.reason || 'stale' };
     }
-    if (commit) state.submissionReceipt = null;
     return commit
       ? { applied: true, response, commitResult }
       : { applied: true, response };
@@ -713,12 +691,6 @@ export async function runRatingSubmission({
     state.pending = false;
     onPendingChange(false);
   }
-}
-
-function submissionFingerprint(payload) {
-  const { timestamp, ...stablePayload } = payload || {};
-  void timestamp;
-  return JSON.stringify(stablePayload);
 }
 
 function setError(message, { focus = false } = {}) {

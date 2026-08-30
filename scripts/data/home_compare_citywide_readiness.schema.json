@@ -1,0 +1,22 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://engagement-project.invalid/schemas/home_compare_citywide_readiness.schema.json",
+  "type":"object","additionalProperties":false,
+  "required":["schema","input","status","sources","dimensions","privacy","authority","limitations","identity"],
+  "properties":{
+    "schema":{"const":"engagement-home-compare-citywide-readiness/v1"},
+    "input":{"type":"object","additionalProperties":false,"required":["lifecycle","ledger"],"properties":{"lifecycle":{"$ref":"#/$defs/input"},"ledger":{"$ref":"#/$defs/input"}}},
+    "status":{"enum":["partial","unavailable"]},
+    "sources":{"type":"array","minItems":9,"maxItems":9,"items":{"$ref":"#/$defs/source"}},
+    "dimensions":{"type":"array","minItems":9,"maxItems":9,"items":{"$ref":"#/$defs/dimension"}},
+    "privacy":{"type":"object","additionalProperties":false,"required":["aggregate_only","address_included","coordinates_included","source_rows_included"],"properties":{"aggregate_only":{"const":true},"address_included":{"const":false},"coordinates_included":{"const":false},"source_rows_included":{"const":false}}},
+    "authority":{"$ref":"#/$defs/authority"},"limitations":{"type":"array","minItems":3,"maxItems":6,"items":{"type":"string","minLength":1,"maxLength":500}},"identity":{"$ref":"#/$defs/sha"}
+  },
+  "$defs":{
+    "sha":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "input":{"type":"object","additionalProperties":false,"required":["schema","semantic_identity","sha256","bytes"],"properties":{"schema":{"type":"string"},"semantic_identity":{"$ref":"#/$defs/sha"},"sha256":{"$ref":"#/$defs/sha"},"bytes":{"type":"integer","minimum":1}}},
+    "authority":{"type":"object","additionalProperties":false,"required":["product_authority","publication_authority","redistribution_authority","safety_authority","routing_authority"],"properties":{"product_authority":{"const":false},"publication_authority":{"const":false},"redistribution_authority":{"const":false},"safety_authority":{"const":false},"routing_authority":{"const":false}}},
+    "source":{"type":"object","additionalProperties":false,"required":["source_id","ordinal","receipt_identity","status","freshness","clocks","coverage","dq","official_source_url","limitations"],"properties":{"source_id":{"type":"string"},"ordinal":{"type":"integer","minimum":0,"maximum":8},"receipt_identity":{"$ref":"#/$defs/sha"},"status":{"enum":["available","available-zero","partial","unavailable"]},"freshness":{"type":"object"},"clocks":{"type":"object"},"coverage":{"type":"object"},"dq":{"type":"object"},"official_source_url":{"type":"string","pattern":"^https://"},"limitations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}}}},
+    "dimension":{"type":"object","additionalProperties":false,"required":["dimension","ordinal","required_source_receipt_identities","source_readiness","join_status","admission_status","reason","row_availability","value_availability","total","available_zero","identity"],"properties":{"dimension":{"type":"string"},"ordinal":{"type":"integer","minimum":0,"maximum":8},"required_source_receipt_identities":{"type":"array","minItems":1,"maxItems":1,"items":{"$ref":"#/$defs/sha"}},"source_readiness":{"enum":["exact-receipt-ready","partial","unavailable"]},"join_status":{"enum":["not-admitted","partial","unavailable"]},"admission_status":{"enum":["not-admitted","partial","unavailable"]},"reason":{"type":"string","minLength":1},"row_availability":{"const":"unavailable"},"value_availability":{"const":"unavailable"},"total":{"type":"null"},"available_zero":{"const":false},"identity":{"$ref":"#/$defs/sha"}}}
+  }
+}

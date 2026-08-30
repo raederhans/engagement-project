@@ -1,7 +1,9 @@
 import { initCoverageAndDefaults, store } from '../state/store.js';
-import { hasActiveIncidentSelection } from '../state/crime_view_state.js';
+import { crimeSelectionKey } from '../state/crime_view_state.js';
 import {
   createCrimeRefreshOwner,
+  isPrivateCrimeAnalysisSnapshot,
+  privateCrimeUnavailableResult,
   readCrimeSnapshot,
 } from './crime_refresh_owner.js';
 import {
@@ -69,10 +71,12 @@ export function createCrimeListController({
   const runRefresh = async (snapshot, { signal, isCurrent, scope = 'all' }) => {
     if (!active || !isCurrent()) return { status: 'superseded' };
     const requested = scope === 'all' ? ['incidents', 'summary', 'charts'] : [scope];
-    const canRun = Boolean(hasActiveIncidentSelection(snapshot));
-    const runnable = requested.filter((name) => (
-      name === 'incidents' ? canRun : Boolean(snapshot.center3857)
-    ));
+    if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
+      for (const name of requested) listView?.unavailable?.(name);
+      return privateCrimeUnavailableResult();
+    }
+    const canRun = Boolean(crimeSelectionKey(snapshot));
+    const runnable = requested.filter(() => canRun);
     for (const name of requested.filter((name) => !runnable.includes(name))) listView?.clear?.(name);
     if (!runnable.length) return { status: 'idle', succeeded: [], failed: [] };
 
@@ -148,8 +152,26 @@ export function createCrimeListController({
       }
     },
     async requestRefresh(options = {}) {
-      if (!initialized) await this.initialize();
-      return refreshOwner.refresh(options);
+      let snapshot;
+      try {
+        snapshot = readSnapshot();
+      } catch (error) {
+        if (!initialized) await this.initialize();
+        else throw error;
+        snapshot = readSnapshot();
+      }
+      if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
+        return runRefresh(snapshot, {
+          signal: options.signal || new AbortController().signal,
+          scope: options.scope || 'all',
+          isCurrent: () => active && !options.signal?.aborted,
+        });
+      }
+      if (!initialized) {
+        await this.initialize();
+        snapshot = readSnapshot();
+      }
+      return refreshOwner.refresh({ ...options, snapshot });
     },
     setActive(next) {
       active = Boolean(next);

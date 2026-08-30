@@ -84,12 +84,11 @@ export function admitPropertyParcelJoin(addressMatch, payload, {
   if (!payload.rows.length) {
     fail('PARCEL_MISSING', 'The address has no exact OPA parcel match.');
   }
+  if (payload.rows.length !== 1) {
+    fail('PARCEL_AMBIGUOUS', 'The address maps to multiple OPA parcel rows.');
+  }
 
   const rows = payload.rows.map((row, index) => inspectParcelRow(row, index));
-  const parcelIds = new Set(rows.map((row) => row.parcelId));
-  if (parcelIds.size !== 1) {
-    fail('PARCEL_AMBIGUOUS', 'The address maps to multiple OPA parcel identifiers.');
-  }
   if (rows.some((row) => row.normalizedLocation !== addressMatch.normalizedAddress)) {
     fail('PARCEL_ADDRESS_MISMATCH', 'The geocoder and OPA normalized addresses disagree.');
   }

@@ -26,9 +26,7 @@ registerMessagePairs({
   'scope.diary.localLabel': ['Local', '本地'],
   'scope.diary.localAccessible': ['My Routes ratings are saved only on this device.', '“我的路线”评分仅保存在此设备上。'],
   'scope.diary.localDetails': ['Saved on this device · not shared online', '保存在此设备 · 不会在线共享'],
-  'scope.diary.sampleLabel': ['Sample', '示例'],
-  'scope.diary.sampleAccessible': ['Sample Community is illustrative, read-only sample data.', '“社区示例”是仅供说明的只读示例数据。'],
-  'scope.diary.sampleDetails': ['Illustrative sample · read-only · not shared', '说明性示例 · 只读 · 不会共享'],
+  'scope.diary.sampleTruth': ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.', '静态、虚构、只读示例；非实时、非用户提交、不代表任何总体、无官方背书，也不是安全或风险评级。'],
   'scope.diary.demoLabel': ['Demo', '演示'],
   'scope.diary.demoAccessible': ['Live Route uses demo routes; ratings are saved on this device after Save and are not shared online.', '“当前路线”使用演示路线；评分在保存后仅存于此设备，不会在线共享。'],
   'scope.diary.demoDetails': ['Published demo routes · ratings save on this device · not shared online', '已发布演示路线 · 评分保存在此设备 · 不会在线共享'],
@@ -115,12 +113,13 @@ export function describeDiaryDataScope(viewMode = 'live') {
     }, () => describeDiaryDataScope(viewMode));
   }
   if (viewMode === 'community') {
+    const sampleTruth = t('scope.diary.sampleTruth');
     return withLocaleResolver({
       mode: 'diary',
       kind: 'sample',
-      shortLabel: t('scope.diary.sampleLabel'),
-      accessibleLabel: t('scope.diary.sampleAccessible'),
-      details: Object.freeze([t('scope.diary.sampleDetails')]),
+      shortLabel: sampleTruth,
+      accessibleLabel: sampleTruth,
+      details: Object.freeze([sampleTruth]),
     }, () => describeDiaryDataScope(viewMode));
   }
   return withLocaleResolver({

@@ -38,7 +38,7 @@ export const helpMessagePairs = Object.freeze({
   'help.crimeSourceBasemap': ['Reference basemap', '参考底图'],
   'help.crimeSourceBasemapDetail': ['The default reference map uses OpenStreetMap tiles through MapLibre. Basemap labels and roads provide orientation and are not part of the crime calculation.', '默认参考地图通过 MapLibre 使用 OpenStreetMap 瓦片。底图上的道路和地名只用于定位，不参与犯罪数据计算。'],
   'help.diarySourceLocal': ['Your browser-local diary', '本浏览器中的个人日记'],
-  'help.diarySourceLocalDetail': ['Saved ratings, drafts, tags, notes, route geometry, and source version are stored in this browser using IndexedDB. They are not uploaded unless a separately configured service explicitly does so.', '已保存的评分、草稿、标签、备注、路线几何和来源版本通过 IndexedDB 保存在当前浏览器中；除非另行配置的服务明确执行上传，否则不会上传。'],
+  'help.diarySourceLocalDetail': ['Saved ratings, drafts, tags, notes, route geometry, and source version stay in this browser using IndexedDB. The current product has no upload or sharing capability. Any future upload or sharing feature must be a separate capability with a new product, privacy, and security review.', '已保存的评分、草稿、标签、备注、路线几何和来源版本通过 IndexedDB 保留在当前浏览器中。当前产品不存在上传或共享能力。未来若引入上传或共享功能，必须作为独立能力重新进行产品、隐私与安全审查。'],
   'help.diarySourceDemo': ['Demonstration routes and community samples', '演示路线与社区示例'],
   'help.diarySourceDemoDetail': ['Bundled GeoJSON provides demonstration routes and segment values. Community cards and their trends are fixed illustrative data, not measurements calculated from other users.', '内置 GeoJSON 提供演示路线和路段数值；社区卡片及其趋势是固定的展示数据，不是根据其他用户记录计算的。'],
   'help.diarySourceBasemap': ['Reference basemap', '参考底图'],

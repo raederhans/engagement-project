@@ -21,7 +21,7 @@ try {
   const result = await buildAreaIntelligenceMarts({
     sourceRoot: path.resolve(args.source),
     outputRoot: path.resolve(root, args.output || '.dfev1/area-intelligence/m2-baseline'),
-    protocolPath: path.resolve(root, 'scripts/data/area_intelligence_evaluation_protocol.v1.json'),
+    protocolPath: path.resolve(root, 'scripts/data/area_intelligence_evaluation_protocol.v2.json'),
     tractGeoJsonPath: path.resolve(root, 'public/data/tracts_phl.geojson'),
     outputPartitionCount: Number(args['output-partitions'] || 32),
     onProgress(event) {

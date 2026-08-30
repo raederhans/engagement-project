@@ -12,7 +12,7 @@ export function createSampleCommunityModel() {
     observations: Object.freeze([
       { id: 'c1', label: 'Example 1', labelKey: 'diary.sampleExample1', sample: true, text: 'South St Bridge can feel uncomfortable after dark.', textKey: 'diary.sampleObservation1' },
       { id: 'c2', label: 'Example 2', labelKey: 'diary.sampleExample2', sample: true, text: 'Watch for vehicles edging into the bike lane near 34th.', textKey: 'diary.sampleObservation2' },
-      { id: 'c3', label: 'Example 3', labelKey: 'diary.sampleExample3', sample: true, text: 'Pine Street illustrates a calmer route option in this sample.', textKey: 'diary.sampleObservation3' },
+      { id: 'c3', label: 'Example 3', labelKey: 'diary.sampleExample3', sample: true, text: 'This Pine Street example notes smoother pavement and fewer parked obstructions.', textKey: 'diary.sampleObservation3' },
     ]),
   });
 }
@@ -32,7 +32,7 @@ export function renderCommunityPanel(container, state = {}) {
   notice.appendChild(noticeText);
   container.appendChild(notice);
 
-  // Illustrative sample ratings
+  // Static illustrative experience ratings; never community or safety evidence.
   const segmentsCard = createDiaryCard();
   const concernTitle = createSectionTitle(t('diary.sampleRouteRatings'));
   setTranslatedText(concernTitle, 'diary.sampleRouteRatings');
@@ -52,7 +52,6 @@ export function renderCommunityPanel(container, state = {}) {
     setTranslatedText(tags, 'diary.tags', { tags: seg.tagsKey ? t(seg.tagsKey) : seg.tags });
     const badge = document.createElement('div');
     badge.className = 'diary-score-pill';
-    badge.classList.add(seg.score < 2.5 ? 'is-order-low' : seg.score < 4 ? 'is-order-middle' : 'is-order-high');
     badge.textContent = seg.score.toFixed(1);
     badge.setAttribute('aria-label', t('diary.sampleScoreLabel', { score: seg.score.toFixed(1) }));
     meta.appendChild(tags);

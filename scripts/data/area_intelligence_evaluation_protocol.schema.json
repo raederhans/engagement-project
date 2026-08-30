@@ -1,0 +1,461 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "engagement-area-intelligence-evaluation-protocol/v2",
+  "title": "Frozen Area Intelligence Evaluation Protocol v2",
+  "description": "Strict pre-performance protocol. Validation grants no serving, product, scientific, causal, safety, or deletion authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema",
+    "frozen_at",
+    "frozen_before_model_performance",
+    "target",
+    "exact_input_gate",
+    "admission",
+    "marts",
+    "rolling_folds",
+    "spatial_holdout",
+    "primary_tuple_vocabulary",
+    "models",
+    "leakage_guards",
+    "metrics",
+    "promotion_gate",
+    "numerical_stability_gate",
+    "artifact_policy",
+    "privacy",
+    "authority",
+    "current_evaluation_state",
+    "forbidden_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "schema": { "const": "engagement-area-intelligence-evaluation-protocol/v2" },
+    "frozen_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "frozen_before_model_performance": { "const": true },
+    "target": { "$ref": "#/definitions/target" },
+    "exact_input_gate": { "$ref": "#/definitions/exactInputGate" },
+    "admission": { "$ref": "#/definitions/admission" },
+    "marts": { "$ref": "#/definitions/marts" },
+    "rolling_folds": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/fold" }
+    },
+    "spatial_holdout": { "$ref": "#/definitions/spatialHoldout" },
+    "primary_tuple_vocabulary": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/primaryTuple" }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/seasonalNaiveModel" },
+          { "$ref": "#/definitions/movingAverageModel" },
+          { "$ref": "#/definitions/poissonModel" },
+          { "$ref": "#/definitions/negativeBinomialModel" }
+        ]
+      }
+    },
+    "leakage_guards": { "$ref": "#/definitions/leakageGuards" },
+    "metrics": { "$ref": "#/definitions/metrics" },
+    "promotion_gate": { "$ref": "#/definitions/promotionGate" },
+    "numerical_stability_gate": { "$ref": "#/definitions/numericalStabilityGate" },
+    "artifact_policy": { "$ref": "#/definitions/artifactPolicy" },
+    "privacy": { "$ref": "#/definitions/privacy" },
+    "authority": { "$ref": "#/definitions/authority" },
+    "current_evaluation_state": { "$ref": "#/definitions/currentEvaluationState" },
+    "forbidden_claims": { "$ref": "#/definitions/forbiddenClaims" }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grain",
+        "measure",
+        "week_definition",
+        "forecast_horizon_weeks",
+        "exclude_incomplete_source_week",
+        "forbidden_claims"
+      ],
+      "properties": {
+        "grain": { "const": "spatial-unit-week" },
+        "measure": { "const": "PPD reported incident count" },
+        "week_definition": { "const": "UTC Monday 00:00 inclusive to next Monday exclusive" },
+        "forecast_horizon_weeks": { "const": 1 },
+        "exclude_incomplete_source_week": { "const": true },
+        "forbidden_claims": { "$ref": "#/definitions/forbiddenClaims" }
+      }
+    },
+    "exactInputGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_schema",
+        "receipt_identity",
+        "receipt_sha256",
+        "required_mode",
+        "warehouse_schema",
+        "serving_eligible",
+        "required_authority",
+        "required_status_semantics",
+        "required_artifacts",
+        "mechanical_derivation"
+      ],
+      "properties": {
+        "receipt_schema": { "const": "engagement-phl-crime-warehouse-receipt/v3" },
+        "receipt_identity": { "$ref": "#/definitions/sha256" },
+        "receipt_sha256": { "$ref": "#/definitions/sha256" },
+        "required_mode": { "const": "official-local-candidate" },
+        "warehouse_schema": { "const": "engagement-phl-crime-event-warehouse/v1" },
+        "serving_eligible": { "const": false },
+        "required_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "producer_validated_local_candidate",
+            "integration_authority",
+            "serving_authority",
+            "deletion_authority"
+          ],
+          "properties": {
+            "producer_validated_local_candidate": { "const": true },
+            "integration_authority": { "const": false },
+            "serving_authority": { "const": false },
+            "deletion_authority": { "const": false }
+          }
+        },
+        "required_status_semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unavailable_is_zero", "partial_is_current", "stale_is_current", "zero_requires_complete_query"],
+          "properties": {
+            "unavailable_is_zero": { "const": false },
+            "partial_is_current": { "const": false },
+            "stale_is_current": { "const": false },
+            "zero_requires_complete_query": { "const": true }
+          }
+        },
+        "required_artifacts": {
+          "type": "array",
+          "const": ["warehouse_manifest", "backfill_checkpoint", "lineage_registry", "latest_quality_report", "canonical"]
+        },
+        "mechanical_derivation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_lifecycle", "event_time", "category", "tract", "fixed_grid", "ambiguous_or_unavailable", "acs"],
+      "properties": {
+        "event_lifecycle": { "const": "active-only" },
+        "event_time": { "const": "valid-required" },
+        "category": { "const": "mapped-versioned-crosswalk-required" },
+        "tract": { "const": "spatial.tract.status=mapped-only" },
+        "fixed_grid": { "const": "spatial.grid.status=mapped-only" },
+        "ambiguous_or_unavailable": { "const": "exclude-and-audit-never-force-assign" },
+        "acs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowed_statuses", "model_feature_use", "audit_use", "race_income_poverty"],
+          "properties": {
+            "allowed_statuses": { "type": "array", "const": ["available", "unavailable", "incompatible-vintage"] },
+            "model_feature_use": { "const": "none-in-v1-baselines" },
+            "audit_use": { "const": "population-estimate-and-moe-only-when-temporally-compatible" },
+            "race_income_poverty": { "const": "unavailable" }
+          }
+        }
+      }
+    },
+    "marts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_types", "sparse_week_rows", "zero_fill_stage", "categories", "lineage_required"],
+      "properties": {
+        "unit_types": { "type": "array", "const": ["tract", "fixed-grid"] },
+        "sparse_week_rows": { "const": true },
+        "zero_fill_stage": { "const": "evaluation-only-within-each-admitted-unit-coverage" },
+        "categories": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primary", "tract_audit"],
+          "properties": {
+            "primary": { "const": "all-reported-incidents" },
+            "tract_audit": { "type": "array", "const": ["person", "property", "vehicle", "financial", "public_order", "other"] }
+          }
+        },
+        "lineage_required": {
+          "type": "array",
+          "const": ["source_snapshot_ids", "warehouse_manifest_identity", "crosswalk_version", "tract_boundary_id", "grid_scheme", "acs_snapshot_id", "source_time_coverage"]
+        }
+      }
+    },
+    "fold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "train_start", "train_end_exclusive", "test_start", "test_end_exclusive"],
+      "properties": {
+        "id": { "enum": ["fold-2019", "fold-2021", "fold-2023", "fold-2025-2026"] },
+        "train_start": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "train_end_exclusive": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "test_start": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "test_end_exclusive": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    },
+    "spatialHoldout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["block_definition", "assignment", "holdout_remainder", "training_policy", "report_slices"],
+      "properties": {
+        "block_definition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fixed-grid", "tract"],
+          "properties": {
+            "fixed-grid": { "const": "contiguous 4-by-4 source grid cells" },
+            "tract": { "const": "tract representative point assigned to the same 2km projected block scheme" }
+          }
+        },
+        "assignment": { "const": "sha256(block_id) unsigned-prefix modulo 5" },
+        "holdout_remainder": { "const": 0 },
+        "training_policy": { "const": "Poisson and negative-binomial fits exclude held-out blocks" },
+        "report_slices": { "type": "array", "const": ["temporal-non-heldout", "spatial-heldout"] }
+      }
+    },
+    "primaryTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fold", "unit_type", "holdout_slice"],
+      "properties": {
+        "fold": { "enum": ["fold-2019", "fold-2021", "fold-2023", "fold-2025-2026"] },
+        "unit_type": { "enum": ["tract", "fixed-grid"] },
+        "holdout_slice": { "enum": ["temporal-non-heldout", "spatial-heldout"] }
+      }
+    },
+    "seasonalNaiveModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "lag_weeks"],
+      "properties": {
+        "id": { "const": "seasonal-naive-52w" },
+        "kind": { "const": "seasonal-naive" },
+        "lag_weeks": { "const": 52 }
+      }
+    },
+    "movingAverageModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "window_weeks"],
+      "properties": {
+        "id": { "enum": ["moving-average-4w", "moving-average-13w"] },
+        "kind": { "const": "moving-average" },
+        "window_weeks": { "enum": [4, 13] }
+      }
+    },
+    "poissonModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "features", "coefficient_fit", "max_iterations", "coefficient_abs_limit"],
+      "properties": {
+        "id": { "const": "poisson-log-link-v1" },
+        "kind": { "const": "poisson" },
+        "features": { "$ref": "#/definitions/countModelFeatures" },
+        "coefficient_fit": { "const": "deterministic-clipped-IRLS" },
+        "max_iterations": { "const": 6 },
+        "coefficient_abs_limit": { "const": 12 }
+      }
+    },
+    "negativeBinomialModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "features", "coefficient_fit", "poisson_initialization", "dispersion", "max_iterations", "coefficient_abs_limit"],
+      "properties": {
+        "id": { "const": "negative-binomial-log-link-v1" },
+        "kind": { "const": "negative-binomial-nb2" },
+        "features": { "$ref": "#/definitions/countModelFeatures" },
+        "coefficient_fit": { "const": "deterministic-clipped-IRLS" },
+        "poisson_initialization": { "const": true },
+        "dispersion": { "const": "training-only-method-of-moments-clipped-0.000001-to-10" },
+        "max_iterations": { "const": 4 },
+        "coefficient_abs_limit": { "const": 12 }
+      }
+    },
+    "countModelFeatures": {
+      "type": "array",
+      "const": ["intercept", "log1p-lag52", "log1p-ma4", "log1p-ma13", "week-sin", "week-cos"]
+    },
+    "leakageGuards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_cutoff", "seasonal_lag", "moving_windows", "fold_training", "spatial_training"],
+      "properties": {
+        "feature_cutoff": { "const": "strictly-before-predicted-week" },
+        "seasonal_lag": { "const": "exactly-52-prior-weeks" },
+        "moving_windows": { "const": "prior-observed-weeks-only" },
+        "fold_training": { "const": "test-weeks-never-fit-coefficients-dispersion-or-intervals" },
+        "spatial_training": { "const": "held-out-blocks-never-fit-global-count-models" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "interval_nominal", "baseline_interval", "count_model_intervals", "data_volume_bands_mean_weekly_count", "acs_population_audit_bands"],
+      "properties": {
+        "required": { "type": "array", "const": ["mae", "poisson_deviance", "negative_binomial_deviance", "prediction_interval_90_coverage", "relative_mae_gain_vs_seasonal_naive"] },
+        "interval_nominal": { "const": 0.9 },
+        "baseline_interval": { "const": "training-only-absolute-residual-90th-percentile" },
+        "count_model_intervals": { "const": "distributional-central-90-percent" },
+        "data_volume_bands_mean_weekly_count": { "$ref": "#/definitions/dataVolumeBands" },
+        "acs_population_audit_bands": { "$ref": "#/definitions/acsPopulationBands" }
+      }
+    },
+    "dataVolumeBands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "medium", "high"],
+      "properties": {
+        "low": { "type": "array", "const": [0, 1] },
+        "medium": { "type": "array", "const": [1, 5] },
+        "high": { "type": "array", "const": [5, null] }
+      }
+    },
+    "acsPopulationBands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "medium", "high"],
+      "properties": {
+        "low": { "type": "array", "const": [0, 2500] },
+        "medium": { "type": "array", "const": [2500, 4500] },
+        "high": { "type": "array", "const": [4500, null] }
+      }
+    },
+    "promotionGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible_models", "minimum_observations_per_primary_slice", "minimum_relative_mae_gain_each_fold_unit_and_holdout_slice", "minimum_aggregate_relative_mae_gain", "acceptable_interval_coverage_inclusive", "finite_deviance_required", "maximum_category_mae_regression_vs_seasonal", "all_primary_slices_must_pass", "failure_result"],
+      "properties": {
+        "eligible_models": { "type": "array", "const": ["poisson-log-link-v1", "negative-binomial-log-link-v1"] },
+        "minimum_observations_per_primary_slice": { "const": 1000 },
+        "minimum_relative_mae_gain_each_fold_unit_and_holdout_slice": { "const": 0.02 },
+        "minimum_aggregate_relative_mae_gain": { "const": 0.05 },
+        "acceptable_interval_coverage_inclusive": { "type": "array", "const": [0.85, 0.95] },
+        "finite_deviance_required": { "const": true },
+        "maximum_category_mae_regression_vs_seasonal": { "const": 0.1 },
+        "all_primary_slices_must_pass": { "const": true },
+        "failure_result": { "const": "honest-no-promotion-historical-trends-only" }
+      }
+    },
+    "numericalStabilityGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finite_coefficients_required", "coefficient_abs_limit_inclusive", "convergence", "singular_fit_allowed", "prediction", "dispersion_alpha_inclusive", "interval", "failure_result"],
+      "properties": {
+        "finite_coefficients_required": { "const": true },
+        "coefficient_abs_limit_inclusive": { "const": 12 },
+        "convergence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metric", "threshold_exclusive", "required_before_iteration_limit"],
+          "properties": {
+            "metric": { "const": "maximum-absolute-coefficient-change" },
+            "threshold_exclusive": { "type": "number", "exclusiveMinimum": 0, "const": 1e-7 },
+            "required_before_iteration_limit": { "const": true }
+          }
+        },
+        "singular_fit_allowed": { "const": false },
+        "prediction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["finite_required", "minimum_inclusive", "maximum_inclusive", "log_mean_abs_limit_inclusive"],
+          "properties": {
+            "finite_required": { "const": true },
+            "minimum_inclusive": { "const": 0 },
+            "maximum_inclusive": { "type": "number", "exclusiveMinimum": 0, "const": 162754.79141900392 },
+            "log_mean_abs_limit_inclusive": { "const": 12 }
+          }
+        },
+        "dispersion_alpha_inclusive": { "type": "array", "const": [0.000001, 10] },
+        "interval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nominal_probability", "baseline_calibration", "count_model_calibration", "primary_slice_coverage_inclusive", "aggregate_bypass_allowed"],
+          "properties": {
+            "nominal_probability": { "const": 0.9 },
+            "baseline_calibration": { "const": "training-only-absolute-residual-90th-percentile" },
+            "count_model_calibration": { "const": "distributional-central-90-percent" },
+            "primary_slice_coverage_inclusive": { "type": "array", "const": [0.85, 0.95] },
+            "aggregate_bypass_allowed": { "const": false }
+          }
+        },
+        "failure_result": { "const": "honest-no-promotion-historical-trends-only" }
+      }
+    },
+    "artifactPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["large_outputs", "committable", "forbidden", "hash_meaning"],
+      "properties": {
+        "large_outputs": { "const": "ignored-task-owned-only" },
+        "committable": { "const": "schemas-code-small-safe-reports-serving-status-and-synthetic-tests" },
+        "forbidden": { "type": "array", "const": ["event-level-coordinates", "generalized-addresses", "raw-events", "canonical-events"] },
+        "hash_meaning": { "const": "input-or-artifact-byte-identity-only-not-model-correctness" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregate_only", "event_level_data_included", "coordinates_included", "generalized_locations_included", "raw_or_canonical_events_included", "source_record_ids_included"],
+      "properties": {
+        "aggregate_only": { "const": true },
+        "event_level_data_included": { "const": false },
+        "coordinates_included": { "const": false },
+        "generalized_locations_included": { "const": false },
+        "raw_or_canonical_events_included": { "const": false },
+        "source_record_ids_included": { "const": false }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_evaluation", "serving", "product_promotion", "scientific", "causal", "safety", "deletion"],
+      "properties": {
+        "local_evaluation": { "const": false },
+        "serving": { "const": false },
+        "product_promotion": { "const": false },
+        "scientific": { "const": false },
+        "causal": { "const": false },
+        "safety": { "const": false },
+        "deletion": { "const": false }
+      }
+    },
+    "currentEvaluationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "availability", "selected_model", "failure_result"],
+      "properties": {
+        "status": { "const": "not-promoted" },
+        "availability": { "const": "unavailable" },
+        "selected_model": { "type": "null" },
+        "failure_result": { "const": "honest-no-promotion-historical-trends-only" }
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "const": ["individual victim probability", "absolute safety", "safety score", "safest area", "safest route", "causal effect"]
+    }
+  }
+}

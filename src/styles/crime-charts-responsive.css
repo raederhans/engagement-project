@@ -440,8 +440,6 @@
 }
 
 .area-intelligence__heading > p:last-child,
-.area-intelligence__historical,
-.area-intelligence__limits,
 .area-intelligence__status {
   margin: 5px 0 0;
   color: var(--ink-muted);
@@ -453,36 +451,178 @@
   font-weight: 700;
 }
 
-.area-intelligence__status--unavailable {
-  color: #92400e;
-}
-
-.area-intelligence__forecast {
+.area-intelligence__content {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0 0;
+  gap: 18px;
+  margin-top: 14px;
+  animation: area-intelligence-content-arrive 220ms ease-out both;
 }
 
-.area-intelligence__forecast > div {
+.area-intelligence__history h4,
+.area-intelligence__unavailable h4,
+.area-intelligence__method h5,
+.area-intelligence__ledger h5,
+.area-intelligence__fit-states h5 {
+  margin: 0;
+  color: var(--ink);
+}
+
+.area-intelligence__history h4,
+.area-intelligence__unavailable h4 {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.area-intelligence__kicker {
+  margin: 0 0 4px;
+  color: var(--brand-strong);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.area-intelligence__intro,
+.area-intelligence__boundary,
+.area-intelligence__unavailable p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.area-intelligence__evidence-grid,
+.area-intelligence__gate-facts,
+.area-intelligence__ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+  margin: 13px 0 0;
+}
+
+.area-intelligence__evidence-grid > div,
+.area-intelligence__gate-facts > div,
+.area-intelligence__ledger-grid > div {
   min-width: 0;
-  padding: 9px;
-  border: 1px solid rgba(129, 154, 176, 0.35);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.86);
+  padding: 8px 0;
+  border-top: 1px solid rgba(129, 154, 176, 0.35);
 }
 
-.area-intelligence__forecast dt {
+.area-intelligence__evidence-grid dt,
+.area-intelligence__gate-facts dt,
+.area-intelligence__ledger-grid dt {
   color: var(--ink-muted);
   font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.area-intelligence__forecast dd {
+.area-intelligence__evidence-grid dd,
+.area-intelligence__gate-facts dd,
+.area-intelligence__ledger-grid dd {
   margin: 4px 0 0;
   color: var(--ink);
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.area-intelligence__method {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.area-intelligence__ledger,
+.area-intelligence__fit-states {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.area-intelligence__ledger h5,
+.area-intelligence__fit-states h5 {
+  font-size: 12px;
+}
+
+.area-intelligence__ledger p,
+.area-intelligence__fit-states + p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.area-intelligence__ledger-grid {
+  margin-top: 10px;
+}
+
+.area-intelligence__method h5 {
+  font-size: 12px;
+}
+
+.area-intelligence__method ul {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding-left: 17px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.area-intelligence__method li::marker {
+  color: var(--brand);
+}
+
+.area-intelligence__boundary {
+  padding-left: 9px;
+  border-left: 2px solid rgba(10, 108, 116, 0.5);
+}
+
+.area-intelligence__unavailable {
+  position: relative;
+  padding: 13px 14px 13px 17px;
+  border-left: 3px solid #b45309;
+  border-radius: 0 9px 9px 0;
+  background: rgba(255, 247, 237, 0.72);
+}
+
+.area-intelligence__unavailable::before {
+  position: absolute;
+  top: 16px;
+  left: -6px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff7ed;
+  border-radius: 50%;
+  background: #b45309;
+  content: '';
+  animation: area-intelligence-status-arrive 360ms ease-out both;
+}
+
+.area-intelligence__unavailable .area-intelligence__kicker,
+.area-intelligence__unavailable h4 {
+  color: #92400e;
+}
+
+.area-intelligence__gate-facts {
+  margin-top: 11px;
+}
+
+.area-intelligence__no-fallback {
+  font-weight: 700;
+}
+
+@keyframes area-intelligence-content-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes area-intelligence-status-arrive {
+  from { opacity: 0; transform: scale(0.45); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .residential-stability {
@@ -583,9 +723,28 @@
 }
 
 @media (max-width: 460px) {
-  .area-intelligence__forecast,
+  .area-intelligence__evidence-grid,
+  .area-intelligence__gate-facts,
+  .area-intelligence__ledger-grid,
   .residential-stability__metrics {
     grid-template-columns: 1fr;
+  }
+
+  .area-intelligence__content {
+    gap: 15px;
+  }
+
+  .area-intelligence__unavailable {
+    padding-right: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area-intelligence__content,
+  .area-intelligence__unavailable,
+  .area-intelligence__unavailable::before {
+    animation: none;
+    transition: none;
   }
 }
 

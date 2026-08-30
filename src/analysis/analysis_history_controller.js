@@ -2,16 +2,19 @@ import {
   canSaveAnalysis,
   createAnalysisArtifact,
   deriveAnalysisDataStatus,
+  projectAnalysisArtifactForPublic,
 } from './analysis_artifact.js';
 import {
   createAnalysisRepository,
   createIndexedDbAnalysisAdapter,
+  LEGACY_UNAVAILABLE_STATUS,
 } from './analysis_repository.js';
 import { getLastComparisonSnapshot, renderSavedComparison } from '../compare/card.js';
 import {
   CRIME_VIEW_QUERY_KEYS,
+  CRIME_STATE_ACTIONS,
   encodeCrimeViewState,
-  replaceCrimeViewState,
+  mutateCrimeViewState,
 } from '../state/crime_view_state.js';
 import { setAnalysisMode, setViewMode } from '../state/store.js';
 import { downloadTextFile } from '../utils/export_analysis.js';
@@ -56,8 +59,12 @@ function provenanceFor(state, currentCrimeProvenance = {}) {
 }
 
 export function buildAnalysisShareUrl(artifact, currentHref) {
+  if (artifact?.availability === LEGACY_UNAVAILABLE_STATUS) {
+    throw new Error('Legacy private analysis is unavailable for sharing.');
+  }
+  const publicArtifact = projectAnalysisArtifactForPublic(artifact);
   const url = new URL(currentHref);
-  const viewParams = new URLSearchParams(encodeCrimeViewState(artifact?.viewState || {}));
+  const viewParams = new URLSearchParams(encodeCrimeViewState(publicArtifact.viewState));
   for (const key of CRIME_VIEW_QUERY_KEYS) url.searchParams.delete(key);
   for (const key of PRIVATE_SHARE_KEYS) url.searchParams.delete(key);
   for (const [key, value] of viewParams) url.searchParams.set(key, value);
@@ -72,7 +79,12 @@ export function createAnalysisHistoryController({
   createArtifact = createAnalysisArtifact,
   getComparisonSnapshot = getLastComparisonSnapshot,
   renderSavedComparison: renderComparison = renderSavedComparison,
-  replaceViewState = replaceCrimeViewState,
+  replaceViewState = (target, value, options) => mutateCrimeViewState(
+    target,
+    CRIME_STATE_ACTIONS.RESTORE_HISTORY,
+    value,
+    options,
+  ),
   setAnalysisMode: applyAnalysisMode = setAnalysisMode,
   setViewMode: applyViewMode = setViewMode,
   syncControls = () => {},
@@ -84,7 +96,7 @@ export function createAnalysisHistoryController({
   copyText = (value) => navigator.clipboard.writeText(value),
   downloadArtifact = (artifact) => downloadTextFile(
     `engagement-analysis-${artifact.id}.json`,
-    `${JSON.stringify(artifact, null, 2)}\n`,
+    `${JSON.stringify(projectAnalysisArtifactForPublic(artifact), null, 2)}\n`,
     'application/json',
   ),
   confirmDelete = (artifact) => window.confirm(t('history.deleteConfirm', { title: artifact.title })),
@@ -114,7 +126,9 @@ export function createAnalysisHistoryController({
       : null;
     const items = cachedList.items.map((artifact) => ({
       ...artifact,
-      dataStatus: deriveAnalysisDataStatus(artifact.provenance, currentProvenance),
+      dataStatus: artifact.availability === LEGACY_UNAVAILABLE_STATUS
+        ? LEGACY_UNAVAILABLE_STATUS
+        : deriveAnalysisDataStatus(artifact.provenance, currentProvenance),
     }));
     view.render({
       items,
@@ -189,6 +203,10 @@ export function createAnalysisHistoryController({
     }
     if (!isCurrentRestore(token)) return { status: 'superseded' };
     if (!artifact) return { status: 'missing' };
+    if (artifact.availability === LEGACY_UNAVAILABLE_STATUS) {
+      view.showStatus('Legacy private analysis is unavailable and was not restored.', 'warning');
+      return { status: LEGACY_UNAVAILABLE_STATUS };
+    }
 
     view.showSnapshot(artifact);
     renderComparison(artifact.resultSummary);
@@ -253,6 +271,12 @@ export function createAnalysisHistoryController({
     },
     async rename(id, title) {
       if (!String(title || '').trim()) return { status: 'cancelled' };
+      const current = await repository.get(id);
+      if (!current) return { status: 'missing' };
+      if (current.availability === LEGACY_UNAVAILABLE_STATUS) {
+        view.showStatus('Legacy private analysis is unavailable and cannot be re-saved.', 'warning');
+        return { status: LEGACY_UNAVAILABLE_STATUS };
+      }
       const artifact = await repository.rename(id, title);
       await load();
       return artifact ? { status: 'renamed', artifact } : { status: 'missing' };
@@ -268,12 +292,20 @@ export function createAnalysisHistoryController({
     async export(id) {
       const artifact = await repository.get(id);
       if (!artifact) return { status: 'missing' };
-      downloadArtifact(artifact);
+      if (artifact.availability === LEGACY_UNAVAILABLE_STATUS) {
+        view.showStatus('Legacy private analysis is unavailable for export.', 'warning');
+        return { status: LEGACY_UNAVAILABLE_STATUS };
+      }
+      downloadArtifact(projectAnalysisArtifactForPublic(artifact));
       return { status: 'exported' };
     },
     async share(id) {
       const artifact = await repository.get(id);
       if (!artifact) return { status: 'missing' };
+      if (artifact.availability === LEGACY_UNAVAILABLE_STATUS) {
+        view.showStatus('Legacy private analysis is unavailable for sharing.', 'warning');
+        return { status: LEGACY_UNAVAILABLE_STATUS };
+      }
       const url = buildAnalysisShareUrl(artifact, currentHref());
       await copyText(url);
       view.showStatus(t('history.shareCopied'), 'success');

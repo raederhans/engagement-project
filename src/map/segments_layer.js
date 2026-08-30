@@ -22,7 +22,7 @@ import {
 /**
  * Route Safety Diary - Segments Layer
  *
- * Purpose: Render street segments with rating colors and confidence widths.
+ * Purpose: Render demonstration street segments and static illustrative cards.
  */
 
 const COLOR_BINS = [
@@ -283,8 +283,6 @@ function registerClickHandlers(map, layerId, {
   signal,
   isCurrent = () => true,
   canInteract = () => true,
-  onAction,
-  submitFeedback,
 } = {}) {
   cleanupClickHandlers(map, layerId);
   if (!map || !layerId) return;
@@ -313,17 +311,12 @@ function registerClickHandlers(map, layerId, {
       maxWidth: '320px',
     });
 
-    const state = { mode: 'view', rating: 0, selectedTags: new Set() };
+    const state = { submissionResult: null };
     const render = () => {
       if (!interactionIsCurrent()) return;
       const html = buildSegmentCardHtml(props, state);
       popup.setLngLat(event.lngLat).setHTML(html).addTo(map);
-      wirePopupInteractions(popup, { ownerIsCurrent: interactionIsCurrent, onAction });
-      wireSegmentCardBehavior(popup, props, state, render, {
-        signal,
-        isCurrent: interactionIsCurrent,
-        submitFeedback,
-      });
+      wireSegmentCardBehavior(popup);
     };
     render();
     activePinnedPopup = popup;
@@ -349,31 +342,6 @@ function registerClickHandlers(map, layerId, {
   clickRegistrations.set(layerId, { clickHandler, mapClickHandler });
 }
 
-function wirePopupInteractions(popup, {
-  ownerIsCurrent = () => true,
-  onAction,
-} = {}) {
-  if (!popup || !popup.getElement) return;
-  const el = popup.getElement();
-  const content = el?.querySelector('.maplibregl-popup-content');
-  if (!content) return;
-  content.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-diary-action]');
-    if (!target) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (!ownerIsCurrent()) return;
-    const disabled = target.hasAttribute('disabled');
-    if (disabled) return;
-    const action = target.getAttribute('data-diary-action');
-    const segmentId = target.getAttribute('data-segment-id');
-    target.setAttribute('disabled', 'disabled');
-    if (typeof onAction === 'function' && action && segmentId) {
-      onAction({ action, segmentId });
-    }
-  });
-}
-
 function deriveTitle(props) {
   const name = props[STREET_NAME_PROP] || props.name || props.street || props[SEGMENT_ID_PROP] || props.id || t('segment.name');
   const dir = (props.direction || props.dir || props.oneway || '').toString().toUpperCase();
@@ -385,27 +353,6 @@ function deriveTitle(props) {
   else if (dir === 'SB') dirLabel = t('segment.southbound');
   const titled = dirLabel ? `${name} (${dirLabel})` : name;
   return titled;
-}
-
-function riskDescriptor(mean) {
-  if (mean < 2.5) return { label: t('segment.riskHigh'), className: 'is-high' };
-  if (mean < 4) return { label: t('segment.riskModerate'), className: 'is-moderate' };
-  return { label: t('segment.riskSafe'), className: 'is-safe' };
-}
-
-function confidenceLabel(nEff) {
-  if (nEff >= 50) return t('segment.confidenceHigh');
-  if (nEff >= 10) return t('segment.confidenceMedium');
-  return t('segment.confidenceLow');
-}
-
-function renderStars(value, { editable = false } = {}) {
-  const stars = [];
-  for (let i = 1; i <= 5; i += 1) {
-    const filled = value >= i;
-    stars.push(`<button type="button" class="diary-star ${filled ? 'filled' : ''} ${editable ? '' : 'readonly'}" data-role="star" data-value="${i}" ${editable ? '' : 'tabindex="-1" aria-hidden="true"'}>★</button>`);
-  }
-  return stars.join('');
 }
 
 function tagLabel(id) {
@@ -433,54 +380,23 @@ function deriveTopIssues(props) {
     Object.entries(props.tag_counts).forEach(([id, count]) => tags.push({ id, count }));
   }
   if (!tags.length) {
-    tags.push({ id: 'aggressive_drivers', count: 85 });
-    tags.push({ id: 'poor_lighting', count: 42 });
-    tags.push({ id: 'construction', count: 12 });
+    tags.push({ id: 'aggressive_drivers', count: null });
+    tags.push({ id: 'poor_lighting', count: null });
+    tags.push({ id: 'construction', count: null });
   }
   return tags.slice(0, 3);
 }
 
-const ISSUE_TAGS = {
-  infrastructure: ['potholes', 'missing_sidewalk', 'poor_signage', 'construction'],
-  environment: ['poor_lighting', 'blind_spots', 'flooding'],
-  behavior: ['aggressive_drivers', 'speeding', 'illegal_parking', 'crime_risk'],
-};
-
-const RATING_COPY = {
-  1: 'segment.rating1',
-  2: 'segment.rating2',
-  3: 'segment.rating3',
-  4: 'segment.rating4',
-  5: 'segment.rating5',
-};
-
 export function buildSegmentCardHtml(props, state = {}) {
-  const mean = Number(props[SCORE_PROP] ?? props.mean ?? 0) || 0;
-  const nEff = Number(props[NEFF_PROP] ?? props.N_EFF ?? 0) || 0;
   const topIssues = deriveTopIssues(props);
-  const segmentId = String(props[SEGMENT_ID_PROP] || props.id || '');
-  const safeSegmentId = escapeHtml(segmentId);
   const title = escapeHtml(deriveTitle(props));
-  const agreeDisabled = props.__diaryVotes?.agreeDisabled;
-  const saferDisabled = props.__diaryVotes?.saferDisabled;
-  const mode = state.mode || 'view';
-  const selectedTags = Array.from(state.selectedTags || []);
-  const rating = state.rating || 0;
   const submissionResult = state.submissionResult;
-  const submissionError = state.submissionError;
-  const risk = riskDescriptor(mean);
-  const confidence = confidenceLabel(nEff);
-  const scoreDisplay = mean ? mean.toFixed(1) : '—';
-  const ratingCopy = rating ? t(RATING_COPY[rating]) : t('segment.selectSafety');
-  const readonlyStars = renderStars(Math.round(mean), { editable: false });
-  const editableStars = renderStars(rating, { editable: true });
+  const boundary = escapeHtml(t('segment.sampleBoundary'));
   const topIssuesHtml = topIssues.length
     ? topIssues
       .map((t) => {
         const label = escapeHtml(tagLabel(String(t.id || '')));
-        const count = Number(t.count);
-        const countLabel = Number.isFinite(count) && count > 0 ? ` (${count})` : '';
-        return `<span class="diary-chip ${tagCategory(t.id)}">${label}${countLabel}</span>`;
+        return `<span class="diary-chip ${tagCategory(t.id)}">${label}</span>`;
       })
       .join('')
     : `<div class="diary-muted-text">${escapeHtml(t('segment.noIssues'))}</div>`;
@@ -488,142 +404,30 @@ export function buildSegmentCardHtml(props, state = {}) {
   const submissionLine = submissionResult
     ? `<div class="diary-muted-text diary-segment-feedback-status">${segmentSubmissionMessage(submissionResult)}</div>`
     : '';
-  const errorLine = submissionError
-    ? `<div class="diary-muted-text diary-segment-feedback-status is-error" role="alert">${escapeHtml(t('segment.feedbackFailed'))}</div>`
-    : '';
-
-  const inputTags = Object.entries(ISSUE_TAGS).map(([cat, items]) => {
-    return `
-      <div class="diary-segment-issue-group">
-        <div class="diary-muted-text diary-segment-issue-category">${escapeHtml(t(`segment.category.${cat}`))}</div>
-        <div class="diary-chip-group">
-          ${items
-            .map((item) => {
-              const active = selectedTags.includes(item);
-              return `<button type="button" class="diary-chip ${tagCategory(item)} ${active ? 'is-active' : ''}" data-role="tag" data-tag="${escapeHtml(item)}">${escapeHtml(tagLabel(item))}</button>`;
-            })
-            .join('')}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  const saferBtn = `<button data-diary-action="safer" data-segment-id="${safeSegmentId}" ${saferDisabled ? 'disabled' : ''} aria-disabled="${saferDisabled}" class="diary-chip diary-chip--safer">${escapeHtml(t('segment.feelsSafer'))}</button>`;
-
-  if (mode === 'input') {
-    return `
-      <div class="diary-segment-card">
-        <div class="diary-segment-header">
-          <div class="diary-segment-title">${title}</div>
-          <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
-        </div>
-        <div class="diary-segment-stars diary-segment-stars--input">${editableStars}</div>
-        <div class="diary-muted-text">${ratingCopy}</div>
-        ${errorLine}
-        <div class="diary-segment-section-title">${escapeHtml(t('segment.mainIssues'))}</div>
-        ${inputTags}
-        <div class="diary-segment-actions diary-segment-actions--end">
-          <button type="button" class="diary-chip secondary" data-role="cancel-feedback">${escapeHtml(t('segment.cancel'))}</button>
-          <button type="button" class="diary-chip primary" data-role="submit-feedback" ${rating < 1 ? 'disabled' : ''}>${escapeHtml(t('segment.submitRating'))}</button>
-        </div>
-      </div>
-    `;
-  }
-
   return `
-    <div class="diary-segment-card">
+    <div class="diary-segment-card" role="group" aria-label="${boundary}" title="${boundary}" data-sample-status="static-invented-read-only" data-sample-disclosure="${boundary}">
       <div class="diary-segment-header">
         <div class="diary-segment-title">${title}</div>
         <button class="diary-segment-close" data-role="close" aria-label="${escapeHtml(t('segment.close'))}">×</button>
       </div>
       <div class="diary-muted-text diary-segment-heading">${escapeHtml(t('segment.communityScore'))}</div>
-      <div class="diary-segment-score-row">
-        <div class="diary-segment-score">${scoreDisplay}</div>
-        <div>
-          <div class="diary-segment-stars">${readonlyStars}</div>
-          <div class="diary-segment-risk-label"><span class="diary-segment-risk ${risk.className}">${escapeHtml(risk.label)}</span> — ${escapeHtml(t('segment.basedOnReports', { count: nEff || t('segment.few'), confidence }))}</div>
-          ${submissionLine}
-        </div>
-      </div>
+      <p class="diary-muted-text diary-segment-sample-boundary">${boundary}</p>
+      ${submissionLine}
       <div class="diary-segment-issues-summary">
         <div class="diary-muted-text diary-segment-heading">${escapeHtml(t('segment.topIssues'))}</div>
         <div class="diary-chip-group diary-chip-group--compact">${topIssuesHtml}</div>
       </div>
-      <div class="diary-segment-actions">
-        <button data-diary-action="agree" data-segment-id="${safeSegmentId}" class="diary-chip secondary" ${agreeDisabled ? 'disabled' : ''}>${escapeHtml(t('segment.agree'))}</button>
-        <button data-role="enter-edit" class="diary-chip primary">${escapeHtml(t('segment.addFeedback'))}</button>
-      </div>
-      <div class="diary-segment-safer-action">${saferBtn}</div>
     </div>
   `;
 }
 
-function wireSegmentCardBehavior(popup, props, state, rerender, {
-  signal,
-  isCurrent = () => true,
-  submitFeedback,
-} = {}) {
+function wireSegmentCardBehavior(popup) {
   const el = popup.getElement();
   const card = el?.querySelector('.diary-segment-card');
   if (!card) return;
   card.querySelectorAll('[data-role="close"]').forEach((btn) => {
     btn.addEventListener('click', () => popup.remove());
   });
-  const enter = card.querySelector('[data-role="enter-edit"]');
-  if (enter) {
-    enter.addEventListener('click', () => {
-      state.mode = 'input';
-      if (!state.rating) state.rating = Math.max(1, Math.round(Number(props[SCORE_PROP] ?? props.mean ?? 3)));
-      rerender();
-    });
-  }
-  card.querySelectorAll('[data-role="star"]').forEach((star) => {
-    star.addEventListener('click', () => {
-      const val = Number(star.getAttribute('data-value')) || 0;
-      state.rating = val;
-      rerender();
-    });
-  });
-  card.querySelectorAll('[data-role="tag"]').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const id = chip.getAttribute('data-tag');
-      if (!state.selectedTags) state.selectedTags = new Set();
-      if (state.selectedTags.has(id)) state.selectedTags.delete(id);
-      else state.selectedTags.add(id);
-      rerender();
-    });
-  });
-  const cancel = card.querySelector('[data-role="cancel-feedback"]');
-  if (cancel) {
-    cancel.addEventListener('click', () => {
-      state.mode = 'view';
-      state.rating = 0;
-      state.selectedTags = new Set();
-      state.submissionResult = null;
-      state.submissionError = '';
-      rerender();
-    });
-  }
-  const submit = card.querySelector('[data-role="submit-feedback"]');
-  if (submit) {
-    submit.addEventListener('click', () => {
-      if (signal?.aborted || !isCurrent()) return;
-      if (!state.rating) return;
-      submit.disabled = true;
-      void submitSegmentCardFeedback({
-        props,
-        state,
-        rerender,
-        submitFeedback,
-        signal,
-        isCurrent,
-      }).catch(() => {
-        if (signal?.aborted || !isCurrent()) return;
-        state.submissionError = 'submission_failed';
-        rerender();
-      });
-    });
-  }
 }
 
 export async function submitSegmentCardFeedback({
@@ -652,14 +456,8 @@ export async function submitSegmentCardFeedback({
   return response;
 }
 
-function segmentSubmissionMessage(response) {
-  if (response?.persisted === true) {
-    return t('segment.saved');
-  }
-  if (response?.mode === 'demo' && response?.persisted === false) {
-    return t('segment.demoOnly');
-  }
-  return t('segment.persistenceUnknown');
+function segmentSubmissionMessage() {
+  return t('segment.publicWriteUnavailable');
 }
 
 function ensureSource(map, id, data) {

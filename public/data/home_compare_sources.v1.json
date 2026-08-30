@@ -1,11 +1,11 @@
 {
   "schema": "engagement-home-compare-source-registry/v1",
-  "verified_at": "2026-08-21T11:05:13.281Z",
+  "verified_at": "2026-08-29T19:08:32.165Z",
   "publisher": "City of Philadelphia unless a source entry says otherwise",
   "terms": {
     "label": "City of Philadelphia terms of use",
     "url": "https://www.phila.gov/terms-of-use/",
-    "limitation": "City data is provided as-is; successful transport, a declared update cadence, or a row count does not prove accuracy, completeness, currentness, or product authority."
+    "limitation": "City data is provided as-is; successful transport, a declared update cadence, or a row count does not prove accuracy, completeness, currentness, or product authority. City terms restrict commercial use and republication without prior written permission; dataset-specific license review remains required."
   },
   "privacy": {
     "runtime_only_fields": [
@@ -57,7 +57,7 @@
       "selected_fields": ["assessment_date", "market_value", "market_value_date", "parcel_number", "sale_date", "sale_price", "recording_date", "total_livable_area", "number_of_bedrooms", "number_of_bathrooms", "year_built", "zoning"],
       "revision_policy": "No immutable CARTO table revision is exposed; bind each retrieval to schema fingerprint, row count, retrieval clock, and selected row source dates.",
       "coverage": "Philadelphia OPA property records",
-      "update_cadence": "current public property snapshot; exact cadence not admitted here",
+      "update_cadence": "nightly, source-declared; no immutable table revision is exposed",
       "accuracy_limitations": [
         "A current public record is not complete property history or an appraisal guarantee.",
         "Owner and mailing fields are excluded from the product projection.",
@@ -97,6 +97,7 @@
       "update_cadence": "not declared in the admitted API contract",
       "accuracy_limitations": [
         "Transfer consideration is not a property appraisal or a comparable-sales recommendation.",
+        "Future sentinel display, document, or recording dates are withheld as unknown and make the bounded result partial.",
         "Document identifiers, street addresses, grantors, and grantees are excluded."
       ]
     },
@@ -149,7 +150,7 @@
       "selected_fields": ["build_rank", "date_update"],
       "revision_policy": "Bind to ArcGIS lastEditDate, schema fingerprint, feature count, and retrieval time.",
       "coverage": "Buildings whose administrative-data vacancy rank is above the source threshold",
-      "update_cadence": "source layer last edited 2026-08-17T06:14:16.207Z at verification",
+      "update_cadence": "source layer last edited 2026-08-23T16:53:51.361Z at verification",
       "accuracy_limitations": [
         "The dataset identifies buildings likely to be vacant; it is a model, not field confirmation.",
         "No matching feature means not listed by this model at this revision, not confirmed occupied."

@@ -5,6 +5,18 @@ const DEFAULT_TTL = 5 * 60_000; // 5 minutes
 const inflight = new Map(); // key -> Promise
 const lru = new Map(); // key -> {expires, data}
 
+export class PrivateLocationUnavailableError extends Error {
+  constructor() {
+    super('Private address and buffer analysis is unavailable.');
+    this.name = 'PrivateLocationUnavailableError';
+    this.status = 'unavailable';
+  }
+}
+
+export function rejectPrivateLocationEgress() {
+  throw new PrivateLocationUnavailableError();
+}
+
 function hashKey(s) {
   // djb2
   let h = 5381;

@@ -277,6 +277,153 @@ export function finalizeMetric(accumulator) {
   };
 }
 
+export function diagnoseModelNumerics({
+  irls,
+  coefficientAbsoluteMaximum,
+  dispersion = null,
+  predictions,
+  maximumPrediction,
+  intervals,
+  coverages,
+} = {}) {
+  const failures = [];
+  const iterationsValid = Number.isInteger(irls?.iterationsCompleted)
+    && irls.iterationsCompleted > 0
+    && Number.isInteger(irls?.maximumIterations)
+    && irls.maximumIterations > 0
+    && irls.iterationsCompleted <= irls.maximumIterations;
+  const toleranceValid = Number.isFinite(irls?.convergenceTolerance) && irls.convergenceTolerance > 0;
+  const changeFinite = Number.isFinite(irls?.lastChange);
+  const singularKnown = typeof irls?.singular === 'boolean';
+  const coefficientsFinite = nonEmptyFiniteArray(irls?.coefficients);
+  const coefficientMaximumValid = Number.isFinite(coefficientAbsoluteMaximum)
+    && coefficientAbsoluteMaximum >= 0;
+  const coefficientsWithinMaximum = coefficientsFinite
+    && coefficientMaximumValid
+    && irls.coefficients.every((value) => Math.abs(value) <= coefficientAbsoluteMaximum);
+  const converged = iterationsValid
+    && toleranceValid
+    && changeFinite
+    && irls.lastChange < irls.convergenceTolerance;
+  const reachedIterationCap = iterationsValid && irls.iterationsCompleted === irls.maximumIterations;
+
+  if (!iterationsValid) failures.push('irls-iterations-invalid');
+  if (!toleranceValid) failures.push('irls-tolerance-invalid');
+  if (!changeFinite) failures.push('irls-change-non-finite');
+  if (!converged) failures.push('irls-non-converged');
+  if (reachedIterationCap && !converged) failures.push('irls-iteration-cap-exhausted');
+  if (!singularKnown) failures.push('irls-singular-state-invalid');
+  else if (irls.singular) failures.push('irls-singular');
+  if (!coefficientsFinite) failures.push('irls-coefficients-non-finite');
+  if (!coefficientMaximumValid) failures.push('irls-coefficient-maximum-invalid');
+  if (coefficientsFinite && coefficientMaximumValid && !coefficientsWithinMaximum) {
+    failures.push('irls-coefficient-exceeds-maximum');
+  }
+
+  const dispersionApplicable = dispersion !== null;
+  const dispersionBoundsValid = !dispersionApplicable || (
+    Number.isFinite(dispersion?.minimum)
+    && Number.isFinite(dispersion?.maximum)
+    && dispersion.minimum >= 0
+    && dispersion.maximum >= dispersion.minimum
+  );
+  const dispersionFinite = !dispersionApplicable || Number.isFinite(dispersion?.value);
+  const dispersionWithinBounds = !dispersionApplicable || (
+    dispersionBoundsValid
+    && dispersionFinite
+    && dispersion.value >= dispersion.minimum
+    && dispersion.value <= dispersion.maximum
+  );
+  if (!dispersionBoundsValid) failures.push('nb-dispersion-bounds-invalid');
+  if (!dispersionFinite) failures.push('nb-dispersion-non-finite');
+  else if (dispersionBoundsValid && !dispersionWithinBounds) failures.push('nb-dispersion-out-of-bounds');
+
+  const predictionsPresent = Array.isArray(predictions) && predictions.length > 0;
+  const predictionMaximumValid = Number.isFinite(maximumPrediction) && maximumPrediction >= 0;
+  const predictionsFinite = predictionsPresent && predictions.every(Number.isFinite);
+  const predictionsNonnegative = predictionsFinite && predictions.every((value) => value >= 0);
+  const predictionsWithinMaximum = predictionsFinite
+    && predictionMaximumValid
+    && predictions.every((value) => value <= maximumPrediction);
+  if (!predictionsPresent) failures.push('predictions-missing');
+  if (!predictionMaximumValid) failures.push('prediction-maximum-invalid');
+  if (predictionsPresent && !predictionsFinite) failures.push('prediction-non-finite');
+  if (predictionsFinite && !predictionsNonnegative) failures.push('prediction-negative');
+  if (predictionsFinite && predictionMaximumValid && !predictionsWithinMaximum) {
+    failures.push('prediction-exceeds-maximum');
+  }
+
+  const intervalsPresent = Array.isArray(intervals) && intervals.length > 0;
+  const intervalsFinite = intervalsPresent && intervals.every((interval) => (
+    Number.isFinite(interval?.lower) && Number.isFinite(interval?.upper)
+  ));
+  const intervalLowersNonnegative = intervalsFinite && intervals.every((interval) => interval.lower >= 0);
+  const intervalsOrdered = intervalsFinite && intervals.every((interval) => interval.upper >= interval.lower);
+  const predictionIntervalCountsMatch = predictionsPresent
+    && intervalsPresent
+    && predictions.length === intervals.length;
+  if (!intervalsPresent) failures.push('intervals-missing');
+  if (predictionsPresent && intervalsPresent && !predictionIntervalCountsMatch) {
+    failures.push('prediction-interval-count-mismatch');
+  }
+  if (intervalsPresent && !intervalsFinite) failures.push('interval-non-finite');
+  if (intervalsFinite && !intervalLowersNonnegative) failures.push('interval-negative-lower');
+  if (intervalsFinite && !intervalsOrdered) failures.push('interval-inverted');
+
+  const coveragesPresent = Array.isArray(coverages) && coverages.length > 0;
+  const coveragesFinite = coveragesPresent && coverages.every(Number.isFinite);
+  const coveragesWithinUnitInterval = coveragesFinite
+    && coverages.every((value) => value >= 0 && value <= 1);
+  if (!coveragesPresent) failures.push('coverages-missing');
+  if (coveragesPresent && !coveragesFinite) failures.push('coverage-non-finite');
+  if (coveragesFinite && !coveragesWithinUnitInterval) failures.push('coverage-out-of-bounds');
+
+  return {
+    ok: failures.length === 0,
+    checks: {
+      irls: {
+        iterations_valid: iterationsValid,
+        tolerance_valid: toleranceValid,
+        change_finite: changeFinite,
+        converged,
+        reached_iteration_cap: reachedIterationCap,
+        iteration_cap_exhausted: reachedIterationCap && !converged,
+        singular_known: singularKnown,
+        singular: singularKnown ? irls.singular : null,
+        coefficients_finite: coefficientsFinite,
+        coefficient_maximum_valid: coefficientMaximumValid,
+        coefficients_within_maximum: coefficientsWithinMaximum,
+      },
+      negative_binomial_dispersion: {
+        applicable: dispersionApplicable,
+        bounds_valid: dispersionBoundsValid,
+        finite: dispersionFinite,
+        within_bounds: dispersionWithinBounds,
+      },
+      predictions: {
+        present: predictionsPresent,
+        maximum_valid: predictionMaximumValid,
+        finite: predictionsFinite,
+        nonnegative: predictionsNonnegative,
+        within_maximum: predictionsWithinMaximum,
+      },
+      intervals: {
+        present: intervalsPresent,
+        finite: intervalsFinite,
+        lower_nonnegative: intervalLowersNonnegative,
+        ordered: intervalsOrdered,
+        matches_prediction_count: predictionIntervalCountsMatch,
+      },
+      coverages: {
+        present: coveragesPresent,
+        finite: coveragesFinite,
+        within_unit_interval: coveragesWithinUnitInterval,
+      },
+    },
+    failures,
+  };
+}
+
 export function mergeMetricAccumulators(target, source) {
   for (const key of Object.keys(target)) target[key] += source[key];
   return target;
@@ -344,6 +491,10 @@ function inverseNormal(probability) {
   if (probability <= 0) return -Infinity;
   if (probability >= 1) return Infinity;
   return solveNormalApproximationProbability(probability);
+}
+
+function nonEmptyFiniteArray(values) {
+  return Array.isArray(values) && values.length > 0 && values.every(Number.isFinite);
 }
 
 function clamp(value, minimum, maximum) {

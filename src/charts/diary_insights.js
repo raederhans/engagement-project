@@ -4,89 +4,38 @@ import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
 
 const DEMO_TAGS = {
-  route: {
-    '7d': [
-      { label: 'poor lighting', value: 4 },
-      { label: 'low foot traffic', value: 3 },
-      { label: 'cars too close', value: 2 },
-    ],
-    '30d': [
-      { label: 'poor lighting', value: 12 },
-      { label: 'low foot traffic', value: 8 },
-      { label: 'cars too close', value: 6 },
-    ],
-    '90d': [
-      { label: 'poor lighting', value: 18 },
-      { label: 'low foot traffic', value: 14 },
-      { label: 'speeding cars', value: 7 },
-    ],
-    all: [
-      { label: 'poor lighting', value: 32 },
-      { label: 'low foot traffic', value: 24 },
-      { label: 'cars too close', value: 18 },
-    ],
-  },
-  area: {
-    '7d': [
-      { label: 'low foot traffic', value: 6 },
-      { label: 'poor lighting', value: 5 },
-      { label: 'construction blockage', value: 3 },
-    ],
-    '30d': [
-      { label: 'low foot traffic', value: 14 },
-      { label: 'poor lighting', value: 11 },
-      { label: 'construction blockage', value: 9 },
-    ],
-    '90d': [
-      { label: 'low foot traffic', value: 20 },
-      { label: 'poor lighting', value: 18 },
-      { label: 'speeding cars', value: 10 },
-    ],
-    all: [
-      { label: 'low foot traffic', value: 32 },
-      { label: 'poor lighting', value: 28 },
-      { label: 'construction blockage', value: 16 },
-    ],
-  },
-  city: {
-    '7d': [
-      { label: 'speeding cars', value: 10 },
-      { label: 'cars too close', value: 8 },
-      { label: 'poor lighting', value: 8 },
-    ],
-    '30d': [
-      { label: 'speeding cars', value: 26 },
-      { label: 'cars too close', value: 20 },
-      { label: 'poor lighting', value: 18 },
-    ],
-    '90d': [
-      { label: 'speeding cars', value: 48 },
-      { label: 'cars too close', value: 38 },
-      { label: 'poor lighting', value: 34 },
-    ],
-    all: [
-      { label: 'speeding cars', value: 76 },
-      { label: 'cars too close', value: 60 },
-      { label: 'poor lighting', value: 46 },
-    ],
-  },
+  route: [
+    { label: 'poor lighting', value: 12 },
+    { label: 'low foot traffic', value: 8 },
+    { label: 'cars too close', value: 6 },
+  ],
+  area: [
+    { label: 'low foot traffic', value: 14 },
+    { label: 'poor lighting', value: 11 },
+    { label: 'construction blockage', value: 9 },
+  ],
+  city: [
+    { label: 'speeding cars', value: 26 },
+    { label: 'cars too close', value: 20 },
+    { label: 'poor lighting', value: 18 },
+  ],
 };
 
 const insightsState = { scope: 'route', window: '30d' };
 const heatmapDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const heatmapWindowKeys = ['morning', 'midday', 'afternoon', 'evening', 'lateNight'];
 const heatmapValues = [
-  [0.15, 0.12, 0.2, 0.32, 0.22],
-  [0.14, 0.2, 0.35, 0.62, 0.38],
-  [0.12, 0.22, 0.38, 0.58, 0.32],
-  [0.12, 0.18, 0.32, 0.6, 0.34],
-  [0.12, 0.16, 0.28, 0.5, 0.28],
-  [0.1, 0.14, 0.22, 0.32, 0.24],
-  [0.08, 0.12, 0.2, 0.28, 0.2],
+  [2, 1, 2, 3, 2],
+  [1, 2, 3, 5, 3],
+  [1, 2, 3, 5, 3],
+  [1, 2, 3, 5, 3],
+  [1, 2, 3, 4, 3],
+  [1, 1, 2, 3, 2],
+  [1, 1, 2, 3, 2],
 ];
 
 let insightsContext = { mode: 'live', routeId: null };
-let localInsightEntries = [];
+let localInsightSnapshot = [];
 
 const CONTEXT_COPY = {
   live: {
@@ -139,9 +88,31 @@ export function selectDiaryInsightEntries(entries = [], value = insightsContext)
   return entries.filter((entry) => String(entry?.routeId ?? entry?.route_id ?? '') === context.routeId);
 }
 
-export function deriveLocalDiaryInsights(entries = []) {
-  const normalized = entries
-    .filter((entry) => Number.isFinite(Number(entry?.score)))
+function normalizeDiaryInsightSnapshot(value) {
+  const snapshot = Array.isArray(value) ? { entries: value } : value;
+  const readable = snapshot && typeof snapshot === 'object' && Array.isArray(snapshot.entries);
+  const warnings = readable && Array.isArray(snapshot.warnings) ? snapshot.warnings : [];
+  const inferredInvalidCount = warnings.filter(({ scope } = {}) => ['entry', 'draft'].includes(scope)).length;
+  const invalidCount = Number.isSafeInteger(snapshot?.invalidCount) && snapshot.invalidCount >= 0
+    ? snapshot.invalidCount
+    : inferredInvalidCount;
+  const omittedCount = Number.isSafeInteger(snapshot?.omittedCount) && snapshot.omittedCount >= 0
+    ? snapshot.omittedCount
+    : invalidCount;
+  const storageStatus = !readable || snapshot.storageStatus === 'unavailable'
+    ? 'unavailable'
+    : snapshot.storageStatus === 'partial' || omittedCount > 0 || invalidCount > 0
+      ? 'partial'
+      : 'available';
+  return { entries: readable ? snapshot.entries : [], storageStatus, warnings, omittedCount, invalidCount };
+}
+
+export function deriveLocalDiaryInsights(value = []) {
+  const snapshot = normalizeDiaryInsightSnapshot(value);
+  const sourceEntries = snapshot.entries;
+  const normalized = sourceEntries
+    .filter((entry) => Number.isFinite(Number(entry?.score))
+      && Number.isFinite(new Date(entry?.createdAt).getTime()))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const tagCounts = new Map();
   const heatmap = Array.from({ length: 7 }, () => Array(5).fill(0));
@@ -155,7 +126,20 @@ export function deriveLocalDiaryInsights(entries = []) {
       heatmap[day][bucket] += 1;
     }
   }
+  const locallyOmittedCount = sourceEntries.length - normalized.length;
+  const omittedCount = snapshot.omittedCount + locallyOmittedCount;
+  const invalidCount = snapshot.invalidCount + locallyOmittedCount;
+  const status = snapshot.storageStatus === 'unavailable'
+    ? 'unavailable'
+    : snapshot.storageStatus === 'partial' || omittedCount > 0 || invalidCount > 0
+      ? 'partial'
+      : normalized.length
+        ? 'available'
+        : 'empty';
   return {
+    status,
+    omittedCount,
+    invalidCount,
     trend: normalized.slice(-8).map((entry) => Number(entry.score)),
     tags: [...tagCounts.entries()]
       .map(([label, value]) => ({ label: label.replaceAll('_', ' '), value }))
@@ -164,21 +148,14 @@ export function deriveLocalDiaryInsights(entries = []) {
   };
 }
 
-export function setDiaryInsightEntries(entries = []) {
-  localInsightEntries = Array.isArray(entries) ? structuredClone(entries) : [];
+export function setDiaryInsightEntries(value) {
+  localInsightSnapshot = structuredClone(normalizeDiaryInsightSnapshot(value));
 }
 
-function barColor(pct) {
+function neutralIntensityColor(pct) {
   const clamped = Math.min(1, Math.max(0, pct));
   const lightness = 90 - clamped * 36;
   return `hsl(210, 85%, ${lightness}%)`;
-}
-
-function safetyColor(value) {
-  if (value >= 4.2) return '#10b981';
-  if (value >= 3.5) return '#34d399';
-  if (value >= 2.5) return '#fbbf24';
-  return '#f87171';
 }
 
 function translatedTagLabel(label) {
@@ -189,11 +166,34 @@ function translatedTagLabel(label) {
 }
 
 function entriesForWindow(windowName) {
-  const scopedEntries = selectDiaryInsightEntries(localInsightEntries, insightsContext);
-  if (windowName === 'all') return scopedEntries;
+  const snapshot = normalizeDiaryInsightSnapshot(localInsightSnapshot);
+  if (snapshot.storageStatus === 'unavailable') return snapshot;
+  const scopedEntries = selectDiaryInsightEntries(snapshot.entries, insightsContext);
+  if (windowName === 'all') return { ...snapshot, entries: scopedEntries };
   const days = windowName === '7d' ? 7 : windowName === '90d' ? 90 : 30;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return scopedEntries.filter((entry) => new Date(entry.createdAt).getTime() >= cutoff);
+  return { ...snapshot, entries: scopedEntries.filter((entry) => {
+    const timestamp = new Date(entry?.createdAt).getTime();
+    return !Number.isFinite(timestamp) || timestamp >= cutoff;
+  }) };
+}
+
+function appendPartialNotice(container, insights) {
+  if (insights?.status !== 'partial') return;
+  const notice = document.createElement('div');
+  notice.className = 'diary-muted-text diary-insights__status';
+  setTranslatedText(notice, 'diary.insights.partial', { count: insights.omittedCount });
+  container.appendChild(notice);
+}
+
+function appendNoDataState(container, insights, emptyKey) {
+  if (insights?.status === 'partial') return appendPartialNotice(container, insights);
+  const empty = document.createElement('div');
+  empty.className = 'diary-muted-text';
+  setTranslatedText(empty, insights?.status === 'unavailable'
+    ? 'diary.insights.unavailable'
+    : emptyKey);
+  container.appendChild(empty);
 }
 
 function renderTrend(container) {
@@ -212,16 +212,15 @@ function renderTrend(container) {
   subtitle.className = 'diary-insights__subtitle';
   container.appendChild(subtitle);
 
-  const trend = insightsContext.mode === 'community'
-    ? demoTrend
-    : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).trend;
+  const localInsights = insightsContext.mode === 'community'
+    ? null
+    : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
+  const trend = localInsights ? localInsights.trend : demoTrend;
   if (!trend.length) {
-    const empty = document.createElement('div');
-    empty.className = 'diary-muted-text';
-    setTranslatedText(empty, CONTEXT_COPY[insightsContext.mode].emptyTrend);
-    container.appendChild(empty);
+    appendNoDataState(container, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTrend);
     return;
   }
+  appendPartialNotice(container, localInsights);
 
   const chart = document.createElement('div');
   chart.className = 'diary-insights__trend-chart';
@@ -232,9 +231,16 @@ function renderTrend(container) {
   trend.forEach((v, idx) => {
     const bar = document.createElement('div');
     bar.className = 'diary-insights__trend-bar';
-    bar.style.background = safetyColor(v);
     bar.style.height = `${Math.max(24, (v / max) * 60)}px`;
-    bar.title = `${trendLabels[idx]} · ${v.toFixed(1)}`;
+    const valueLabel = insightsContext.mode === 'community'
+      ? t('diary.insights.community.trendValue', {
+        label: trendLabels[idx],
+        score: v.toFixed(1),
+      })
+      : `${trendLabels[idx]} · ${v.toFixed(1)}`;
+    bar.title = valueLabel;
+    bar.setAttribute('role', 'img');
+    bar.setAttribute('aria-label', valueLabel);
     chart.appendChild(bar);
   });
   container.appendChild(chart);
@@ -278,6 +284,7 @@ function renderTags(container) {
     const sync = () => {
       const active = insightsState.scope === scope.value;
       btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
     };
     btn.addEventListener('click', () => {
       insightsState.scope = scope.value;
@@ -289,29 +296,30 @@ function renderTags(container) {
     sync();
   });
 
-  const windowSelect = document.createElement('select');
-  windowSelect.className = 'diary-select';
-  setTranslatedAttribute(windowSelect, 'diary.insightsWindow', 'aria-label');
-  ['7d', '30d', '90d', 'all'].forEach((value) => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    setTranslatedText(opt,
-      value === '7d'
-        ? 'diary.lastWeek'
-        : value === '30d'
-          ? 'diary.last30d'
-          : value === '90d'
-            ? 'diary.last90d'
-            : 'diary.allTime');
-    windowSelect.appendChild(opt);
-  });
-  windowSelect.value = insightsState.window;
-  windowSelect.addEventListener('change', () => {
-    insightsState.window = windowSelect.value;
-    renderBars();
-  });
-
-  controls.appendChild(windowSelect);
+  if (insightsContext.mode !== 'community') {
+    const windowSelect = document.createElement('select');
+    windowSelect.className = 'diary-select';
+    setTranslatedAttribute(windowSelect, 'diary.insightsWindow', 'aria-label');
+    ['7d', '30d', '90d', 'all'].forEach((value) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      setTranslatedText(opt,
+        value === '7d'
+          ? 'diary.lastWeek'
+          : value === '30d'
+            ? 'diary.last30d'
+            : value === '90d'
+              ? 'diary.last90d'
+              : 'diary.allTime');
+      windowSelect.appendChild(opt);
+    });
+    windowSelect.value = insightsState.window;
+    windowSelect.addEventListener('change', () => {
+      insightsState.window = windowSelect.value;
+      renderBars();
+    });
+    controls.appendChild(windowSelect);
+  }
   container.appendChild(controls);
 
   const barsWrap = document.createElement('div');
@@ -328,17 +336,16 @@ function renderTags(container) {
   };
 
   function renderBars() {
-    const dataset = insightsContext.mode === 'community'
-      ? ((DEMO_TAGS[insightsState.scope] && DEMO_TAGS[insightsState.scope][insightsState.window]) || [])
-      : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).tags;
+    const localInsights = insightsContext.mode === 'community'
+      ? null
+      : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
+    const dataset = localInsights ? localInsights.tags : (DEMO_TAGS[insightsState.scope] || []);
     barsWrap.innerHTML = '';
     if (!dataset.length) {
-      const empty = document.createElement('div');
-      empty.className = 'diary-muted-text';
-      setTranslatedText(empty, CONTEXT_COPY[insightsContext.mode].emptyTags);
-      barsWrap.appendChild(empty);
+      appendNoDataState(barsWrap, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTags);
       return;
     }
+    appendPartialNotice(barsWrap, localInsights);
     const max = Math.max(...dataset.map((t) => t.value), 1);
     dataset.forEach((tag) => {
       const row = document.createElement('div');
@@ -353,8 +360,12 @@ function renderTags(container) {
       bar.style.width = `${Math.max(12, (tag.value / max) * 100)}%`;
       barWrap.appendChild(bar);
       const value = document.createElement('div');
-      value.textContent = tag.value;
       value.className = 'diary-insights__tag-value';
+      if (insightsContext.mode === 'community') {
+        setTranslatedText(value, 'diary.insights.community.tagValue', { count: tag.value });
+      } else {
+        value.textContent = tag.value;
+      }
       row.appendChild(label);
       row.appendChild(barWrap);
       row.appendChild(value);
@@ -389,20 +400,45 @@ function renderHeatmap(container) {
     grid.appendChild(cell);
   });
 
-  const values = insightsContext.mode === 'community'
-    ? heatmapValues
-    : deriveLocalDiaryInsights(entriesForWindow(insightsState.window)).heatmap;
+  const localInsights = insightsContext.mode === 'community'
+    ? null
+    : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
+  if (localInsights && !['available', 'partial'].includes(localInsights.status)) {
+    const unavailable = document.createElement('div');
+    unavailable.className = 'diary-muted-text';
+    setTranslatedText(unavailable, localInsights.status === 'unavailable'
+      ? 'diary.insights.unavailable'
+      : CONTEXT_COPY[insightsContext.mode].emptyTrend);
+    container.appendChild(unavailable);
+    return;
+  }
+  if (localInsights?.status === 'partial' && !localInsights.trend.length) {
+    appendPartialNotice(container, localInsights);
+    return;
+  }
+  appendPartialNotice(container, localInsights);
+  const values = localInsights ? localInsights.heatmap : heatmapValues;
   const maxValue = Math.max(...values.flat(), 1);
   heatmapDayKeys.forEach((dayKey, rowIdx) => {
     const label = document.createElement('div');
     setTranslatedText(label, `diary.day.${dayKey}`);
     label.className = 'diary-insights__heatmap-day';
     grid.appendChild(label);
-    values[rowIdx].forEach((val) => {
+    values[rowIdx].forEach((val, columnIdx) => {
       const cell = document.createElement('div');
       cell.className = 'diary-insights__heatmap-cell';
-      cell.style.background = barColor(val / maxValue);
-      cell.title = `${t(`diary.day.${dayKey}`)} · ${val}`;
+      cell.style.background = neutralIntensityColor(val / maxValue);
+      const dayLabel = t(`diary.day.${dayKey}`);
+      const valueLabel = insightsContext.mode === 'community'
+        ? t('diary.insights.community.heatmapValue', {
+          day: dayLabel,
+          window: t(`diary.time.${heatmapWindowKeys[columnIdx]}`),
+          value: val,
+        })
+        : `${dayLabel} · ${val}`;
+      cell.title = valueLabel;
+      cell.setAttribute('role', 'img');
+      cell.setAttribute('aria-label', valueLabel);
       grid.appendChild(cell);
     });
   });

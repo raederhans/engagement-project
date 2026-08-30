@@ -73,6 +73,16 @@ export async function compactPublishedGeoJson({
   return results;
 }
 
+export async function compactJsonArtifact(target) {
+  const source = await readFile(target, 'utf8');
+  const output = JSON.stringify(JSON.parse(source));
+  await writeFile(target, output);
+  return {
+    beforeBytes: Buffer.byteLength(source),
+    afterBytes: Buffer.byteLength(output),
+  };
+}
+
 function compactGeometry(geometry, precision) {
   if (!geometry) return geometry;
   if (geometry.type === 'GeometryCollection') {
@@ -100,5 +110,11 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
   const results = await compactPublishedGeoJson();
   for (const result of results) {
     console.log(`[GeoJSON Artifact] ${result.relativePath}: ${result.beforeBytes} -> ${result.afterBytes} bytes (${result.featureCount} features)`);
+  }
+  try {
+    const result = await compactJsonArtifact(path.resolve('dist/.vite/manifest.json'));
+    console.log(`[Vite Manifest] ${result.beforeBytes} -> ${result.afterBytes} bytes`);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
   }
 }

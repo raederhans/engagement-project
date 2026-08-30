@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.invalid/schemas/home_compare_citywide_join_dq.schema.json",
+  "title": "Home Compare citywide aggregate join DQ ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "input", "status", "dimensions", "privacy", "authority", "limitations", "identity"],
+  "properties": {
+    "schema": { "const": "engagement-home-compare-citywide-join-dq/v1" },
+    "input": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "lifecycle_identity", "sha256", "bytes"],
+      "properties": {
+        "schema": { "const": "engagement-home-compare-citywide-source-lifecycle/v1" },
+        "lifecycle_identity": { "$ref": "#/$defs/sha256" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "status": { "enum": ["partial", "unavailable"] },
+    "dimensions": {
+      "type": "array", "minItems": 9, "maxItems": 9,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "geocoder_address_resolution" }, "ordinal": { "const": 0 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "property_current_assessment" }, "ordinal": { "const": 1 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "assessment_history" }, "ordinal": { "const": 2 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "transfers" }, "ordinal": { "const": 3 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "requests_311" }, "ordinal": { "const": 4 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "li_property_history" }, "ordinal": { "const": 5 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "vacancy" }, "ordinal": { "const": 6 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "reported_incidents" }, "ordinal": { "const": 7 } } }] },
+        { "allOf": [{ "$ref": "#/$defs/dimension" }, { "properties": { "dimension": { "const": "hin_road_context" }, "ordinal": { "const": 8 } } }] }
+      ],
+      "items": false
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["aggregate_only", "address_included", "coordinates_included", "parcel_join_authority", "source_rows_included"],
+      "properties": {
+        "aggregate_only": { "const": true }, "address_included": { "const": false },
+        "coordinates_included": { "const": false }, "parcel_join_authority": { "const": false },
+        "source_rows_included": { "const": false }
+      }
+    },
+    "authority": { "$ref": "#/$defs/authority" },
+    "limitations": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+    "identity": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["product_authority", "publication_authority", "redistribution_authority", "safety_authority", "routing_authority"],
+      "properties": {
+        "product_authority": { "const": false }, "publication_authority": { "const": false },
+        "redistribution_authority": { "const": false }, "safety_authority": { "const": false }, "routing_authority": { "const": false }
+      }
+    },
+    "dimension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension", "ordinal", "required_source_receipt_identities", "source_readiness", "join_status", "admission_status", "reason", "row_availability", "value_availability", "total", "available_zero", "identity"],
+      "properties": {
+        "dimension": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "ordinal": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "required_source_receipt_identities": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/sha256" } },
+        "source_readiness": { "enum": ["exact-receipt-ready", "partial", "unavailable"] },
+        "join_status": { "enum": ["not-admitted", "partial", "unavailable"] },
+        "admission_status": { "enum": ["not-admitted", "partial", "unavailable"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "row_availability": { "const": "unavailable" },
+        "value_availability": { "const": "unavailable" },
+        "total": { "type": "null" },
+        "available_zero": { "const": false },
+        "identity": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

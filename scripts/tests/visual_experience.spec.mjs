@@ -311,21 +311,11 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
     await expect(page.locator('#sidepanel')).toHaveAttribute('data-sheet-state', 'full');
     await expect(page.getByText('Trend', { exact: true })).toBeInViewport();
   }
-  const heatmap = page.locator('.diary-insights__heatmap');
-  await expect(heatmap).toBeVisible();
-  const heatmapWidth = await heatmap.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(heatmapWidth.scrollWidth).toBeLessThanOrEqual(heatmapWidth.clientWidth + 1);
+  await expect(page.getByText('No ratings saved for this route in this period.').first()).toBeVisible();
+  await expect(page.locator('.diary-insights__heatmap')).toHaveCount(0);
   if (testInfo.project.name === 'desktop') {
     const insightsBox = await page.locator('.diary-insights-root').boundingBox();
     expect(insightsBox.width).toBeGreaterThanOrEqual(400);
-    const [heatmapBox, lastWindowBox] = await Promise.all([
-      heatmap.boundingBox(),
-      page.locator('.diary-insights__heatmap-window').last().boundingBox(),
-    ]);
-    expect(lastWindowBox.x + lastWindowBox.width).toBeLessThanOrEqual(heatmapBox.x + heatmapBox.width + 1);
   }
   await assertNoHorizontalOverflow(page);
   await captureExperienceScreenshot(page, testInfo, 'diary-insights-expanded');
@@ -430,8 +420,15 @@ test('My routes shows a truthful empty state before any local rating', async ({ 
 test('Sample community stays visibly read-only and illustrative', async ({ page }, testInfo) => {
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
-  await expect(page.getByText('Illustrative, read-only sample data. No comments or ratings are shared with other people.')).toBeVisible();
+  const scopeDisclosure = 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.';
+  await expect(page.getByText('Static read-only examples. Not real-time; not user-submitted; not representative of any population; no official endorsement; not a safety/risk rating. Nothing is shared.')).toBeVisible();
+  const dataStatus = page.locator('[data-app-data-status]');
+  await expect(dataStatus).toHaveText(scopeDisclosure);
+  await expect(dataStatus).toHaveAttribute('aria-label', scopeDisclosure);
+  await expect(dataStatus).toHaveAttribute('title', scopeDisclosure);
+  await expect(dataStatus).toHaveAttribute('data-scope-disclosure', scopeDisclosure);
   await expect(page.locator('.diary-community-item')).toHaveCount(3);
+  await expect(page.locator('.diary-community-item button')).toHaveCount(0);
   await expect(page.locator('[data-panel-view="diary"] input[type="range"]')).toHaveCount(0);
   await captureExperienceScreenshot(page, testInfo, 'diary-sample-community');
 });
@@ -470,6 +467,9 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page.getByRole('button', { name: '社区示例', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const zhScopeDisclosure = '静态、虚构、只读示例；非实时、非用户提交、不代表任何总体、无官方背书，也不是安全或风险评级。';
+  await expect(page.locator('[data-app-data-status]')).toHaveText(zhScopeDisclosure);
+  await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-disclosure', zhScopeDisclosure);
   await captureExperienceScreenshot(
     page,
     testInfo,

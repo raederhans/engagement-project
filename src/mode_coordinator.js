@@ -207,7 +207,7 @@ export function createModeCoordinator({
       try {
         const refresh = await controller.requestRefresh({ signal });
         if (refresh?.status === 'live' || refresh?.status === 'partial') settleMode(mode, 'ready', ownsMode);
-        else if (refresh?.status === 'failed') settleMode(mode, 'failed', ownsMode);
+        else if (refresh?.status === 'failed' || refresh?.status === 'unavailable') settleMode(mode, 'failed', ownsMode);
         return ownsMode() ? refresh : { status: 'superseded' };
       } catch (error) {
         if (!signal.aborted) reportError('Crime refresh failed', error);
@@ -260,7 +260,7 @@ export function createModeCoordinator({
         const refresh = await crimeController.requestRefresh({ signal });
         const ownsCrime = () => activeMode === 'crime' && getCurrentMode() === 'crime';
         if (refresh?.status === 'live' || refresh?.status === 'partial') settleMode('crime', 'ready', ownsCrime);
-        else if (refresh?.status === 'failed') settleMode('crime', 'failed', ownsCrime);
+        else if (refresh?.status === 'failed' || refresh?.status === 'unavailable') settleMode('crime', 'failed', ownsCrime);
         return refresh;
       } catch (error) {
         reportError('Crime refresh failed', error);

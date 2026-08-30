@@ -8,16 +8,55 @@ function csvCell(value) {
   return `"${text}"`;
 }
 
-export function buildAnalysisExport({ filters, comparison, generatedAt = new Date().toISOString() }) {
-  const legacyComparison = structuredClone(comparison || null);
-  for (const point of Object.values(legacyComparison || {})) {
-    if (point && typeof point === 'object') delete point.population;
+const PUBLIC_FILTER_KEYS = new Set([
+  'start', 'end', 'types', 'resolvedOffenseCodes', 'drilldownCodes', 'classPalette',
+  'queryMode', 'selectedDistrictCode', 'selectedTractGEOID', 'adminLevel', 'per10k',
+  'radiusM',
+]);
+
+function publicFilters(filters) {
+  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+    throw new Error('Analysis export is unavailable: filters are invalid.');
   }
+  if (filters.queryMode === 'buffer') {
+    throw new Error('Private buffer analysis is unavailable for export or sharing.');
+  }
+  if (filters.queryMode === 'district' && !/^\d{2}$/.test(filters.selectedDistrictCode || '')) {
+    throw new Error('Analysis export is unavailable: district selection is missing.');
+  }
+  if (filters.queryMode === 'tract' && !/^\d{11}$/.test(filters.selectedTractGEOID || '')) {
+    throw new Error('Analysis export is unavailable: tract selection is missing.');
+  }
+  if (!['district', 'tract'].includes(filters.queryMode)) {
+    throw new Error('Analysis export is unavailable: public geography is missing.');
+  }
+  return Object.fromEntries(
+    Object.entries(filters)
+      .filter(([key]) => PUBLIC_FILTER_KEYS.has(key))
+      .map(([key, value]) => [key, structuredClone(value)]),
+  );
+}
+
+function publicComparison(comparison, filters) {
+  const clone = structuredClone(comparison || null);
+  const publicLabel = filters.queryMode === 'district'
+    ? `District ${filters.selectedDistrictCode}`
+    : `Census tract ${filters.selectedTractGEOID}`;
+  for (const [key, point] of Object.entries(clone || {})) {
+    if (!point || typeof point !== 'object') continue;
+    delete point.population;
+    point.label = key === 'a' ? publicLabel : String(key).toUpperCase();
+  }
+  return clone;
+}
+
+export function buildAnalysisExport({ filters, comparison, generatedAt = new Date().toISOString() }) {
+  const projectedFilters = publicFilters(filters);
   return {
     schemaVersion: 1,
     generatedAt,
-    filters: structuredClone(filters || {}),
-    comparison: legacyComparison,
+    filters: projectedFilters,
+    comparison: publicComparison(comparison, projectedFilters),
     notes: 'Crime incidents are reported records, not a complete measure of safety. Locations may be generalized.',
   };
 }

@@ -18,6 +18,7 @@ import {
 import { fetchFirstValidTractSource } from '../lib/tract_source.mjs';
 import {
   compactFeatureCollectionCoordinates,
+  compactJsonArtifact,
   compactPublishedGeoJson,
 } from '../lib/public_geojson_artifacts.mjs';
 import { runPrecompute } from '../precompute_tract_crime.mjs';
@@ -310,6 +311,19 @@ test('published GeoJSON compaction writes only declared dist artifacts', async (
   assert.equal(results[0].featureCount, 2);
   assert.deepEqual((await readdir(dataDir)).sort(), ['tracts.geojson']);
   assert.equal(JSON.parse(await readFile(destination, 'utf8')).features.length, 2);
+});
+
+test('generated Vite manifest compaction removes formatting without changing JSON', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'engagement-vite-manifest-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const destination = path.join(directory, 'manifest.json');
+  const value = { entry: { file: 'assets/index.js', imports: ['shared'] } };
+  await writeFile(destination, `${JSON.stringify(value, null, 2)}\n`);
+
+  const result = await compactJsonArtifact(destination);
+
+  assert.ok(result.beforeBytes > result.afterBytes);
+  assert.equal(await readFile(destination, 'utf8'), JSON.stringify(value));
 });
 
 test('published GeoJSON compaction can prune unused fallback properties without mutating geometry', () => {

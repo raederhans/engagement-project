@@ -1,0 +1,67 @@
+{
+  "protocol": "ArtifactRegistry/v1",
+  "artifactSetId": "artifact-set:synthetic-clean-room-v1",
+  "sourceScope": {
+    "sourceId": "synthetic-restore-fixture",
+    "scopeId": "clean-room-v1",
+    "revision": "fixture-r1",
+    "dataClassification": "public-synthetic"
+  },
+  "clocks": {
+    "sourceAsOf": "2026-08-29T00:00:00.000Z",
+    "retrievedAt": "2026-08-29T00:01:00.000Z",
+    "builtAt": "2026-08-29T00:02:00.000Z",
+    "observedAt": "2026-08-29T00:03:00.000Z"
+  },
+  "versions": {
+    "producer": { "name": "synthetic-fixture", "version": "1.0.0" },
+    "schema": { "name": "synthetic-object", "version": "1.0.0" },
+    "transform": { "name": "identity", "version": "1.0.0" }
+  },
+  "locations": [
+    { "scheme": "file", "basePath": "source" }
+  ],
+  "objects": [
+    {
+      "objectId": "alpha",
+      "relativePath": "alpha.txt",
+      "mediaType": "text/plain",
+      "bytes": 24,
+      "sha256": "sha256:ea53e302cfffc8c76d7fdb7a9c80005c40a81ae2a2043f8650c0fdea6761cc8e",
+      "rowCount": null
+    },
+    {
+      "objectId": "rows",
+      "relativePath": "rows.ndjson",
+      "mediaType": "application/x-ndjson",
+      "bytes": 46,
+      "sha256": "sha256:f577394396a56877a2c4fcc425055a365295599227e4d42d171c9356a449afb8",
+      "rowCount": 2
+    }
+  ],
+  "partitionInventory": {
+    "partitions": [
+      { "partitionId": "fixture-p1", "objectIds": ["rows"], "rowCount": 2 }
+    ],
+    "unpartitionedObjectIds": ["alpha"],
+    "totalObjectCount": 2,
+    "totalBytes": 70,
+    "totalRowCount": 2
+  },
+  "retention": {
+    "state": "hold",
+    "decisionOwner": "data-foundation-owner",
+    "deletePrerequisites": [
+      "artifact-integrity-rechecked",
+      "downstream-dependencies-cleared",
+      "explicit-owner-decision-recorded",
+      "retention-period-satisfied"
+    ]
+  },
+  "authority": {
+    "serving": false,
+    "promotion": false,
+    "deletion": false
+  },
+  "registryIdentity": "sha256:31c8cb31e726ce8b2de4b449abb6b2c499654dc2e0b606e5109f3630264d6419"
+}

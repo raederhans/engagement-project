@@ -15,13 +15,14 @@ import {
 } from './crime_event_spatial.mjs';
 import {
   partitionForSourceId,
+  validateCrimeSourceRow,
   validateCrimeSourceSnapshot,
   validateSourceContract,
 } from './crime_event_source.mjs';
 
 const EVENT_SCHEMA = 'engagement-phl-crime-event/v1';
 const WAREHOUSE_SCHEMA = 'engagement-phl-crime-event-warehouse/v1';
-const QUALITY_SCHEMA = 'engagement-phl-crime-data-quality/v1';
+const QUALITY_SCHEMA = 'engagement-phl-crime-data-quality/v2';
 const LINEAGE_SCHEMA = 'engagement-phl-crime-lineage/v1';
 const SYNTHETIC_SNAPSHOT_SCHEMA = 'engagement-phl-crime-synthetic-snapshot/v1';
 const TRANSACTION_SCHEMA = 'engagement-phl-crime-warehouse-transaction/v1';
@@ -47,6 +48,10 @@ export async function createWarehouseDependencies({
 } = {}) {
   validateEventContract(eventContract);
   validateSourceContract(sourceContract);
+  if (stableSerialization(eventContract.spatial.city_bbox)
+    !== stableSerialization(sourceContract.source_semantics.city_bbox)) {
+    throw new Error('Crime event spatial city bounds drifted from the source contract.');
+  }
   const crosswalk = createOffenseCrosswalk(taxonomy);
   const geographyDefinition = eventContract.spatial.tract.geography_definition;
   const tractBoundaryId = spatialArtifactIdentity(tractGeoJson);
@@ -106,6 +111,10 @@ export async function ingestCrimeSourceSnapshot({
   if (currentManifest?.schema && currentManifest.schema !== WAREHOUSE_SCHEMA) {
     throw new Error('Existing crime warehouse schema is unsupported.');
   }
+  if (currentManifest) {
+    await validateWarehouseLineageBindings(warehouseDir, currentManifest);
+    await validateWarehouseCanonicalBindings(warehouseDir, currentManifest);
+  }
   if (currentManifest?.applied_snapshot_ids?.includes(snapshotManifest.snapshot_id)) {
     onProgress({ phase: 'idempotent', snapshotId: snapshotManifest.snapshot_id });
     return {
@@ -145,13 +154,19 @@ export async function ingestCrimeSourceSnapshot({
   let earliestEventAt = priorEarliestEventAt;
   let latestEventAt = priorLatestEventAt;
   let canonicalRowCount = 0;
+  const canonicalPartitions = [];
 
   try {
     for (let partition = 0; partition < partitionCount; partition += 1) {
       const rawShard = snapshotManifest.shards[partition];
       const rawPath = safeSnapshotPath(snapshotDir, rawShard.path);
       const canonicalPath = path.join(warehouseDir, 'canonical', shardName(partition));
-      const existing = await readCanonicalPartition(canonicalPath, partition, partitionCount);
+      const existing = await readCanonicalPartition(
+        canonicalPath,
+        partition,
+        partitionCount,
+        dependencies.eventContract,
+      );
       const seen = new Set();
       let previousRawId = 0;
 
@@ -213,7 +228,14 @@ export async function ingestCrimeSourceSnapshot({
       rows.forEach((event) => accumulateCanonicalQuality(qualityAccumulator, event));
       canonicalRowCount += rows.length;
       const candidatePath = path.join(transactionDir, 'candidate', shardName(partition));
-      await writeJsonLines(candidatePath, rows);
+      const candidate = await writeJsonLines(candidatePath, rows);
+      canonicalPartitions.push({
+        partition,
+        path: path.posix.join('canonical', shardName(partition)),
+        row_count: candidate.row_count,
+        bytes: candidate.bytes,
+        identity: candidate.identity,
+      });
       onProgress({ phase: 'build-partition', partition, rowCount: rows.length });
     }
 
@@ -226,12 +248,14 @@ export async function ingestCrimeSourceSnapshot({
       snapshotManifest,
       dependencies,
       observedAt,
+      canonicalPartitions,
     });
     const manifest = {
       schema: WAREHOUSE_SCHEMA,
       mode: snapshotManifest.source_kind === 'synthetic' ? 'synthetic-test' : 'official-local-candidate',
       serving_eligible: false,
       partition_count: partitionCount,
+      canonical_partitions: canonicalPartitions,
       canonical_row_count: canonicalRowCount,
       active_row_count: quality.lifecycle.active,
       removal_candidate_count: quality.lifecycle.removal_candidate,
@@ -384,12 +408,25 @@ export function canonicalizeSourceRow(sourceRow, snapshotManifest, dependencies,
     };
   const tract = coordinate.value
     ? dependencies.tractIndex.mapPoint(coordinate.value)
-    : { status: 'unmapped', geoid: null, reason: coordinate.reason, candidates: [] };
+    : {
+      status: 'unmapped',
+      geoid: null,
+      reason: coordinate.reason,
+      candidates: [],
+      sourceId: dependencies.tractBoundaryId,
+      geographyDefinition: dependencies.tractIndex.geographyDefinition,
+    };
   const grid = coordinate.value
     ? fixedWebMercatorGridCell(coordinate.value, {
       cellSizeM: dependencies.eventContract.spatial.fixed_grid.projected_cell_size_m,
     })
-    : { status: 'unavailable', gridId: null, reason: coordinate.reason };
+    : {
+      status: 'unavailable',
+      gridId: null,
+      scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+      projectedCellSizeM: dependencies.eventContract.spatial.fixed_grid.projected_cell_size_m,
+      reason: coordinate.reason,
+    };
   const base = {
     schema: EVENT_SCHEMA,
     source_record_id: `cartodb:${sourceId}`,
@@ -496,11 +533,37 @@ export async function createCrimeWarehouseAdmissionReceipt(evidenceRoot) {
 }
 
 export async function validateCrimeWarehouseAdmissionReceipt(evidenceRoot) {
+  return validateCrimeWarehouseAdmissionReceiptWithConsumer(evidenceRoot);
+}
+
+/**
+ * Accumulates tentative row-local evidence during the official admission scan.
+ * The callback must be side-effect-free and retain only in-memory aggregate state:
+ * no row is admitted, and no accumulated result is authoritative, until this
+ * entire Promise resolves with the globally verified receipt.
+ */
+export async function consumeCrimeWarehouseAdmissionReceipt(
+  evidenceRoot,
+  { accumulateCanonicalEvent } = {},
+) {
+  if (typeof accumulateCanonicalEvent !== 'function') {
+    throw new TypeError('Crime warehouse admission consumer requires a side-effect-free accumulateCanonicalEvent callback.');
+  }
+  return validateCrimeWarehouseAdmissionReceiptWithConsumer(
+    evidenceRoot,
+    accumulateCanonicalEvent,
+  );
+}
+
+async function validateCrimeWarehouseAdmissionReceiptWithConsumer(
+  evidenceRoot,
+  accumulateCanonicalEvent = null,
+) {
   const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
   const receiptArtifact = await readRelativeJsonArtifact(root, 'receipt.json', 'crime warehouse receipt');
   const receipt = receiptArtifact.value;
   validateCrimeWarehouseReceiptShape(receipt);
-  const evidence = await inspectCrimeWarehouseEvidence(root.absolute);
+  const evidence = await inspectCrimeWarehouseEvidence(root.absolute, { accumulateCanonicalEvent });
   const expectedIdentity = identityOf(evidence);
   if (receipt.identity !== expectedIdentity) {
     throw new Error('Crime warehouse receipt identity drifted from its declared evidence.');
@@ -534,7 +597,10 @@ export async function publishCrimeWarehouseAdmissionReceipt(evidenceRoot) {
   return Object.freeze({ ...admitted, idempotent: false });
 }
 
-async function inspectCrimeWarehouseEvidence(evidenceRoot) {
+async function inspectCrimeWarehouseEvidence(
+  evidenceRoot,
+  { accumulateCanonicalEvent = null } = {},
+) {
   const root = await canonicalDirectoryRoot(evidenceRoot, 'Crime warehouse evidence root');
   const [eventContract, sourceContract, taxonomy, tractGeoJson, tractSourceRegistry, acsSnapshot] = await Promise.all([
     readJsonUrl(EVENT_CONTRACT_URL),
@@ -617,6 +683,7 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     eventContract,
     sourceSnapshots,
     dependencies,
+    accumulateCanonicalEvent,
   );
   validateCrimeWarehouseProducerSemantics({
     manifest,
@@ -628,6 +695,8 @@ async function inspectCrimeWarehouseEvidence(evidenceRoot) {
     currentSource: currentSource.value,
     canonical,
     periods,
+    sourceContract,
+    dependencies,
   });
 
   const clocks = {
@@ -731,8 +800,9 @@ async function inspectLineageSourceSnapshots(root, lineage, manifest, sourceCont
       throw new Error('Crime warehouse lineage source identities must be unique and complete.');
     }
     seen.add(entry.snapshot_id);
-    const relative = await relativePathInsideRoot(root, entry.manifest_path, 'source manifest');
+    const relative = lineageSourceManifestRelative(entry, expectedPeriod);
     const artifact = await readRelativeJsonArtifact(root, relative, 'source manifest');
+    validateLineageSourceManifestBytes(entry, artifact);
     const value = artifact.value;
     await validateCrimeSourceSnapshot(value, path.dirname(artifact.absolute), { sourceContract });
     if (value?.schema !== SOURCE_SNAPSHOT_SCHEMA
@@ -874,7 +944,7 @@ async function inspectSourceRawShards(root, manifestRelative, manifest, sourceCo
     let actualRows = 0;
     let previousSourceId = 0;
     for await (const sourceRow of readJsonLines(resolved.absolute)) {
-      validateSourceRowAgainstContract(sourceRow, sourceContract);
+      validateCrimeSourceRow(sourceRow, sourceContract);
       const sourceId = sourceIdentifier(sourceRow);
       if (sourceId <= previousSourceId || partitionForSourceId(sourceId, manifest.partition_count) !== partition) {
         throw new Error(`Crime warehouse source raw shard ${partition} has duplicate, unordered, or misplaced IDs.`);
@@ -925,7 +995,14 @@ async function inspectSourceRawShards(root, manifestRelative, manifest, sourceCo
   };
 }
 
-async function inspectCanonicalPartitions(root, manifest, eventContract, sourceSnapshots, dependencies) {
+async function inspectCanonicalPartitions(
+  root,
+  manifest,
+  eventContract,
+  sourceSnapshots,
+  dependencies,
+  accumulateCanonicalEvent = null,
+) {
   const partitionCount = manifest.partition_count;
   finiteInteger(partitionCount, 'warehouse partition_count', { minimum: 1 });
   const directoryRelative = 'warehouse/canonical';
@@ -944,6 +1021,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
   let earliestEventAt = null;
   let latestEventAt = null;
   const unknownLabels = new Set();
+  const observedLabels = new Set();
   const revisions = emptyRevisionCounts();
   for (const [partition, name] of names.entries()) {
     const relative = `${directoryRelative}/${name}`;
@@ -952,6 +1030,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       label: 'canonical partition',
     });
     const stat = await fs.stat(artifact.absolute);
+    let partitionRows = 0;
     let previousSourceId = 0;
     const canonicalIterator = readJsonLines(artifact.absolute)[Symbol.asyncIterator]();
     let canonicalNext = await canonicalIterator.next();
@@ -975,6 +1054,7 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
         throw new Error(`Crime warehouse canonical partition ${partition} is not one-to-one with source ID ${sourceId}.`);
       }
       const event = canonicalNext.value;
+      partitionRows += 1;
       validateCanonicalEventAgainstContract(event, eventContract);
       if (sourceId <= previousSourceId || partitionForSourceId(sourceId, partitionCount) !== partition) {
         throw new Error(`Crime warehouse canonical partition ${partition} has duplicate, unordered, or misplaced IDs.`);
@@ -988,7 +1068,19 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       validateCanonicalRawBinding(event, occurrences.at(-1), dependencies);
       const revisionType = classifyRecomputedRevision(occurrences, sourceSnapshots.items, dependencies);
       if (revisionType) revisions[revisionType] += 1;
-      accumulateInspectedCanonicalQuality(counts, event, unknownLabels);
+      accumulateInspectedCanonicalQuality(counts, event, unknownLabels, observedLabels);
+      if (accumulateCanonicalEvent) {
+        const occurrence = occurrences.at(-1);
+        await accumulateCanonicalEvent(Object.freeze({
+          canonical_event: structuredClone(event),
+          raw_dimensions: Object.freeze({
+            source_snapshot_id: occurrence.snapshot.snapshot_id,
+            dc_dist: textOrNull(occurrence.row.dc_dist),
+            psa: textOrNull(occurrence.row.psa),
+            location_block_available: textOrNull(occurrence.row.location_block) !== null,
+          }),
+        }));
+      }
       earliestEventAt = !earliestEventAt || event.event_at < earliestEventAt ? event.event_at : earliestEventAt;
       latestEventAt = !latestEventAt || event.event_at > latestEventAt ? event.event_at : latestEventAt;
       canonicalNext = await canonicalIterator.next();
@@ -1002,17 +1094,43 @@ async function inspectCanonicalPartitions(root, manifest, eventContract, sourceS
       throw new Error(`Crime warehouse canonical partition ${partition} contains an extra source ID.`);
     }
     bytes += stat.size;
-    bindings.push({ path: relative, bytes: stat.size, sha256: await hashFile(artifact.absolute) });
+    bindings.push({
+      partition,
+      path: relative,
+      row_count: partitionRows,
+      bytes: stat.size,
+      sha256: await hashFile(artifact.absolute),
+    });
   }
   return {
     path: directoryRelative,
     partition_count: partitionCount,
     bytes,
-    sha256: identityOf(bindings),
+    sha256: identityOf(bindings.map(({ path: bindingPath, bytes: bindingBytes, sha256 }) => ({
+      path: bindingPath,
+      bytes: bindingBytes,
+      sha256,
+    }))),
+    partition_bindings: bindings.map((binding) => ({
+      partition: binding.partition,
+      path: binding.path.replace(/^warehouse\//, ''),
+      row_count: binding.row_count,
+      bytes: binding.bytes,
+      identity: binding.sha256,
+    })),
     counts,
     earliest_event_at: earliestEventAt,
     latest_event_at: latestEventAt,
-    unknown_labels: [...unknownLabels].sort(),
+    labels: {
+      crosswalk_version: dependencies.crosswalk.version,
+      known_observed: [...observedLabels]
+        .filter((label) => label !== 'unavailable' && !unknownLabels.has(label))
+        .sort(),
+      unknown_observed: [...unknownLabels].sort(),
+      known_not_observed: dependencies.crosswalk.knownLabels
+        .filter((label) => !observedLabels.has(label)),
+      unavailable_count: counts.unavailable_label_count,
+    },
     revision_counts: revisions,
   };
 }
@@ -1129,7 +1247,7 @@ function emptyCanonicalInspectionCounts() {
   };
 }
 
-function accumulateInspectedCanonicalQuality(counts, event, unknownLabels) {
+function accumulateInspectedCanonicalQuality(counts, event, unknownLabels, observedLabels) {
   if (event.event_at !== exactTimestamp(event.event_at)
     || event.first_seen_at !== exactTimestamp(event.first_seen_at)
     || event.last_seen_at !== exactTimestamp(event.last_seen_at)) {
@@ -1176,7 +1294,9 @@ function accumulateInspectedCanonicalQuality(counts, event, unknownLabels) {
     ['available', 'partial', 'unavailable', 'incompatible-vintage'],
     event,
   );
-  if (event.raw_category?.offense_label == null) counts.unavailable_label_count += 1;
+  const observedLabel = event.raw_category?.offense_label || 'unavailable';
+  observedLabels.add(observedLabel);
+  if (observedLabel === 'unavailable') counts.unavailable_label_count += 1;
   if (event.normalized_category?.status === 'unknown-label') {
     if (typeof event.raw_category?.offense_label !== 'string' || !event.raw_category.offense_label) {
       throw new Error(`Canonical crime event ${event.source_record_id} unknown label is invalid.`);
@@ -1235,7 +1355,44 @@ function validateCrimeWarehouseProducerSemantics({
   currentSource,
   canonical,
   periods,
+  sourceContract,
+  dependencies,
 }) {
+  const expectedManifestTransforms = {
+    event_schema: EVENT_SCHEMA,
+    crosswalk_version: dependencies.crosswalk.version,
+    tract_boundary_id: dependencies.tractBoundaryId,
+    tract_geography_definition: dependencies.tractIndex.geographyDefinition,
+    grid_scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+    acs_snapshot_id: dependencies.acsIndex.snapshotId,
+    acs_vintage: dependencies.acsIndex.vintage,
+    corridor_registry_id: null,
+  };
+  const expectedLineageTransforms = {
+    event_schema: EVENT_SCHEMA,
+    crosswalk: {
+      version: dependencies.crosswalk.version,
+      unknown_policy: dependencies.eventContract.crosswalk.unknown_policy,
+    },
+    tract: {
+      artifact_id: dependencies.tractBoundaryId,
+      geography_definition: dependencies.tractIndex.geographyDefinition,
+      geoid_count: dependencies.tractIndex.geoids.length,
+    },
+    grid: dependencies.eventContract.spatial.fixed_grid,
+    acs: {
+      snapshot_id: dependencies.acsIndex.snapshotId,
+      vintage: dependencies.acsIndex.vintage,
+      period: dependencies.acsIndex.period,
+      estimate_variable: dependencies.acsIndex.estimateVariable,
+      moe90_variable: dependencies.acsIndex.moe90Variable,
+    },
+    corridor: {
+      registry_id: null,
+      unavailable_is_zero: false,
+      positive_relation: dependencies.eventContract.spatial.route_corridor.positive_relation,
+    },
+  };
   const counts = [
     ['canonical_row_count', manifest.canonical_row_count],
     ['active_row_count', manifest.active_row_count],
@@ -1244,6 +1401,12 @@ function validateCrimeWarehouseProducerSemantics({
     ['expected_date_scoped_rows', checkpoint.final_quality?.expected_date_scoped_rows],
   ];
   counts.forEach(([label, value]) => finiteInteger(value, label));
+  if (stableSerialization(manifest.canonical_partitions)
+      !== stableSerialization(canonical.partition_bindings)
+    || stableSerialization(lineage.canonical_partitions)
+      !== stableSerialization(canonical.partition_bindings)) {
+    throw new Error('Crime warehouse manifest or lineage canonical partition binding drifted.');
+  }
   if (checkpoint.final_quality?.date_scoped_count_complete !== true
     || checkpoint.start !== manifest.coverage?.earliest_scope_start
     || checkpoint.through !== manifest.coverage?.latest_scope_end_exclusive
@@ -1258,6 +1421,9 @@ function validateCrimeWarehouseProducerSemantics({
     || canonical.counts.canonical_rows !== manifest.canonical_row_count
     || canonical.counts.lifecycle.active !== manifest.active_row_count
     || canonical.counts.lifecycle.removal_candidate !== manifest.removal_candidate_count
+    || quality.canonical?.row_count !== manifest.canonical_row_count
+    || stableSerialization(manifest.transforms) !== stableSerialization(expectedManifestTransforms)
+    || stableSerialization(lineage.transforms) !== stableSerialization(expectedLineageTransforms)
     || lineage.model_input_contract?.serving_status !== 'not-published') {
     throw new Error('Crime warehouse manifest/checkpoint/lineage row or coverage contract drifted.');
   }
@@ -1312,9 +1478,19 @@ function validateCrimeWarehouseProducerSemantics({
       throw new Error(`Crime warehouse ${label} DQ counts drifted from canonical bytes.`);
     }
   }
-  if (quality.labels?.unavailable_count !== canonical.counts.unavailable_label_count
-    || stableSerialization(quality.labels?.unknown_observed) !== stableSerialization(canonical.unknown_labels)) {
+  if (stableSerialization(quality.labels) !== stableSerialization(canonical.labels)) {
     throw new Error('Crime warehouse label DQ counts drifted from canonical bytes.');
+  }
+  const expectedFreshness = evaluateFreshness(currentSource, sourceContract, quality.observed_at);
+  const expectedDataStatus = classifyCrimeDataStatus({
+    availability: currentSource.availability,
+    rowCount: currentSource.row_count,
+    freshnessStatus: expectedFreshness.status,
+  });
+  if (stableSerialization(quality.source) !== stableSerialization(qualitySourceSummary(currentSource))
+    || stableSerialization(quality.freshness) !== stableSerialization(expectedFreshness)
+    || quality.data_status !== expectedDataStatus) {
+    throw new Error('Crime warehouse source row-count or freshness DQ drifted from source evidence.');
   }
   validateRevisionSemantics(revision, quality, currentSource, canonical.revision_counts);
   if (quality.status_semantics?.unavailable_is_zero !== false
@@ -1323,6 +1499,16 @@ function validateCrimeWarehouseProducerSemantics({
     || !Array.isArray(quality.labels?.unknown_observed)
     || revision.observed_at !== manifest.updated_at
     || quality.observed_at !== manifest.updated_at
+    || stableSerialization(quality.lineage) !== stableSerialization({
+      source_snapshot_id: currentSource.snapshot_id,
+      tract_boundary_id: dependencies.tractBoundaryId,
+      tract_geography_definition: dependencies.tractIndex.geographyDefinition,
+      fixed_grid_scheme: dependencies.eventContract.spatial.fixed_grid.scheme,
+      acs_snapshot_id: dependencies.acsIndex.snapshotId,
+      acs_vintage: dependencies.acsIndex.vintage,
+      acs_period: dependencies.acsIndex.period,
+      corridor_registry_id: null,
+    })
     || lineage.model_input_contract?.generated_at !== manifest.updated_at) {
     throw new Error('Crime warehouse DQ, revision, or lineage clock semantics drifted.');
   }
@@ -1458,18 +1644,6 @@ async function canonicalDirectoryRoot(value, label) {
   const stat = await fs.lstat(absolute);
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${label} must be a real directory.`);
   return { absolute, real: await fs.realpath(absolute) };
-}
-
-async function relativePathInsideRoot(root, candidate, label) {
-  if (typeof candidate !== 'string' || !path.isAbsolute(candidate)) {
-    throw new Error(`Crime warehouse ${label} must identify an absolute producer path before receipt canonicalization.`);
-  }
-  const targetReal = await fs.realpath(candidate);
-  const relative = path.relative(root.real, targetReal);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Crime warehouse ${label} escaped its evidence root.`);
-  }
-  return canonicalRelativePath(relative.split(path.sep).join('/'), label);
 }
 
 async function readRelativeJsonArtifact(root, relative, label) {
@@ -1669,12 +1843,16 @@ async function buildLineageRegistry({
   snapshotManifest,
   dependencies,
   observedAt,
+  canonicalPartitions,
 }) {
   const existing = await readJsonIfExists(path.join(warehouseDir, 'lineage', 'registry.json'));
   const sources = Array.isArray(existing?.source_snapshots) ? [...existing.source_snapshots] : [];
+  const sourceManifest = await sourceManifestLineageBinding(warehouseDir, snapshotDir, snapshotManifest);
   sources.push({
     snapshot_id: snapshotManifest.snapshot_id,
-    manifest_path: portablePath(snapshotDir, 'manifest.json'),
+    manifest_path: sourceManifest.relative,
+    manifest_bytes: sourceManifest.bytes.length,
+    manifest_sha256: rawSha256(sourceManifest.bytes),
     source_kind: snapshotManifest.source_kind,
     source_as_of: snapshotManifest.source_vintage.source_as_of,
     retrieved_at: snapshotManifest.source_vintage.retrieved_at,
@@ -1685,6 +1863,7 @@ async function buildLineageRegistry({
   return {
     schema: LINEAGE_SCHEMA,
     source_snapshots: sources,
+    canonical_partitions: structuredClone(canonicalPartitions),
     transforms: {
       event_schema: EVENT_SCHEMA,
       crosswalk: {
@@ -1721,6 +1900,52 @@ async function buildLineageRegistry({
       serving_status: 'not-published',
     },
   };
+}
+
+async function sourceManifestLineageBinding(warehouseDir, snapshotDir, snapshotManifest) {
+  const evidenceRoot = await canonicalDirectoryRoot(
+    path.dirname(path.resolve(warehouseDir)),
+    'crime warehouse evidence root',
+  );
+  const manifestAbsolute = path.resolve(snapshotDir, 'manifest.json');
+  const relative = path.relative(evidenceRoot.absolute, manifestAbsolute).split(path.sep).join('/');
+  const artifact = await readRelativeJsonArtifact(evidenceRoot, relative, 'source manifest');
+  if (stableSerialization(artifact.value) !== stableSerialization(snapshotManifest)) {
+    throw new Error('Crime warehouse source manifest changed while its lineage binding was built.');
+  }
+  return artifact;
+}
+
+function lineageSourceManifestRelative(entry, expectedPeriod) {
+  const candidate = entry.manifest_path;
+  const absolute = path.posix.isAbsolute(candidate) || path.win32.isAbsolute(candidate);
+  if (!absolute) {
+    canonicalRelativePath(candidate, 'source manifest');
+    if (!Number.isSafeInteger(entry.manifest_bytes) || entry.manifest_bytes < 1
+      || !/^sha256:[a-f0-9]{64}$/.test(entry.manifest_sha256 || '')) {
+      throw new Error('Crime warehouse relative source manifest lacks an exact byte binding.');
+    }
+    return candidate;
+  }
+
+  if (Object.hasOwn(entry, 'manifest_bytes') || Object.hasOwn(entry, 'manifest_sha256')) {
+    throw new Error('Crime warehouse legacy source manifest path cannot claim a portable byte binding.');
+  }
+  const periodId = `${expectedPeriod.start}_${expectedPeriod.end_exclusive}`;
+  const legacySuffix = `/acquisitions/${periodId}/manifest.json`;
+  const normalized = candidate.replaceAll('\\', '/');
+  if (!normalized.endsWith(legacySuffix)) {
+    throw new Error('Crime warehouse legacy source manifest cannot be safely relocated under its acquisition root.');
+  }
+  return `acquisitions/${periodId}/manifest.json`;
+}
+
+function validateLineageSourceManifestBytes(entry, artifact) {
+  if (path.posix.isAbsolute(entry.manifest_path) || path.win32.isAbsolute(entry.manifest_path)) return;
+  if (artifact.bytes.length !== entry.manifest_bytes
+    || rawSha256(artifact.bytes) !== entry.manifest_sha256) {
+    throw new Error(`Crime warehouse lineage source manifest bytes drifted for ${entry.snapshot_id || '(missing)'}.`);
+  }
 }
 
 function createQualityAccumulator(snapshotManifest, dependencies, observedAt) {
@@ -1770,7 +1995,6 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
     rowCount: snapshotManifest.row_count,
     freshnessStatus: freshness.status,
   });
-  const dayCounts = snapshotManifest.quality?.counts_by_date || {};
   return {
     schema: QUALITY_SCHEMA,
     snapshot_id: snapshotManifest.snapshot_id,
@@ -1782,15 +2006,9 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
       stale_is_current: false,
       zero_requires_complete_query: true,
     },
-    source: {
-      row_count: snapshotManifest.row_count,
-      schema_drift: snapshotManifest.quality?.schema_drift || false,
-      duplicate_source_id_count: snapshotManifest.quality?.duplicate_source_id_count ?? null,
-      suspected_duplicate_count: snapshotManifest.quality?.suspected_duplicate_count ?? null,
-      suspected_duplicate_basis: snapshotManifest.quality?.suspected_duplicate_basis || null,
-      counts_by_date: snapshotManifest.quality?.counts_by_date || {},
-      counts_by_category: snapshotManifest.quality?.counts_by_category || {},
-      daily_count_anomalies: dailyCountAnomalies(dayCounts),
+    source: qualitySourceSummary(snapshotManifest),
+    canonical: {
+      row_count: accumulator.canonicalCount,
     },
     coordinate: accumulator.coordinate,
     labels: {
@@ -1815,9 +2033,27 @@ function finalizeQualityReport(accumulator, snapshotManifest, observedAt) {
     lineage: {
       source_snapshot_id: snapshotManifest.snapshot_id,
       tract_boundary_id: accumulator.dependencies.tractBoundaryId,
+      tract_geography_definition: accumulator.dependencies.tractIndex.geographyDefinition,
+      fixed_grid_scheme: accumulator.dependencies.eventContract.spatial.fixed_grid.scheme,
       acs_snapshot_id: accumulator.dependencies.acsIndex.snapshotId,
+      acs_vintage: accumulator.dependencies.acsIndex.vintage,
+      acs_period: accumulator.dependencies.acsIndex.period,
       corridor_registry_id: accumulator.dependencies.corridorRegistry?.registryId || null,
     },
+  };
+}
+
+function qualitySourceSummary(snapshotManifest) {
+  const dayCounts = snapshotManifest.quality?.counts_by_date || {};
+  return {
+    row_count: snapshotManifest.row_count,
+    schema_drift: snapshotManifest.quality?.schema_drift || false,
+    duplicate_source_id_count: snapshotManifest.quality?.duplicate_source_id_count ?? null,
+    suspected_duplicate_count: snapshotManifest.quality?.suspected_duplicate_count ?? null,
+    suspected_duplicate_basis: snapshotManifest.quality?.suspected_duplicate_basis || null,
+    counts_by_date: dayCounts,
+    counts_by_category: snapshotManifest.quality?.counts_by_category || {},
+    daily_count_anomalies: dailyCountAnomalies(dayCounts),
   };
 }
 
@@ -1914,11 +2150,38 @@ function validateEventContract(value) {
     || value.quality_report_schema !== QUALITY_SCHEMA || value.lineage_registry_schema !== LINEAGE_SCHEMA
     || value.schema_version !== 1 || !Array.isArray(value.canonical_event_required_fields)
     || value.crosswalk?.unknown_policy !== 'fail-closed-null-normalized-category'
+    || value.spatial?.coordinate_reference_system !== 'EPSG:4326'
+    || value.spatial?.source_precision !== 'hundred-block-generalized'
+    || !validBbox(value.spatial?.city_bbox)
+    || value.spatial?.tract?.ambiguous_boundary_policy !== 'fail-closed'
+    || value.spatial?.fixed_grid?.scheme !== 'epsg3857-square-grid-v1'
+    || !Number.isInteger(value.spatial?.fixed_grid?.projected_cell_size_m)
+    || value.spatial.fixed_grid.projected_cell_size_m <= 0
+    || value.spatial?.route_corridor?.registry_optional !== true
+    || value.spatial.route_corridor.registry_schema !== 'engagement-route-corridor-registry/v1'
+    || value.spatial.route_corridor.positive_relation !== 'reported-point-near-route'
+    || value.spatial.route_corridor.unavailable_registry_status !== 'unavailable'
+    || value.spatial.route_corridor.unavailable_temporal_coverage_status !== 'unavailable'
+    || value.spatial.route_corridor.exact_occurrence_claim !== false
     || value.acs?.estimate_and_moe_are_distinct !== true
-    || value.artifact_policy?.raw_and_canonical_git_policy !== 'ignored-only') {
+    || value.artifact_policy?.raw_and_canonical_git_policy !== 'ignored-only'
+    || value.artifact_policy?.canonical_partition_binding
+      !== 'exact-bytes-in-warehouse-manifest-and-lineage'
+    || value.artifact_policy?.same_vintage_policy
+      !== 'verify-bound-partition-bytes-before-idempotent-return'
+    || value.artifact_policy?.existing_warehouse_policy
+      !== 'verify-bound-partition-rows-and-bytes-before-any-ingest') {
     throw new Error('Crime event warehouse contract is invalid.');
   }
   return value;
+}
+
+function validBbox(value) {
+  return Array.isArray(value) && value.length === 4
+    && value.every(Number.isFinite)
+    && value[0] < value[2] && value[1] < value[3]
+    && value[0] >= -180 && value[2] <= 180
+    && value[1] >= -90 && value[3] <= 90;
 }
 
 function validateDependencies(value) {
@@ -1955,10 +2218,86 @@ async function validateSyntheticSnapshot(manifest, snapshotDir) {
   if (rows !== manifest.row_count) throw new Error('Synthetic crime snapshot row count drifted.');
 }
 
-async function readCanonicalPartition(filePath, partition, partitionCount) {
+async function validateWarehouseLineageBindings(warehouseDir, manifest) {
+  const lineage = await readJsonIfExists(path.join(warehouseDir, 'lineage', 'registry.json'));
+  const lineageSnapshotIds = lineage?.source_snapshots?.map(({ snapshot_id: snapshotId }) => snapshotId);
+  if (lineage?.schema !== LINEAGE_SCHEMA
+    || stableSerialization(lineageSnapshotIds) !== stableSerialization(manifest.applied_snapshot_ids)
+    || stableSerialization(lineage.canonical_partitions)
+      !== stableSerialization(manifest.canonical_partitions)) {
+    throw new Error('Crime warehouse lineage canonical partition binding drifted.');
+  }
+  return lineage;
+}
+
+async function validateWarehouseCanonicalBindings(warehouseDir, manifest) {
+  const bindings = manifest?.canonical_partitions;
+  const partitionCount = manifest?.partition_count;
+  if (!Number.isInteger(partitionCount) || partitionCount < 1
+    || !Array.isArray(bindings) || bindings.length !== partitionCount) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  const canonicalDir = path.join(warehouseDir, 'canonical');
+  const actualNames = (await fs.readdir(canonicalDir))
+    .filter((name) => /^part-\d{3}\.jsonl$/.test(name))
+    .sort();
+  const expectedNames = Array.from({ length: partitionCount }, (_, partition) => shardName(partition));
+  if (stableSerialization(actualNames) !== stableSerialization(expectedNames)) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  let rowCount = 0;
+  for (let partition = 0; partition < partitionCount; partition += 1) {
+    const binding = bindings[partition];
+    const expectedPath = path.posix.join('canonical', shardName(partition));
+    if (binding?.partition !== partition || binding.path !== expectedPath
+      || !Number.isSafeInteger(binding.row_count) || binding.row_count < 0
+      || !Number.isSafeInteger(binding.bytes) || binding.bytes < 0
+      || !/^sha256:[a-f0-9]{64}$/.test(binding.identity || '')) {
+      throw new Error('Crime warehouse canonical partition binding drifted.');
+    }
+    const filePath = path.join(warehouseDir, ...binding.path.split('/'));
+    const stat = await fs.stat(filePath);
+    const actual = await inspectCanonicalPartitionFile(filePath);
+    if (!stat.isFile() || stat.size !== binding.bytes
+      || actual.identity !== binding.identity || actual.rowCount !== binding.row_count) {
+      throw new Error('Crime warehouse canonical partition binding drifted.');
+    }
+    rowCount += actual.rowCount;
+  }
+  if (rowCount !== manifest.canonical_row_count) {
+    throw new Error('Crime warehouse canonical partition binding drifted.');
+  }
+  return bindings;
+}
+
+async function inspectCanonicalPartitionFile(filePath) {
+  const hash = createHash('sha256');
+  const input = createReadStream(filePath);
+  input.on('data', (chunk) => hash.update(chunk));
+  const lines = readline.createInterface({ input, crlfDelay: Infinity });
+  let rowCount = 0;
+  let lineNumber = 0;
+  for await (const line of lines) {
+    lineNumber += 1;
+    if (!line.trim()) continue;
+    try {
+      JSON.parse(line);
+    } catch (error) {
+      throw new Error(`${filePath}:${lineNumber} is not valid JSON: ${error.message}`);
+    }
+    rowCount += 1;
+  }
+  return {
+    rowCount,
+    identity: `sha256:${hash.digest('hex')}`,
+  };
+}
+
+async function readCanonicalPartition(filePath, partition, partitionCount, eventContract) {
   const rows = new Map();
   if (!await pathExists(filePath)) return rows;
   for await (const event of readJsonLines(filePath)) {
+    validateCanonicalEventAgainstContract(event, eventContract);
     const sourceId = sourceNumericId(event);
     if (rows.has(sourceId) || partitionForSourceId(sourceId, partitionCount) !== partition) {
       throw new Error(`Canonical crime partition ${partition} contains duplicate or misplaced rows.`);
@@ -1986,11 +2325,21 @@ async function* readJsonLines(filePath) {
 async function writeJsonLines(filePath, rows) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const handle = await fs.open(filePath, 'w');
+  const hash = createHash('sha256');
+  let bytes = 0;
+  let rowCount = 0;
   try {
-    for (const row of rows) await handle.write(`${JSON.stringify(row)}\n`);
+    for (const row of rows) {
+      const line = `${JSON.stringify(row)}\n`;
+      await handle.write(line);
+      hash.update(line);
+      bytes += Buffer.byteLength(line);
+      rowCount += 1;
+    }
   } finally {
     await handle.close();
   }
+  return { row_count: rowCount, bytes, identity: `sha256:${hash.digest('hex')}` };
 }
 
 function eventInScope(event, scope) {
@@ -2002,26 +2351,6 @@ function sourceIdentifier(row) {
   const number = Number(row?.cartodb_id);
   if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Crime source row cartodb_id is invalid.');
   return number;
-}
-
-function validateSourceRowAgainstContract(row, sourceContract) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) {
-    throw new Error('Crime warehouse source JSONL row is not an object.');
-  }
-  const expectedFields = [...sourceContract.selected_fields].sort();
-  if (stableSerialization(Object.keys(row).sort()) !== stableSerialization(expectedFields)) {
-    throw new Error('Crime warehouse source JSONL row schema drifted from the approved source contract.');
-  }
-  for (const [field, expectedType] of Object.entries(sourceContract.expected_query_schema)) {
-    const value = row[field];
-    if (value == null) continue;
-    const valid = expectedType === 'date'
-      ? typeof value === 'string' && Boolean(exactTimestamp(value))
-      : typeof value === expectedType && (expectedType !== 'number' || Number.isFinite(value));
-    if (!valid) {
-      throw new Error(`Crime warehouse source JSONL field ${field} drifted from type ${expectedType}.`);
-    }
-  }
 }
 
 function sourceNumericId(event) {
@@ -2172,8 +2501,4 @@ async function hashFile(filePath) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(filePath)) hash.update(chunk);
   return `sha256:${hash.digest('hex')}`;
-}
-
-function portablePath(directory, fileName) {
-  return path.resolve(directory, fileName).replaceAll('\\', '/');
 }

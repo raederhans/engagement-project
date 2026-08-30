@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.invalid/schemas/known_route_crash_accessibility_evidence.schema.json",
+  "title": "KnownRouteCrashAccessibilityEvidence/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "semantic_identity",
+    "status",
+    "route_identity",
+    "corridor_identity",
+    "source_receipts",
+    "crash",
+    "accessibility",
+    "authority",
+    "privacy"
+  ],
+  "properties": {
+    "schema": { "const": "KnownRouteCrashAccessibilityEvidence/v1" },
+    "semantic_identity": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["available", "admitted-zero", "partial", "unavailable"] },
+    "route_identity": { "$ref": "#/$defs/routeIdentity" },
+    "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
+    "source_receipts": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/sourceReceipt" }
+    },
+    "crash": { "$ref": "#/$defs/evidenceDimension" },
+    "accessibility": { "$ref": "#/$defs/evidenceDimension" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_crash", "accessibility", "routing", "safety"],
+      "properties": {
+        "raw_crash": { "const": false },
+        "accessibility": { "const": false },
+        "routing": { "const": false },
+        "safety": { "const": false }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "aggregate_only",
+        "event_rows_included",
+        "source_rows_included",
+        "event_ids_included",
+        "source_record_ids_included",
+        "coordinates_included",
+        "geometry_included",
+        "addresses_included"
+      ],
+      "properties": {
+        "mode": { "const": "aggregate-only" },
+        "aggregate_only": { "const": true },
+        "event_rows_included": { "const": false },
+        "source_rows_included": { "const": false },
+        "event_ids_included": { "const": false },
+        "source_record_ids_included": { "const": false },
+        "coordinates_included": { "const": false },
+        "geometry_included": { "const": false },
+        "addresses_included": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "routeIdentity": {
+      "type": "string",
+      "pattern": "^route:[a-f0-9]{16}$"
+    },
+    "corridorIdentity": {
+      "type": "string",
+      "pattern": "^known-route-corridor:[a-f0-9]{16}$"
+    },
+    "clock": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "clocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_as_of", "retrieved_at", "built_at", "observed_at"],
+      "properties": {
+        "source_as_of": { "$ref": "#/$defs/clock" },
+        "retrieved_at": { "$ref": "#/$defs/clock" },
+        "built_at": { "$ref": "#/$defs/clock" },
+        "observed_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      }
+    },
+    "completeCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scope", "start", "end_exclusive", "verified"],
+      "properties": {
+        "status": { "const": "complete" },
+        "scope": { "const": "bound-route-corridor" },
+        "start": { "type": "string", "format": "date-time" },
+        "end_exclusive": { "type": "string", "format": "date-time" },
+        "verified": { "const": true }
+      }
+    },
+    "partialCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scope", "start", "end_exclusive", "verified"],
+      "properties": {
+        "status": { "const": "partial" },
+        "scope": { "const": "bound-route-corridor" },
+        "start": { "type": ["string", "null"], "format": "date-time" },
+        "end_exclusive": { "type": ["string", "null"], "format": "date-time" },
+        "verified": { "const": false }
+      }
+    },
+    "unavailableCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scope", "start", "end_exclusive", "verified"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "scope": { "const": "bound-route-corridor" },
+        "start": { "const": null },
+        "end_exclusive": { "const": null },
+        "verified": { "const": false }
+      }
+    },
+    "exactPrecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "unit"],
+      "properties": {
+        "status": { "const": "exact" },
+        "unit": { "const": "bound-route-corridor" }
+      }
+    },
+    "partialPrecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "unit"],
+      "properties": {
+        "status": { "const": "generalized" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    },
+    "unavailablePrecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "unit"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "unit": { "const": null }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "exactSourceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "role", "semantic_identity", "sha256", "version", "status", "reason",
+        "route_identity", "corridor_identity", "clocks", "coverage", "precision", "aggregate"
+      ],
+      "properties": {
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/v[1-9][0-9]*$" },
+        "role": { "enum": ["raw-crash", "accessibility"] },
+        "semantic_identity": { "$ref": "#/$defs/sha256" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "const": "exact" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
+        "clocks": { "$ref": "#/$defs/clocks" },
+        "coverage": { "$ref": "#/$defs/completeCoverage" },
+        "precision": { "$ref": "#/$defs/exactPrecision" },
+        "aggregate": { "$ref": "#/$defs/aggregate" }
+      }
+    },
+    "partialSourceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "role", "semantic_identity", "sha256", "version", "status", "reason",
+        "route_identity", "corridor_identity", "clocks", "coverage", "precision"
+      ],
+      "properties": {
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/v[1-9][0-9]*$" },
+        "role": { "enum": ["raw-crash", "accessibility", "hin-historical-planning"] },
+        "semantic_identity": { "$ref": "#/$defs/sha256" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "const": "partial" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
+        "clocks": { "$ref": "#/$defs/clocks" },
+        "coverage": { "$ref": "#/$defs/partialCoverage" },
+        "precision": { "$ref": "#/$defs/partialPrecision" }
+      }
+    },
+    "unavailableSourceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "role", "semantic_identity", "sha256", "version", "status", "reason",
+        "route_identity", "corridor_identity", "clocks", "coverage", "precision"
+      ],
+      "properties": {
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/v[1-9][0-9]*$" },
+        "role": { "enum": ["raw-crash", "accessibility"] },
+        "semantic_identity": { "$ref": "#/$defs/sha256" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "const": "unavailable" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "route_identity": { "$ref": "#/$defs/routeIdentity" },
+        "corridor_identity": { "$ref": "#/$defs/corridorIdentity" },
+        "clocks": { "$ref": "#/$defs/clocks" },
+        "coverage": { "$ref": "#/$defs/unavailableCoverage" },
+        "precision": { "$ref": "#/$defs/unavailablePrecision" }
+      }
+    },
+    "sourceReceipt": {
+      "oneOf": [
+        { "$ref": "#/$defs/exactSourceReceipt" },
+        { "$ref": "#/$defs/partialSourceReceipt" },
+        { "$ref": "#/$defs/unavailableSourceReceipt" }
+      ]
+    },
+    "unavailableDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "coverage", "precision"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "coverage": { "$ref": "#/$defs/unavailableCoverage" },
+        "precision": { "$ref": "#/$defs/unavailablePrecision" }
+      }
+    },
+    "partialDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "coverage", "precision"],
+      "properties": {
+        "status": { "const": "partial" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "coverage": { "$ref": "#/$defs/partialCoverage" },
+        "precision": { "$ref": "#/$defs/partialPrecision" }
+      }
+    },
+    "zeroDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "coverage", "precision", "aggregate"],
+      "properties": {
+        "status": { "const": "admitted-zero" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "coverage": { "$ref": "#/$defs/completeCoverage" },
+        "precision": { "$ref": "#/$defs/exactPrecision" },
+        "aggregate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count"],
+          "properties": { "count": { "const": 0 } }
+        }
+      }
+    },
+    "availableDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "coverage", "precision", "aggregate"],
+      "properties": {
+        "status": { "const": "available" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "coverage": { "$ref": "#/$defs/completeCoverage" },
+        "precision": { "$ref": "#/$defs/exactPrecision" },
+        "aggregate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count"],
+          "properties": { "count": { "type": "integer", "minimum": 1 } }
+        }
+      }
+    },
+    "evidenceDimension": {
+      "oneOf": [
+        { "$ref": "#/$defs/unavailableDimension" },
+        { "$ref": "#/$defs/partialDimension" },
+        { "$ref": "#/$defs/zeroDimension" },
+        { "$ref": "#/$defs/availableDimension" }
+      ]
+    }
+  }
+}

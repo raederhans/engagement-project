@@ -184,7 +184,7 @@ export function createDiaryBackupPlan(
   const incoming = parseDiaryPrivateBackup(backupValue);
   const entryPlan = mergeCollection(current.entries, incoming.entries, (entry) => entry.id, mode);
   const draftPlan = mergeCollection(current.drafts, incoming.drafts, (draft) => draft.routeId, mode);
-  return {
+  return deepFreeze({
     mode,
     snapshotToken,
     requiresExplicitConfirmation: mode === 'replace',
@@ -214,7 +214,7 @@ export function createDiaryBackupPlan(
       entries: entryPlan.values,
       drafts: draftPlan.values,
     },
-  };
+  });
 }
 
 export function createDiarySnapshotToken(snapshot) {
@@ -289,6 +289,12 @@ function assertKnownKeys(value, allowed, label) {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new Error(`Unknown Diary ${label} field: ${key}.`);
   }
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
 }
 
 function assertBackupSize(value) {

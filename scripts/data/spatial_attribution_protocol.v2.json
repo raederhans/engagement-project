@@ -1,0 +1,184 @@
+{
+  "schema": "engagement-spatial-attribution-protocol/v2",
+  "schema_version": 2,
+  "frozen_at": "2026-08-29T13:49:59.521Z",
+  "frozen_before_real_data_analysis": true,
+  "purpose": "Aggregate-only comparison of exact canonical tract and fixed-grid attribution coverage while preserving ambiguous, unmapped, and unavailable states.",
+  "exact_input_gate": {
+    "m1": {
+      "receipt_schema": "engagement-phl-crime-warehouse-receipt/v3",
+      "receipt_identity": "sha256:bc439541f4c574fa0260f7538cf186f268c66dff98c03b8334969e703d55e315",
+      "receipt_sha256": "sha256:2735f174cc978ea6abad31519672c58618fe5602cc9dedef918f8d624f523925",
+      "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
+      "warehouse_current_snapshot_id": "sha256:445f29fc49067e45285125b7f6b391ff4e930bf3f09cdd7e8cc4040b96c2109e",
+      "canonical": {
+        "partition_count": 64,
+        "row_count": 3586620,
+        "bytes": 8741798048,
+        "sha256": "sha256:f936b166d26eca57d16068139d70b6e23d3213ded4d2e142544e70312ff16cb6"
+      }
+    },
+    "m2": {
+      "evaluation_protocol": {
+        "schema": "engagement-area-intelligence-evaluation-protocol/v2",
+        "sha256": "sha256:5c6361a3be6c03058592703d574dfcd2b921f520c381fbfde539b443b5be7eac"
+      },
+      "mart_schema": "engagement-area-intelligence-feature-mart/v2",
+      "manifest_sha256": "sha256:a48738b4d28d8d112f3a4cb6b8f86c9c2996fe95c2f710591f9ffc658ec8e036",
+      "artifact_identity": "sha256:be26fcab8c16ee31d302a5aad05cb645b5591b1e05a72dbb9d24463bf3e96d76",
+      "part_bindings_identity": "sha256:afa2acdfc5040dd812861ba1621f5eda5ba95007eae46e841cb315231a9db146",
+      "part_count": 128,
+      "row_count": 1611918,
+      "bytes": 825033042,
+      "admission": {
+        "canonical_rows_seen": 3586620,
+        "tract": {
+          "admitted": 2972905,
+          "ambiguous_excluded": 549598,
+          "unmapped_excluded": 64117
+        },
+        "fixed-grid": {
+          "admitted": 3530212,
+          "unavailable_excluded": 56408
+        },
+        "unknown_category": 0,
+        "invalid_event_time": 0,
+        "non_active": 0
+      }
+    }
+  },
+  "denominators": {
+    "canonical": "all admission-validated canonical rows",
+    "analysis_eligible": "active rows with a parseable event time and mapped normalized category",
+    "relationship": "tract and fixed-grid are parallel observations over the same eligible events and must never be added as unique events",
+    "required_status_matrix": "tract mapped|ambiguous|unmapped by fixed-grid mapped|unavailable"
+  },
+  "methods": [
+    {
+      "id": "tract-fail-closed",
+      "version": "crime-event-tract-fail-closed/v1",
+      "method_identity": "sha256:9604074d7d3594452311722e3729e4764762de19756d218d7290838f177316be",
+      "config_identity": "sha256:8ed6925988ad1bc8dd7a429f6fd6a4e296267a4f59d4934723df6b51c4e5c48c",
+      "assignment": "integer",
+      "unassigned_policy": "exclude-and-audit-never-force-assign"
+    },
+    {
+      "id": "fixed-grid-500m",
+      "version": "epsg3857-square-grid-v1",
+      "method_identity": "sha256:8ef4b38d9619234dc0f1b3fcc11f74a47c8a4ba0fd2150afb460d9ac5f3d4560",
+      "config_identity": "sha256:c6f0613cc83a2123b567716da3c9733d2fbcc6fe640b345c674050addedb05d2",
+      "assignment": "integer",
+      "cell_size_m": 500,
+      "unassigned_policy": "exclude-and-audit-never-force-assign"
+    },
+    {
+      "id": "fractional",
+      "version": "fractional-area-attribution/v2",
+      "method_identity": "sha256:d78264700abef52cb8223a8f780a61a5692bf18b0761a5d0c6d0aa144023d661",
+      "config_identity": "sha256:9972c825275dcaf19363e9c11fb3dfef1c8d034ea893673287b4b3337d995d14",
+      "assignment": "weighted",
+      "required_input": "identity-bound-versioned-uncertainty-footprint-artifact",
+      "missing_input_result": "unavailable",
+      "missing_input_reason": "uncertainty-footprint-artifact-unavailable"
+    },
+    {
+      "id": "area-kernel",
+      "version": "area-kernel-attribution/v2",
+      "method_identity": "sha256:0518f551f12d41a9044eee68c8a81b39091eeb74ac89dc65e43dcbe21a4d73ab",
+      "config_identity": "sha256:30f783c980762f05da0a74c90c5df4d517c4e72ba859ef7fb4828c4c8e740b0f",
+      "assignment": "weighted",
+      "required_input": "identity-bound-versioned-uncertainty-footprint-artifact",
+      "missing_input_result": "unavailable",
+      "missing_input_reason": "uncertainty-footprint-artifact-unavailable",
+      "known_route_segment_kernel": "forbidden"
+    }
+  ],
+  "weighted_attribution_contract": {
+    "tolerance": 1e-9,
+    "weights": "finite-nonnegative-and-sum-to-one-before-rounding",
+    "candidate_units": "unique-and-stably-sorted",
+    "acs_weighting": "forbidden",
+    "current_exact_input_artifact": "unavailable"
+  },
+  "strata": {
+    "one_dimension_at_a_time": true,
+    "source_dimension_join": {
+      "schema": "engagement-spatial-source-dimension-join/v1",
+      "key": [
+        "canonical.lineage.source_snapshot_id",
+        "canonical.source_ids.cartodb_id"
+      ],
+      "cardinality": "exactly-one-validated-source-occurrence-per-canonical-event",
+      "occurrence_policy": "latest-occurrence-selected-and-transform-validated-by-official-warehouse-admission",
+      "district_field": "dc_dist",
+      "psa_field": "psa",
+      "missing_value_policy": "null-is-unavailable-never-zero",
+      "snapshot_mismatch_policy": "district-and-psa-unavailable",
+      "output_policy": "aggregate-counts-only-no-source-or-event-identifiers"
+    },
+    "dimensions": [
+      "year",
+      "normalized_category",
+      "district",
+      "psa",
+      "tract_status",
+      "grid_status",
+      "boundary_status",
+      "acs_population_band",
+      "acs_temporal_compatibility",
+      "road"
+    ],
+    "acs_population_bands": {
+      "interval_semantics": "lower-inclusive-upper-exclusive",
+      "low": {
+        "lower_inclusive": 0,
+        "upper_exclusive": 2500
+      },
+      "medium": {
+        "lower_inclusive": 2500,
+        "upper_exclusive": 4500
+      },
+      "high": {
+        "lower_inclusive": 4500,
+        "upper_exclusive": null
+      }
+    },
+    "acs_policy": "population band only when ACS valueStatus is available, temporal alignment is within-period, and modelInputEligible is true",
+    "road_policy": {
+      "status": "unavailable",
+      "reason": "versioned-road-geometry-binding-unavailable"
+    }
+  },
+  "artifact_policy": {
+    "aggregate_only": true,
+    "forbidden": [
+      "event-level records",
+      "source identifiers",
+      "coordinates",
+      "generalized locations",
+      "raw source rows",
+      "uncertainty footprint geometry",
+      "candidate geography lists"
+    ],
+    "unavailable_is_zero": false,
+    "default_output": "task-owned .dfev1 directory with no-overwrite atomic publication"
+  },
+  "authority": {
+    "local_audit": true,
+    "serving": false,
+    "forecast": false,
+    "promotion": false,
+    "scientific": false,
+    "causal": false,
+    "safety": false
+  },
+  "forbidden_claims": [
+    "individual victim probability",
+    "absolute safety",
+    "safety score",
+    "safest area",
+    "safest route",
+    "causal effect",
+    "precise incident location"
+  ]
+}

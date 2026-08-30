@@ -3,7 +3,7 @@
   "event_schema": "engagement-phl-crime-event/v1",
   "warehouse_schema": "engagement-phl-crime-event-warehouse/v1",
   "snapshot_manifest_schema": "engagement-phl-crime-source-snapshot/v1",
-  "quality_report_schema": "engagement-phl-crime-data-quality/v1",
+  "quality_report_schema": "engagement-phl-crime-data-quality/v2",
   "lineage_registry_schema": "engagement-phl-crime-lineage/v1",
   "default_partition_count": 64,
   "canonical_event_required_fields": [
@@ -48,8 +48,10 @@
     },
     "route_corridor": {
       "registry_optional": true,
+      "registry_schema": "engagement-route-corridor-registry/v1",
       "positive_relation": "reported-point-near-route",
       "unavailable_registry_status": "unavailable",
+      "unavailable_temporal_coverage_status": "unavailable",
       "exact_occurrence_claim": false
     }
   },
@@ -91,6 +93,9 @@
   "artifact_policy": {
     "raw_and_canonical_git_policy": "ignored-only",
     "synthetic_fixture_runtime_policy": "never-admitted-as-official",
+    "canonical_partition_binding": "exact-bytes-in-warehouse-manifest-and-lineage",
+    "same_vintage_policy": "verify-bound-partition-bytes-before-idempotent-return",
+    "existing_warehouse_policy": "verify-bound-partition-rows-and-bytes-before-any-ingest",
     "identity_hash_purpose": "source snapshot and artifact byte identity only",
     "model_input_requires_lineage_registry": true,
     "serving_projection_status": "contract-only-not-published"

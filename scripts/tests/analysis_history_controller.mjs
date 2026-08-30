@@ -8,6 +8,7 @@ import {
   buildAnalysisShareUrl,
   createAnalysisHistoryController,
 } from '../../src/analysis/analysis_history_controller.js';
+import { createAnalysisArtifact } from '../../src/analysis/analysis_artifact.js';
 import { createModeCoordinator } from '../../src/mode_coordinator.js';
 import * as compareCard from '../../src/compare/card.js';
 import { createAnalysisHistoryView } from '../../src/ui/analysis_history_panel.js';
@@ -97,7 +98,8 @@ function createHarness(overrides = {}) {
     coverageStatus: 'ready',
     coverageMin: '2006-01-01',
     coverageMax: '2026-07-30',
-    queryMode: 'buffer',
+    queryMode: 'district',
+    selectedDistrictCode: '05',
     startMonth: '2026-01',
     durationMonths: 6,
     radius: 400,
@@ -152,24 +154,55 @@ function createHarness(overrides = {}) {
   return { calls, controller, repository, rows, store, view };
 }
 
-test('canonical analysis share URL preserves unrelated parameters without artifact payload metadata', () => {
+test('canonical analysis share URL preserves unrelated parameters without private or artifact payload metadata', () => {
+  const publicArtifact = createAnalysisArtifact({
+    title: 'District analysis',
+    viewState: { queryMode: 'district', selectedDistrictCode: '05' },
+  }, {
+    createId: () => 'public-analysis',
+    now: () => '2026-07-31T08:00:00.000Z',
+  });
   const url = new URL(buildAnalysisShareUrl(
-    savedArtifact({
-      id: 'secret-id',
-      title: 'Private title',
-      resultSummary: { generatedAt: '2026-07-31T08:00:00.000Z', comparison: { a: { total: 7 } } },
-    }),
-    'https://example.test/app/?mode=diary&campaign=portfolio&artifact=old&title=old&result=old',
+    publicArtifact,
+    'https://example.test/app/?mode=diary&campaign=portfolio&artifact=old&title=old&result=old&a=-75.16%2C39.95&labelA=PRIVATE',
   ));
 
   assert.equal(url.searchParams.get('campaign'), 'portfolio');
   assert.equal(url.searchParams.get('mode'), 'crime');
-  assert.equal(url.searchParams.get('analysis'), 'buffer');
-  assert.equal(url.searchParams.get('a'), '-75.16,39.95');
+  assert.equal(url.searchParams.get('analysis'), 'district');
+  assert.equal(url.searchParams.get('district'), '05');
+  assert.equal(url.searchParams.has('a'), false);
+  assert.equal(url.searchParams.has('labelA'), false);
   assert.equal(url.searchParams.has('artifact'), false);
   assert.equal(url.searchParams.has('title'), false);
   assert.equal(url.searchParams.has('result'), false);
-  assert.doesNotMatch(url.href, /secret-id|Private\+title|%22total%22/);
+  assert.doesNotMatch(url.href, /PRIVATE|public-analysis|District\+analysis/);
+});
+
+test('legacy-unavailable history cannot restore, share, export, or re-save private rows', async () => {
+  const legacy = {
+    id: 'legacy-private',
+    title: 'Legacy private analysis unavailable',
+    availability: 'legacy-unavailable',
+    viewState: { queryMode: 'legacy-unavailable', startMonth: null },
+    resultSummary: null,
+    provenance: {},
+  };
+  let renameCalls = 0;
+  const harness = createHarness({
+    repository: {
+      async list() { return { items: [legacy], warnings: [] }; },
+      async get() { return legacy; },
+      async rename() { renameCalls += 1; return legacy; },
+    },
+  });
+
+  assert.equal((await harness.controller.restore(legacy.id)).status, 'legacy-unavailable');
+  assert.equal((await harness.controller.share(legacy.id)).status, 'legacy-unavailable');
+  assert.equal((await harness.controller.export(legacy.id)).status, 'legacy-unavailable');
+  assert.equal((await harness.controller.rename(legacy.id, 'Recovered')).status, 'legacy-unavailable');
+  assert.equal(renameCalls, 0);
+  assert.equal(harness.calls.some(([kind]) => ['replace', 'schedule', 'copy', 'download'].includes(kind)), false);
 });
 
 test('save uses only a matching comparison snapshot and blocks duplicate pending saves', async () => {

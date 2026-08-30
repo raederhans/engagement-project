@@ -12,6 +12,8 @@ import { createAcsPopulationIndex } from '../lib/crime_event_acs.mjs';
 import {
   createTractSpatialIndex,
   fixedWebMercatorGridCell,
+  mapEventToCorridors,
+  validateCorridorRegistry,
   validateSourceCoordinate,
 } from '../lib/crime_event_spatial.mjs';
 import {
@@ -22,6 +24,7 @@ import {
 } from '../lib/crime_event_source.mjs';
 import {
   classifyCrimeDataStatus,
+  consumeCrimeWarehouseAdmissionReceipt,
   CRIME_WAREHOUSE_RECEIPT_SCHEMA,
   createCrimeWarehouseAdmissionReceipt,
   createWarehouseDependencies,
@@ -195,14 +198,20 @@ test('real backfill producer publishes one official frozen receipt and validates
   );
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.source_schema.cartodb_id = 'string';
-  }, /source schema|approved source contract|manifest drifted/i);
+  }, /source schema|approved source contract|manifest drifted|manifest bytes drifted/i);
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.snapshot_id = `sha256:${'0'.repeat(64)}`;
     sourceManifest.source_vintage.id = sourceManifest.snapshot_id;
-  }, /identity|lineage source manifest drifted/i);
+  }, /identity|lineage source manifest drifted|manifest bytes drifted/i);
 
   const qualityPath = path.join(root, ...admitted.receipt.artifacts.latest_quality_report.path.split('/'));
   const revisionPath = path.join(root, ...admitted.receipt.artifacts.latest_revision_report.path.split('/'));
+  const qualityReport = await readJson(qualityPath);
+  assert.equal(qualityReport.schema, 'engagement-phl-crime-data-quality/v2');
+  assert.equal(qualityReport.source.row_count, 1);
+  assert.equal(qualityReport.canonical.row_count, 2);
+  assert.equal(qualityReport.lineage.fixed_grid_scheme, EVENT_CONTRACT.spatial.fixed_grid.scheme);
+  assert.equal(qualityReport.lineage.acs_period, EVENT_CONTRACT.acs.period);
   await assertProducerJsonMutation(root, revisionPath, (revision) => {
     revision.counts.added += 1;
   }, /revision report counts drifted/i);
@@ -212,6 +221,21 @@ test('real backfill producer publishes one official frozen receipt and validates
     quality.revisions.added -= 1;
     quality.revisions.modified += 1;
   }, /mechanically recomputed source history/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.canonical.row_count += 1;
+  }, /row or coverage contract drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.source.row_count += 1;
+  }, /row-count or freshness DQ drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.freshness.status = 'stale';
+  }, /row-count or freshness DQ drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.labels.known_observed.push('Forged observed label');
+  }, /label DQ counts drifted/i);
+  await assertProducerJsonMutation(root, qualityPath, (quality) => {
+    quality.lineage.fixed_grid_scheme = 'unversioned-grid';
+  }, /DQ, revision, or lineage clock semantics drifted/i);
   await assertProducerJsonMutation(root, checkpointPath, (checkpoint) => {
     checkpoint.periods[1].start = '2026-01-02';
   }, /exact continuous range/i);
@@ -220,7 +244,7 @@ test('real backfill producer publishes one official frozen receipt and validates
   }, /exact continuous range/i);
   await assertProducerJsonMutation(root, currentSourceManifestPath, (sourceManifest) => {
     sourceManifest.scope.start = '2025-12-31';
-  }, /scope|manifest drifted|identity/i);
+  }, /scope|manifest drifted|manifest bytes drifted|identity/i);
   await fs.writeFile(receiptPath, receiptBytes);
   await createCrimeWarehouseAdmissionReceipt(root);
 
@@ -272,6 +296,175 @@ test('real backfill producer publishes one official frozen receipt and validates
     receipt.artifacts.latest_quality_report.path = 'warehouse/quality/../quality.json';
   }, /canonical safe relative path/i);
   await validateCrimeWarehouseAdmissionReceipt(root);
+});
+
+test('official admission consumer tentatively accumulates exact row bindings until global success', async (context) => {
+  const root = path.join(
+    process.cwd(),
+    '.dfev1',
+    'crime',
+    `receipt-consumer-${process.pid}-${Date.now()}`,
+  );
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  await backfillCrimeEventWarehouse([
+    '--start=2025-12-31',
+    '--through=2026-01-02',
+    `--root=${root}`,
+    '--page-size=10',
+    `--partitions=${EVENT_CONTRACT.default_partition_count}`,
+  ], officialBackfillRuntime({
+    dimensionOverrides: [
+      { dc_dist: '', psa: '1', location_block: '   ' },
+      { dc_dist: null, psa: '\t', location_block: null },
+    ],
+  }));
+
+  const validated = await validateCrimeWarehouseAdmissionReceipt(root);
+  const consumed = [];
+  const admitted = await consumeCrimeWarehouseAdmissionReceipt(root, {
+    async accumulateCanonicalEvent(value) {
+      consumed.push(value);
+    },
+  });
+  assert.deepEqual(admitted, validated);
+  assert.equal(consumed.length, admitted.receipt.counts.canonical_rows);
+  assert.equal(new Set(consumed.map(({ canonical_event: event }) => event.source_record_id)).size, consumed.length);
+  const bySourceId = Object.fromEntries(consumed.map((value) => [
+    value.canonical_event.source_ids.cartodb_id,
+    value,
+  ]));
+  assert.deepEqual(bySourceId['1'].raw_dimensions, {
+    source_snapshot_id: bySourceId['1'].canonical_event.lineage.source_snapshot_id,
+    dc_dist: null,
+    psa: '1',
+    location_block_available: false,
+  });
+  assert.deepEqual(bySourceId['2'].raw_dimensions, {
+    source_snapshot_id: bySourceId['2'].canonical_event.lineage.source_snapshot_id,
+    dc_dist: null,
+    psa: null,
+    location_block_available: false,
+  });
+  for (const value of consumed) {
+    assert.deepEqual(Object.keys(value).sort(), ['canonical_event', 'raw_dimensions']);
+    assert.deepEqual(
+      Object.keys(value.raw_dimensions).sort(),
+      ['dc_dist', 'location_block_available', 'psa', 'source_snapshot_id'],
+    );
+    const serialized = JSON.stringify(value);
+    assert.doesNotMatch(serialized, /partition_paths|manifest_path|raw_shard|\.jsonl|"row"\s*:/i);
+  }
+
+  let callbackCount = 0;
+  await assert.rejects(
+    consumeCrimeWarehouseAdmissionReceipt(root, {
+      accumulateCanonicalEvent() {
+        callbackCount += 1;
+        throw new Error('consumer-stop');
+      },
+    }),
+    /consumer-stop/,
+  );
+  assert.equal(callbackCount, 1);
+
+  const driftedId = 2;
+  const driftedPartition = partitionForSourceId(driftedId, EVENT_CONTRACT.default_partition_count);
+  const driftedPath = path.join(
+    root,
+    'warehouse',
+    'canonical',
+    `part-${String(driftedPartition).padStart(3, '0')}.jsonl`,
+  );
+  const original = await fs.readFile(driftedPath);
+  const events = original.toString('utf8').split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  events[0].raw_category.offense_label = 'Drifted after an earlier validated event';
+  await fs.writeFile(driftedPath, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8');
+  let beforeLaterDrift = 0;
+  try {
+    await assert.rejects(
+      consumeCrimeWarehouseAdmissionReceipt(root, {
+        accumulateCanonicalEvent() { beforeLaterDrift += 1; },
+      }),
+      /drifted from its source row transforms/i,
+    );
+    assert.equal(beforeLaterDrift, 1);
+  } finally {
+    await fs.writeFile(driftedPath, original);
+  }
+});
+
+test('source lineage survives an evidence-root move and relocates legacy v1 paths fail closed', async (context) => {
+  const suffix = `${process.pid}-${Date.now()}`;
+  const root = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-${suffix}`);
+  const movedRoot = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-moved-${suffix}`);
+  const outsideAcquisitions = path.join(process.cwd(), '.dfev1', 'crime', `lineage-portability-outside-${suffix}`);
+  context.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(movedRoot, { recursive: true, force: true });
+    await fs.rm(outsideAcquisitions, { recursive: true, force: true });
+  });
+
+  await backfillCrimeEventWarehouse([
+    '--start=2025-12-31',
+    '--through=2026-01-02',
+    `--root=${root}`,
+    '--page-size=10',
+    `--partitions=${EVENT_CONTRACT.default_partition_count}`,
+  ], officialBackfillRuntime());
+  const lineageRelative = path.join('warehouse', 'lineage', 'registry.json');
+  const originalLineage = await readJson(path.join(root, lineageRelative));
+  assert.deepEqual(
+    originalLineage.source_snapshots.map(({ manifest_path: manifestPath }) => manifestPath),
+    [
+      'acquisitions/2025-12-31_2026-01-01/manifest.json',
+      'acquisitions/2026-01-01_2026-01-02/manifest.json',
+    ],
+  );
+  for (const source of originalLineage.source_snapshots) {
+    assert.ok(Number.isSafeInteger(source.manifest_bytes) && source.manifest_bytes > 0);
+    assert.match(source.manifest_sha256, /^sha256:[a-f0-9]{64}$/);
+  }
+
+  await fs.rename(root, movedRoot);
+  const admitted = await validateCrimeWarehouseAdmissionReceipt(movedRoot);
+  assert.equal(admitted.receipt.counts.source_snapshots, 2);
+
+  const movedLineagePath = path.join(movedRoot, lineageRelative);
+  const legacy = structuredClone(originalLineage);
+  for (const source of legacy.source_snapshots) {
+    source.manifest_path = `${root.replaceAll('\\', '/')}/${source.manifest_path}`;
+    delete source.manifest_bytes;
+    delete source.manifest_sha256;
+  }
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(legacy, null, 2)}\n`, 'utf8');
+  const legacyReceipt = await createCrimeWarehouseAdmissionReceipt(movedRoot);
+  assert.equal(legacyReceipt.counts.source_snapshots, 2);
+
+  const hostileLegacy = structuredClone(legacy);
+  hostileLegacy.source_snapshots[0].manifest_path = `${root.replaceAll('\\', '/')}/other/manifest.json`;
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(hostileLegacy, null, 2)}\n`, 'utf8');
+  await assert.rejects(
+    createCrimeWarehouseAdmissionReceipt(movedRoot),
+    /cannot be safely relocated under its acquisition root/i,
+  );
+
+  const byteDrift = structuredClone(originalLineage);
+  byteDrift.source_snapshots[0].manifest_sha256 = `sha256:${'0'.repeat(64)}`;
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(byteDrift, null, 2)}\n`, 'utf8');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /manifest bytes drifted/i);
+
+  const pathEscape = structuredClone(originalLineage);
+  pathEscape.source_snapshots[0].manifest_path = '../manifest.json';
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(pathEscape, null, 2)}\n`, 'utf8');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /canonical safe relative path/i);
+
+  await fs.writeFile(movedLineagePath, `${JSON.stringify(originalLineage, null, 2)}\n`, 'utf8');
+  const acquisitions = path.join(movedRoot, 'acquisitions');
+  await fs.rename(acquisitions, outsideAcquisitions);
+  await fs.symlink(outsideAcquisitions, acquisitions, process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(createCrimeWarehouseAdmissionReceipt(movedRoot), /symbolic link or junction/i);
+  await fs.unlink(acquisitions);
+  await fs.rename(outsideAcquisitions, acquisitions);
 });
 
 test('first metadata publication recovers every pre-manifest boundary without orphan lineage', async (context) => {
@@ -468,6 +661,231 @@ test('revision-aware warehouse preserves event lifecycle, lineage, crosswalk, sp
   assert.equal((await fs.stat(canonicalPath)).mtimeMs, canonicalBefore.mtimeMs);
 });
 
+test('same-vintage idempotence rejects declared row counts that do not match canonical rows', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-idempotence-binding-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const snapshotDir = path.join(root, 'snapshot');
+  await writeSyntheticSnapshot(snapshotDir, FIXTURE.vintages[0]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const lineage = await readJson(path.join(warehouseDir, 'lineage', 'registry.json'));
+  assert.equal(first.manifest.canonical_partitions.length, EVENT_CONTRACT.default_partition_count);
+  assert.deepEqual(lineage.canonical_partitions, first.manifest.canonical_partitions);
+
+  const manifestPath = path.join(warehouseDir, 'manifest.json');
+  const lineagePath = path.join(warehouseDir, 'lineage', 'registry.json');
+  const manifest = await readJson(manifestPath);
+  const populatedIndex = manifest.canonical_partitions
+    .findIndex(({ row_count: rowCount }) => rowCount > 0);
+  manifest.canonical_partitions[populatedIndex].row_count += 1;
+  manifest.canonical_row_count += 1;
+  lineage.canonical_partitions[populatedIndex].row_count += 1;
+  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await fs.writeFile(lineagePath, `${JSON.stringify(lineage, null, 2)}\n`, 'utf8');
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  }), /canonical partition binding drifted/i);
+});
+
+test('overlap refresh rejects a lineage partition binding drift before publication', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-binding-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const lineagePath = path.join(warehouseDir, 'lineage', 'registry.json');
+  const firstManifest = await readJson(path.join(firstDir, 'manifest.json'));
+  const lineage = await readJson(lineagePath);
+  lineage.canonical_partitions[0].bytes += 1;
+  await fs.writeFile(lineagePath, `${JSON.stringify(lineage, null, 2)}\n`, 'utf8');
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /lineage canonical partition binding drifted/i);
+  assert.equal(
+    (await readJson(path.join(warehouseDir, 'manifest.json'))).current_snapshot_id,
+    firstManifest.snapshot_id,
+  );
+});
+
+test('overlap refresh rejects tampered canonical content before carrying uncovered rows forward', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-tamper-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const canonicalPath = path.join(
+    warehouseDir,
+    'canonical',
+    `part-${String(partitionForSourceId(104, EVENT_CONTRACT.default_partition_count)).padStart(3, '0')}.jsonl`,
+  );
+  const rows = (await fs.readFile(canonicalPath, 'utf8'))
+    .trimEnd()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  const uncovered = rows.find(({ source_record_id: sourceRecordId }) => sourceRecordId === 'cartodb:104');
+  uncovered.raw_category.offense_label = 'Forged uncovered offense label';
+  await fs.writeFile(canonicalPath, `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`, 'utf8');
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /canonical partition binding drifted/i);
+  assert.equal(
+    (await readJson(path.join(warehouseDir, 'manifest.json'))).current_snapshot_id,
+    first.manifest.current_snapshot_id,
+  );
+});
+
+test('overlap refresh rejects a missing canonical partition before rebuilding it', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-overlap-missing-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  const first = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const populated = first.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
+  await fs.unlink(path.join(warehouseDir, ...populated.path.split('/')));
+
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  }), /canonical partition binding drifted/i);
+});
+
+test('non-current applied vintage replay validates the current canonical partition bindings', async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-event-historical-replay-'));
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+  const warehouseDir = path.join(root, 'warehouse');
+  const firstDir = path.join(root, 'snapshot-1');
+  const secondDir = path.join(root, 'snapshot-2');
+  await writeSyntheticSnapshot(firstDir, FIXTURE.vintages[0]);
+  await writeSyntheticSnapshot(secondDir, FIXTURE.vintages[1]);
+  const dependencies = await createWarehouseDependencies({
+    eventContract: EVENT_CONTRACT,
+    sourceContract: SOURCE_CONTRACT,
+    taxonomy: TAXONOMY,
+    tractGeoJson: TRACTS,
+    tractSourceRegistry: TRACT_REGISTRY,
+    acsSnapshot: ACS,
+    corridorRegistry: FIXTURE.corridor_registry,
+  });
+  await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[0].retrieved_at),
+  });
+  const current = await ingestCrimeSourceSnapshot({
+    snapshotDir: secondDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date(FIXTURE.vintages[1].retrieved_at),
+  });
+  const healthyReplay = await ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  });
+  assert.equal(healthyReplay.idempotent, true);
+
+  const populated = current.manifest.canonical_partitions.find(({ row_count: rowCount }) => rowCount > 0);
+  await fs.appendFile(path.join(warehouseDir, ...populated.path.split('/')), '\n', 'utf8');
+  await assert.rejects(ingestCrimeSourceSnapshot({
+    snapshotDir: firstDir,
+    warehouseDir,
+    dependencies,
+    allowSynthetic: true,
+    now: () => new Date('2026-08-17T12:00:00.000Z'),
+  }), /canonical partition binding drifted/i);
+});
+
 test('tract boundary, fixed grid, and coordinate mapping fail closed', () => {
   const tracts = {
     type: 'FeatureCollection',
@@ -486,6 +904,34 @@ test('tract boundary, fixed grid, and coordinate mapping fail closed', () => {
   assert.equal(validateSourceCoordinate([null, null], [-1, -1, 1, 1]).reason, 'coordinate-missing');
   assert.equal(validateSourceCoordinate([20, 20], [-1, -1, 1, 1]).reason, 'coordinate-outside-city-bounds');
   assert.equal(fixedWebMercatorGridCell([-75.16, 39.95]).gridId, fixedWebMercatorGridCell([-75.16, 39.95]).gridId);
+  const unavailableGrid = fixedWebMercatorGridCell([0, 86]);
+  assert.equal(unavailableGrid.status, 'unavailable');
+  assert.equal(unavailableGrid.scheme, EVENT_CONTRACT.spatial.fixed_grid.scheme);
+  assert.equal(unavailableGrid.projectedCellSizeM, EVENT_CONTRACT.spatial.fixed_grid.projected_cell_size_m);
+});
+
+test('route-corridor mapping distinguishes uncovered time from an observed zero-match', () => {
+  const registry = validateCorridorRegistry(FIXTURE.corridor_registry);
+  const uncovered = mapEventToCorridors({
+    source_record_id: 'synthetic:outside-time',
+    event_at: '2026-07-31T23:59:59.000Z',
+    coordinate: { value: [-75.16, 39.95] },
+  }, registry);
+  assert.equal(uncovered.status, 'unavailable');
+  assert.equal(uncovered.reason, 'corridor-registry-temporal-coverage-unavailable');
+  assert.deepEqual(uncovered.matches, []);
+
+  const coveredNoMatch = mapEventToCorridors({
+    source_record_id: 'synthetic:covered-no-match',
+    event_at: '2026-08-10T12:00:00.000Z',
+    coordinate: { value: [-75.30, 40.10] },
+  }, registry);
+  assert.equal(coveredNoMatch.status, 'available');
+  assert.deepEqual(coveredNoMatch.matches, []);
+  assert.throws(() => validateCorridorRegistry({
+    ...FIXTURE.corridor_registry,
+    corridors: [{ ...FIXTURE.corridor_registry.corridors[0], buffer_m: 0 }],
+  }), /buffer_m is invalid/);
 });
 
 test('ACS estimate/MOE admission rejects geography-definition drift', () => {
@@ -502,6 +948,13 @@ test('ACS estimate/MOE admission rejects geography-definition drift', () => {
   assert.equal(outsidePeriod.status, 'incompatible-vintage');
   assert.equal(outsidePeriod.valueStatus, 'available');
   assert.equal(outsidePeriod.modelInputEligible, false);
+  const unavailable = index.mapTract(null, { eventAt: '2024-06-01T00:00:00.000Z' });
+  assert.equal(unavailable.status, 'unavailable');
+  assert.deepEqual(unavailable.estimate, { variable: 'B01003_001E', value: null });
+  assert.deepEqual(unavailable.moe90, { variable: 'B01003_001M', value: null });
+  assert.equal(unavailable.geographyDefinition, EVENT_CONTRACT.acs.geography_definition);
+  assert.equal(unavailable.vintage, EVENT_CONTRACT.acs.vintage);
+  assert.equal(unavailable.period, EVENT_CONTRACT.acs.period);
   assert.throws(() => createAcsPopulationIndex(ACS, {
     contract: EVENT_CONTRACT.acs,
     tractGeoids: geoids,
@@ -565,6 +1018,39 @@ test('source acquisition is keyset-bounded and rejects schema drift before publi
     now: () => new Date('2026-08-21T00:00:00.000Z'),
   }), /schema drifted/);
   assert.equal(await pathExists(path.join(outputDir, 'manifest.json')), false);
+
+  const rowDriftOutput = await fs.mkdtemp(path.join(os.tmpdir(), 'dfev1-row-schema-drift-'));
+  context.after(() => fs.rm(rowDriftOutput, { recursive: true, force: true }));
+  const fields = Object.fromEntries(
+    Object.entries(SOURCE_CONTRACT.expected_query_schema).map(([name, type]) => [name, { type }]),
+  );
+  const rowDriftRequest = async (input) => {
+    const query = new URL(input).searchParams.get('q');
+    if (query.startsWith('SELECT COUNT(*)')) {
+      return jsonResponse({
+        rows: [{
+          row_count: 1,
+          distinct_source_ids: 1,
+          distinct_dc_keys: 1,
+          min_event_at: '2026-08-20T01:00:00Z',
+          max_event_at: '2026-08-20T01:00:00Z',
+        }],
+        fields: {},
+      });
+    }
+    return jsonResponse({ rows: [{ ...sourceRow(1), objectid: '1001' }], fields });
+  };
+  await assert.rejects(acquireCrimeSourceSnapshot({
+    outputDir: rowDriftOutput,
+    start: '2026-08-20',
+    end: '2026-08-21',
+    pageSize: 10,
+    partitionCount: EVENT_CONTRACT.default_partition_count,
+    sourceContract: SOURCE_CONTRACT,
+    request: rowDriftRequest,
+    now: () => new Date('2026-08-21T00:00:00.000Z'),
+  }), /source row field objectid drifted from type number/i);
+  assert.equal(await pathExists(path.join(rowDriftOutput, 'manifest.json')), false);
 });
 
 test('source acquisition resumes its exact checkpoint without duplicating committed pages', async (context) => {
@@ -628,10 +1114,11 @@ test('source acquisition resumes its exact checkpoint without duplicating commit
   assert.equal(resumed.manifest.acquisition.count_complete, true);
 });
 
-function officialBackfillRuntime() {
+function officialBackfillRuntime({ dimensionOverrides = [] } = {}) {
   const rows = [
     {
       ...sourceRow(1),
+      ...(dimensionOverrides[0] || {}),
       dispatch_date_time: '2025-12-31T01:00:00.000Z',
       dispatch_date: '2025-12-31',
     },
@@ -643,6 +1130,7 @@ function officialBackfillRuntime() {
       hour: 3,
       point_x: null,
       point_y: null,
+      ...(dimensionOverrides[1] || {}),
     },
   ];
   const fields = Object.fromEntries(

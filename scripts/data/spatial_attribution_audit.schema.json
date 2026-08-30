@@ -1,0 +1,756 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.engagement-project.invalid/spatial-attribution-audit-v2.schema.json",
+  "title": "Aggregate-only Spatial Attribution Denominator Audit v2",
+  "$comment": "This schema validates an aggregate audit produced from the exact M1 admission stream. It does not create receipt, serving, promotion, or forecast authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "exact_input",
+    "method",
+    "canonical_denominator",
+    "analysis_eligible_denominator",
+    "tract_denominator",
+    "grid_denominator",
+    "spatial_status_matrix",
+    "mapped_set_relationship",
+    "m2_aggregate_reconciliation",
+    "strata",
+    "district_psa_attribution",
+    "artifact_policy",
+    "authority",
+    "audit_identity"
+  ],
+  "properties": {
+    "schema": { "const": "engagement-spatial-attribution-audit/v2" },
+    "exact_input": { "$ref": "#/definitions/exactInput" },
+    "method": { "$ref": "#/definitions/method" },
+    "canonical_denominator": { "$ref": "#/definitions/canonicalDenominator" },
+    "analysis_eligible_denominator": { "$ref": "#/definitions/eligibleDenominator" },
+    "tract_denominator": { "$ref": "#/definitions/tractDenominator" },
+    "grid_denominator": { "$ref": "#/definitions/gridDenominator" },
+    "spatial_status_matrix": { "$ref": "#/definitions/statusMatrix" },
+    "mapped_set_relationship": { "$ref": "#/definitions/mappedSetRelationship" },
+    "m2_aggregate_reconciliation": { "$ref": "#/definitions/m2Reconciliation" },
+    "strata": { "$ref": "#/definitions/strata" },
+    "district_psa_attribution": {
+      "oneOf": [
+        { "$ref": "#/definitions/sourceAttributionAvailable" },
+        { "$ref": "#/definitions/unavailable" }
+      ]
+    },
+    "artifact_policy": { "$ref": "#/definitions/artifactPolicy" },
+    "authority": { "$ref": "#/definitions/authority" },
+    "audit_identity": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "exactInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "m1", "m2"],
+      "properties": {
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "sha256"],
+          "properties": {
+            "schema": { "const": "engagement-spatial-attribution-protocol/v2" },
+            "sha256": { "$ref": "#/definitions/sha256" }
+          }
+        },
+        "m1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "receipt_schema",
+            "receipt_identity",
+            "receipt_sha256",
+            "warehouse_schema",
+            "warehouse_current_snapshot_id",
+            "canonical"
+          ],
+          "properties": {
+            "receipt_schema": { "const": "engagement-phl-crime-warehouse-receipt/v3" },
+            "receipt_identity": { "$ref": "#/definitions/sha256" },
+            "receipt_sha256": { "$ref": "#/definitions/sha256" },
+            "warehouse_schema": { "const": "engagement-phl-crime-event-warehouse/v1" },
+            "warehouse_current_snapshot_id": { "$ref": "#/definitions/sha256" },
+            "canonical": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["partition_count", "row_count", "bytes", "sha256"],
+              "properties": {
+                "partition_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "row_count": { "$ref": "#/definitions/count" },
+                "bytes": { "$ref": "#/definitions/count" },
+                "sha256": { "$ref": "#/definitions/sha256" }
+              }
+            }
+          }
+        },
+        "m2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mart_schema",
+            "manifest_sha256",
+            "artifact_identity",
+            "part_bindings_identity",
+            "part_count",
+            "row_count",
+            "bytes",
+            "artifact_policy",
+            "admission"
+          ],
+          "properties": {
+            "mart_schema": { "const": "engagement-area-intelligence-feature-mart/v2" },
+            "manifest_sha256": { "$ref": "#/definitions/sha256" },
+            "artifact_identity": { "$ref": "#/definitions/sha256" },
+            "part_bindings_identity": { "$ref": "#/definitions/sha256" },
+            "part_count": { "$ref": "#/definitions/count" },
+            "row_count": { "$ref": "#/definitions/count" },
+            "bytes": { "$ref": "#/definitions/count" },
+            "artifact_policy": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["event_level_data_included"],
+              "properties": {
+                "event_level_data_included": { "const": false }
+              }
+            },
+            "admission": { "$ref": "#/definitions/m2Admission" }
+          }
+        }
+      }
+    },
+    "m2Admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_rows_seen",
+        "tract",
+        "fixed-grid",
+        "unknown_category",
+        "invalid_event_time",
+        "non_active"
+      ],
+      "properties": {
+        "canonical_rows_seen": { "$ref": "#/definitions/count" },
+        "tract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admitted", "ambiguous_excluded", "unmapped_excluded"],
+          "properties": {
+            "admitted": { "$ref": "#/definitions/count" },
+            "ambiguous_excluded": { "$ref": "#/definitions/count" },
+            "unmapped_excluded": { "$ref": "#/definitions/count" }
+          }
+        },
+        "fixed-grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admitted", "unavailable_excluded"],
+          "properties": {
+            "admitted": { "$ref": "#/definitions/count" },
+            "unavailable_excluded": { "$ref": "#/definitions/count" }
+          }
+        },
+        "unknown_category": { "$ref": "#/definitions/count" },
+        "invalid_event_time": { "$ref": "#/definitions/count" },
+        "non_active": { "$ref": "#/definitions/count" }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "canonical_event_denominator",
+        "analysis_eligibility",
+        "tract_grid_relationship",
+        "source_join",
+        "acs_population_bands"
+      ],
+      "properties": {
+        "version": { "const": "spatial-attribution-denominator-audit/v2" },
+        "canonical_event_denominator": { "const": "canonical_rows" },
+        "analysis_eligibility": {
+          "const": "active-and-valid-event-time-and-mapped-normalized-category"
+        },
+        "tract_grid_relationship": { "const": "parallel-overlapping-event-sets" },
+        "source_join": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cardinality", "missing_value_policy"],
+          "properties": {
+            "cardinality": {
+              "const": "exactly-one-source-record-per-canonical-event-and-lineage-snapshot"
+            },
+            "missing_value_policy": { "const": "null-is-unavailable" }
+          }
+        },
+        "acs_population_bands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["low_upper_exclusive", "medium_upper_exclusive"],
+          "properties": {
+            "low_upper_exclusive": { "const": 2500 },
+            "medium_upper_exclusive": { "const": 4500 }
+          }
+        }
+      }
+    },
+    "canonicalDenominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "total"],
+      "properties": {
+        "name": { "const": "canonical_rows" },
+        "total": { "$ref": "#/definitions/count" }
+      }
+    },
+    "eligibleDenominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "parent", "total", "exclusions"],
+      "properties": {
+        "name": { "const": "analysis_eligible_rows" },
+        "parent": { "const": "canonical_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "exclusions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["non_active", "invalid_event_time", "unknown_category"],
+          "properties": {
+            "non_active": { "$ref": "#/definitions/count" },
+            "invalid_event_time": { "$ref": "#/definitions/count" },
+            "unknown_category": { "$ref": "#/definitions/count" }
+          }
+        }
+      }
+    },
+    "tractDenominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "parent", "total", "statuses"],
+      "properties": {
+        "name": { "const": "tract_status_rows" },
+        "parent": { "const": "analysis_eligible_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "statuses": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapped", "ambiguous", "unmapped"],
+          "properties": {
+            "mapped": { "$ref": "#/definitions/count" },
+            "ambiguous": { "$ref": "#/definitions/count" },
+            "unmapped": { "$ref": "#/definitions/count" }
+          }
+        }
+      }
+    },
+    "gridDenominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "parent", "total", "statuses"],
+      "properties": {
+        "name": { "const": "grid_status_rows" },
+        "parent": { "const": "analysis_eligible_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "statuses": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapped", "unavailable"],
+          "properties": {
+            "mapped": { "$ref": "#/definitions/count" },
+            "unavailable": { "$ref": "#/definitions/count" }
+          }
+        }
+      }
+    },
+    "statusMatrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["denominator", "total", "cells"],
+      "properties": {
+        "denominator": { "const": "analysis_eligible_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "cells": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "additionalItems": false,
+          "items": [
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "mapped" },
+                    "grid_status": { "const": "mapped" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "mapped" },
+                    "grid_status": { "const": "unavailable" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "ambiguous" },
+                    "grid_status": { "const": "mapped" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "ambiguous" },
+                    "grid_status": { "const": "unavailable" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "unmapped" },
+                    "grid_status": { "const": "mapped" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/statusMatrixCell" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tract_status": { "const": "unmapped" },
+                    "grid_status": { "const": "unavailable" }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "statusMatrixCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tract_status", "grid_status", "count"],
+      "properties": {
+        "tract_status": { "enum": ["mapped", "ambiguous", "unmapped"] },
+        "grid_status": { "enum": ["mapped", "unavailable"] },
+        "count": { "$ref": "#/definitions/count" }
+      }
+    },
+    "mappedSetRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denominator",
+        "total",
+        "tract_mapped",
+        "grid_mapped",
+        "intersection_mapped",
+        "tract_only_mapped",
+        "grid_only_mapped",
+        "neither_mapped",
+        "union_mapped",
+        "combination_policy"
+      ],
+      "properties": {
+        "denominator": { "const": "analysis_eligible_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "tract_mapped": { "$ref": "#/definitions/count" },
+        "grid_mapped": { "$ref": "#/definitions/count" },
+        "intersection_mapped": { "$ref": "#/definitions/count" },
+        "tract_only_mapped": { "$ref": "#/definitions/count" },
+        "grid_only_mapped": { "$ref": "#/definitions/count" },
+        "neither_mapped": { "$ref": "#/definitions/count" },
+        "union_mapped": { "$ref": "#/definitions/count" },
+        "combination_policy": { "const": "never-sum-parallel-denominators-as-unique-events" }
+      }
+    },
+    "m2Reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "analysis_eligible_rows",
+        "canonical_rows_seen",
+        "tract",
+        "fixed-grid",
+        "unknown_category",
+        "invalid_event_time",
+        "non_active"
+      ],
+      "properties": {
+        "status": { "const": "matched" },
+        "analysis_eligible_rows": { "$ref": "#/definitions/count" },
+        "canonical_rows_seen": { "$ref": "#/definitions/count" },
+        "tract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admitted", "ambiguous_excluded", "unmapped_excluded"],
+          "properties": {
+            "admitted": { "$ref": "#/definitions/count" },
+            "ambiguous_excluded": { "$ref": "#/definitions/count" },
+            "unmapped_excluded": { "$ref": "#/definitions/count" }
+          }
+        },
+        "fixed-grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admitted", "unavailable_excluded"],
+          "properties": {
+            "admitted": { "$ref": "#/definitions/count" },
+            "unavailable_excluded": { "$ref": "#/definitions/count" }
+          }
+        },
+        "unknown_category": { "$ref": "#/definitions/count" },
+        "invalid_event_time": { "$ref": "#/definitions/count" },
+        "non_active": { "$ref": "#/definitions/count" }
+      }
+    },
+    "strata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "normalized_category",
+        "tract_status",
+        "grid_status",
+        "boundary_status",
+        "acs_population_band",
+        "acs_temporal_compatibility",
+        "district",
+        "psa",
+        "road"
+      ],
+      "properties": {
+        "year": { "$ref": "#/definitions/yearStratum" },
+        "normalized_category": { "$ref": "#/definitions/categoryStratum" },
+        "tract_status": { "$ref": "#/definitions/tractStatusStratum" },
+        "grid_status": { "$ref": "#/definitions/gridStatusStratum" },
+        "boundary_status": { "$ref": "#/definitions/boundaryStatusStratum" },
+        "acs_population_band": { "$ref": "#/definitions/acsPopulationStratum" },
+        "acs_temporal_compatibility": { "$ref": "#/definitions/acsTemporalStratum" },
+        "district": {
+          "oneOf": [
+            { "$ref": "#/definitions/sourceDimensionStratum" },
+            { "$ref": "#/definitions/unavailable" }
+          ]
+        },
+        "psa": {
+          "oneOf": [
+            { "$ref": "#/definitions/sourceDimensionStratum" },
+            { "$ref": "#/definitions/unavailable" }
+          ]
+        },
+        "road": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": { "const": "unavailable" },
+            "reason": { "const": "versioned-road-geometry-binding-unavailable" }
+          }
+        }
+      }
+    },
+    "availableStratum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "denominator", "total", "values"],
+      "properties": {
+        "status": { "const": "available" },
+        "denominator": { "const": "analysis_eligible_rows" },
+        "total": { "$ref": "#/definitions/count" },
+        "values": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "count"],
+            "properties": {
+              "value": {
+                "anyOf": [
+                  { "type": "integer" },
+                  { "type": "string" },
+                  { "type": "null" }
+                ]
+              },
+              "count": { "$ref": "#/definitions/count" }
+            }
+          }
+        }
+      }
+    },
+    "yearStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "value": { "type": "integer" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "categoryStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "value": { "type": "string" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tractStatusStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": { "enum": ["mapped", "ambiguous", "unmapped"] }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "gridStatusStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": { "enum": ["mapped", "unavailable"] }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "boundaryStatusStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "enum": [
+                      "inside-single-tract",
+                      "ambiguous-tract-boundary",
+                      "outside-admitted-tract-geometries",
+                      "unavailable-coordinate-missing",
+                      "unavailable-coordinate-invalid",
+                      "unavailable-coordinate-outside-city-bounds",
+                      "unavailable-other"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "acsPopulationStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": { "enum": ["low", "medium", "high", "unavailable"] }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "acsTemporalStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "enum": ["within-acs-period", "outside-acs-period", "unavailable"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sourceDimensionStratum": {
+      "allOf": [
+        { "$ref": "#/definitions/availableStratum" },
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      }
+    },
+    "sourceAttributionAvailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "total", "joined_events", "district_missing", "psa_missing"],
+      "properties": {
+        "status": { "const": "available" },
+        "total": { "$ref": "#/definitions/count" },
+        "joined_events": { "$ref": "#/definitions/count" },
+        "district_missing": { "$ref": "#/definitions/count" },
+        "psa_missing": { "$ref": "#/definitions/count" }
+      }
+    },
+    "artifactPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_only",
+        "event_level_data_included",
+        "source_records_included",
+        "source_identifiers_included",
+        "coordinates_included",
+        "generalized_locations_included"
+      ],
+      "properties": {
+        "aggregate_only": { "const": true },
+        "event_level_data_included": { "const": false },
+        "source_records_included": { "const": false },
+        "source_identifiers_included": { "const": false },
+        "coordinates_included": { "const": false },
+        "generalized_locations_included": { "const": false }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serving", "promotion", "forecast", "receipt"],
+      "properties": {
+        "serving": { "const": false },
+        "promotion": { "const": false },
+        "forecast": { "const": false },
+        "receipt": { "const": false }
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@ import {
   combineHomeCompareSources,
   fetchHomeProfileEvidence,
   loadHomeCompareRegistry,
+  loadM2AreaIntelligenceBoundary,
 } from '../../src/home_compare/api.js';
 import {
   buildWeightSensitivity,
@@ -77,6 +78,10 @@ test('property address and parcel join preserve runtime identity while failing c
     parcelRow({ parcel_number: '987654321' }),
   ] }), hasCode('PARCEL_AMBIGUOUS'));
   assert.throws(() => admitPropertyParcelJoin(address, { rows: [
+    parcelRow(),
+    parcelRow({ market_value: 110000 }),
+  ] }), hasCode('PARCEL_AMBIGUOUS'));
+  assert.throws(() => admitPropertyParcelJoin(address, { rows: [
     parcelRow({ location: '102 TEST ST' }),
   ] }), hasCode('PARCEL_ADDRESS_MISMATCH'));
   assert.throws(() => admitPropertyParcelJoin(address, { rows: [
@@ -99,6 +104,25 @@ test('Home Compare serving projection admits two, three, and four profiles witho
     const serialized = JSON.stringify(projection);
     assert.doesNotMatch(serialized, /"(?:input_address|normalized_address|coordinates|parcel_identifier|source_record_id)"\s*:/i);
     assert.doesNotMatch(serialized, /100 TEST ST/i);
+  }
+});
+
+test('Home Compare controller admits exactly two, three, and four unique parcels', async () => {
+  for (const count of [2, 3, 4]) {
+    let evidenceCalls = 0;
+    const { controller, host } = createControllerHarness({
+      fetchEvidence: async () => {
+        evidenceCalls += 1;
+        return controllerEvidenceResult(evidenceCalls);
+      },
+      loadResultsView: () => ({ homeCompareResultsHtml: () => `<article>${count}</article>` }),
+    });
+    while (controller.getState().addressCount < count) host.querySelector('[data-home-add]').emit('click');
+    setControllerAddresses(host, Array.from({ length: count }, (_, index) => `${index + 1}00 TEST ST`));
+    const completed = await controller.compare();
+    assert.equal(completed.status, 'partial');
+    assert.equal(completed.projection.profiles.length, count);
+    assert.equal(evidenceCalls, count);
   }
 });
 
@@ -140,6 +164,587 @@ test('Home Compare rejects promotion, forecasts, safety claims, and private proj
   const privateField = structuredClone(projection);
   privateField.profiles[0].evidence.property.value.address = '100 TEST ST';
   assert.throws(() => validateHomeCompareProjection(privateField), /forbidden field/i);
+
+  for (const [key, value] of [
+    ['normalizedAddress', '100 TEST ST'],
+    ['lat', 39.95],
+    ['lon', -75.16],
+    ['geometry', { x: -75.16, y: 39.95 }],
+    ['commuteDestination', 'PRIVATE DESTINATION'],
+  ]) {
+    const alias = structuredClone(projection);
+    alias.profiles[0].evidence.property.value[key] = value;
+    assert.throws(
+      () => validateHomeCompareProjection(alias),
+      /forbidden field/i,
+      `${key} must be rejected from serializable comparison artifacts`,
+    );
+  }
+});
+
+test('Home Compare normalizes private field keys across naming styles without rejecting ordinary identifiers', () => {
+  const privateKeys = [
+    'ownerName', 'owner_name', 'owner-name',
+    'grantorName', 'grantor_name', 'grantor-name',
+    'granteeName', 'grantee_name', 'grantee-name',
+    'opaAccountNum', 'opa_account_num', 'opa-account-num',
+    'parcelNumber', 'parcel_number', 'parcel-number',
+    'normalizedAddress', 'normalized_address', 'normalized-address',
+    'coordinates',
+  ];
+  for (const key of privateKeys) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = { [key]: 'private identity' };
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /forbidden field/i,
+      `${key} must fail closed at a nested serialization boundary`,
+    );
+  }
+
+  const ordinary = structuredClone(makeProjection(2));
+  ordinary.profiles[0].evidence.property.value.details = {
+    sourceId: 'public-aggregate-source',
+    source_id: 'public-aggregate-source',
+    ownership: 'non-identifying aggregate category',
+  };
+  assert.doesNotThrow(() => validateHomeCompareProjection(ordinary));
+});
+
+test('Home Compare rejects plural private aliases and OPA account abbreviations recursively', () => {
+  const privateAliases = [
+    'owners', 'grantors', 'grantees', 'parcels',
+    'opaAcctNum', 'opa_acct_num', 'opa-acct-num',
+  ];
+  for (const key of privateAliases) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [
+      { publicSummary: { [key]: ['private identity'] } },
+    ];
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /forbidden field/i,
+      `${key} must fail closed inside nested arrays and objects`,
+    );
+  }
+
+  const ordinary = structuredClone(makeProjection(2));
+  ordinary.profiles[0].evidence.property.value.details = [{
+    sourceId: 'public-aggregate-source',
+    source_id: 'public-aggregate-source',
+    ownership: 'non-identifying aggregate category',
+  }];
+  assert.doesNotThrow(() => validateHomeCompareProjection(ordinary));
+});
+
+test('Home Compare rejects unsafe conclusions from every user-visible text container', () => {
+  const hostile = 'This proves this home is the safest.';
+  const mutators = [
+    (projection) => { projection.profiles[0].evidence.property.coverage = hostile; },
+    (projection) => { projection.profiles[0].evidence.property.precision = hostile; },
+    (projection) => { projection.profiles[0].evidence.property.limitations = [hostile]; },
+    (projection) => { projection.profiles[0].evidence.property.value.summary = hostile; },
+    (projection) => { projection.sources[0].coverage = hostile; },
+    (projection) => { projection.sources[0].precision = hostile; },
+    (projection) => { projection.sources[0].limitations = [hostile]; },
+    (projection) => { projection.profiles[0].limitations = [hostile]; },
+    (projection) => { projection.limitations = [hostile]; },
+    (projection) => { projection.sensitivity.interpretation = hostile; },
+  ];
+  for (const mutate of mutators) {
+    const projection = structuredClone(makeProjection(2));
+    mutate(projection);
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  const legitimate = structuredClone(makeProjection(2));
+  legitimate.profiles[0].evidence.property.coverage = 'Coverage is limited to admitted public records.';
+  legitimate.profiles[0].evidence.property.precision = 'This does not establish property condition or absolute safety.';
+  legitimate.profiles[0].limitations = ['Missing evidence is unavailable, not zero.'];
+  legitimate.limitations = ['The comparison does not establish causality, suitability, or personal risk.'];
+  assert.doesNotThrow(() => validateHomeCompareProjection(legitimate));
+});
+
+test('Home Compare applies clause-aware bilingual conclusion semantics and bounds nested text', () => {
+  const hostileConclusions = [
+    'This home is the safest.',
+    'This home has the lowest risk.',
+    'This proves\nthis home is the safest.',
+    'This does not prove this home is safe, but this home is the safest.',
+    'This does not prove this home is safe; however, this home has the lowest risk.',
+    '这证明该住宅最安全。',
+    '这不能证明该住宅安全，但该住宅最安全。',
+    '这不能证明该住宅安全；然而该住宅属于最低风险。',
+  ];
+  for (const text of hostileConclusions) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(
+      () => validateHomeCompareProjection(projection),
+      /invalid|unsafe conclusion/i,
+      `${JSON.stringify(text)} must fail closed`,
+    );
+  }
+
+  for (const text of [
+    'This does not prove this home is safe.',
+    '这不能证明该住宅安全。',
+    'Feature proximity cannot be converted into victim probability or a safety conclusion.',
+    'HIN is crash-derived road context, not address risk, probability, or a ranking.',
+    'Targets are weekly counts, not a complete account of harm, individual victim probability, or absolute safety.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(
+      () => validateHomeCompareProjection(projection),
+      `${JSON.stringify(text)} is a legitimate limitation`,
+    );
+  }
+
+  for (const text of ['', `bounded${String.fromCharCode(0)}escape`, 'x'.repeat(801)]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ note: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /invalid/i);
+  }
+});
+
+test('Home Compare admits direct English and Chinese negation disclosures', () => {
+  for (const text of [
+    'This home is not safe.',
+    '该住宅并不安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare does not let unavailable evidence mask a later affirmative conclusion', () => {
+  for (const text of [
+    'Risk is unavailable and this home is the safest.',
+    '该区域风险数据不可用，但该住宅最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare scopes disclosures across common English and Chinese clause boundaries', () => {
+  for (const text of [
+    'This cannot prove safety and the home is the safest.',
+    'Risk is unavailable, while the property is the safest.',
+    'This home is not safe, and the route is safest.',
+    'This cannot prove safety, the property is safest.',
+    '风险不可用，且该住宅最安全。',
+    '该路线并不安全，同时该路线风险最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'Risk and safety are unavailable.',
+    'Reported incidents are incomplete history, not individual risk, absolute safety, or a forecast.',
+    '风险和安全结论均不可用。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects affirmative causal claims and preserves explicit causal negation', () => {
+  for (const text of [
+    'The route reduces crime.',
+    'The property increases incidents.',
+    'The home prevents victimization.',
+    'The route lowers risk.',
+    'The property raises harm.',
+    '该路线降低犯罪。',
+    '该住宅减少受害事件。',
+    '该区域增加风险。',
+    '该住宅提高受害概率。',
+    '该路线预防犯罪。',
+    '该住宅防止受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'The route does not reduce crime.',
+    'The property cannot increase incidents.',
+    '该路线不能降低犯罪。',
+    '该住宅不减少受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects every Unicode control or format character before conclusion checks', () => {
+  for (const text of [
+    `bounded${String.fromCodePoint(0x7f)}escape`,
+    `bounded${String.fromCodePoint(0x85)}escape`,
+    `bounded${String.fromCodePoint(0x200b)}escape`,
+    `saf${String.fromCodePoint(0x7f)}est`,
+    `saf${String.fromCodePoint(0x200b)}est`,
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /invalid/i);
+  }
+});
+
+test('Home Compare rejects affirmative home claims regardless of unrelated disclosure placement', () => {
+  for (const text of [
+    'The home is safest although risk is unavailable.',
+    'The home is safest because evidence is not complete.',
+    'The property is safest despite unknown risk.',
+    'The home is safest, not merely safe.',
+    'Evidence is not complete and your home is safest.',
+    '该住宅最安全，因为风险不可用。',
+    '该住宅最安全，虽然风险不可用。',
+    '风险数据不可用，所以该住宅最安全。',
+    '该住宅最安全且风险不可用。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits subject-independent safety predicates with locally bound negation', () => {
+  for (const text of [
+    'The neighborhood is safest.',
+    'The community is safest.',
+    'The street is safest.',
+    'The block has the lowest risk.',
+    'This residence is safest.',
+    '该街道风险最低。',
+    '这个社区最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'No home is safe.',
+    'This neighborhood is not safe.',
+    '没有住宅是安全的。',
+    '该街道并不安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects expanded direct safety and risk predicates', () => {
+  for (const text of [
+    'The home remains safest.',
+    'The neighborhood offers the lowest risk.',
+    'The street poses no risk.',
+    'Block 5 is safest.',
+    'Residence 21 has the lowest risk.',
+    'Neighborhood risk is lowest.',
+    '该住宅没有风险。',
+    '该小区最安全。',
+    '街道风险为最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects syntax-anchored active passive and reverse causal assertions', () => {
+  for (const text of [
+    'The route causes crime.',
+    'Crime is caused by the route.',
+    'The route decreases incidents.',
+    'The property stops victimization.',
+    '该路线导致犯罪。',
+    '犯罪由该路线造成。',
+    '该住宅阻止受害事件。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects contrastive negation that masks a later assertion', () => {
+  for (const text of [
+    'The route reduces not congestion but crime.',
+    'This proves not cost but safety.',
+    'This establishes not value but risk.',
+    'Crime is not reduced but is increased by the route.',
+    '犯罪没有减少反而因该路线而增加。',
+    '这证明的不是便利，而是安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits evidence-linked and quantified safety denials', () => {
+  for (const text of [
+    'There is no reliable evidence that the route reduces crime.',
+    'No currently admitted evidence shows the neighborhood reduces crime.',
+    'The route cannot be shown to reduce crime.',
+    'The property has not been shown to increase incidents.',
+    '没有可靠证据表明该路线降低犯罪。',
+    'Not every home is safe.',
+    'Neither home is safe.',
+    '没有一个住宅是安全的。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare admits source product and dataset metadata descriptions', () => {
+  for (const text of [
+    'The source reports increases in crime.',
+    'The product displays an increase in crime counts.',
+    'The dataset reports reduced incidents from the official source.',
+    'The source has low-risk and high-risk category labels.',
+    'The dataset has the lowest risk field named category.',
+    'The product has the safest-route label disabled.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ description: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects residential claims disguised as metadata and Chinese double negation', () => {
+  for (const text of [
+    'The home has the lowest risk field named category.',
+    'The property has the safest-route label disabled.',
+    '该住宅不是不安全，而是最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare rejects ambiguous safety and causal text through the fail-closed lexicon', () => {
+  for (const text of [
+    'These homes are safest.',
+    'Homes have the lowest risk.',
+    'The two homes are safest.',
+    'Community homes are safest.',
+    'The block is clearly safest.',
+    '社区的风险最低。',
+    'The route does not reduce crime, yet increases incidents.',
+    'Crime is not reduced by the route but increased by the property.',
+    'The route significantly reduces crime.',
+    'The route reduces the risk.',
+    '该路线不降低犯罪但增加风险。',
+    '该路线不能减少事件，同时提高风险。',
+    '该路线明显降低犯罪。',
+    '该路线降低了犯罪。',
+    'The route reduces crime but does not increase risk.',
+    '该路线降低犯罪但不增加风险。',
+    'No evidence exists and the home is safest.',
+    '该住宅没有风险。',
+    'The source is safe.',
+    'The property is not unsafe.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare allows only complete trusted metadata and bounded denial forms', () => {
+  for (const text of [
+    'The source shows risk fields from the official dataset.',
+    'The product indicates risk availability.',
+    'The dataset shows safety-related record counts.',
+    '该来源说明风险字段。',
+    'This source has low-risk categories.',
+    'A dataset has the lowest risk field named category.',
+    'Neither of the homes is safe.',
+    'None of the homes is safe.',
+    'No residential property is safe.',
+    'There is no home that is safe.',
+    '没有任何住宅是安全的。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects evidence denials followed by inference or a second assertion', () => {
+  for (const text of [
+    'No evidence shows the route reduces crime so the home is safest.',
+    'No evidence shows the route reduces crime therefore the home is safest.',
+    'There is no proof that the route reduces crime hence the property is safest.',
+    'No evidence shows the route reduces crime. The home is safest.',
+    'This cannot prove the route reduces crime. The home is safest.',
+    '没有证据表明该路线降低犯罪故该住宅最安全。',
+    '没有证据表明该路线降低犯罪于是该住宅最安全。',
+    '没有证据表明该路线降低犯罪并由此证明该住宅最安全。',
+    '没有证据表明该路线降低犯罪。该住宅最安全。',
+    'No evidence shows the route reduces crime! The home is safest.',
+    'There is no proof that the route reduces crime? The property is safest.',
+    'This cannot prove absolute safety therefore the route has the lowest risk.',
+    '没有证据表明该路线降低犯罪！该住宅最安全。',
+    '没有证据证明该住宅安全？该区域风险最低。',
+    '这不能证明该住宅安全故该路线风险最低。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare binds negation to each complete assertion instead of the surrounding sentence', () => {
+  for (const text of [
+    'The route reduces crime but does not increase risk.',
+    'The route does not reduce crime but the property increases incidents.',
+    'No evidence exists and the home is safest.',
+    'No evidence shows the route reduces crime, but the home is safest.',
+    '该路线降低犯罪但不增加风险。',
+    'The home has no risk.',
+    'Crime is reduced by the route although risk is unavailable.',
+    'The property is not unsafe.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits locally negated causal and operational metadata statements', () => {
+  for (const text of [
+    'The route does not reduce crime.',
+    'The source reports reduced incident coverage.',
+    'The parser is safe to retry.',
+    'Risk and safety conclusions are unavailable.',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare rejects active, passive, and reverse causal claims with local negation only', () => {
+  for (const text of [
+    'Crime is reduced by the route.',
+    'Incidents are increased by the property.',
+    'Victimization is prevented by the home.',
+    'Harm is lowered by the route.',
+    '犯罪因该路线而降低。',
+    '受害事件被该住宅防止。',
+    '事件因该区域而增加。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ conclusion: text }];
+    assert.throws(() => validateHomeCompareProjection(projection), /unsafe conclusion/i);
+  }
+
+  for (const text of [
+    'Crime is not reduced by the route.',
+    'No evidence shows the route reduces crime.',
+    '犯罪没有因该路线而降低。',
+    '没有证据表明该路线降低犯罪。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ limitation: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare admits descriptive safety and risk text without an affirmative predicate', () => {
+  for (const text of [
+    'The product displays public safety and risk context.',
+    'The source reports risk indicators.',
+    'The product compares risk evidence by profile.',
+    'Source coverage includes safety-related public records.',
+    'No evidence shows the route reduces crime.',
+    'There is no proof that the property increases incidents.',
+    '没有证据表明该路线降低犯罪。',
+    '没有证据证明该住宅最安全。',
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    projection.profiles[0].evidence.property.value.details = [{ description: text }];
+    assert.doesNotThrow(() => validateHomeCompareProjection(projection));
+  }
+});
+
+test('Home Compare commute and isochrone outputs remain unavailable without admitted routing authority', () => {
+  for (const mutate of [
+    (projection) => { projection.commute.status = 'available'; },
+    (projection) => { projection.commute.authority = 'caller-claimed-graph'; },
+    (projection) => { projection.commute.travelTimes = [{ minutes: 10 }]; },
+    (projection) => { projection.commute.isochrones = [{ minutes: 15 }]; },
+    (projection) => { projection.commute.reason = 'This establishes a low-risk route.'; },
+  ]) {
+    const projection = structuredClone(makeProjection(2));
+    mutate(projection);
+    assert.throws(() => validateHomeCompareProjection(projection), /commute|unsafe conclusion/i);
+  }
+});
+
+test('Home Compare admits only historical-only M2 and fails current unavailability closed', async () => {
+  const trackedM2 = JSON.parse(await readFile(path.join(repoRoot, 'public/data/area_intelligence_baseline.v1.json'), 'utf8'));
+  const historical = await loadM2AreaIntelligenceBoundary({ request: async () => trackedM2 });
+  const admittedHistorical = structuredClone(makeProjection(2));
+  admittedHistorical.areaIntelligence = historical;
+  assert.equal(validateHomeCompareProjection(admittedHistorical).areaIntelligence.status, 'not-promoted');
+
+  const unsafe = structuredClone(makeProjection(2));
+  unsafe.areaIntelligence.historicalEvidence.limitations = ['This evidence establishes a low-risk area.'];
+  assert.throws(() => validateHomeCompareProjection(unsafe), /unsafe conclusion/i);
+
+  const malformed = structuredClone(makeProjection(2));
+  malformed.areaIntelligence.historicalEvidence.measure = null;
+  assert.throws(() => validateHomeCompareProjection(malformed), /historical evidence contract/i);
+
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    loadAreaIntelligence: async () => unavailableAreaBoundary(),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>must not render</article>' }),
+  });
+  setControllerAddresses(host);
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'source-unavailable' });
+  assert.equal(evidenceCalls, 0, 'an unavailable M2 boundary is rejected before private evidence queries');
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare aborts sibling address work when malformed M2 fails', async () => {
+  const signals = [];
+  const never = deferred();
+  const { controller, host } = createControllerHarness({
+    loadAreaIntelligence: async () => { throw new TypeError('Malformed M2 fixture.'); },
+    resolveAddress: async (_address, { signal }) => {
+      signals.push(signal);
+      return never.promise;
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>must not render</article>' }),
+  });
+  setControllerAddresses(host);
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'source-unavailable' });
+  assert.equal(signals.length, 2);
+  assert.ok(signals.every((signal) => signal.aborted), 'malformed M2 aborts sibling private address requests');
+  assert.equal(controller.getState().hasResult, false);
 });
 
 test('Home Compare rejects caller-tampered profile and root availability states', () => {
@@ -195,6 +800,27 @@ test('weight sensitivity changes evidence emphasis without ranking homes or reco
   assert.equal(sensitivity.perturbationPercent, 20);
   assert.match(sensitivity.interpretation, /do not rank homes/i);
   assert.doesNotMatch(JSON.stringify(sensitivity), /safety[_-]?score|recommendedHome|winner/i);
+
+  const uneven = buildWeightSensitivity({
+    property: 1,
+    costHistory: 1,
+    civicRecords: 1,
+    transportContext: 1,
+    dataQuality: 2,
+  });
+  assert.equal(
+    Object.values(uneven.normalizedWeights).reduce((sum, value) => sum + Math.round(value * 10), 0),
+    1000,
+    'normalized percentages must total exactly 100.0 after rounding',
+  );
+  assert.throws(
+    () => buildWeightSensitivity(Object.fromEntries(HOME_COMPARE_DIMENSIONS.map((key) => [key, 0]))),
+    /at least one weight must be positive/i,
+  );
+  assert.throws(
+    () => buildWeightSensitivity({ ...defaultWeights, property: 20.5 }),
+    /integer from 0 to 100/i,
+  );
 });
 
 test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, and escaped labels', () => {
@@ -207,11 +833,11 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
     assert.equal((shell.match(/data-home-address=/g) || []).length, count);
     assert.match(shell, count === 3 ? /并排比较 2–4 个费城住宅/ : /Compare 2–4 Philadelphia homes/);
     assert.match(shell, count === 3
-      ? /地址、坐标和 parcel ID 仅临时用于查询列出的官方公共来源/
-      : /used ephemerally to query the listed official public sources/);
+      ? /私人地址比较会在任何 geocoder、parcel、地图或附属请求前保持不可用/
+      : /Private address comparison is unavailable before any geocoder/);
     assert.match(shell, count === 3
-      ? /通勤目的地只保留在本次会话中/
-      : /commute destinations remain in this session/);
+      ? /不是地址级证据/
+      : /not address-level evidence/);
   }
   const rendered = homeCompareResultsHtml(makeProjection(2), {
     labels: ['<img src=x onerror=alert(1)>', '<script>alert(2)</script>'],
@@ -222,6 +848,15 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
   assert.match(rendered, /预测继续不可用/);
   assert.match(rendered, /通勤时间与 isochrone 不可用/);
   assert.match(rendered, /不计算 safety score/);
+});
+
+test('Home Compare ignores deferred citywide readiness after destroy', async () => {
+  const readiness = deferred();
+  const { controller, host } = createControllerHarness({ loadCitywideReadiness: () => readiness.promise });
+  controller.destroy();
+  readiness.resolve({ hostile: 'must-not-render' });
+  await nextTurn();
+  assert.equal(host.innerHTML, '');
 });
 
 test('Home Compare discards a computed projection when a deferred results renderer outlives close or destroy', async () => {
@@ -279,7 +914,7 @@ test('Home Compare freezes every request input and rejects busy edits before sta
   const { controller, host } = createControllerHarness({
     resolveAddress: async (address) => {
       resolvedAddresses.push(address);
-      return { address };
+      return controllerIdentity(address);
     },
     fetchEvidence: async () => {
       evidenceCalls += 1;
@@ -319,6 +954,115 @@ test('Home Compare freezes every request input and rejects busy edits before sta
   assert.equal(completed.projection.sensitivity.normalizedWeights.property, 20, 'projection sensitivity uses the immutable request snapshot');
   assert.equal(host.querySelector('[data-home-address="0"]').value, '100 TEST ST');
   assert.equal(host.querySelector('[data-home-destinations]').value, 'Original destination');
+});
+
+test('Home Compare rejects duplicate parcel identities before evidence queries', async () => {
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    resolveAddress: async (address) => controllerIdentity(address, '111111111'),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>should not render</article>' }),
+  });
+  setControllerAddresses(host);
+
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'parcel-duplicate' });
+  assert.equal(evidenceCalls, 0);
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare rejects duplicate normalized addresses even if a hostile resolver changes parcel identity', async () => {
+  let resolution = 0;
+  let evidenceCalls = 0;
+  const { controller, host } = createControllerHarness({
+    resolveAddress: async () => controllerIdentity('100 TEST ST', resolution++ === 0 ? '111111111' : '222222222'),
+    fetchEvidence: async () => {
+      evidenceCalls += 1;
+      return controllerEvidenceResult(evidenceCalls);
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: () => '<article>should not render</article>' }),
+  });
+  setControllerAddresses(host, ['100 TEST ST', '100 TEST ST']);
+
+  assert.deepEqual(await controller.compare(), { status: 'unavailable', reason: 'address-duplicate' });
+  assert.equal(evidenceCalls, 0);
+  assert.equal(controller.getState().hasResult, false);
+});
+
+test('Home Compare supersedes an old address session before stale evidence work or commit', async () => {
+  const oldIdentities = [deferred(), deferred()];
+  let oldIndex = 0;
+  const evidenceParcels = [];
+  const { controller, dialog, host } = createControllerHarness({
+    resolveAddress: async (address) => {
+      if (address.startsWith('OLD')) return oldIdentities[oldIndex++].promise;
+      return controllerIdentity(address, address.endsWith('A') ? '222222222' : '333333333');
+    },
+    fetchEvidence: async (identity) => {
+      evidenceParcels.push(identity.parcelId);
+      return {
+        ...controllerEvidenceResult(evidenceParcels.length),
+        privateLabel: identity.displayAddress,
+      };
+    },
+    loadResultsView: () => ({ homeCompareResultsHtml: (_projection, { labels }) => `<article>${labels.join('|')}</article>` }),
+  });
+  setControllerAddresses(host, ['OLD A', 'OLD B']);
+  const oldCompare = controller.compare();
+  await waitFor(() => oldIndex === 2);
+  host.querySelector('[data-home-close]').emit('click');
+  await nextTurn();
+
+  controller.open();
+  setControllerAddresses(host, ['NEW A', 'NEW B']);
+  const current = await controller.compare();
+  assert.equal(current.status, 'partial');
+  assert.deepEqual(evidenceParcels, ['222222222', '333333333']);
+
+  oldIdentities[0].resolve(controllerIdentity('OLD A', '444444444'));
+  oldIdentities[1].resolve(controllerIdentity('OLD B', '555555555'));
+  assert.deepEqual(await oldCompare, { status: 'superseded' });
+  assert.deepEqual(evidenceParcels, ['222222222', '333333333'], 'stale identities cannot launch evidence queries');
+  assert.equal(controller.getState().hasResult, true);
+  assert.match(host.querySelector('[data-home-results]').innerHTML, /NEW A\|NEW B/);
+  dialog.close();
+});
+
+test('Home Compare shares only non-location settings and uses no persistent browser storage or logging', async () => {
+  const copied = [];
+  const replacements = [];
+  const { controller, host } = createControllerHarness({
+    clipboard: { writeText: async (value) => { copied.push(value); } },
+    historyRef: { replaceState: (state, title, url) => { replacements.push({ state, title, url: String(url) }); } },
+    locationRef: { href: 'https://example.test/compare?legacy=private#old' },
+  });
+  setControllerAddresses(host, ['PRIVATE HOME A', 'PRIVATE HOME B']);
+  const destinations = host.querySelector('[data-home-destinations]');
+  destinations.value = 'PRIVATE DESTINATION';
+  destinations.emit('input');
+  host.querySelector('[data-home-share]').emit('click');
+  await waitFor(() => copied.length === 1 && replacements.length === 1);
+
+  const serializedEffects = JSON.stringify({ copied, replacements });
+  assert.doesNotMatch(serializedEffects, /PRIVATE HOME|PRIVATE DESTINATION|legacy=private|#old/i);
+  assert.deepEqual(replacements[0].state, {});
+  const sharedUrl = new URL(copied[0]);
+  assert.deepEqual([...sharedUrl.searchParams.keys()], ['hc']);
+  assert.equal(sharedUrl.hash, '');
+  assert.deepEqual(decodeHomeCompareShareState(sharedUrl.searchParams.get('hc')).weights, defaultWeights);
+  assert.equal(controller.getState().status, 'shared');
+
+  const runtimeSource = await Promise.all([
+    'src/home_compare/address.js',
+    'src/home_compare/contract.js',
+    'src/home_compare/controller.js',
+  ].map((file) => readFile(path.join(repoRoot, file), 'utf8')));
+  assert.doesNotMatch(
+    runtimeSource.join('\n'),
+    /\b(?:localStorage|sessionStorage|indexedDB|sendBeacon|console\.(?:log|info|warn|error)|telemetry)\b/,
+  );
 });
 
 test('Home Compare renderer execution failures stay results-unavailable and recover with a healthy retry', async () => {
@@ -448,6 +1192,7 @@ test('runtime evidence keeps geocoder provenance, unknown counts, source revisio
   );
   const result = await fetchHomeProfileEvidence(identity, {
     request: syntheticRuntimeRequest,
+    privateAnalysisGate: () => {},
     now: () => '2026-08-21T00:00:00.000Z',
     incidentReader: async () => 0,
     coverageReader: async () => ({ min: '2006-01-01', max: '2026-08-20' }),
@@ -597,6 +1342,23 @@ function areaBoundary() {
   };
 }
 
+function unavailableAreaBoundary() {
+  return {
+    status: 'unavailable',
+    historicalEvidence: {
+      status: 'unavailable',
+      measure: null,
+      coverage: 'Current M2 serving evidence is unavailable.',
+      limitations: ['Unavailable is not zero and does not establish safety, causality, or risk.'],
+    },
+    forecast: {
+      status: 'unavailable',
+      reason: 'current-m2-serving-evidence-unavailable',
+      predictions: [],
+    },
+  };
+}
+
 function candidate({
   address = '100 TEST ST, 19100',
   score = 100,
@@ -701,7 +1463,12 @@ function hasCode(code) {
 function createControllerHarness({
   loadResultsView,
   fetchEvidence = async () => controllerEvidenceResult(1),
-  resolveAddress = async (address) => ({ address }),
+  resolveAddress = async (address) => controllerIdentity(address),
+  loadAreaIntelligence = async () => areaBoundary(),
+  clipboard,
+  locationRef = { href: 'https://example.test/' },
+  historyRef = { replaceState() {} },
+  loadCitywideReadiness,
 } = {}) {
   const host = new ControllerHost();
   const dialog = new ControllerDialog(host);
@@ -709,13 +1476,25 @@ function createControllerHarness({
     dialog,
     loadResultsView,
     loadRegistry: async () => registry,
-    loadAreaIntelligence: async () => areaBoundary(),
+    loadAreaIntelligence,
     resolveAddress,
     fetchEvidence,
-    locationRef: { href: 'https://example.test/' },
-    historyRef: { replaceState() {} },
+    clipboard,
+    locationRef,
+      historyRef,
+      privateAnalysisGate: () => {},
+    loadCitywideReadiness,
   });
   return { controller, dialog, host };
+}
+
+function controllerIdentity(address, parcelId = null) {
+  const digits = address.match(/\d+/)?.[0] || '1';
+  return {
+    normalizedAddress: address,
+    displayAddress: address,
+    parcelId: parcelId || digits.padStart(9, '0').slice(-9),
+  };
 }
 
 function controllerEvidenceResult(index) {
@@ -732,8 +1511,8 @@ function controllerEvidenceResult(index) {
   };
 }
 
-function setControllerAddresses(host) {
-  for (const [index, value] of ['100 TEST ST', '200 TEST ST'].entries()) {
+function setControllerAddresses(host, values = ['100 TEST ST', '200 TEST ST']) {
+  for (const [index, value] of values.entries()) {
     const input = host.querySelector(`[data-home-address="${index}"]`);
     input.value = value;
     input.emit('input');
@@ -785,7 +1564,7 @@ class ControllerElement {
   }
 
   emit(type) {
-    for (const listener of this.#listeners.get(type) || []) listener({ currentTarget: this, target: this });
+    for (const listener of [...(this.#listeners.get(type) || [])]) listener({ currentTarget: this, target: this });
   }
 
   replaceChildren() {

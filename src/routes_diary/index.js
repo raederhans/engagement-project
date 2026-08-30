@@ -72,6 +72,11 @@ export {
   loadDemoSegments,
 } from './diary_seed_data.js';
 
+export function publishDiarySnapshotToInsights(insightsPort, snapshot) {
+  insightsPort.setEntries(snapshot);
+  insightsPort.refresh();
+}
+
 const SAMPLE_COMMUNITY = createSampleCommunityModel();
 
 const segmentLookup = new Map();
@@ -480,7 +485,14 @@ function ensureDiaryPanel(routes, options = {}) {
     if (store.diaryViewMode === 'history') {
       syncDiaryInsightsContext('history');
       const localState = currentDiaryLocalController?.getViewState() || {
-        snapshot: { entries: [], drafts: [], warnings: [] },
+        snapshot: {
+          entries: [],
+          drafts: [],
+          storageStatus: 'unavailable',
+          warnings: [],
+          omittedCount: 0,
+          invalidCount: 0,
+        },
         importPreview: null,
         replaceConfirm: false,
         deleteConfirmId: null,
@@ -1257,8 +1269,7 @@ export async function initDiaryMode(map, options = {}) {
       },
       onChange: (view, { snapshotChanged = false } = {}) => {
         if (snapshotChanged) {
-          insightsPort.setEntries(view.snapshot.entries);
-          insightsPort.refresh();
+          publishDiarySnapshotToInsights(insightsPort, view.snapshot);
         }
         if (store.diaryViewMode === 'history') refreshDiaryPanel?.();
       },
@@ -1301,7 +1312,7 @@ export async function initDiaryMode(map, options = {}) {
       return stats;
     }
     const localView = ownedLocalController.getViewState();
-    insightsPort.setEntries(localView.snapshot.entries);
+    publishDiarySnapshotToInsights(insightsPort, localView.snapshot);
 
     if (layerMounted) {
       updateSegmentsData(mapRef, DIARY_SEGMENTS_SOURCE_ID, hydratedSegments);
