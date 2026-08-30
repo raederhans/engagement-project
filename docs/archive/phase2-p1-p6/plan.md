@@ -12,6 +12,11 @@
 5. P5 Home Compare 真实城市数据；
 6. P6 Known Route crash、accessibility 与 route-legality 证据。
 
+## Closeout
+
+- P1-P6 completed and integrated as exact-tree merge `ff0e6c4`; release repair `6c08005` passed the final local `ci:release` and coverage gates.
+- This plan's original no-push boundary records the authority at execution time. The user later separately authorized repository cleanup and `main` synchronization; that operational closeout does not alter the data, serving, scientific, routing, safety, or evidence-deletion boundaries below.
+
 ## Scope
 
 - 复用已完成的 DFEV1 M1-M6 本地候选与持久 ignored evidence，不复制平行实现。

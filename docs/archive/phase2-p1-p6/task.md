@@ -2,7 +2,7 @@
 
 ## Current status
 
-P1-P6 are locally complete on the isolated integration branch. The result includes clean-room DataOps, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a deterministic no-promotion evaluation, aggregate-only bilingual Area Intelligence, a nine-source Home Compare readiness projection, and an identity-bound Known Route P6 evidence/product boundary. No serving, scientific, causal, safety, routing, deployment, redistribution, or remote authority was inferred.
+P1-P6 are complete and merged into local `main` by merge commit `ff0e6c4`; release repair `6c08005` passed the complete local release and coverage gates. The result includes clean-room DataOps, exact Spatial Attribution v2 evidence, a byte-frozen Evaluation Protocol v2, a rebuilt exact M2 mart, a deterministic no-promotion evaluation, aggregate-only bilingual Area Intelligence, a nine-source Home Compare readiness projection, and an identity-bound Known Route P6 evidence/product boundary. No serving, scientific, causal, safety, routing, redistribution, or evidence-deletion authority was inferred. Remote synchronization is a separate observed closeout step after this archival commit.
 
 ## Checklist
 
@@ -82,11 +82,15 @@ P1-P6 are locally complete on the isolated integration branch. The result includ
 | P6 focused and expanded gates | `npm run -s test:known-route-evidence` 45/45 PASS; expanded Known Route/HIN/corridor suite 113/113 PASS; Product Integrity 80/80 PASS; Architecture Ports 7/7 PASS; syntax, scoped ESLint and `git diff --check` PASS |
 | P6 production build/browser gate | `npm run -s build:manifest` PASS; `npm run -s test:known-route-evidence-browser` PASS for English/Chinese x desktop/mobile, no console/page errors, aggregate-only privacy, four unavailable mode states, unavailable match quality and unavailable sensitivity; no score, winner, safest-route or raw-crash count is rendered |
 | P6 independent integration review | Initial review findings on product reachability, sensitivity admission, v2 handoff/protocol binding, catalog identity, product claims and exact publication were remediated; final focused re-review PASS with no remaining material correctness, privacy or authority finding |
+| Local Phase 2 integration merge | `ff0e6c4` has parents `9d93df2` and `09aa176`; its tree is byte-identical to completed Phase 2 tip `09aa176` |
+| Final release repair | `6c08005`; focused Crime UI/async 94/94, reviewer PASS, Windows and Linux visual matrices 35 PASS each, and compact-landscape regression 1/1 before the final full gate |
+| Final local release gate | `npm run ci:release` exit 0; lint, all default contracts, production manifest/bundle, Browser Smoke, ACS, Area Intelligence, Home Compare, Known Route, and visual matrix 35 PASS / 10 designed skips |
+| Final local coverage gate | `npm run coverage:report` exit 0; 76/76 tests and coverage table generated on exact `6c08005` code |
 
 ## Open risks and remaining work
 
 - 尚未选择或获权使用外部对象存储；P1 必须将 provider-neutral 实现、本地 clean-room 验证与跨机器发布权限分开。
-- P1 workflow 仅通过本地静态/契约验证，未推送或触发远端 CI。
+- P1 workflow 已通过本地静态、契约和完整 release gate；本次 archival commit 之后由 integration owner 推送 `main`，远端 CI/Pages 结果必须另以实际 run observation 收口，本文不预先声明。
 - P1 已证明本机隔离路径上的恢复与身份复现；未证明外部对象存储、跨机器传输或灾备演练。
 - P2 没有 identity-bound uncertainty footprint 或 versioned road geometry artifact；fractional、area-kernel 和 road attribution 因此保持 unavailable，而不是补零或强制归属。
 - P3 的 64/64 count-model fit states 均未在冻结迭代上限前收敛，且多个 interval-coverage/MAE-gain slices 未过 gate；当前结果必须保持 `not-promoted`，不能被 P4 转换为 forecast 或 serving candidate。
@@ -101,4 +105,4 @@ P1-P6 are locally complete on the isolated integration branch. The result includ
 - P6 没有获准、版本化且 coverage/precision 完整的官方 raw-crash 或 citywide accessibility source；这些维度保持 `unavailable`，HIN 只保留 historical planning context，reported incidents 只保留 generalized aggregate。
 - 当前 centerline、OSM candidate 与 M5 fixture 都不足以证明 walking/cycling/driving/transit 的完整 legality；四个 mode 分别保持 `unavailable`，deterministic map match 也不被解释为 calibrated correctness。
 - 当前没有 identity-bound corridor/generalization variant producer；P6 sensitivity v1 因此保持 `unavailable`，并拒绝调用方自签的变体输入，而不是制造可比较结果。
-- 不得把本地候选称为远端 main、CI、Pages、产品发布、scientific promotion 或 routing authority。
+- 本地 gate 不得冒充远端 main、CI 或 Pages；只有推送后的直接远端 observation 才能证明同步/部署结果，且即使远端通过也不授予 scientific promotion、routing 或 safety authority。

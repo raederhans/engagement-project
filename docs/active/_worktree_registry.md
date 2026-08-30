@@ -1,5 +1,25 @@
 # Worktree Registry
 
+## Current effective registry (2026-08-30)
+
+This section is the sole authority for the live Git topology. The older rows below are retained only as historical audit notes and must not be used to infer that a worktree, branch, ignored artifact, or execution authority still exists.
+
+| Worktree / path | Branch / HEAD | Current responsibility | State | Next action |
+| --- | --- | --- | --- | --- |
+| `C:/Users/raede/Desktop/dev/engagement_project` | `codex/route-decision-s6-real-data@4d5c34c` | Primary checkout and active RD6B coordination; preserves 27 untracked log/output paths | active / protected WIP | Do not switch, clean, or delete; finish RD6B under its own authority. |
+| `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` | `main@HEAD`; release-gated code parent `6c08005` | Clean integration owner for the Phase 2 P1-P6 merge and repository closeout | local `ci:release` and coverage PASS / ready to synchronize | Push this archival closeout, then verify local/remote equality plus CI/Pages. |
+| `C:/Users/raede/Desktop/dev/engagement_project-phase2` | detached `ff0e6c4` | Phase 2 ignored evidence owner; tracked tree is the exact integrated merge tree | clean tracked tree / retained evidence; about 1.55 GB under `.dfev1` | Retain until evidence receives separate archive/deletion authority. |
+| `C:/Users/raede/Desktop/dev/engagement_project-data-foundation` | `codex/dfev1-data-foundation-persistent@122bba9` | Persistent M1-M6 data evidence owner | clean tracked tree / retained evidence; about 14.56 GB under `.dfev1` | Retain; no cleanup or promotion inference. |
+| `C:/Users/raede/.codex/worktrees/dfev1-m1-m6-supervisor/engagement_project` | detached `122bba9` | Secondary M1-M6 supervisor evidence root | clean tracked tree / retained evidence; about 2.95 GB under `.dfev1` | Retain until evidence is independently consolidated. |
+| `C:/Users/raede/.codex/worktrees/rd6b-adapter/engagement_project` | detached `9bc56a0` | RD6B Windows adapter WIP | dirty / 3 untracked paths | Preserve; not integrated or cleanup-eligible. |
+| `C:/Users/raede/.codex/worktrees/rd6b-helper-source/engagement_project` | detached `cb1b27c` | RD6B native helper/source WIP | dirty / 4 untracked paths | Preserve; not integrated or cleanup-eligible. |
+| `C:/Users/raede/.codex/worktrees/rd6b-observation/engagement_project` | detached `9bc56a0` | RD6B private observation output | dirty / 1 untracked path | Preserve; private evidence is not Git-integrated authority. |
+| `C:/Users/raede/.codex/worktrees/rd6b-prototype/engagement_project` | detached `9bc56a0` | RD6B prototype/fixture/test WIP | dirty / 3 untracked paths | Preserve; not integrated or cleanup-eligible. |
+
+Cleanup recovery refs are retained under `refs/archive/worktree-cleanup-20260830/*`. Seventeen clean, completed worktrees and thirteen obsolete/completed local branches were removed only after exact-HEAD, clean-state, ancestry or patch-equivalence, and archive-ref checks. The Phase 2 integration merge is `ff0e6c4` with parents `9d93df2` and `09aa176`; its tree is byte-identical to the completed Phase 2 tip. Release repair `6c08005` then closed the lazy-bundle, public-area, privacy-smoke, and compact-landscape gates without changing evidence authority.
+
+## Historical registry entries (non-authoritative)
+
 | Worktree / path | Task | Base branch / commit | Current branch / HEAD | Goal | State | Hotspots | Tests | Overlap | Order | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | C:/Users/raede/Desktop/dev/engagement_project-phase2 | Phase 2 P1-P6 serial execution | persistent DFEV1 candidate `122bba909cc251b91dc3a2388e2f06765ecfe927` | `codex/phase2-p1-p6@1288ae1` | Complete P1 portable DataOps, P2 spatial attribution, P3 evaluation v2, P4 Area Intelligence, P5 Home Compare data, and P6 Known Route evidence without widening claims | in-progress / sole integration owner; P1 complete | P2 new audit/method/report paths and `docs/active/phase2-p1-p6/**`; later-stage hotspots freeze before dispatch | P1 82 tests: 81 PASS / 1 permission SKIP; Ajv/YAML/ESLint; security/final reviews PASS; 10.81 GB mirror, restore, exact M1/M2/evaluation and byte-identical metadata reproduction PASS | primary logs/output and persistent `.dfev1` roots are protected; no push/deploy/cloud upload authority | serial P1 -> P6 | Dispatch and integrate P2 Spatial Attribution v2 without changing serving or promotion authority. |
@@ -75,30 +95,21 @@ States: `in-progress`, `blocked`, `ready-for-review`, `ready-for-integration`, `
 
 ## Retained local branches without worktrees
 
-- `codex/chart-drawer-sizing@19901a5` — open PR #46.
-- `codex/dataset-anchored-time-window@aef83d7` — open PR #44.
-- `codex/draggable-crime-points@ba34204` — open PR #45.
-- `codex/filter-relative-crime-clusters@8548021` — open PR #47.
-- `codex/tract-outline-controls@e5a84c6` — open PR #48.
+- `codex/dataset-anchored-time-window@aef83d7` — PR #44 remains open because Phase 2 does not yet bind the default/latest windows to shared live-and-snapshot coverage.
+- `codex/phase1-m2-recovery-base@5dc7761` — retained because its recovery helpers are not mechanically contained or superseded by `main`.
+- `codex/tract-outline-controls@e5a84c6` — PR #48 remains open because bounded width/opacity controls, public state, and paint-only updates are still absent.
 
-The Stage 6 closeout proved containment before deleting five merged local
-branches, including `codex/s3-c3-route-corridor-ui@16cb8ce`. It also deleted 20
-remote branches backed by merged PRs or closed stacked P2 heads recorded in the
-C3 recovery ledger. Open QoL PR #44-#48 and Dependabot PR #65-#67 remain
-untouched. `C:/Users/raede/.codex/worktrees/9188/engagement_project` is current
-session state rather than a registered Git worktree and is intentionally
-retained; the now-empty unregistered `b1cf` directory is held by an external
-Windows handle and does not affect Git topology.
+The removed chart-sizing branch was fully superseded. The removed draggable-point and filter-relative-cluster branches were retired because their old product goal depended on private buffer network analysis that Phase 2 now rejects; they were not represented as implemented features. Dependabot branches remain separate and open.
 
 ## Latest completed milestone
 
 - Owner: `/root` integration and live-test owner.
-- Task records: `docs/active/ui-role-experience-audit/` plus archived C1/C2/C3 route-corridor records.
-- Product delivery: I1/I2 `ab8b72c`; C1/C2 `751b5ef`/`6f0c2c2`; C3 UI `d15c425`; C3 admission `16cb8ce`; audit repair `fc999cc`; Linux baseline closeout `74d68a5`.
-- Verification: fresh focused gates; full `npm run validate`; feature-enabled Chromium smoke with zero console/page errors; Win32 visual matrix 35 passed/10 designed skips; exact-SHA Ubuntu/Windows CI `31310028016` and Pages `31310027990`; bundle Entry 893008/241051, Crime 39939/14054, route data 13237/4819, route UI 16383/6093.
-- Local/remote result: only the primary Git worktree remains; local `main` plus five open QoL branches remain; remote `main`, five QoL heads, and three Dependabot heads remain. The recovery ledger records all deleted tips.
-- Constraint honored: no force push, raw GPS matching, route recommendation, safety score, production-data claim, or alteration/deletion of protected `.gitignore`, `src/style.css`, historical logs/output, and unrelated Playwright artifacts.
-- Residual filesystem note: Windows retained the empty former `b1cf` directory while another process held a handle; Git topology is clean. The unregistered `9188` directory remains because this live Codex/OMX session owns it.
+- Product integration: Phase 2 P1-P6 merged into `main` as `ff0e6c4`; the merge tree equals completed tip `09aa176` exactly.
+- Topology cleanup: 17 completed clean worktrees and 13 local branches removed after recoverability checks; original tips remain under `refs/archive/worktree-cleanup-20260830/*`.
+- Protected state: the primary checkout, four RD6B dirty worktrees, Phase 2 evidence root, and both persistent DFEV1 evidence roots remain untouched.
+- Verification: `npm run ci:release` exited 0, including 35 visual PASS / 10 designed skips and all feature browser gates; `npm run coverage:report` exited 0 with 76/76 tests and generated the coverage table.
+- Remote synchronization: push `main`, retire only merged/superseded remote heads, then require local `main`, tracking `origin/main`, and direct `ls-remote` observation to agree.
+- Boundary: no force push and no new serving, promotion, publication, routing, safety, scientific, or evidence-deletion authority.
 
 ## Previous delivery package
 

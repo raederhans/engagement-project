@@ -4,9 +4,10 @@
 
 - 用户引用对话已只读核对；第二阶段 P1-P6 冻结为最新串行主线 R1-R6，不包含 R0 和 R7。
 - primary checkout `C:/Users/raede/Desktop/dev/engagement_project` 在 `codex/route-decision-s6-real-data@4d5c34c`，存在未归属 `.playwright-mcp/`、`logs/`、`output/`，保持不动。
-- 本地 Phase 1 汇总 `main@9d93df2`；持久 DFEV1 M1-M6 候选为 `codex/dfev1-data-foundation-persistent@122bba9`，相对 main 串行增加 68 commits，工作树干净。
-- Phase 2 integration worktree 为 `C:/Users/raede/Desktop/dev/engagement_project-phase2`，branch `codex/phase2-p1-p6`，exact base `122bba9`。
-- 远端 `origin/main` 的当前已知本地追踪值为 `f300cfe`；本轮未 fetch、push、PR、部署或发布。
+- Phase 2 completed tip `09aa176` was merged with local Phase 1 `9d93df2` as `ff0e6c4`; the merge tree is byte-identical to `09aa176`.
+- Clean integration owner is `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` on local `main`; release-gated code parent is `6c08005`.
+- Phase 2 evidence worktree `C:/Users/raede/Desktop/dev/engagement_project-phase2` is detached at merge tree `ff0e6c4` and retains about 1.55 GB ignored evidence.
+- At archival time, `origin/main` remains the freshly audited pre-push baseline `f300cfe`; synchronization and CI/Pages are performed and observed after the archival commit rather than inferred here.
 
 ## Decisions and deviations
 
@@ -53,6 +54,10 @@
 | 2026-08-30 | 没有获准的 raw-crash、citywide accessibility、per-mode legality 或 sensitivity variant producer | crash/accessibility、四个 mode、match quality 与 sensitivity 分维度 fail closed；HIN 仅 historical planning context，generalized reported incidents 不升级为 raw crash，禁止 score/rank/winner/safest/recommendation |
 | 2026-08-30 | P6 扩大本地验证完成 | focused 45/45、Known Route/HIN/corridor 113/113、Product Integrity 80/80、Architecture Ports 7/7、production build 与 en/zh desktop/mobile browser gate 全部 PASS；未 push、deploy 或扩大 authority |
 | 2026-08-30 | P6 final focused re-review PASS | 已关闭 product reachability、self-signed sensitivity、v2 handoff/protocol、catalog bridge、score spelling 与 exact publication findings；无剩余 material correctness/privacy/authority 问题 |
+| 2026-08-30 | Phase 2 exact merge completed | merge `ff0e6c4` combines parents `9d93df2` and `09aa176`; merge tree equals completed Phase 2 tree exactly |
+| 2026-08-30 | repository release repair completed | `6c08005` closes lazy evidence bundle loading, public district/tract projection, privacy smoke and compact-landscape legend overlap; focused review PASS |
+| 2026-08-30 | final local gates completed | `npm run ci:release` exit 0; visual 35 PASS / 10 designed skips; `npm run coverage:report` exit 0 with 76/76 |
+| 2026-08-30 | topology cleanup completed locally | 17 clean completed worktrees and 13 obsolete/completed local branches removed with recovery refs; primary WIP, four dirty RD6B worktrees and three evidence worktrees retained |
 
 ## Live process ownership
 
@@ -77,4 +82,4 @@ P1 已完成 provider-neutral DataOps clean-room 闭环。P2 已完成 exact den
 
 ## Next step
 
-Phase 2 P1-P6 的本地 integration scope 已完成。若继续，必须由用户另行授权远端 push/PR/CI/部署、外部对象存储，或为 P5/P6 选择并许可真实 citywide/raw-crash/accessibility/mode-legality 数据；在此之前保持现有 local candidate、partial/unavailable 状态与全 false authority，不清理 primary WIP 或 ignored evidence。
+Phase 2 P1-P6 的实现、精确本地证据、`main` 合并和本地 release/coverage gate 已完成。本轮用户随后明确授权 `main` push、远端同步和已完成拓扑清理；integration owner 在本归档提交后执行并观察这些远端步骤。外部对象存储及 P5/P6 的真实 citywide/raw-crash/accessibility/mode-legality 数据仍需独立来源/许可，不因 Git/CI/Pages 通过而扩大 authority；primary WIP 与 ignored evidence 继续保留。
