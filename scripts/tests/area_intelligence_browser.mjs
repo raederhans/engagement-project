@@ -49,14 +49,14 @@ const trackedArtifact = JSON.parse(trackedArtifactBytes);
 const harnessPath = path.resolve('dist/area-intelligence-smoke.html');
 const harness = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/${entry.css[0]}"></head><body>
+<link rel="stylesheet" href="./${entry.css[0]}"></head><body>
 <main style="max-width:760px;margin:24px auto;padding:12px">
 <section id="area-intelligence" class="area-intelligence residential-stability" aria-labelledby="area-intelligence-title" data-model-status="loading">
 <div class="area-intelligence__heading residential-stability__heading"><p class="crime-summary__eyebrow" data-i18n="areaIntelligence.eyebrow">Area Intelligence evidence</p>
 <h1 id="area-intelligence-title" data-i18n="areaIntelligence.title">Read the historical ledger</h1>
 <p data-i18n="areaIntelligence.subtitle">Review the complete-coverage admission ledger before checking why no forecast is available.</p></div>
 <div data-area-intelligence-content aria-live="polite"></div></section></main>
-<script type="module">import { updateAreaIntelligence } from '/${areaIntelligence.file}';
+<script type="module">import { updateAreaIntelligence } from './${areaIntelligence.file}';
 window.areaIntelligenceSmoke=updateAreaIntelligence;</script>
 </body></html>`;
 const consoleErrors = [];
@@ -82,8 +82,9 @@ await runBrowserSuite({
     });
   },
   cleanupArtifacts: () => rm(harnessPath, { force: true }),
-  run: async ({ page }) => {
-    await page.goto('http://127.0.0.1:4198/area-intelligence-smoke.html', { waitUntil: 'networkidle' });
+  run: async ({ page, server }) => {
+    const baseUrl = new URL(server.config.base, server.resolvedUrls.local[0]);
+    await page.goto(new URL('area-intelligence-smoke.html', baseUrl).href, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => Boolean(window.areaIntelligenceSmoke));
 
     const card = page.locator('#area-intelligence');
