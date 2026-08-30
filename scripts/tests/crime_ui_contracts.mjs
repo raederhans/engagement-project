@@ -512,38 +512,61 @@ test('focus preference initializes a new analysis pane without stealing manual p
   assert.equal(panelRoot.dataset.crimeResultPane, 'incidents');
 });
 
-test('task focus uses a narrow panel port and a fault-isolated second-level Crime boundary', async () => {
-  const [panelSource, mainSource, crimeSource] = await Promise.all([
+test('task focus uses a narrow panel port and a fault-isolated Crime boundary shared by map and list', async () => {
+  const [panelSource, mainSource] = await Promise.all([
     readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
 
   assert.match(panelSource, /taskFocus\s*:\s*\{/);
   assert.match(panelSource, /mount\s*:\s*taskFocusMount/);
   assert.match(panelSource, /applyTaskFocusPresentation\s*:\s*crimeWorkbench\.focus/);
-  assert.match(mainSource, /taskFocus\s*:\s*panel\.taskFocus/);
-  assert.match(crimeSource, /import\('\.\/task_focus_controller\.js'\)/);
-  assert.match(crimeSource, /default:\s*initTaskFocus/);
-  assert.match(crimeSource, /initTaskFocus\(taskFocus, presetPorts\)/);
-  assert.match(crimeSource, /Task focus failed/);
+  assert.match(mainSource, /import\('\.\/routes_crime\/task_focus_controller\.js'\)/);
+  assert.match(mainSource, /default:\s*initTaskFocus/);
+  assert.match(mainSource, /initTaskFocus\(panel\.taskFocus, crimePresetPorts\)/);
+  assert.match(mainSource, /if \(mode === 'crime'\) await ensureTaskFocusController\(\)/);
+  assert.match(mainSource, /Task focus failed/);
   const taskSource = await readFile(new URL('../../src/routes_crime/task_focus_controller.js', import.meta.url), 'utf8');
   assert.doesNotMatch(taskSource, /parentElement|append\?\.\(button\)/);
 });
 
+test('Map Crime activation publishes public selection state before coverage snapshot admission', async () => {
+  const [crime, crimeSource] = await Promise.all([
+    import('../../src/routes_crime/index.js'),
+    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
+  ]);
+  assert.match(crimeSource, /function publishCurrentSelection\(snapshot = store,/);
+  assert.match(crimeSource, /if \(active\) \{\s*publishCurrentSelection\(\);\s*reconcileCrimeLayerVisibility\(map, store\);\s*if \(resolveCrimePrimaryLayer\(store\)/);
+  assert.doesNotMatch(crimeSource, /if \(active\) \{\s*publishCurrentSelection\(\);[\s\S]{0,160}captureCrimeSnapshot\(\)/);
+  assert.deepEqual(crime.resolveCrimeLegendState({
+    selectedDrilldownCodes: ['300'],
+    classPalette: 'OrRd',
+  }), {
+    drilldownCodes: ['300'],
+    classPalette: 'OrRd',
+  });
+  assert.deepEqual(crime.resolveCrimeLegendState({
+    drilldownCodes: ['200'],
+    selectedDrilldownCodes: ['300'],
+    classPalette: 'Blues',
+  }), {
+    drilldownCodes: ['200'],
+    classPalette: 'Blues',
+  });
+});
+
 test('query preset integration owns one URL write and one refresh with no legacy instant mutator', async () => {
-  const [html, panelSource, mainSource, crimeSource] = await Promise.all([
+  const [html, panelSource, mainSource] = await Promise.all([
     readFile(new URL('../../index.html', import.meta.url), 'utf8'),
     readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
   ]);
 
   assert.doesNotMatch(html, /id="preset(?:6|12)"/);
   assert.doesNotMatch(panelSource, /applyRecentPreset|\bpreset6\b|\bpreset12\b/);
   assert.match(panelSource, /function syncControlsFromStore\s*\(\)/);
   assert.match(panelSource, /function syncFromStore\s*\(\)\s*\{\s*syncControlsFromStore\(\);\s*writeCrimeStateToURL\(store\);/);
-  assert.match(mainSource, /presetPorts\s*:\s*\{/);
+  assert.match(mainSource, /const\s+crimePresetPorts\s*=\s*\{/);
   assert.match(mainSource, /state\s*:\s*store/);
   assert.match(mainSource, /normalize\s*:\s*\(state\)\s*=>\s*decodeCrimeViewState\(encodeCrimeViewState\(state\)\)/);
   assert.match(mainSource, /replace\s*:\s*\(next\)\s*=>\s*replaceCrimeViewState/);
@@ -551,8 +574,7 @@ test('query preset integration owns one URL write and one refresh with no legacy
   assert.match(mainSource, /url\s*:\s*\(\)\s*=>\s*writeCrimeStateToURL\(store\)/);
   assert.match(mainSource, /clear\s*:\s*\(\)\s*=>\s*analysisHistoryController/);
   assert.match(mainSource, /refresh\s*:\s*\(\)\s*=>\s*refreshCrime\(false\)/);
-  assert.match(crimeSource, /presetPorts\s*=\s*null/);
-  assert.match(crimeSource, /initTaskFocus\(taskFocus, presetPorts\)/);
+  assert.match(mainSource, /initTaskFocus\(panel\.taskFocus, crimePresetPorts\)/);
 });
 
 test('Crime task and availability copy stays neutral, historical, and non-persona', async () => {

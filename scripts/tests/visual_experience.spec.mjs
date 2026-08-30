@@ -32,7 +32,7 @@ const INCIDENT_FIXTURE = {
     },
     {
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [-75.1649, 39.953] },
+      geometry: { type: 'Point', coordinates: [-75.1668, 39.9527] },
       properties: {
         cartodb_id: 102,
         dispatch_date_time: '2026-07-29T09:15:00Z',
@@ -60,7 +60,9 @@ async function installIncidentPointFixture(page) {
     const request = route.request();
     const parameters = new URLSearchParams(request.postData() || '');
     const sql = parameters.get('q') || '';
-    if (parameters.get('format') === 'GeoJSON' && /SELECT\s+cartodb_id/i.test(sql)) {
+    if (parameters.get('format') === 'GeoJSON'
+      && /SELECT\s+cartodb_id/i.test(sql)
+      && /ST_Intersects\(the_geom,\s*ST_SetSRID\(ST_GeomFromGeoJSON/i.test(sql)) {
       await route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify(INCIDENT_FIXTURE),
@@ -136,24 +138,20 @@ test.beforeEach(async ({ context }) => {
   });
 });
 
-test('Crime direct route restores URL state and keeps its primary action usable', async ({ page }, testInfo) => {
-  await gotoMode(page, 'crime', { analysis: 'buffer', months: 12, utm_source: 'visual-ci' });
+test('Crime direct public route restores URL state and keeps its primary action usable', async ({ page }, testInfo) => {
+  await gotoMode(page, 'crime', { analysis: 'district', district: '06', months: 12, utm_source: 'visual-ci' });
   await expect(page.locator('#durationSel')).toHaveValue('12');
-  await expect(page.locator('[data-crime-setup]')).toBeVisible();
-  await expect(page.locator('[data-analysis-context]')).toBeHidden();
-  await expect(page.locator('#compare-card')).toBeHidden();
-  await expect(page.locator('#results-drawer')).toBeHidden();
-  await assertNoHorizontalOverflow(page);
-  await assertCtaInsideViewport(page.getByRole('button', { name: 'Pick on map', exact: true }).first());
-  await assertFocusNotObscured(page.locator('#addrA'));
-  await page.locator('#addrA').fill('1500 Market St');
-  await page.locator('#addrA').press('Enter');
-  await expect(page.locator('#addressStatus')).toContainText('Point A:');
-  await expect(page.locator('[data-analysis-context]')).toBeVisible();
   await expect(page.locator('[data-crime-setup]')).toBeHidden();
-  await expect(page.locator('#compare-card')).toBeVisible();
-  await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
+  await expect(page.locator('[data-analysis-context]')).toBeVisible();
+  await expect(page.locator('#compare-card')).toContainText('12 reported incidents');
+  await assertNoHorizontalOverflow(page);
+  const edit = page.locator('[data-analysis-context-edit]');
+  await assertCtaInsideViewport(edit);
+  await assertFocusNotObscured(edit);
   expect(new URL(page.url()).searchParams.get('utm_source')).toBe('visual-ci');
+  for (const privateKey of ['a', 'b', 'labelA', 'labelB']) {
+    expect(new URL(page.url()).searchParams.has(privateKey)).toBe(false);
+  }
   if (testInfo.project.name !== 'desktop') {
     await expectMinimumTouchTarget(page.locator('.maplibregl-ctrl-attrib-button'));
   }
@@ -162,7 +160,7 @@ test('Crime direct route restores URL state and keeps its primary action usable'
 
 test('Crime district analysis keeps the unsupported incident log unavailable', async ({ page }, testInfo) => {
   desktopOnly(testInfo);
-  await gotoMode(page, 'crime', { analysis: 'district', district: '09' });
+  await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
   await expect(page.locator('[data-analysis-context]')).toBeVisible();
   await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
   const incidentLog = page.getByRole('button', { name: 'Incident log', exact: true });
@@ -172,18 +170,10 @@ test('Crime district analysis keeps the unsupported incident log unavailable', a
 });
 
 test('Crime editing preserves the query and result navigation exposes one pane at a time', async ({ page }, testInfo) => {
-  await gotoMode(page, 'crime');
-  await expect(page.locator('[data-crime-setup]')).toBeVisible();
-  await expect(page.locator('#results-drawer')).toBeHidden();
-
-  await page.locator('#addrA').fill('1500 Market St');
-  await page.locator('#addrA').press('Enter');
+  await gotoMode(page, 'crime', { analysis: 'tract', tract: '42101000403' });
   await expect(page.locator('[data-analysis-context]')).toBeVisible();
   await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
-  await expect.poll(() => {
-    const params = new URL(page.url()).searchParams;
-    return Boolean(params.get('a') && params.get('labelA'));
-  }).toBe(true);
+  await expect.poll(() => new URL(page.url()).searchParams.get('tract')).toBe('42101000403');
   const analyzedUrl = page.url();
 
   const edit = page.locator('[data-analysis-context-edit]');
@@ -220,9 +210,7 @@ test('Crime editing preserves the query and result navigation exposes one pane a
 
 test('Crime workbench has no horizontal overflow at 360, 390, 768, and 1440 pixels', async ({ page }, testInfo) => {
   desktopOnly(testInfo);
-  await gotoMode(page, 'crime');
-  await page.locator('#addrA').fill('1500 Market St');
-  await page.locator('#addrA').press('Enter');
+  await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
   await expect(page.locator('[data-analysis-context]')).toBeVisible();
 
   for (const viewport of [
@@ -245,9 +233,7 @@ test('Crime workbench has no horizontal overflow at 360, 390, 768, and 1440 pixe
 
 test('Crime incident results stay synchronized, escaped, and keyboard reachable', async ({ page }, testInfo) => {
   await installIncidentPointFixture(page);
-  await gotoMode(page, 'crime');
-  await page.locator('#addrA').fill('1500 Market St');
-  await page.locator('#addrA').press('Enter');
+  await gotoMode(page, 'crime', { analysis: 'tract', tract: '42101000403' });
 
   const rows = page.locator('.incident-results__item > button');
   await expect(rows).toHaveCount(3);
@@ -323,7 +309,7 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
 
 test('runtime mode boundaries keep initial and analyzed script work deterministic', async ({ page }, testInfo) => {
   desktopOnly(testInfo);
-  const collector = createRuntimeScriptCollector(page);
+  let collector = createRuntimeScriptCollector(page);
   const scriptMetrics = () => collector.snapshot();
   const assertScriptBudget = async (budget, label) => {
     const resources = await scriptMetrics();
@@ -335,9 +321,13 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
     expect(bytes, `${label} script bytes: ${resources.map(({ name }) => name).join(', ')}`).toBeLessThanOrEqual(budget);
     return resources.map(({ name }) => name);
   };
+  const beginFreshScriptPhase = async () => {
+    collector.dispose();
+    await page.goto('about:blank');
+    collector = createRuntimeScriptCollector(page);
+  };
 
   try {
-    await collector.reset();
     await gotoMode(page, 'diary');
     const diaryAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.diaryInitial, 'Diary initial');
     expect(
@@ -350,7 +340,7 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
     ).toBe(true);
     expect(diaryAssets.some((name) => /routes_crime-|charts-|incident_results_controller-/.test(name))).toBe(false);
 
-    await collector.reset();
+    await beginFreshScriptPhase();
     await gotoMode(page, 'crime');
     const crimeAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeInitial, 'Crime initial');
     expect(
@@ -359,21 +349,24 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
     ).toBe(true);
     expect(crimeAssets.some((name) => /routes_diary-|diary_storage-|charts-|incident_results_controller-/.test(name))).toBe(false);
 
-    await page.locator('#addrA').fill('1500 Market St');
-    await page.locator('#addrA').press('Enter');
+    await beginFreshScriptPhase();
+    await gotoMode(page, 'crime', { analysis: 'tract', tract: '42101000403' });
     await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
     await expect.poll(async () => (await scriptMetrics())
       .filter(({ name }) => /charts-|incident_results_controller-/.test(name)).length).toBe(2);
     const analyzedAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeAnalyzed, 'Crime analyzed');
     expect(analyzedAssets.some((name) => /charts-[^/]+\.js$/.test(name))).toBe(true);
     expect(analyzedAssets.some((name) => /incident_results_controller-[^/]+\.js$/.test(name))).toBe(true);
+    expect(analyzedAssets.some((name) => /public_area_summary-[^/]+\.js$/.test(name))).toBe(true);
   } finally {
     collector.dispose();
   }
 });
 
 test('Crime Help and Data details disclose guidance and fallback provenance', async ({ page }, testInfo) => {
-  await gotoMode(page, 'crime');
+  await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
+  await page.locator('[data-analysis-context-edit]').click();
+  await expect(page.locator('[data-crime-setup]')).toBeVisible();
   const moreFilters = page.locator('#advancedFilters');
   await moreFilters.locator(':scope > summary').click();
   const dataDetails = moreFilters.locator('section.data-details');
@@ -382,12 +375,13 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
   await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-kind', 'fallback');
   await captureExperienceScreenshot(page, testInfo, 'crime-help-data-details', { locator: page.locator('#sidepanel') });
   if (testInfo.project.name !== 'desktop') {
-    const mapPick = page.locator('#useCenterBtn');
+    const areaSelector = page.locator('#queryModeSel');
     const lastHelpItem = dataDetails.locator('[data-app-source-details]');
-    await expect(mapPick).toHaveCSS('position', 'static');
+    await expect(areaSelector).toBeVisible();
+    await expect(areaSelector).toHaveCSS('position', 'static');
     await lastHelpItem.scrollIntoViewIfNeeded();
     await expect(lastHelpItem).toBeInViewport();
-    await expectNoOverlap(mapPick, lastHelpItem);
+    await expectNoOverlap(areaSelector, lastHelpItem);
   }
 
   const globalHelp = page.locator('#about-toggle');
@@ -481,15 +475,17 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
   await expect(page.getByRole('button', { name: 'Sample community', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Crime search and Diary rating complete their primary keyboard flows', async ({ page }, testInfo) => {
+test('Crime public results and Diary rating complete their primary keyboard flows', async ({ page }, testInfo) => {
   desktopOnly(testInfo);
-  await gotoMode(page, 'crime');
-  const address = page.locator('#addrA');
-  await tabTo(page, address);
-  await page.keyboard.type('1500 Market St');
+  await gotoMode(page, 'crime', { view: 'list', analysis: 'tract', tract: '42101000403' });
+  const charts = page.getByRole('button', { name: 'Charts', exact: true });
+  await tabTo(page, charts);
   await page.keyboard.press('Enter');
-  await expect(page.locator('#addressStatus')).toContainText('Point A:');
-  await expect(page.locator('#compare-card')).not.toContainText('Choose a location');
+  await expect(page.locator('[data-result-pane="charts"]')).toBeVisible();
+  const incidentLog = page.getByRole('button', { name: 'Incident log', exact: true });
+  await tabTo(page, incidentLog);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-result-pane="incidents"]')).toBeVisible();
 
   await gotoMode(page, 'diary');
   const rate = page.getByRole('button', { name: 'Rate your experience on this route' });

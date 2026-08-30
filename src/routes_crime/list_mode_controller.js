@@ -49,8 +49,8 @@ export function createCrimeListController({
   initializeCoverage = initCoverageAndDefaults,
   fetchIncidents = fetchListIncidents,
   updateSummary = async (snapshot, options) => {
-    const { updateCompare } = await import('../compare/card.js');
-    return updateCompare(snapshot, options);
+    const { runPublicAreaSummary } = await import('./public_area_summary.js');
+    return runPublicAreaSummary(snapshot, options);
   },
   updateCharts = async (snapshot, options) => {
     const { updateAllCharts } = await import('../charts/index.js');
@@ -75,13 +75,13 @@ export function createCrimeListController({
       for (const name of requested) listView?.unavailable?.(name);
       return privateCrimeUnavailableResult();
     }
-    const canRun = Boolean(crimeSelectionKey(snapshot));
-    const runnable = requested.filter(() => canRun);
-    for (const name of requested.filter((name) => !runnable.includes(name))) listView?.clear?.(name);
-    if (!runnable.length) return { status: 'idle', succeeded: [], failed: [] };
+    if (!crimeSelectionKey(snapshot)) {
+      for (const name of requested) listView?.clear?.(name);
+      return { status: 'idle', succeeded: [], failed: [] };
+    }
 
     const sources = [{ ...CARTO_INCIDENT_SOURCE, asOf: snapshot.coverageDate || null }];
-    const entries = await Promise.all(runnable.map(async (name) => {
+    const entries = await Promise.all(requested.map(async (name) => {
       const token = listView?.loading?.(name);
       try {
         const options = { signal, shouldApply: isCurrent };
@@ -153,23 +153,18 @@ export function createCrimeListController({
     },
     async requestRefresh(options = {}) {
       let snapshot;
-      try {
+      if (initialized) {
         snapshot = readSnapshot();
-      } catch (error) {
-        if (!initialized) await this.initialize();
-        else throw error;
-        snapshot = readSnapshot();
-      }
-      if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
-        return runRefresh(snapshot, {
-          signal: options.signal || new AbortController().signal,
-          scope: options.scope || 'all',
-          isCurrent: () => active && !options.signal?.aborted,
-        });
-      }
-      if (!initialized) {
-        await this.initialize();
-        snapshot = readSnapshot();
+      } else {
+        try {
+          snapshot = readSnapshot();
+        } catch {
+          // Coverage initialization owns the public fallback below.
+        }
+        if (!isPrivateCrimeAnalysisSnapshot(snapshot)) {
+          await this.initialize();
+          snapshot = readSnapshot();
+        }
       }
       return refreshOwner.refresh({ ...options, snapshot });
     },

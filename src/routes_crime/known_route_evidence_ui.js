@@ -15,7 +15,6 @@ import {
   GENERALIZED_INCIDENT_CORRIDOR_METHOD,
   aggregateRuntimeReportedRecords,
 } from './known_route_contributions.js';
-import { validateKnownRouteEvidenceP6Projection } from './known_route_evidence_p6_projection.js';
 
 const HIN_SOURCE_URL = 'https://www.phila.gov/2025-11-25-city-of-philadelphia-releases-vision-zero-action-plan-2030/';
 const INCIDENT_SOURCE_URL = 'https://opendataphilly.org/datasets/crime-incidents/';
@@ -182,6 +181,7 @@ export function initKnownRouteEvidenceUi({
         matchedEdges: matched.matchedEdges,
       });
       let p6Projection = null;
+      let p6Renderer = null;
       let p6UnavailableReason = 'missing';
       try {
         const candidate = await loadP6Projection({
@@ -191,6 +191,13 @@ export function initKnownRouteEvidenceUi({
         });
         if (requestGeneration !== generation) return;
         if (candidate !== null && candidate !== undefined) {
+          const {
+            renderKnownRouteEvidenceP6Projection,
+            validateKnownRouteEvidenceP6Projection,
+          } = await import(
+            './known_route_evidence_p6_presenter.js'
+          );
+          if (requestGeneration !== generation) return;
           validateKnownRouteEvidenceP6Projection(candidate);
           if (candidate.identity.routeIdentity !== normalizedRoute.sessionRouteIdentity
             || candidate.identity.corridorIdentity !== matched.corridorIdentity
@@ -198,11 +205,15 @@ export function initKnownRouteEvidenceUi({
             throw new Error('Known Route P6 session identity mismatch.');
           }
           p6Projection = candidate;
+          p6Renderer = renderKnownRouteEvidenceP6Projection;
         }
       } catch {
+        if (requestGeneration !== generation) return;
         p6Projection = null;
+        p6Renderer = null;
         p6UnavailableReason = 'invalid';
       }
+      if (requestGeneration !== generation) return;
       controller = null;
       render({
         status: 'ready',
@@ -210,6 +221,7 @@ export function initKnownRouteEvidenceUi({
         incidents,
         incidentResult: prepared.incidentResult,
         p6Projection,
+        p6Renderer,
         p6UnavailableReason,
       });
     } catch (error) {
@@ -268,7 +280,7 @@ function surfaceHtml() {
 
 function renderReady(documentRef, root, presentation) {
   const {
-    matched, incidents, incidentResult, p6Projection, p6UnavailableReason,
+    matched, incidents, incidentResult, p6Projection, p6Renderer, p6UnavailableReason,
   } = presentation;
   root.append(
     sourceCard(documentRef, {
@@ -313,7 +325,19 @@ function renderReady(documentRef, root, presentation) {
   const p6 = documentRef.createElement('section');
   p6.dataset.knownRouteP6 = p6Projection ? 'partial' : 'unavailable';
   if (p6Projection) {
-    renderKnownRouteEvidenceP6Projection({ documentRef, root: p6, projection: p6Projection });
+    p6Renderer({
+      documentRef,
+      root: p6,
+      projection: p6Projection,
+      renderSourceCard: sourceCard,
+      sources: {
+        accessibility: ACCESSIBILITY_CONTEXT_URL,
+        centerline: PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
+        hin: HIN_SOURCE_URL,
+        incident: INCIDENT_SOURCE_URL,
+      },
+      translate: t,
+    });
   } else {
     renderKnownRouteEvidenceP6Unavailable({
       documentRef,
@@ -382,57 +406,7 @@ function renderUnavailable(documentRef, root, reason) {
   }));
 }
 
-export function renderKnownRouteEvidenceP6Projection({ documentRef, root, projection } = {}) {
-  if (!documentRef?.createElement || !root?.append) {
-    throw new Error('Known Route P6 renderer requires a document and root.');
-  }
-  validateKnownRouteEvidenceP6Projection(projection);
-  const boundary = documentRef.createElement('p');
-  boundary.className = 'route-corridor__truth';
-  boundary.textContent = t('knownRouteEvidence.p6Boundary');
-  root.append(boundary);
-
-  const cards = [
-    [t('knownRouteEvidence.incidentTitle'), INCIDENT_SOURCE_URL, projection.dimensions.generalizedReportedPpdIncidents],
-    [t('knownRouteEvidence.hinPlanningTitle'), HIN_SOURCE_URL, projection.dimensions.hinHistoricalPlanningContext],
-    [t('knownRouteEvidence.rawCrashTitle'), null, projection.dimensions.rawCrash],
-    [t('knownRouteEvidence.accessibilityTitle'), ACCESSIBILITY_CONTEXT_URL, projection.dimensions.accessibility],
-    ...Object.entries(projection.dimensions.modeLegality).map(([mode, dimension]) => [
-      t('knownRouteEvidence.modeLegalityTitle', { mode: t(`knownRouteEvidence.${mode}`) }),
-      PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
-      dimension,
-    ]),
-    [t('knownRouteEvidence.mapMatchQualityTitle'), PHILADELPHIA_CENTERLINE_SOURCE.catalogUrl,
-      projection.dimensions.mapMatchQuality],
-  ];
-  for (const [title, href, dimension] of cards) {
-    root.append(sourceCard(documentRef, {
-      title,
-      href,
-      status: p6StatusLabel(dimension.status),
-      asOf: dimension.sourceAsOf,
-      coverage: dimension.summary,
-      precision: dimension.precision,
-      uncertainty: dimension.summary,
-      unavailableReason: dimension.unavailableReason,
-    }));
-  }
-
-  const sensitivity = documentRef.createElement('section');
-  const heading = documentRef.createElement('h4');
-  heading.textContent = t('knownRouteEvidence.sensitivityTitle');
-  const summary = documentRef.createElement('p');
-  summary.textContent = projection.sensitivity.status === 'unavailable'
-    ? t('knownRouteEvidence.sensitivityUnavailable', { reason: projection.sensitivity.reason })
-    : t('knownRouteEvidence.sensitivityAvailable', {
-      count: projection.sensitivity.comparisons.length,
-    });
-  sensitivity.append(heading, summary);
-  root.append(sensitivity);
-  return root;
-}
-
-export function renderKnownRouteEvidenceP6Unavailable({ documentRef, root, reason = 'missing' } = {}) {
+function renderKnownRouteEvidenceP6Unavailable({ documentRef, root, reason = 'missing' } = {}) {
   if (!documentRef?.createElement || !root?.append || !['missing', 'invalid'].includes(reason)) {
     throw new Error('Known Route P6 unavailable renderer requires a document, root, and bounded reason.');
   }
@@ -523,11 +497,4 @@ function sourceLink(documentRef, href, label) {
   link.rel = 'noopener noreferrer';
   link.textContent = label;
   return link;
-}
-
-function p6StatusLabel(status) {
-  if (status === 'unavailable') return t('knownRouteEvidence.unavailableValue');
-  if (status === 'admitted-zero') return t('knownRouteEvidence.admittedZero');
-  if (status === 'available') return t('knownRouteEvidence.availableAggregate');
-  return t('knownRouteEvidence.partial');
 }

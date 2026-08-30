@@ -12,6 +12,7 @@ import {
   updateAllCharts,
 } from '../../src/charts/index.js';
 import { getLastComparisonSnapshot, updateCompare } from '../../src/compare/card.js';
+import { createDistrictSummaryFetchers } from '../../src/routes_crime/public_area_summary.js';
 import * as refreshContract from '../../src/routes_crime/crime_refresh_owner.js';
 import {
   classifyDistrictBoundaryRefresh,
@@ -661,6 +662,73 @@ test('tract summaries adapt tract count, offense, and population data to the sha
     adminLevel: 'tracts',
     per10k: true,
   }));
+});
+
+test('district summaries adapt public aggregate counts without retaining synthetic point data', async () => {
+  const fetchers = createDistrictSummaryFetchers({
+    districtCode: '06',
+    fetchCounts: async () => ({
+      rows: [
+        { dc_dist: '05', n: 4 },
+        { dc_dist: '06', n: 12 },
+      ],
+    }),
+    fetchTop: async ({ dc_dist }) => {
+      assert.equal(dc_dist, '06');
+      return { rows: [{ text_general_code: 'Thefts', n: 8 }] };
+    },
+  });
+  const result = await updateCompare({
+    start: '2098-01-01',
+    end: '2098-02-01',
+    types: ['Thefts'],
+    queryMode: 'district',
+    selectedDistrictCode: '06',
+    center3857: [0, 0],
+    centerB3857: null,
+    addressA: 'District 06',
+    radiusM: 1,
+    adminLevel: 'districts',
+    per10k: false,
+  }, {
+    fetchers,
+    view: { pending() {}, success() {}, error(error) { throw error; } },
+  });
+
+  assert.equal(result.a.label, 'District 06');
+  assert.equal(result.a.total, 12);
+  assert.deepEqual(result.a.top3, [{ text_general_code: 'Thefts', n: 8 }]);
+  assert.equal(result.b, null);
+  assert.ok(getLastComparisonSnapshot({
+    start: '2098-01-01',
+    end: '2098-02-01',
+    types: ['Thefts'],
+    queryMode: 'district',
+    selectedDistrictCode: '06',
+    center3857: null,
+    radiusM: 400,
+    adminLevel: 'districts',
+    per10k: false,
+  }));
+});
+
+test('district summaries fail closed for syntactically valid but unadmitted district codes', () => {
+  assert.throws(
+    () => createDistrictSummaryFetchers({ districtCode: '99' }),
+    /admitted Philadelphia police district code/,
+  );
+});
+
+test('admitted district summaries preserve an available zero when the aggregate has no row', async () => {
+  const fetchers = createDistrictSummaryFetchers({
+    districtCode: '06',
+    fetchCounts: async () => ({ rows: [] }),
+  });
+  assert.equal(await fetchers.fetchCountBuffer({
+    start: '2098-01-01',
+    end: '2098-02-01',
+    types: [],
+  }), 0);
 });
 
 test('the lazy tract summary adapter exposes callable production defaults', () => {

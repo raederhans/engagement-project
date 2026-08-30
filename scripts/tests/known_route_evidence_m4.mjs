@@ -926,6 +926,16 @@ test('M4 lazy UI and build surfaces exclude persistence, share-route, console, a
   assert.match(ui, /No total safety score/i);
   assert.match(ui, /raw crash/i);
   assert.match(ui, /Accessibility evidence/i);
+  assert.match(
+    ui,
+    /catch \{\s*if \(requestGeneration !== generation\) return;/,
+    'P6 loader or chunk rejection must not revive a superseded route generation',
+  );
+  assert.match(
+    ui,
+    /function renderKnownRouteEvidenceP6Unavailable/,
+    'P6 loader or chunk rejection must retain a local complete unavailable projection',
+  );
   assert.doesNotMatch(ui, /localStorage|sessionStorage|indexedDB|history\.(?:pushState|replaceState)|console\./);
   assert.doesNotMatch(`${build}\n${smoke}`, /\[-75\.\d+\s*,\s*39\.\d+\]/);
   assert.match(buildContract, /containsRouteCoordinates:\s*false/);

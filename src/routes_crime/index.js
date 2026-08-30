@@ -310,7 +310,7 @@ export async function initCrimeMode(map, {
     readBuffer: () => ({ centerLonLat: store.centerLonLat, radiusM: store.radius }),
   });
 
-  function publishCurrentSelection(snapshot = captureCrimeSnapshot(), { origin = 'sync' } = {}) {
+  function publishCurrentSelection(snapshot = store, { origin = 'sync' } = {}) {
     const key = crimeSelectionKey(snapshot);
     setCurrentAnalysisSelection(document.getElementById('compare-card'), key);
     onSelectionChange(key, { origin });
@@ -544,15 +544,17 @@ export async function initCrimeMode(map, {
       };
       startResultJob(
         'summary',
-        queryMode === 'tract'
-          ? loadChartsModule().then(({ runTractSummary }) => runTractSummary({
+        queryMode === 'district' || queryMode === 'tract'
+          ? import('./public_area_summary.js').then(({ runPublicAreaSummary }) => runPublicAreaSummary({
               start,
               end,
               types,
+              queryMode,
+              selectedDistrictCode,
               selectedTractGEOID,
               per10k,
               coverageDate: store.coverageMax,
-            }, summaryOptions, updateCompare))
+            }, summaryOptions))
           : updateCompare({
               start,
               end,
@@ -744,8 +746,7 @@ export async function initCrimeMode(map, {
       if (active) {
         publishCurrentSelection();
         reconcileCrimeLayerVisibility(map, store);
-        const snapshot = captureCrimeSnapshot();
-        if (resolveCrimePrimaryLayer(snapshot) === 'incidents') reconcileCrimeLegend(snapshot);
+        if (resolveCrimePrimaryLayer(store) === 'incidents') reconcileCrimeLegend(store);
         else showLegend();
       }
       else for (const layerId of CRIME_LAYER_IDS) {
@@ -780,10 +781,20 @@ export function reconcileCrimeLayerVisibility(map, state = store) {
   }
 }
 
+export function resolveCrimeLegendState(state = {}) {
+  return {
+    drilldownCodes: Array.isArray(state.drilldownCodes)
+      ? state.drilldownCodes
+      : (Array.isArray(state.selectedDrilldownCodes) ? state.selectedDrilldownCodes : []),
+    classPalette: state.classPalette,
+  };
+}
+
 function reconcileCrimeLegend(state) {
+  const legendState = resolveCrimeLegendState(state);
   const highlights = buildOffenseHighlights(
-    state.drilldownCodes,
-    makePalette(state.classPalette, 5),
+    legendState.drilldownCodes,
+    makePalette(legendState.classPalette, 5),
   );
   if (highlights.length === 0) return hideLegend();
   updateLegend({

@@ -188,6 +188,28 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   const { diaryMount, analysisHistoryMount } = panel;
   const routeCorridorMount = panel.taskFocus?.routeCorridorMount;
+  const crimePresetPorts = {
+    state: store,
+    normalize: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
+    replace: (next) => replaceCrimeViewState(store, next, { setMode: setAnalysisMode }),
+    sync: () => panel.syncPreset?.(),
+    url: () => writeCrimeStateToURL(store),
+    clear: () => analysisHistoryController?.setCurrentArtifact(null),
+    refresh: () => refreshCrime(false),
+  };
+  let taskFocusControllerPromise = null;
+  const ensureTaskFocusController = () => {
+    if (!taskFocusControllerPromise) {
+      taskFocusControllerPromise = import('./routes_crime/task_focus_controller.js')
+        .then(({ default: initTaskFocus }) => initTaskFocus(panel.taskFocus, crimePresetPorts))
+        .catch((error) => {
+          taskFocusControllerPromise = null;
+          console.warn('Task focus failed:', error);
+          return null;
+        });
+    }
+    return taskFocusControllerPromise;
+  };
   const routeOpen = routeCorridorMount?.querySelector?.('[data-route-corridor-open]');
   const routeRetry = routeCorridorMount?.querySelector?.('[data-route-corridor-retry]');
   const routeLoaderStatus = routeCorridorMount?.querySelector?.('[data-route-corridor-loader-status]');
@@ -427,16 +449,6 @@ window.addEventListener('DOMContentLoaded', async () => {
           },
           onDataScopeChange: modeSurfaces.showDataScope,
           resultMeta: crimeResultMeta,
-          taskFocus: panel.taskFocus,
-          presetPorts: {
-            state: store,
-            normalize: (state) => decodeCrimeViewState(encodeCrimeViewState(state)),
-            replace: (next) => replaceCrimeViewState(store, next, { setMode: setAnalysisMode }),
-            sync: () => panel.syncPreset?.(),
-            url: () => writeCrimeStateToURL(store),
-            clear: () => analysisHistoryController?.setCurrentArtifact(null),
-            refresh: () => refreshCrime(false),
-          },
         })).then((controller) => {
           mapCrimeController = controller;
           return controller;
@@ -486,6 +498,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function scheduleProductMode(mode, { explicit = false } = {}) {
     if (explicit) analysisHistoryController?.cancelPendingRestore();
+    if (mode === 'crime') await ensureTaskFocusController();
     if (mode === 'crime' && presentationController.getMode() === 'list') {
       const result = await requestListRefresh();
       void ensureAnalysisHistory();

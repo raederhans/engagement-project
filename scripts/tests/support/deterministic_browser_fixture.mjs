@@ -23,24 +23,25 @@ const transparentPng = Buffer.from(
 );
 
 function cartoResponse(request) {
-  const body = decodeURIComponent(request.postData() || '');
-  if (/MIN\s*\(\s*dispatch_date_time\b/i.test(body)) {
+  const parameters = new URLSearchParams(request.postData() || '');
+  const sql = parameters.get('q') || '';
+  if (/MIN\s*\(\s*dispatch_date_time\b/i.test(sql)) {
     return { rows: [{ min_dt: '2006-01-01T00:00:00Z', max_dt: '2026-07-30T00:00:00Z' }] };
   }
-  if (/format=GeoJSON/i.test(body)) return { type: 'FeatureCollection', features: [] };
-  if (/SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body)) {
+  if (parameters.get('format') === 'GeoJSON') return { type: 'FeatureCollection', features: [] };
+  if (/SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(sql)) {
     return { rows: [{ dc_dist: '06', n: 12 }] };
   }
-  if (/date_trunc\('month',\s*dispatch_date_time\)\s+AS\s+m/i.test(body)) {
+  if (/date_trunc\('month',\s*dispatch_date_time\)\s+AS\s+m/i.test(sql)) {
     return { rows: [{ m: '2025-07-01T00:00:00Z', n: 12 }] };
   }
-  if (/EXTRACT\(DOW[\s\S]*AS\s+dow[\s\S]*EXTRACT\(HOUR[\s\S]*AS\s+hr/i.test(body)) {
+  if (/EXTRACT\(DOW[\s\S]*AS\s+dow[\s\S]*EXTRACT\(HOUR[\s\S]*AS\s+hr/i.test(sql)) {
     return { rows: [{ dow: 1, hr: 12, n: 12 }] };
   }
-  if (/text_general_code/i.test(body) && /GROUP BY/i.test(body)) {
+  if (/text_general_code/i.test(sql) && /GROUP BY/i.test(sql)) {
     return { rows: [{ text_general_code: 'Thefts', n: 8 }] };
   }
-  if (/COUNT\(\*\).*\bn\b/is.test(body)) return { rows: [{ n: 12 }] };
+  if (/COUNT\(\*\).*\bn\b/is.test(sql)) return { rows: [{ n: 12 }] };
   return { rows: [] };
 }
 
@@ -90,12 +91,24 @@ function attachExperienceProbe(page) {
   const consoleErrors = [];
   const pageErrors = [];
   const requests = [];
+  const privateEgress = [];
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => pageErrors.push(error.message));
-  page.on('request', (request) => requests.push(request.url()));
-  return { consoleErrors, pageErrors, requests };
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.hostname === 'citygeo-geocoder-pub.databridge.phila.gov') {
+      requests.push(`${url.origin}${url.pathname}`);
+      privateEgress.push('geocoder');
+      return;
+    }
+    requests.push(request.url());
+    if (url.hostname !== 'phl.carto.com') return;
+    const sql = new URLSearchParams(request.postData() || '').get('q') || '';
+    if (/ST_DWithin\(the_geom_webmercator/i.test(sql)) privateEgress.push('carto-private-buffer');
+  });
+  return { consoleErrors, pageErrors, requests, privateEgress };
 }
 
 export const test = base.extend({
@@ -110,6 +123,7 @@ export const test = base.extend({
       .map((url) => new URL(url).hostname)
       .filter((host) => !MOCKED_REMOTE_HOSTS.has(host)))];
     expect(unexpectedHosts, 'experience tests must not depend on an unmocked remote host').toEqual([]);
+    expect(probe.privateEgress, 'visual workflows must not send a private address or derived buffer point').toEqual([]);
     expect(probe.pageErrors, 'page errors').toEqual([]);
     expect(probe.consoleErrors, 'console errors').toEqual([]);
   }, { auto: true }],
@@ -210,7 +224,7 @@ export async function auditSeriousAccessibility(page) {
 
 export const RUNTIME_SCRIPT_BUDGETS = Object.freeze({
   crimeInitial: 1_100_000,
-  crimeAnalyzed: 1_350_000,
+  crimeAnalyzed: 1_375_000,
   diaryInitial: 1_250_000,
 });
 

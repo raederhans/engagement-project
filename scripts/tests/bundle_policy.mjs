@@ -14,12 +14,14 @@ const entry = manifest['index.html'];
 const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
 const crimeList = manifest['src/routes_crime/list_mode_controller.js'];
+const publicAreaSummary = manifest['src/routes_crime/public_area_summary.js'];
 const routeCorridorApp = manifest['src/routes_crime/route_corridor_app_loader.js'];
 const routeCorridorRuntime = manifest['src/routes_crime/route_corridor_app_runtime.js'];
 const routeCorridor = manifest['src/routes_crime/route_corridor_crime_coordinator.js'];
 const routeCorridorUi = manifest['src/routes_crime/route_corridor_ui_controller.js'];
 const hin2025Ui = manifest['src/routes_crime/hin_2025_ui.js'];
 const knownRouteEvidenceUi = manifest['src/routes_crime/known_route_evidence_ui.js'];
+const knownRouteEvidenceP6Presenter = manifest['src/routes_crime/known_route_evidence_p6_presenter.js'];
 const acsMultitractLoader = manifest['src/acs_multitract/loader.js'];
 const acsMultitractController = manifest['src/acs_multitract/controller.js'];
 const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
@@ -63,6 +65,7 @@ assert.deepEqual(
     'src/ui/help_content.js',
     'src/map/initMap.js',
     'src/routes_crime/list_mode_controller.js',
+    'src/routes_crime/task_focus_controller.js',
     'src/routes_crime/route_corridor_app_loader.js',
     'src/acs_multitract/loader.js',
     'src/home_compare/loader.js',
@@ -77,6 +80,11 @@ assert.ok(
   'Crime list queries must keep Charts lazy until a supported analysis runs',
 );
 assert.ok(
+  crimeList.dynamicImports?.includes('src/routes_crime/public_area_summary.js'),
+  'Crime list public district and tract summaries must stay behind an analysis-intent boundary',
+);
+assert.ok(publicAreaSummary?.isDynamicEntry, 'Vite manifest must contain the public area summary adapter as a lazy chunk');
+assert.ok(
   ![...(crimeList.imports || []), ...(crimeList.dynamicImports || [])]
     .some((key) => key === 'src/map/initMap.js' || key === 'src/routes_crime/index.js'),
   'Crime list presentation must not import the MapLibre-backed Crime controller',
@@ -88,6 +96,7 @@ assert.deepEqual(
     'src/routes_crime/task_focus_controller.js',
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
+    'src/routes_crime/public_area_summary.js',
   ]),
   'Map Crime must keep incident results, task focus, and Charts behind focused lazy boundaries while shared Known Route stays app-owned',
 );
@@ -130,6 +139,19 @@ assert.deepEqual(
 );
 assert.ok(hin2025Ui?.isDynamicEntry, 'Vite manifest must contain HIN 2025 UI/context as a nested lazy chunk');
 assert.ok(knownRouteEvidenceUi?.isDynamicEntry, 'Vite manifest must contain M4 Known Route evidence as its own nested lazy chunk');
+assert.deepEqual(
+  new Set(knownRouteEvidenceUi.dynamicImports || []),
+  new Set(['src/routes_crime/known_route_evidence_p6_presenter.js']),
+  'Known Route M4 must keep identity-bound P6 validation and presentation behind a second nested lazy boundary',
+);
+assert.ok(
+  !(knownRouteEvidenceUi.imports || []).some((key) => key.includes('known_route_evidence_p6')),
+  'Known Route M4 must not statically absorb the P6 validator or presenter',
+);
+assert.ok(
+  knownRouteEvidenceP6Presenter?.isDynamicEntry,
+  'Vite manifest must contain the identity-bound P6 validator and presenter as a nested lazy chunk',
+);
 assert.ok(acsMultitractLoader?.isDynamicEntry, 'Vite manifest must keep the ACS multi-tract loader lazy');
 assert.deepEqual(
   new Set(acsMultitractLoader.dynamicImports || []),
@@ -204,7 +226,10 @@ const budgets = [
   // Owns result-scoped cancellation, fail-closed data admission, immutable
   // provenance, and dispatch-only lazy edges without changing the Entry ceiling.
   ['Crime', crime, 42_000, 14_900],
-  ['Crime list', crimeList, 6_500, 2_600],
+  // Owns the list-only presentation shell and dispatches public-area summaries
+  // through a separate lazy adapter after explicit analysis intent.
+  ['Crime list', crimeList, 6_625, 2_650],
+  ['Public area summary', publicAreaSummary, 1_400, 750],
   ['Route corridor app adapter', routeCorridorApp, 2_975, 1_275],
   // Loads only after the user opens Known Route; keeps mutable map/request/HIN
   // ports out of the app-level mode entry.
@@ -219,7 +244,10 @@ const budgets = [
   ['HIN 2025 context', hin2025Ui, 20_000, 7_200],
   // Loaded only after an admitted Known Route history request; owns strict
   // centerline consent/match, separated evidence dimensions and segment detail.
-  ['Known Route evidence M4', knownRouteEvidenceUi, 36_500, 13_100],
+  ['Known Route evidence M4', knownRouteEvidenceUi, 38_000, 13_100],
+  // Loaded after an admitted route match; owns optional identity-bound P6
+  // validation and the explicit unavailable/partial per-dimension projection.
+  ['Known Route evidence P6 presenter', knownRouteEvidenceP6Presenter, 8_750, 2_800],
   ['ACS multi-tract loader', acsMultitractLoader, 1_000, 600],
   ['ACS multi-tract controller', acsMultitractController, 22_000, 8_000],
   ['ACS multi-tract styles', acsMultitractStyles, 4_000, 1_200],
@@ -230,7 +258,9 @@ const budgets = [
   ['Home Compare controller', homeCompareController, 54_000, 18_000],
   ['Home Compare source registry', homeCompareSourceRegistry, 6_000, 2_000],
   ['Home Compare results', homeCompareResultsView, 12_000, 4_000],
-  ['Home Compare styles', homeCompareStyles, 4_500, 1_200],
+  // P5 adds the compact citywide source/dimension readiness grid while the
+  // compressed transfer ceiling remains unchanged.
+  ['Home Compare styles', homeCompareStyles, 4_800, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   ['Incident Results', incidentResults, 7_000, 2_900],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
@@ -292,8 +322,10 @@ assert.equal(vreArtifacts.length, 1, 'dist must contain exactly one admitted ACS
 const vreArtifactBytes = await sumFileSizes(vreArtifacts);
 const nonVreDistBytes = distBytes - vreArtifactBytes;
 assert.ok(vreArtifactBytes <= 200_000, `ACS VRE source artifact must stay <= 200000; received ${vreArtifactBytes}`);
-assert.ok(nonVreDistBytes <= 4_000_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4000000; received ${nonVreDistBytes}`);
-assert.ok(distBytes <= 4_200_000, `Transparent total dist size must stay <= 4200000; received ${distBytes}`);
+// P4-P6 add bounded privacy, lifecycle-readiness, and Known Route evidence
+// surfaces behind lazy chunks; retain a narrow whole-dist regression ceiling.
+assert.ok(nonVreDistBytes <= 4_100_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4100000; received ${nonVreDistBytes}`);
+assert.ok(distBytes <= 4_300_000, `Transparent total dist size must stay <= 4300000; received ${distBytes}`);
 for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;
@@ -347,9 +379,9 @@ async function verifyWorkflowPolicy() {
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],
   ]);
   const expectedUseCounts = new Map([
-    ['actions/checkout', 6],
-    ['actions/setup-node', 5],
-    ['actions/upload-artifact', 3],
+    ['actions/checkout', 8],
+    ['actions/setup-node', 7],
+    ['actions/upload-artifact', 4],
     ['actions/configure-pages', 1],
     ['actions/upload-pages-artifact', 1],
     ['actions/deploy-pages', 1],

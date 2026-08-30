@@ -77,18 +77,21 @@ export function setCurrentAnalysisSelection(element, selectionKey) {
 
 export function buildComparisonFilterKey(filters = {}) {
   const tractMode = filters.queryMode === 'tract' && /^\d{11}$/.test(filters.selectedTractGEOID || '');
+  const districtMode = filters.queryMode === 'district' && /^\d{2}$/.test(filters.selectedDistrictCode || '');
+  const publicAreaMode = tractMode || districtMode;
   return JSON.stringify({
     start: filters.start || null,
     end: filters.end || null,
     types: [...(filters.types || [])].map(String).sort(),
-    center3857: tractMode ? null : filters.center3857 || null,
-    centerB3857: tractMode ? null : filters.centerB3857 || null,
-    radiusM: tractMode ? null : Number(filters.radiusM ?? filters.radius) || null,
+    center3857: publicAreaMode ? null : filters.center3857 || null,
+    centerB3857: publicAreaMode ? null : filters.centerB3857 || null,
+    radiusM: publicAreaMode ? null : Number(filters.radiusM ?? filters.radius) || null,
     adminLevel: filters.adminLevel || null,
     per10k: Boolean(filters.per10k),
-    addressA: tractMode ? null : filters.addressA || null,
-    addressB: tractMode ? null : filters.addressB || null,
+    addressA: publicAreaMode ? null : filters.addressA || null,
+    addressB: publicAreaMode ? null : filters.addressB || null,
     queryMode: filters.queryMode || 'buffer',
+    selectedDistrictCode: districtMode ? filters.selectedDistrictCode : null,
     selectedTractGEOID: filters.selectedTractGEOID || null,
   });
 }
@@ -529,6 +532,7 @@ export async function updateCompare(
     addressB = 'Point B',
     radiusM,
     queryMode = 'buffer',
+    selectedDistrictCode = null,
     selectedTractGEOID = null,
     adminLevel = 'districts',
     per10k = false,
@@ -550,7 +554,7 @@ export async function updateCompare(
   if (!isFresh()) return { applied: false };
   const filterKey = buildComparisonFilterKey({
     start, end, types, center3857, centerB3857, radiusM, queryMode,
-    selectedTractGEOID, adminLevel, per10k, addressA, addressB,
+    selectedDistrictCode, selectedTractGEOID, adminLevel, per10k, addressA, addressB,
   });
   const retainedComparison = lastComparison?.filterKey === filterKey
     ? lastComparison
