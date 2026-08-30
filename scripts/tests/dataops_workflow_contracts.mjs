@@ -254,6 +254,17 @@ test('PR checks are lightweight while rebuild is limited to dispatch and schedul
   assert.match(rebuild, /inputs\.maintenance_mode == 'rebuild'/);
   assert.doesNotMatch(rebuild, /github\.event_name == 'pull_request'/);
   assert.match(rebuild, /runs-on:\s*\[self-hosted, Windows, data-foundation\]/);
+  const jobEnvironment = rebuild.slice(rebuild.indexOf('    env:'), rebuild.indexOf('    steps:'));
+  assert.doesNotMatch(jobEnvironment, /\$\{\{\s*runner\./);
+  assert.match(rebuild, /Initialize runner-local report paths/);
+  assert.match(rebuild, /DATAOPS_REPORT_DIR=\$reportDir/);
+  assert.match(rebuild, /DATAOPS_UPLOAD_DIR=\$uploadDir/);
+  assertOrdered(rebuild, [
+    'Initialize runner-local report paths',
+    'Checkout exact rebuild source',
+    'Setup Node.js',
+    'Admit exact Git, registry, receipt, and location inputs',
+  ]);
 });
 
 test('workflow permissions, pinned actions, and rebuild concurrency stay minimal', async () => {
@@ -336,6 +347,7 @@ test('exact Git registry and receipt admission happens before any data root exis
   assert.match(rebuild, /Set-ItemProperty[\s\S]*IsReadOnly[\s\S]*\$true/);
 
   assertOrdered(rebuild, [
+    'Initialize runner-local report paths',
     'Admit exact Git, registry, receipt, and location inputs',
     'Plan receipt-bound clean-room restore',
     'Create a new versioned maintenance root',

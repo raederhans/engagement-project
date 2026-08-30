@@ -100,7 +100,7 @@ export function createFilesystemAuthority({
       // point back inside the same root and still make later replacement
       // semantics ambiguous. Every existing ancestor must itself be direct.
       const ancestors = [];
-      for (let cursor = receipt; ; cursor = flavor.dirname(cursor)) {
+      for (let cursor = flavor.dirname(receipt); ; cursor = flavor.dirname(cursor)) {
         ancestors.push(cursor);
         if (cursor === root) break;
         if (cursor === flavor.dirname(cursor)) throw new Error('receipt path cannot reach worktree root');

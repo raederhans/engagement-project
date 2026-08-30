@@ -115,10 +115,17 @@ jobs:
       DATAOPS_AUTHORIZED_LOCATION_SCHEME: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_LOCATION_SCHEME || inputs.authorized_location_scheme }}
       DATAOPS_FILE_LOCATION_ROOT: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_FILE_LOCATION_ROOT || inputs.file_location_root }}
       DATAOPS_THROUGH_DATE: ${{ github.event_name == 'schedule' && vars.DATAOPS_SCHEDULE_THROUGH_DATE || inputs.through_date }}
-      DATAOPS_REPORT_DIR: ${{ runner.temp }}/dataops-reports
-      DATAOPS_UPLOAD_DIR: ${{ runner.temp }}/dataops-upload
       DATAOPS_CONTRACT_RESULT: ${{ needs.contracts.result }}
     steps:
+      - name: Initialize runner-local report paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reportDir = Join-Path $env:RUNNER_TEMP 'dataops-reports'
+          $uploadDir = Join-Path $env:RUNNER_TEMP 'dataops-upload'
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "DATAOPS_REPORT_DIR=$reportDir"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "DATAOPS_UPLOAD_DIR=$uploadDir"
+
       - name: Checkout exact rebuild source
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
