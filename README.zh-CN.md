@@ -1,153 +1,111 @@
-# 费城犯罪数据面板 + 路线安全日记
+# Philadelphia Urban Evidence Lab（费城城市证据实验室）
 
 中文 | [English](README.md)
 
 [![CI](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml/badge.svg)](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml)
+[![在线演示](https://img.shields.io/badge/在线演示-GitHub_Pages-0969da)](https://raederhans.github.io/engagement-project/)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](package.json)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-这是一个支持英文和简体中文的交互式 Web 应用，用于探索费城犯罪数据，并试用仅在浏览器中保存数据的“路线安全日记”。应用顶部提供语言切换按钮，语言偏好会保存在当前浏览器中。项目使用原生 JavaScript、MapLibre GL JS、Chart.js、Turf 和 Vite。
+这是一个证据优先、支持中英文的费城城市数据实验室。仓库把可复现数据工程、聚合空间分析、
+模型准入和隐私受限的产品表面连接起来，但不会把初步公共记录包装成完整伤害、个人风险或安全结论。
 
-> [!IMPORTANT]
-> 路线安全日记目前使用演示数据和浏览器本地状态，不提供生产账号、持久化社区提交或安全保证。犯罪地点为近似位置，不应作为个人安全决策的唯一依据。
+当前已验证的数据基础 receipt 覆盖 **3,586,620 条 canonical reported-incident records**；其保留的
+content-addressed 本地证据 bundle 约 **10.81 GB**。这两个数字只描述一个精确的本地候选 receipt，
+不代表在线仓库、完整犯罪事实、模型晋级或 routing authority。
 
-## 功能
+## 30 秒了解项目
 
-### 犯罪数据探索器
+- **[打开在线证据演示](https://raederhans.github.io/engagement-project/)**：双语历史 reported-incident
+  探索，以及三个受边界约束的产品表面。
+- **Area Intelligence**：展示已准入的历史聚合；冻结评估门未通过，因此 forecast 保持
+  `not-promoted / unavailable`。
+- **Home Compare**：聚合、隐私安全的多源比较；各数据源独立保留
+  `available / partial / unavailable`，私人地址仅作会话内定位。
+- **Known Route**：只分析用户提供的已知路线；reported incidents、raw crash、accessibility、
+  legality、calibration 始终分开，不产生 combined safety score。
+- **Diary / Sample Community**：仅浏览器本地的 demo，不是证据准入路线、社区后端或实时路况来源。
 
-- 交互式警察分局和人口普查区地图。
-- 400 米到 3.2 公里的可配置缓冲区分析。
-- 月度比较、主要犯罪类型图表和 7 × 24 活动热力图。
-- 使用 ACS 人口数据计算人均比率。
-- 对大型结果集进行视口筛选与点位聚类。
-- 英文和简体中文界面、帮助、状态及错误提示。
+可维护的系统架构图、数据流图和模型晋级图见 [Portfolio v2](docs/PORTFOLIO_V2.md)；远端仓库设置
+审计和待授权命令见 [远端治理 mutation plan](docs/REMOTE_GOVERNANCE_MUTATION_PLAN.md)。
 
-### 路线安全日记原型
+## 证据数据流
 
-- 带路段安全样式和可选替代路线的演示路线。
-- 在本地保存路线评分、标签、备注和路段调整。
-- 当前路线、我的路线、社区示例和洞察视图。
-- 带会话级限流的社区反馈模拟。
-- 可重复生成并验证的演示数据脚本。
+```text
+官方公共源快照
+  -> revision-aware canonical warehouse
+  -> ArtifactRegistry/v1 + content-hash inventory
+  -> clean-room restore 与 exact receipt 校验
+  -> tract / 500 m grid / 已准入 uncertainty comparison
+  -> 冻结 evaluation protocol 与 no-promotion gate
+  -> aggregate-only Area Intelligence、Home Compare、Known Route
+```
 
-## 快速开始
+项目明确对照 census tract 和 500 m fixed grid：tract 用于解释与 ACS denominator audit；只要
+generalized-location sensitivity 未证明稳定，fixed grid 就继续作为预测主几何。weighted attribution
+不会写回 canonical event。
 
-### 环境要求
+## 模型准入，不是模型营销
 
-- Node.js `^20.19.0` 或 `>=22.12.0`。
-- npm 10 或更高版本。
+候选模型只有在 final test-fold 结果之前冻结进 protocol 后才能参赛。参赛资格不等于晋级；必须同时
+通过所有时间、空间、区间、收敛和 slice gate。任一失败都产出诚实的 no-promotion 结果。
 
-安装锁定版本的依赖并启动开发服务器：
+- 当前协议：[Evaluation Protocol v2](scripts/data/area_intelligence_evaluation_protocol.v2.json)
+- 主线扩展：Evaluation Protocol v3 冻结更多 baseline、sklearn 和 PyTorch 候选 identity，同时保持
+  no-promotion 边界。
+- 模型证据：[Area Intelligence model card](reports/area-intelligence/model-card.md)
+- Lineage：[数据 lineage 摘要](reports/area-intelligence/data-lineage-summary.v1.json)
+
+## 可复现验证
+
+安装锁定依赖并运行核心门：
 
 ```bash
 npm ci
-npm run dev
-```
-
-打开 `http://localhost:5173/?mode=diary` 查看路线安全日记，或打开 `http://localhost:5173/` 查看犯罪数据面板。
-
-### 可选 MapTiler 样式
-
-如需使用 MapTiler 样式，请创建 `.env.local`：
-
-```dotenv
-VITE_MAPTILER_API_KEY=your_key_here
-```
-
-没有密钥时，应用使用 OpenStreetMap 备用底图。环境文件已被 Git 忽略，绝不能提交。
-
-## 验证
-
-运行与 CI 相同的仓库验证入口：
-
-```bash
 npm run validate
 ```
 
-该命令依次执行：
-
-- `npm run data:check`：验证仓库中的演示 GeoJSON。
-- `npm test`：运行完整单元测试和契约测试，包括双语 UI 契约。
-- `npm run build:manifest`：在 `dist/` 生成生产构建和 Vite manifest。
-- `npm run verify:bundle`：检查入口文件和延迟加载 chunk 的体积预算。
-
-局部开发时也可以单独运行：
+轻量 fixture gate 与授权 full-data rebuild/restore 分开：
 
 ```bash
-npm run test:i18n
-npm run test:diary:math
-npm run test:diary:agg
-npm run data:check
-npm run build
+npm run test:mainline-m0-m6
 ```
 
-## 演示数据
+完整的物化、镜像、恢复、第二环境、定时观察与灾备演练命令见
+[Data Foundation operations runbook](docs/DATA_FOUNDATION_OPERATIONS_RUNBOOK.md)。
 
-重新生成并验证路线安全日记的确定性数据：
+canonical warehouse 绝不使用短期 Actions artifact 冒充。`ArtifactRegistry/v1` 绑定 source scope、
+四类 clocks、producer/schema/transform version、每个对象的 hash/bytes、partition、retention，以及全为
+false 的 serving/promotion/deletion authority。clean-room 流程只从 exact `file` 或 immutable `https`
+位置恢复，并在下游使用前重新观测完整 inventory。
 
-```bash
-npm run data:gen
-npm run data:check
-```
+CI 在 Windows 执行 core gate、在 Linux 执行 release gate，并把同一 main exact SHA 部署到 GitHub
+Pages。本地测试绿色不等于 CI、部署、发布或生产 serving 已完成。
 
-道路网络命令会读取外部 OpenStreetMap 或费城数据，因此与默认验证入口分开：
-
-```bash
-npm run data:fetch:streets
-npm run data:segment:streets
-```
-
-## 项目结构
+## 仓库结构
 
 ```text
-src/
-  api/              外部数据访问与标准化
-  charts/           犯罪数据和日记图表
-  i18n/             英文/简体中文词条与运行时
-  map/              MapLibre 图层和交互
-  routes_diary/     路线安全日记状态与界面
-  state/            共享应用状态
-scripts/
-  tests/            轻量回归与契约测试
-  *.mjs             数据生成和验证工具
-server/api/diary/   原型 API 处理程序
-data/               仓库内演示 GeoJSON
-docs/               设计、数据和实现说明
+src/                 产品表面与严格浏览器投影
+scripts/lib/         数据、证据、restore、evaluation 与 gate contracts
+scripts/data/        版本化 schema 和冻结 protocol
+scripts/tests/       轻量 contract/hostile-input fixtures
+public/data/         仅存小型、已准入 serving artifacts
+reports/             小型 aggregate reports 与 model/lineage evidence
+docs/                架构、runbook、active records 与治理计划
+.github/workflows/   Windows/Linux CI、exact-SHA Pages 与 maintenance workflow
 ```
 
-## 数据来源与限制
+## 数据和结论边界
 
-| 来源 | 用途 |
-| --- | --- |
-| [Philadelphia CARTO](https://phl.carto.com/) | 犯罪事件查询 |
-| [Philadelphia GIS](https://www.phila.gov/departments/office-of-innovation-and-technology/open-data/) | 警察分局和本地边界 |
-| [US Census Bureau ACS](https://www.census.gov/programs-surveys/acs) | 人口基数 |
-| [OpenStreetMap](https://www.openstreetmap.org/copyright) | 道路网络输入 |
+- “Reported incidents”指报给 Philadelphia Police Department 的来源记录，不是完整犯罪或伤害事实。
+- Generalized location 与 uncertainty method 是分析假设，不是对精确地点的重建。
+- `unavailable`、`partial`、`ambiguous`、`unmapped` 绝不填成零。
+- 私人地址、路线 geometry、Diary 文本和精确地点不进入 tracked artifact、URL、telemetry 或 share state。
+- 项目不提供 safest route、safest area、combined safety score、个人受害概率、因果效应或实时保证。
 
-犯罪点位会被取整到百号街区，因此仍是近似位置。外部服务的可用性、数据结构和限流规则可能独立变化。
-
-## 部署
-
-创建静态生产构建：
-
-```bash
-npm run build
-```
-
-可将生成的 `dist/` 目录部署到任意静态托管服务。仓库当前不发布 npm 或 GitHub Packages 包。Vite 配置会在 GitHub Actions 中自动使用仓库路径，`.github/workflows/deploy-pages.yml` 会从 `main` 构建并部署到 GitHub Pages。
-
-## 文档
-
-- [已知问题](docs/KNOWN_ISSUES.md)
-- [控件规范](docs/CONTROL_SPEC.md)
-- [路线安全日记规范](docs/DIARY_SPEC_M2.md)
-- [后端 API 草案](docs/API_BACKEND_DIARY_M2.md)
-- [数据与文件地图](docs/FILE_MAP_ENGAGEMENT.md)
-
-## 参与贡献
-
-请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。Bug 报告和改进建议可通过 [GitHub Issues](https://github.com/raederhans/engagement-project/issues) 提交。
+完整边界见 [Portfolio v2](docs/PORTFOLIO_V2.md)、[部署证据要求](docs/DEPLOY.md) 和
+[参与贡献说明](CONTRIBUTING.md)。
 
 ## 许可证
 
-项目原创软件采用 [MIT License](LICENSE)。第三方数据仍遵守各自来源的使用条款。
+项目原创软件采用 [MIT License](LICENSE)。第三方数据继续受各自 provider 的条款、许可、保留和再发布规则约束。

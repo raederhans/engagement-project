@@ -10,7 +10,7 @@ const css = await readProductCss();
 test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /<header\b[^>]*class="[^"]*app-bar[^"]*"[^>]*>/i);
   assert.equal((html.match(/<h1\b/gi) || []).length, 1);
-  assert.match(html, /<header\b[\s\S]*?<h1\b[^>]*>[\s\S]*Philadelphia Engagement Explorer[\s\S]*?<\/h1>[\s\S]*?<\/header>/i);
+  assert.match(html, /<header\b[\s\S]*?<h1\b[^>]*>[\s\S]*Philadelphia Urban Evidence Lab[\s\S]*?<\/h1>[\s\S]*?<\/header>/i);
   assert.match(html, /class="app-title__full"/);
   assert.match(html, /class="app-title__compact"[^>]*aria-hidden="true"/);
   assert.match(html, /data-mode-switch-mount/);
