@@ -26,6 +26,7 @@
 - [x] Stage 3: 串行整合附属 ML0-ML6。
 - [x] Stage 4: 解决 Protocol v3 与 ML 候选资格语义并运行联合验证。
 - [x] Stage 5: 更新 registry、提交整合记录并明确远端状态。
+- [x] Stage 6: 执行本地 release/coverage 预检并只读核对 GitHub 治理与 Pages 状态。
 
 ## Acceptance criteria
 
