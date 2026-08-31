@@ -1,0 +1,116 @@
+name: Python ML research CI
+
+on:
+  pull_request:
+    paths:
+      - "ml/**"
+      - ".github/workflows/ml-ci.yml"
+      - "scripts/lib/area_intelligence_model.mjs"
+      - "scripts/data/area_intelligence_evaluation_protocol.v2.json"
+  push:
+    paths:
+      - "ml/**"
+      - ".github/workflows/ml-ci.yml"
+      - "scripts/lib/area_intelligence_model.mjs"
+      - "scripts/data/area_intelligence_evaluation_protocol.v2.json"
+  workflow_dispatch:
+    inputs:
+      run_full:
+        description: "Run exact-registry full benchmark on the dedicated self-hosted runner"
+        required: true
+        default: false
+        type: boolean
+      registry_path:
+        description: "Absolute path to exact ArtifactRegistry/v1"
+        required: true
+        type: string
+      registry_root:
+        description: "Absolute registry file-location root"
+        required: true
+        type: string
+      protocol_path:
+        description: "Absolute frozen protocol-v2 path"
+        required: true
+        type: string
+      output_root:
+        description: "Ignored task-owned output root"
+        required: true
+        type: string
+      device:
+        description: "Controlled full-run device"
+        required: true
+        default: cpu
+        type: choice
+        options:
+          - cpu
+          - cuda
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-gates:
+    name: CPU gates (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.7"
+          enable-cache: true
+          cache-dependency-glob: "ml/uv.lock"
+      - name: Install locked CPU environment
+        run: uv sync --locked --extra cpu --group dev
+      - name: Ruff
+        run: uv run --locked --extra cpu ruff check .
+      - name: Mypy
+        run: uv run --locked --extra cpu mypy
+      - name: Pytest, synthetic training, parity, and leakage gates
+        run: uv run --locked --extra cpu pytest -m "not full"
+
+  full-benchmark:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full
+    runs-on: [self-hosted, linux, ml-benchmark]
+    env:
+      ML_UV_EXTRA: ${{ inputs.device == 'cuda' && 'cu130' || 'cpu' }}
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.7"
+      - name: Install exact locked accelerator environment
+        shell: bash
+        run: uv sync --locked --no-group dev --extra "$ML_UV_EXTRA"
+      - name: Run registry-admitted full benchmark
+        shell: bash
+        run: >-
+          uv run --locked --no-group dev --extra "$ML_UV_EXTRA" engagement-ml full-benchmark
+          --repo-root "${GITHUB_WORKSPACE}"
+          --registry "${{ inputs.registry_path }}"
+          --registry-root "${{ inputs.registry_root }}"
+          --protocol "${{ inputs.protocol_path }}"
+          --output "${{ inputs.output_root }}"
+          --device "${{ inputs.device }}"
+      - name: Upload small aggregate receipts and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-research-receipts-${{ github.sha }}
+          path: |
+            ${{ inputs.output_root }}/feature-parity-receipt.json
+            ${{ inputs.output_root }}/dataset/manifest.json
+            ${{ inputs.output_root }}/benchmark-report.json
+            ${{ inputs.output_root }}/research-run.json
+            ${{ inputs.output_root }}/full-benchmark-receipt.json
+          if-no-files-found: warn
+          retention-days: 7
