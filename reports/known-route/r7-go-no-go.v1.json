@@ -1,0 +1,31 @@
+{
+  "schema": "R7GoNoGoReport/v1",
+  "evaluated_at": "2026-08-31T00:00:00.000Z",
+  "evidence_readiness_identity": "sha256:963517d4e166041215ba65f8bd220eede06a97fdb28aa839c5e7f3d41b7695f5",
+  "availability": "UNAVAILABLE",
+  "decision": "NO-GO",
+  "hard_gates": [
+    { "gate_id": "incidents-crash-separation", "status": "PASS", "reason": "Reported incidents and raw crash remain distinct evidence dimensions." },
+    { "gate_id": "manual-calibration", "status": "FAIL", "reason": "Manual calibration requires an admitted exact receipt." },
+    { "gate_id": "walking-legality", "status": "FAIL", "reason": "At least walking legality requires an admitted exact receipt." },
+    { "gate_id": "approved-sensitivity-stability", "status": "FAIL", "reason": "At least two pre-approved sensitivity scenarios must be available and stable." },
+    { "gate_id": "cross-dimension-combination-forbidden", "status": "PASS", "reason": "Evidence dimensions must not be collapsed into a combined safety value." }
+  ],
+  "future_candidate_contract": {
+    "vocabulary": ["fastest", "balanced", "lower-modeled-exposure"],
+    "required_fields": ["travel_time_cost", "evidence_coverage"],
+    "activated": false
+  },
+  "output_boundary": {
+    "generated": false,
+    "prohibited": ["route candidates", "route rankings", "route winner", "safest claim", "combined safety value"]
+  },
+  "authority": {
+    "route_generation": false,
+    "route_choice": false,
+    "routing": false,
+    "safety": false,
+    "deployment": false
+  },
+  "report_identity": "sha256:9c9e5f2db276b289b3bdc4cd675044dc468ece66024befe7f52925d93b90aa72"
+}

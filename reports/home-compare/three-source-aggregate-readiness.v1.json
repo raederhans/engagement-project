@@ -1,0 +1,71 @@
+{
+  "schema": "HomeCompareThreeSourceAggregate/v1",
+  "status": "unavailable",
+  "observed_at": "2026-08-31T00:00:00.000Z",
+  "source_receipts": [
+    {
+      "source_id": "reported-incidents",
+      "status": "unavailable",
+      "receipt_identity": "sha256:09b43e2ead3fa7bd81d848ea1d3b47b5959e0dd0e969429b76d9d6092f7f32dd",
+      "snapshot_identity": null,
+      "revision_status": "unavailable",
+      "coverage_status": "unavailable",
+      "join_status": "unavailable",
+      "data_quality_status": "unavailable",
+      "reason": "No exact admitted source payload, revision, coverage, join, and data-quality receipt is present in this checkout."
+    },
+    {
+      "source_id": "service-requests-311",
+      "status": "unavailable",
+      "receipt_identity": "sha256:dc1a87e7ceb06dc0e0e312b9de666370b59733246df454d901829257511d9ac2",
+      "snapshot_identity": null,
+      "revision_status": "unavailable",
+      "coverage_status": "unavailable",
+      "join_status": "unavailable",
+      "data_quality_status": "unavailable",
+      "reason": "No exact admitted source payload, revision, coverage, join, and data-quality receipt is present in this checkout."
+    },
+    {
+      "source_id": "li-vacancy",
+      "status": "unavailable",
+      "receipt_identity": "sha256:8f316f864f4456fd577ba4776388cdd1e7cf511a7b7302f34c9a4b613cbd7f47",
+      "snapshot_identity": null,
+      "revision_status": "unavailable",
+      "coverage_status": "unavailable",
+      "join_status": "unavailable",
+      "data_quality_status": "unavailable",
+      "reason": "No exact admitted source payload, revision, coverage, join, and data-quality receipt is present in this checkout."
+    }
+  ],
+  "aggregates": {
+    "reported-incidents": null,
+    "service-requests-311": null,
+    "li-vacancy": null
+  },
+  "optional_sources": {
+    "property_assessment": {
+      "status": "unavailable",
+      "reason": "No exact admitted receipt."
+    },
+    "ownership_transfer": {
+      "status": "unavailable",
+      "reason": "No exact admitted receipt."
+    }
+  },
+  "privacy": {
+    "aggregate_only": true,
+    "private_addresses_persisted": false,
+    "source_rows_included": false,
+    "source_record_ids_included": false,
+    "coordinates_included": false,
+    "geometry_included": false
+  },
+  "authority": {
+    "completeness": false,
+    "property_assessment": false,
+    "ownership_transfer": false,
+    "safety": false,
+    "routing": false
+  },
+  "aggregate_identity": "sha256:0f95e24218d5cbfe9ed48b2c2ea988495b767d658237782d7d32be55e3267d77"
+}
