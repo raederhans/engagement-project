@@ -25,7 +25,7 @@
 - [x] Stage 2: 串行整合主线 M0-M6。
 - [x] Stage 3: 串行整合附属 ML0-ML6。
 - [x] Stage 4: 解决 Protocol v3 与 ML 候选资格语义并运行联合验证。
-- [ ] Stage 5: 更新 registry、提交整合记录并明确远端状态。
+- [x] Stage 5: 更新 registry、提交整合记录并明确远端状态。
 
 ## Acceptance criteria
 

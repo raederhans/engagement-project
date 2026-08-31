@@ -1,14 +1,15 @@
 # Worktree Registry
 
-## Current effective registry (2026-08-30)
+## Current effective registry (2026-08-31)
 
 This section is the sole authority for the live Git topology. The older rows below are retained only as historical audit notes and must not be used to infer that a worktree, branch, ignored artifact, or execution authority still exists.
 
 | Worktree / path | Branch / HEAD | Current responsibility | State | Next action |
 | --- | --- | --- | --- | --- |
 | `C:/Users/raede/Desktop/dev/engagement_project` | `codex/route-decision-s6-real-data@4d5c34c` | Primary checkout and active RD6B coordination; preserves 27 untracked log/output paths | active / protected WIP | Do not switch, clean, or delete; finish RD6B under its own authority. |
-| `C:/Users/raede/.codex/worktrees/8dcb/engagement_project` | `codex/mainline-m0-m6@cfb0af1` | Mainline M0-M6 implementation and local commit owner; excludes `ml/**`, remote integration and cleanup | handoff-ready / M0-M6 complete; local validation green | Final coordinator reviews the ordered commits, reconciles the ML semantic dependency, then owns main integration, push, remote gates and cleanup. |
-| `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` | `main@HEAD`; release-gated code parent `6c08005` | Clean integration owner for the Phase 2 P1-P6 merge and repository closeout | local `ci:release` and coverage PASS / ready to synchronize | Push this archival closeout, then verify local/remote equality plus CI/Pages. |
+| `C:/Users/raede/.codex/worktrees/8dcb/engagement_project` | `codex/mainline-m0-m6@3d4c126` | Mainline M0-M6 source delivery; excludes `ml/**`, remote mutation and cleanup | clean / integrated locally into `main` code tip `5c2c25c`; source validation green | Retain for audit; no cleanup or remote deletion authority. |
+| `C:/Users/raede/.codex/worktrees/13b2/engagement_project` | `codex/python-ml-benchmark@06c4c20` | Research-only ML0-ML6 source delivery and ignored Python environment owner | clean tracked tree / integrated locally into `main` code tip `5c2c25c`; full benchmark unavailable without exact registry | Retain for audit; do not treat fixture CI as full-data, serving, or promotion evidence. |
+| `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` | `main@HEAD`; integration code tip `5c2c25c`; `origin/main@cfb0af1` | Sole clean integration owner for mainline M0-M6 plus ML0-ML6 closeout | locally integrated and `npm run validate` PASS / not pushed / M7 excluded | Await explicit remote authority before push, CI/Pages, release, ruleset, or deployment changes. |
 | `C:/Users/raede/Desktop/dev/engagement_project-phase2` | detached `ff0e6c4` | Phase 2 ignored evidence owner; tracked tree is the exact integrated merge tree | clean tracked tree / retained evidence; about 1.55 GB under `.dfev1` | Retain until evidence receives separate archive/deletion authority. |
 | `C:/Users/raede/Desktop/dev/engagement_project-data-foundation` | `codex/dfev1-data-foundation-persistent@122bba9` | Persistent M1-M6 data evidence owner | clean tracked tree / retained evidence; about 14.56 GB under `.dfev1` | Retain; no cleanup or promotion inference. |
 | `C:/Users/raede/.codex/worktrees/dfev1-m1-m6-supervisor/engagement_project` | detached `122bba9` | Secondary M1-M6 supervisor evidence root | clean tracked tree / retained evidence; about 2.95 GB under `.dfev1` | Retain until evidence is independently consolidated. |

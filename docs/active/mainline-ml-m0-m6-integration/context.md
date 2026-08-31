@@ -20,6 +20,7 @@
 | 2026-08-31 | fresh integration checkout 首次 `npm run validate` 因未安装 `node_modules` 在首个依赖导入处停止。 | `npm ci` 按 lock 安装 395 packages、audit 0 vulnerabilities；这是环境准备，不记为产品回归。 |
 | 2026-08-31 | 安装依赖后的首轮全仓测试与 build 已通过，bundle policy 发现 ML workflow 使用浮动 action tags。 | checkout/upload-artifact 使用仓库既有批准 SHA，setup-uv 固定为官方 v6 tag commit 并纳入允许集与精确计数。 |
 | 2026-08-31 | 最终 `npm run validate` exit 0。 | 联合本地代码、测试、生产 build 与 bundle policy gate 完成；不等价于远端 CI、Pages 或 deployment。 |
+| 2026-08-31 | 本地 integration code tip `5c2c25c5a5f10eac7f349a2861dc9a9ad83a6b7c`；再次 fetch 后 `HEAD...origin/main = 9/0`、`origin/main@cfb0af1...`。 | 本地整合完成且远端未漂移；记录 closeout commit 可跟随，但不得将其冒充已 push。 |
 
 ## Live process ownership
 
@@ -34,4 +35,4 @@
 
 ## Next step
 
-更新 registry 与本记录，创建本地整合 closeout commit，并核对 `origin/main` 仍未改变。
+本地整合已收口。等待用户明确授权后才可 push 或触发远端 CI/Pages；否则保留当前 worktrees 供审计。

@@ -2,7 +2,7 @@
 
 ## Current status
 
-`in-progress`：两个执行任务已完成并整合到本地 `main`；跨模块与全仓联合验证已通过，正在提交本地 closeout 记录。
+`complete-local`：主线 M0-M6 与附属 ML0-ML6（明确不含 M7）已整合到本地 `main`，跨模块与全仓联合验证通过；远端保持未修改。
 
 ## Checklist
 
@@ -12,7 +12,7 @@
 - [x] 整合附属 ML0-ML6 三个提交。
 - [x] 将 MA4 限定为 diagnostic-only，保持 Protocol v3 正式候选资格不变。
 - [x] 运行联合验证并保存 owner、日志、退出码。
-- [ ] 更新 registry、提交整合记录并报告远端未执行项。
+- [x] 更新 registry、提交整合记录并报告远端未执行项。
 
 ## Validation evidence
 
@@ -31,6 +31,7 @@
 | `npm ci` | PASS；按 lock 安装 395 packages，audit 0 vulnerabilities |
 | `npm run verify:bundle`（供应链修复后） | PASS；ML workflow actions 全部固定为批准的 40-hex SHA |
 | final `npm run validate` | PASS / exit 0；全仓测试、生产 build、bundle policy 全通过 |
+| final remote drift check | `git fetch origin` 后 local code tip `5c2c25c...`、`origin/main@cfb0af1...`、ahead/behind `9/0` |
 
 ## Open risks and remaining work
 
