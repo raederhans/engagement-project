@@ -32,6 +32,7 @@
 | `npm run verify:bundle`（供应链修复后） | PASS；ML workflow actions 全部固定为批准的 40-hex SHA |
 | final `npm run validate` | PASS / exit 0；全仓测试、生产 build、bundle policy 全通过 |
 | final remote drift check | `git fetch origin` 后 local code tip `5c2c25c...`、`origin/main@cfb0af1...`、ahead/behind `9/0` |
+| post-integration supervisor audit | `git cherry` 显示主线 4 commits 与 ML 3 commits 全部 patch-equivalent；tracked R7 为 `NO-GO/UNAVAILABLE` 且 `generated=false`；ML status 为 research-only/no-authority；v3 明确排除 MA4；workflow action refs 与 bundle allowlist 一致 |
 
 ## Open risks and remaining work
 

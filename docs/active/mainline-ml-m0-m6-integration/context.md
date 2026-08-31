@@ -21,6 +21,7 @@
 | 2026-08-31 | 安装依赖后的首轮全仓测试与 build 已通过，bundle policy 发现 ML workflow 使用浮动 action tags。 | checkout/upload-artifact 使用仓库既有批准 SHA，setup-uv 固定为官方 v6 tag commit 并纳入允许集与精确计数。 |
 | 2026-08-31 | 最终 `npm run validate` exit 0。 | 联合本地代码、测试、生产 build 与 bundle policy gate 完成；不等价于远端 CI、Pages 或 deployment。 |
 | 2026-08-31 | 本地 integration code tip `5c2c25c5a5f10eac7f349a2861dc9a9ad83a6b7c`；再次 fetch 后 `HEAD...origin/main = 9/0`、`origin/main@cfb0af1...`。 | 本地整合完成且远端未漂移；记录 closeout commit 可跟随，但不得将其冒充已 push。 |
+| 2026-08-31 | 总监督重新唤醒主线与 ML 原任务做 post-integration audit；两者约 4.5 分钟后 completed，但均无可读取 assistant message。 | 不把无正文的 delegated turn 计为验收证据；总监督直接核验两个 source delivery 共 7 commits 全部 patch-equivalent，并复查 M7 排除、R7 NO-GO、ML authority、MA4/v3 与 workflow SHA 边界。 |
 
 ## Live process ownership
 
