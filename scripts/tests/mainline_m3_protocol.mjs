@@ -14,6 +14,7 @@ test('M3 Evaluation Protocol v3 freezes runtime, candidates, folds, and no-promo
   assert.equal(protocol.runtime.torch, '2.13.0');
   assert.equal(protocol.feature_schema.features.length, 27);
   assert.equal(protocol.candidates.length, 7);
+  assert.equal(protocol.candidates.some(({ id }) => id === 'moving-average-4w'), false);
   assert.equal(protocol.rolling_folds.length, 4);
   assert.equal(protocol.inner_validation.test_fold_access, false);
   assert.equal(protocol.decision.eligibility_is_promotion, false);

@@ -59,6 +59,8 @@ convergence, and slice gate; failure produces an honest no-promotion outcome.
 - Current protocol: [Evaluation Protocol v2](scripts/data/area_intelligence_evaluation_protocol.v2.json)
 - Mainline expansion: Evaluation Protocol v3 freezes additional baseline, sklearn, and PyTorch candidate
   identities while preserving the same no-promotion boundary.
+- The 4-week moving average remains a v2 diagnostic/reference baseline; it is deliberately excluded from
+  the frozen Evaluation Protocol v3 candidate vocabulary and cannot receive v3 eligibility.
 - Model evidence: [Area Intelligence model card](reports/area-intelligence/model-card.md)
 - Lineage: [Data lineage summary](reports/area-intelligence/data-lineage-summary.v1.json)
 
