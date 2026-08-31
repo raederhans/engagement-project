@@ -1,0 +1,26 @@
+{
+  "schema": "FeatureSchema/v2",
+  "enabled_after": "FeatureSchema/v1-js-parity receipt with passed=true",
+  "temporal_cutoff": "strictly-before-predicted-week",
+  "missing_policy": "row-ineligible unless an optional feature declares its unavailable encoding",
+  "required_families": {
+    "lags_weeks": [1, 2, 4, 13, 26, 52],
+    "rolling_mean_weeks": [4, 13, 26],
+    "rolling_std_weeks": [13],
+    "trend": "ma4-minus-ma13",
+    "sparsity": ["previous-nonzero-rate-13", "zero-streak-capped-52"],
+    "seasonality": ["annual-sin", "annual-cos", "semiannual-sin", "semiannual-cos"],
+    "unit_type": ["tract", "fixed-grid"],
+    "optional": [
+      "category-one-hot-with-availability-indicator",
+      "historical-neighborhood-ma4-with-availability-indicator"
+    ]
+  },
+  "forbidden": [
+    "predicted-week-or-future-data",
+    "test-fold-feature-selection",
+    "test-fold-hyperparameter-tuning",
+    "raw-events",
+    "canonical-events"
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "MLDatasetManifest/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "research_only",
+    "serving_authority",
+    "promotion_authority",
+    "source",
+    "transformation",
+    "input_parts",
+    "input_part_bindings_identity",
+    "output_parts",
+    "row_count",
+    "unit_count",
+    "feature_columns",
+    "target_columns",
+    "date_range",
+    "privacy",
+    "dataset_identity"
+  ],
+  "properties": {
+    "schema": { "const": "MLDatasetManifest/v1" },
+    "research_only": { "const": true },
+    "serving_authority": { "const": false },
+    "promotion_authority": { "const": false },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_registry_identity", "m1_receipt_identity", "m2_mart_identity", "protocol_identity"],
+      "properties": {
+        "artifact_registry_identity": { "$ref": "#/$defs/sha256" },
+        "m1_receipt_identity": { "$ref": "#/$defs/sha256" },
+        "m2_mart_identity": { "$ref": "#/$defs/sha256" },
+        "protocol_identity": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "identity"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "identity": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "input_parts": { "type": "array", "items": { "$ref": "#/$defs/part" } },
+    "input_part_bindings_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "output_parts": { "type": "array", "items": { "$ref": "#/$defs/part" } },
+    "row_count": { "type": "integer", "minimum": 0 },
+    "unit_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tract", "fixed-grid"],
+      "properties": {
+        "tract": { "type": "integer", "minimum": 0 },
+        "fixed-grid": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "feature_columns": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "target_columns": { "const": ["reported_incident_count"] },
+    "date_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end_inclusive"],
+      "properties": {
+        "start": { "type": ["string", "null"], "format": "date" },
+        "end_inclusive": { "type": ["string", "null"], "format": "date" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_only",
+        "event_level_data_included",
+        "coordinates_included",
+        "generalized_locations_included",
+        "raw_or_canonical_events_included",
+        "source_record_ids_included"
+      ],
+      "properties": {
+        "aggregate_only": { "const": true },
+        "event_level_data_included": { "const": false },
+        "coordinates_included": { "const": false },
+        "generalized_locations_included": { "const": false },
+        "raw_or_canonical_events_included": { "const": false },
+        "source_record_ids_included": { "const": false }
+      }
+    },
+    "dataset_identity": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "unit_type", "partition", "row_count", "bytes", "sha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$" },
+        "unit_type": { "enum": ["tract", "fixed-grid"] },
+        "partition": { "type": "integer", "minimum": 0 },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

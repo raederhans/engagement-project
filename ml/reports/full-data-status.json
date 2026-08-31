@@ -1,0 +1,13 @@
+{
+  "schema": "MLFullBenchmarkAvailability/v1",
+  "observed_on": "2026-08-31",
+  "status": "unavailable",
+  "reason": "The retained 1,611,918-row M2 mart was readable, but no exact ArtifactRegistry/v1 covering manifest.json and all 128 mart parts was present. The ML bridge therefore stopped before reading any mart part.",
+  "fixture_gate": "passed",
+  "fixture_gate_evidence": "uv lock --check, Ruff, mypy, and 17 non-full pytest cases passed on Python 3.12.10 with torch 2.13.0+cpu",
+  "full_training_run": false,
+  "research_only": true,
+  "serving_authority": false,
+  "promotion_authority": false,
+  "production_publisher_invoked": false
+}
