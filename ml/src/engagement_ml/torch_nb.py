@@ -155,7 +155,8 @@ def train_nb2_mlp(
     patience: int = 10,
     batch_size: int = 128,
     learning_rate: float = 1e-3,
-    gradient_clip_norm: float = 5.0,
+    weight_decay: float = 1e-4,
+    gradient_clip_norm: float = 1.0,
     checkpoint_path: Path | None = None,
 ) -> TorchTrainingResult:
     determinism = set_determinism(seed)
@@ -176,7 +177,9 @@ def train_nb2_mlp(
         shuffle=False,
         num_workers=0,
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
     initial_validation = _validation_nll(model, validation_loader, device)
     best_validation = initial_validation
     best_state = copy.deepcopy(model.state_dict())
@@ -223,9 +226,14 @@ def train_nb2_mlp(
         "model_identity": content_identity(architecture),
         "architecture": architecture,
         "optimizer": "AdamW",
+        "learning_rate": learning_rate,
+        "weight_decay": weight_decay,
+        "maximum_epochs": maximum_epochs,
         "gradient_clip_norm": gradient_clip_norm,
         "maximum_preclip_gradient_norm": maximum_gradient,
         "early_stopping_patience": patience,
+        "early_stopped": epochs_completed < maximum_epochs,
+        "best_validation_checkpoint_loaded": True,
         "determinism": determinism,
         "python": platform.python_version(),
         "torch": torch.__version__,

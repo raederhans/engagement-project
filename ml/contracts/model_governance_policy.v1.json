@@ -1,0 +1,89 @@
+{
+  "schema": "ModelGovernancePolicy/v1",
+  "expected_inputs": {
+    "evaluation_protocol_v2_identity": "sha256:997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde",
+    "governance_protocol_v3_identity": "sha256:13efc6cdcedbf3f4dd839f5af802c04d72696baaf02efa5c5588d56066b06534",
+    "feature_schema_v2_identity": "sha256:08cad80f5015e710fdd107c67eedee63e4b787d1420c9faf82e6cf4cc1cebe9b"
+  },
+  "candidate_catalog": [
+    {
+      "id": "seasonal-naive-52w",
+      "role": "baseline",
+      "admission_eligible": false,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "moving-average-13w",
+      "role": "baseline",
+      "admission_eligible": false,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "ewma-v1",
+      "role": "baseline",
+      "admission_eligible": false,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "sklearn-poisson-l2-v1",
+      "role": "gate-candidate",
+      "admission_eligible": true,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "sklearn-hist-gradient-boosting-poisson-v1",
+      "role": "gate-candidate",
+      "admission_eligible": true,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "torch-nb-global-v1",
+      "role": "gate-candidate",
+      "admission_eligible": true,
+      "source_protocol": "v3"
+    },
+    {
+      "id": "poisson-log-link-v1",
+      "role": "reference-only",
+      "admission_eligible": false,
+      "source_protocol": "v2-js-reference"
+    },
+    {
+      "id": "js-negative-binomial-log-link-v1-repaired",
+      "role": "optional-reference",
+      "admission_eligible": false,
+      "source_protocol": "v3-optional-js-reference"
+    }
+  ],
+  "diagnostic_only": [
+    {
+      "id": "moving-average-4w",
+      "reason": "historical-v2-diagnostic-not-v3-admission-candidate"
+    }
+  ],
+  "fixed_torch_seeds": [104729, 130363, 155921, 181081, 206369],
+  "stability": {
+    "metric": "aggregate-primary-mae",
+    "summary": ["median", "worst", "population-std", "failed", "relative-instability"],
+    "maximum_relative_instability_inclusive": 0.25,
+    "all_fixed_seeds_required": true
+  },
+  "admission_registry": {
+    "exact_full_artifact_registry_identities": [],
+    "empty_allowlist_result": "no-promotion"
+  },
+  "runtime_memory": {
+    "wall_clock": "python-perf-counter",
+    "python_peak_memory": "tracemalloc-peak-bytes",
+    "cuda_peak_memory": "torch-cuda-max-memory-allocated-or-null",
+    "host_rss_claimed": false,
+    "measure_each_seed": true
+  },
+  "ingress": {
+    "formats": ["strict-json"],
+    "checkpoint_consumption": false,
+    "pickle_deserialization": false,
+    "joblib_deserialization": false,
+    "torch_load_deserialization": false
+  }
+}

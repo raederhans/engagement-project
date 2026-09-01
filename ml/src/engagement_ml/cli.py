@@ -7,10 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from .bridge import convert_m2_to_parquet
+from .constants import M7_REFERENCE_SEED
 from .contracts import ContractError
 from .evaluation import build_research_run, evaluate_benchmark
-from .features import feature_schema_v1, feature_schema_v2
-from .identity import content_identity, write_json
+from .features import feature_schema_v2
+from .governance import frozen_governance_identities
+from .governed import run_governed_benchmark
+from .identity import file_identity, write_json
+from .m7_contracts import build_unavailable_admission_receipt
 from .parity import run_js_python_parity, validate_parity_receipt
 
 
@@ -54,6 +58,15 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _full_benchmark(args: argparse.Namespace) -> dict[str, Any]:
+    if args.feature_version != "v2":
+        raise ContractError("governed full benchmark requires frozen FeatureSchema/v2")
+    if args.seed != M7_REFERENCE_SEED:
+        raise ContractError(
+            f"governed full benchmark requires frozen reference seed {M7_REFERENCE_SEED}"
+        )
+    frozen = frozen_governance_identities(args.repo_root)
+    if file_identity(args.protocol)[1] != frozen["evaluation_protocol_identity"]:
+        raise ContractError("full benchmark protocol drifted from frozen evaluation protocol")
     started_at = _timestamp()
     args.output.mkdir(parents=True, exist_ok=True)
     parity = run_js_python_parity(args.repo_root, args.output / "feature-parity-receipt.json")
@@ -65,21 +78,21 @@ def _full_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         feature_version=args.feature_version,
         legacy_parity_passed=parity["passed"],
     )
-    report = evaluate_benchmark(
+    governed = run_governed_benchmark(
+        repo_root=args.repo_root,
         dataset_root=args.output / "dataset",
         protocol_path=args.protocol,
-        output_path=args.output / "benchmark-report.json",
-        seed=args.seed,
-        include_torch=True,
+        parity_receipt=parity,
+        output_root=args.output,
+        evaluation_scope="full-exact-registry",
         torch_device=args.device,
     )
-    schema = feature_schema_v2() if args.feature_version == "v2" else feature_schema_v1()
-    model_identity = content_identity(
-        {
-            "models": sorted({row["model"] for row in report["primary_results"]}),
-            "fit_diagnostics": report["fit_diagnostics"],
-        }
-    )
+    report = governed["representative_legacy_report"]
+    if report is None:
+        raise ContractError("all fixed PyTorch seed runs failed")
+    write_json(args.output / "benchmark-report.json", report)
+    schema = feature_schema_v2()
+    model_identity = governed["report"]["lineage"]["candidate_implementation_identity"]
     completed_at = _timestamp()
     run = build_research_run(
         report=report,
@@ -98,6 +111,10 @@ def _full_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         "promotion_authority": False,
         "dataset_identity": dataset_manifest["dataset_identity"],
         "report_identity": report["report_identity"],
+        "model_benchmark_report_identity": governed["report"]["report_identity"],
+        "model_admission_receipt_identity": governed["admission"]["receipt_identity"],
+        "admission_decision": governed["admission"]["decision"],
+        "production_forecast": governed["admission"]["production_forecast"],
         "started_at": started_at,
         "completed_at": completed_at,
     }
@@ -136,6 +153,11 @@ def main(argv: list[str] | None = None) -> int:
     except (ContractError, FileNotFoundError, ValueError) as error:
         if args.command == "full-benchmark":
             args.output.mkdir(parents=True, exist_ok=True)
+            unavailable = build_unavailable_admission_receipt(
+                args.repo_root,
+                "exact-artifact-registry-or-full-evaluation-unavailable",
+            )
+            write_json(args.output / "model-admission-receipt.json", unavailable)
             write_json(
                 args.output / "full-benchmark-receipt.json",
                 {

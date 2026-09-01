@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.local/ml/contracts/ModelAdmissionReceipt/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "decision", "evaluation_scope", "full_evaluation", "research_only", "authority", "privacy", "lineage", "benchmark_report_identity", "calibration_report_identity", "model_card_identity", "selected_model", "reason_codes", "production_forecast", "receipt_identity"],
+  "properties": {
+    "schema": { "const": "ModelAdmissionReceipt/v1" },
+    "status": { "enum": ["complete", "unavailable"] },
+    "decision": { "enum": ["no-promotion", "shadow-admitted"] },
+    "evaluation_scope": { "enum": ["full-exact-registry", "synthetic-fixture", "unavailable"] },
+    "full_evaluation": { "type": "boolean" },
+    "research_only": { "const": true },
+    "authority": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/authority" },
+    "privacy": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/privacy" },
+    "lineage": {
+      "$ref": "#/$defs/nullableLineage"
+    },
+    "benchmark_report_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "calibration_report_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "model_card_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "selected_model": { "type": ["string", "null"] },
+    "reason_codes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "production_forecast": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/unavailableForecast" },
+    "receipt_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }
+  },
+  "$defs": {
+    "shaOrNull": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "nullableLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_registry_identity", "m1_receipt_identity", "m2_mart_identity", "dataset_manifest_identity", "evaluation_protocol_identity", "governance_protocol_identity", "feature_schema_identity", "split_policy_identity", "candidate_set_identity", "candidate_implementation_identity", "search_space_identity", "seed_set_identity", "preprocessing_identity", "early_stopping_identity", "calibration_policy_identity", "gate_policy_identity", "runtime_memory_policy_identity", "environment_lock_identity", "parity_receipt_identity"],
+      "properties": {
+        "artifact_registry_identity": { "$ref": "#/$defs/shaOrNull" }, "m1_receipt_identity": { "$ref": "#/$defs/shaOrNull" }, "m2_mart_identity": { "$ref": "#/$defs/shaOrNull" }, "dataset_manifest_identity": { "$ref": "#/$defs/shaOrNull" }, "evaluation_protocol_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "governance_protocol_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "feature_schema_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "split_policy_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "candidate_set_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "candidate_implementation_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "search_space_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "seed_set_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "preprocessing_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "early_stopping_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "calibration_policy_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "gate_policy_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "runtime_memory_policy_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "environment_lock_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }, "parity_receipt_identity": { "$ref": "#/$defs/shaOrNull" }
+      }
+    }
+  }
+}

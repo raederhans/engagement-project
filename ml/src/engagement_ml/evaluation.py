@@ -242,6 +242,10 @@ def metric_summary(
             "negative_binomial_deviance": None,
             "prediction_interval_90_coverage": None,
             "mean_residual_actual_minus_predicted": None,
+            "mean_actual": None,
+            "mean_predicted": None,
+            "prediction_minimum": None,
+            "prediction_maximum": None,
             "over_estimate_rate": None,
             "under_estimate_rate": None,
         }
@@ -256,6 +260,10 @@ def metric_summary(
         ),
         "prediction_interval_90_coverage": float(np.mean((actual >= lower) & (actual <= upper))),
         "mean_residual_actual_minus_predicted": float(np.mean(residual)),
+        "mean_actual": float(np.mean(actual)),
+        "mean_predicted": float(np.mean(predicted)),
+        "prediction_minimum": float(np.min(predicted)),
+        "prediction_maximum": float(np.max(predicted)),
         "over_estimate_rate": float(np.mean(predicted > actual)),
         "under_estimate_rate": float(np.mean(predicted < actual)),
     }
@@ -357,6 +365,7 @@ def evaluate_benchmark(
     protocol_path: Path,
     output_path: Path,
     seed: int = 20260831,
+    torch_seed: int | None = None,
     include_torch: bool = True,
     torch_device: str = "cpu",
     torch_maximum_epochs: int = 60,
@@ -389,7 +398,15 @@ def evaluate_benchmark(
             dispersion = training_dispersion(fit_y)
             training_means = _training_means(arrays, masks["fit"] | masks["calibration"])
             fitted = [fit_poisson_regressor(fit_x, fit_y)]
-            fitted.append(fit_hist_gradient_boosting_poisson(fit_x, fit_y, seed=seed))
+            fitted.append(
+                fit_hist_gradient_boosting_poisson(
+                    fit_x,
+                    fit_y,
+                    validation_features=calibration_x,
+                    validation_target=calibration_y,
+                    seed=seed,
+                )
+            )
             fitted_by_id = {model.model_id: model for model in fitted}
             for model in fitted:
                 fit_diagnostics.append(
@@ -408,9 +425,10 @@ def evaluate_benchmark(
                     fit_y,
                     calibration_x,
                     calibration_y,
-                    seed=seed,
+                    seed=torch_seed if torch_seed is not None else seed,
                     requested_device=torch_device,
                     maximum_epochs=torch_maximum_epochs,
+                    gradient_clip_norm=1.0,
                     checkpoint_path=output_path.parent
                     / "checkpoints"
                     / f"{fold['id']}-{unit_type}.pt",
@@ -529,6 +547,7 @@ def evaluate_benchmark(
         "protocol_identity": protocol_identity,
         "feature_columns": arrays.feature_columns,
         "seed": seed,
+        "torch_seed": torch_seed if torch_seed is not None else seed,
         "environment": {
             "python": platform.python_version(),
             "numpy": np.__version__,

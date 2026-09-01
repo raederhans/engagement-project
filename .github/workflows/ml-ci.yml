@@ -5,14 +5,26 @@ on:
     paths:
       - "ml/**"
       - ".github/workflows/ml-ci.yml"
+      - "package.json"
+      - "package-lock.json"
       - "scripts/lib/area_intelligence_model.mjs"
+      - "scripts/lib/ml_shadow_bridge/**"
+      - "scripts/project_ml_shadow_forecast.mjs"
+      - "scripts/tests/ml_m7_shadow_bridge.mjs"
       - "scripts/data/area_intelligence_evaluation_protocol.v2.json"
+      - "scripts/data/area_intelligence_evaluation_protocol.v3.json"
   push:
     paths:
       - "ml/**"
       - ".github/workflows/ml-ci.yml"
+      - "package.json"
+      - "package-lock.json"
       - "scripts/lib/area_intelligence_model.mjs"
+      - "scripts/lib/ml_shadow_bridge/**"
+      - "scripts/project_ml_shadow_forecast.mjs"
+      - "scripts/tests/ml_m7_shadow_bridge.mjs"
       - "scripts/data/area_intelligence_evaluation_protocol.v2.json"
+      - "scripts/data/area_intelligence_evaluation_protocol.v3.json"
   workflow_dispatch:
     inputs:
       run_full:
@@ -49,6 +61,22 @@ permissions:
   contents: read
 
 jobs:
+  node-bridge-gate:
+    name: Governed Node shadow bridge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked Node dependencies
+        run: npm ci
+      - name: Validate M7 schemas and aggregate-only shadow bridge
+        run: npm run test:ml-m7
+
   cpu-gates:
     name: CPU gates (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -105,6 +133,22 @@ jobs:
           --protocol "${{ inputs.protocol_path }}"
           --output "${{ inputs.output_root }}"
           --device "${{ inputs.device }}"
+      - name: Project governed aggregate shadow artifact
+        if: always()
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [[ ! -f "${{ inputs.output_root }}/model-admission-receipt.json" ]]; then
+            exit 0
+          fi
+          bridge_args=(
+            --admission "${{ inputs.output_root }}/model-admission-receipt.json"
+            --output "${{ inputs.output_root }}/shadow-forecast-artifact.json"
+          )
+          [[ -f "${{ inputs.output_root }}/model-benchmark-report.json" ]] && bridge_args+=(--benchmark "${{ inputs.output_root }}/model-benchmark-report.json")
+          [[ -f "${{ inputs.output_root }}/calibration-report.json" ]] && bridge_args+=(--calibration "${{ inputs.output_root }}/calibration-report.json")
+          [[ -f "${{ inputs.output_root }}/model-card.json" ]] && bridge_args+=(--model-card "${{ inputs.output_root }}/model-card.json")
+          node scripts/project_ml_shadow_forecast.mjs "${bridge_args[@]}"
       - name: Upload small aggregate receipts and report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -116,5 +160,10 @@ jobs:
             ${{ inputs.output_root }}/benchmark-report.json
             ${{ inputs.output_root }}/research-run.json
             ${{ inputs.output_root }}/full-benchmark-receipt.json
+            ${{ inputs.output_root }}/model-benchmark-report.json
+            ${{ inputs.output_root }}/calibration-report.json
+            ${{ inputs.output_root }}/model-card.json
+            ${{ inputs.output_root }}/model-admission-receipt.json
+            ${{ inputs.output_root }}/shadow-forecast-artifact.json
           if-no-files-found: warn
           retention-days: 7

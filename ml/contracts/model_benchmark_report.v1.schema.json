@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "evaluation_scope", "status", "research_only", "authority", "privacy", "lineage", "candidate_catalog", "search_execution", "primary_results", "candidate_summaries", "torch_stability", "gate", "production_forecast", "report_identity"],
+  "properties": {
+    "schema": { "const": "ModelBenchmarkReport/v1" },
+    "evaluation_scope": { "enum": ["full-exact-registry", "synthetic-fixture"] },
+    "status": { "enum": ["evaluated", "unavailable"] },
+    "research_only": { "const": true },
+    "authority": { "$ref": "#/$defs/authority" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "lineage": { "$ref": "#/$defs/fullLineage" },
+    "candidate_catalog": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "admission_eligible", "source_protocol", "evidence_status"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["baseline", "gate-candidate", "reference-only", "optional-reference"] },
+          "admission_eligible": { "type": "boolean" },
+          "source_protocol": { "type": "string", "minLength": 1 },
+          "evidence_status": { "enum": ["evaluated", "parity-reference", "unavailable"] }
+        }
+      }
+    },
+    "search_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "search_space_identity", "trial_receipt_identity"],
+      "properties": {
+        "status": { "enum": ["complete", "fixed-reference-only"] },
+        "search_space_identity": { "$ref": "#/$defs/sha256" },
+        "trial_receipt_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "primary_results": { "type": "array", "items": { "$ref": "#/$defs/primaryResult" } },
+    "candidate_summaries": { "type": "array", "items": { "$ref": "#/$defs/candidateSummary" } },
+    "torch_stability": { "$ref": "#/$defs/torchStability" },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "selected_candidate", "reason_codes"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "selected_candidate": { "type": ["string", "null"] },
+        "reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "production_forecast": { "$ref": "#/$defs/unavailableForecast" },
+    "report_identity": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["serving", "promotion", "production", "routing", "scientific"],
+      "properties": { "serving": { "const": false }, "promotion": { "const": false }, "production": { "const": false }, "routing": { "const": false }, "scientific": { "const": false } }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["aggregate_only", "event_level_data_included", "coordinates_included", "raw_or_canonical_events_included", "source_record_ids_included"],
+      "properties": { "aggregate_only": { "const": true }, "event_level_data_included": { "const": false }, "coordinates_included": { "const": false }, "raw_or_canonical_events_included": { "const": false }, "source_record_ids_included": { "const": false } }
+    },
+    "fullLineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_registry_identity", "m1_receipt_identity", "m2_mart_identity", "dataset_manifest_identity", "evaluation_protocol_identity", "governance_protocol_identity", "feature_schema_identity", "split_policy_identity", "candidate_set_identity", "candidate_implementation_identity", "search_space_identity", "seed_set_identity", "preprocessing_identity", "early_stopping_identity", "calibration_policy_identity", "gate_policy_identity", "runtime_memory_policy_identity", "environment_lock_identity", "parity_receipt_identity"],
+      "properties": {
+        "artifact_registry_identity": { "$ref": "#/$defs/sha256" }, "m1_receipt_identity": { "$ref": "#/$defs/sha256" }, "m2_mart_identity": { "$ref": "#/$defs/sha256" }, "dataset_manifest_identity": { "$ref": "#/$defs/sha256" }, "evaluation_protocol_identity": { "$ref": "#/$defs/sha256" }, "governance_protocol_identity": { "$ref": "#/$defs/sha256" }, "feature_schema_identity": { "$ref": "#/$defs/sha256" }, "split_policy_identity": { "$ref": "#/$defs/sha256" }, "candidate_set_identity": { "$ref": "#/$defs/sha256" }, "candidate_implementation_identity": { "$ref": "#/$defs/sha256" }, "search_space_identity": { "$ref": "#/$defs/sha256" }, "seed_set_identity": { "$ref": "#/$defs/sha256" }, "preprocessing_identity": { "$ref": "#/$defs/sha256" }, "early_stopping_identity": { "$ref": "#/$defs/sha256" }, "calibration_policy_identity": { "$ref": "#/$defs/sha256" }, "gate_policy_identity": { "$ref": "#/$defs/sha256" }, "runtime_memory_policy_identity": { "$ref": "#/$defs/sha256" }, "environment_lock_identity": { "$ref": "#/$defs/sha256" }, "parity_receipt_identity": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "nullableNumber": { "type": ["number", "null"] },
+    "primaryResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model", "fold", "unit_type", "holdout_slice", "observations", "status", "mae", "poisson_deviance", "negative_binomial_deviance", "prediction_interval_90_coverage", "mean_actual", "mean_predicted", "prediction_minimum", "prediction_maximum", "relative_mae_gain_vs_seasonal_naive"],
+      "properties": {
+        "model": { "type": "string" }, "fold": { "type": "string" }, "unit_type": { "enum": ["tract", "fixed-grid"] }, "holdout_slice": { "enum": ["temporal-non-heldout", "spatial-heldout"] }, "observations": { "type": "integer", "minimum": 0 }, "status": { "enum": ["evaluated", "unavailable"] }, "mae": { "$ref": "#/$defs/nullableNumber" }, "poisson_deviance": { "$ref": "#/$defs/nullableNumber" }, "negative_binomial_deviance": { "$ref": "#/$defs/nullableNumber" }, "prediction_interval_90_coverage": { "$ref": "#/$defs/nullableNumber" }, "mean_actual": { "$ref": "#/$defs/nullableNumber" }, "mean_predicted": { "$ref": "#/$defs/nullableNumber" }, "prediction_minimum": { "$ref": "#/$defs/nullableNumber" }, "prediction_maximum": { "$ref": "#/$defs/nullableNumber" }, "relative_mae_gain_vs_seasonal_naive": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "candidateSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model", "evidence_status", "primary_slice_count", "observations", "aggregate_mae", "aggregate_relative_mae_gain", "worst_relative_mae_gain", "all_primary_slices_passed", "calibration_passed", "convergence_passed", "prediction_cap_passed"],
+      "properties": { "model": { "type": "string" }, "evidence_status": { "enum": ["evaluated", "parity-reference", "unavailable"] }, "primary_slice_count": { "type": "integer", "minimum": 0 }, "observations": { "type": "integer", "minimum": 0 }, "aggregate_mae": { "$ref": "#/$defs/nullableNumber" }, "aggregate_relative_mae_gain": { "$ref": "#/$defs/nullableNumber" }, "worst_relative_mae_gain": { "$ref": "#/$defs/nullableNumber" }, "all_primary_slices_passed": { "type": "boolean" }, "calibration_passed": { "type": "boolean" }, "convergence_passed": { "type": "boolean" }, "prediction_cap_passed": { "type": "boolean" } }
+    },
+    "runtimeMemory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["wall_seconds", "python_tracemalloc_peak_bytes", "cuda_peak_allocated_bytes", "host_rss_claimed"],
+      "properties": { "wall_seconds": { "type": "number", "minimum": 0 }, "python_tracemalloc_peak_bytes": { "type": "integer", "minimum": 0 }, "cuda_peak_allocated_bytes": { "type": ["integer", "null"], "minimum": 0 }, "host_rss_claimed": { "const": false } }
+    },
+    "torchStability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixed_seeds", "runs", "summary"],
+      "properties": {
+        "fixed_seeds": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "runs": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seed", "status", "aggregate_primary_mae", "epochs_completed", "environment", "runtime_memory", "failure"],
+            "properties": {
+              "seed": { "type": "integer", "minimum": 0 },
+              "status": { "enum": ["evaluated", "failed"] },
+              "aggregate_primary_mae": { "$ref": "#/$defs/nullableNumber" },
+              "epochs_completed": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+              "environment": { "type": "object", "minProperties": 1 },
+              "runtime_memory": { "$ref": "#/$defs/runtimeMemory" },
+              "failure": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["median", "worst", "population_std", "failed_seeds", "relative_instability", "epoch_median", "epoch_worst", "environment_identities", "passed"],
+          "properties": {
+            "median": { "$ref": "#/$defs/nullableNumber" },
+            "worst": { "$ref": "#/$defs/nullableNumber" },
+            "population_std": { "$ref": "#/$defs/nullableNumber" },
+            "failed_seeds": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "uniqueItems": true },
+            "relative_instability": { "$ref": "#/$defs/nullableNumber" },
+            "epoch_median": { "$ref": "#/$defs/nullableNumber" },
+            "epoch_worst": { "$ref": "#/$defs/nullableNumber" },
+            "environment_identities": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true },
+            "passed": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "unavailableForecast": { "type": "object", "additionalProperties": false, "required": ["status", "predictions", "reason"], "properties": { "status": { "const": "unavailable" }, "predictions": { "const": [] }, "reason": { "const": "m7-shadow-only-no-production-authority" } } }
+  }
+}

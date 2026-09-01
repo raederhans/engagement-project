@@ -380,8 +380,8 @@ async function verifyWorkflowPolicy() {
     ['actions/deploy-pages', 'cd2ce8fcbc39b97be8ca5fce6e763baed58fa128'],
   ]);
   const expectedUseCounts = new Map([
-    ['actions/checkout', 10],
-    ['actions/setup-node', 7],
+    ['actions/checkout', 11],
+    ['actions/setup-node', 8],
     ['actions/upload-artifact', 5],
     ['astral-sh/setup-uv', 2],
     ['actions/configure-pages', 1],

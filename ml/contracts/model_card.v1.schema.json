@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.local/ml/contracts/ModelCard/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "model_id", "role", "research_only", "authority", "privacy", "benchmark_report_identity", "calibration_report_identity", "lineage", "intended_use", "limitations", "prohibited_uses", "model_artifact", "card_identity"],
+  "properties": {
+    "schema": { "const": "ModelCard/v1" },
+    "model_id": { "type": "string", "minLength": 1 },
+    "role": { "enum": ["gate-candidate", "baseline", "reference-only", "optional-reference"] },
+    "research_only": { "const": true },
+    "authority": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/authority" },
+    "privacy": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/privacy" },
+    "benchmark_report_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" },
+    "calibration_report_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" },
+    "lineage": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/fullLineage" },
+    "intended_use": { "const": "aggregate-shadow-evaluation-only" },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "prohibited_uses": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "model_artifact": { "type": "object", "additionalProperties": false, "required": ["format", "admitted_for_deserialization", "bridge_consumes_checkpoint"], "properties": { "format": { "const": "state-dict-only-or-none" }, "admitted_for_deserialization": { "const": false }, "bridge_consumes_checkpoint": { "const": false } } },
+    "card_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }
+  }
+}

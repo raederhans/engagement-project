@@ -35,7 +35,7 @@ def fit_poisson_regressor(
     estimator = PoissonRegressor(
         alpha=alpha,
         fit_intercept=False,
-        solver="newton-cholesky",
+        solver="lbfgs",
         max_iter=maximum_iterations,
         tol=tolerance,
     )
@@ -43,7 +43,7 @@ def fit_poisson_regressor(
     predictions = np.asarray(estimator.predict(features), dtype=np.float64)
     coefficients = np.asarray(estimator.coef_, dtype=np.float64)
     diagnostics: dict[str, Any] = {
-        "solver": "newton-cholesky",
+        "solver": "lbfgs",
         "same_model_as_js_irls": "poisson-log-link-with-identical-six-feature-contract",
         "different_solver_from_js_irls": True,
         "alpha_l2": alpha,
@@ -68,6 +68,8 @@ def fit_hist_gradient_boosting_poisson(
     features: NDArray[np.float64],
     target: NDArray[np.float64],
     *,
+    validation_features: NDArray[np.float64],
+    validation_target: NDArray[np.float64],
     seed: int,
     maximum_iterations: int = 100,
 ) -> FittedPointModel:
@@ -78,16 +80,28 @@ def fit_hist_gradient_boosting_poisson(
         max_leaf_nodes=15,
         min_samples_leaf=20,
         l2_regularization=1.0,
-        early_stopping=False,
+        early_stopping=True,
+        n_iter_no_change=10,
         random_state=seed,
     )
-    estimator.fit(features, target)
+    estimator.fit(
+        features,
+        target,
+        X_val=validation_features,
+        y_val=validation_target,
+    )
     predictions = np.asarray(estimator.predict(features), dtype=np.float64)
     diagnostics: dict[str, Any] = {
         "loss": "poisson",
         "random_state": seed,
         "n_iter": int(estimator.n_iter_),
         "maximum_iterations": maximum_iterations,
+        "converged_before_limit": int(estimator.n_iter_) < maximum_iterations,
+        "learning_rate": 0.05,
+        "max_leaf_nodes": 15,
+        "l2_regularization": 1.0,
+        "early_stopping": True,
+        "external_validation": True,
         "predictions_finite": bool(np.all(np.isfinite(predictions))),
         "prediction_minimum": float(np.min(predictions)),
         "prediction_maximum": float(np.max(predictions)),
