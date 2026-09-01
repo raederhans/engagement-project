@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "mainline-m7-qa-sampling-policy/v1",
+  "policyId": "m7-deterministic-100-segment-qa-v1",
+  "targetSegmentCount": 100,
+  "samplingMethod": "identity-hash-stratified-without-replacement",
+  "ordering": "sha256(policy_identity + route_identity + segment_identity) code-unit ascending",
+  "strata": ["region", "distanceClass", "featureTag"],
+  "identity": "sha256:5e1fdce161c971a1ad601ba0697ae607abfe43d6e99987c745213afb7882c5ac"
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "mainline-m7-qa-adjudication-template/v1",
+  "sampleId": null,
+  "segmentIdentity": null,
+  "routeIdentity": null,
+  "reviewerOne": {"reviewerId":null,"decision":null,"reasonCode":null,"reviewedAt":null},
+  "reviewerTwo": {"reviewerId":null,"decision":null,"reasonCode":null,"reviewedAt":null},
+  "adjudication": {"status":"pending","decision":null,"adjudicatorId":null,"reasonCode":null,"adjudicatedAt":null},
+  "identity": "sha256:c69f1ba35f65eed6f849d38a5eec68107ac3da50e9490223a9d3077c60c84f76"
+}

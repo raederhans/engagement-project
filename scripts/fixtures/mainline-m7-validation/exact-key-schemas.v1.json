@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mainline-m7-exact-key-schemas/v1",
+  "$defs": {
+    "shaIdentity": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publicLandmark", "latitude", "longitude"],
+      "properties": {
+        "publicLandmark": {"type": "string", "minLength": 2},
+        "latitude": {"type": "number"},
+        "longitude": {"type": "number"}
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairId", "region", "distanceClass", "featureTags", "origin", "destination"],
+      "properties": {
+        "pairId": {"type": "string", "minLength": 1},
+        "region": {"enum": ["center", "west", "north", "south", "northeast"]},
+        "distanceClass": {"enum": ["short", "medium"]},
+        "featureTags": {
+          "type": "array",
+          "items": {"enum": ["bridge", "park", "superblock", "dead-end", "walkway"]}
+        },
+        "origin": {"$ref": "#/$defs/point"},
+        "destination": {"$ref": "#/$defs/point"}
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "corpusId", "licenseBoundary", "coordinateSystem", "pairs", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-public-od-corpus/v1"},
+        "corpusId": {"type": "string", "minLength": 1},
+        "licenseBoundary": {"const": "public-landmarks-and-coordinates-only"},
+        "coordinateSystem": {"const": "WGS84"},
+        "pairs": {
+          "type": "array",
+          "minItems": 40,
+          "maxItems": 40,
+          "items": {"$ref": "#/$defs/pair"}
+        },
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "manifestCorpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "pairCount"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/shaIdentity"},
+        "pairCount": {"const": 40}
+      }
+    },
+    "manifestPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "manifestId", "corpus", "policy", "executionBoundary", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-validation-manifest/v1"},
+        "manifestId": {"type": "string", "minLength": 1},
+        "corpus": {"$ref": "#/$defs/manifestCorpus"},
+        "policy": {"$ref": "#/$defs/manifestPolicy"},
+        "executionBoundary": {"const": "offline-local-no-network"},
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "identity"],
+      "properties": {
+        "status": {"enum": ["available", "unavailable"]},
+        "identity": {
+          "anyOf": [
+            {"$ref": "#/$defs/shaIdentity"},
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "graph", "candidateGenerator", "routeSet", "evidence"],
+      "properties": {
+        "engine": {"$ref": "#/$defs/descriptor"},
+        "graph": {"$ref": "#/$defs/descriptor"},
+        "candidateGenerator": {"$ref": "#/$defs/descriptor"},
+        "routeSet": {"$ref": "#/$defs/descriptor"},
+        "evidence": {"$ref": "#/$defs/descriptor"}
+      }
+    },
+    "denominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannedPairs", "attemptedPairs", "successfulPairs", "invalidPairs", "unavailablePairs", "generatedCandidates", "sensitivityEligibleRoutes"],
+      "properties": {
+        "plannedPairs": {"type": "integer", "minimum": 0},
+        "attemptedPairs": {"type": "integer", "minimum": 0},
+        "successfulPairs": {"type": "integer", "minimum": 0},
+        "invalidPairs": {"type": "integer", "minimum": 0},
+        "unavailablePairs": {"type": "integer", "minimum": 0},
+        "generatedCandidates": {"type": "integer", "minimum": 0},
+        "sensitivityEligibleRoutes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generationSuccessRate", "invalidRate", "duplicateCandidateRate", "latencyMedianMs", "latencyP95Ms", "mapMatchDistanceMedianM", "mapMatchDistanceP95M", "segmentEvidenceCoverageRate", "detourMedianRatio", "detourP95Ratio", "weightSensitivityChangeRate"],
+      "properties": {
+        "generationSuccessRate": {"type": ["number", "null"]},
+        "invalidRate": {"type": ["number", "null"]},
+        "duplicateCandidateRate": {"type": ["number", "null"]},
+        "latencyMedianMs": {"type": ["number", "null"]},
+        "latencyP95Ms": {"type": ["number", "null"]},
+        "mapMatchDistanceMedianM": {"type": ["number", "null"]},
+        "mapMatchDistanceP95M": {"type": ["number", "null"]},
+        "segmentEvidenceCoverageRate": {"type": ["number", "null"]},
+        "detourMedianRatio": {"type": ["number", "null"]},
+        "detourP95Ratio": {"type": ["number", "null"]},
+        "weightSensitivityChangeRate": {"type": ["number", "null"]}
+      }
+    },
+    "candidateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coveredSegmentCount", "totalSegmentCount"],
+      "properties": {
+        "coveredSegmentCount": {"type": ["integer", "null"], "minimum": 0},
+        "totalSegmentCount": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "candidateObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateIdentity", "mapMatchDistanceM", "routeDistanceM", "straightLineDistanceM", "evidence", "weightSensitivityChanged"],
+      "properties": {
+        "candidateIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "mapMatchDistanceM": {"type": ["number", "null"], "minimum": 0},
+        "routeDistanceM": {"type": ["number", "null"], "minimum": 0},
+        "straightLineDistanceM": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "evidence": {"$ref": "#/$defs/candidateEvidence"},
+        "weightSensitivityChanged": {"type": ["boolean", "null"]}
+      }
+    },
+    "successObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairId", "status", "latencyMs", "candidates"],
+      "properties": {
+        "pairId": {"type": "string", "minLength": 1},
+        "status": {"const": "success"},
+        "latencyMs": {"type": "number", "minimum": 0},
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/candidateObservation"}
+        }
+      }
+    },
+    "invalidObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairId", "status", "reasonCode", "latencyMs", "candidates"],
+      "properties": {
+        "pairId": {"type": "string", "minLength": 1},
+        "status": {"const": "invalid"},
+        "reasonCode": {"type": "string", "minLength": 1},
+        "latencyMs": {"type": "number", "minimum": 0},
+        "candidates": {"type": "array", "maxItems": 0}
+      }
+    },
+    "unavailableObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairId", "status", "reasonCode"],
+      "properties": {
+        "pairId": {"type": "string", "minLength": 1},
+        "status": {"const": "unavailable"},
+        "reasonCode": {"type": "string", "minLength": 1}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "runId", "status", "reasonCodes", "manifestIdentity", "corpusIdentity", "policyIdentity", "identities", "denominator", "metrics", "privacy", "observations", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-benchmark-receipt/v1"},
+        "runId": {"type": "string", "minLength": 1},
+        "status": {"enum": ["available", "unavailable"]},
+        "reasonCodes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "manifestIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "corpusIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "policyIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "identities": {"$ref": "#/$defs/identities"},
+        "denominator": {"$ref": "#/$defs/denominator"},
+        "metrics": {"$ref": "#/$defs/metrics"},
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["egressCount", "measurement", "measurementStatus", "enforcement", "observerIdentity", "privateCoordinatesTransmitted"],
+          "properties": {
+            "egressCount": {"const": 0},
+            "measurement": {"type": "string", "minLength": 1},
+            "measurementStatus": {"enum": ["not-run", "observed"]},
+            "enforcement": {"enum": ["no-runtime-executed", "attempt-detection-only", "os-outbound-deny"]},
+            "observerIdentity": {
+              "anyOf": [
+                {"$ref": "#/$defs/shaIdentity"},
+                {"type": "null"}
+              ]
+            },
+            "privateCoordinatesTransmitted": {"const": false}
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {"$ref": "#/$defs/successObservation"},
+              {"$ref": "#/$defs/invalidObservation"},
+              {"$ref": "#/$defs/unavailableObservation"}
+            ]
+          }
+        },
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "thresholdValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimumGenerationSuccessRate", "maximumInvalidRate", "maximumDuplicateCandidateRate", "maximumLatencyP95Ms", "maximumMapMatchDistanceP95M", "minimumSegmentEvidenceCoverageRate", "maximumDetourP95Ratio", "maximumWeightSensitivityChangeRate"],
+      "properties": {
+        "minimumGenerationSuccessRate": {"type": ["number", "null"]},
+        "maximumInvalidRate": {"type": ["number", "null"]},
+        "maximumDuplicateCandidateRate": {"type": ["number", "null"]},
+        "maximumLatencyP95Ms": {"type": ["number", "null"]},
+        "maximumMapMatchDistanceP95M": {"type": ["number", "null"]},
+        "minimumSegmentEvidenceCoverageRate": {"type": ["number", "null"]},
+        "maximumDetourP95Ratio": {"type": ["number", "null"]},
+        "maximumWeightSensitivityChangeRate": {"type": ["number", "null"]}
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "status", "frozen", "baselineReceiptIdentity", "freezeSequence", "thresholds", "reasonCodes", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-performance-thresholds/v1"},
+        "status": {"enum": ["available", "unavailable"]},
+        "frozen": {"type": "boolean"},
+        "baselineReceiptIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "freezeSequence": {"const": "baseline-first-then-formal-threshold-freeze"},
+        "thresholds": {"$ref": "#/$defs/thresholdValues"},
+        "reasonCodes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "qaSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleId", "segmentIdentity", "routeIdentity", "selectionRank"],
+      "properties": {
+        "sampleId": {"type": "string", "minLength": 1},
+        "segmentIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "routeIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "selectionRank": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "qaSampleManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "status", "qaPolicyIdentity", "benchmarkReceiptIdentity", "eligibleUniverseIdentity", "eligibleSegmentCount", "targetSegmentCount", "samplingMethod", "samples", "reasonCodes", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-qa-sample-manifest/v1"},
+        "status": {"enum": ["available", "unavailable"]},
+        "qaPolicyIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "benchmarkReceiptIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "eligibleUniverseIdentity": {
+          "anyOf": [
+            {"$ref": "#/$defs/shaIdentity"},
+            {"type": "null"}
+          ]
+        },
+        "eligibleSegmentCount": {"type": "integer", "minimum": 0},
+        "targetSegmentCount": {"const": 100},
+        "samplingMethod": {"const": "identity-hash-stratified-without-replacement"},
+        "samples": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/qaSample"}
+        },
+        "reasonCodes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewerId", "decision", "reasonCode", "reviewedAt"],
+      "properties": {
+        "reviewerId": {"type": ["string", "null"]},
+        "decision": {"type": ["string", "null"]},
+        "reasonCode": {"type": ["string", "null"]},
+        "reviewedAt": {"type": ["string", "null"]}
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "decision", "adjudicatorId", "reasonCode", "adjudicatedAt"],
+      "properties": {
+        "status": {"enum": ["pending", "completed", "not-required"]},
+        "decision": {"type": ["string", "null"]},
+        "adjudicatorId": {"type": ["string", "null"]},
+        "reasonCode": {"type": ["string", "null"]},
+        "adjudicatedAt": {"type": ["string", "null"]}
+      }
+    },
+    "qaReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "status", "qaPolicyIdentity", "benchmarkReceiptIdentity", "sampleManifestIdentity", "adjudicationRecordIdentities", "targetSegmentCount", "sampledSegmentCount", "reviewerOneCompletedCount", "reviewerTwoCompletedCount", "twoReviewerCompleted", "adjudicatedCount", "reasonCodes", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-qa-receipt/v1"},
+        "status": {"enum": ["available", "unavailable"]},
+        "qaPolicyIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "benchmarkReceiptIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "sampleManifestIdentity": {"$ref": "#/$defs/shaIdentity"},
+        "adjudicationRecordIdentities": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/shaIdentity"}
+        },
+        "targetSegmentCount": {"const": 100},
+        "sampledSegmentCount": {"type": "integer", "minimum": 0, "maximum": 100},
+        "reviewerOneCompletedCount": {"type": "integer", "minimum": 0, "maximum": 100},
+        "reviewerTwoCompletedCount": {"type": "integer", "minimum": 0, "maximum": 100},
+        "twoReviewerCompleted": {"type": "boolean"},
+        "adjudicatedCount": {"type": "integer", "minimum": 0, "maximum": 100},
+        "reasonCodes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    },
+    "qaAdjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "sampleId", "segmentIdentity", "routeIdentity", "reviewerOne", "reviewerTwo", "adjudication", "identity"],
+      "properties": {
+        "schemaVersion": {"const": "mainline-m7-qa-adjudication-template/v1"},
+        "sampleId": {"type": ["string", "null"]},
+        "segmentIdentity": {
+          "anyOf": [
+            {"$ref": "#/$defs/shaIdentity"},
+            {"type": "null"}
+          ]
+        },
+        "routeIdentity": {
+          "anyOf": [
+            {"$ref": "#/$defs/shaIdentity"},
+            {"type": "null"}
+          ]
+        },
+        "reviewerOne": {"$ref": "#/$defs/reviewer"},
+        "reviewerTwo": {"$ref": "#/$defs/reviewer"},
+        "adjudication": {"$ref": "#/$defs/adjudication"},
+        "identity": {"$ref": "#/$defs/shaIdentity"}
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "mainline-m7-performance-thresholds/v1",
+  "status": "unavailable",
+  "frozen": false,
+  "baselineReceiptIdentity": "sha256:d037ae09d83a89ac223c90cb6f19b0f4bbdff4496698fd3ad2feb09109494d49",
+  "freezeSequence": "baseline-first-then-formal-threshold-freeze",
+  "thresholds": {
+    "minimumGenerationSuccessRate": null,
+    "maximumInvalidRate": null,
+    "maximumDuplicateCandidateRate": null,
+    "maximumLatencyP95Ms": null,
+    "maximumMapMatchDistanceP95M": null,
+    "minimumSegmentEvidenceCoverageRate": null,
+    "maximumDetourP95Ratio": null,
+    "maximumWeightSensitivityChangeRate": null
+  },
+  "reasonCodes": [
+    "baseline-unavailable",
+    "threshold-freeze-forbidden-before-observed-baseline"
+  ],
+  "identity": "sha256:93541c98cecd5ab9edd8755612d84326b41afe5ef1f798d0aee157c938282d2e"
+}
