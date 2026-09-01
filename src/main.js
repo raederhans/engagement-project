@@ -122,6 +122,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let acsMultitractLoaderPromise = null;
   let homeCompareLoader = null;
   let homeCompareLoaderPromise = null;
+  let publicRouteLoader = null;
+  let publicRouteLoaderPromise = null;
 
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
@@ -375,6 +377,60 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
   homeCompareOpen?.addEventListener('click', onHomeCompareIntent);
   homeCompareRetry?.addEventListener('click', onHomeCompareIntent);
+
+  const publicRouteDialog = document.querySelector('[data-public-route-dialog]');
+  const publicRouteHost = document.querySelector('[data-public-route-host]');
+  const publicRouteOpen = document.querySelector('[data-public-route-open]');
+  const publicRouteRetry = document.querySelector('[data-public-route-retry]');
+  const publicRouteStatus = document.querySelector('[data-public-route-loader-status]');
+  const showPublicRouteLoadFailure = (error) => {
+    if (publicRouteStatus) {
+      publicRouteStatus.hidden = false;
+      setTranslatedText(publicRouteStatus, 'publicRoutes.loadFailed');
+    }
+    if (publicRouteRetry) publicRouteRetry.hidden = false;
+    console.warn('Public route scenarios are unavailable:', error);
+  };
+  const ensurePublicRouteLoader = async () => {
+    if (publicRouteLoader) return publicRouteLoader;
+    if (!publicRouteLoaderPromise) {
+      if (publicRouteStatus) {
+        publicRouteStatus.hidden = false;
+        setTranslatedText(publicRouteStatus, 'publicRoutes.loading');
+      }
+      if (publicRouteRetry) publicRouteRetry.hidden = true;
+      publicRouteLoaderPromise = import('./public_route_alternatives/loader.js')
+        .then((module) => module.createPublicRouteAlternativesLoader({
+          dialog: publicRouteDialog,
+          host: publicRouteHost,
+          opener: publicRouteOpen,
+        }))
+        .then((owner) => {
+          publicRouteLoader = owner;
+          return owner;
+        })
+        .catch((error) => {
+          publicRouteLoaderPromise = null;
+          throw error;
+        });
+    }
+    return publicRouteLoaderPromise;
+  };
+  const onPublicRouteIntent = () => {
+    if (publicRouteStatus) {
+      publicRouteStatus.hidden = false;
+      setTranslatedText(publicRouteStatus, 'publicRoutes.loading');
+    }
+    if (publicRouteRetry) publicRouteRetry.hidden = true;
+    void ensurePublicRouteLoader()
+      .then(async (owner) => {
+        await owner.open();
+        if (publicRouteStatus) publicRouteStatus.hidden = true;
+      })
+      .catch(showPublicRouteLoadFailure);
+  };
+  publicRouteOpen?.addEventListener('click', onPublicRouteIntent);
+  publicRouteRetry?.addEventListener('click', onPublicRouteIntent);
 
   async function ensureListController() {
     if (listController) return listController;

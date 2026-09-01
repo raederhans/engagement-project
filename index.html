@@ -104,6 +104,11 @@
         <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
         <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
       </section>
+      <section class="public-route-entry" data-public-route-entry>
+        <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entryOpen">Public route scenarios</button>
+        <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
+        <button class="button button--secondary" type="button" data-public-route-retry data-i18n="publicRoutes.retry" hidden>Retry public route scenarios</button>
+      </section>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -508,6 +513,9 @@
     </dialog>
     <dialog id="home-compare-dialog" class="home-compare-dialog" data-home-compare-dialog aria-labelledby="home-compare-title" aria-describedby="home-compare-description">
       <div data-home-compare-host></div>
+    </dialog>
+    <dialog id="public-route-dialog" class="public-route-dialog" data-public-route-dialog aria-labelledby="public-route-title" aria-describedby="public-route-description">
+      <div data-public-route-host></div>
     </dialog>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/ui/sheet_controller.js"></script>

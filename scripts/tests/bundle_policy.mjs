@@ -30,6 +30,8 @@ const homeCompareController = manifest['src/home_compare/controller.js'];
 const homeCompareSourceRegistry = manifest['src/home_compare/source_registry.js'];
 const homeCompareResultsView = manifest['src/home_compare/results_view.js'];
 const homeCompareStyles = { file: homeCompareLoader?.css?.[0] };
+const publicRouteLoader = manifest['src/public_route_alternatives/loader.js'];
+const publicRouteUi = manifest['src/public_route_alternatives/ui.js'];
 const incidentResults = manifest['src/routes_crime/incident_results_controller.js'];
 const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
@@ -69,9 +71,10 @@ assert.deepEqual(
     'src/routes_crime/route_corridor_app_loader.js',
     'src/acs_multitract/loader.js',
     'src/home_compare/loader.js',
+    'src/public_route_alternatives/loader.js',
     'src/source_health/source_health_controller.js',
   ]),
-  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle v2, ACS multi-tract, Source Health, and their translations behind direct lazy boundaries',
+  'Entry must keep the map runtime, Crime, Diary, Help, Diary Insights, Analysis History, Evidence Bundle v2, ACS multi-tract, Home Compare, Public Routes, Source Health, and their translations behind direct lazy boundaries',
 );
 assert.ok(mapRuntime?.isDynamicEntry, 'Vite manifest must keep MapLibre and map initialization behind a lazy runtime boundary');
 assert.ok(crimeList?.isDynamicEntry, 'Vite manifest must keep the Crime list controller behind its presentation boundary');
@@ -182,6 +185,19 @@ assert.ok(homeCompareController?.isDynamicEntry, 'Vite manifest must contain the
   );
   assert.ok(homeCompareSourceRegistry?.isDynamicEntry, 'Vite manifest must contain the Home Compare registry validator as a lazy chunk');
   assert.ok(homeCompareResultsView?.isDynamicEntry, 'Vite manifest must keep Home Compare result rendering behind first valid compare intent/query-time and before result commit');
+assert.ok(publicRouteLoader?.isDynamicEntry, 'Vite manifest must keep Public Routes behind a direct user-intent lazy boundary');
+assert.deepEqual(
+  new Set(publicRouteLoader.dynamicImports || []),
+  new Set(['src/public_route_alternatives/ui.js']),
+  'Public Routes must keep card rendering behind static artifact admission',
+);
+assert.ok(publicRouteUi?.isDynamicEntry, 'Vite manifest must contain Public Routes UI as a nested lazy chunk');
+const entrySource = await readFile(path.join(distDir, entry.file), 'utf8');
+assert.doesNotMatch(
+  entrySource,
+  /publicRoutes\.disclosure|Compare admitted route tradeoffs/,
+  'Entry must not eagerly absorb full Public Routes UI translations',
+);
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
@@ -322,14 +338,25 @@ assert.equal(vreArtifacts.length, 1, 'dist must contain exactly one admitted ACS
 const vreArtifactBytes = await sumFileSizes(vreArtifacts);
 const nonVreDistBytes = distBytes - vreArtifactBytes;
 assert.ok(vreArtifactBytes <= 200_000, `ACS VRE source artifact must stay <= 200000; received ${vreArtifactBytes}`);
-// P4-P6 add bounded privacy, lifecycle-readiness, and Known Route evidence
-// surfaces behind lazy chunks; retain a narrow whole-dist regression ceiling.
-assert.ok(nonVreDistBytes <= 4_100_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4100000; received ${nonVreDistBytes}`);
-assert.ok(distBytes <= 4_300_000, `Transparent total dist size must stay <= 4300000; received ${distBytes}`);
+// P4-P6 add bounded privacy, lifecycle-readiness, and Known Route evidence.
+// M7 adds one 20.5 kB static public-scenario artifact plus lazy admission/UI
+// chunks; keep the resulting whole-dist allowance narrowly bounded.
+assert.ok(nonVreDistBytes <= 4_141_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4141000; received ${nonVreDistBytes}`);
+assert.ok(distBytes <= 4_323_000, `Transparent total dist size must stay <= 4323000; received ${distBytes}`);
 for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;
   assert.ok(size <= 280_000, `${relative(hinArtifact)} must stay <= 280000 bytes; received ${size}`);
+  const publicRouteArtifact = path.join(
+    rootDir,
+    'data',
+    'route_alternatives_public_scenarios.v1.json',
+  );
+  const routeArtifactSize = (await stat(publicRouteArtifact)).size;
+  assert.ok(
+    routeArtifactSize <= 21_000,
+    `${relative(publicRouteArtifact)} must stay <= 21000 bytes; received ${routeArtifactSize}`,
+  );
 }
 
 const publishedFallbackFields = new Map([

@@ -229,6 +229,7 @@ test('stylesheet ownership is explicit and preserves the canonical cascade order
     './styles/civic-product.css',
     './styles/crime-charts-responsive.css',
     './styles/crime-list-mode.css',
+    './styles/public-route-alternatives.css',
   ]);
   assert.equal((css.match(/^:root\s*\{/gm) || []).length, 1);
 });
