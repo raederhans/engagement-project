@@ -2,6 +2,10 @@ import {
   evaluateRouteAlternativesM5Core,
   M5_SCHEMA_VERSIONS,
 } from '../route_alternatives_m5/index.js';
+import {
+  assertPublicRouteArtifactManifest,
+  PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST,
+} from './admission_manifest.js';
 
 export const PUBLIC_ROUTE_SCENARIO_SCHEMA =
   'engagement-public-route-scenarios/v1';
@@ -73,20 +77,12 @@ const RUNTIME_BOUNDARY_KEYS = Object.freeze([
   'routingAuthority',
   'safetyAuthority',
 ]);
-const SCENARIO_ALLOWLIST = Object.freeze({
-  'city-hall-to-art-museum-complete': Object.freeze({
-    origin: 'philadelphia-city-hall',
-    destination: 'philadelphia-museum-of-art',
-  }),
-  'independence-hall-to-reading-terminal-single': Object.freeze({
-    origin: 'independence-hall',
-    destination: 'reading-terminal-market',
-  }),
-  'rittenhouse-square-to-30th-street-degraded': Object.freeze({
-    origin: 'rittenhouse-square',
-    destination: '30th-street-station',
-  }),
-});
+const SCENARIO_ALLOWLIST = Object.freeze(Object.fromEntries(
+  PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST.identity.scenarios.map((scenario) => [
+    scenario.scenarioId,
+    Object.freeze({ origin: scenario.origin, destination: scenario.destination }),
+  ]),
+));
 const ADMISSION_STATES = Object.freeze({
   candidateSet: new Set(['complete', 'single', 'degraded']),
   evidence: new Set(['complete', 'partial', 'unavailable']),
@@ -95,11 +91,21 @@ const ADMISSION_STATES = Object.freeze({
 });
 const PROHIBITED_COPY = Object.freeze([
   /\bsafest\b/i,
+  /\bsafer\b/i,
   /\bbest route\b/i,
+  /\blowest risk\b/i,
+  /\bleast risk\b/i,
+  /\brecommend(?:ed|ation|ations|ing)?\b/i,
   /\brisk score\b/i,
   /\bsafety score\b/i,
   /最安全/,
+  /更安全/,
   /最佳路线/,
+  /最低风险/,
+  /风险最低/,
+  /低风险/,
+  /推荐/,
+  /首选/,
   /风险评分/,
   /安全评分/,
 ]);
@@ -158,6 +164,16 @@ function nullableText(raw, label, max = 160) {
   return boundedText(raw, label, max);
 }
 
+function isoInstant(raw, label) {
+  const value = boundedText(raw, label, 64);
+  const parsed = Date.parse(value);
+  if (!ISO_INSTANT_PATTERN.test(value) || Number.isNaN(parsed)
+    || new Date(parsed).toISOString() !== value) {
+    fail(`${label} must be an ISO instant`);
+  }
+  return value;
+}
+
 function availableMetricValue(raw, spec, label) {
   if (spec.type === 'number') {
     if (typeof raw !== 'number' || !Number.isFinite(raw)
@@ -193,9 +209,10 @@ function admitMetric(raw, spec, label) {
   if (value.status !== 'available') fail(`${label}.status is unsupported`);
   if (!spec.units.includes(value.unit)) fail(`${label}.unit is unsupported`);
   const sourceAsOf = nullableText(value.sourceAsOf, `${label}.sourceAsOf`);
-  if (spec.source === 'required'
-    && (!sourceAsOf || !ISO_INSTANT_PATTERN.test(sourceAsOf)
-      || Number.isNaN(Date.parse(sourceAsOf)))) {
+  if (spec.source === 'required' && sourceAsOf !== null) {
+    isoInstant(sourceAsOf, `${label}.sourceAsOf`);
+  }
+  if (spec.source === 'required' && sourceAsOf === null) {
     fail(`${label}.sourceAsOf must be an ISO instant`);
   }
   if (spec.source === 'forbidden' && sourceAsOf !== null) {
@@ -344,7 +361,7 @@ function deepFreeze(value) {
   return value;
 }
 
-export function admitPublicRouteScenarioArtifact(raw) {
+export async function admitPublicRouteScenarioArtifact(raw) {
   const value = exactObject(
     raw,
     [
@@ -380,14 +397,25 @@ export function admitPublicRouteScenarioArtifact(raw) {
   if (scenarios.length !== Object.keys(SCENARIO_ALLOWLIST).length
     || Object.keys(SCENARIO_ALLOWLIST).some(
       (scenarioId) => !scenarios.some((scenario) => scenario.scenarioId === scenarioId),
-    )) {
+  )) {
     fail('artifact must contain the complete public scenario allowlist');
   }
+  const artifactId = id(value.artifactId, 'artifact.artifactId');
+  const generatedAt = isoInstant(value.generatedAt, 'artifact.generatedAt');
+  const latestSourceAsOf = Math.max(...scenarios.flatMap(({ candidates }) => (
+    candidates.flatMap(({ metrics }) => Object.values(metrics)
+      .map(({ sourceAsOf }) => sourceAsOf && Date.parse(sourceAsOf))
+      .filter(Number.isFinite))
+  )));
+  if (latestSourceAsOf > Date.parse(generatedAt)) {
+    fail('artifact.generatedAt precedes admitted source evidence');
+  }
+  await assertPublicRouteArtifactManifest(value);
   return deepFreeze({
     schemaVersion: PUBLIC_ROUTE_SCENARIO_SCHEMA,
-    artifactId: id(value.artifactId, 'artifact.artifactId'),
+    artifactId,
     artifactClass: ARTIFACT_CLASS,
-    generatedAt: boundedText(value.generatedAt, 'artifact.generatedAt', 64),
+    generatedAt,
     walkingOnly: true,
     runtimeBoundary: Object.fromEntries(RUNTIME_BOUNDARY_KEYS.map((key) => [key, false])),
     scenarios,

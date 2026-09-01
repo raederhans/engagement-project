@@ -20,7 +20,7 @@ export function createPublicRouteAlternativesLoader({
       headers: { Accept: 'application/json' },
     });
     if (!response?.ok) throw new Error(`Public route artifact request failed (${response?.status})`);
-    const artifact = admitPublicRouteScenarioArtifact(await response.json());
+    const artifact = await admitPublicRouteScenarioArtifact(await response.json());
     const { createPublicRouteAlternativesUi } = await import('./ui.js');
     ui = createPublicRouteAlternativesUi({ dialog, host, opener, artifact });
     return ui;

@@ -2,11 +2,17 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { assertPublicRouteCopyBoundary } from '../lib/public_route_copy_policy.mjs';
+
 import {
   PUBLIC_ROUTE_SCENARIO_SCHEMA,
   admitPublicRouteScenarioArtifact,
   buildPublicRouteScenarioViewModel,
 } from '../../src/public_route_alternatives/model.js';
+import {
+  PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST,
+  PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST_SCHEMA,
+} from '../../src/public_route_alternatives/admission_manifest.js';
 
 const fixtureUrl = new URL(
   '../../public/data/route_alternatives_public_scenarios.v1.json',
@@ -14,8 +20,6 @@ const fixtureUrl = new URL(
 );
 const m5Url = new URL('../../src/route_alternatives_m5/index.js', import.meta.url);
 const r7Url = new URL('../../reports/known-route/r7-go-no-go.v1.json', import.meta.url);
-const COMPLETE_SCENARIO = 'city-hall-to-art-museum-complete';
-
 const TOP_LEVEL_KEYS = [
   'schemaVersion',
   'artifactId',
@@ -67,14 +71,18 @@ const ROLE_ALLOWLIST = new Set([
   'accessibility-oriented',
   'route',
 ]);
-const PROHIBITED_PRODUCT_COPY = /\bsafest\b|\bbest route\b|\brisk score\b|\bsafety score\b|personal victim probability|最安全|最佳路线|风险评分|安全评分|个人受害概率/i;
+const PROHIBITED_PRODUCT_COPY = /\bsafest\b|\bsafer\b|\bbest route\b|\blowest risk\b|\bleast risk\b|\brecommend(?:ed|ation|ations|ing)?\b|\brisk score\b|\bsafety score\b|personal victim probability|最安全|更安全|最佳路线|最低风险|风险最低|低风险|推荐|首选|风险评分|安全评分|个人受害概率/i;
 
 const fixture = JSON.parse(await readFile(fixtureUrl, 'utf8'));
 const clone = (value) => structuredClone(value);
 const exactKeys = (value, keys) => assert.deepEqual(Object.keys(value).sort(), [...keys].sort());
 
-function admittedFixture() {
+async function admittedFixture() {
   return admitPublicRouteScenarioArtifact(clone(fixture));
+}
+
+async function assertRejected(changed, expected) {
+  await assert.rejects(() => admitPublicRouteScenarioArtifact(changed), expected);
 }
 
 function assertUnavailableNeverMeansZero(value) {
@@ -87,8 +95,18 @@ function assertUnavailableNeverMeansZero(value) {
   for (const child of Object.values(value)) assertUnavailableNeverMeansZero(child);
 }
 
-test('fixture has the exact public walking schema and complete Philadelphia allowlist', () => {
+test('fixture has the exact public walking schema and versioned independent admission manifest', async () => {
   assert.equal(PUBLIC_ROUTE_SCENARIO_SCHEMA, 'engagement-public-route-scenarios/v1');
+  assert.equal(
+    PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST_SCHEMA,
+    'engagement-public-route-scenario-admission/v1',
+  );
+  assert.equal(Object.isFrozen(PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST), true);
+  assert.equal(
+    PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST.identity.artifactId,
+    'philadelphia-public-landmark-walking-alternatives-2026-09-01',
+  );
+  assert.match(PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST.canonicalSha256, /^sha256:[a-f0-9]{64}$/);
   exactKeys(fixture, TOP_LEVEL_KEYS);
   exactKeys(fixture.runtimeBoundary, RUNTIME_KEYS);
   assert.equal(fixture.schemaVersion, PUBLIC_ROUTE_SCENARIO_SCHEMA);
@@ -116,34 +134,34 @@ test('fixture has the exact public walking schema and complete Philadelphia allo
     }
   }
 
-  const admitted = admittedFixture();
+  const admitted = await admittedFixture();
   assert.equal(Object.isFrozen(admitted), true);
   assert.equal(Object.isFrozen(admitted.scenarios[0].candidates[0].metrics), true);
 });
 
-test('admission rejects private, network, routing-authority, arbitrary-pair, and non-walking drift', () => {
+test('admission rejects private, network, routing-authority, arbitrary-pair, and non-walking drift', async () => {
   for (const boundary of RUNTIME_KEYS) {
     const changed = clone(fixture);
     changed.runtimeBoundary[boundary] = true;
-    assert.throws(() => admitPublicRouteScenarioArtifact(changed), TypeError);
+    await assertRejected(changed, TypeError);
   }
 
   const privatePair = clone(fixture);
   privatePair.scenarios[0].origin.landmarkId = 'private-home-address';
-  assert.throws(() => admitPublicRouteScenarioArtifact(privatePair), /allowlist/i);
+  await assertRejected(privatePair, /allowlist/i);
 
   const arbitraryScenario = clone(fixture);
   arbitraryScenario.scenarios[0].scenarioId = 'arbitrary-od';
-  assert.throws(() => admitPublicRouteScenarioArtifact(arbitraryScenario), /allowlist/i);
+  await assertRejected(arbitraryScenario, /allowlist/i);
 
   const driving = clone(fixture);
   driving.scenarios[0].mode = 'driving';
-  assert.throws(() => admitPublicRouteScenarioArtifact(driving), /walking/i);
+  await assertRejected(driving, /walking/i);
 });
 
-test('complete scenario exposes at most four honest roles, Pareto facts, and unstable trade-offs without a winner', () => {
+test('complete scenario exposes at most four honest roles, Pareto facts, and unstable trade-offs without a winner', async () => {
   const view = buildPublicRouteScenarioViewModel(
-    admittedFixture(),
+    await admittedFixture(),
     'city-hall-to-art-museum-complete',
     'en',
   );
@@ -177,9 +195,10 @@ test('complete scenario exposes at most four honest roles, Pareto facts, and uns
   assert.ok(view.notices.includes('no-routing-or-safety-authority'));
 });
 
-test('accessibility-oriented appears only when admitted accessibility evidence meets the criterion', () => {
+test('accessibility-oriented appears only when admitted accessibility evidence meets the criterion', async () => {
+  const artifact = await admittedFixture();
   const available = buildPublicRouteScenarioViewModel(
-    admittedFixture(),
+    artifact,
     'city-hall-to-art-museum-complete',
     'en',
   );
@@ -190,21 +209,9 @@ test('accessibility-oriented appears only when admitted accessibility evidence m
   assert.equal(accessibilityCard.metrics.accessibility.status, 'available');
   assert.equal(accessibilityCard.metrics.accessibility.value, 'meets');
 
-  const missing = clone(fixture);
-  for (const candidate of missing.scenarios[0].candidates) {
-    candidate.metrics.accessibility = {
-      status: 'unavailable',
-      value: null,
-      unit: null,
-      sourceAsOf: null,
-      note: {en: 'Unavailable: no admitted accessibility evidence.', 'zh-CN': '不可用：没有已准入无障碍证据。'},
-    };
-  }
-  missing.scenarios[0].admission.evidence = 'partial';
-  missing.scenarios[0].admission.sensitivity = 'unavailable';
   const withoutAccessibility = buildPublicRouteScenarioViewModel(
-    admitPublicRouteScenarioArtifact(missing),
-    'city-hall-to-art-museum-complete',
+    artifact,
+    'rittenhouse-square-to-30th-street-degraded',
     'en',
   );
   assert.equal(
@@ -213,9 +220,9 @@ test('accessibility-oriented appears only when admitted accessibility evidence m
   );
 });
 
-test('single candidate produces exactly one ordinary route card', () => {
+test('single candidate produces exactly one ordinary route card', async () => {
   const view = buildPublicRouteScenarioViewModel(
-    admittedFixture(),
+    await admittedFixture(),
     'independence-hall-to-reading-terminal-single',
     'zh-CN',
   );
@@ -227,9 +234,9 @@ test('single candidate produces exactly one ordinary route card', () => {
   assert.equal(Object.hasOwn(view.sensitivity, 'winnerCandidateId'), false);
 });
 
-test('unavailable evidence or map matching degrades to one ordinary route with explicit unavailable dimensions', () => {
+test('unavailable evidence or map matching degrades to one ordinary route with explicit unavailable dimensions', async () => {
   const view = buildPublicRouteScenarioViewModel(
-    admittedFixture(),
+    await admittedFixture(),
     'rittenhouse-square-to-30th-street-degraded',
     'en',
   );
@@ -242,7 +249,7 @@ test('unavailable evidence or map matching degrades to one ordinary route with e
   assertUnavailableNeverMeansZero(view);
 });
 
-test('candidate, evidence, map-match, and sensitivity gates each fail closed to one route', () => {
+test('canonical manifest rejects candidate, evidence, map-match, and sensitivity drift', async () => {
   const mutations = [
     ['candidateSet', (scenario) => {
       scenario.admission.candidateSet = 'degraded';
@@ -267,22 +274,102 @@ test('candidate, evidence, map-match, and sensitivity gates each fail closed to 
   for (const [gate, mutate] of mutations) {
     const changed = clone(fixture);
     mutate(changed.scenarios[0]);
-    const view = buildPublicRouteScenarioViewModel(
-      admitPublicRouteScenarioArtifact(changed),
-      COMPLETE_SCENARIO,
-      'en',
+    await assert.rejects(
+      () => admitPublicRouteScenarioArtifact(changed),
+      /content digest/i,
+      `${gate} drift must fail closed`,
     );
-    assert.equal(view.status, 'limited', `${gate} must fail closed`);
-    assert.equal(view.cards.length, 1, `${gate} must show only one route`);
-    assert.equal(view.cards[0].role, 'route', `${gate} must remove objective roles`);
-    assert.deepEqual(view.paretoCandidateIds, [], `${gate} must remove Pareto promotion`);
   }
 });
 
-test('admission rejects invalid units, contradictory map-match states, and unknown categories', () => {
+test('admission rejects artifact identity and generated-at drift before public rendering', async () => {
+  const invalidArtifactId = clone(fixture);
+  invalidArtifactId.artifactId = 'INVALID ARTIFACT ID';
+  await assertRejected(invalidArtifactId, /artifact\.artifactId is invalid/i);
+
+  const changedArtifactId = clone(fixture);
+  changedArtifactId.artifactId = `${fixture.artifactId}-drift`;
+  await assertRejected(changedArtifactId, /artifact identity.*admission manifest/i);
+
+  for (const generatedAt of ['not-a-date', '2026-02-30T00:00:00.000Z']) {
+    const invalidGeneratedAt = clone(fixture);
+    invalidGeneratedAt.generatedAt = generatedAt;
+    await assertRejected(invalidGeneratedAt, /artifact\.generatedAt must be an ISO instant/i);
+  }
+
+  const staleGeneratedAt = clone(fixture);
+  staleGeneratedAt.generatedAt = '2026-08-01T00:00:00.000Z';
+  await assertRejected(staleGeneratedAt, /generatedAt precedes admitted source evidence/i);
+
+  const changedGeneratedAt = clone(fixture);
+  changedGeneratedAt.generatedAt = '2026-09-02T00:00:00.000Z';
+  await assertRejected(changedGeneratedAt, /artifact identity.*admission manifest/i);
+});
+
+test('admission manifest rejects candidate, edge, label, and in-range metric drift', async () => {
+  const changedCandidate = clone(fixture);
+  changedCandidate.scenarios[0].candidates[0].candidateId = 'cityhall-artmuseum-fast-v2';
+  await assertRejected(changedCandidate, /artifact identity.*admission manifest/i);
+
+  const changedEdge = clone(fixture);
+  changedEdge.scenarios[0].candidates[0].edgeIds[0] = 'ch-am-f-99';
+  await assertRejected(changedEdge, /artifact identity.*admission manifest/i);
+
+  const reorderedEdges = clone(fixture);
+  reorderedEdges.scenarios[0].candidates[0].edgeIds.reverse();
+  await assertRejected(reorderedEdges, /artifact identity.*admission manifest/i);
+
+  const changedLabel = clone(fixture);
+  changedLabel.scenarios[0].candidates[0].label.en = 'Fast illustrative option v2';
+  await assertRejected(changedLabel, /content digest.*admission manifest/i);
+
+  const changedMetric = clone(fixture);
+  changedMetric.scenarios[0].candidates[0].metrics.travelTime.value = 1441;
+  await assertRejected(changedMetric, /content digest.*admission manifest/i);
+});
+
+test('admission rejects recommendation, safer, and lowest-risk copy in English and Chinese', async () => {
+  const mutations = [
+    ['en', 'Recommended option'],
+    ['en', 'Safer option'],
+    ['en', 'Lowest risk option'],
+    ['zh-CN', '推荐选项'],
+    ['zh-CN', '更安全选项'],
+    ['zh-CN', '最低风险选项'],
+  ];
+  for (const [locale, copyValue] of mutations) {
+    const changed = clone(fixture);
+    changed.scenarios[0].candidates[0].label[locale] = copyValue;
+    await assertRejected(changed, /copy boundary/i);
+  }
+});
+
+test('visible-copy guard admits only exact negated disclosures and rejects product claims', () => {
+  assert.doesNotThrow(() => assertPublicRouteCopyBoundary([
+    'This is not live directions, an observed route evaluation, or a recommendation.',
+    'Treat the cards as tradeoffs, not as a recommendation.',
+    '它不是实时导航、实测路线评估或推荐，也不具备路线或安全权限。',
+    '请将卡片视为权衡说明，而非推荐。',
+  ].join('\n')));
+  for (const hostileCopy of [
+    'This is a recommendation.',
+    'We recommend this route.',
+    'Personal victim probability: 20%.',
+    'Least risk option.',
+    '这是推荐路线。',
+    '个人受害概率为 20%。',
+    '首选路线。',
+    '风险最低。',
+    '低风险路线。',
+  ]) {
+    assert.throws(() => assertPublicRouteCopyBoundary(hostileCopy), /copy boundary/i);
+  }
+});
+
+test('admission rejects invalid units, contradictory map-match states, and unknown categories', async () => {
   const wrongUnit = clone(fixture);
   wrongUnit.scenarios[0].candidates[0].metrics.travelTime.unit = 'meters';
-  assert.throws(() => admitPublicRouteScenarioArtifact(wrongUnit), /travelTime\.unit/i);
+  await assertRejected(wrongUnit, /travelTime\.unit/i);
 
   const contradictoryMapMatch = clone(fixture);
   for (const candidate of contradictoryMapMatch.scenarios[0].candidates) {
@@ -291,22 +378,16 @@ test('admission rejects invalid units, contradictory map-match states, and unkno
       note: {en: 'Unavailable: test fixture.', 'zh-CN': '不可用：测试数据。'},
     };
   }
-  assert.throws(
-    () => admitPublicRouteScenarioArtifact(contradictoryMapMatch),
-    /mapMatch complete conflicts/i,
-  );
+  await assertRejected(contradictoryMapMatch, /mapMatch complete conflicts/i);
 
   const unknownAccessibility = clone(fixture);
   unknownAccessibility.scenarios[0].candidates[0].metrics.accessibility.value = 'unknown';
-  assert.throws(
-    () => admitPublicRouteScenarioArtifact(unknownAccessibility),
-    /accessibility\.value.*categorical/i,
-  );
+  await assertRejected(unknownAccessibility, /accessibility\.value.*categorical/i);
 });
 
-test('missing values stay Unavailable rather than becoming zero, and public output avoids prohibited claims', () => {
+test('missing values stay Unavailable rather than becoming zero, and public output avoids prohibited claims', async () => {
   assertUnavailableNeverMeansZero(fixture);
-  const artifact = admittedFixture();
+  const artifact = await admittedFixture();
   const outputs = artifact.scenarios.map(({ scenarioId }) => (
     buildPublicRouteScenarioViewModel(artifact, scenarioId, 'en')
   ));

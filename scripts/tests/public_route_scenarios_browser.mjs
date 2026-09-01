@@ -6,6 +6,7 @@ import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
 import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
+import { assertPublicRouteCopyBoundary } from '../lib/public_route_copy_policy.mjs';
 
 const PORT = 4207;
 const EXTERNAL_BASE_URL = String(process.env.PUBLIC_ROUTE_BROWSER_BASE_URL || '').trim();
@@ -23,8 +24,6 @@ const EXPECTED_ROLES = Object.freeze([
   'fastest',
   'lower-historical-exposure',
 ]);
-const FORBIDDEN_ENGLISH_COPY = /\b(?:safest|best route|risk score|safety score|winner)\b/i;
-const FORBIDDEN_CHINESE_COPY = /最安全|最佳路线|风险评分|安全评分|优胜者/;
 const FORBIDDEN_NETWORK = /(?:\/route\/v\d\/|\bosrm\b|candidate[_-]generation|\/geocod(?:e|er)(?:\/|\?|$))/i;
 
 let baseUrl;
@@ -189,11 +188,10 @@ async function verifyCompleteScenario({ page, dialog, surface, locale, variant }
   const text = await currentSurface.innerText();
   if (locale === 'en') {
     assert.match(text, /tradeoffs/i, `${variant.name}: explicit tradeoff copy`);
-    assert.doesNotMatch(text, FORBIDDEN_ENGLISH_COPY, `${variant.name}: forbidden product claim`);
   } else {
     assert.match(text, /权衡/, `${variant.name}: Chinese tradeoff copy`);
-    assert.doesNotMatch(text, FORBIDDEN_CHINESE_COPY, `${variant.name}: Chinese forbidden claim`);
   }
+  assertPublicRouteCopyBoundary(text, `${variant.name}/${locale}`);
   await assertNoHorizontalOverflow(page, currentSurface, variant);
   assert.equal(await surface.isVisible().catch(() => false) || await currentSurface.isVisible(), true);
 }
@@ -241,8 +239,7 @@ async function selectAndVerifyLimitedScenario({
   }
   assert.equal(page.url(), before, `${variant.name}/${scenarioId}: URL changed`);
   const text = await surface.innerText();
-  assert.doesNotMatch(text, FORBIDDEN_ENGLISH_COPY);
-  assert.doesNotMatch(text, FORBIDDEN_CHINESE_COPY);
+  assertPublicRouteCopyBoundary(text, `${variant.name}/${scenarioId}`);
   await assertNoHorizontalOverflow(page, surface, variant);
 }
 
