@@ -41,6 +41,7 @@ deploy、远端设置与其他 worktree 清理由总协调任务保留。
 - [x] Stage 5: 运行 no-runtime preflight，生成 identity-bound unavailable baseline；没有真实 baseline 与 OS-level
   outbound-deny 观察，因此正式门槛保持 unavailable/unfrozen。
 - [x] Stage 6: 运行最窄充分 unit/privacy/loopback/lifecycle/validator 检查、二轮只读 review 并结构化提交。
+- [x] Stage 7: 关闭 loopback 服务冒充和 filesystem adapter 动态加载边界，重跑完整门禁并完成独立只读复审。
 
 ## Acceptance criteria
 
@@ -49,8 +50,12 @@ deploy、远端设置与其他 worktree 清理由总协调任务保留。
   receipt 区分 no-runtime、Node attempt detector 与 OS outbound-deny；只有经 verifier-bound artifact 验证的
   最后一种才可在未来支撑 formal available，当前 admission 保持关闭。
   当前 tracked preflight 没有执行 runtime，因此 `egressCount=0`，不冒充真实引擎零外传证明。
-- 私人请求 ingress 使用 loopback POST/body seam；OSRM 路由调用使用 in-process binding，避免把坐标编码到
-  native HTTP GET path；candidate search 有确定性预算上限和显式 terminal state。
+- 私人请求 ingress 使用 loopback POST/body seam；CLI controller 生成 256-bit child session secret，先验证
+  无坐标 HMAC challenge，再发送一次性、body-digest-bound route proof。bind、ready、proof、expiry 或 replay
+  失败均在发送或生成前 fail closed；secret 不进入 argv、URL、ready、stdout/stderr 或 request body。
+- OSRM 路由调用使用 in-process binding，避免把坐标编码到 native HTTP GET path；任意 filesystem
+  `adapterModule` 加载被拒绝，只保留 built-in unavailable 与明示受信的 same-process companion seam；
+  candidate search 有确定性预算上限和显式 terminal state。
 - OSRM 不可达时返回 `known-route-paste-draw-required`，不声称 generation success；一条 canonical route
   的结果明确为 single candidate，不创建虚假 alternatives。
 - engine、graph、candidate policy、route 与 evidence identities 写入 validation observation；缺真实
@@ -78,4 +83,7 @@ deploy、远端设置与其他 worktree 清理由总协调任务保留。
 - 现有 public adapter、M5 mathematical core 和 M6 gate 的 authority 边界不能因“local”而被绕过。
 - 当前 worktree 可能没有真实 OSRM engine/Philadelphia graph；该缺口应产出 unavailable receipt，而不是
   下载、联网或创建伪造性能证据。
-- Windows 进程/端口释放可能受外部监听器影响；测试必须使用独占临时端口、可验证 shutdown 和无遗留 listener。
+- Windows 进程/端口释放可能受外部监听器影响；controller 默认使用 child-owned ephemeral port，显式端口被
+  预占时必须停止且不联系占用 listener；测试覆盖 parent IPC disconnect、可验证 shutdown 和无遗留 listener。
+- session-key authentication 不声称抵御可读取同完整性进程环境/内存的 debugger 或管理员；程序化
+  caller-injected companion 仍是同进程受信代码边界，不构成 formal zero-egress evidence。
