@@ -15,6 +15,7 @@ from .governance import frozen_governance_identities
 from .governed import run_governed_benchmark
 from .identity import file_identity, write_json
 from .m7_contracts import build_unavailable_admission_receipt
+from .output_paths import prepare_full_benchmark_output
 from .parity import run_js_python_parity, validate_parity_receipt
 
 
@@ -68,7 +69,6 @@ def _full_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     if file_identity(args.protocol)[1] != frozen["evaluation_protocol_identity"]:
         raise ContractError("full benchmark protocol drifted from frozen evaluation protocol")
     started_at = _timestamp()
-    args.output.mkdir(parents=True, exist_ok=True)
     parity = run_js_python_parity(args.repo_root, args.output / "feature-parity-receipt.json")
     dataset_manifest = convert_m2_to_parquet(
         registry_path=args.registry,
@@ -124,7 +124,11 @@ def _full_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    admitted_full_output: Path | None = None
     try:
+        if args.command == "full-benchmark":
+            admitted_full_output = prepare_full_benchmark_output(args.repo_root, args.output)
+            args.output = admitted_full_output
         if args.command == "parity":
             run_js_python_parity(args.repo_root, args.output)
         elif args.command == "bridge":
@@ -151,8 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _full_benchmark(args)
     except (ContractError, FileNotFoundError, ValueError) as error:
-        if args.command == "full-benchmark":
-            args.output.mkdir(parents=True, exist_ok=True)
+        if args.command == "full-benchmark" and admitted_full_output is not None:
             unavailable = build_unavailable_admission_receipt(
                 args.repo_root,
                 "exact-artifact-registry-or-full-evaluation-unavailable",

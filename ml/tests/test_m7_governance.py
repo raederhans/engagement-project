@@ -10,10 +10,13 @@ from engagement_ml.constants import FIXED_TORCH_SEEDS, M7_FORMAL_MODEL_IDS
 from engagement_ml.contracts import ContractError
 from engagement_ml.governance import frozen_governance_identities
 from engagement_ml.governed import run_governed_benchmark
+from engagement_ml.identity import content_identity
 from engagement_ml.m7_contracts import (
     build_unavailable_admission_receipt,
+    validate_calibration_report,
     validate_model_admission_receipt,
     validate_model_benchmark_report,
+    validate_model_card,
 )
 from engagement_ml.parity import run_js_python_parity
 
@@ -117,8 +120,83 @@ def test_governed_synthetic_benchmark_reports_five_seed_stability_and_no_promoti
         validate_model_benchmark_report(drifted)
     drifted_receipt = deepcopy(receipt)
     drifted_receipt["benchmark_report_identity"] = "sha256:" + "0" * 64
-    with pytest.raises(ContractError, match="content identity"):
-        validate_model_admission_receipt(drifted_receipt)
+    with pytest.raises(ContractError, match="benchmark identity"):
+        validate_model_admission_receipt(
+            drifted_receipt,
+            repo_root=_repo_root(),
+            benchmark=result["report"],
+            calibration=result["calibration"],
+        )
+
+    forged_shadow = deepcopy(receipt)
+    forged_shadow.update(
+        {
+            "status": "complete",
+            "decision": "shadow-admitted",
+            "evaluation_scope": "full-exact-registry",
+            "full_evaluation": True,
+            "model_card_identity": "sha256:" + "1" * 64,
+            "selected_model": "torch-nb-global-v1",
+        }
+    )
+    forged_shadow["lineage"]["artifact_registry_identity"] = "sha256:" + "2" * 64
+    forged_core = dict(forged_shadow)
+    forged_core.pop("receipt_identity")
+    forged_shadow["receipt_identity"] = content_identity(forged_core)
+    with pytest.raises(ContractError, match="exact benchmark, calibration, and model card"):
+        validate_model_admission_receipt(forged_shadow, repo_root=_repo_root())
+    with pytest.raises(ContractError, match="exact full ArtifactRegistry identity"):
+        validate_model_admission_receipt(
+            forged_shadow,
+            repo_root=_repo_root(),
+            benchmark={},
+            calibration={},
+            model_card={},
+        )
+
+    forged_calibration = deepcopy(result["calibration"])
+    forged_calibration["candidate_calibration"][0]["primary_slice_count"] += 1
+    forged_calibration_core = dict(forged_calibration)
+    forged_calibration_core.pop("report_identity")
+    forged_calibration["report_identity"] = content_identity(forged_calibration_core)
+    with pytest.raises(ContractError, match="drifted from benchmark"):
+        validate_calibration_report(forged_calibration, benchmark=result["report"])
+
+    benchmark_for_card = deepcopy(result["report"])
+    benchmark_for_card["gate"] = {
+        "passed": True,
+        "selected_candidate": "torch-nb-global-v1",
+        "reason_codes": [],
+    }
+    calibration_for_card = deepcopy(result["calibration"])
+    calibration_for_card["gate"]["passed"] = True
+    card_core = {
+        "schema": "ModelCard/v1",
+        "model_id": "sklearn-poisson-l2-v1",
+        "role": "gate-candidate",
+        "research_only": True,
+        "authority": deepcopy(result["report"]["authority"]),
+        "privacy": deepcopy(result["report"]["privacy"]),
+        "benchmark_report_identity": benchmark_for_card["report_identity"],
+        "calibration_report_identity": calibration_for_card["report_identity"],
+        "lineage": deepcopy(result["report"]["lineage"]),
+        "intended_use": "aggregate-shadow-evaluation-only",
+        "limitations": [],
+        "prohibited_uses": [],
+        "model_artifact": {
+            "format": "state-dict-only-or-none",
+            "admitted_for_deserialization": False,
+            "bridge_consumes_checkpoint": False,
+        },
+    }
+    mismatched_card = {**card_core, "card_identity": content_identity(card_core)}
+    with pytest.raises(ContractError, match="exact selected governed candidate"):
+        validate_model_card(
+            mismatched_card,
+            benchmark=benchmark_for_card,
+            calibration=calibration_for_card,
+            repo_root=_repo_root(),
+        )
 
     drifted_protocol = tmp_path / "drifted-protocol.json"
     drifted_protocol.write_text(
@@ -151,6 +229,13 @@ def test_unavailable_admission_is_honest_and_m7_ingress_has_no_deserializer() ->
     assert receipt["lineage"]["m1_receipt_identity"] is None
     assert receipt["lineage"]["m2_mart_identity"] is None
     assert receipt["benchmark_report_identity"] is None
+    drifted = deepcopy(receipt)
+    drifted["lineage"]["feature_schema_identity"] = "sha256:" + "0" * 64
+    drifted_core = dict(drifted)
+    drifted_core.pop("receipt_identity")
+    drifted["receipt_identity"] = content_identity(drifted_core)
+    with pytest.raises(ContractError, match="frozen M7 input"):
+        validate_model_admission_receipt(drifted, repo_root=_repo_root())
     sources = [
         _repo_root() / "ml" / "src" / "engagement_ml" / "m7_contracts.py",
         _repo_root() / "ml" / "src" / "engagement_ml" / "governed.py",

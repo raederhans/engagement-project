@@ -427,7 +427,7 @@ def _model_card(
     report: Mapping[str, Any], calibration: Mapping[str, Any]
 ) -> dict[str, Any] | None:
     model_id = report["gate"]["selected_candidate"]
-    if model_id is None:
+    if model_id is None or calibration["gate"]["passed"] is not True:
         return None
     catalog = {entry["id"]: entry for entry in report["candidate_catalog"]}
     core = {
@@ -463,6 +463,7 @@ def _model_card(
 
 
 def _admission(
+    repo_root: Path,
     report: Mapping[str, Any],
     calibration: Mapping[str, Any],
     model_card: Mapping[str, Any] | None,
@@ -492,6 +493,7 @@ def _admission(
     receipt = {**core, "receipt_identity": content_identity(core)}
     return validate_model_admission_receipt(
         receipt,
+        repo_root=repo_root,
         benchmark=report,
         calibration=calibration,
         model_card=model_card,
@@ -669,7 +671,7 @@ def run_governed_benchmark(
     validate_model_benchmark_report(report)
     calibration = _calibration_report(report)
     card = _model_card(report, calibration)
-    admission = _admission(report, calibration, card)
+    admission = _admission(repo_root, report, calibration, card)
     write_json(output_root / "model-benchmark-report.json", report)
     write_json(output_root / "calibration-report.json", calibration)
     if card is not None:

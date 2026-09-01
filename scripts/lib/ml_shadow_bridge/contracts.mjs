@@ -57,7 +57,7 @@ export const FROZEN_LINEAGE = Object.freeze({
   feature_schema_identity: 'sha256:08cad80f5015e710fdd107c67eedee63e4b787d1420c9faf82e6cf4cc1cebe9b',
   split_policy_identity: 'sha256:cecc1a31d3a1dfba2c49a4e47bf41109d9c9f5fd06b93351fee7bf0656e91166',
   candidate_set_identity: 'sha256:b7d3696ba06182b836608d4a6757bd18dc54c3fb723f36e5d7c96f39fecaca45',
-  candidate_implementation_identity: 'sha256:b7d68cf94003e5efdb58b581c39c04953b3a7e686af519bb89469dbc114e56e1',
+  candidate_implementation_identity: 'sha256:8282b0d7a0d6d6fa44eb7cde143148dba846e8727b041bd08ee11b070777f6fc',
   search_space_identity: 'sha256:b9c47e60b4e9e88523cbe44d33a9e6f3267bdc6ae2038c54e01815f08d4631fa',
   seed_set_identity: 'sha256:980f9d4f67f2ac46b38c14557dd7eb80b6f02a378385edcbc14f54e62aa612c8',
   preprocessing_identity: 'sha256:6c2320c5efa152bd3816a8153756e9989f1a2811d8c30ed30076ad14805c4fed',

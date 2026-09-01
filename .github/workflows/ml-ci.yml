@@ -44,10 +44,6 @@ on:
         description: "Absolute frozen protocol-v2 path"
         required: true
         type: string
-      output_root:
-        description: "Ignored task-owned output root"
-        required: true
-        type: string
       device:
         description: "Controlled full-run device"
         required: true
@@ -110,6 +106,11 @@ jobs:
     runs-on: [self-hosted, linux, ml-benchmark]
     env:
       ML_UV_EXTRA: ${{ inputs.device == 'cuda' && 'cu130' || 'cpu' }}
+      ML_REGISTRY_PATH: ${{ inputs.registry_path }}
+      ML_REGISTRY_ROOT: ${{ inputs.registry_root }}
+      ML_PROTOCOL_PATH: ${{ inputs.protocol_path }}
+      ML_OUTPUT_ROOT: ${{ github.workspace }}/ml/.artifacts/m7-${{ github.run_id }}-${{ github.run_attempt }}
+      ML_DEVICE: ${{ inputs.device }}
     defaults:
       run:
         working-directory: ml
@@ -128,26 +129,26 @@ jobs:
         run: >-
           uv run --locked --no-group dev --extra "$ML_UV_EXTRA" engagement-ml full-benchmark
           --repo-root "${GITHUB_WORKSPACE}"
-          --registry "${{ inputs.registry_path }}"
-          --registry-root "${{ inputs.registry_root }}"
-          --protocol "${{ inputs.protocol_path }}"
-          --output "${{ inputs.output_root }}"
-          --device "${{ inputs.device }}"
+          --registry "$ML_REGISTRY_PATH"
+          --registry-root "$ML_REGISTRY_ROOT"
+          --protocol "$ML_PROTOCOL_PATH"
+          --output "$ML_OUTPUT_ROOT"
+          --device "$ML_DEVICE"
       - name: Project governed aggregate shadow artifact
         if: always()
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
-          if [[ ! -f "${{ inputs.output_root }}/model-admission-receipt.json" ]]; then
+          if [[ ! -f "$ML_OUTPUT_ROOT/model-admission-receipt.json" ]]; then
             exit 0
           fi
           bridge_args=(
-            --admission "${{ inputs.output_root }}/model-admission-receipt.json"
-            --output "${{ inputs.output_root }}/shadow-forecast-artifact.json"
+            --admission "$ML_OUTPUT_ROOT/model-admission-receipt.json"
+            --output "$ML_OUTPUT_ROOT/shadow-forecast-artifact.json"
           )
-          [[ -f "${{ inputs.output_root }}/model-benchmark-report.json" ]] && bridge_args+=(--benchmark "${{ inputs.output_root }}/model-benchmark-report.json")
-          [[ -f "${{ inputs.output_root }}/calibration-report.json" ]] && bridge_args+=(--calibration "${{ inputs.output_root }}/calibration-report.json")
-          [[ -f "${{ inputs.output_root }}/model-card.json" ]] && bridge_args+=(--model-card "${{ inputs.output_root }}/model-card.json")
+          [[ -f "$ML_OUTPUT_ROOT/model-benchmark-report.json" ]] && bridge_args+=(--benchmark "$ML_OUTPUT_ROOT/model-benchmark-report.json")
+          [[ -f "$ML_OUTPUT_ROOT/calibration-report.json" ]] && bridge_args+=(--calibration "$ML_OUTPUT_ROOT/calibration-report.json")
+          [[ -f "$ML_OUTPUT_ROOT/model-card.json" ]] && bridge_args+=(--model-card "$ML_OUTPUT_ROOT/model-card.json")
           node scripts/project_ml_shadow_forecast.mjs "${bridge_args[@]}"
       - name: Upload small aggregate receipts and report
         if: always()
@@ -155,15 +156,15 @@ jobs:
         with:
           name: ml-research-receipts-${{ github.sha }}
           path: |
-            ${{ inputs.output_root }}/feature-parity-receipt.json
-            ${{ inputs.output_root }}/dataset/manifest.json
-            ${{ inputs.output_root }}/benchmark-report.json
-            ${{ inputs.output_root }}/research-run.json
-            ${{ inputs.output_root }}/full-benchmark-receipt.json
-            ${{ inputs.output_root }}/model-benchmark-report.json
-            ${{ inputs.output_root }}/calibration-report.json
-            ${{ inputs.output_root }}/model-card.json
-            ${{ inputs.output_root }}/model-admission-receipt.json
-            ${{ inputs.output_root }}/shadow-forecast-artifact.json
+            ${{ env.ML_OUTPUT_ROOT }}/feature-parity-receipt.json
+            ${{ env.ML_OUTPUT_ROOT }}/dataset/manifest.json
+            ${{ env.ML_OUTPUT_ROOT }}/benchmark-report.json
+            ${{ env.ML_OUTPUT_ROOT }}/research-run.json
+            ${{ env.ML_OUTPUT_ROOT }}/full-benchmark-receipt.json
+            ${{ env.ML_OUTPUT_ROOT }}/model-benchmark-report.json
+            ${{ env.ML_OUTPUT_ROOT }}/calibration-report.json
+            ${{ env.ML_OUTPUT_ROOT }}/model-card.json
+            ${{ env.ML_OUTPUT_ROOT }}/model-admission-receipt.json
+            ${{ env.ML_OUTPUT_ROOT }}/shadow-forecast-artifact.json
           if-no-files-found: warn
           retention-days: 7

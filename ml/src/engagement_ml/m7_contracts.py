@@ -16,7 +16,7 @@ from .constants import (
     MODEL_CARD_SCHEMA,
 )
 from .contracts import ContractError
-from .governance import LINEAGE_KEYS, frozen_lineage
+from .governance import LINEAGE_KEYS, frozen_lineage, load_governance
 from .identity import content_identity
 
 _SHA256 = re.compile(r"^sha256:[a-f0-9]{64}$")
@@ -96,6 +96,16 @@ def _finite(value: Any, label: str, *, nullable: bool = False) -> float | None:
     return float(value)
 
 
+def _nullable_close(value: Any, expected: float | None) -> bool:
+    if expected is None:
+        return value is None
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isclose(float(value), expected, rel_tol=1e-12, abs_tol=1e-12)
+    )
+
+
 def _identity(value: Mapping[str, Any], field: str, label: str) -> None:
     declared = _sha(value.get(field), f"{label}.{field}")
     core = dict(value)
@@ -104,7 +114,9 @@ def _identity(value: Mapping[str, Any], field: str, label: str) -> None:
         raise ContractError(f"{label} content identity drifted")
 
 
-def validate_lineage(value: Any, *, allow_unavailable: bool = False) -> dict[str, Any]:
+def validate_lineage(
+    value: Any, *, allow_unavailable: bool = False, repo_root: Path | None = None
+) -> dict[str, Any]:
     lineage = dict(_object(value, "lineage"))
     _exact(lineage, set(LINEAGE_KEYS), "lineage")
     nullable = {
@@ -118,6 +130,11 @@ def validate_lineage(value: Any, *, allow_unavailable: bool = False) -> dict[str
         _sha(identity, f"lineage.{key}", nullable=allow_unavailable and key in nullable)
     if not allow_unavailable and any(identity is None for identity in lineage.values()):
         raise ContractError("evaluated lineage must bind every exact identity")
+    if repo_root is not None:
+        expected = frozen_lineage(repo_root)
+        for key, identity in expected.items():
+            if identity is not None and lineage[key] != identity:
+                raise ContractError(f"lineage.{key} drifted from the frozen M7 input")
     return lineage
 
 
@@ -135,7 +152,9 @@ def _production(value: Any) -> None:
         raise ContractError("production forecast must remain unavailable with no predictions")
 
 
-def validate_model_benchmark_report(value: Mapping[str, Any]) -> dict[str, Any]:
+def validate_model_benchmark_report(
+    value: Mapping[str, Any], *, repo_root: Path | None = None
+) -> dict[str, Any]:
     expected = {
         "schema",
         "evaluation_scope",
@@ -161,7 +180,7 @@ def validate_model_benchmark_report(value: Mapping[str, Any]) -> dict[str, Any]:
     if value["status"] not in {"evaluated", "unavailable"}:
         raise ContractError("invalid benchmark status")
     _common(value)
-    validate_lineage(value["lineage"])
+    validate_lineage(value["lineage"], repo_root=repo_root)
     catalog = _array(value["candidate_catalog"], "candidate_catalog")
     if tuple(entry.get("id") for entry in catalog if isinstance(entry, Mapping)) != M7_FORMAL_MODEL_IDS:
         raise ContractError("formal candidate catalog identity/order drifted")
@@ -401,7 +420,7 @@ def validate_model_benchmark_report(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def validate_calibration_report(
-    value: Mapping[str, Any], *, benchmark: Mapping[str, Any] | None = None
+    value: Mapping[str, Any], *, benchmark: Mapping[str, Any]
 ) -> dict[str, Any]:
     expected = {
         "schema",
@@ -428,16 +447,17 @@ def validate_calibration_report(
         "calibration_policy_identity",
     ):
         _sha(value[field], field)
-    if benchmark is not None:
-        if value["benchmark_report_identity"] != benchmark["report_identity"]:
-            raise ContractError("calibration benchmark identity drifted")
-        lineage = benchmark["lineage"]
-        if value["dataset_manifest_identity"] != lineage["dataset_manifest_identity"]:
-            raise ContractError("calibration dataset identity drifted")
-        if value["split_policy_identity"] != lineage["split_policy_identity"]:
-            raise ContractError("calibration split identity drifted")
-        if value["calibration_policy_identity"] != lineage["calibration_policy_identity"]:
-            raise ContractError("calibration policy identity drifted")
+    if value["evaluation_scope"] != benchmark["evaluation_scope"]:
+        raise ContractError("calibration evaluation scope drifted")
+    if value["benchmark_report_identity"] != benchmark["report_identity"]:
+        raise ContractError("calibration benchmark identity drifted")
+    lineage = benchmark["lineage"]
+    if value["dataset_manifest_identity"] != lineage["dataset_manifest_identity"]:
+        raise ContractError("calibration dataset identity drifted")
+    if value["split_policy_identity"] != lineage["split_policy_identity"]:
+        raise ContractError("calibration split identity drifted")
+    if value["calibration_policy_identity"] != lineage["calibration_policy_identity"]:
+        raise ContractError("calibration policy identity drifted")
     rows = _array(value["candidate_calibration"], "candidate_calibration")
     if tuple(row.get("model") for row in rows if isinstance(row, Mapping)) != M7_FORMAL_MODEL_IDS[:6]:
         raise ContractError("calibration candidate order drifted")
@@ -451,23 +471,84 @@ def validate_calibration_report(
         "failed_slices",
         "passed",
     }
+    normalized_rows = []
     for row in rows:
         item = _object(row, "candidate calibration")
         _exact(item, row_keys, "candidate calibration")
+        if (
+            isinstance(item["primary_slice_count"], bool)
+            or not isinstance(item["primary_slice_count"], int)
+            or item["primary_slice_count"] < 0
+        ):
+            raise ContractError("calibration primary_slice_count must be a non-negative integer")
         for field in ("coverage_minimum", "coverage_maximum", "coverage_median"):
             value_number = _finite(item[field], field, nullable=True)
             if value_number is not None and not 0 <= value_number <= 1:
                 raise ContractError(f"{field} must be within [0,1]")
+        failed_slices = _array(item["failed_slices"], "calibration failed_slices")
+        if (
+            any(not isinstance(entry, str) for entry in failed_slices)
+            or len(set(failed_slices)) != len(failed_slices)
+            or not isinstance(item["passed"], bool)
+        ):
+            raise ContractError("candidate calibration evidence is invalid")
+        primary = [
+            result
+            for result in benchmark["primary_results"]
+            if result["model"] == item["model"]
+        ]
+        coverages = [
+            float(result["prediction_interval_90_coverage"])
+            for result in primary
+            if result["prediction_interval_90_coverage"] is not None
+        ]
+        expected_failed = [
+            f"{result['fold']}|{result['unit_type']}|{result['holdout_slice']}"
+            for result in primary
+            if result["prediction_interval_90_coverage"] is None
+            or not 0.85 <= float(result["prediction_interval_90_coverage"]) <= 0.95
+        ]
+        expected_passed = len(primary) == 16 and not expected_failed
+        expected_minimum = min(coverages) if coverages else None
+        expected_maximum = max(coverages) if coverages else None
+        expected_median = float(statistics.median(coverages)) if coverages else None
+        if (
+            item["primary_slice_count"] != len(primary)
+            or not _nullable_close(item["coverage_minimum"], expected_minimum)
+            or not _nullable_close(item["coverage_maximum"], expected_maximum)
+            or not _nullable_close(item["coverage_median"], expected_median)
+            or list(failed_slices) != expected_failed
+            or item["passed"] is not expected_passed
+        ):
+            raise ContractError("candidate calibration evidence drifted from benchmark")
+        normalized_rows.append(item)
     gate = _object(value["gate"], "calibration gate")
     _exact(gate, {"passed", "all_primary_slices_required"}, "calibration gate")
-    if gate["all_primary_slices_required"] is not True:
+    if gate["all_primary_slices_required"] is not True or not isinstance(gate["passed"], bool):
         raise ContractError("aggregate calibration bypass is prohibited")
+    selected = next(
+        (
+            row
+            for row in normalized_rows
+            if row["model"] == benchmark["gate"]["selected_candidate"]
+        ),
+        None,
+    )
+    expected_gate = benchmark["gate"]["passed"] is True and bool(
+        selected and selected["passed"] is True
+    )
+    if gate["passed"] is not expected_gate:
+        raise ContractError("calibration gate drifted from benchmark evidence")
     _identity(value, "report_identity", CALIBRATION_REPORT_SCHEMA)
     return dict(value)
 
 
 def validate_model_card(
-    value: Mapping[str, Any], *, benchmark: Mapping[str, Any], calibration: Mapping[str, Any]
+    value: Mapping[str, Any],
+    *,
+    benchmark: Mapping[str, Any],
+    calibration: Mapping[str, Any],
+    repo_root: Path | None = None,
 ) -> dict[str, Any]:
     expected = {
         "schema",
@@ -495,7 +576,7 @@ def validate_model_card(
         raise ContractError("model card benchmark identity drifted")
     if value["calibration_report_identity"] != calibration["report_identity"]:
         raise ContractError("model card calibration identity drifted")
-    if validate_lineage(value["lineage"]) != benchmark["lineage"]:
+    if validate_lineage(value["lineage"], repo_root=repo_root) != benchmark["lineage"]:
         raise ContractError("model card lineage drifted")
     if value["intended_use"] != "aggregate-shadow-evaluation-only":
         raise ContractError("model card intended use drifted")
@@ -505,6 +586,13 @@ def validate_model_card(
         "bridge_consumes_checkpoint": False,
     }:
         raise ContractError("model artifact deserialization boundary drifted")
+    if (
+        benchmark["gate"]["passed"] is not True
+        or calibration["gate"]["passed"] is not True
+        or benchmark["gate"]["selected_candidate"] != value["model_id"]
+        or value["model_id"] not in M7_FORMAL_MODEL_IDS[3:6]
+    ):
+        raise ContractError("model card lacks the exact selected governed candidate")
     _identity(value, "card_identity", MODEL_CARD_SCHEMA)
     return dict(value)
 
@@ -512,6 +600,7 @@ def validate_model_card(
 def validate_model_admission_receipt(
     value: Mapping[str, Any],
     *,
+    repo_root: Path | None = None,
     benchmark: Mapping[str, Any] | None = None,
     calibration: Mapping[str, Any] | None = None,
     model_card: Mapping[str, Any] | None = None,
@@ -541,7 +630,9 @@ def validate_model_admission_receipt(
         raise ContractError("invalid model admission decision")
     _common(value)
     allow_unavailable = value["status"] == "unavailable"
-    validate_lineage(value["lineage"], allow_unavailable=allow_unavailable)
+    receipt_lineage = validate_lineage(
+        value["lineage"], allow_unavailable=allow_unavailable, repo_root=repo_root
+    )
     for field in ("benchmark_report_identity", "calibration_report_identity", "model_card_identity"):
         _sha(value[field], field, nullable=True)
     if value["decision"] == "shadow-admitted":
@@ -553,14 +644,72 @@ def validate_model_admission_receipt(
             or any(value[field] is None for field in ("benchmark_report_identity", "calibration_report_identity", "model_card_identity"))
         ):
             raise ContractError("shadow admission lacks exact full-evaluation evidence")
+        if repo_root is None:
+            raise ContractError("shadow admission requires the frozen governance policy")
+        if benchmark is None or calibration is None or model_card is None:
+            raise ContractError(
+                "shadow admission requires its exact benchmark, calibration, and model card evidence"
+            )
+        governance = load_governance(repo_root)
+        admitted_registries = governance["policy"]["admission_registry"][
+            "exact_full_artifact_registry_identities"
+        ]
+        if receipt_lineage["artifact_registry_identity"] not in admitted_registries:
+            raise ContractError(
+                "shadow admission is blocked until an exact full ArtifactRegistry identity is frozen"
+            )
     elif value["selected_model"] is not None:
         raise ContractError("no-promotion receipt cannot select a model")
-    if benchmark is not None and value["benchmark_report_identity"] != benchmark["report_identity"]:
-        raise ContractError("admission benchmark identity drifted")
-    if calibration is not None and value["calibration_report_identity"] != calibration["report_identity"]:
-        raise ContractError("admission calibration identity drifted")
-    if model_card is not None and value["model_card_identity"] != model_card["card_identity"]:
-        raise ContractError("admission model card identity drifted")
+
+    evidence = (
+        ("benchmark_report_identity", benchmark),
+        ("calibration_report_identity", calibration),
+        ("model_card_identity", model_card),
+    )
+    for field, artifact in evidence:
+        if value[field] is None and artifact is not None:
+            raise ContractError(f"admission supplied {field} evidence without a declared identity")
+        if value[field] is not None and artifact is None:
+            raise ContractError(f"admission declared {field} without its exact evidence")
+
+    validated_benchmark = None
+    validated_calibration = None
+    validated_card = None
+    if benchmark is not None:
+        validated_benchmark = validate_model_benchmark_report(benchmark, repo_root=repo_root)
+        if value["benchmark_report_identity"] != validated_benchmark["report_identity"]:
+            raise ContractError("admission benchmark identity drifted")
+        if receipt_lineage != validated_benchmark["lineage"]:
+            raise ContractError("admission benchmark lineage drifted")
+    if calibration is not None:
+        if validated_benchmark is None:
+            raise ContractError("admission calibration evidence requires its exact benchmark")
+        validated_calibration = validate_calibration_report(
+            calibration, benchmark=validated_benchmark
+        )
+        if value["calibration_report_identity"] != validated_calibration["report_identity"]:
+            raise ContractError("admission calibration identity drifted")
+    if model_card is not None:
+        if validated_benchmark is None or validated_calibration is None:
+            raise ContractError("admission model card requires exact benchmark and calibration")
+        validated_card = validate_model_card(
+            model_card,
+            benchmark=validated_benchmark,
+            calibration=validated_calibration,
+            repo_root=repo_root,
+        )
+        if value["model_card_identity"] != validated_card["card_identity"]:
+            raise ContractError("admission model card identity drifted")
+        if value["selected_model"] != validated_card["model_id"]:
+            raise ContractError("admission selected model drifted from its model card")
+    if value["decision"] == "shadow-admitted" and (
+        validated_benchmark is None
+        or validated_calibration is None
+        or validated_card is None
+        or validated_benchmark["gate"]["passed"] is not True
+        or validated_calibration["gate"]["passed"] is not True
+    ):
+        raise ContractError("shadow admission lacks passed cross-bound evidence")
     _production(value["production_forecast"])
     _identity(value, "receipt_identity", MODEL_ADMISSION_RECEIPT_SCHEMA)
     return dict(value)
@@ -585,4 +734,4 @@ def build_unavailable_admission_receipt(repo_root: Path, reason_code: str) -> di
         "production_forecast": dict(PRODUCTION_UNAVAILABLE),
     }
     receipt = {**core, "receipt_identity": content_identity(core)}
-    return validate_model_admission_receipt(receipt)
+    return validate_model_admission_receipt(receipt, repo_root=repo_root)

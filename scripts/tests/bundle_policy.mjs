@@ -426,6 +426,23 @@ async function verifyWorkflowPolicy() {
   assert.match(deployBlock, /^    needs: \[core, release, coverage\]\r?$/m, 'Pages deploy job must depend on every same-run gate');
   assert.match(deployBlock, /^    environment:\r?\n      name: github-pages\r?\n      url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}\r?$/m, 'Pages deploy environment and URL contract must remain intact');
 
+  const mlCi = await readFile(path.join(workflowDir, 'ml-ci.yml'), 'utf8');
+  assert.doesNotMatch(
+    mlCi,
+    /^      output_root:\r?$/m,
+    'ML full benchmark must not accept a caller-controlled output root',
+  );
+  assert.match(
+    mlCi,
+    /^      ML_OUTPUT_ROOT: \$\{\{ github\.workspace \}\}\/ml\/\.artifacts\/m7-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}\r?$/m,
+    'ML full benchmark must derive one fresh ignored output root from trusted run context',
+  );
+  assert.doesNotMatch(
+    extractRunScripts(mlCi),
+    /\$\{\{\s*inputs\./,
+    'ML workflow shell scripts must consume dispatch strings through environment variables',
+  );
+
   const sourceAudit = await readFile(path.join(workflowDir, 'audit-source-candidates.yml'), 'utf8');
   assert.match(
     sourceAudit,
@@ -455,6 +472,30 @@ function extractJobBlock(text, jobName) {
   const nextJob = /^  [A-Za-z0-9_-]+:\r?$/m.exec(text.slice(afterHeading));
   const end = nextJob ? afterHeading + nextJob.index : text.length;
   return text.slice(heading.index, end);
+}
+
+function extractRunScripts(text) {
+  const lines = text.split(/\r?\n/);
+  const scripts = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^(\s*)run:\s*(.*)$/.exec(lines[index]);
+    if (!match) continue;
+    const indentation = match[1].length;
+    const inline = match[2].trim();
+    if (inline && !/^[>|]-?$/.test(inline)) scripts.push(inline);
+    while (index + 1 < lines.length) {
+      const next = lines[index + 1];
+      if (!next.trim()) {
+        index += 1;
+        continue;
+      }
+      const nextIndentation = next.length - next.trimStart().length;
+      if (nextIndentation <= indentation) break;
+      scripts.push(next.trimStart());
+      index += 1;
+    }
+  }
+  return scripts.join('\n');
 }
 
 function verifyReadOnlyJobPermissionGuard() {
