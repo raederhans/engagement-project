@@ -311,6 +311,49 @@ test('in-process OSRM adapter keeps coordinates out of URLs and projects into bo
   assert.doesNotMatch(JSON.stringify(result), /-75\.165222|39\.952583/);
 });
 
+test('in-process OSRM adapter never overlaps native work while an aborted call is draining', async () => {
+  let activeNativeCalls = 0;
+  let maximumActiveNativeCalls = 0;
+  const callbacks = [];
+  const adapter = createInProcessOsrmEngineAdapter({
+    identity: 'm7-in-process-osrm-single-flight',
+    osrm: {
+      route(_options, callback) {
+        activeNativeCalls += 1;
+        maximumActiveNativeCalls = Math.max(maximumActiveNativeCalls, activeNativeCalls);
+        callbacks.push((error = null) => {
+          activeNativeCalls -= 1;
+          callback(error, { code: 'Ok', routes: [{ weight: 2 }] });
+        });
+      },
+    },
+    projectRouteContext(result) {
+      return { status: result.code };
+    },
+  });
+  const controller = new AbortController();
+  const first = adapter.generate(privateRequest(), { signal: controller.signal });
+  assert.equal(callbacks.length, 1);
+  controller.abort();
+  await assert.rejects(first, /route generation failed/);
+
+  await assert.rejects(
+    adapter.generate(privateRequest()),
+    /still draining/,
+  );
+  assert.equal(callbacks.length, 1);
+  assert.equal(maximumActiveNativeCalls, 1);
+
+  callbacks[0]();
+  await Promise.resolve();
+  const third = adapter.generate(privateRequest());
+  assert.equal(callbacks.length, 2);
+  callbacks[1]();
+  assert.deepEqual(await third, { status: 'Ok' });
+  assert.equal(maximumActiveNativeCalls, 1);
+  assert.equal(activeNativeCalls, 0);
+});
+
 test('duplicate graph identity and invalid search input fail closed without candidates', async () => {
   const duplicateGraph = graphArtifact({
     edges: [

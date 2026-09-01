@@ -13,14 +13,23 @@ flowchart LR
   Evaluation --> Gate{All promotion gates pass?}
   Gate -- no --> Historical[Historical evidence; forecast unavailable]
   Gate -- eligible only --> Review[Independent serving review]
+  Review --> Shadow[Aggregate-only shadow candidate]
   Historical --> Area[Area Intelligence]
   Historical --> Home[Home Compare]
   Historical --> Route[Known Route evidence]
+  PublicFixtures[Allowlisted public walking fixtures] --> PublicRoutes[Public Route Scenarios]
+  PrivateOD[Session-only private OD] --> LocalCompanion[Loopback or in-process companion]
+  LocalCompanion --> LocalAlternatives[Local route alternatives]
+  Shadow -. no routing authority .-> RouteIsolation[Route ranking remains independent]
+  LocalAlternatives -. cannot satisfy evidence admission .-> Route
   Diary[Browser-local Diary demo] -. demo-only, no evidence authority .-> Route
 ```
 
 The dashed Diary connection is a user-experience seam only. Diary observations, Sample Community cards,
 demo routes, and locally generated alternatives cannot satisfy a Known Route source receipt or any R7 gate.
+Public fixtures accept no private endpoint and grant no routing authority. The local companion keeps private
+OD in a caller-owned process boundary; absent real engine/evidence observations remain explicitly
+`unavailable`.
 
 ## Data flow and trust boundaries
 
@@ -78,6 +87,9 @@ metric improvement grants product promotion, scientific authority, serving, or d
 | Area Intelligence | Historical evidence available; forecast not promoted | `public/data/area_intelligence_baseline.v2.json` |
 | Home Compare | Source-specific aggregate availability; private address session-only | `src/home_compare/`, lifecycle and join DQ contracts |
 | Known Route | User-supplied route evidence; no safest route or combined score | `src/routes_crime/known_route_*` |
+| M7 model governance | Strict aggregate receipts; current decision `no-promotion`, shadow unavailable | `ml/contracts/`, `scripts/lib/ml_shadow_bridge/` |
+| Public Route Scenarios | At most three admitted public-landmark fixtures; no private OD or runtime router | `src/public_route_alternatives/` |
+| Local Private Route | Loopback/in-process developer companion; no hosted service or route retention | `src/route_generation/local_companion/` |
 | Diary | Browser-local demo and static Sample Community only | `src/routes_diary/` |
 
 ## Restore and validation routes
@@ -98,6 +110,25 @@ metric improvement grants product promotion, scientific authority, serving, or d
 2. **Home Compare** compares 2–4 locations using independent aggregate sources; source gaps remain visible.
 3. **Known Route** explains evidence along a user-provided route while separating incidents, crashes,
    accessibility, mode legality, calibration, and sensitivity.
+4. **Public Route Scenarios (M7 local candidate)** presents admitted, precomputed public walking alternatives
+   with bounded trade-offs and uncertainty. It is not yet a live-demo claim without exact-SHA remote evidence.
+
+The **Local Private Route companion** is a developer-operated local mode, not a hosted public surface. It
+uses authenticated loopback or an in-process adapter, never serializes private OD into URLs, and falls back
+to Known Route when an admitted engine or evidence pack is unavailable.
 
 The future R7 decision is a machine-readable go/no-go gate only. It must not create route alternatives,
 choose a winner, infer a safest route, or collapse dimensions into a combined safety score.
+
+## M7 case study: useful alternatives without borrowed authority
+
+- **Problem:** expose route trade-offs and governed ML evidence without turning synthetic fixtures, private
+  coordinates, or a green benchmark into safety, serving, or promotion claims.
+- **Decision:** split M7 into three independently admitted lanes: aggregate-only model receipts, allowlisted
+  public fixtures, and a caller-owned local companion. Route ranking never consumes ML forecasts.
+- **Verification:** hostile-input contracts cover identity drift, forged promotion, private egress paths,
+  loopback authentication, bounded route generation, bundle ceilings, bilingual browser behavior, and
+  accessibility. Real OSRM, 30–50 OD performance, 100-segment human QA, remote CI, and deployment remain
+  separate unavailable or unverified evidence.
+- **Result:** the local candidate provides honest multi-route states and reproducible gates while retaining
+  `unavailable`, single-route, and Known Route fallback behavior whenever authority is missing.

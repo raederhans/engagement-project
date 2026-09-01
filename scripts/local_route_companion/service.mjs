@@ -281,8 +281,8 @@ function singleHeader(value) {
 
 function pruneExpiredChallenges(activeChallenges) {
   const now = Date.now();
-  for (const challenge of activeChallenges.values()) {
-    if (challenge.expiresAt <= now) challenge.consumed = true;
+  for (const [nonce, challenge] of activeChallenges) {
+    if (challenge.expiresAt <= now) activeChallenges.delete(nonce);
   }
 }
 

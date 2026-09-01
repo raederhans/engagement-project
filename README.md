@@ -19,13 +19,20 @@ promotion, or routing authority.
 ## Explore in 30 seconds
 
 - **[Open the live evidence demo](https://raederhans.github.io/engagement-project/)** — bilingual historical
-  reported-incident exploration plus three bounded product surfaces.
+  reported-incident exploration plus the three deployed bounded product surfaces. The local M7 candidate
+  below is not a deployment claim until its exact SHA passes remote CI and Pages verification.
 - **Area Intelligence** — admitted historical aggregates are visible; the forecast remains
   `not-promoted / unavailable` because the frozen evaluation gate did not pass.
 - **Home Compare** — privacy-preserving, aggregate source comparison with independent
   `available / partial / unavailable` states. Private address input remains session-only.
 - **Known Route** — evidence for a route supplied by the user. It keeps reported incidents, raw crashes,
   accessibility, legality, and calibration dimensions separate and never emits a combined safety score.
+- **Public Route Scenarios (M7 local candidate)** — allowlisted, precomputed public-landmark walking
+  scenarios expose distance/time trade-offs and uncertainty. They accept no private endpoint, do not call a
+  runtime router, and never select a safest route.
+- **Local Private Route companion (M7 developer mode)** — an opt-in loopback or in-process boundary can
+  generate alternatives without putting coordinates in URLs, logs, or tracked artifacts. Without an
+  admitted local engine and evidence pack it stays unavailable and falls back to Known Route.
 - **Diary / Sample Community** — a demo-only, browser-local experience. It is not an evidence-admitted
   route, community backend, or current-conditions feed.
 
@@ -56,6 +63,11 @@ Candidate models enter only through a protocol frozen before final test-fold res
 evaluated without being promoted. Promotion requires every declared temporal, spatial, interval,
 convergence, and slice gate; failure produces an honest no-promotion outcome.
 
+M7 adds strict benchmark, calibration, model-card, admission-receipt, and aggregate shadow-artifact
+contracts. The current exact-registry allowlist is empty, so the evidence-backed decision remains
+`no-promotion`; both shadow and production forecasts remain `unavailable`. Forecast artifacts are isolated
+from route ranking and cannot grant routing authority.
+
 - Current protocol: [Evaluation Protocol v2](scripts/data/area_intelligence_evaluation_protocol.v2.json)
 - Mainline expansion: Evaluation Protocol v3 freezes additional baseline, sklearn, and PyTorch candidate
   identities while preserving the same no-promotion boundary.
@@ -78,6 +90,8 @@ authorization-aware operations:
 
 ```bash
 npm run test:mainline-m0-m6
+npm run test:ml-m7
+npm run test:mainline-m7
 ```
 
 The exact materialize, mirror, restore, second-environment, scheduled-observation, and disaster-drill

@@ -421,6 +421,32 @@ test('missing, wrong, replayed, expired, and body-mismatched route proofs fail b
   }
 });
 
+test('expired authentication challenges release bounded session capacity', async () => {
+  const sessionSecret = createSessionSecret();
+  const running = await startLocalRouteCompanionService({
+    port: 0,
+    authChallengeTtlMs: 1,
+    sessionSecret,
+    companion: { generate: async () => ({ status: 'unavailable' }) },
+  });
+  try {
+    for (let index = 0; index < 4_097; index += 1) {
+      const response = await jsonRequest(
+        running.port,
+        JSON.stringify({
+          schemaVersion: LOCAL_ROUTE_AUTH_CHALLENGE_SCHEMA_VERSION,
+          nonce: createChallengeNonce(),
+        }),
+        '/auth/challenge',
+      );
+      assert.equal(response.statusCode, 200, `challenge ${index + 1} was not admitted`);
+    }
+  } finally {
+    await running.close();
+    sessionSecret.fill(0);
+  }
+});
+
 test('all external adapter module aliases are rejected without dynamic filesystem import', async () => {
   const sessionSecret = createSessionSecret();
   await assert.rejects(

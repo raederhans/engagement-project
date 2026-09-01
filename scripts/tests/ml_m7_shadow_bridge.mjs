@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
@@ -14,6 +16,9 @@ import {
 } from '../lib/ml_shadow_bridge/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const ARTIFACTS_ROOT = path.join(ROOT, 'ml', '.artifacts');
+const SHADOW_CLI = path.join(ROOT, 'scripts', 'project_ml_shadow_forecast.mjs');
+const execFileAsync = promisify(execFile);
 const SHA = `sha256:${'a'.repeat(64)}`;
 const AUTHORITY = {
   serving: false, promotion: false, production: false, routing: false, scientific: false,
@@ -292,4 +297,98 @@ test('M7 no-promotion stays unavailable and hostile lineage, authority, and dupl
     () => strictJsonParse('{"schema":"ModelAdmissionReceipt/v1","schema":"drift"}'),
     /duplicate M7 JSON key/,
   );
+});
+
+test('M7 shadow CLI writes only a fresh ignored task artifact and rejects path drift', async (t) => {
+  await fs.mkdir(ARTIFACTS_ROOT, { recursive: true });
+  const runDirectory = await fs.mkdtemp(path.join(ARTIFACTS_ROOT, 'm7-node-cli-'));
+  const linkedTarget = await fs.mkdtemp(path.join(ARTIFACTS_ROOT, 'm7-node-cli-real-'));
+  const linkedDirectory = path.join(
+    ARTIFACTS_ROOT,
+    `m7-node-cli-link-${process.pid}-${Date.now()}`,
+  );
+  const deniedOutput = path.join(
+    ROOT,
+    'docs',
+    `.m7-node-cli-denied-${process.pid}-${Date.now()}.json`,
+  );
+  let linkCreated = false;
+  t.after(async () => {
+    if (linkCreated) await fs.unlink(linkedDirectory);
+    await fs.rm(runDirectory, { recursive: true, force: true });
+    await fs.rm(linkedTarget, { recursive: true, force: true });
+    await fs.rm(deniedOutput, { force: true });
+  });
+
+  const fixture = governedFixture();
+  const inputPaths = Object.fromEntries(await Promise.all([
+    ['admission', fixture.receipt],
+    ['benchmark', fixture.benchmark],
+    ['calibration', fixture.calibration],
+  ].map(async ([name, value]) => {
+    const inputPath = path.join(runDirectory, `${name}.json`);
+    await fs.writeFile(inputPath, `${JSON.stringify(value)}\n`, 'utf8');
+    return [name, inputPath];
+  })));
+  const output = path.join(runDirectory, 'shadow-forecast-artifact.json');
+  const args = [
+    SHADOW_CLI,
+    '--admission', inputPaths.admission,
+    '--benchmark', inputPaths.benchmark,
+    '--calibration', inputPaths.calibration,
+    '--output', output,
+  ];
+
+  const success = await execFileAsync(process.execPath, args, { cwd: ROOT, windowsHide: true });
+  assert.match(success.stdout, /"decision":"no-promotion"/);
+  const published = await fs.readFile(output, 'utf8');
+  assert.equal(JSON.parse(published).decision, 'no-promotion');
+
+  await assert.rejects(
+    execFileAsync(process.execPath, args, { cwd: ROOT, windowsHide: true }),
+    (error) => {
+      assert.equal(error.code, 2);
+      assert.match(error.stderr, /must not already exist/);
+      return true;
+    },
+  );
+  assert.equal(await fs.readFile(output, 'utf8'), published);
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [...args.slice(0, -1), deniedOutput], {
+      cwd: ROOT,
+      windowsHide: true,
+    }),
+    (error) => {
+      assert.equal(error.code, 2);
+      assert.match(error.stderr, /repo\/ml\/\.artifacts/);
+      return true;
+    },
+  );
+  await assert.rejects(fs.lstat(deniedOutput), { code: 'ENOENT' });
+
+  try {
+    await fs.symlink(linkedTarget, linkedDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+    linkCreated = true;
+  } catch (error) {
+    if (error?.code !== 'EPERM') throw error;
+    t.diagnostic('link-path regression skipped because this host cannot create a test link');
+  }
+  if (linkCreated) {
+    const linkedOutput = path.join(linkedDirectory, 'shadow-forecast-artifact.json');
+    await assert.rejects(
+      execFileAsync(process.execPath, [...args.slice(0, -1), linkedOutput], {
+        cwd: ROOT,
+        windowsHide: true,
+      }),
+      (error) => {
+        assert.equal(error.code, 2);
+        assert.match(error.stderr, /existing real directory|link or reparse/);
+        return true;
+      },
+    );
+    await assert.rejects(fs.lstat(path.join(linkedTarget, 'shadow-forecast-artifact.json')), {
+      code: 'ENOENT',
+    });
+  }
 });

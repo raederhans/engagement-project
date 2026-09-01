@@ -27,11 +27,25 @@ export function createInProcessOsrmEngineAdapter({
     throw new TypeError('in-process OSRM candidateLimit must be between 1 and 5');
   }
 
+  let nativeRouteInFlight = false;
+  const invokeExclusiveRoute = (options, signal) => {
+    if (signal?.aborted) {
+      return Promise.reject(new Error('local in-process OSRM route generation aborted'));
+    }
+    if (nativeRouteInFlight) {
+      return Promise.reject(new Error('local in-process OSRM route generation is still draining'));
+    }
+    nativeRouteInFlight = true;
+    return invokeRoute(osrm, options, signal, () => {
+      nativeRouteInFlight = false;
+    });
+  };
+
   return Object.freeze({
     identity,
     transport: Object.freeze({ kind: 'in-process' }),
     async generate(privateRequest, { signal = null } = {}) {
-      const routeResult = await invokeRoute(osrm, Object.freeze({
+      const routeResult = await invokeExclusiveRoute(Object.freeze({
         coordinates: Object.freeze([
           Object.freeze([
             privateRequest.origin.longitude,
@@ -56,30 +70,38 @@ export function createInProcessOsrmEngineAdapter({
   });
 }
 
-function invokeRoute(osrm, options, signal) {
+function invokeRoute(osrm, options, signal, onNativeSettled) {
   return new Promise((resolve, reject) => {
-    let settled = false;
+    let clientSettled = false;
+    let nativeSettled = false;
     let removeAbortListener = null;
-    const finish = (error, value) => {
-      if (settled) return;
-      settled = true;
+    const finishClient = (error, value) => {
+      if (clientSettled) return;
+      clientSettled = true;
       removeAbortListener?.();
       if (error) reject(new Error('local in-process OSRM route generation failed'));
       else resolve(value);
     };
+    const finishNative = (error, value) => {
+      if (nativeSettled) return;
+      nativeSettled = true;
+      onNativeSettled();
+      finishClient(error, value);
+    };
     if (signal) {
       if (signal.aborted) {
-        finish(new Error('local in-process OSRM route generation aborted'));
+        onNativeSettled();
+        finishClient(new Error('local in-process OSRM route generation aborted'));
         return;
       }
-      const onAbort = () => finish(new Error('local in-process OSRM route generation aborted'));
+      const onAbort = () => finishClient(new Error('local in-process OSRM route generation aborted'));
       signal.addEventListener('abort', onAbort, { once: true });
       removeAbortListener = () => signal.removeEventListener('abort', onAbort);
     }
     try {
-      osrm.route(options, finish);
+      osrm.route(options, finishNative);
     } catch {
-      finish(new Error('local in-process OSRM route generation failed'));
+      finishNative(new Error('local in-process OSRM route generation failed'));
     }
   });
 }

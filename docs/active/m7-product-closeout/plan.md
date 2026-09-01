@@ -26,11 +26,11 @@ Complete the two M7 lines and the product closeout from the verified local integ
 
 - [x] Stage 1: Read the latest project guidance and verify the local M0-M6 integration baseline.
 - [x] Stage 2: Split M7 into three isolated implementation lanes with non-overlapping primary ownership.
-- [ ] Stage 3: Complete and review ML M7 governed admission.
-- [ ] Stage 4: Complete and review Mainline M7 public walking product.
-- [ ] Stage 5: Complete and review Mainline M7 local-private mode and validation pack.
-- [ ] Stage 6: Serially integrate lane commits and run the minimal affected gates followed by the combined release gate.
-- [ ] Stage 7: Reconcile README, architecture, case-study, and release evidence against the exact integrated lineage.
+- [x] Stage 3: Complete and review ML M7 governed admission.
+- [x] Stage 4: Complete and review Mainline M7 public walking product.
+- [x] Stage 5: Complete and review Mainline M7 local-private mode and validation pack.
+- [x] Stage 6: Serially integrate lane commits and run the minimal affected gates followed by the combined release gate.
+- [x] Stage 7: Reconcile bilingual README and Portfolio v2 architecture/case-study with the local M7 evidence boundary.
 - [ ] Stage 8: If separately authorized, push and verify exact-SHA remote CI, Pages, release, and repository-governance state.
 
 ## Acceptance criteria

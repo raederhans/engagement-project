@@ -17,13 +17,19 @@ content-addressed 本地证据 bundle 约 **10.81 GB**。这两个数字只描�
 ## 30 秒了解项目
 
 - **[打开在线证据演示](https://raederhans.github.io/engagement-project/)**：双语历史 reported-incident
-  探索，以及三个受边界约束的产品表面。
+  探索，以及当前已部署的三个受边界约束产品表面。下述本地 M7 候选只有在 exact SHA 通过远端 CI
+  与 Pages 验证后，才能视为已部署。
 - **Area Intelligence**：展示已准入的历史聚合；冻结评估门未通过，因此 forecast 保持
   `not-promoted / unavailable`。
 - **Home Compare**：聚合、隐私安全的多源比较；各数据源独立保留
   `available / partial / unavailable`，私人地址仅作会话内定位。
 - **Known Route**：只分析用户提供的已知路线；reported incidents、raw crash、accessibility、
   legality、calibration 始终分开，不产生 combined safety score。
+- **Public Route Scenarios（M7 本地候选）**：只展示 allowlist 内预计算的公共地标步行场景、
+  距离/时间 trade-off 与不确定性；不接收私人端点、不调用运行时 router，也不选择 safest route。
+- **Local Private Route companion（M7 开发者模式）**：可选 loopback/in-process 边界能在不把坐标写入
+  URL、日志或 tracked artifact 的前提下生成候选；没有已准入本地 engine/evidence pack 时保持
+  `unavailable`，并回退到 Known Route。
 - **Diary / Sample Community**：仅浏览器本地的 demo，不是证据准入路线、社区后端或实时路况来源。
 
 可维护的系统架构图、数据流图和模型晋级图见 [Portfolio v2](docs/PORTFOLIO_V2.md)；远端仓库设置
@@ -50,6 +56,10 @@ generalized-location sensitivity 未证明稳定，fixed grid 就继续作为预
 候选模型只有在 final test-fold 结果之前冻结进 protocol 后才能参赛。参赛资格不等于晋级；必须同时
 通过所有时间、空间、区间、收敛和 slice gate。任一失败都产出诚实的 no-promotion 结果。
 
+M7 新增严格的 benchmark、calibration、model card、admission receipt 与 aggregate shadow artifact
+合同。当前 exact-registry allowlist 为空，因此有证据支持的结果仍是 `no-promotion`；shadow 与
+production forecast 都保持 `unavailable`。Forecast artifact 与路线排序隔离，不能授予 routing authority。
+
 - 当前协议：[Evaluation Protocol v2](scripts/data/area_intelligence_evaluation_protocol.v2.json)
 - 主线扩展：Evaluation Protocol v3 冻结更多 baseline、sklearn 和 PyTorch 候选 identity，同时保持
   no-promotion 边界。
@@ -69,6 +79,8 @@ npm run validate
 
 ```bash
 npm run test:mainline-m0-m6
+npm run test:ml-m7
+npm run test:mainline-m7
 ```
 
 完整的物化、镜像、恢复、第二环境、定时观察与灾备演练命令见
