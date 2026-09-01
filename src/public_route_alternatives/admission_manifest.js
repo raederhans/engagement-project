@@ -10,7 +10,7 @@ function deepFreeze(value) {
 
 export const PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST = deepFreeze({
   schemaVersion: PUBLIC_ROUTE_SCENARIO_ADMISSION_MANIFEST_SCHEMA,
-  canonicalSha256: 'sha256:33e1f289f3ccee8a143089302b92fe3eee25b96ddf96aa3e92618c8a83ec4103',
+  canonicalSha256: 'sha256:c3f052c82ed0a568a20e869de69ef8acca46a19e030ce05326c501b7d1d4ea36',
   identity: {
     artifactSchema: 'engagement-public-route-scenarios/v1',
     artifactId: 'philadelphia-public-landmark-walking-alternatives-2026-09-01',

@@ -159,11 +159,6 @@ function localizedText(raw, label) {
   };
 }
 
-function nullableText(raw, label, max = 160) {
-  if (raw === null) return null;
-  return boundedText(raw, label, max);
-}
-
 function isoInstant(raw, label) {
   const value = boundedText(raw, label, 64);
   const parsed = Date.parse(value);
@@ -188,7 +183,7 @@ function availableMetricValue(raw, spec, label) {
   return raw;
 }
 
-function admitMetric(raw, spec, label) {
+function admitMetric(raw, spec, label, sourceDates) {
   const value = exactObject(
     raw,
     ['status', 'value', 'unit', 'sourceAsOf', 'note'],
@@ -208,12 +203,16 @@ function admitMetric(raw, spec, label) {
   }
   if (value.status !== 'available') fail(`${label}.status is unsupported`);
   if (!spec.units.includes(value.unit)) fail(`${label}.unit is unsupported`);
-  const sourceAsOf = nullableText(value.sourceAsOf, `${label}.sourceAsOf`);
-  if (spec.source === 'required' && sourceAsOf !== null) {
-    isoInstant(sourceAsOf, `${label}.sourceAsOf`);
+  const sourceDateIndex = value.sourceAsOf;
+  if (sourceDateIndex !== null
+    && (!Number.isInteger(sourceDateIndex)
+      || sourceDateIndex < 0
+      || sourceDateIndex >= sourceDates.length)) {
+    fail(`${label}.sourceAsOf must reference artifact.sourceDates`);
   }
+  const sourceAsOf = sourceDateIndex === null ? null : sourceDates[sourceDateIndex];
   if (spec.source === 'required' && sourceAsOf === null) {
-    fail(`${label}.sourceAsOf must be an ISO instant`);
+    fail(`${label}.sourceAsOf must reference artifact.sourceDates`);
   }
   if (spec.source === 'forbidden' && sourceAsOf !== null) {
     fail(`${label}.sourceAsOf must remain null`);
@@ -227,11 +226,11 @@ function admitMetric(raw, spec, label) {
   };
 }
 
-function admitMetrics(raw, label) {
+function admitMetrics(raw, label, sourceDates) {
   const value = exactObject(raw, METRIC_KEYS, label);
   return Object.fromEntries(METRIC_KEYS.map((key) => [
     key,
-    admitMetric(value[key], METRIC_SPECS[key], `${label}.${key}`),
+    admitMetric(value[key], METRIC_SPECS[key], `${label}.${key}`, sourceDates),
   ]));
 }
 
@@ -280,7 +279,7 @@ function assertAdmissionConsistency(admission, candidates, label) {
   }
 }
 
-function admitCandidate(raw, index, scenarioId) {
+function admitCandidate(raw, index, scenarioId, sourceDates) {
   const label = `scenario ${scenarioId}.candidates[${index}]`;
   const value = exactObject(raw, ['candidateId', 'label', 'edgeIds', 'metrics'], label);
   const candidateId = id(value.candidateId, `${label}.candidateId`);
@@ -291,7 +290,7 @@ function admitCandidate(raw, index, scenarioId) {
     candidateId,
     label: localizedText(value.label, `${label}.label`),
     edgeIds,
-    metrics: admitMetrics(value.metrics, `${label}.metrics`),
+    metrics: admitMetrics(value.metrics, `${label}.metrics`, sourceDates),
   };
 }
 
@@ -311,7 +310,7 @@ function admitAdmission(raw, label) {
   return { ...value };
 }
 
-function admitScenario(raw, index) {
+function admitScenario(raw, index, sourceDates) {
   const label = `scenarios[${index}]`;
   const value = exactObject(
     raw,
@@ -332,7 +331,9 @@ function admitScenario(raw, index) {
   const candidates = strictArray(value.candidates, `${label}.candidates`, {
     min: 1,
     max: MAX_CANDIDATES,
-  }).map((candidate, candidateIndex) => admitCandidate(candidate, candidateIndex, scenarioId));
+  }).map((candidate, candidateIndex) => (
+    admitCandidate(candidate, candidateIndex, scenarioId, sourceDates)
+  ));
   if (new Set(candidates.map(({ candidateId }) => candidateId)).size !== candidates.length) {
     fail(`${label}.candidateId values must be unique`);
   }
@@ -369,6 +370,7 @@ export async function admitPublicRouteScenarioArtifact(raw) {
       'artifactId',
       'artifactClass',
       'generatedAt',
+      'sourceDates',
       'walkingOnly',
       'runtimeBoundary',
       'scenarios',
@@ -389,8 +391,13 @@ export async function admitPublicRouteScenarioArtifact(raw) {
   for (const key of RUNTIME_BOUNDARY_KEYS) {
     if (runtimeBoundary[key] !== false) fail(`artifact.runtimeBoundary.${key} must be false`);
   }
+  const sourceDates = strictArray(value.sourceDates, 'artifact.sourceDates', { min: 3, max: 3 })
+    .map((sourceDate, index) => isoInstant(sourceDate, `artifact.sourceDates[${index}]`));
+  if (new Set(sourceDates).size !== sourceDates.length) {
+    fail('artifact.sourceDates must be unique');
+  }
   const scenarios = strictArray(value.scenarios, 'artifact.scenarios', { min: 1, max: 3 })
-    .map(admitScenario);
+    .map((scenario, index) => admitScenario(scenario, index, sourceDates));
   if (new Set(scenarios.map(({ scenarioId }) => scenarioId)).size !== scenarios.length) {
     fail('artifact.scenarioId values must be unique');
   }
@@ -416,6 +423,7 @@ export async function admitPublicRouteScenarioArtifact(raw) {
     artifactId,
     artifactClass: ARTIFACT_CLASS,
     generatedAt,
+    sourceDates,
     walkingOnly: true,
     runtimeBoundary: Object.fromEntries(RUNTIME_BOUNDARY_KEYS.map((key) => [key, false])),
     scenarios,

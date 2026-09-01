@@ -25,6 +25,7 @@ const TOP_LEVEL_KEYS = [
   'artifactId',
   'artifactClass',
   'generatedAt',
+  'sourceDates',
   'walkingOnly',
   'runtimeBoundary',
   'scenarios',
@@ -112,6 +113,11 @@ test('fixture has the exact public walking schema and versioned independent admi
   assert.equal(fixture.schemaVersion, PUBLIC_ROUTE_SCENARIO_SCHEMA);
   assert.equal(fixture.artifactClass, 'illustrative-precomputed-public-scenario');
   assert.equal(fixture.walkingOnly, true);
+  assert.deepEqual(fixture.sourceDates, [
+    '2026-08-15T00:00:00.000Z',
+    '2026-07-31T00:00:00.000Z',
+    '2025-12-31T00:00:00.000Z',
+  ]);
   assert.ok(Object.values(fixture.runtimeBoundary).every((value) => value === false));
   assert.equal(fixture.scenarios.length, 3);
 
@@ -130,6 +136,10 @@ test('fixture has the exact public walking schema and versioned independent admi
       exactKeys(candidate.metrics, METRIC_KEYS);
       for (const metric of Object.values(candidate.metrics)) {
         exactKeys(metric, METRIC_VALUE_KEYS);
+        if (metric.sourceAsOf !== null) {
+          assert.ok(Number.isInteger(metric.sourceAsOf));
+          assert.ok(metric.sourceAsOf >= 0 && metric.sourceAsOf < fixture.sourceDates.length);
+        }
       }
     }
   }
@@ -137,6 +147,26 @@ test('fixture has the exact public walking schema and versioned independent admi
   const admitted = await admittedFixture();
   assert.equal(Object.isFrozen(admitted), true);
   assert.equal(Object.isFrozen(admitted.scenarios[0].candidates[0].metrics), true);
+  assert.equal(
+    admitted.scenarios[0].candidates[0].metrics.travelTime.sourceAsOf,
+    '2026-08-15T00:00:00.000Z',
+  );
+});
+
+test('source-date table and metric references fail closed on malformed encodings', async () => {
+  const invalidDate = clone(fixture);
+  invalidDate.sourceDates[0] = 'not-an-instant';
+  await assertRejected(invalidDate, /artifact\.sourceDates\[0\].*ISO instant/i);
+
+  const duplicateDate = clone(fixture);
+  duplicateDate.sourceDates[1] = duplicateDate.sourceDates[0];
+  await assertRejected(duplicateDate, /artifact\.sourceDates must be unique/i);
+
+  for (const invalidReference of [-1, 3, 0.5, '0']) {
+    const changed = clone(fixture);
+    changed.scenarios[0].candidates[0].metrics.travelTime.sourceAsOf = invalidReference;
+    await assertRejected(changed, /sourceAsOf must reference artifact\.sourceDates/i);
+  }
 });
 
 test('admission rejects private, network, routing-authority, arbitrary-pair, and non-walking drift', async () => {

@@ -396,7 +396,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!publicRouteLoaderPromise) {
       if (publicRouteStatus) {
         publicRouteStatus.hidden = false;
-        setTranslatedText(publicRouteStatus, 'publicRoutes.loading');
+        setTranslatedText(publicRouteStatus, 'crime.loadingCodes');
       }
       if (publicRouteRetry) publicRouteRetry.hidden = true;
       publicRouteLoaderPromise = import('./public_route_alternatives/loader.js')
@@ -419,7 +419,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const onPublicRouteIntent = () => {
     if (publicRouteStatus) {
       publicRouteStatus.hidden = false;
-      setTranslatedText(publicRouteStatus, 'publicRoutes.loading');
+      setTranslatedText(publicRouteStatus, 'crime.loadingCodes');
     }
     if (publicRouteRetry) publicRouteRetry.hidden = true;
     void ensurePublicRouteLoader()
