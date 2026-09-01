@@ -32,6 +32,7 @@
 - [x] M7-5：实现 Node-only `ShadowForecastArtifact/v1` 投影；只消费严格 JSON aggregate receipts，不消费 checkpoint。
 - [x] M7-6：运行最窄充分的 lock/lint/type/pytest/synthetic/parity/Node bridge gate；仅在 exact registry admission 存在时运行 full data。
 - [x] M7-7：更新记录、审查相对 exact base diff、创建 Lore 提交并形成 integration handoff。
+- [x] M7-8：关闭独立 review 的 forged Python admission 与任意 full-output 写入 blocker，补 hostile regression、受控 workflow root，并重跑 affected gates。
 
 ## Acceptance criteria
 
@@ -39,7 +40,9 @@
 - 冻结正式 gate candidates 为 seasonal naive、MA13、EWMA、sklearn Poisson、sklearn HistGradientBoosting Poisson、PyTorch NB2；JS Poisson/NB 保留为明确 reference catalog，JS NB 可保持 v3 optional，JS Poisson 不静默获得 v3 gate eligibility；MA4 仅 diagnostic。
 - PyTorch 使用至少五个固定 seed；stability 输出包含每 seed 状态与 median/worst/std/failed/instability/epoch/environment/runtime-memory。
 - admission decision enum 仅 `no-promotion|shadow-admitted`；fixture/synthetic 永远 `no-promotion`，full exact-lineage gate 未满足也永远 `no-promotion`。
+- Python `shadow-admitted` 必须读取 frozen exact-registry allowlist，并重新验证 benchmark primary evidence、calibration 重算、model-card selected candidate 与完整 lineage；缺任一 evidence 都 fail closed。
 - Node 只在 exact lineage、privacy、authority、calibration/model-card/report cross-binding 全部通过后写 task-owned shadow artifact；production forecast 固定 `unavailable` 且 predictions 为空。
+- Python `full-benchmark` 只允许新建 `repo/ml/.artifacts/<run-id>`；路径准入失败零写入，workflow 自行派生该 root，不接受 caller-controlled output/upload path。
 - M7 ingress 不使用 pickle/joblib/`torch.load`，不消费 `.pt` checkpoint；Python 不调用或覆盖 production publisher/serving JSON。
 - 缺 exact `ArtifactRegistry/v1` 时，在读取 full mart part 前 fail closed；synthetic/fixture 证据明确标为非 full evaluation。
 
@@ -56,3 +59,4 @@
 - full M2 当前缺 exact registry：只执行 fixture/synthetic 和 unavailable preflight，不启动长 full-data owner。
 - checkpoint 由 PyTorch 内部写出但不进入 M7 admission/bridge allowlist，M7 不提供反序列化路径。
 - 当前 `admission_registry.exact_full_artifact_registry_identities=[]`；因此即使构造自洽的 full fixture，Python 也只能 `no-promotion`，Node 会拒绝 `shadow-admitted`。未来加入真实 identity 必须是显式治理变更。
+- portable Python path API 无法完全消除准入后同权限 hostile writer 替换目录的 TOCTOU；以 fresh exclusive root、link/reparse 检查与受控 self-hosted runner 收敛，不宣称 handle-level no-follow 保证。
