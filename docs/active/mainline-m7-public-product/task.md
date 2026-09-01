@@ -2,8 +2,8 @@
 
 ## Current status
 
-`handoff-ready`：M7 实现、审查收敛、聚焦验证、Pages-base browser/Axe 和最终全量 gate 均完成；
-实现已保存为本地提交 `53f90cac3f031f84d7c962a7418d8762651ab047`。
+`handoff-ready`：静态 fixture 的代码侧独立 identity/content binding 与英中 copy hostile guard 已完成；
+最终 bounded rereview 为 No findings / PASS。
 
 ## Checklist
 
@@ -17,6 +17,8 @@
 - [x] 运行最窄充分 Node/unit/lint/build/bundle/browser 验证。
 - [x] 建立结构化本地提交并检查相对 base diff/status。
 - [x] 更新 handoff、未准入维度、文案边界和推荐整合顺序。
+- [x] 新增独立版本化 manifest，绑定 exact artifact/time/scenario/candidate/edge 身份与 SHA-256 内容摘要。
+- [x] 补 artifact/time/identity/metric/copy drift hostile 回归并重跑 unit/browser/Axe/bundle 与 `validate`。
 
 ## Validation evidence
 
@@ -38,9 +40,18 @@
 | 差异窄复审 | PASS；No findings；metric/admission、scenario focus、nested-lazy 三项均已收敛 |
 | 最终 `npm run validate` | PASS；exit 0；log `C:/Users/raede/AppData/Local/Temp/engagement-m7-validate-final.log` |
 | `git diff --cached --check` 与实现 commit 后核对 | PASS；`53f90ca` 仅含 16 个 M7 源码/fixture/test/wiring 文件 |
+| `npm run lint:js`（remediation） | PASS；最终 JS/MJS 工作面零 warning；仓库没有 `lint` 总脚本 |
+| `npm run test:mainline-m7`（remediation） | PASS；14/14，含 artifact/time/candidate/edge/label/metric 摘要漂移及完整英中 copy hostile probes |
+| normal build + bundle（remediation） | PASS；`4,140,517/4,322,476` non-VRE/total bytes；fixture `17,986` bytes；阈值未变 |
+| normal M7 browser（remediation） | PASS；desktop/mobile、EN/ZH、Axe serious/critical 0、overflow 0、copy guard PASS |
+| Pages-base build + bundle + M7 browser（remediation） | PASS；`/engagement-project/`，`4,140,954/4,322,913` non-VRE/total bytes；desktop/mobile/Axe/copy guard PASS |
+| `npm run validate`（manifest 产品代码） | PASS；exit 0；log `C:/Users/raede/AppData/Local/Temp/engagement-m7-manifest-remediation.log`；随后仅增加测试侧 copy guard，并已由最终 lint/unit/browser 覆盖 |
+| remediation bounded rereview | PASS；先发现 copy-regex 假绿并修复，最终 No findings；manifest/digest/async loader/copy guard 均无 material finding |
+| remediation commit | `79a62174af4ff05296e46179cc26ccbc2c17fd16`；7 个 fixture/source/test 文件，未含 active records |
 
 ## Open risks and remaining work
 
 - Safari/Firefox 原生 dialog/select 的聚焦行为未单独实测；Chromium 键盘和 Axe 路径已验证。
+- Pages-base non-VRE budget 仅余 46 bytes、total budget 仅余 87 bytes；本次没有放宽上限，后续任何产品增量都必须重新测量。
 - Public Scenario 全部是受控静态 fixture；不能将其 PASS 推导为 Philadelphia 全域、实时、实测或 production authority。
 - main 整合、push、CI/release/Pages deploy 和目标分支回归未执行，仍属总协调任务。

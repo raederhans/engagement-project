@@ -40,6 +40,7 @@ Philadelphia landmark OD pair，并以确定、诚实、可访问的产品界面
 - [x] Stage 4：补齐 unit/browser/Axe/Pages-base 测试与诚实文案断言。
 - [x] Stage 5：运行最窄充分的 Node、lint、build、bundle 和 browser 验证。
 - [x] Stage 6：建立结构化本地提交并完成 handoff。
+- [x] Stage 7：修复独立精确 manifest/content-digest 准入缺口，补 hostile 回归并重做 handoff。
 
 ## Acceptance criteria
 
