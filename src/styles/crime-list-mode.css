@@ -99,18 +99,6 @@
   color: var(--muted);
 }
 
-html[data-crime-view="list"] {
-  min-height: 100%;
-  overflow-y: auto;
-}
-
-body[data-crime-view="list"] {
-  height: auto;
-  min-height: 100%;
-  overflow-x: clip;
-  overflow-y: visible;
-}
-
 body[data-crime-view="list"] #map,
 body[data-crime-view="list"] #legend,
 body[data-crime-view="list"] #tooltip,
@@ -123,31 +111,10 @@ body[data-crime-view="list"] [data-result-meta="boundary"] {
   display: none;
 }
 
-body[data-crime-view="list"] #sidepanel {
-  position: relative;
-  inset: auto;
-  width: min(100%, 1120px);
-  height: auto;
-  max-height: none;
-  display: block;
-  margin: calc(var(--app-bar-height) + var(--space-4)) auto var(--space-6);
-  overflow: visible;
-}
-
-body[data-crime-view="list"] :is(.sheet-handle) {
-  display: none;
-}
-
-body[data-crime-view="list"] .sheet-content {
-  overflow: visible;
-}
-
-body[data-crime-view="list"] #results-drawer {
-  position: static;
-  width: auto;
-  max-height: none;
-  overflow: visible;
-  box-shadow: none;
+@media (min-width: 901px) {
+  body[data-crime-view="list"] :is(.sheet-handle) {
+    display: none;
+  }
 }
 
 body[data-crime-view="list"] .incident-results__list,
@@ -159,66 +126,106 @@ body[data-crime-view="list"] .incident-results__header > [data-i18n="incidents.d
   display: none;
 }
 
-body[data-crime-view="list"] [data-crime-list-results] {
-  display: block;
-}
-
-body[data-crime-view="map"] [data-crime-list-results] {
-  display: none;
-}
-
 @media (max-width: 720px) {
-  body[data-crime-view="list"] .app-bar {
-    position: relative;
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  body[data-crime-view="list"] .app-bar__identity {
-    flex: 1 0 100%;
-  }
-
-  body[data-crime-view="list"] .app-bar__tools {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  body[data-crime-view="list"] :is(.app-bar__modes, .crime-view-mode, .mode-switch__group) {
-    width: 100%;
-  }
-
-  body[data-crime-view="list"] .mode-switch__button {
-    min-width: 0;
-    flex: 1;
-  }
-
-  body[data-crime-view="list"] :is(.map-runtime-status, .app-bar__status) {
-    max-width: none;
-    grid-column: 1 / -1;
-    overflow: visible;
-    text-align: left;
-    text-overflow: clip;
-    white-space: normal;
-  }
-
   .crime-view-mode label {
     flex: 1;
     justify-content: center;
     padding-inline: 6px;
     font-size: 12px;
   }
-
-  body[data-crime-view="list"] #sidepanel {
-    margin-top: var(--space-2);
-    padding-inline: 12px;
-    border-radius: 0;
-  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  body[data-crime-view="list"] :is(#sidepanel, #results-drawer, .crime-list-results) {
-    scroll-behavior: auto;
-    transition: none;
+/* List owns a dedicated result workspace instead of borrowing the map or detail drawer. */
+html[data-crime-view="list"],
+body[data-crime-view="list"] {
+  height: 100%;
+  min-height: 0;
+  overflow: clip;
+}
+
+body[data-crime-view="list"] .primary-canvas,
+body[data-crime-view="list"] #results-drawer {
+  display: none;
+}
+
+body[data-crime-view="list"] #sidepanel {
+  position: fixed;
+  top: calc(var(--app-bar-height) + var(--space-3));
+  right: auto;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  width: var(--panel-width);
+  height: auto;
+  max-height: none;
+  margin: 0;
+  overflow: hidden;
+}
+
+body[data-crime-view="list"] #sidepanel > .sheet-content {
+  height: 100%;
+  max-height: none;
+  overflow-y: auto;
+}
+
+body[data-crime-view="list"] .crime-list-workspace {
+  position: fixed;
+  top: calc(var(--app-bar-height) + var(--space-3));
+  right: var(--space-3);
+  bottom: var(--space-3);
+  left: calc(var(--panel-width) + 2 * var(--space-3));
+  z-index: 17;
+  display: block;
+  margin: 0;
+  padding: var(--space-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-surface);
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 900px) {
+  body[data-crime-view="list"] .app-bar {
+    position: fixed;
+  }
+
+  body[data-crime-view="list"] #sidepanel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding-inline: 16px;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  }
+
+  body[data-crime-view="list"] #sidepanel[data-sheet-state="collapsed"] {
+    height: var(--sheet-collapsed-height);
+  }
+
+  body[data-crime-view="list"] #sidepanel[data-sheet-state="half"] {
+    height: var(--sheet-half-height);
+  }
+
+  body[data-crime-view="list"] #sidepanel[data-sheet-state="full"] {
+    height: var(--sheet-full-height);
+  }
+
+  body[data-crime-view="list"] .crime-list-workspace {
+    top: calc(var(--app-bar-height) + var(--space-3));
+    right: var(--space-3);
+    bottom: calc(var(--sheet-half-height) + var(--space-3));
+    left: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  body[data-crime-view="list"] #sidepanel[data-sheet-state="collapsed"] ~ .crime-list-workspace {
+    bottom: calc(var(--sheet-collapsed-height) + var(--space-3));
+  }
+
+  body[data-crime-view="list"] #sidepanel[data-sheet-state="full"] ~ .crime-list-workspace {
+    bottom: calc(var(--sheet-full-height) + var(--space-3));
   }
 }

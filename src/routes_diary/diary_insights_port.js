@@ -27,7 +27,16 @@ export function createDiaryInsightsLoader({ loadModule, createRoot, createHost }
   let host = null;
 
   const loadCachedModule = () => {
-    modulePromise ||= Promise.resolve().then(loadModule);
+    if (!modulePromise) {
+      let ownedPromise;
+      ownedPromise = Promise.resolve()
+        .then(loadModule)
+        .catch((error) => {
+          if (modulePromise === ownedPromise) modulePromise = null;
+          throw error;
+        });
+      modulePromise = ownedPromise;
+    }
     return modulePromise;
   };
 

@@ -591,6 +591,24 @@ test('aborted Insights loading caches only the module and a later owner creates 
   ]);
 });
 
+test('Insights loading retries after a rejected dynamic import', async () => {
+  let attempts = 0;
+  const loader = createDiaryInsightsLoader({
+    loadModule: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary Insights load failure');
+      return { id: 'insights-module' };
+    },
+    createRoot: () => ({ id: 'root' }),
+    createHost: (module, root) => ({ module, root }),
+  });
+
+  await assert.rejects(loader.getHost(), /temporary Insights load failure/);
+  const host = await loader.getHost();
+  assert.equal(attempts, 2);
+  assert.equal(host.module.id, 'insights-module');
+});
+
 test('owner abort disposes an actual pending Diary initialization and prevents stale commits', async () => {
   const originalDiaryFeatureOn = store.diaryFeatureOn;
   store.diaryFeatureOn = true;
@@ -800,6 +818,45 @@ test('the mode coordinator retries Crime initialization after a rejected first l
   assert.equal(attempts, 2);
   assert.equal(coordinator.getActiveMode(), 'crime');
   assert.match(errors[0][1], /temporary Crime load failure/);
+});
+
+test('the mode coordinator exposes a stable Diary error and retries a rejected first module load', async () => {
+  const { createModeCoordinator } = await import('../../src/mode_coordinator.js');
+  const harness = createCoordinatorHarness('diary');
+  const errors = [];
+  let attempts = 0;
+  const diaryModule = {
+    async initDiaryMode() { return { status: 'ready' }; },
+    teardownDiaryMode() {},
+  };
+  const coordinator = createModeCoordinator({
+    map: harness.map,
+    diaryFeatureEnabled: true,
+    getCurrentMode: harness.getCurrentMode,
+    writeMode: () => {},
+    chartsPane: harness.chartsPane,
+    diaryMount: harness.diaryMount,
+    loadCrimeController: async () => harness.crimeController,
+    loadDiaryModule: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary Diary load failure');
+      return diaryModule;
+    },
+    getDiaryInsights: async () => harness.insights,
+    reportError: (label, error) => errors.push([label, error.message]),
+  });
+
+  const failed = await coordinator.schedule('diary');
+  assert.equal(failed.status, 'failed');
+  assert.equal(coordinator.getActiveMode(), null);
+  assert.equal(coordinator.getShortStatus().phase, 'failed');
+  assert.match(harness.diaryMount.textContent, /unavailable/i);
+
+  await coordinator.schedule('diary');
+  assert.equal(attempts, 2);
+  assert.equal(coordinator.getActiveMode(), 'diary');
+  assert.equal(coordinator.getShortStatus().phase, 'ready');
+  assert.match(errors[0][1], /temporary Diary load failure/);
 });
 
 test('Diary data failure does not leave the coordinator in an active Diary mode', async () => {

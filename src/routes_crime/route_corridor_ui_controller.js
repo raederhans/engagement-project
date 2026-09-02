@@ -4,7 +4,7 @@ import { createManualRouteInput, readRouteGeoJsonFile } from './route_input.js';
 
 registerMessagePairs({
   'route.title': ['Known route history', '已知路线历史记录'],
-  'route.description': ['Review historical reported records near a route you explicitly provide.', '查看你明确提供的路线附近的历史已记录事件。'],
+  'route.description': ['Review records near a route you provide.', '查看所选路线附近的记录。'],
   'route.file': ['Choose GeoJSON LineString', '选择 GeoJSON LineString'],
   'route.draw': ['Draw on map', '在地图上绘制'],
   'route.finish': ['Finish route', '完成路线'],
@@ -15,7 +15,7 @@ registerMessagePairs({
   'route.eyebrow': ['Historical reported records', '历史已记录事件'],
   'route.drawHint': ['Click map points', '点击地图添加路线点'],
   'route.waypoints': ['Enter route waypoints', '输入路线途经点'],
-  'route.waypointsHint': ['Use longitude and latitude. At least two complete waypoints are required.', '使用经度和纬度。至少需要两个完整途经点。'],
+  'route.waypointsHint': ['At least two waypoints.', '至少两个途经点。'],
   'route.waypoint': ['Waypoint {count}', '途经点 {count}'],
   'route.longitude': ['Longitude', '经度'],
   'route.latitude': ['Latitude', '纬度'],
@@ -48,6 +48,7 @@ registerMessagePairs({
   'route.value.locationUnavailable': ['Location unavailable', '位置不可用'],
   'route.disclosure': ['The remote incident source receives a coarse 2 km-snapped area, historic dates, and current offense filters. The exact route stays in browser memory and is not saved.', '远程事件数据源会收到按 2 公里网格向外取整的粗略区域、历史日期和当前 offense filters。精确路线仅保留在浏览器内存中，不会保存。'],
   'route.truth': ['Historical reported records only; not live, predictive, a risk score, or a safer-route recommendation. A reported point near the route does not mean the event occurred on the route.', '仅为历史已记录事件；不是实时信息、预测、风险分数或更安全路线建议。记录点靠近路线不表示事件发生在路线上。'],
+  'route.notes': ['Data and privacy', '数据与隐私'],
   'route.state.route-required': ['Provide a known route before requesting historical records.', '请先提供已知路线，再请求历史记录。'],
   'route.state.drawing': ['Drawing route: add at least two map points, then finish the route.', '正在绘制路线：请至少添加两个地图点，然后完成路线。'],
   'route.state.route-provided': ['Route provided. Review explicitly when you are ready; no request has been made.', '路线已提供。准备好后请明确点击查看；目前尚未发送请求。'],
@@ -534,7 +535,7 @@ export function initRouteCorridorUi({
 
 function surfaceHtml() {
   return `<section class="route-corridor" data-route-corridor-surface tabindex="-1" aria-labelledby="route-corridor-title" aria-busy="false" hidden inert>
-    <header><p class="route-corridor__eyebrow" data-i18n="route.eyebrow">${t('route.eyebrow')}</p><h2 id="route-corridor-title" data-i18n="route.title">${t('route.title')}</h2><p data-i18n="route.description">${t('route.description')}</p></header>
+    <header><p class="route-corridor__eyebrow" data-i18n="route.eyebrow">${t('route.eyebrow')}</p><h2 id="route-corridor-title" data-i18n="route.title">${t('route.title')}</h2></header>
     <div class="route-corridor-shell__scroll">
     <div class="route-corridor__controls">
       <label class="button button--secondary"><span data-i18n="route.file">${t('route.file')}</span><input data-route-file type="file" accept=".geojson,.json,application/geo+json,application/json"></label>
@@ -545,7 +546,7 @@ function surfaceHtml() {
     </div>
     <fieldset class="route-corridor__waypoint-editor" aria-describedby="route-waypoints-hint">
       <legend data-i18n="route.waypoints">${t('route.waypoints')}</legend>
-      <p id="route-waypoints-hint" data-i18n="route.waypointsHint">${t('route.waypointsHint')}</p>
+      <p id="route-waypoints-hint" class="route-corridor__compact-hint" data-i18n="route.waypointsHint">${t('route.waypointsHint')}</p>
       <ol data-route-waypoint-list></ol>
       <div class="route-corridor__waypoint-actions">
         <button class="button button--secondary" data-route-waypoint-add data-i18n="route.addWaypoint" type="button">${t('route.addWaypoint')}</button>
@@ -555,8 +556,11 @@ function surfaceHtml() {
     </fieldset>
     <p class="route-corridor__instruction" data-route-instruction data-i18n="route.drawHint" hidden>${t('route.drawHint')}</p>
     <p data-route-query-context></p>
-    <p class="route-corridor__disclosure" data-i18n="route.disclosure">${t('route.disclosure')}</p>
-    <p class="route-corridor__truth" data-i18n="route.truth">${t('route.truth')}</p>
+    <details class="route-corridor__notes">
+      <summary data-i18n="route.notes">${t('route.notes')}</summary>
+      <p class="route-corridor__disclosure" data-i18n="route.disclosure">${t('route.disclosure')}</p>
+      <p class="route-corridor__truth" data-i18n="route.truth">${t('route.truth')}</p>
+    </details>
     <p data-route-status role="status" aria-live="polite" aria-atomic="true"></p>
     <dl data-route-evidence></dl><ol class="incident-results__list" data-route-results></ol>
     <section class="route-corridor__hin" data-route-hin-context aria-live="polite"></section>

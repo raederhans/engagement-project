@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,6 +83,19 @@ export async function compactJsonArtifact(target) {
   };
 }
 
+export async function compactBuiltGeoJsonAssets({
+  assetsDir = path.resolve('dist/assets'),
+} = {}) {
+  const entries = await readdir(assetsDir, { withFileTypes: true });
+  const targets = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.geojson'))
+    .map((entry) => path.join(assetsDir, entry.name));
+  return Promise.all(targets.map(async (target) => ({
+    target,
+    ...await compactJsonArtifact(target),
+  })));
+}
+
 function compactGeometry(geometry, precision) {
   if (!geometry) return geometry;
   if (geometry.type === 'GeometryCollection') {
@@ -110,6 +123,14 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
   const results = await compactPublishedGeoJson();
   for (const result of results) {
     console.log(`[GeoJSON Artifact] ${result.relativePath}: ${result.beforeBytes} -> ${result.afterBytes} bytes (${result.featureCount} features)`);
+  }
+  try {
+    const builtAssets = await compactBuiltGeoJsonAssets();
+    for (const result of builtAssets) {
+      console.log(`[Built GeoJSON Asset] ${path.basename(result.target)}: ${result.beforeBytes} -> ${result.afterBytes} bytes`);
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
   }
   try {
     const result = await compactJsonArtifact(path.resolve('dist/.vite/manifest.json'));

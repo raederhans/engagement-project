@@ -1,5 +1,14 @@
 import '../i18n/p1.js';
 import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
+import {
+  diaryInsightsContextCopy,
+  normalizeDiaryInsightsContext,
+} from './diary_insights_context.js';
+
+export {
+  describeDiaryInsightsContext,
+  normalizeDiaryInsightsContext,
+} from './diary_insights_context.js';
 
 const demoTrend = [3.1, 3.3, 3.2, 3.5, 3.7];
 
@@ -24,6 +33,15 @@ const DEMO_TAGS = {
 const insightsState = { scope: 'route', window: '30d' };
 const heatmapDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const heatmapWindowKeys = ['morning', 'midday', 'afternoon', 'evening', 'lateNight'];
+const diaryTimeZone = 'America/New_York';
+const diaryTimeParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: diaryTimeZone,
+  weekday: 'short',
+  hour: 'numeric',
+  hourCycle: 'h23',
+});
+const heatmapDayIndex = new Map(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  .map((day, index) => [day, index]));
 const heatmapValues = [
   [2, 1, 2, 3, 2],
   [1, 2, 3, 5, 3],
@@ -36,48 +54,8 @@ const heatmapValues = [
 
 let insightsContext = { mode: 'live', routeId: null };
 let localInsightSnapshot = [];
-
-const CONTEXT_COPY = {
-  live: {
-    title: 'diary.insights.live.title',
-    hint: 'diary.insights.live.hint',
-    intro: 'diary.insights.live.intro',
-    emptyTrend: 'diary.insights.live.emptyTrend',
-    emptyTags: 'diary.insights.live.emptyTags',
-  },
-  history: {
-    title: 'diary.insights.history.title',
-    hint: 'diary.insights.history.hint',
-    intro: 'diary.insights.history.intro',
-    emptyTrend: 'diary.insights.history.emptyTrend',
-    emptyTags: 'diary.insights.history.emptyTags',
-  },
-  community: {
-    title: 'diary.insights.community.title',
-    hint: 'diary.insights.community.hint',
-    intro: 'diary.insights.community.intro',
-    emptyTrend: 'diary.insights.community.emptyTrend',
-    emptyTags: 'diary.insights.community.emptyTags',
-  },
-};
-
-export function normalizeDiaryInsightsContext(value) {
-  const candidate = typeof value === 'string' ? { mode: value } : (value || {});
-  const mode = candidate.mode === 'history'
-    ? 'history'
-    : candidate.mode === 'community'
-      ? 'community'
-      : 'live';
-  const routeId = mode === 'live' && candidate.routeId != null && String(candidate.routeId).trim()
-    ? String(candidate.routeId)
-    : null;
-  return { mode, routeId };
-}
-
-export function describeDiaryInsightsContext(value) {
-  const { mode } = normalizeDiaryInsightsContext(value);
-  return Object.fromEntries(Object.entries(CONTEXT_COPY[mode]).map(([name, key]) => [name, t(key)]));
-}
+let activeInsightElements = { trendEl: null, tagsEl: null, heatEl: null };
+let accessibleSyncGeneration = 0;
 
 export function selectDiaryInsightEntries(entries = [], value = insightsContext) {
   if (!Array.isArray(entries)) return [];
@@ -120,10 +98,12 @@ export function deriveLocalDiaryInsights(value = []) {
     for (const tag of entry.tags || []) tagCounts.set(String(tag), (tagCounts.get(String(tag)) || 0) + 1);
     const date = new Date(entry.createdAt);
     if (!Number.isNaN(date.getTime())) {
-      const day = (date.getUTCDay() + 6) % 7;
-      const hour = date.getUTCHours();
+      const parts = Object.fromEntries(diaryTimeParts.formatToParts(date)
+        .map(({ type, value: partValue }) => [type, partValue]));
+      const day = heatmapDayIndex.get(parts.weekday);
+      const hour = Number(parts.hour);
       const bucket = hour < 10 ? 0 : hour < 14 ? 1 : hour < 18 ? 2 : hour < 22 ? 3 : 4;
-      heatmap[day][bucket] += 1;
+      if (day != null && Number.isInteger(hour)) heatmap[day][bucket] += 1;
     }
   }
   const locallyOmittedCount = sourceEntries.length - normalized.length;
@@ -178,6 +158,43 @@ function entriesForWindow(windowName) {
   }) };
 }
 
+function syncDiaryAccessibleData(documentRef = globalThis.document) {
+  const mount = documentRef?.querySelector?.('[data-diary-visualization-data-mount]');
+  if (!mount) return;
+  const localInsights = insightsContext.mode === 'community'
+    ? null
+    : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
+  const trend = localInsights ? localInsights.trend : demoTrend;
+  const trendLabels = insightsContext.mode === 'community'
+    ? [t('diary.start'), '0.5 km', '1.0 km', '1.5 km', t('diary.end')]
+    : trend.map((_, index) => `#${index + 1}`);
+  const tags = localInsights ? localInsights.tags : (DEMO_TAGS[insightsState.scope] || []);
+  const heatmap = localInsights ? localInsights.heatmap : heatmapValues;
+  const generation = ++accessibleSyncGeneration;
+  void import('./diary_accessible_data.js').then(({ renderDiaryAccessibleData }) => {
+    if (generation !== accessibleSyncGeneration) return;
+    renderDiaryAccessibleData({
+      mount,
+      trend,
+      trendLabels,
+      tags: tags.map(({ label, value }) => ({ label: translatedTagLabel(label), value })),
+      heatmap,
+    }, documentRef);
+  }).catch(() => {
+    if (generation === accessibleSyncGeneration) {
+      setTranslatedText(mount, 'workspace.dataUnavailable');
+    }
+  });
+}
+
+function renderActiveInsights() {
+  const { trendEl, tagsEl, heatEl } = activeInsightElements;
+  if (trendEl) renderTrend(trendEl);
+  if (tagsEl) renderTags(tagsEl);
+  if (heatEl) renderHeatmap(heatEl);
+  syncDiaryAccessibleData();
+}
+
 function appendPartialNotice(container, insights) {
   if (insights?.status !== 'partial') return;
   const notice = document.createElement('div');
@@ -217,7 +234,7 @@ function renderTrend(container) {
     : deriveLocalDiaryInsights(entriesForWindow(insightsState.window));
   const trend = localInsights ? localInsights.trend : demoTrend;
   if (!trend.length) {
-    appendNoDataState(container, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTrend);
+    appendNoDataState(container, localInsights, diaryInsightsContextCopy(insightsContext).emptyTrend);
     return;
   }
   appendPartialNotice(container, localInsights);
@@ -288,8 +305,7 @@ function renderTags(container) {
     };
     btn.addEventListener('click', () => {
       insightsState.scope = scope.value;
-      syncAll();
-      renderBars();
+      renderActiveInsights();
     });
     scope.btn = btn;
     controls.appendChild(btn);
@@ -316,7 +332,7 @@ function renderTags(container) {
     windowSelect.value = insightsState.window;
     windowSelect.addEventListener('change', () => {
       insightsState.window = windowSelect.value;
-      renderBars();
+      renderActiveInsights();
     });
     controls.appendChild(windowSelect);
   }
@@ -326,15 +342,6 @@ function renderTags(container) {
   barsWrap.className = 'diary-insights__tag-list';
   container.appendChild(barsWrap);
 
-  const syncAll = () => {
-    scopes.forEach((scope) => {
-      if (scope.btn) {
-        const active = insightsState.scope === scope.value;
-        scope.btn.classList.toggle('is-active', active);
-      }
-    });
-  };
-
   function renderBars() {
     const localInsights = insightsContext.mode === 'community'
       ? null
@@ -342,7 +349,7 @@ function renderTags(container) {
     const dataset = localInsights ? localInsights.tags : (DEMO_TAGS[insightsState.scope] || []);
     barsWrap.innerHTML = '';
     if (!dataset.length) {
-      appendNoDataState(barsWrap, localInsights, CONTEXT_COPY[insightsContext.mode].emptyTags);
+      appendNoDataState(barsWrap, localInsights, diaryInsightsContextCopy(insightsContext).emptyTags);
       return;
     }
     appendPartialNotice(barsWrap, localInsights);
@@ -408,7 +415,7 @@ function renderHeatmap(container) {
     unavailable.className = 'diary-muted-text';
     setTranslatedText(unavailable, localInsights.status === 'unavailable'
       ? 'diary.insights.unavailable'
-      : CONTEXT_COPY[insightsContext.mode].emptyTrend);
+      : diaryInsightsContextCopy(insightsContext).emptyTrend);
     container.appendChild(unavailable);
     return;
   }
@@ -450,7 +457,6 @@ export function renderInsightsSections(trendEl, tagsEl, heatEl, opts = {}) {
   if (opts?.context) {
     insightsContext = normalizeDiaryInsightsContext(opts.context);
   }
-  if (trendEl) renderTrend(trendEl);
-  if (tagsEl) renderTags(tagsEl);
-  if (heatEl) renderHeatmap(heatEl);
+  activeInsightElements = { trendEl, tagsEl, heatEl };
+  renderActiveInsights();
 }

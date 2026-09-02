@@ -225,7 +225,7 @@ test('task focus binds an accessible choice dialog and applies an explicit selec
   assert.equal(applied.at(-1).preferredInitialPane, 'charts');
   assert.equal(mount.dataset.taskFocus, 'long_term');
   assert.match(current.textContent, /Long-term/i);
-  assert.match(description.textContent, /information order|query/i);
+  assert.equal(description.textContent, 'Trends first.');
   assert.equal(dialog.open, false);
   controller.dispose();
 
@@ -235,6 +235,7 @@ test('task focus binds an accessible choice dialog and applies an explicit selec
   assert.match(html, /data-task-focus-option[^>]+value="general"/);
   assert.match(html, /data-task-focus-option[^>]+value="long_term"/);
   assert.match(html, /data-task-focus-option[^>]+value="daily_living"/);
+  assert.match(html, /data-task-focus-description hidden/);
 });
 
 test('latest-window suggestions use an explicit accessible preview instead of instant apply', async () => {
@@ -1673,8 +1674,8 @@ test('Crime list presentation exposes semantic controls, result table, status, a
   assert.match(html, /data-crime-list-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /data-crime-list-description[^>]*data-i18n="crime\.list\.description"/);
   assert.match(html, /data-crime-list-limitations/);
-  assert.match(css, /html\[data-crime-view="list"\][^}]*overflow-y:\s*auto/s);
-  assert.match(css, /body\[data-crime-view="list"\][^}]*height:\s*auto[^}]*overflow-y:\s*visible/s);
+  assert.match(css, /html\[data-crime-view="list"\],[\s\S]*body\[data-crime-view="list"\][^}]*overflow:\s*clip/s);
+  assert.match(css, /body\[data-crime-view="list"\] \.crime-list-workspace[^}]*overflow:\s*auto/s);
   assert.match(css, /body\[data-crime-view="list"\][^}]*\[data-incident-results-status\][^}]*display:\s*none/s);
 });
 
@@ -1683,16 +1684,19 @@ test('Crime list refresh focuses the visible result surface for the selected res
   const heading = { id: 'crime-list-results-title' };
   const summary = { id: 'compare-card' };
   const summaryPane = { querySelector: (selector) => selector === '#compare-card' ? summary : null };
-  const incidentPane = { hidden: true, inert: true };
-  const root = { closest: () => incidentPane };
+  const root = {
+    hidden: true,
+    inert: true,
+    querySelector: (selector) => selector === '#crime-list-results-title' ? heading : null,
+  };
   const documentRef = {
     getElementById: () => heading,
     querySelector: () => summaryPane,
   };
 
   assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), summary);
-  incidentPane.hidden = false;
-  incidentPane.inert = false;
+  root.hidden = false;
+  root.inert = false;
   assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), heading);
 });
 

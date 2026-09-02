@@ -16,6 +16,10 @@ function desktopOnly(testInfo) {
   test.skip(testInfo.project.name !== 'desktop', 'Detailed state coverage runs once; responsive routes run in every viewport.');
 }
 
+function portraitOnly(testInfo) {
+  test.skip(testInfo.project.name !== 'portrait', 'Mobile Sheet state coverage runs in the portrait touch project.');
+}
+
 const INCIDENT_FIXTURE = {
   type: 'FeatureCollection',
   features: [
@@ -162,11 +166,46 @@ test('Crime district analysis keeps the unsupported incident log unavailable', a
   desktopOnly(testInfo);
   await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
   await expect(page.locator('[data-analysis-context]')).toBeVisible();
+  await expect(page.locator('[data-crime-canvas-data]')).not.toHaveAttribute('hidden', '');
+  await expect(page.locator('[data-diary-visualization-data]')).toHaveAttribute('hidden', '');
   await expect(page.locator('[data-result-pane="summary"]')).toBeVisible();
   const incidentLog = page.getByRole('button', { name: 'Incident log', exact: true });
   await expect(incidentLog).toBeDisabled();
   await expect(incidentLog).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('[data-result-pane="incidents"]')).toBeHidden();
+});
+
+test('Crime List reserves the active mobile Sheet height in every state', async ({ page }, testInfo) => {
+  portraitOnly(testInfo);
+  const viewport = { width: 390, height: 844 };
+  await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
+  await page.getByRole('radio', { name: 'List', exact: true }).check();
+  const panel = page.locator('#sidepanel');
+  const workspace = page.locator('[data-crime-list-workspace]');
+  const handle = page.locator('#sidepanel > .sheet-handle');
+  await expect(workspace).toBeVisible();
+  expect(await workspace.evaluate((element) => element.parentElement?.matches('main[data-app-shell]'))).toBe(true);
+
+  const expectReservedSpace = async (state) => {
+    await expect(panel).toHaveAttribute('data-sheet-state', state);
+    const values = await Promise.all([
+      panel.boundingBox(),
+      workspace.evaluate((element) => Number.parseFloat(getComputedStyle(element).bottom)),
+    ]);
+    const [panelBox, listBottom] = values;
+    expect(panelBox, `${state} sheet must have a layout box`).not.toBeNull();
+    const reservedHeight = viewport.height - panelBox.y;
+    expect(
+      Math.abs(listBottom - (reservedHeight + 12)),
+      `${state} list bottom ${listBottom}px must reserve sheet height ${reservedHeight}px plus 12px`,
+    ).toBeLessThanOrEqual(1);
+  };
+
+  await expectReservedSpace('half');
+  await handle.click();
+  await expectReservedSpace('full');
+  await handle.click();
+  await expectReservedSpace('collapsed');
 });
 
 test('Crime editing preserves the query and result navigation exposes one pane at a time', async ({ page }, testInfo) => {
@@ -274,6 +313,8 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
   await gotoMode(page, 'diary');
   await expect(page.getByRole('heading', { name: 'Route Experience Diary (demo)' })).toBeVisible();
+  await expect(page.locator('[data-crime-canvas-data]')).toHaveAttribute('hidden', '');
+  await expect(page.locator('[data-diary-visualization-data]')).not.toHaveAttribute('hidden', '');
   expect(crimeRequests(experience.requests)).toEqual([]);
   await assertNoHorizontalOverflow(page);
   const rateAction = page.locator('.diary-rate-action');
@@ -284,8 +325,8 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
     await expect(page.locator('#sidepanel > .sheet-content')).toHaveCSS('overflow-y', 'auto');
     await expectInsideContainer(rateAction, page.locator('#sidepanel'));
     await expectNoOverlap(rateAction, page.locator('.diary-alt-summary'));
-    await expectNoOverlap(rateAction, page.locator('.diary-road-grid-hint'));
   }
+  await expect(page.locator('.diary-road-grid-hint')).toHaveCount(0);
   await assertCtaInsideViewport(rateButton);
   await assertFocusNotObscured(rateButton);
   await captureExperienceScreenshot(page, testInfo, 'diary-live');
@@ -295,7 +336,7 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   await expect(page.locator('#diary-insights-root-content')).toBeVisible();
   if (testInfo.project.name !== 'desktop') {
     await expect(page.locator('#sidepanel')).toHaveAttribute('data-sheet-state', 'full');
-    await expect(page.getByText('Trend', { exact: true })).toBeInViewport();
+    await expect(page.locator('.diary-insights__heading--primary')).toBeInViewport();
   }
   await expect(page.getByText('No ratings saved for this route in this period.').first()).toBeVisible();
   await expect(page.locator('.diary-insights__heatmap')).toHaveCount(0);
@@ -415,9 +456,10 @@ test('Sample community stays visibly read-only and illustrative', async ({ page 
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
   const scopeDisclosure = 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.';
-  await expect(page.getByText('Static read-only examples. Not real-time; not user-submitted; not representative of any population; no official endorsement; not a safety/risk rating. Nothing is shared.')).toBeVisible();
+  await expect(page.getByText('Static read-only examples', { exact: true })).toBeVisible();
+  await expect(page.getByText('Static read-only examples. Not real-time; not user-submitted; not representative of any population; no official endorsement; not a safety/risk rating. Nothing is shared.')).toBeHidden();
   const dataStatus = page.locator('[data-app-data-status]');
-  await expect(dataStatus).toHaveText(scopeDisclosure);
+  await expect(dataStatus).toHaveText('Static samples');
   await expect(dataStatus).toHaveAttribute('aria-label', scopeDisclosure);
   await expect(dataStatus).toHaveAttribute('title', scopeDisclosure);
   await expect(dataStatus).toHaveAttribute('data-scope-disclosure', scopeDisclosure);
@@ -462,7 +504,7 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page.getByRole('button', { name: '社区示例', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const zhScopeDisclosure = '静态、虚构、只读示例；非实时、非用户提交、不代表任何总体、无官方背书，也不是安全或风险评级。';
-  await expect(page.locator('[data-app-data-status]')).toHaveText(zhScopeDisclosure);
+  await expect(page.locator('[data-app-data-status]')).toHaveText('静态示例');
   await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-disclosure', zhScopeDisclosure);
   await captureExperienceScreenshot(
     page,
@@ -478,6 +520,11 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
 test('Crime public results and Diary rating complete their primary keyboard flows', async ({ page }, testInfo) => {
   desktopOnly(testInfo);
   await gotoMode(page, 'crime', { view: 'list', analysis: 'tract', tract: '42101000403' });
+  const listView = page.getByRole('radio', { name: 'List', exact: true });
+  await tabTo(page, listView);
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('radio', { name: 'Map', exact: true })).toBeChecked();
+  await expect(page.locator('[data-primary-canvas]')).toBeVisible();
   const charts = page.getByRole('button', { name: 'Charts', exact: true });
   await tabTo(page, charts);
   await page.keyboard.press('Enter');

@@ -140,7 +140,7 @@ export function createPublicRouteAlternativesUi({
 
     const disclosure = element(documentRef, 'p', {
       className: 'public-route-surface__disclosure',
-      text: t('publicRoutes.disclosure'),
+      text: t('publicRoutes.summary'),
       attributes: { id: 'public-route-description' },
     });
     const controls = element(documentRef, 'div', { className: 'public-route-surface__controls' });
@@ -189,14 +189,17 @@ export function createPublicRouteAlternativesUi({
           : 'publicRoutes.sensitivityStable'),
       }));
     }
-    notice.append(element(documentRef, 'p', { text: t('publicRoutes.copyBoundary') }));
+    const notes = element(documentRef, 'details', { className: 'public-route-surface__notes' });
+    notes.append(element(documentRef, 'summary', { text: t('publicRoutes.notes') }));
+    notes.append(element(documentRef, 'p', { text: t('publicRoutes.disclosure') }));
+    notes.append(element(documentRef, 'p', { text: t('publicRoutes.copyBoundary') }));
 
     const cards = element(documentRef, 'div', {
       className: 'public-route-cards',
       attributes: { 'data-public-route-cards': '' },
     });
     for (const candidate of view.cards) cards.append(routeCard(documentRef, candidate));
-    surface.append(header, disclosure, controls, context, notice, cards);
+    surface.append(header, disclosure, controls, context, notice, notes, cards);
     host.replaceChildren(surface);
     dialog.setAttribute('aria-labelledby', 'public-route-title');
     dialog.setAttribute('aria-describedby', 'public-route-description');

@@ -8,10 +8,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
+    <a class="skip-navigation" href="#primary-workspace" data-i18n="workspace.skip">Skip to workspace</a>
     <header class="app-bar" data-i18n-aria-label="app.label" aria-label="Application">
       <div class="app-bar__identity">
         <h1><span class="app-title__full" data-i18n="app.title">Philadelphia Urban Evidence Lab</span><span class="app-title__compact" data-i18n="app.compactTitle" aria-hidden="true">PHL Evidence</span></h1>
-        <p data-i18n="app.tagline">3,586,620 canonical reported records · aggregate evidence · no safety or routing authority.</p>
+        <p data-i18n="app.tagline">3,586,620 reported records · historical and aggregate.</p>
       </div>
       <div class="app-bar__tools">
         <nav class="app-bar__modes" data-mode-switch-mount data-i18n-aria-label="app.modeLabel" aria-label="Explorer mode"></nav>
@@ -27,27 +28,40 @@
         <div class="app-bar__help" data-app-help></div>
       </div>
     </header>
-    <div id="map"></div>
-    <div class="map-recovery" data-map-recovery data-phase="idle" role="status" aria-live="assertive" aria-atomic="true" hidden>
-      <span data-map-recovery-message></span>
-      <button class="button button--secondary" type="button" data-map-recovery-reload hidden></button>
-    </div>
-    <div id="legend"></div>
-    <div id="tooltip"></div>
-    <div id="sidepanel" class="task-panel sheet" data-sheet-state="half" data-crime-stage="setup">
+    <main id="primary-workspace" class="app-shell" data-app-shell data-i18n-aria-label="workspace.label" aria-label="Evidence workspace" tabindex="-1">
+      <section class="primary-canvas" data-primary-canvas data-i18n-aria-label="workspace.canvasLabel" aria-label="Map and visualization workspace">
+        <div id="map"></div>
+        <div class="map-recovery" data-map-recovery data-phase="idle" role="status" aria-live="assertive" aria-atomic="true" hidden>
+          <span data-map-recovery-message></span>
+          <button class="button button--secondary" type="button" data-map-recovery-reload hidden></button>
+        </div>
+        <div id="legend"></div>
+        <div id="tooltip"></div>
+        <section class="workspace-data-equivalent" data-crime-canvas-data data-i18n-aria-label="workspace.crimeDataLabel" aria-label="Structured data for Crime charts">
+          <h2 class="sr-only" data-i18n="workspace.crimeDataTitle">Crime chart data</h2>
+          <div data-crime-canvas-data-mount role="region" data-i18n-aria-label="workspace.crimeDataRegion" aria-label="Crime chart data tables"></div>
+        </section>
+        <section class="workspace-data-equivalent" data-diary-visualization-data data-i18n-aria-label="workspace.diaryDataLabel" aria-label="Structured data for Route Experience Diary charts" hidden aria-hidden="true" inert>
+          <h2 class="sr-only" data-i18n="workspace.diaryDataTitle">Route Experience Diary chart data</h2>
+          <div data-diary-visualization-data-mount role="region" data-i18n-aria-label="workspace.diaryDataRegion" aria-label="Route Experience Diary chart data tables"></div>
+        </section>
+      </section>
+      <aside id="sidepanel" class="query-rail task-panel sheet" data-query-rail data-mobile-sheet data-sheet-state="half" data-crime-stage="setup" data-i18n-aria-label="workspace.queryLabel" aria-label="Query and analysis controls">
+        <div class="sheet-content">
+          <div class="panel-view panel-view--crime" data-panel-view="crime">
       <section class="task-focus" data-task-focus hidden aria-labelledby="task-focus-current">
         <div class="task-focus__summary">
-          <p class="task-focus__eyebrow" data-focus-i18n="focus.eyebrow">This session</p>
+          <p class="task-focus__eyebrow" data-focus-i18n="focus.eyebrow">Focus</p>
           <h2 id="task-focus-current" data-task-focus-current>General overview</h2>
-          <p data-task-focus-description>Start with the overall reported-incident summary.</p>
+          <p data-task-focus-description hidden>Start with the overall reported-incident summary.</p>
         </div>
-        <button class="button button--secondary task-focus__change" type="button" data-task-focus-open aria-haspopup="dialog" aria-controls="task-focus-dialog" aria-describedby="task-focus-note" data-focus-i18n="focus.change">Change focus</button>
-        <p id="task-focus-note" class="task-focus__note" data-focus-i18n="focus.dialogDescription">This only changes information order. Your query and results stay the same.</p>
+        <button class="button button--secondary task-focus__change" type="button" data-task-focus-open aria-haspopup="dialog" aria-controls="task-focus-dialog" aria-describedby="task-focus-note" data-focus-i18n="focus.change">Change</button>
+        <p id="task-focus-note" class="task-focus__note" data-focus-i18n="focus.dialogDescription" hidden>Changes result order only.</p>
         <details class="query-preset-entry" data-query-preset-mount>
           <summary>
             <span>
-              <strong data-focus-i18n="focus.suggestedWindows">Suggested time windows</strong>
-              <small data-focus-i18n="focus.suggestedWindowsDescription">Review suggested time settings. Nothing changes until you confirm.</small>
+              <strong data-focus-i18n="focus.suggestedWindows">Time presets</strong>
+              <small data-focus-i18n="focus.suggestedWindowsDescription" hidden>Preview a time window before applying it.</small>
             </span>
           </summary>
           <div class="query-preset-entry__actions">
@@ -59,7 +73,7 @@
               <header>
                 <p class="task-focus__eyebrow" data-focus-i18n="preset.eyebrow">Suggested query change</p>
                 <h2 id="query-preset-title" data-focus-i18n="preset.title">Review time settings</h2>
-                <p id="query-preset-description" data-focus-i18n="preset.description">Check every change before applying it. Your location, radius, categories, and display settings stay the same.</p>
+              <p id="query-preset-description" data-focus-i18n="preset.description">Review the time change before applying.</p>
               </header>
               <p class="query-preset-dialog__status" data-query-preset-status role="status" aria-live="polite"></p>
               <ul class="query-preset-dialog__changes" data-query-preset-changes role="list"></ul>
@@ -74,41 +88,53 @@
         <dialog id="task-focus-dialog" class="task-focus-dialog" data-task-focus-dialog aria-labelledby="task-focus-title" aria-describedby="task-focus-description">
           <form method="dialog" class="task-focus-dialog__surface">
             <header>
-              <h2 id="task-focus-title" data-focus-i18n="focus.dialogTitle">Choose what to review first</h2>
-              <p id="task-focus-description" data-focus-i18n="focus.dialogDescription">This only changes information order. Your query and results stay the same.</p>
+              <h2 id="task-focus-title" data-focus-i18n="focus.dialogTitle">Choose result order</h2>
+              <p id="task-focus-description" data-focus-i18n="focus.dialogDescription">Changes result order only.</p>
             </header>
             <fieldset class="task-focus-options">
               <legend class="sr-only" data-focus-i18n="focus.dialogTitle">Choose what to review first</legend>
               <label>
                 <input type="radio" name="crime-task-focus" data-task-focus-option value="general" checked>
-                <span><strong data-focus-i18n="focus.general">General overview</strong><small data-focus-i18n="focus.generalDescription">Start with the overall reported-incident summary.</small></span>
+                <span><strong data-focus-i18n="focus.general">General overview</strong><small data-focus-i18n="focus.generalDescription" hidden>Summary first.</small></span>
               </label>
               <label>
                 <input type="radio" name="crime-task-focus" data-task-focus-option value="long_term">
-                <span><strong data-focus-i18n="focus.longTerm">Long-term context</strong><small data-focus-i18n="focus.longTermDescription">Information order changes to show trends and comparison first; the query time window stays the same.</small></span>
+                <span><strong data-focus-i18n="focus.longTerm">Long-term context</strong><small data-focus-i18n="focus.longTermDescription" hidden>Trends first.</small></span>
               </label>
               <label>
                 <input type="radio" name="crime-task-focus" data-task-focus-option value="daily_living">
-                <span><strong data-focus-i18n="focus.dailyLiving">Daily nearby review</strong><small data-focus-i18n="focus.dailyLivingDescription">Information order changes to show the overview and incident log first. This is historical, not a live alert.</small></span>
+                <span><strong data-focus-i18n="focus.dailyLiving">Nearby review</strong><small data-focus-i18n="focus.dailyLivingDescription" hidden>Incident log first.</small></span>
               </label>
             </fieldset>
             <footer class="task-focus-dialog__actions">
               <button class="button button--secondary" type="submit" value="cancel" data-focus-i18n="focus.cancel">Cancel</button>
-              <button class="button button--primary" type="button" data-task-focus-apply data-focus-i18n="focus.apply">Apply focus</button>
+              <button class="button button--primary" type="button" data-task-focus-apply data-focus-i18n="focus.apply">Apply</button>
             </footer>
           </form>
         </dialog>
       </section>
-      <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
-        <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
-        <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
-      </section>
-      <section class="public-route-entry" data-public-route-entry>
-        <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entry">Public route scenarios</button>
-        <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-public-route-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
-      </section>
+      <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
+        <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
+          <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
+          <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
+        </section>
+        <section class="public-route-entry" data-public-route-entry>
+          <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entry">Public route scenarios</button>
+          <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-public-route-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
+        </section>
+        <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
+          <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
+          <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
+        </section>
+        <section class="home-compare-entry" data-home-compare-entry aria-label="Home and neighborhood comparison／住宅与社区比较">
+          <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog">Compare homes／比较住宅</button>
+          <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-home-compare-retry hidden>Retry／重试</button>
+        </section>
+      </nav>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -120,7 +146,7 @@
       <section id="crime-query-controls" class="crime-query-controls" data-crime-setup>
       <div class="task-panel__heading">
         <h2 id="crime-query-title" data-i18n="crime.taskTitle">Explore a location</h2>
-        <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
+        <p data-i18n="crime.taskDescription" hidden>Choose an area, then refine the historical crime view.</p>
       </div>
       <label class="field-label" for="queryModeSel" data-i18n="crime.areaLabel">Analysis area</label>
       <select id="queryModeSel" class="field field--compact">
@@ -128,7 +154,7 @@
         <option value="district" data-i18n="crime.area.district">Police District</option>
         <option value="tract" data-i18n="crime.area.tract">Census Tract</option>
       </select>
-      <div id="queryModeHelp" class="field-help" data-i18n="crime.modeHelp.buffer">Around a point: choose “Pick on map”, then click the map to set the center.</div>
+      <div id="queryModeHelp" class="field-help" data-i18n="crime.modeHelp.buffer" hidden>Around a point: choose “Pick on map”, then click the map to set the center.</div>
       <button id="clearSelBtn" class="button button--secondary is-hidden" data-i18n="crime.clearSelection">Clear selection</button>
       <div id="bufferSelectRow">
         <label class="field-label" for="addrA" data-i18n="crime.selectedArea">Selected area</label>
@@ -149,18 +175,6 @@
         <div id="addressStatus" class="status-badge is-hidden" role="status" aria-live="polite"></div>
         <div id="useMapHint" class="field-help is-hidden" data-i18n="crime.mapHint">Click the map to set the selected point. Press Esc to cancel.</div>
       </div>
-
-      <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
-        <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
-        <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
-      </section>
-
-      <section class="home-compare-entry" data-home-compare-entry aria-label="Home and neighborhood comparison／住宅与社区比较">
-        <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog">Compare homes／比较住宅</button>
-        <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-home-compare-retry hidden>Retry／重试</button>
-      </section>
 
       <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
         <div class="result-meta__bar">
@@ -330,7 +344,7 @@
       </div>
       </section>
       </section>
-      <aside id="results-drawer" class="drawer" data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details" hidden aria-hidden="true" inert>
+      <aside id="results-drawer" class="context-drawer drawer" data-context-drawer data-i18n-aria-label="crime.analysisDetailsLabel" aria-label="Analysis details" hidden aria-hidden="true" inert>
         <section id="incident-results" class="incident-results crime-result-pane" data-result-pane="incidents" aria-labelledby="incident-results-title" aria-busy="false" tabindex="-1" hidden aria-hidden="true" inert>
           <header class="incident-results__header">
             <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Incident log</p>
@@ -343,32 +357,6 @@
           <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
           <ol class="incident-results__list" data-incident-results-list></ol>
           <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show more incidents</button>
-          <section class="crime-list-results" data-crime-list-results aria-labelledby="crime-list-results-title" hidden>
-            <h3 id="crime-list-results-title" tabindex="-1" data-i18n="crime.list.title">Reported incident records</h3>
-            <p data-crime-list-description data-i18n="crime.list.description">Review admitted historical records for this query in the table below. A map is not required.</p>
-            <p data-crime-list-status role="status" aria-live="polite" data-i18n="crime.list.idle">Enter an address and run the Crime query to review incident records without a map.</p>
-            <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.tableRegion" aria-label="Scrollable incident records table">
-              <table data-crime-list-table>
-                <caption data-crime-list-caption data-i18n="crime.list.caption">Historical reported incident records for the current Crime query</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" data-i18n="map.incidentOffense">Offense</th>
-                    <th scope="col" data-i18n="map.incidentOccurred">Date and time</th>
-                    <th scope="col" data-i18n="map.incidentLocation">Reported location</th>
-                    <th scope="col" data-i18n="map.incidentDistrict">Police district</th>
-                  </tr>
-                </thead>
-                <tbody data-crime-list-body>
-                  <tr><th scope="row" data-i18n="crime.list.noRows">No admitted records yet</th><td colspan="3">—</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <ul class="crime-list-limitations" data-crime-list-limitations>
-              <li data-i18n="crime.list.limitHistorical">These are historical reported records, not live conditions or a prediction.</li>
-              <li data-i18n="crime.list.limitLocation">Locations are generalized to roughly the hundred block and are not precise addresses.</li>
-              <li data-i18n="crime.list.limitRecord">One source row is not guaranteed to equal one unique incident.</li>
-            </ul>
-          </section>
           <div class="result-meta" data-result-meta="incidents" data-availability="unavailable">
             <div class="result-meta__bar">
               <span data-result-meta-status role="status" aria-live="polite">Incident result unavailable</span>
@@ -506,7 +494,40 @@
         <summary data-i18n="history.savedAnalyses">Saved analyses</summary>
         <section data-analysis-history-mount></section>
       </details>
-    </div>
+          </div>
+          <div class="panel-view panel-view--diary" data-panel-view="diary" hidden aria-hidden="true" inert></div>
+        </div>
+      </aside>
+      <section class="crime-list-results crime-list-workspace" data-crime-list-workspace data-crime-list-results aria-labelledby="crime-list-results-title" hidden>
+        <h2 id="crime-list-results-title" tabindex="-1" data-i18n="crime.list.title">Reported incident records</h2>
+        <p data-crime-list-description data-i18n="crime.list.description">Review admitted historical records for this query in the table below. A map is not required.</p>
+        <p data-crime-list-status role="status" aria-live="polite" data-i18n="crime.list.idle">Enter an address and run the Crime query to review incident records without a map.</p>
+        <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.tableRegion" aria-label="Scrollable incident records table">
+          <table data-crime-list-table>
+            <caption data-crime-list-caption data-i18n="crime.list.caption">Historical reported incident records for the current Crime query</caption>
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="map.incidentOffense">Offense</th>
+                <th scope="col" data-i18n="map.incidentOccurred">Date and time</th>
+                <th scope="col" data-i18n="map.incidentLocation">Reported location</th>
+                <th scope="col" data-i18n="map.incidentDistrict">Police district</th>
+              </tr>
+            </thead>
+            <tbody data-crime-list-body>
+              <tr><th scope="row" data-i18n="crime.list.noRows">No admitted records yet</th><td colspan="3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <details class="crime-list-notes">
+          <summary data-i18n="crime.list.notesTitle">Data notes</summary>
+          <ul class="crime-list-limitations" data-crime-list-limitations>
+            <li data-i18n="crime.list.limitHistorical">These are historical reported records, not live conditions or a prediction.</li>
+            <li data-i18n="crime.list.limitLocation">Locations are generalized to roughly the hundred block and are not precise addresses.</li>
+            <li data-i18n="crime.list.limitRecord">One source row is not guaranteed to equal one unique incident.</li>
+          </ul>
+        </details>
+      </section>
+    </main>
     <aside id="route-corridor-shell" class="route-corridor-shell" data-route-corridor-host aria-labelledby="route-corridor-title" hidden inert></aside>
     <dialog id="acs-multitract-dialog" class="acs-multitract-dialog" data-acs-multitract-dialog aria-labelledby="acs-multitract-title" aria-describedby="acs-multitract-description">
       <div data-acs-multitract-host></div>

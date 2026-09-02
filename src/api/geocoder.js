@@ -3,6 +3,20 @@ import { fetchJson, rejectPrivateLocationEgress } from '../utils/http.js';
 const PHILADELPHIA_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Philly_Composite_Locator/GeocodeServer/findAddressCandidates';
 const PHILADELPHIA_PROPERTY_GEOCODER = 'https://citygeo-geocoder-pub.databridge.phila.gov/arcgis/rest/services/Geocoders/Address_Locator/GeocodeServer/findAddressCandidates';
 
+export const GEOCODER_ERROR_CODES = Object.freeze({
+  ADDRESS_TOO_SHORT: 'geocoder.address_too_short',
+  ADDRESS_LENGTH_INVALID: 'geocoder.address_length_invalid',
+});
+
+export class PhiladelphiaGeocoderError extends Error {
+  constructor(code, messageKey) {
+    super(messageKey);
+    this.name = 'PhiladelphiaGeocoderError';
+    this.code = code;
+    this.messageKey = messageKey;
+  }
+}
+
 /**
  * Resolve raw City address candidates for Home Compare without browser/session
  * caching. The caller must still apply score, ambiguity, geography, and OPA
@@ -14,7 +28,10 @@ export async function findPhiladelphiaPropertyAddressCandidates(address, {
 } = {}) {
   const query = String(address || '').trim();
   if (query.length < 3 || query.length > 160) {
-    throw new Error('Enter a bounded Philadelphia street address.');
+    throw new PhiladelphiaGeocoderError(
+      GEOCODER_ERROR_CODES.ADDRESS_LENGTH_INVALID,
+      'crime.geocoder.addressLengthInvalid',
+    );
   }
   rejectPrivateLocationEgress();
   const params = new URLSearchParams({
@@ -43,7 +60,12 @@ export async function geocodePhiladelphiaAddress(address, {
   signal,
 } = {}) {
   const query = String(address || '').trim();
-  if (query.length < 3) throw new Error('Enter a Philadelphia address or intersection.');
+  if (query.length < 3) {
+    throw new PhiladelphiaGeocoderError(
+      GEOCODER_ERROR_CODES.ADDRESS_TOO_SHORT,
+      'crime.geocoder.addressTooShort',
+    );
+  }
   rejectPrivateLocationEgress();
   const params = new URLSearchParams({
     SingleLine: query,

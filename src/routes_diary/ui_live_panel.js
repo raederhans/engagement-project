@@ -83,11 +83,6 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   rateWrap.appendChild(rateBtn);
   actionsCard.appendChild(rateWrap);
 
-  const hint = document.createElement('div');
-  setTranslatedText(hint, 'diary.roadGridHint');
-  hint.className = 'diary-muted-text diary-road-grid-hint';
-  actionsCard.appendChild(hint);
-
   container.appendChild(actionsCard);
 
   // Simulator

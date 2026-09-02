@@ -1,9 +1,7 @@
 import {
   describeDiaryInsightsContext,
   normalizeDiaryInsightsContext,
-  renderInsightsSections,
-  setDiaryInsightEntries,
-} from '../charts/diary_insights.js';
+} from '../charts/diary_insights_context.js';
 import { createDiaryCard, createSectionTitle, createSecondaryButton } from './ui_common.js';
 import { onLanguageChange, setTranslatedText, t } from '../i18n/index.js';
 
@@ -22,6 +20,9 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
   let hintEl = null;
   let introEl = null;
   let context = normalizeDiaryInsightsContext('live');
+  let entries = [];
+  let insightsModulePromise = null;
+  let renderGeneration = 0;
 
   root.classList.add('diary-insights-root');
   root.style.display = 'none';
@@ -37,6 +38,7 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     titleEl = createSectionTitle(t('diary.insights.live.title'));
     hintEl = document.createElement('div');
     hintEl.className = 'diary-muted-text';
+    hintEl.hidden = true;
     titleWrap.append(titleEl, hintEl);
 
     toggleBtn = createSecondaryButton(t('diary.insightsCollapsed'));
@@ -52,6 +54,7 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     contentEl.className = 'diary-insights-content';
     introEl = document.createElement('div');
     introEl.className = 'diary-muted-text diary-insights-intro';
+    introEl.hidden = true;
     trendEl = document.createElement('div');
     trendEl.className = 'diary-card diary-insights-section';
     tagsEl = document.createElement('div');
@@ -74,9 +77,34 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     introEl.textContent = copy.intro;
   }
 
+  function loadInsightsModule() {
+    if (!insightsModulePromise) {
+      let ownedPromise;
+      ownedPromise = import('../charts/diary_insights.js').catch((error) => {
+        if (insightsModulePromise === ownedPromise) insightsModulePromise = null;
+        throw error;
+      });
+      insightsModulePromise = ownedPromise;
+    }
+    return insightsModulePromise;
+  }
+
   function updateContent() {
     if (!built || collapsed) return;
-    renderInsightsSections(trendEl, tagsEl, heatEl, { context });
+    const generation = ++renderGeneration;
+    contentEl.setAttribute('aria-busy', 'true');
+    void loadInsightsModule().then(({ renderInsightsSections, setDiaryInsightEntries }) => {
+      if (generation !== renderGeneration || collapsed) return;
+      setDiaryInsightEntries(entries);
+      renderInsightsSections(trendEl, tagsEl, heatEl, { context });
+      contentEl.setAttribute('aria-busy', 'false');
+    }).catch(() => {
+      if (generation !== renderGeneration || collapsed) return;
+      setTranslatedText(trendEl, 'diary.insights.unavailable');
+      tagsEl.textContent = '';
+      heatEl.textContent = '';
+      contentEl.setAttribute('aria-busy', 'false');
+    });
   }
 
   function setCollapsed(next) {
@@ -85,7 +113,10 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     contentEl.hidden = collapsed;
     setTranslatedText(toggleBtn, collapsed ? 'diary.insightsCollapsed' : 'diary.insightsExpanded');
     toggleBtn.setAttribute('aria-expanded', String(!collapsed));
-    if (!collapsed) updateContent();
+    if (collapsed) {
+      renderGeneration += 1;
+      contentEl.setAttribute('aria-busy', 'false');
+    } else updateContent();
     onExpandedChange?.(!collapsed);
   }
 
@@ -113,8 +144,8 @@ export function createDiaryInsightsHost(root, onExpandedChange) {
     refresh() {
       updateContent();
     },
-    setEntries(entries) {
-      setDiaryInsightEntries(entries);
+    setEntries(nextEntries) {
+      entries = nextEntries;
       updateContent();
     },
   };

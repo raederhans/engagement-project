@@ -466,6 +466,7 @@ function ensureDiaryPanel(routes, options = {}) {
   diaryPanelEl.appendChild(viewSwitcher);
 
   const body = document.createElement('div');
+  body.className = 'diary-panel-body';
   diaryPanelEl.appendChild(body);
 
   const syncPills = () => {
@@ -481,6 +482,7 @@ function ensureDiaryPanel(routes, options = {}) {
     syncPills();
     if (store.diaryViewMode !== 'live') clearLiveDiaryMapState();
     body.innerHTML = '';
+    body.dataset.diaryView = store.diaryViewMode;
     clearLiveRefs();
     if (store.diaryViewMode === 'history') {
       syncDiaryInsightsContext('history');
@@ -1030,10 +1032,7 @@ function renderAltSummary(route, altInfo) {
   const cost = document.createElement('div');
   cost.className = 'diary-alternative-summary__cost';
   cost.textContent = tradeoff.cost;
-  const caveat = document.createElement('div');
-  caveat.className = 'diary-alternative-summary__caveat';
-  caveat.textContent = tradeoff.caveat;
-  altSummaryEl.append(benefit, cost, caveat);
+  altSummaryEl.append(benefit, cost);
 }
 
 function applyAltToggleState(enabled, { update = true } = {}) {

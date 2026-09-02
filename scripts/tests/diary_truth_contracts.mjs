@@ -346,9 +346,9 @@ test('Community Data Scope and Help expose the complete bilingual truth boundary
   for (const [locale, helpIndex, required] of fixtures) {
     setLanguage(locale);
     const scope = describeDiaryDataScope('community');
-    assert.equal(scope.shortLabel, scope.accessibleLabel);
+    assert.notEqual(scope.shortLabel, scope.accessibleLabel);
     assert.deepEqual(scope.details, [scope.accessibleLabel]);
-    for (const surface of [scope.shortLabel, scope.accessibleLabel, ...scope.details]) {
+    for (const surface of [scope.accessibleLabel, ...scope.details]) {
       for (const pattern of required) assert.match(surface, pattern);
     }
 
@@ -377,7 +377,7 @@ test('Community Data Scope and Help expose the complete bilingual truth boundary
     presenter.showIntent('diary');
     presenter.showDataScope(scope);
     presenter.showStatus({ mode: 'diary', phase: 'ready' });
-    assert.equal(status.textContent, scope.accessibleLabel);
+    assert.equal(status.textContent, scope.shortLabel);
     assert.equal(details.textContent, scope.accessibleLabel);
     assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
     assert.equal(attributes.get('title'), scope.accessibleLabel);
