@@ -456,8 +456,7 @@ test('Sample community stays visibly read-only and illustrative', async ({ page 
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
   const scopeDisclosure = 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.';
-  await expect(page.getByText('Static read-only examples', { exact: true })).toBeVisible();
-  await expect(page.getByText('Static read-only examples. Not real-time; not user-submitted; not representative of any population; no official endorsement; not a safety/risk rating. Nothing is shared.')).toBeHidden();
+  await expect(page.getByText('Static examples — not real-time or user-submitted, not representative, no official endorsement, and not safety/risk ratings', { exact: true })).toBeVisible();
   const dataStatus = page.locator('[data-app-data-status]');
   await expect(dataStatus).toHaveText('Static samples');
   await expect(dataStatus).toHaveAttribute('aria-label', scopeDisclosure);

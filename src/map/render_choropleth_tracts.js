@@ -32,7 +32,7 @@ export function renderTractsChoropleth(map, merged) {
       ? merged.statusMessage
       : t('crime.noTractIncidents'));
   } else {
-    updateLegend({ title: t('crime.censusTracts'), breaks, colors, subtitle });
+    updateLegend({ title: 'crime.censusTracts', breaks, colors, subtitle });
 
     // Build step expression for fill color
     const { paintProps } = toMapLibreStep(breaks, colors, { opacity: store.classOpacity });

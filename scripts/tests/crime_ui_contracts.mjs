@@ -1563,14 +1563,17 @@ test('categorical Crime legend pairs every highlight color with a text label', a
     dataset: {},
     attributes: new Map(),
     children: [],
-    setAttribute(name, value) { this.attributes.set(name, value); },
+    setAttribute(name, value) {
+      this.attributes.set(name, value);
+      if (name === 'data-i18n') this.dataset.i18n = value;
+    },
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     querySelectorAll(selector) {
-      if (selector !== '[data-offense-code]') return [];
       const matches = [];
       const visit = (element) => {
-        if (element?.dataset?.offenseCode) matches.push(element);
+        if (selector === '[data-offense-code]' && element?.dataset?.offenseCode) matches.push(element);
+        if (selector === '[data-i18n]' && element?.attributes?.has('data-i18n')) matches.push(element);
         for (const child of element?.children || []) visit(child);
       };
       for (const child of this.children) visit(child);
@@ -1619,6 +1622,15 @@ test('categorical Crime legend pairs every highlight color with a text label', a
       .map((row) => row.children[1].textContent),
     ['Aggravated assault with firearm', 'Aggravated assault without firearm'],
   );
+
+  legend.updateLegend({
+    title: 'crime.districts',
+    breaks: [10, 20],
+    colors: ['#eff3ff', '#bdd7e7', '#6baed6'],
+  });
+  assert.equal(root.children[0].textContent, 'Districts');
+  setLanguage('zh-CN');
+  assert.equal(root.children[0].textContent, '警察分局');
 });
 
 test('buffer highlight legend is restored after background choropleth jobs settle', async () => {

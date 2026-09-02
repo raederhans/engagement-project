@@ -29,11 +29,7 @@ export function renderCommunityPanel(container, state = {}) {
   const noticeText = document.createElement('div');
   noticeText.className = 'diary-muted-text';
   setTranslatedText(noticeText, 'diary.communitySummary');
-  const fullNotice = document.createElement('span');
-  fullNotice.hidden = true;
-  setTranslatedText(fullNotice, 'diary.communityNotice');
   notice.appendChild(noticeText);
-  notice.appendChild(fullNotice);
   container.appendChild(notice);
 
   // Static illustrative experience ratings; never community or safety evidence.

@@ -1451,7 +1451,7 @@ test('Community UI is explicitly sample-only and has no fake post action', async
     readProductCss(),
   ]);
   assert.match(communitySource, /diary\.sampleCommunity/);
-  assert.match(communitySource, /diary\.communityNotice/);
+  assert.match(communitySource, /diary\.communitySummary/);
   assert.doesNotMatch(communitySource, /onPostComment/);
   assert.doesNotMatch(communitySource, /type\s*=\s*['"]range['"]|onRadiusChange|onSelectSegment/);
   assert.match(communitySource, /className\s*=\s*['"]diary-community-item['"]/);

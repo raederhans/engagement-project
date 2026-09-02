@@ -492,7 +492,7 @@ try {
   );
 
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
-  await page.getByText('Static read-only examples. Not real-time; not user-submitted; not representative of any population; no official endorsement; not a safety/risk rating. Nothing is shared.').waitFor();
+  await page.getByText('Static examples — not real-time or user-submitted, not representative, no official endorsement, and not safety/risk ratings', { exact: true }).waitFor();
   assert.equal(await page.locator('[data-panel-view="diary"] input[type="range"]').count(), 0);
   const sampleItem = page.locator('.diary-community-item').first();
   await sampleItem.waitFor();
