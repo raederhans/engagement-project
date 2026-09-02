@@ -304,10 +304,11 @@ test('responsive rules cover portrait, landscape, and low-height screens', () =>
   assert.doesNotMatch(landscapeCss, /!important/);
 });
 
-test('small-screen Diary keeps its primary route action inside the sheet scroll owner', async () => {
+test('small-screen Diary keeps its primary route action in flow inside the sheet scroll owner', async () => {
   const livePanel = await readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8');
   assert.match(livePanel, /rateWrap\.className\s*=\s*['"]diary-rate-action['"]/);
-  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
+  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static[^}]*margin:\s*var\(--space-3\)\s*0\s*0[^}]*padding:\s*0[^}]*background:\s*none/s);
+  assert.doesNotMatch(css, /\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
   assert.match(css, /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static/s);
   assert.match(css, /\[data-panel-view="diary"\]\s*\{[^}]*padding-bottom:\s*0/s);
   assert.match(css, /\.sheet-content\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto[^}]*safe-area-inset-bottom/s);
