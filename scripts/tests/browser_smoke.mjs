@@ -565,7 +565,7 @@ try {
   await page.getByRole('button', { name: 'Change focus' }).click();
   const focusDialog = page.locator('[data-task-focus-dialog]');
   await focusDialog.locator('[data-task-focus-option][value="long_term"]').check();
-  await focusDialog.getByRole('button', { name: 'Apply focus' }).click();
+  await focusDialog.getByRole('button', { name: 'Use this focus' }).click();
   assert.equal(page.url(), focusUrlBefore, 'Task focus must not mutate the canonical Crime URL');
   assert.equal(await page.locator('[data-task-focus-current]').textContent(), 'Long-term context');
   assert.deepEqual(

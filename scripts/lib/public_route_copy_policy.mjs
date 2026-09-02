@@ -1,7 +1,9 @@
 const APPROVED_NEGATED_COPY = Object.freeze([
   'This is not live directions, an observed route evaluation, or a recommendation.',
+  'They are not live directions, observed journeys, or route recommendations.',
   'Treat the cards as tradeoffs, not as a recommendation.',
   '它不是实时导航、实测路线评估或推荐，也不具备路线或安全权限。',
+  '不是实时导航、实测行程或路线推荐。',
   '请将卡片视为权衡说明，而非推荐。',
 ]);
 

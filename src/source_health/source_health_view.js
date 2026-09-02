@@ -1,7 +1,7 @@
 const COPY = Object.freeze({
   en: Object.freeze({
-    title: 'Source Health & Data Freshness Center',
-    intro: 'Status describes admitted evidence, not the number of records. Unavailable is not zero, and unknown is never treated as current.',
+    title: 'Data sources and update status',
+    intro: 'Review source status, coverage, and update times.',
     rejected: 'One or more source observations failed schema admission. Affected sources are unavailable until valid evidence is supplied.',
     dataset: 'Dataset', provider: 'Provider', status: 'Status', canonical: 'Canonical source',
     license: 'License / reuse', coverage: 'Coverage', clocks: 'Evidence clocks',
@@ -12,8 +12,8 @@ const COPY = Object.freeze({
     current: 'Current', partial: 'Partial', stale: 'Stale', unavailable: 'Unavailable', unknown: 'Unknown',
   }),
   'zh-CN': Object.freeze({
-    title: '来源健康与数据新鲜度中心',
-    intro: '状态描述已接纳的证据，不代表记录数量。“不可用”不等于零，“未知”绝不会按“当前”处理。',
+    title: '数据来源与更新时间',
+    intro: '查看各数据源的状态、覆盖范围和更新时间。',
     rejected: '一个或多个来源观测未通过 schema 接纳；在提供有效证据前，受影响来源保持不可用。',
     dataset: '数据集', provider: '提供方', status: '状态', canonical: '规范来源',
     license: '许可 / 复用条款', coverage: '覆盖范围', clocks: '证据时钟',

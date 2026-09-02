@@ -309,7 +309,7 @@ test('text-first surface renders semantic no-map DOM with four clocks and access
   assert.equal(host.queryAll('article').length, SOURCE_HEALTH_CATALOG.length);
   assert.ok(host.queryAll('dl').length > SOURCE_HEALTH_CATALOG.length);
   assert.ok(host.queryAll('a').every((anchor) => anchor.target === '_blank' && anchor.rel === 'noopener noreferrer'));
-  assert.match(host.textContent, /来源健康与数据新鲜度中心/);
+  assert.match(host.textContent, /数据来源与更新时间/);
   assert.match(host.textContent, /来源事实截至/);
   assert.match(host.textContent, /获取时间/);
   assert.match(host.textContent, /构建时间/);

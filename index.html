@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="app.documentTitle">Philadelphia Urban Evidence Lab</title>
-    <meta name="description" data-i18n-content="app.description" content="Explore reproducible Philadelphia urban evidence across Area Intelligence, Home Compare, and Known Route without safety or routing claims. The browser-local Route Experience Diary remains demo-only." />
+    <meta name="description" data-i18n-content="app.description" content="Explore Philadelphia historical incidents, area comparisons, route context, and browser-local trip notes." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
     <header class="app-bar" data-i18n-aria-label="app.label" aria-label="Application">
       <div class="app-bar__identity">
         <h1><span class="app-title__full" data-i18n="app.title">Philadelphia Urban Evidence Lab</span><span class="app-title__compact" data-i18n="app.compactTitle" aria-hidden="true">PHL Evidence</span></h1>
-        <p data-i18n="app.tagline">3,586,620 canonical reported records · aggregate evidence · no safety or routing authority.</p>
+        <p data-i18n="app.tagline">Historical public records, area comparisons, and route context—with sources and limits in view.</p>
       </div>
       <div class="app-bar__tools">
         <nav class="app-bar__modes" data-mode-switch-mount data-i18n-aria-label="app.modeLabel" aria-label="Explorer mode"></nav>
@@ -119,8 +119,8 @@
       </section>
       <section id="crime-query-controls" class="crime-query-controls" data-crime-setup>
       <div class="task-panel__heading">
-        <h2 id="crime-query-title" data-i18n="crime.taskTitle">Explore a location</h2>
-        <p data-i18n="crime.taskDescription">Choose an area, then refine the historical crime view.</p>
+        <h2 id="crime-query-title" data-i18n="crime.taskTitle">Review an area</h2>
+        <p data-i18n="crime.taskDescription">Choose a place, time range, and offense types to review historical reported incidents.</p>
       </div>
       <label class="field-label" for="queryModeSel" data-i18n="crime.areaLabel">Analysis area</label>
       <select id="queryModeSel" class="field field--compact">
@@ -156,10 +156,10 @@
         <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
       </section>
 
-      <section class="home-compare-entry" data-home-compare-entry aria-label="Home and neighborhood comparison／住宅与社区比较">
-        <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog">Compare homes／比较住宅</button>
+      <section class="home-compare-entry" data-home-compare-entry data-i18n-aria-label="homeCompare.ariaLabel" aria-label="Home and neighborhood comparison">
+        <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog" data-i18n="homeCompare.entry">Home &amp; neighborhood compare</button>
         <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
-        <button class="button button--secondary" type="button" data-home-compare-retry hidden>Retry／重试</button>
+        <button class="button button--secondary" type="button" data-home-compare-retry data-i18n="homeCompare.retry" hidden>Retry home comparison</button>
       </section>
 
       <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
@@ -204,7 +204,7 @@
             <h3 id="crime-data-details-title" data-i18n="crime.dataDetails">Data details</h3>
             <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
             <details class="source-health-entry" data-source-health-entry data-source-health-loader="idle">
-              <summary aria-controls="source-health-surface">Source Health &amp; Data Freshness Center／来源健康与数据新鲜度中心</summary>
+              <summary aria-controls="source-health-surface" data-i18n="sourceHealth.entry">Data sources and update status</summary>
               <p data-source-health-loader-status role="status" aria-live="polite" hidden></p>
               <button class="button button--secondary" type="button" data-source-health-retry hidden>Retry source evidence／重试来源证据</button>
               <section id="source-health-surface" data-source-health-host aria-busy="false" hidden></section>
@@ -404,12 +404,12 @@
           </div>
           <section id="area-intelligence" class="area-intelligence residential-stability" aria-labelledby="area-intelligence-title" data-model-status="loading">
             <div class="area-intelligence__heading residential-stability__heading">
-              <p class="crime-summary__eyebrow" data-i18n="areaIntelligence.eyebrow">Area Intelligence baseline</p>
-              <h3 id="area-intelligence-title" data-i18n="areaIntelligence.title">Historical evidence and forecast status</h3>
-              <p data-i18n="areaIntelligence.subtitle">Historical reported-incident trends remain available even when the forecast gate does not pass.</p>
+              <p class="crime-summary__eyebrow" data-i18n="areaIntelligence.eyebrow">Area Intelligence</p>
+              <h3 id="area-intelligence-title" data-i18n="areaIntelligence.title">Historical patterns and forecast status</h3>
+              <p data-i18n="areaIntelligence.subtitle">Review the historical summary and why no forecast is available.</p>
             </div>
             <div data-area-intelligence-content aria-live="polite">
-              <p data-i18n="areaIntelligence.loading">Checking the model serving contract…</p>
+              <p data-i18n="areaIntelligence.loading">Checking the latest evidence summary…</p>
             </div>
           </section>
           <section id="residential-stability" class="residential-stability" aria-labelledby="residential-stability-title">

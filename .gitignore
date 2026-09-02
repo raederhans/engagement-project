@@ -41,3 +41,4 @@ test-results/
 
 # Test-generated query logs
 logs/queries_*.log
+.gstack/

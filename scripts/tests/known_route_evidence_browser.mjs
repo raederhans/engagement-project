@@ -59,11 +59,11 @@ await runBrowserSuite({
   );
 
   const evidence = page.locator('[data-known-route-evidence]');
-  await evidence.getByRole('heading', { name: 'Known Route evidence' }).waitFor();
-  assert.match(await evidence.innerText(), /Route choice is unchanged/i);
-  assert.match(await evidence.innerText(), /metadata GET, count-only POST, GeoJSON POST, metadata recheck GET/i);
-  assert.match(await evidence.innerText(), /exact route-derived bounding box expanded by 75 m/i);
-  assert.match(await evidence.innerText(), /never polyline, vertices, address, destination/i);
+  await evidence.getByRole('heading', { name: 'Known route evidence review' }).waitFor();
+  assert.match(await evidence.innerText(), /Review historical reported incidents and uncertainty near a route/i);
+  assert.match(await evidence.innerText(), /four requests/i);
+  assert.match(await evidence.innerText(), /route-derived bounding box expanded by 75 m/i);
+  assert.match(await evidence.innerText(), /not the route line, vertices, address, destination/i);
   assert.equal(centerlineRequests.length, 0, 'M4 must not request the centerline before explicit consent');
   const analyze = evidence.getByRole('button', { name: 'Analyze this known route' });
   assert.equal(await analyze.isDisabled(), true);
@@ -89,7 +89,7 @@ await runBrowserSuite({
   assert.match(validText, /Transit legality context/i);
   assert.match(validText, /Map-match quality context/i);
   assert.match(validText, /Explicit scenario sensitivity/i);
-  assert.match(validText, /No admitted versioned corridor or generalization sensitivity producer/i);
+  assert.match(validText, /No validated, versioned source covers corridor or location-generalization sensitivity/i);
   assert.doesNotMatch(validText, /safe|safer|safest|recommend|individual probability|causal|current guarantee/i);
   assert.equal(await evidence.locator('[data-known-route-evidence-results] > section').count(), 7);
   const p6 = evidence.locator('[data-known-route-p6]');
@@ -137,7 +137,7 @@ await runBrowserSuite({
 
   await page.locator('.language-switch').click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-  await evidence.getByRole('heading', { name: '已知路线证据' }).waitFor();
+  await evidence.getByRole('heading', { name: '已知路线证据查看' }).waitFor();
   const chineseText = await evidence.innerText();
   assert.match(chineseText, /保持独立/);
   assert.match(chineseText, /建模不确定性/);
@@ -153,11 +153,11 @@ await runBrowserSuite({
   await page.waitForFunction(() => ['ready', 'no-mapped-incidents'].includes(
     document.querySelector('[data-route-corridor-surface]')?.dataset.routeStatus,
   ));
-  await evidence.getByRole('heading', { name: 'Known Route evidence' }).waitFor();
+  await evidence.getByRole('heading', { name: 'Known route evidence review' }).waitFor();
   await evidence.locator('[data-known-route-consent]').check();
   await evidence.getByRole('button', { name: 'Analyze this known route' }).click();
   await page.waitForFunction(() => document.querySelector('[data-known-route-evidence]')?.dataset.knownRouteEvidenceStatus === 'unavailable');
-  assert.match(await evidence.innerText(), /too far from admitted centerline geometry/i);
+  assert.match(await evidence.innerText(), /too far from the checked street-centerline geometry/i);
   assert.match(await evidence.innerText(), /Unavailable — not zero/i);
 
   await page.setViewportSize({ width: 390, height: 844 });
