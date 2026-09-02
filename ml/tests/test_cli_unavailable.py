@@ -107,11 +107,10 @@ def test_full_benchmark_rejects_non_frozen_feature_or_reference_seed(
         assert admission["production_forecast"]["status"] == "unavailable"
 
     drifted_protocol = tmp_path / "drifted-protocol.json"
+    drifted_protocol_payload = json.loads(_protocol().read_text(encoding="utf-8"))
+    drifted_protocol_payload["frozen_at"] = "2099-01-01T00:00:00.000Z"
     drifted_protocol.write_text(
-        _protocol().read_text(encoding="utf-8").replace(
-            '"frozen_at": "2026-08-31T00:00:00.000Z"',
-            '"frozen_at": "2026-08-31T00:00:00.001Z"',
-        ),
+        json.dumps(drifted_protocol_payload, indent=2) + "\n",
         encoding="utf-8",
     )
     output = full_output_factory("protocol-drift")

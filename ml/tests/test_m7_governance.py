@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from pathlib import Path
 
@@ -199,11 +200,10 @@ def test_governed_synthetic_benchmark_reports_five_seed_stability_and_no_promoti
         )
 
     drifted_protocol = tmp_path / "drifted-protocol.json"
+    drifted_protocol_payload = json.loads(_protocol_path().read_text(encoding="utf-8"))
+    drifted_protocol_payload["frozen_at"] = "2099-01-01T00:00:00.000Z"
     drifted_protocol.write_text(
-        _protocol_path().read_text(encoding="utf-8").replace(
-            '"frozen_at": "2026-08-31T00:00:00.000Z"',
-            '"frozen_at": "2026-08-31T00:00:00.001Z"',
-        ),
+        json.dumps(drifted_protocol_payload, indent=2) + "\n",
         encoding="utf-8",
     )
     with pytest.raises(ContractError, match="protocol drifted from frozen"):
