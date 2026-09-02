@@ -500,8 +500,8 @@ test('Help copy is mode-specific and explains Diary local persistence', () => {
   const diary = getAboutContent('diary');
 
   assert.match(crime, /crime incidents/i);
-  assert.doesNotMatch(crime, /saved only in this browser/i);
-  assert.match(diary, /saved only in this browser/i);
+  assert.doesNotMatch(crime, /stay in this browser/i);
+  assert.match(diary, /stay in this browser/i);
   assert.doesNotMatch(diary, /offense groups/i);
 });
 

@@ -4,8 +4,8 @@
 2. Rewrite the English and Chinese README around user-visible capabilities and honest status. — completed
 3. Simplify the main shell and feature-surface copy without weakening privacy, evidence, or recommendation boundaries. — completed
 4. Update copy-sensitive tests, build the site, and inspect representative English and Chinese screens. — completed
-5. Review the copy diff for semantic regressions, restore required product boundaries, and reconcile it into the final P0/P1 UI structure. — in progress
-6. Recapture screenshots from the final integrated build and require local plus remote release gates before merging to `main`. — pending
+5. Review the copy diff for semantic regressions, restore required product boundaries, and reconcile it into the final P0/P1 UI structure. — completed
+6. Recapture screenshots from the final integrated build and require local plus remote release gates before merging to `main`. — local complete; remote pending
 
 ## Boundaries
 

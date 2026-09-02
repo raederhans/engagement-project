@@ -564,10 +564,10 @@ try {
   assert.match(await summaryMeta.textContent(), /2024|2025|2026/);
 
   const focusUrlBefore = page.url();
-  await page.getByRole('button', { name: 'Change focus' }).click();
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
   const focusDialog = page.locator('[data-task-focus-dialog]');
   await focusDialog.locator('[data-task-focus-option][value="long_term"]').check();
-  await focusDialog.getByRole('button', { name: 'Use this focus' }).click();
+  await focusDialog.getByRole('button', { name: 'Apply', exact: true }).click();
   assert.equal(page.url(), focusUrlBefore, 'Task focus must not mutate the canonical Crime URL');
   assert.equal(await page.locator('[data-task-focus-current]').textContent(), 'Long-term context');
   assert.deepEqual(
@@ -610,14 +610,14 @@ try {
   assert.equal(await presetDisclosure.getAttribute('open'), null, 'Suggested time windows should be collapsed by default');
   await presetDisclosure.locator(':scope > summary').click();
   const presetDialog = page.locator('[data-query-preset-dialog]');
-  await page.getByRole('button', { name: 'Review latest 6 months' }).click();
+  await presetDisclosure.locator('[data-query-preset="latest-6-months"]').click();
   await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'Nothing has been applied yet' }).waitFor();
   assert.equal(await presetDialog.locator('[data-query-preset-changes] > li').count(), 2);
   await presetDialog.getByRole('button', { name: 'Cancel' }).click();
   assert.equal(page.url(), presetUrlBefore.href, 'Cancelling a query preset preview must keep the URL unchanged');
 
   const pointRefreshRequestsBeforeQueryPreset = networkControl.pointRefreshRequests;
-  await page.getByRole('button', { name: 'Review latest 6 months' }).click();
+  await presetDisclosure.locator('[data-query-preset="latest-6-months"]').click();
   await presetDialog.getByRole('button', { name: 'Apply and refresh once' }).click();
   await page.waitForFunction(() => new URLSearchParams(window.location.search).get('months') === '6');
   await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'historical results are ready' }).waitFor();

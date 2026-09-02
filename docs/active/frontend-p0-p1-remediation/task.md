@@ -2,7 +2,7 @@
 
 ## Current status
 
-Review remediation complete on the UI branch: all three delivery packages are integrated, independent review findings are repaired, and the post-review focused contracts plus real 390px touch workflow pass. Final copy reconciliation, full merged release gate, Ubuntu baselines, remote CI, merge, and Pages verification remain pending.
+Local release candidate complete on `codex/ui-p0-p1-release`: the reviewed P0/P1 packages and copy refresh are reconciled, runtime and browser regressions are repaired, final Win32 baselines are visually accepted, and the complete release plus coverage gates pass. Ubuntu baselines, remote CI, merge, and exact-SHA Pages verification remain pending.
 
 ## Checklist
 
@@ -25,10 +25,11 @@ Review remediation complete on the UI branch: all three delivery packages are in
 | P0 Crime focused contracts | PASS; 3/3 list truth, failure settlement, and retry contracts. |
 | P0 Diary focused contracts | PASS; 49/49 time-zone, palette, loader retry, and language-label contracts. |
 | P1 shell/accessibility/i18n/chart contracts | PASS; 82/82 shell ownership, hidden/inert, localization, and structured chart-data contracts. |
-| Final `npm run ci:release` | PASS; lint, full core validation, production build, bundle policy, browser suites, and visual experience all exited successfully. |
-| Bundle policy | PASS without threshold changes; dist `4,166,386` bytes and `3,984,427` bytes excluding the separately admitted ACS VRE artifact. |
+| Final integrated `npm run ci:release` | PASS; lint, full core validation, production build, bundle policy, five browser suites, and visual experience all exited successfully. |
+| Bundle policy | PASS without threshold changes; Route corridor UI `23,999/24,000`, Home Compare styles `4,762/4,800`, dist `4,168,005` bytes and `3,986,046` bytes excluding the separately admitted ACS VRE artifact. |
 | Browser smoke | PASS; console errors `0`, page errors `0`, held restore point requests `1`, retry/cancel/migration flows green. |
-| Visual experience | PASS; `35` executed checks across desktop/portrait/landscape, `10` configured skips, plus `66` platform-specific baselines. |
+| Visual experience | PASS; `36` executed checks across desktop/portrait/landscape, `12` configured skips, plus `66` platform-specific baselines. |
+| `npm run coverage:report` | PASS; `76/76` focused coverage tests passed and the report was generated. |
 | Accessibility/layout | PASS; no critical or serious automated findings; 360/390/768/1440 overflow check and 200% reflow/focus check green. |
 | In-app visual review | PASS with limitations recorded; 390 List/half-sheet gap measured at 12px with zero document overflow, and EN/ZH Crime/Diary surfaces inspected. |
 | Post-review focused contracts | PASS; 86/86 List ownership, focus, shell hierarchy, and state contracts. |
@@ -36,7 +37,7 @@ Review remediation complete on the UI branch: all three delivery packages are in
 
 ## Open risks and remaining work
 
-- The copy-refresh work is now committed separately and must be reconciled semantically; the P0/P1 DOM structure is authoritative while plain-language values are transplanted without weakening product boundaries.
+- The reconciled local candidate is ready for remote review; the P0/P1 DOM structure remains authoritative and copy boundaries were retained in compact disclosures.
 - Linux visual baselines have not been updated locally. Exact Ubuntu CI captures are required before merge; Windows images cannot substitute for them.
 - No remote CI, Pages, deployment, or production-serving claim exists.
 - Visual review used current local deterministic fixtures and live local preview; it does not certify assistive-technology behavior on physical devices.

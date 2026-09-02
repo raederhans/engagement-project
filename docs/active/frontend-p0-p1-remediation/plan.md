@@ -30,7 +30,7 @@ Implement the audited frontend Phase 0 truth/recovery repairs and Phase 1 worksp
 - [x] Stage 4: Integrate Phase 1 AppShell/layout ownership.
 - [x] Stage 5: Run focused tests, `npm run validate`, release-equivalent checks, browser flows, and visual review.
 - [x] Stage 6: Resolve proven regressions and independent review findings, then leave a reviewable local branch.
-- [ ] Stage 7: Reconcile the reviewed copy refresh, recapture final screenshots, and pass the full local release gate.
+- [x] Stage 7: Reconcile the reviewed copy refresh, recapture final screenshots, and pass the full local release gate.
 - [ ] Stage 8: Push a PR, update exact Linux visual baselines from Ubuntu diagnostics, merge only after all checks pass, and verify Pages for the merged SHA.
 
 ## Acceptance criteria

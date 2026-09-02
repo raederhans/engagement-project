@@ -277,7 +277,7 @@ test('Diary copy and Sample Community presentation are personal, illustrative, a
       /Route Safety Diary|safety score|community safety score|High risk|Moderate risk|Generally safe|safer route|safest route|路线安全日记|安全评分|社区安全评分|高风险|中等风险|总体安全/iu,
     );
   }
-  assert.match(html, /browser-local route experience diary/i);
+  assert.match(html, /browser-local trip notes/i);
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)/);
   assert.doesNotMatch(css, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
   assert.match(css, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);

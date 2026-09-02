@@ -48,7 +48,7 @@ registerMessagePairs({
   'route.value.locationUnavailable': ['Location unavailable', '位置不可用'],
   'route.disclosure': ['The remote incident source receives a coarse 2 km-snapped area, historic dates, and current offense filters. The exact route stays in browser memory and is not saved.', '远程事件数据源会收到按 2 公里网格向外取整的粗略区域、历史日期和当前 offense filters。精确路线仅保留在浏览器内存中，不会保存。'],
   'route.truth': ['Historical reported records only; not live, predictive, a risk score, or a safer-route recommendation. A reported point near the route does not mean the event occurred on the route.', '仅为历史已记录事件；不是实时信息、预测、风险分数或更安全路线建议。记录点靠近路线不表示事件发生在路线上。'],
-  'route.notes': ['Data and privacy', '数据与隐私'],
+  'route.notes': ['Data & privacy', '数据与隐私'],
   'route.state.route-required': ['Provide a known route before requesting historical records.', '请先提供已知路线，再请求历史记录。'],
   'route.state.drawing': ['Drawing route: add at least two map points, then finish the route.', '正在绘制路线：请至少添加两个地图点，然后完成路线。'],
   'route.state.route-provided': ['Route provided. Review explicitly when you are ready; no request has been made.', '路线已提供。准备好后请明确点击查看；目前尚未发送请求。'],

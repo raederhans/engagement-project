@@ -160,7 +160,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
           <button class="button button--secondary" type="button" data-home-share ${busy ? 'disabled' : ''}>${escapeHtml(copy.share)}</button>
           <button class="button button--secondary" type="button" data-home-close>${escapeHtml(copy.close)}</button>
         </div>
-        <details class="home-compare__notes">
+        <details class="progressive-surface">
           <summary>${escapeHtml(copy.notes)}</summary>
           <ul>
             <li>${escapeHtml(copy.addressHint)}</li>

@@ -28,4 +28,4 @@ The original local-only boundary was superseded by the user's 2026-09-02 instruc
 
 - Copy review found that several shortened route/model notes removed material boundaries. Those files and assertions were restored before integration.
 - README status is now durable across deployment and the ACS Chinese description correctly identifies the 2020–2024 estimate period.
-- Final screenshots, integrated release checks, remote CI, merge, and Pages verification remain pending.
+- Final screenshots and the integrated local release checks pass. Remote CI, merge, and exact-SHA Pages verification remain pending.
