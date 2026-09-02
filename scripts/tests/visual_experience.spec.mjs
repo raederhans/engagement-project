@@ -321,7 +321,7 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   const rateButton = page.getByRole('button', { name: 'Rate your experience on this route' });
   if (testInfo.project.name !== 'desktop') {
     await rateAction.scrollIntoViewIfNeeded();
-    await expect(rateAction).toHaveCSS('position', testInfo.project.name === 'portrait' ? 'sticky' : 'static');
+    await expect(rateAction).toHaveCSS('position', 'static');
     await expect(page.locator('#sidepanel > .sheet-content')).toHaveCSS('overflow-y', 'auto');
     await expectInsideContainer(rateAction, page.locator('#sidepanel'));
     await expectNoOverlap(rateAction, page.locator('.diary-alt-summary'));

@@ -1105,12 +1105,10 @@ body {
   }
 
   .diary-rate-action {
-    position: sticky;
-    bottom: 0;
-    z-index: 3;
-    margin: calc(var(--control-target) + var(--space-5)) 0 0;
-    padding: 20px 0 calc(8px + env(safe-area-inset-bottom));
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--surface) 14px);
+    position: static;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    background: none;
   }
 
   [data-panel-view="diary"] {
