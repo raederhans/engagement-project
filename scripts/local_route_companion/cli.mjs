@@ -1,5 +1,6 @@
 import { fork } from 'node:child_process';
 import http from 'node:http';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -308,7 +309,7 @@ function installShutdown(running) {
   });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(`file:///${process.argv[1].replaceAll('\\', '/')}`))) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   runCli().catch(() => {
     process.stderr.write('Local route companion command failed.\n');
     process.exitCode = 1;

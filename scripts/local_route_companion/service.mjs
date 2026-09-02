@@ -1,4 +1,5 @@
 import http from 'node:http';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -512,7 +513,7 @@ function consumeSessionSecretFromEnvironment() {
   return decodeSessionSecret(encoded);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(`file:///${process.argv[1].replaceAll('\\', '/')}`))) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   runAsProcess().catch(() => {
     delete process.env[LOCAL_ROUTE_SESSION_SECRET_ENV];
     process.stderr.write('Local route companion failed to start.\n');
