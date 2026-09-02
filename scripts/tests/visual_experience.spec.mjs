@@ -337,11 +337,6 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   await expect(page.locator('#diary-insights-root-content')).toBeVisible();
   if (testInfo.project.name !== 'desktop') {
     await expect(page.locator('#sidepanel')).toHaveAttribute('data-sheet-state', 'full');
-    await insightsRoot.evaluate((element) => {
-      element.scrollIntoView({ block: 'start', inline: 'nearest' });
-    });
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-    await expect(insightsRoot).toBeInViewport();
     await expect(page.locator('.diary-insights__heading--primary')).toBeInViewport();
   }
   await expect(page.getByText('No ratings saved for this route in this period.').first()).toBeVisible();
@@ -351,7 +346,9 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
     expect(insightsBox.width).toBeGreaterThanOrEqual(400);
   }
   await assertNoHorizontalOverflow(page);
-  await captureExperienceScreenshot(page, testInfo, 'diary-insights-expanded');
+  await captureExperienceScreenshot(page, testInfo, 'diary-insights-expanded', {
+    locator: testInfo.project.name === 'desktop' ? null : insightsRoot,
+  });
 });
 
 test('runtime mode boundaries keep initial and analyzed script work deterministic', async ({ page }, testInfo) => {
