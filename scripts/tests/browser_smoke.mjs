@@ -556,6 +556,8 @@ try {
   for (const resultName of ['incidents', 'charts', 'summary']) {
     await page.locator(`[data-result-meta="${resultName}"][data-availability="current"]`).waitFor({ state: 'attached' });
   }
+  await page.getByRole('radio', { name: 'Map', exact: true }).check();
+  await page.locator('[data-primary-canvas]').waitFor({ state: 'visible' });
   const summaryMeta = page.locator('[data-result-meta="summary"]');
   await summaryMeta.locator('details > summary').click();
   assert.match(await summaryMeta.textContent(), /CARTO/);
@@ -600,6 +602,8 @@ try {
   assert.match(await routeSurface.locator('[data-route-query-context]').textContent(), /历史时间/);
   await page.getByRole('button', { name: '切换到英文' }).click();
   await routeSurface.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('radio', { name: 'List', exact: true }).check();
+  await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
 
   const presetUrlBefore = new URL(page.url());
   const presetDisclosure = page.locator('[data-query-preset-mount]');
@@ -647,6 +651,8 @@ try {
   }
   await presetDialog.getByRole('button', { name: 'Cancel' }).click();
 
+  await page.getByRole('radio', { name: 'Map', exact: true }).check();
+  await page.locator('[data-primary-canvas]').waitFor({ state: 'visible' });
   await ensureCrimeResults(page);
   await page.getByRole('button', { name: 'Charts', exact: true }).click();
   await page.locator('[data-result-pane="charts"]').waitFor({ state: 'visible' });
@@ -726,6 +732,8 @@ try {
   assert.match(csvPayload, /A,"District 06",12/);
   assert.doesNotMatch(csvPayload, /1500 Market|PRIVATE|N BROAD ST/);
 
+  await page.getByRole('radio', { name: 'List', exact: true }).check();
+  await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
   await page.evaluate(() => sessionStorage.clear());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
@@ -782,15 +790,20 @@ try {
   for (const resultName of ['incidents', 'charts', 'summary']) {
     await page.locator(`[data-result-meta="${resultName}"][data-availability="current"]`).waitFor({ state: 'attached' });
   }
+  await page.getByRole('radio', { name: 'Map', exact: true }).check();
+  await page.locator('[data-primary-canvas]').waitFor({ state: 'visible' });
   networkControl.stage = 'failCarto';
   networkControl.failCarto = true;
   await artifactCard(page, 'District 06 analysis').getByRole('button', { name: 'Open' }).click();
   await page.waitForFunction(() => /refresh failed/i.test(document.querySelector('.analysis-history__snapshot')?.textContent || ''));
   assert.equal(new URL(page.url()).searchParams.get('district'), '06');
   assert.match(await page.locator('#compare-card').textContent(), /12 reported incidents/);
-  for (const resultName of ['incidents', 'charts']) {
-    await page.locator(`[data-result-meta="${resultName}"][data-availability="stale"]`).waitFor({ state: 'attached' });
-  }
+  assert.deepEqual(
+    await page.locator('[data-result-meta="incidents"], [data-result-meta="charts"]').evaluateAll(
+      (items) => items.map((item) => [item.dataset.resultMeta, item.dataset.availability]),
+    ),
+    [['incidents', 'unavailable'], ['charts', 'stale']],
+  );
   await page.locator('[data-result-meta="summary"][data-availability="partial"]').waitFor({ state: 'attached' });
   assert.equal(await page.locator('[data-app-data-status]').getAttribute('data-phase'), 'ready');
   networkControl.failCarto = false;

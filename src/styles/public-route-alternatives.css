@@ -82,14 +82,29 @@
 
 .public-route-surface__disclosure {
   max-width: 82ch;
-  margin-bottom: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-left: 4px solid var(--civic-orange);
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  background: var(--civic-paper-light);
-  color: var(--civic-navy);
-  font-size: 14px;
-  line-height: 1.55;
+  margin-bottom: var(--space-3);
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.public-route-surface__notes {
+  margin-block: var(--space-3);
+  border-block: 1px solid var(--border);
+}
+
+.public-route-surface__notes > summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  color: var(--brand-strong);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.public-route-surface__notes p {
+  margin-bottom: var(--space-3);
+  color: var(--ink-muted);
 }
 
 .public-route-surface__controls {

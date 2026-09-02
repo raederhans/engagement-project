@@ -191,7 +191,7 @@ test('task focus and query preview use layered civic surfaces with responsive ac
   assert.match(html, /<section class="task-focus"[^>]*aria-labelledby="task-focus-current"[^>]*>/);
   assert.match(html, /<h2 id="task-focus-current" data-task-focus-current>General overview<\/h2>/);
   assert.match(html, /<details class="query-preset-entry" data-query-preset-mount(?![^>]*\sopen(?:\s|=|>))[^>]*>/);
-  assert.match(html, /<details class="query-preset-entry"[\s\S]*?<summary>[\s\S]*?Suggested time windows[\s\S]*?<\/summary>/);
+  assert.match(html, /<details class="query-preset-entry"[\s\S]*?<summary>[\s\S]*?Time presets[\s\S]*?<\/summary>/);
   assert.match(css, /\.task-focus\s*\{[^}]*border:\s*1px solid var\(--civic-rule\)[^}]*border-radius:\s*var\(--radius-card\)[^}]*linear-gradient/s);
   assert.match(css, /\.query-preset-entry\s*\{[^}]*border-top:\s*1px solid var\(--civic-rule\)/s);
   assert.match(css, /\.query-preset-entry\s*>\s*summary\s*\{[^}]*min-height:\s*var\(--control-target\)[^}]*list-style:\s*none/s);

@@ -12,7 +12,7 @@ import {
   selectDiaryInsightEntries,
   setDiaryInsightEntries,
 } from '../../src/charts/diary_insights.js';
-import { setLanguage, t } from '../../src/i18n/index.js';
+import { applyTranslations, setLanguage, t } from '../../src/i18n/index.js';
 import { createDiaryInsightsPort } from '../../src/routes_diary/diary_insights_port.js';
 import { createDiaryLocalController } from '../../src/routes_diary/diary_local_controller.js';
 import { publishDiarySnapshotToInsights } from '../../src/routes_diary/index.js';
@@ -52,6 +52,13 @@ class FakeElement extends EventTarget {
   appendChild(child) { this.children.push(child); return child; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
+  matches(selector) {
+    const match = /^\[([^\]]+)\]$/.exec(selector);
+    return Boolean(match && this.attributes.has(match[1]));
+  }
+  querySelectorAll(selector) {
+    return descendants(this).slice(1).filter((element) => element.matches(selector));
+  }
   set innerHTML(value) { if (value === '') this.children = []; }
   get innerHTML() { return ''; }
   set title(value) { this.setAttribute('title', value); }
@@ -168,6 +175,21 @@ test('local insight status keeps empty, partial, and unavailable distinct from z
   assert.deepEqual(partial.trend, [3]);
 });
 
+test('Diary heatmap buckets use Philadelphia civil time across standard time, daylight time, and midnight', () => {
+  const insights = deriveLocalDiaryInsights([
+    { createdAt: '2026-01-15T04:30:00.000Z', score: 3 }, // Wed 23:30 EST
+    { createdAt: '2026-07-15T03:30:00.000Z', score: 4 }, // Tue 23:30 EDT
+    { createdAt: '2026-07-15T13:30:00.000Z', score: 5 }, // Wed 09:30 EDT
+    { createdAt: '2026-07-15T14:00:00.000Z', score: 2 }, // Wed 10:00 EDT
+  ]);
+
+  assert.equal(insights.heatmap[1][4], 1, 'Tuesday late-night bucket must follow EDT');
+  assert.equal(insights.heatmap[2][0], 1, 'Wednesday morning bucket must follow EDT');
+  assert.equal(insights.heatmap[2][1], 1, '10:00 local time starts the midday bucket');
+  assert.equal(insights.heatmap[2][4], 1, 'Wednesday late-night bucket must follow EST');
+  assert.equal(insights.heatmap.flat().reduce((sum, value) => sum + value, 0), 4);
+});
+
 test('dynamic Diary insight keys resolve without reader-visible fallback in both locales', () => {
   const dynamicKeys = [
     ...['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => `diary.day.${day}`),
@@ -252,6 +274,29 @@ test('Sample Community surfaces remain static, non-representative, and neutral i
         .join('\n');
       assert.doesNotMatch(dataAttributes, /safest|safer|unsafe|risk score|最安全|更安全|不安全|风险分数/iu);
     }
+  } finally {
+    setLanguage('en');
+    globalThis.document = originalDocument;
+  }
+});
+
+test('Sample Community score labels follow EN to ZH to EN language changes without rerendering', () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: (tagName) => new FakeElement(tagName) };
+  try {
+    setLanguage('en');
+    const root = new FakeElement();
+    renderCommunityPanel(root, createSampleCommunityModel());
+    const badge = elementsWithClass(root, 'diary-score-pill')[0];
+    assert.match(badge.getAttribute('aria-label'), /not a safety\/risk rating/i);
+
+    setLanguage('zh-CN');
+    applyTranslations(root);
+    assert.match(badge.getAttribute('aria-label'), /不是安全或风险评级/u);
+
+    setLanguage('en');
+    applyTranslations(root);
+    assert.match(badge.getAttribute('aria-label'), /not a safety\/risk rating/i);
   } finally {
     setLanguage('en');
     globalThis.document = originalDocument;

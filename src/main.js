@@ -30,6 +30,7 @@ import {
   replaceCrimeViewState,
 } from './state/crime_view_state.js';
 import { containsActivePrivateCrimeLocation } from './routes_crime/crime_refresh_owner.js';
+import { runCrimeListRefresh } from './ui/crime_list_results.js';
 
 const query = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search || '')
@@ -132,7 +133,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         root,
         onRetry: () => (
           presentationController?.getMode() === 'list'
-            ? ensureListController().then((owner) => owner.requestRefresh({ scope }))
+            ? requestListRefresh({ scope })
             : coordinator?.retryCrimeResult(scope)
         ),
       })];
@@ -459,15 +460,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   async function requestListRefresh(options = {}) {
     const ownsList = () => store.viewMode === 'crime'
       && presentationController?.getMode() === 'list';
-    if (!ownsList()) return { status: 'superseded' };
-    modeSurfaces.showIntent('crime');
-    modeSurfaces.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime list' });
-    const result = await ensureListController().then((owner) => owner.requestRefresh(options));
-    if (!ownsList()) return { status: 'superseded' };
-    const phase = ['live', 'partial', 'idle'].includes(result?.status) ? 'ready' : 'failed';
-    modeSurfaces.showStatus({ mode: 'crime', phase, label: 'Crime list' });
-    modeSurfaces.settle('crime', phase);
-    return result;
+    return runCrimeListRefresh({
+      ownsList,
+      showIntent: modeSurfaces.showIntent,
+      showStatus: modeSurfaces.showStatus,
+      settle: modeSurfaces.settle,
+      loadController: ensureListController,
+      options,
+      reportFailure: (error) => {
+        setTranslatedText(document.querySelector('[data-crime-list-status]'), 'crime.list.failed');
+        crimeResultMeta.incidents?.failed?.(error);
+      },
+    });
   }
 
   async function ensureMapCoordinator() {
@@ -589,12 +593,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (normalized === 'list') {
       coordinator?.cancelCurrentTransition?.('Crime list view selected');
       mapCrimeController?.setActive?.(false);
-      const listOwner = await ensureListController();
+      listController?.setActive(true);
       if (!ownsPresentation() || presentationController.getMode() !== 'list') {
-        listOwner.setActive(false);
+        listController?.setActive(false);
         return;
       }
-      listOwner.setActive(true);
       if (mapStatus) {
         mapStatus.dataset.phase = origin === 'fallback' ? 'failed' : 'ready';
         setTranslatedText(

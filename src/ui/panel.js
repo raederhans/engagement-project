@@ -127,31 +127,20 @@ export function initPanel(store, handlers) {
 
   const sheetContent = panelRoot.querySelector(':scope > .sheet-content');
   const panelContentRoot = sheetContent || panelRoot;
-  const sheetHandle = panelRoot.querySelector(':scope > .sheet-handle');
-  sheetHandle?.remove();
-
-  let crimeShell = panelContentRoot.querySelector('[data-panel-view="crime"]');
-  if (!crimeShell) {
-    crimeShell = document.createElement('div');
-    crimeShell.dataset.panelView = 'crime';
-    const fragment = document.createDocumentFragment();
-    while (panelContentRoot.firstChild) {
-      fragment.appendChild(panelContentRoot.firstChild);
-    }
-    crimeShell.appendChild(fragment);
-    panelContentRoot.appendChild(crimeShell);
+  const crimeShell = panelContentRoot.querySelector('[data-panel-view="crime"]');
+  const diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
+  const crimeDataEquivalent = document.querySelector('[data-crime-canvas-data]');
+  const diaryDataEquivalent = document.querySelector('[data-diary-visualization-data]');
+  if (!crimeShell || !diaryShell) {
+    return { diaryMount: null, analysisHistoryMount: null };
   }
-  if (sheetHandle) panelRoot.prepend(sheetHandle);
   const analysisContext = crimeShell.querySelector('[data-analysis-context]');
   const taskFocusMount = crimeShell.querySelector('[data-task-focus]');
   const routeCorridorMount = crimeShell.querySelector('[data-route-corridor-entry]');
   const crimeSetup = crimeShell.querySelector('[data-crime-setup]');
   const resultsOverview = crimeShell.querySelector('[data-crime-results]');
   const analysisHistoryDisclosure = crimeShell.querySelector('[data-analysis-history-disclosure]');
-  const chartsPanel = document.getElementById('charts');
   const resultsDrawer = document.getElementById('results-drawer');
-  if (chartsPanel && resultsDrawer && !resultsDrawer.contains(chartsPanel)) resultsDrawer.appendChild(chartsPanel);
-  else if (chartsPanel && !resultsDrawer && chartsPanel.parentElement !== crimeShell) crimeShell.appendChild(chartsPanel);
 
   const crimeWorkbench = createCrimeWorkbenchController({
     state: store,
@@ -175,26 +164,10 @@ export function initPanel(store, handlers) {
     }
   });
 
-  let analysisHistoryMount = crimeShell.querySelector('[data-analysis-history-mount]');
-  if (!analysisHistoryMount) {
-    analysisHistoryMount = document.createElement('section');
-    analysisHistoryMount.dataset.analysisHistoryMount = '';
-    setTranslatedAttribute(analysisHistoryMount, 'history.label', 'aria-label');
-    crimeShell.appendChild(analysisHistoryMount);
-  }
-  placeAnalysisHistoryAfterResults({ crimeShell, resultsDrawer, analysisHistoryMount });
+  const analysisHistoryMount = crimeShell.querySelector('[data-analysis-history-mount]');
   let analysisHistorySync = null;
 
-  let diaryShell = panelContentRoot.querySelector('[data-panel-view="diary"]');
-  if (!diaryShell) {
-    diaryShell = document.createElement('div');
-    diaryShell.dataset.panelView = 'diary';
-    diaryShell.className = 'panel-view panel-view--diary';
-    diaryShell.style.display = 'none';
-    panelContentRoot.appendChild(diaryShell);
-  } else {
-    diaryShell.innerHTML = '';
-  }
+  diaryShell.innerHTML = '';
 
   const toggleMount = document.querySelector('[data-mode-switch-mount]') || panelRoot;
   let toggleRow = document.querySelector('[data-panel-view="mode-toggle"]');
@@ -247,8 +220,22 @@ export function initPanel(store, handlers) {
     diaryBtn.classList.toggle('is-active', isDiary);
     crimeBtn.setAttribute('aria-pressed', String(!isDiary));
     diaryBtn.setAttribute('aria-pressed', String(isDiary));
-    crimeShell.style.display = isDiary ? 'none' : '';
-    diaryShell.style.display = isDiary ? '' : 'none';
+    crimeShell.hidden = isDiary;
+    crimeShell.inert = isDiary;
+    crimeShell.setAttribute('aria-hidden', String(isDiary));
+    diaryShell.hidden = !isDiary;
+    diaryShell.inert = !isDiary;
+    diaryShell.setAttribute('aria-hidden', String(!isDiary));
+    if (crimeDataEquivalent) {
+      crimeDataEquivalent.hidden = isDiary;
+      crimeDataEquivalent.inert = isDiary;
+      crimeDataEquivalent.setAttribute('aria-hidden', String(isDiary));
+    }
+    if (diaryDataEquivalent) {
+      diaryDataEquivalent.hidden = !isDiary;
+      diaryDataEquivalent.inert = !isDiary;
+      diaryDataEquivalent.setAttribute('aria-hidden', String(!isDiary));
+    }
   };
 
   crimeBtn.addEventListener('click', () => {
@@ -426,9 +413,12 @@ export function initPanel(store, handlers) {
     } catch (error) {
       if (addressStatus) {
         addressStatus.dataset.tone = 'error';
-        addressStatus.removeAttribute('data-i18n');
-        delete addressStatus.dataset.i18nParams;
-        addressStatus.textContent = error?.message || String(error);
+        if (error?.messageKey) setTranslatedText(addressStatus, error.messageKey);
+        else {
+          addressStatus.removeAttribute('data-i18n');
+          delete addressStatus.dataset.i18nParams;
+          addressStatus.textContent = error?.message || String(error);
+        }
       }
     } finally {
       if (!geocodeOwner.isPending(target)) button?.removeAttribute('disabled');
@@ -918,22 +908,6 @@ export function initPanel(store, handlers) {
       analysisHistorySync?.();
     },
   };
-}
-
-export function placeAnalysisHistoryAfterResults({
-  crimeShell,
-  resultsDrawer,
-  analysisHistoryMount,
-} = {}) {
-  if (!crimeShell || !analysisHistoryMount) return false;
-  const historySurface = analysisHistoryMount.closest?.('[data-analysis-history-disclosure]')
-    || analysisHistoryMount;
-  if (!resultsDrawer || resultsDrawer.parentElement !== crimeShell) {
-    crimeShell.appendChild(historySurface);
-    return true;
-  }
-  crimeShell.insertBefore(historySurface, resultsDrawer.nextSibling || null);
-  return true;
 }
 
 export function describeCoverageStatus(state) {

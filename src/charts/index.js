@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { clearMonthlyChart, renderMonthly } from './line_monthly.js';
 import { clearTopNChart, renderTopN } from './bar_topn.js';
 import { clearTemporalChart, render7x24 } from './heat_7x24.js';
+import { clearCrimeChartData, syncCrimeChartData } from './accessible_data.js';
 import {
   admitCrimeResponse,
   fetchMonthlySeriesCity,
@@ -323,6 +324,7 @@ function createDefaultChartSinks() {
       clearMonthlyChart();
       clearTopNChart();
       clearTemporalChart();
+      clearCrimeChartData();
       for (const id of ['chart-monthly-insight', 'chart-topn-insight', 'chart-7x24-insight']) {
         writeInsight(id, '');
       }
@@ -336,6 +338,7 @@ function createDefaultChartSinks() {
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-monthly');
       const model = renderMonthly(context, cityRows, areaRows, copy, { valueMode: preferences.monthlyView, palette: preferences.palette, showLabels: preferences.showLabels });
+      syncCrimeChartData('monthly', model, copy);
       writeInsight('chart-monthly-insight', copy.monthlyInsight(model.insight));
     },
     residential(model) {
@@ -346,6 +349,7 @@ function createDefaultChartSinks() {
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-topn');
       const model = renderTopN(context, rows, copy, { valueMode: preferences.topView, categoryLimit: preferences.categoryLimit, palette: preferences.palette, showLabels: preferences.showLabels });
+      syncCrimeChartData('top', model, copy);
       writeInsight('chart-topn-insight', copy.topInsight(model.insight));
     },
     heat(matrix, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
@@ -353,6 +357,7 @@ function createDefaultChartSinks() {
       const context = canvas?.getContext?.('2d');
       if (!context) throw new Error('chart canvas missing: #chart-7x24');
       const model = render7x24(context, matrix, copy, { view: preferences.temporalView, classification: preferences.classification, palette: preferences.palette, showLabels: preferences.showLabels });
+      syncCrimeChartData('heat', model, copy);
       writeInsight('chart-7x24-insight', copy.temporalInsight(model.insight));
     },
     error(error, {

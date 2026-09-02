@@ -4,7 +4,7 @@ const COPY = Object.freeze({
   en: Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
-    intro: 'The current public build does not process private addresses or contact address, parcel, or map services. The summary below only describes citywide data availability.',
+    intro: 'Addresses stay on this device.',
     address: 'Home address',
     addressHint: 'Address lookup is disabled. What you type is not sent to address, parcel, or map services.',
     add: 'Add another home',
@@ -18,6 +18,7 @@ const COPY = Object.freeze({
     close: 'Close',
     share: 'Copy settings link',
     shareHint: 'The link contains weights and visible dimensions only—no address, parcel, coordinate, or destination.',
+    notes: 'How comparison works',
     idle: 'Enter 2–4 addresses to begin.',
     loading: 'Loading local citywide readiness metadata…',
     results: 'Evidence profiles',
@@ -61,7 +62,7 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
-    intro: '当前公开版本不处理私人地址，也不联系地址、地块或地图服务。下方只说明全市数据是否可用。',
+    intro: '地址仅留在此设备。',
     address: '住宅地址',
     addressHint: '地址查询未启用。输入内容不会发送给地址、地块或地图服务。',
     add: '添加住宅',
@@ -75,6 +76,7 @@ const COPY = Object.freeze({
     close: '关闭',
     share: '复制设置链接',
     shareHint: '链接只包含显示设置，不包含地址、地块编号、坐标或目的地。',
+    notes: '比较说明',
     idle: '输入 2–4 个地址后开始。',
     loading: '正在读取本地的全市数据准备情况……',
     results: '证据档案',
@@ -128,7 +130,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
     <div class="home-compare__address-row">
       <label for="home-compare-address-${index}">${escapeHtml(copy.address)} ${index + 1}</label>
       <div>
-        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-address-hint" ${busy ? 'disabled' : ''}>
+        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}>
         ${addressCount > 2 ? `<button class="button button--secondary" type="button" data-home-remove="${index}" ${busy ? 'disabled' : ''}>${escapeHtml(copy.remove)}</button>` : ''}
       </div>
     </div>`).join('');
@@ -146,14 +148,11 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
       </header>
       <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}">
         <div class="home-compare__addresses">${addresses}</div>
-        <p id="home-compare-address-hint" class="home-compare__hint">${escapeHtml(copy.addressHint)}</p>
         <button class="button button--secondary" type="button" data-home-add ${busy || addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
         <label for="home-compare-destinations">${escapeHtml(copy.commute)}</label>
-        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-commute-hint" ${busy ? 'disabled' : ''}></textarea>
-        <p id="home-compare-commute-hint" class="home-compare__hint">${escapeHtml(copy.commuteHint)}</p>
+        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}></textarea>
         <fieldset class="home-compare__weights">
           <legend>${escapeHtml(copy.weights)}</legend>
-          <p>${escapeHtml(copy.weightsHint)}</p>
           <div>${weightControls}</div>
         </fieldset>
         <div class="home-compare__actions">
@@ -161,7 +160,15 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
           <button class="button button--secondary" type="button" data-home-share ${busy ? 'disabled' : ''}>${escapeHtml(copy.share)}</button>
           <button class="button button--secondary" type="button" data-home-close>${escapeHtml(copy.close)}</button>
         </div>
-        <p class="home-compare__hint">${escapeHtml(copy.shareHint)}</p>
+        <details class="home-compare__notes">
+          <summary>${escapeHtml(copy.notes)}</summary>
+          <ul>
+            <li>${escapeHtml(copy.addressHint)}</li>
+            <li>${escapeHtml(copy.commuteHint)}</li>
+            <li>${escapeHtml(copy.weightsHint)}</li>
+            <li>${escapeHtml(copy.shareHint)}</li>
+          </ul>
+        </details>
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
         <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>

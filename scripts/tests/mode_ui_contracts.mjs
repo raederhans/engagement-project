@@ -147,7 +147,7 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
   assert.deepEqual(describeDiaryDataScope('community'), {
     mode: 'diary',
     kind: 'sample',
-    shortLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    shortLabel: 'Static samples',
     accessibleLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
     details: ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.'],
   });

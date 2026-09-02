@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 
 const segmentsUrl = new URL('../../src/map/segments_layer.js', import.meta.url);
 const diaryRouteUrl = new URL('../../src/routes_diary/index.js', import.meta.url);
+const diaryInsightsUrl = new URL('../../src/charts/diary_insights.js', import.meta.url);
+const communityPanelUrl = new URL('../../src/routes_diary/ui_community_panel.js', import.meta.url);
 const LEGACY_SAFETY_COLORS = /#(?:f87171|fbbf24|34d399|10b981)\b/i;
 
 function constantBlock(source, name) {
@@ -44,4 +46,18 @@ test('route rating expression keeps its data thresholds and uses the same neutra
   assert.match(block, /\], 4\]/);
   assert.match(block, /\], 2\.5\]/);
   assert.doesNotMatch(block, LEGACY_SAFETY_COLORS);
+});
+
+test('Diary insights and Sample Community contain no traffic-light rating semantics', async () => {
+  const [insightsSource, communitySource] = await Promise.all([
+    readFile(diaryInsightsUrl, 'utf8'),
+    readFile(communityPanelUrl, 'utf8'),
+  ]);
+
+  assert.match(insightsSource, /function neutralIntensityColor/);
+  assert.match(insightsSource, /hsl\(210, 85%, \$\{lightness\}%\)/);
+  assert.doesNotMatch(insightsSource, /safetyColor|(?:red|yellow|green).*(?:score|rating)/i);
+  assert.doesNotMatch(insightsSource, LEGACY_SAFETY_COLORS);
+  assert.doesNotMatch(communitySource, /is-(?:good|mid|bad|order-low|order-middle|order-high)/i);
+  assert.doesNotMatch(communitySource, LEGACY_SAFETY_COLORS);
 });

@@ -51,7 +51,7 @@
     "test:crime-async": "node --test scripts/tests/crime_async_contracts.mjs",
     "test:crime-safety-foundation": "node --test scripts/tests/crime_safety_foundation_contracts.mjs",
     "test:p2-recovery": "node --test scripts/tests/chart_partial_contracts.mjs scripts/tests/compare_partial_contracts.mjs scripts/tests/crime_result_meta_contracts.mjs",
-    "test:chart-studio": "node --test scripts/tests/chart_studio_contracts.mjs",
+    "test:chart-studio": "node --test scripts/tests/chart_studio_contracts.mjs scripts/tests/chart_accessible_data_contracts.mjs",
     "test:route-overlays": "node --test scripts/tests/route_overlay_contracts.mjs",
     "test:route-corridor": "node --test scripts/tests/route_corridor_capability.mjs",
     "test:route-corridor-data": "node --test scripts/tests/route_corridor_data_admission.mjs scripts/tests/route_corridor_coverage.mjs",

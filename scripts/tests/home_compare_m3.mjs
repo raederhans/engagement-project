@@ -833,11 +833,11 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
     assert.equal((shell.match(/data-home-address=/g) || []).length, count);
     assert.match(shell, count === 3 ? /并排比较 2–4 个费城住宅/ : /Compare 2–4 Philadelphia homes/);
     assert.match(shell, count === 3
-      ? /当前公开版本不处理私人地址/
-      : /current public build does not process private addresses/);
+      ? /地址仅留在此设备/
+      : /Addresses stay on this device/);
     assert.match(shell, count === 3
-      ? /下方只说明全市数据是否可用/
-      : /summary below only describes citywide data availability/);
+      ? /地址查询未启用。输入内容不会发送给地址、地块或地图服务/
+      : /Address lookup is disabled. What you type is not sent to address, parcel, or map services/);
   }
   const rendered = homeCompareResultsHtml(makeProjection(2), {
     labels: ['<img src=x onerror=alert(1)>', '<script>alert(2)</script>'],

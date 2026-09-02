@@ -3,6 +3,8 @@ import { registerMessagePairs } from '../i18n/messages.js';
 registerMessagePairs({
   'publicRoutes.eyebrow': ['Public Scenario Mode', '公共场景模式'],
   'publicRoutes.title': ['Compare admitted route tradeoffs', '比较已准入路线的权衡'],
+  'publicRoutes.summary': ['Static illustrative scenarios.', '静态说明性场景。'],
+  'publicRoutes.notes': ['Scenario notes', '场景说明'],
   'publicRoutes.disclosure': [
     'Fixed, illustrative, precomputed public-landmark scenarios. This is not live directions, an observed route evaluation, or a recommendation. It has no routing or safety authority.',
     '固定、说明性、预计算的公共地标场景。它不是实时导航、实测路线评估或推荐，也不具备路线或安全权限。',

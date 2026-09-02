@@ -1404,7 +1404,8 @@ test('Diary insights derive trend, tags, and time cells from local records', asy
   assert.deepEqual(insights.tags[0], { label: 'poor lighting', value: 2 });
   assert.equal(insights.heatmap.flat().reduce((sum, value) => sum + value, 0), 2);
   const hostSource = await readFile(new URL('../../src/routes_diary/ui_insights_panel.js', import.meta.url), 'utf8');
-  assert.match(hostSource, /setEntries\(entries\)[\s\S]*setDiaryInsightEntries\(entries\)/);
+  assert.match(hostSource, /import\('\.\.\/charts\/diary_insights\.js'\)/);
+  assert.match(hostSource, /setDiaryInsightEntries\(entries\)[\s\S]*renderInsightsSections/);
   assert.doesNotMatch(hostSource, /Demo visuals/);
 });
 

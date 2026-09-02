@@ -99,12 +99,19 @@ export function createModeCoordinator({
   const getDiaryModule = () => {
     if (!diaryFeatureEnabled) return null;
     if (!diaryModulePromise) {
-      diaryModulePromise = Promise.resolve()
+      let ownedPromise;
+      ownedPromise = Promise.resolve()
         .then(loadDiaryModule)
         .then((module) => {
           diaryModule = module;
           return module;
+        })
+        .catch((error) => {
+          if (diaryModulePromise === ownedPromise) diaryModulePromise = null;
+          diaryModule = null;
+          throw error;
         });
+      diaryModulePromise = ownedPromise;
     }
     return diaryModulePromise;
   };
@@ -176,7 +183,7 @@ export function createModeCoordinator({
           if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
           activeMode = null;
           settleMode(mode, 'failed', ownsMode);
-          return;
+          return { status: 'failed' };
         }
         diaryActive = true;
         activeMode = 'diary';
@@ -184,8 +191,13 @@ export function createModeCoordinator({
       } catch (error) {
         if (!signal.aborted) {
           reportError('Diary init failed', error);
+          diaryMount?.replaceChildren?.();
+          if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
+          activeMode = null;
           settleMode(mode, 'failed', ownsMode);
+          return { status: 'failed', error: String(error?.message || error) };
         }
+        return { status: 'superseded' };
       }
       return { status: activeMode === 'diary' ? 'ready' : 'superseded' };
     }
