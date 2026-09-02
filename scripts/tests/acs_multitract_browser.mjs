@@ -107,7 +107,7 @@ try {
   await languageSwitch.click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
   await opener.click();
-  await dialog.getByRole('heading', { name: '比较完整 Census tract' }).waitFor();
+  await dialog.getByRole('heading', { name: '比较完整人口普查区' }).waitFor();
   const zhText = await result.innerText();
   assert.match(zhText, /人口估计值/);
   assert.match(zhText, /标准误（SE）/);

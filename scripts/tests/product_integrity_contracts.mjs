@@ -215,7 +215,7 @@ test('Diary reader copy and Sample Community visuals stay personal, illustrative
     assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not representative of any population/i : /不代表任何总体/u);
     assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /no official endorsement/i : /没有官方背书/u);
   }
-  assert.match(html, /browser-local route experience diary/i);
+  assert.match(html, /browser-local trip notes/i);
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)|high concern/i);
   assert.doesNotMatch(diaryCss, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
   assert.match(diaryCss, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);

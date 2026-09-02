@@ -147,7 +147,7 @@ await runBrowserSuite({
       await dialog.locator('[data-home-run]').click();
       await page.waitForFunction((targetLocale) => {
         const text = document.querySelector('[data-home-status]')?.textContent || '';
-        return targetLocale === 'en' ? text.includes('unavailable') : text.includes('不可用');
+        return targetLocale === 'en' ? text.includes('disabled') : text.includes('未启用');
       }, locale);
       assert.equal(await dialog.locator('[data-home-profile]').count(), 0);
       assert.deepEqual(

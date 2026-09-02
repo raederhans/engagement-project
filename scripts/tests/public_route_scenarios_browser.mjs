@@ -116,7 +116,7 @@ async function verifyViewport(page, variant) {
   await opener.click();
   await dialog.waitFor({ state: 'visible' });
   await dialog.locator('[data-public-route-surface]').getByRole('heading', {
-    name: '比较已准入路线的权衡',
+    name: '比较时间、距离与历史背景',
   }).waitFor();
   await verifyCompleteScenario({
     page,
@@ -131,7 +131,7 @@ async function verifyViewport(page, variant) {
     page,
     dialog,
     scenarioId: SINGLE_SCENARIO,
-    expectedNotice: /仅准入一条路线/,
+    expectedNotice: /只有一条路线通过必要检查/,
     unavailableLabel: '不可用',
     variant,
   });
@@ -139,7 +139,7 @@ async function verifyViewport(page, variant) {
     page,
     dialog,
     scenarioId: DEGRADED_SCENARIO,
-    expectedNotice: /质量|准入不完整|仅显示普通路线/,
+    expectedNotice: /未通过全部必要检查|只显示一条普通路线/,
     unavailableLabel: '不可用',
     variant,
   });
