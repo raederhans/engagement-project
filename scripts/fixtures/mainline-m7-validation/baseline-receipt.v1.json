@@ -1,0 +1,267 @@
+{
+  "schemaVersion": "mainline-m7-benchmark-receipt/v1",
+  "runId": "m7-public-baseline-unavailable-2026-09-01",
+  "status": "unavailable",
+  "reasonCodes": [
+    "engine-unavailable",
+    "graph-and-runtime-identities-not-observed"
+  ],
+  "manifestIdentity": "sha256:3a080c12373cbcf369127afbb7a0e13ce9b9e7249d86709b66632f5ac5b65165",
+  "corpusIdentity": "sha256:67bf760afe2fc0faff7809698388d0fe7e75e22f0d42e3ec1c3e44fe38c752ec",
+  "policyIdentity": "sha256:fed6a5d43f7f47306c71541cdaf0f7d8a3dc73db17b6c937b17b4f2a9b08b48f",
+  "identities": {
+    "engine": {
+      "status": "unavailable",
+      "identity": null
+    },
+    "graph": {
+      "status": "unavailable",
+      "identity": null
+    },
+    "candidateGenerator": {
+      "status": "unavailable",
+      "identity": null
+    },
+    "routeSet": {
+      "status": "unavailable",
+      "identity": null
+    },
+    "evidence": {
+      "status": "unavailable",
+      "identity": null
+    }
+  },
+  "denominator": {
+    "plannedPairs": 40,
+    "attemptedPairs": 0,
+    "successfulPairs": 0,
+    "invalidPairs": 0,
+    "unavailablePairs": 40,
+    "generatedCandidates": 0,
+    "sensitivityEligibleRoutes": 0
+  },
+  "metrics": {
+    "generationSuccessRate": null,
+    "invalidRate": null,
+    "duplicateCandidateRate": null,
+    "latencyMedianMs": null,
+    "latencyP95Ms": null,
+    "mapMatchDistanceMedianM": null,
+    "mapMatchDistanceP95M": null,
+    "segmentEvidenceCoverageRate": null,
+    "detourMedianRatio": null,
+    "detourP95Ratio": null,
+    "weightSensitivityChangeRate": null
+  },
+  "privacy": {
+    "egressCount": 0,
+    "measurement": "runner-owned-no-runtime-executed",
+    "measurementStatus": "not-run",
+    "enforcement": "no-runtime-executed",
+    "observerIdentity": null,
+    "privateCoordinatesTransmitted": false
+  },
+  "observations": [
+    {
+      "pairId": "center-01",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-02",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-03",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-04",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-05",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-06",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-07",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "center-08",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-01",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-02",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-03",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-04",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-05",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-06",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-07",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "west-08",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-01",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-02",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-03",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-04",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-05",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-06",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-07",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "north-08",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-01",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-02",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-03",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-04",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-05",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-06",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-07",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "south-08",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-01",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-02",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-03",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-04",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-05",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-06",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-07",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    },
+    {
+      "pairId": "northeast-08",
+      "status": "unavailable",
+      "reasonCode": "engine-unavailable"
+    }
+  ],
+  "identity": "sha256:d037ae09d83a89ac223c90cb6f19b0f4bbdff4496698fd3ad2feb09109494d49"
+}

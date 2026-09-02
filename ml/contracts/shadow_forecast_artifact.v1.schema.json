@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engagement-project.local/ml/contracts/ShadowForecastArtifact/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "decision", "research_only", "authority", "privacy", "lineage", "admission_receipt_identity", "benchmark_report_identity", "calibration_report_identity", "model_card_identity", "shadow", "production_forecast", "artifact_identity"],
+  "properties": {
+    "schema": { "const": "ShadowForecastArtifact/v1" },
+    "decision": { "enum": ["no-promotion", "shadow-admitted"] },
+    "research_only": { "const": true },
+    "authority": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/authority" },
+    "privacy": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/privacy" },
+    "lineage": { "$ref": "https://engagement-project.local/ml/contracts/ModelAdmissionReceipt/v1#/$defs/nullableLineage" },
+    "admission_receipt_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" },
+    "benchmark_report_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "calibration_report_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "model_card_identity": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "shadow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "model", "basis", "aggregate_forecasts"],
+      "properties": {
+        "status": { "enum": ["available", "unavailable"] },
+        "model": { "type": ["string", "null"] },
+        "basis": { "const": "governed-backtest-aggregate-only" },
+        "aggregate_forecasts": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": false, "required": ["fold", "unit_type", "holdout_slice", "observations", "mean_actual", "mean_predicted"], "properties": { "fold": { "type": "string" }, "unit_type": { "enum": ["tract", "fixed-grid"] }, "holdout_slice": { "enum": ["temporal-non-heldout", "spatial-heldout"] }, "observations": { "type": "integer", "minimum": 0 }, "mean_actual": { "type": ["number", "null"] }, "mean_predicted": { "type": ["number", "null"] } } }
+        }
+      }
+    },
+    "production_forecast": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/unavailableForecast" },
+    "artifact_identity": { "$ref": "https://engagement-project.local/ml/contracts/ModelBenchmarkReport/v1#/$defs/sha256" }
+  }
+}

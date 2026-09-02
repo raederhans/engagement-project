@@ -833,11 +833,11 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
     assert.equal((shell.match(/data-home-address=/g) || []).length, count);
     assert.match(shell, count === 3 ? /并排比较 2–4 个费城住宅/ : /Compare 2–4 Philadelphia homes/);
     assert.match(shell, count === 3
-      ? /私人地址比较会在任何 geocoder、parcel、地图或附属请求前保持不可用/
-      : /Private address comparison is unavailable before any geocoder/);
+      ? /地址仅留在此设备/
+      : /Addresses stay on this device/);
     assert.match(shell, count === 3
-      ? /不是地址级证据/
-      : /not address-level evidence/);
+      ? /地址查询未启用。输入内容不会发送给地址、地块或地图服务/
+      : /Address lookup is disabled. What you type is not sent to address, parcel, or map services/);
   }
   const rendered = homeCompareResultsHtml(makeProjection(2), {
     labels: ['<img src=x onerror=alert(1)>', '<script>alert(2)</script>'],
@@ -846,8 +846,8 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
   assert.doesNotMatch(rendered, /<img|<script/i);
   assert.match(rendered, /&lt;img src=x onerror=alert\(1\)&gt;/);
   assert.match(rendered, /预测继续不可用/);
-  assert.match(rendered, /通勤时间与 isochrone 不可用/);
-  assert.match(rendered, /不计算 safety score/);
+  assert.match(rendered, /通勤时间与可达范围暂不可用/);
+  assert.match(rendered, /权重只改变信息的展示顺序/);
 });
 
 test('Home Compare ignores deferred citywide readiness after destroy', async () => {

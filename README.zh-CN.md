@@ -1,153 +1,145 @@
-# 费城犯罪数据面板 + 路线安全日记
+# Philadelphia Urban Evidence Lab（费城城市证据实验室）
 
 中文 | [English](README.md)
 
 [![CI](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml/badge.svg)](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml)
+[![在线演示](https://img.shields.io/badge/在线演示-GitHub_Pages-0969da)](https://raederhans.github.io/engagement-project/)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](package.json)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-这是一个支持英文和简体中文的交互式 Web 应用，用于探索费城犯罪数据，并试用仅在浏览器中保存数据的“路线安全日记”。应用顶部提供语言切换按钮，语言偏好会保存在当前浏览器中。项目使用原生 JavaScript、MapLibre GL JS、Chart.js、Turf 和 Vite。
+这是一个支持中英文的费城城市数据项目。它把历史已报告事件、区域比较、已知路线背景和浏览器本地
+出行记录放在同一个界面里，帮助用户更方便地查看和比较城市公开数据。
 
-> [!IMPORTANT]
-> 路线安全日记目前使用演示数据和浏览器本地状态，不提供生产账号、持久化社区提交或安全保证。犯罪地点为近似位置，不应作为个人安全决策的唯一依据。
+## 当前进度
 
-## 功能
+- GitHub Pages 发布通过仓库 Windows 与 Linux 门禁的最新 `main` 版本；CI 徽章和链接的工作流是
+  当前发布状态的依据。
+- 项目包含区域趋势、住宅与社区比较、扩展后的已知路线证据、公共路线示例、浏览器本地 Diary
+  演示，以及只用于研究的 Python/ML 模块。
+- 当前保留的数据校验记录覆盖 **3,586,620 条已标准化的历史上报记录**，本地内容寻址证据包约
+  **10.81 GB**。
+- 预测功能仍为 **not-promoted（未晋级）**，预测结果保持 **unavailable（不可用）**；历史聚合数据
+  可以正常查看。
+- 所有事件与路线背景都是历史或聚合信息；界面不提供实时状况、个人风险或安全结论，也不推荐路线。
+  Diary 与“社区示例”只保存在当前浏览器中，并且仅用于演示。
 
-### 犯罪数据探索器
+## 界面预览
 
-- 交互式警察分局和人口普查区地图。
-- 400 米到 3.2 公里的可配置缓冲区分析。
-- 月度比较、主要犯罪类型图表和 7 × 24 活动热力图。
-- 使用 ACS 人口数据计算人均比率。
-- 对大型结果集进行视口筛选与点位聚类。
-- 英文和简体中文界面、帮助、状态及错误提示。
+下面两张图展示当前界面。图片直接保存在仓库中，README 使用相对路径引用，不依赖本地临时目录。
 
-### 路线安全日记原型
+![犯罪数据地图与操作面板](docs/assets/screenshots/crime-explorer-en.jpg)
 
-- 带路段安全样式和可选替代路线的演示路线。
-- 在本地保存路线评分、标签、备注和路段调整。
-- 当前路线、我的路线、社区示例和洞察视图。
-- 带会话级限流的社区反馈模拟。
-- 可重复生成并验证的演示数据脚本。
+![路线体验日记演示界面](docs/assets/screenshots/route-diary-zh.jpg)
 
-## 快速开始
+## 项目里现在有什么
 
-### 环境要求
+### 犯罪数据探索
 
-- Node.js `^20.19.0` 或 `>=22.12.0`。
-- npm 10 或更高版本。
+可以按点位、警察分局或人口普查区查看历史已报告事件。选择时间范围和犯罪类别后，可从地图、事件表、
+摘要、月度趋势、类别图表和日期时段分布等角度查看结果。涉及人口比率时，系统使用 ACS 估计值，并保留
+其误差范围。
 
-安装锁定版本的依赖并启动开发服务器：
+### 完整人口普查区比较
+
+可以比较两个或更多费城完整人口普查区，查看 2020–2024 ACS 人口估计及 90% 误差范围。输入使用
+完整的 11 位人口普查区 GEOID。
+
+### 区域趋势
+
+该界面展示历史聚合数据的覆盖范围、排除项和空间处理方法。目前预测没有通过上线门槛，界面会同时展示
+未通过的检查项。
+
+### 住宅与社区比较
+
+最新本地界面为 2–4 个费城住宅设计，可分别查看房产记录、评估与交易历史、市政记录、附近历史上报事件、
+交通背景和数据质量。每个来源独立保留“可用、部分可用、不可用”状态。
+
+当前公开构建暂未启用私人地址查询，只展示全市数据准备情况。分享链接只包含显示设置。
+
+### 已知路线
+
+可以在地图上绘制路线、输入途经点，或导入 GeoJSON LineString。界面会查看路线附近的历史已报告记录，
+并分开展示道路中心线、High Injury Network、事故、无障碍和出行方式等背景。
+
+### 公共路线示例
+
+可以查看少量预先计算好的公共地标步行场景，并排比较时间、距离、历史暴露、数据时效、匹配质量和
+不确定性。
+
+### 路线体验日记
+
+用户可以记录 1–5 分的个人出行体验、标签、备注和可选路段详情。条目、草稿和历史记录保存在当前
+浏览器中，也可以导出备份。“社区示例”和替代路线是静态演示数据。
+
+### 本地路线伴随工具与 ML 研究
+
+开发者可以在本机路线引擎和证据包准备好后启用本地路线伴随工具。Python/ML 模块用于研究和评估，
+可以产出评估与治理记录。
+
+## 数据是怎样被处理的
+
+```text
+官方公共数据快照
+  -> 版本化、标准化记录
+  -> 内容与来源链路校验
+  -> 聚合空间分析
+  -> 冻结评估与“不晋级”门禁
+  -> 浏览器界面
+```
+
+项目会区分“缺失、部分可用、含糊、未映射、不可用”和“零”；私人内容保留在本地浏览器中。
+
+更完整的系统图和数据流见 [Portfolio v2](docs/PORTFOLIO_V2.md)；数据物化、镜像和恢复流程见
+[Data Foundation operations runbook](docs/DATA_FOUNDATION_OPERATIONS_RUNBOOK.md)。
+
+## 本地运行
+
+需要 Node.js `^20.19.0` 或 `>=22.12.0`，以及 npm 10 或更高版本。
 
 ```bash
 npm ci
 npm run dev
 ```
 
-打开 `http://localhost:5173/?mode=diary` 查看路线安全日记，或打开 `http://localhost:5173/` 查看犯罪数据面板。
+打开 `http://localhost:5173/` 查看数据探索界面；打开
+`http://localhost:5173/?mode=diary` 查看路线体验日记演示。
 
-### 可选 MapTiler 样式
-
-如需使用 MapTiler 样式，请创建 `.env.local`：
-
-```dotenv
-VITE_MAPTILER_API_KEY=your_key_here
-```
-
-没有密钥时，应用使用 OpenStreetMap 备用底图。环境文件已被 Git 忽略，绝不能提交。
-
-## 验证
-
-运行与 CI 相同的仓库验证入口：
+运行仓库核心验证：
 
 ```bash
 npm run validate
 ```
 
-该命令依次执行：
-
-- `npm run data:check`：验证仓库中的演示 GeoJSON。
-- `npm test`：运行完整单元测试和契约测试，包括双语 UI 契约。
-- `npm run build:manifest`：在 `dist/` 生成生产构建和 Vite manifest。
-- `npm run verify:bundle`：检查入口文件和延迟加载 chunk 的体积预算。
-
-局部开发时也可以单独运行：
+最新本地集成还提供以下轻量、定向验证：
 
 ```bash
-npm run test:i18n
-npm run test:diary:math
-npm run test:diary:agg
-npm run data:check
-npm run build
+npm run test:mainline-m0-m6
+npm run test:ml-m7
+npm run test:mainline-m7
 ```
 
-## 演示数据
+完整数据重建、镜像、恢复和灾备演练与这些轻量测试分开执行，并且需要对应的精确本地证据目录。
 
-重新生成并验证路线安全日记的确定性数据：
-
-```bash
-npm run data:gen
-npm run data:check
-```
-
-道路网络命令会读取外部 OpenStreetMap 或费城数据，因此与默认验证入口分开：
-
-```bash
-npm run data:fetch:streets
-npm run data:segment:streets
-```
-
-## 项目结构
+## 仓库结构
 
 ```text
-src/
-  api/              外部数据访问与标准化
-  charts/           犯罪数据和日记图表
-  i18n/             英文/简体中文词条与运行时
-  map/              MapLibre 图层和交互
-  routes_diary/     路线安全日记状态与界面
-  state/            共享应用状态
-scripts/
-  tests/            轻量回归与契约测试
-  *.mjs             数据生成和验证工具
-server/api/diary/   原型 API 处理程序
-data/               仓库内演示 GeoJSON
-docs/               设计、数据和实现说明
+src/                 浏览器应用与产品界面
+ml/                  仅用于研究的 Python/ML 模块与合同
+scripts/lib/         数据、证据、恢复、评估与门禁逻辑
+scripts/data/        版本化数据结构与冻结协议
+scripts/tests/       单元、合同、异常输入、浏览器与视觉检查
+public/data/         可由浏览器读取的小型聚合数据
+reports/             聚合评估、模型与来源链路报告
+docs/                架构、运行手册、任务记录与治理说明
 ```
 
-## 数据来源与限制
+## 数据说明
 
-| 来源 | 用途 |
-| --- | --- |
-| [Philadelphia CARTO](https://phl.carto.com/) | 犯罪事件查询 |
-| [Philadelphia GIS](https://www.phila.gov/departments/office-of-innovation-and-technology/open-data/) | 警察分局和本地边界 |
-| [US Census Bureau ACS](https://www.census.gov/programs-surveys/acs) | 人口基数 |
-| [OpenStreetMap](https://www.openstreetmap.org/copyright) | 道路网络输入 |
+- “已报告事件”来自费城警察局公开记录；地点泛化、Census 估计和空间归属都会带来不确定性。
+- 项目主要用于查看历史数据和比较不同维度，详细方法与运行边界见下方文档。
 
-犯罪点位会被取整到百号街区，因此仍是近似位置。外部服务的可用性、数据结构和限流规则可能独立变化。
-
-## 部署
-
-创建静态生产构建：
-
-```bash
-npm run build
-```
-
-可将生成的 `dist/` 目录部署到任意静态托管服务。仓库当前不发布 npm 或 GitHub Packages 包。Vite 配置会在 GitHub Actions 中自动使用仓库路径，`.github/workflows/deploy-pages.yml` 会从 `main` 构建并部署到 GitHub Pages。
-
-## 文档
-
-- [已知问题](docs/KNOWN_ISSUES.md)
-- [控件规范](docs/CONTROL_SPEC.md)
-- [路线安全日记规范](docs/DIARY_SPEC_M2.md)
-- [后端 API 草案](docs/API_BACKEND_DIARY_M2.md)
-- [数据与文件地图](docs/FILE_MAP_ENGAGEMENT.md)
-
-## 参与贡献
-
-请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。Bug 报告和改进建议可通过 [GitHub Issues](https://github.com/raederhans/engagement-project/issues) 提交。
+更多运行边界见 [部署证据要求](docs/DEPLOY.md) 和 [参与贡献说明](CONTRIBUTING.md)。
 
 ## 许可证
 
-项目原创软件采用 [MIT License](LICENSE)。第三方数据仍遵守各自来源的使用条款。
+项目原创软件采用 [MIT License](LICENSE)。第三方数据继续遵守各自来源的许可、保留和再发布条款。

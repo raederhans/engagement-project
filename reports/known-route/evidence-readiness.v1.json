@@ -1,0 +1,54 @@
+{
+  "schema": "KnownRouteEvidenceReadiness/v1",
+  "observed_at": "2026-08-31T00:00:00.000Z",
+  "status": "unavailable",
+  "bindings": {
+    "route_identity": null,
+    "corridor_identity": null,
+    "centerline_identity": null,
+    "catalog_identity": null,
+    "crash_accessibility_producer_identity": null,
+    "mode_legality_producer_identity": null
+  },
+  "incidents_crash_separated": true,
+  "dimensions": [
+    { "dimension_id": "reported-incidents", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "raw-crash", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "crash-centerline-match", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "accessibility-sidewalk", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "accessibility-crossing", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "accessibility-curb-ramp", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "walking-legality", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "cycling-legality", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "driving-legality", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "transit-legality", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "manual-calibration", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." },
+    { "dimension_id": "match-error-distribution", "status": "unavailable", "receipt_identity": null, "producer_identity": null, "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout." }
+  ],
+  "sensitivity": {
+    "status": "unavailable",
+    "receipt_identity": null,
+    "approved_scenarios": [],
+    "stable_under_approved_scenarios": null,
+    "reason": "No exact route-bound crash, accessibility, legality, calibration, or sensitivity receipts are admitted in this checkout."
+  },
+  "cross_dimension_combination": "forbidden",
+  "authority": {
+    "route_choice": false,
+    "routing": false,
+    "safety": false,
+    "crash": false,
+    "accessibility": false,
+    "mode_legality": false,
+    "calibration": false
+  },
+  "privacy": {
+    "aggregate_only": true,
+    "route_geometry_included": false,
+    "route_endpoints_included": false,
+    "event_rows_included": false,
+    "event_coordinates_included": false,
+    "source_record_ids_included": false
+  },
+  "readiness_identity": "sha256:963517d4e166041215ba65f8bd220eede06a97fdb28aa839c5e7f3d41b7695f5"
+}

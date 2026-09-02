@@ -1,0 +1,194 @@
+{
+  "schema": "engagement-area-intelligence-evaluation-protocol/v3",
+  "schema_version": 3,
+  "frozen_at": "2026-08-31T00:00:00.000Z",
+  "frozen_before_v3_candidate_performance": true,
+  "previous_protocol": {
+    "schema": "engagement-area-intelligence-evaluation-protocol/v2",
+    "sha256": "sha256:997aaf5389ab401d0a87e74b749ab4079e26315d4bb8787ad4e1b7051b457dde",
+    "status": "historical-immutable"
+  },
+  "runtime": {
+    "python": "3.12.x",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1",
+    "scikit_learn": "1.9.0",
+    "torch": "2.13.0",
+    "torch_distribution": "cpu-wheel-from-pytorch-cpu-index",
+    "determinism": "fixed-seed-single-process-cpu-reference"
+  },
+  "feature_schema": {
+    "schema": "FeatureSchema/v2",
+    "activation_gate": "FeatureSchema/v1-js-parity-receipt-passed",
+    "features": [
+      "intercept",
+      "log1p_lag1",
+      "log1p_lag2",
+      "log1p_lag4",
+      "log1p_lag13",
+      "log1p_lag26",
+      "log1p_lag52",
+      "log1p_ma4",
+      "log1p_ma13",
+      "log1p_ma26",
+      "rolling_std13",
+      "ma4_minus_ma13",
+      "previous_nonzero_rate13",
+      "zero_streak_capped52",
+      "annual_sin",
+      "annual_cos",
+      "semiannual_sin",
+      "semiannual_cos",
+      "unit_type_tract",
+      "unit_type_fixed_grid",
+      "category_person",
+      "category_property",
+      "category_vehicle",
+      "category_financial",
+      "category_public_order",
+      "category_other",
+      "log1p_neighborhood_ma4"
+    ],
+    "temporal_cutoff": "strictly-before-predicted-week",
+    "missing_policy": "row-ineligible-unless-optional-feature-has-explicit-unavailable-indicator",
+    "preprocessing": "fit-on-training-only-within-outer-fold",
+    "target_transform": "none-nonnegative-count"
+  },
+  "candidates": [
+    {
+      "id": "seasonal-naive-52w",
+      "implementation": "engagement_ml.features.baseline_predictions:seasonal_naive_52w",
+      "kind": "baseline",
+      "hyperparameters": { "lag_weeks": [52] },
+      "maximum_trials": 1,
+      "optional": false
+    },
+    {
+      "id": "moving-average-13w",
+      "implementation": "engagement_ml.features.baseline_predictions:moving_average_13w",
+      "kind": "baseline",
+      "hyperparameters": { "window_weeks": [13] },
+      "maximum_trials": 1,
+      "optional": false
+    },
+    {
+      "id": "ewma-v1",
+      "implementation": "engagement_ml.features.baseline_predictions:ewma",
+      "kind": "baseline",
+      "hyperparameters": { "decay": [0.1, 0.2, 0.3] },
+      "maximum_trials": 3,
+      "optional": false
+    },
+    {
+      "id": "sklearn-poisson-l2-v1",
+      "implementation": "sklearn.linear_model.PoissonRegressor",
+      "kind": "count-regressor",
+      "hyperparameters": { "alpha": [0, 0.01, 0.1, 1], "solver": ["lbfgs"], "max_iter": [300] },
+      "maximum_trials": 4,
+      "optional": false
+    },
+    {
+      "id": "sklearn-hist-gradient-boosting-poisson-v1",
+      "implementation": "sklearn.ensemble.HistGradientBoostingRegressor(loss=poisson)",
+      "kind": "count-regressor",
+      "hyperparameters": { "learning_rate": [0.03, 0.05], "max_leaf_nodes": [15, 31], "l2_regularization": [0.1, 1], "max_iter": [100] },
+      "maximum_trials": 8,
+      "optional": false
+    },
+    {
+      "id": "torch-nb-global-v1",
+      "implementation": "engagement_ml.torch_nb:NB2MLP",
+      "kind": "negative-binomial-nb2-mlp",
+      "hyperparameters": { "hidden_width": [32, 64], "learning_rate": [0.001], "weight_decay": [0.0001], "maximum_epochs": [60, 100], "gradient_clip_norm": [1] },
+      "maximum_trials": 4,
+      "optional": false
+    },
+    {
+      "id": "js-negative-binomial-log-link-v1-repaired",
+      "implementation": "scripts/lib/area_intelligence_model.mjs:fitNegativeBinomialModel",
+      "kind": "negative-binomial-nb2-glm",
+      "hyperparameters": { "maximum_iterations": [4], "coefficient_abs_limit": [12] },
+      "maximum_trials": 1,
+      "optional": true
+    }
+  ],
+  "inner_validation": {
+    "scope": "training-window-only",
+    "split": "last-26-complete-weeks-of-each-outer-training-window",
+    "selection_metric": "mean-poisson-deviance-with-mae-tiebreak",
+    "test_fold_access": false,
+    "maximum_total_trials_per_fold_unit_slice": 22
+  },
+  "rolling_folds": [
+    { "id": "fold-2019", "train_start": "2016-01-04", "train_end_exclusive": "2019-01-07", "test_start": "2019-01-07", "test_end_exclusive": "2020-01-06" },
+    { "id": "fold-2021", "train_start": "2018-01-08", "train_end_exclusive": "2021-01-04", "test_start": "2021-01-04", "test_end_exclusive": "2022-01-03" },
+    { "id": "fold-2023", "train_start": "2020-01-06", "train_end_exclusive": "2023-01-02", "test_start": "2023-01-02", "test_end_exclusive": "2024-01-01" },
+    { "id": "fold-2025-2026", "train_start": "2022-08-22", "train_end_exclusive": "2025-08-18", "test_start": "2025-08-18", "test_end_exclusive": "2026-08-17" }
+  ],
+  "spatial_holdout": {
+    "block_definition": "2km projected blocks for fixed grid; tract representative point assigned to the same scheme",
+    "assignment": "sha256(block_id)-unsigned-prefix-modulo-5",
+    "holdout_remainder": 0,
+    "held_out_blocks_fit_any_preprocessing_or_model": false,
+    "report_slices": ["temporal-non-heldout", "spatial-heldout"]
+  },
+  "convergence": {
+    "finite_parameters_and_predictions_required": true,
+    "sklearn_converged_before_max_iter_required": true,
+    "torch_early_stopping_patience_epochs": 10,
+    "torch_best_validation_checkpoint_required": true,
+    "torch_gradient_clip_norm": 1,
+    "optional_js_nb_converged_before_iteration_limit_required": true,
+    "failure_result": "candidate-ineligible"
+  },
+  "interval_calibration": {
+    "nominal_probability": 0.9,
+    "baseline": "training-only-absolute-residual-90th-percentile",
+    "poisson_and_boosting": "training-only-calibrated-count-residual",
+    "negative_binomial": "training-only-nb2-central-90-percent",
+    "acceptable_primary_slice_coverage_inclusive": [0.85, 0.95],
+    "aggregate_bypass_allowed": false
+  },
+  "prediction_cap": {
+    "minimum_inclusive": 0,
+    "maximum_inclusive": 162754.79141900392,
+    "cap_hit_result": "candidate-ineligible"
+  },
+  "slice_gate": {
+    "required_dimensions": ["fold", "unit_type", "holdout_slice", "category", "data_volume", "acs_population_audit"],
+    "minimum_observations_per_primary_slice": 1000,
+    "minimum_relative_mae_gain_each_primary_slice": 0.02,
+    "minimum_aggregate_relative_mae_gain": 0.05,
+    "maximum_category_mae_regression_vs_seasonal": 0.1,
+    "all_primary_slices_must_pass": true,
+    "simple_baselines_auto_promote": false,
+    "ml_models_auto_promote": false
+  },
+  "artifact_contract": {
+    "schemas": ["MLDatasetManifest/v1", "MLResearchRun/v1", "MLBenchmarkReport/v1"],
+    "required_identities": ["protocol_sha256", "artifact_registry_identity", "mart_manifest_identity", "feature_schema_identity", "candidate_implementation_identity", "environment_lock_identity", "output_identity"],
+    "large_outputs": "task-owned-ignored-only",
+    "research_only": true,
+    "test_results_in_protocol": false
+  },
+  "decision": {
+    "eligibility_is_promotion": false,
+    "default": "no-promotion",
+    "serving_requires_independent_review": true,
+    "current_state": "unavailable"
+  },
+  "privacy": {
+    "aggregate_only": true,
+    "event_rows_included": false,
+    "coordinates_included": false,
+    "source_record_ids_included": false
+  },
+  "authority": {
+    "local_evaluation": false,
+    "serving": false,
+    "product_promotion": false,
+    "scientific": false,
+    "causal": false,
+    "safety": false
+  }
+}

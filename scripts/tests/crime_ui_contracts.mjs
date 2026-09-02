@@ -225,7 +225,7 @@ test('task focus binds an accessible choice dialog and applies an explicit selec
   assert.equal(applied.at(-1).preferredInitialPane, 'charts');
   assert.equal(mount.dataset.taskFocus, 'long_term');
   assert.match(current.textContent, /Long-term/i);
-  assert.match(description.textContent, /information order|query/i);
+  assert.equal(description.textContent, 'Trends first.');
   assert.equal(dialog.open, false);
   controller.dispose();
 
@@ -235,6 +235,7 @@ test('task focus binds an accessible choice dialog and applies an explicit selec
   assert.match(html, /data-task-focus-option[^>]+value="general"/);
   assert.match(html, /data-task-focus-option[^>]+value="long_term"/);
   assert.match(html, /data-task-focus-option[^>]+value="daily_living"/);
+  assert.match(html, /data-task-focus-description hidden/);
 });
 
 test('latest-window suggestions use an explicit accessible preview instead of instant apply', async () => {
@@ -1562,14 +1563,17 @@ test('categorical Crime legend pairs every highlight color with a text label', a
     dataset: {},
     attributes: new Map(),
     children: [],
-    setAttribute(name, value) { this.attributes.set(name, value); },
+    setAttribute(name, value) {
+      this.attributes.set(name, value);
+      if (name === 'data-i18n') this.dataset.i18n = value;
+    },
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     querySelectorAll(selector) {
-      if (selector !== '[data-offense-code]') return [];
       const matches = [];
       const visit = (element) => {
-        if (element?.dataset?.offenseCode) matches.push(element);
+        if (selector === '[data-offense-code]' && element?.dataset?.offenseCode) matches.push(element);
+        if (selector === '[data-i18n]' && element?.attributes?.has('data-i18n')) matches.push(element);
         for (const child of element?.children || []) visit(child);
       };
       for (const child of this.children) visit(child);
@@ -1618,6 +1622,15 @@ test('categorical Crime legend pairs every highlight color with a text label', a
       .map((row) => row.children[1].textContent),
     ['Aggravated assault with firearm', 'Aggravated assault without firearm'],
   );
+
+  legend.updateLegend({
+    title: 'crime.districts',
+    breaks: [10, 20],
+    colors: ['#eff3ff', '#bdd7e7', '#6baed6'],
+  });
+  assert.equal(root.children[0].textContent, 'Districts');
+  setLanguage('zh-CN');
+  assert.equal(root.children[0].textContent, '警察分局');
 });
 
 test('buffer highlight legend is restored after background choropleth jobs settle', async () => {
@@ -1673,8 +1686,8 @@ test('Crime list presentation exposes semantic controls, result table, status, a
   assert.match(html, /data-crime-list-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /data-crime-list-description[^>]*data-i18n="crime\.list\.description"/);
   assert.match(html, /data-crime-list-limitations/);
-  assert.match(css, /html\[data-crime-view="list"\][^}]*overflow-y:\s*auto/s);
-  assert.match(css, /body\[data-crime-view="list"\][^}]*height:\s*auto[^}]*overflow-y:\s*visible/s);
+  assert.match(css, /html\[data-crime-view="list"\],[\s\S]*body\[data-crime-view="list"\][^}]*overflow:\s*clip/s);
+  assert.match(css, /body\[data-crime-view="list"\] \.crime-list-workspace[^}]*overflow:\s*auto/s);
   assert.match(css, /body\[data-crime-view="list"\][^}]*\[data-incident-results-status\][^}]*display:\s*none/s);
 });
 
@@ -1683,16 +1696,19 @@ test('Crime list refresh focuses the visible result surface for the selected res
   const heading = { id: 'crime-list-results-title' };
   const summary = { id: 'compare-card' };
   const summaryPane = { querySelector: (selector) => selector === '#compare-card' ? summary : null };
-  const incidentPane = { hidden: true, inert: true };
-  const root = { closest: () => incidentPane };
+  const root = {
+    hidden: true,
+    inert: true,
+    querySelector: (selector) => selector === '#crime-list-results-title' ? heading : null,
+  };
   const documentRef = {
     getElementById: () => heading,
     querySelector: () => summaryPane,
   };
 
   assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), summary);
-  incidentPane.hidden = false;
-  incidentPane.inert = false;
+  root.hidden = false;
+  root.inert = false;
   assert.equal(resolveCrimeListFocusTarget({ root, documentRef }), heading);
 });
 

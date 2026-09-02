@@ -1,172 +1,157 @@
-# Philadelphia Crime Dashboard + Route Safety Diary
+# Philadelphia Urban Evidence Lab
 
 [中文说明](README.zh-CN.md) | English
 
 [![CI](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml/badge.svg)](https://github.com/raederhans/engagement-project/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-0969da)](https://raederhans.github.io/engagement-project/)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](package.json)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An English and Simplified Chinese interactive web dashboard for exploring
-Philadelphia crime patterns and a browser-based Route Safety Diary prototype.
-Use the language button in the app bar to switch languages; the preference is
-saved in the current browser. The project uses vanilla JavaScript, MapLibre GL
-JS, Chart.js, Turf, and Vite.
+A bilingual Philadelphia data project for exploring historical reported incidents, comparing areas,
+reviewing known-route context, and keeping personal trip notes in the browser.
 
-> [!IMPORTANT]
-> The Route Safety Diary currently uses demo data and local browser state. It
-> does not provide production accounts, persistent community submissions, or a
-> safety guarantee. Crime locations are approximate and should not be used as
-> the sole basis for personal-safety decisions.
+## Current status
 
-## Features
+- GitHub Pages serves the latest `main` revision that passes the repository's Windows and Linux release
+  gates. The CI badge and linked workflow are the current deployment evidence.
+- The product includes Area Intelligence, Home Compare, expanded Known Route evidence, public route
+  scenarios, the browser-local Diary demo, and the research-only ML package.
+- The latest retained data-foundation receipt covers **3,586,620 standardized reported-incident records**
+  in a content-addressed local evidence bundle of about **10.81 GB**.
+- The forecast gate remains **not-promoted** and forecast output remains **unavailable**. Historical
+  aggregates remain available.
+- All incident and route context is historical or aggregate. The interface does not provide live
+  conditions, personal risk or safety conclusions, or route recommendations. Diary and Sample Community
+  content stays browser-local and demo-only.
 
-### Crime Data Explorer
+## Interface preview
 
-- Interactive district and census-tract maps.
-- Configurable buffer analysis from 400 m to 3.2 km.
-- Monthly comparisons, top-offense charts, and a 7 x 24 activity heatmap.
-- Per-capita rates using ACS population data.
-- Viewport filtering and clustering for larger result sets.
-- English and Simplified Chinese UI, help, status, and error copy.
+These repository-relative screenshots show the current interface and render directly from the README
+without relying on temporary local paths.
 
-### Route Safety Diary Prototype
+![Crime Explorer map and controls](docs/assets/screenshots/crime-explorer-en.jpg)
 
-- Demo routes with segment-level safety styling and an optional alternative.
-- Route ratings, tags, notes, and segment overrides stored locally.
-- Live Route, My Routes, Community, and Insights views.
-- Community-feedback simulations with session-level throttling.
-- Deterministic demo-data generation and validation scripts.
+![Route Experience Diary demonstration](docs/assets/screenshots/route-diary-zh.jpg)
 
-## Quick Start
+## What is in the project
 
-### Prerequisites
+### Crime Explorer
 
-- Node.js `^20.19.0` or `>=22.12.0`.
-- npm 10 or later.
+Explore historical reported incidents by point, police district, or Census tract. Choose a time range and
+offense groups, then review the result as a map, incident table, summary, monthly trend, category chart, or
+day-and-hour view. Population-based rates use ACS estimates and keep their uncertainty visible.
 
-Install the locked dependencies and start the development server:
+### Complete Census tract comparison
+
+Compare two or more whole Philadelphia Census tracts using 2020–2024 ACS population estimates and their
+90% margins of error. Input uses complete tract GEOIDs.
+
+### Area Intelligence
+
+Review historical aggregate coverage, exclusions, and spatial methods. The current forecast did not pass
+the evaluation gate, so the interface shows the failed checks alongside the historical summary.
+
+### Home & neighborhood comparison
+
+The latest local interface is designed to compare two to four Philadelphia homes across property records,
+assessment and transfer history, civic records, nearby reported incidents, transport context, and data
+quality. Each source keeps its own `available`, `partial`, or `unavailable` state.
+
+Private-address lookup is not enabled in the public build, which currently shows citywide data readiness.
+Shared links contain display settings only.
+
+### Known Route
+
+Provide a route by drawing it, entering waypoints, or importing a GeoJSON LineString. The interface reviews
+nearby historical records and presents road-centerline, High Injury Network, crash, accessibility, and
+travel-mode context as separate dimensions.
+
+### Public route scenarios
+
+Compare precomputed walking scenarios between public landmarks. The cards show time, distance, historical
+exposure, data freshness, match quality, and uncertainty side by side.
+
+### Route Experience Diary
+
+Record a personal 1–5 trip rating, tags, notes, and optional segment details. Entries, drafts, and history
+stay in the current browser and can be exported as a backup. “Sample community” content and alternative
+routes are static demonstration data.
+
+### Local route companion and ML research
+
+Developers can enable the local route companion when its route engine and evidence pack are available.
+The Python/ML package supports research, evaluation, and governance reporting.
+
+## How the evidence is handled
+
+```text
+official public snapshots
+  -> versioned standardized records
+  -> content and lineage checks
+  -> aggregate spatial analysis
+  -> frozen evaluation and no-promotion gates
+  -> browser views
+```
+
+The project keeps “missing”, “partial”, “ambiguous”, “unmapped”, and “unavailable” separate from zero.
+Personal content remains in the local browser.
+
+More detail is available in [Portfolio v2](docs/PORTFOLIO_V2.md) and the
+[Data Foundation operations runbook](docs/DATA_FOUNDATION_OPERATIONS_RUNBOOK.md).
+
+## Run locally
+
+Requirements: Node.js `^20.19.0` or `>=22.12.0`, plus npm 10 or newer.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Then open `http://localhost:5173/?mode=diary` for the Route Safety Diary or
-`http://localhost:5173/` for the crime dashboard.
+Open `http://localhost:5173/` for the data explorer or
+`http://localhost:5173/?mode=diary` for the Diary demo.
 
-### Optional MapTiler Style
-
-Create `.env.local` if you want to use a MapTiler style:
-
-```dotenv
-VITE_MAPTILER_API_KEY=your_key_here
-```
-
-Without a key, the app uses its OpenStreetMap fallback. Environment files are
-ignored by Git and must never be committed.
-
-## Validation
-
-Run the same repository gate used by CI:
+Run the core repository gate with:
 
 ```bash
 npm run validate
 ```
 
-The gate runs:
-
-- `npm run data:check` — validates the checked-in demo GeoJSON.
-- `npm test` — runs the complete unit and contract-test suite, including the
-  bilingual UI contract.
-- `npm run build:manifest` — creates the production bundle and Vite manifest in
-  `dist/`.
-- `npm run verify:bundle` — checks the production entry and lazy-chunk budgets.
-
-Individual commands remain available when working on a narrow area:
+Focused fixture gates for the latest local integration are also available:
 
 ```bash
-npm run test:diary:math
-npm run test:diary:agg
-npm run data:check
-npm run build
+npm run test:mainline-m0-m6
+npm run test:ml-m7
+npm run test:mainline-m7
 ```
 
-## Demo Data
+Full-data rebuild, mirror, restore, and disaster-recovery operations are separate from these lightweight
+tests and require their exact local evidence roots.
 
-Regenerate and validate the deterministic Route Safety Diary fixtures:
-
-```bash
-npm run data:gen
-npm run data:check
-```
-
-The street-network commands fetch external OpenStreetMap or Philadelphia data
-and are intentionally separate from the default validation gate:
-
-```bash
-npm run data:fetch:streets
-npm run data:segment:streets
-```
-
-## Project Structure
+## Repository map
 
 ```text
-src/
-  api/              External data access and normalization
-  charts/           Crime and diary visualizations
-  i18n/             English and Simplified Chinese message catalogs/runtime
-  map/              MapLibre layers and interactions
-  routes_diary/     Route Safety Diary state and UI
-  state/            Shared application state
-scripts/
-  tests/            Lightweight regression scripts
-  *.mjs             Data generation and validation tools
-server/api/diary/   Prototype API handlers
-data/               Checked-in demo GeoJSON
-docs/               Design, data, and implementation notes
+src/                 Browser application and product surfaces
+ml/                  Research-only Python/ML package and contracts
+scripts/lib/         Data, evidence, restore, evaluation, and gate logic
+scripts/data/        Versioned schemas and frozen protocols
+scripts/tests/       Unit, contract, hostile-input, browser, and visual checks
+public/data/         Small browser-readable aggregate artifacts
+reports/             Aggregate evaluation, model, and lineage reports
+docs/                Architecture, runbooks, task records, and governance notes
 ```
 
-## Data Sources and Limits
+## Data notes
 
-| Source | Use |
-| --- | --- |
-| [Philadelphia CARTO](https://phl.carto.com/) | Crime incident queries |
-| [Philadelphia GIS](https://www.phila.gov/departments/office-of-innovation-and-technology/open-data/) | Police districts and local boundaries |
-| [US Census Bureau ACS](https://www.census.gov/programs-surveys/acs) | Population denominators |
-| [OpenStreetMap](https://www.openstreetmap.org/copyright) | Street-network inputs |
+- Reported incidents come from Philadelphia Police Department public records. Generalized locations,
+  Census estimates, and spatial assignment introduce uncertainty.
+- The project is designed for historical exploration and comparison. The documents below cover the full
+  methods and operating boundaries.
 
-Crime points are rounded to the hundred block and remain approximate. External
-services can change availability, schema, or rate limits independently of this
-repository.
-
-## Deployment
-
-Create a static production build with:
-
-```bash
-npm run build
-```
-
-Serve the generated `dist/` directory with a static host. This repository does
-not currently publish a package to npm or GitHub Packages. The checked-in Vite
-configuration automatically uses the repository path during GitHub Actions,
-and `.github/workflows/deploy-pages.yml` builds and deploys `main` to GitHub
-Pages.
-
-## Documentation
-
-- [Known issues](docs/KNOWN_ISSUES.md)
-- [Control specification](docs/CONTROL_SPEC.md)
-- [Route Safety Diary specification](docs/DIARY_SPEC_M2.md)
-- [Backend API draft](docs/API_BACKEND_DIARY_M2.md)
-- [Data and file map](docs/FILE_MAP_ENGAGEMENT.md)
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and proposed improvements
-can be submitted through [GitHub Issues](https://github.com/raederhans/engagement-project/issues).
+See [deployment evidence requirements](docs/DEPLOY.md) and
+[contribution guidance](CONTRIBUTING.md) for the operating details.
 
 ## License
 
-Project-authored software is available under the [MIT License](LICENSE).
-Third-party data remains subject to the terms of its respective provider.
+Project-authored software is available under the [MIT License](LICENSE). Third-party data remains subject
+to each provider's terms, license, retention, and republication rules.

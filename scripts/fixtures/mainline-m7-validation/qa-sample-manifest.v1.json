@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "mainline-m7-qa-sample-manifest/v1",
+  "status": "unavailable",
+  "qaPolicyIdentity": "sha256:5e1fdce161c971a1ad601ba0697ae607abfe43d6e99987c745213afb7882c5ac",
+  "benchmarkReceiptIdentity": "sha256:d037ae09d83a89ac223c90cb6f19b0f4bbdff4496698fd3ad2feb09109494d49",
+  "targetSegmentCount": 100,
+  "samplingMethod": "identity-hash-stratified-without-replacement",
+  "eligibleUniverseIdentity": null,
+  "eligibleSegmentCount": 0,
+  "samples": [],
+  "reasonCodes": [
+    "route-segments-unavailable"
+  ],
+  "identity": "sha256:93faf7d1e1bfb745204daa31cf13403dc6f2500730094ed3bdaeead4ce4cae43"
+}

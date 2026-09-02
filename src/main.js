@@ -30,6 +30,7 @@ import {
   replaceCrimeViewState,
 } from './state/crime_view_state.js';
 import { containsActivePrivateCrimeLocation } from './routes_crime/crime_refresh_owner.js';
+import { runCrimeListRefresh } from './ui/crime_list_results.js';
 
 const query = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search || '')
@@ -122,6 +123,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let acsMultitractLoaderPromise = null;
   let homeCompareLoader = null;
   let homeCompareLoaderPromise = null;
+  let publicRouteLoader = null;
+  let publicRouteLoaderPromise = null;
 
   const crimeResultMeta = Object.fromEntries(
     [...document.querySelectorAll('[data-result-meta]')].map((root) => {
@@ -130,7 +133,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         root,
         onRetry: () => (
           presentationController?.getMode() === 'list'
-            ? ensureListController().then((owner) => owner.requestRefresh({ scope }))
+            ? requestListRefresh({ scope })
             : coordinator?.retryCrimeResult(scope)
         ),
       })];
@@ -376,6 +379,60 @@ window.addEventListener('DOMContentLoaded', async () => {
   homeCompareOpen?.addEventListener('click', onHomeCompareIntent);
   homeCompareRetry?.addEventListener('click', onHomeCompareIntent);
 
+  const publicRouteDialog = document.querySelector('[data-public-route-dialog]');
+  const publicRouteHost = document.querySelector('[data-public-route-host]');
+  const publicRouteOpen = document.querySelector('[data-public-route-open]');
+  const publicRouteRetry = document.querySelector('[data-public-route-retry]');
+  const publicRouteStatus = document.querySelector('[data-public-route-loader-status]');
+  const showPublicRouteLoadFailure = (error) => {
+    if (publicRouteStatus) {
+      publicRouteStatus.hidden = false;
+      setTranslatedText(publicRouteStatus, 'publicRoutes.loadFailed');
+    }
+    if (publicRouteRetry) publicRouteRetry.hidden = false;
+    console.warn('Public route scenarios are unavailable:', error);
+  };
+  const ensurePublicRouteLoader = async () => {
+    if (publicRouteLoader) return publicRouteLoader;
+    if (!publicRouteLoaderPromise) {
+      if (publicRouteStatus) {
+        publicRouteStatus.hidden = false;
+        setTranslatedText(publicRouteStatus, 'crime.loadingCodes');
+      }
+      if (publicRouteRetry) publicRouteRetry.hidden = true;
+      publicRouteLoaderPromise = import('./public_route_alternatives/loader.js')
+        .then((module) => module.createPublicRouteAlternativesLoader({
+          dialog: publicRouteDialog,
+          host: publicRouteHost,
+          opener: publicRouteOpen,
+        }))
+        .then((owner) => {
+          publicRouteLoader = owner;
+          return owner;
+        })
+        .catch((error) => {
+          publicRouteLoaderPromise = null;
+          throw error;
+        });
+    }
+    return publicRouteLoaderPromise;
+  };
+  const onPublicRouteIntent = () => {
+    if (publicRouteStatus) {
+      publicRouteStatus.hidden = false;
+      setTranslatedText(publicRouteStatus, 'crime.loadingCodes');
+    }
+    if (publicRouteRetry) publicRouteRetry.hidden = true;
+    void ensurePublicRouteLoader()
+      .then(async (owner) => {
+        await owner.open();
+        if (publicRouteStatus) publicRouteStatus.hidden = true;
+      })
+      .catch(showPublicRouteLoadFailure);
+  };
+  publicRouteOpen?.addEventListener('click', onPublicRouteIntent);
+  publicRouteRetry?.addEventListener('click', onPublicRouteIntent);
+
   async function ensureListController() {
     if (listController) return listController;
     if (!listControllerPromise) {
@@ -403,15 +460,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   async function requestListRefresh(options = {}) {
     const ownsList = () => store.viewMode === 'crime'
       && presentationController?.getMode() === 'list';
-    if (!ownsList()) return { status: 'superseded' };
-    modeSurfaces.showIntent('crime');
-    modeSurfaces.showStatus({ mode: 'crime', phase: 'loading', label: 'Crime list' });
-    const result = await ensureListController().then((owner) => owner.requestRefresh(options));
-    if (!ownsList()) return { status: 'superseded' };
-    const phase = ['live', 'partial', 'idle'].includes(result?.status) ? 'ready' : 'failed';
-    modeSurfaces.showStatus({ mode: 'crime', phase, label: 'Crime list' });
-    modeSurfaces.settle('crime', phase);
-    return result;
+    return runCrimeListRefresh({
+      ownsList,
+      showIntent: modeSurfaces.showIntent,
+      showStatus: modeSurfaces.showStatus,
+      settle: modeSurfaces.settle,
+      loadController: ensureListController,
+      options,
+      reportFailure: (error) => {
+        setTranslatedText(document.querySelector('[data-crime-list-status]'), 'crime.list.failed');
+        crimeResultMeta.incidents?.failed?.(error);
+      },
+    });
   }
 
   async function ensureMapCoordinator() {
@@ -533,12 +593,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (normalized === 'list') {
       coordinator?.cancelCurrentTransition?.('Crime list view selected');
       mapCrimeController?.setActive?.(false);
-      const listOwner = await ensureListController();
+      listController?.setActive(true);
       if (!ownsPresentation() || presentationController.getMode() !== 'list') {
-        listOwner.setActive(false);
+        listController?.setActive(false);
         return;
       }
-      listOwner.setActive(true);
       if (mapStatus) {
         mapStatus.dataset.phase = origin === 'fallback' ? 'failed' : 'ready';
         setTranslatedText(

@@ -274,7 +274,7 @@ test('Evidence Bundle adapter is explicit and does not mutate the existing schem
 test('reviewed product markup is table-first, bilingual, and has no map dependency', () => {
   const reviewed = reviewAcsTractSelections({ selections, snapshot });
   const reviewHtml = acsSelectionReviewHtml(reviewed);
-  assert.match(reviewHtml, /Complete tracts admitted for calculation/);
+  assert.match(reviewHtml, /Complete tracts ready for calculation/);
   assert.match(reviewHtml, /42101000101/);
   assert.match(reviewHtml, /2020 Census/);
   assert.doesNotMatch(reviewHtml, /<(?:canvas|svg)|maplibre|mapbox/i);
@@ -282,11 +282,11 @@ test('reviewed product markup is table-first, bilingual, and has no map dependen
   const en = acsMultitractProductHtml('en');
   assert.match(en, /Review tracts/);
   assert.match(en, /data-acs-multitract-calculate disabled/);
-  assert.match(en, /addresses, route buffers, partial tracts, centroids, and area weighting are not supported/);
+  assert.match(en, /addresses, route buffers, partial tracts, centroids, and area weighting are not/);
   const zh = acsMultitractProductHtml('zh-CN');
-  assert.match(zh, /审查 tract/);
-  assert.match(zh, /计算聚合/);
-  assert.match(zh, /绝不直接相加已发布的 tract MOE/);
+  assert.match(zh, /检查人口普查区/);
+  assert.match(zh, /计算汇总/);
+  assert.match(zh, /不会直接把各人口普查区的误差范围相加/);
 });
 
 test('feature source-health adapter returns admitted evidence and fails closed', () => {

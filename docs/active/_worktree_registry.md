@@ -1,13 +1,18 @@
 # Worktree Registry
 
-## Current effective registry (2026-08-30)
+## Current effective registry (2026-09-01)
 
 This section is the sole authority for the live Git topology. The older rows below are retained only as historical audit notes and must not be used to infer that a worktree, branch, ignored artifact, or execution authority still exists.
 
 | Worktree / path | Branch / HEAD | Current responsibility | State | Next action |
 | --- | --- | --- | --- | --- |
+| `C:/Users/raede/.codex/worktrees/ui-release-integration/engagement_project` | `codex/ui-p0-p1-release@HEAD` | Sole final integration, remote CI, merge, and Pages owner for the copy refresh plus frontend P0/P1 delivery | local release green / final commit pending | Commit and push PR; reconcile only exact Ubuntu diagnostics if required, then merge after all checks pass and verify exact-SHA Pages. |
+| `C:/Users/raede/.codex/worktrees/ui-p0-p1-integration/engagement_project` | `codex/ui-p0-p1-integration@0514798` | Reviewed source delivery for frontend audit Phase 0 truth/recovery fixes and Phase 1 AppShell/layout ownership | clean / reconciled into release branch | Retain for audit; the release worktree owns all remaining remote checks, merge, and Pages verification. |
 | `C:/Users/raede/Desktop/dev/engagement_project` | `codex/route-decision-s6-real-data@4d5c34c` | Primary checkout and active RD6B coordination; preserves 27 untracked log/output paths | active / protected WIP | Do not switch, clean, or delete; finish RD6B under its own authority. |
-| `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` | `main@HEAD`; release-gated code parent `6c08005` | Clean integration owner for the Phase 2 P1-P6 merge and repository closeout | local `ci:release` and coverage PASS / ready to synchronize | Push this archival closeout, then verify local/remote equality plus CI/Pages. |
+| `C:/Users/raede/.codex/worktrees/8dcb/engagement_project` | `codex/mainline-m0-m6@3d4c126` | Mainline M0-M6 source delivery; excludes `ml/**`, remote mutation and cleanup | clean / integrated locally into `main` code tip `ecb3f4c`; source validation green | Retain for audit; no cleanup or remote deletion authority. |
+| `C:/Users/raede/.codex/worktrees/13b2/engagement_project` | `codex/python-ml-benchmark@06c4c20` | Research-only ML0-ML6 source delivery and ignored Python environment owner | clean tracked tree / integrated locally into `main` code tip `ecb3f4c`; full benchmark unavailable without exact registry | Retain for audit; do not treat fixture CI as full-data, serving, or promotion evidence. |
+| `C:/Users/raede/.codex/worktrees/phase1-main/engagement_project` | `main@HEAD`; verified product code tip `ecb3f4c`; `origin/main@cfb0af1` | Sole clean integration owner for Mainline M0-M7 plus ML0-M7 closeout | local review remediation integrated; Pages-environment `npm run ci:release` PASS / not pushed | Await explicit remote authority before push, CI/Pages, release, ruleset, or deployment changes. |
+| `C:/Users/raede/Desktop/dev/engagement_project-artifacts/m7-closeout-20260901` | non-worktree local evidence archive | Preserve small ignored M7 receipts and query logs before source-worktree cleanup | 20 ML files / 35,629 bytes and 4 public logs / 3,832 bytes; source-to-archive SHA-256 mismatch 0 | Retain as local execution evidence; it grants no model, routing, serving, or deployment authority. |
 | `C:/Users/raede/Desktop/dev/engagement_project-phase2` | detached `ff0e6c4` | Phase 2 ignored evidence owner; tracked tree is the exact integrated merge tree | clean tracked tree / retained evidence; about 1.55 GB under `.dfev1` | Retain until evidence receives separate archive/deletion authority. |
 | `C:/Users/raede/Desktop/dev/engagement_project-data-foundation` | `codex/dfev1-data-foundation-persistent@122bba9` | Persistent M1-M6 data evidence owner | clean tracked tree / retained evidence; about 14.56 GB under `.dfev1` | Retain; no cleanup or promotion inference. |
 | `C:/Users/raede/.codex/worktrees/dfev1-m1-m6-supervisor/engagement_project` | detached `122bba9` | Secondary M1-M6 supervisor evidence root | clean tracked tree / retained evidence; about 2.95 GB under `.dfev1` | Retain until evidence is independently consolidated. |
@@ -17,6 +22,8 @@ This section is the sole authority for the live Git topology. The older rows bel
 | `C:/Users/raede/.codex/worktrees/rd6b-prototype/engagement_project` | detached `9bc56a0` | RD6B prototype/fixture/test WIP | dirty / 3 untracked paths | Preserve; not integrated or cleanup-eligible. |
 
 Cleanup recovery refs are retained under `refs/archive/worktree-cleanup-20260830/*`. Seventeen clean, completed worktrees and thirteen obsolete/completed local branches were removed only after exact-HEAD, clean-state, ancestry or patch-equivalence, and archive-ref checks. The Phase 2 integration merge is `ff0e6c4` with parents `9d93df2` and `09aa176`; its tree is byte-identical to the completed Phase 2 tip. Release repair `6c08005` then closed the lazy-bundle, public-area, privacy-smoke, and compact-landscape gates without changing evidence authority.
+
+M7 source recovery refs are retained under `refs/archive/m7-closeout-20260901/*`. The three completed M7 Git worktrees were unregistered and their contents removed after exact-tip, clean-state, range-diff supersession, evidence-copy, and recovery-ref checks; local source branches `codex/ml-m7-governed-admission`, `codex/mainline-m7-public-product`, and `codex/mainline-m7-private-validation` were then deleted. Windows retained three empty, unregistered shell directories at the former task paths because the host still holds directory handles; each has zero children and no `.git`, so none is a live worktree or evidence root.
 
 ## Historical registry entries (non-authoritative)
 

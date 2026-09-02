@@ -4,20 +4,21 @@ const COPY = Object.freeze({
   en: Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
-    intro: 'Private address comparison is unavailable before any geocoder, parcel, map, or ancillary request. Citywide readiness below is local aggregate metadata only and is not address-level evidence.',
+    intro: 'Addresses stay on this device.',
     address: 'Home address',
-    addressHint: 'Private address, coordinate, and parcel resolution are unavailable and are never sent.',
+    addressHint: 'Address lookup is disabled. What you type is not sent to address, parcel, or map services.',
     add: 'Add another home',
     remove: 'Remove',
     commute: 'Optional commute destinations',
-    commuteHint: 'Up to 3, one per line. They are not transmitted because no validated routing authority is installed.',
+    commuteHint: 'Up to 3, one per line. Travel-time analysis is off, so these entries are not sent anywhere.',
     weights: 'Evidence emphasis',
-    weightsHint: 'Weights reorder evidence dimensions only. They never rank homes or create a recommendation.',
+    weightsHint: 'Weights only change which evidence appears first. They do not score or rank the homes.',
     compare: 'Compare evidence',
     retryResults: 'Retry comparison',
     close: 'Close',
     share: 'Copy settings link',
     shareHint: 'The link contains weights and visible dimensions only—no address, parcel, coordinate, or destination.',
+    notes: 'How comparison works',
     idle: 'Enter 2–4 addresses to begin.',
     loading: 'Loading local citywide readiness metadata…',
     results: 'Evidence profiles',
@@ -32,17 +33,17 @@ const COPY = Object.freeze({
     unavailable: 'Unavailable—not zero',
     partial: 'Partial evidence',
     available: 'Available evidence',
-    noValue: 'No admitted value',
+    noValue: 'No verified value',
     forecastTitle: 'Forecast remains unavailable',
-    forecastBody: 'M2 was not promoted because it did not exceed the predefined seasonal baseline. Historical reported-incident evidence remains available; predictions remain empty.',
+    forecastBody: 'The seasonal baseline performed better, so this view shows historical evidence only.',
     commuteTitle: 'Travel-time and isochrone summary unavailable',
-    commuteBody: 'No validated road or public-transit routing authority is installed. Straight-line distance and synthetic graphs are not used as substitutes.',
+    commuteBody: 'No road or public-transit travel-time service is connected.',
     sensitivity: 'Weight sensitivity',
     topDimensions: 'Current evidence emphasis',
     stable: 'Stable under ±20% perturbation',
     noStable: 'No single leading dimension stays stable under every ±20% perturbation.',
-    noRanking: 'This view changes evidence order only; it does not calculate a safety score, rank homes, or recommend a home.',
-    statusAvailable: 'Comparison completed with admitted evidence.',
+    noRanking: 'Weights change the display order only.',
+    statusAvailable: 'Comparison completed with verified evidence.',
     statusPartial: 'Comparison completed with partial evidence. Open each metric to review gaps.',
     property: 'Property record',
     assessments: 'Assessment history',
@@ -61,22 +62,23 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
-    intro: '私人地址比较会在任何 geocoder、parcel、地图或附属请求前保持不可用。下方全市就绪度仅为本地聚合元数据，不是地址级证据。',
+    intro: '地址仅留在此设备。',
     address: '住宅地址',
-    addressHint: '私人地址、坐标和 parcel 解析不可用，也绝不会被发送。',
+    addressHint: '地址查询未启用。输入内容不会发送给地址、地块或地图服务。',
     add: '添加住宅',
     remove: '移除',
     commute: '可选通勤目的地',
-    commuteHint: '最多 3 个，每行一个。由于没有已验证 routing authority，这些内容不会被发送。',
-    weights: '证据侧重',
-    weightsHint: '权重只改变证据维度的展示顺序，不给住宅排名，也不生成推荐。',
+    commuteHint: '最多 3 个，每行一个。通勤时间分析未启用，内容不会发送到任何服务。',
+    weights: '优先查看哪些信息',
+    weightsHint: '权重只改变信息的展示顺序，不会给住宅打分或排名。',
     compare: '比较证据',
     retryResults: '重新比较',
     close: '关闭',
     share: '复制设置链接',
-    shareHint: '链接只包含权重和可见维度；不包含地址、parcel、坐标或目的地。',
+    shareHint: '链接只包含显示设置，不包含地址、地块编号、坐标或目的地。',
+    notes: '比较说明',
     idle: '输入 2–4 个地址后开始。',
-    loading: '正在解析地址并查询官方公共记录……',
+    loading: '正在读取本地的全市数据准备情况……',
     results: '证据档案',
     profile: '住宅',
     sourceDetails: '来源、覆盖与限制',
@@ -89,17 +91,17 @@ const COPY = Object.freeze({
     unavailable: '不可用——不是零',
     partial: '部分证据',
     available: '可用证据',
-    noValue: '没有已准入数值',
+    noValue: '没有已验证数值',
     forecastTitle: '预测继续不可用',
-    forecastBody: 'M2 因未超过预定义季节性基线而未获准上线。历史 reported-incident 证据仍可用；预测数组保持为空。',
-    commuteTitle: '通勤时间与 isochrone 不可用',
-    commuteBody: '当前没有已验证的道路或公共交通 routing authority；不会用直线距离或 synthetic graph 替代。',
+    forecastBody: '季节性基线表现更好，因此这里只展示历史证据。',
+    commuteTitle: '通勤时间与可达范围暂不可用',
+    commuteBody: '当前没有接入道路或公共交通通勤时间服务。',
     sensitivity: '权重敏感性',
     topDimensions: '当前证据侧重',
     stable: '在 ±20% 扰动下稳定',
     noStable: '没有任何单一领先维度能在全部 ±20% 扰动下保持稳定。',
-    noRanking: '本视图只改变证据顺序；不计算 safety score、不排名，也不推荐住宅。',
-    statusAvailable: '比较已完成，证据通过准入。',
+    noRanking: '权重只改变信息的展示顺序。',
+    statusAvailable: '比较已完成，相关证据已通过验证。',
     statusPartial: '比较已完成，但存在部分证据；请展开每个指标查看缺口。',
     property: '房产记录',
     assessments: '评估历史',
@@ -107,8 +109,8 @@ const COPY = Object.freeze({
     serviceRequests: '附近 311 请求',
     liHistory: 'L&I 房产历史',
     vacancy: '空置指标',
-    reportedIncidents: '附近 reported incidents',
-    hinContext: 'High Injury Network 情境',
+    reportedIncidents: '附近历史已报告事件',
+    hinContext: '高伤亡道路网络背景',
     dimensionProperty: '房产',
     dimensionCostHistory: '成本历史',
     dimensionCivicRecords: '市政记录',
@@ -128,7 +130,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
     <div class="home-compare__address-row">
       <label for="home-compare-address-${index}">${escapeHtml(copy.address)} ${index + 1}</label>
       <div>
-        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-address-hint" ${busy ? 'disabled' : ''}>
+        <input id="home-compare-address-${index}" type="search" autocomplete="street-address" enterkeyhint="next" data-home-address="${index}" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}>
         ${addressCount > 2 ? `<button class="button button--secondary" type="button" data-home-remove="${index}" ${busy ? 'disabled' : ''}>${escapeHtml(copy.remove)}</button>` : ''}
       </div>
     </div>`).join('');
@@ -146,14 +148,11 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
       </header>
       <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}">
         <div class="home-compare__addresses">${addresses}</div>
-        <p id="home-compare-address-hint" class="home-compare__hint">${escapeHtml(copy.addressHint)}</p>
         <button class="button button--secondary" type="button" data-home-add ${busy || addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
         <label for="home-compare-destinations">${escapeHtml(copy.commute)}</label>
-        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-commute-hint" ${busy ? 'disabled' : ''}></textarea>
-        <p id="home-compare-commute-hint" class="home-compare__hint">${escapeHtml(copy.commuteHint)}</p>
+        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}></textarea>
         <fieldset class="home-compare__weights">
           <legend>${escapeHtml(copy.weights)}</legend>
-          <p>${escapeHtml(copy.weightsHint)}</p>
           <div>${weightControls}</div>
         </fieldset>
         <div class="home-compare__actions">
@@ -161,7 +160,15 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
           <button class="button button--secondary" type="button" data-home-share ${busy ? 'disabled' : ''}>${escapeHtml(copy.share)}</button>
           <button class="button button--secondary" type="button" data-home-close>${escapeHtml(copy.close)}</button>
         </div>
-        <p class="home-compare__hint">${escapeHtml(copy.shareHint)}</p>
+        <details class="progressive-surface">
+          <summary>${escapeHtml(copy.notes)}</summary>
+          <ul>
+            <li>${escapeHtml(copy.addressHint)}</li>
+            <li>${escapeHtml(copy.commuteHint)}</li>
+            <li>${escapeHtml(copy.weightsHint)}</li>
+            <li>${escapeHtml(copy.shareHint)}</li>
+          </ul>
+        </details>
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
         <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>

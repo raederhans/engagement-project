@@ -51,7 +51,7 @@ function isAbortError(error) {
 
 /**
  * Wire map move events to refresh clustered points with simple error backoff and toast.
- * deps: { getFilters: () => ({start,end,types}) }
+ * deps: { getFilters: () => ({start,end,types}), canReadFilters?: () => boolean }
  * @param {import('maplibre-gl').Map} map
  * @param {{getFilters:Function}} deps
  */
@@ -64,6 +64,7 @@ export function wirePoints(map, deps) {
     hideToast = hideToastInDom,
     scheduler = globalThis,
     shouldRefresh = () => true,
+    canReadFilters = () => true,
     autoRefresh = true,
     incidentResultsController = null,
     _loadIncidentModule = () => import('../routes_crime/incident_results_controller.js'),
@@ -145,6 +146,9 @@ export function wirePoints(map, deps) {
     { signal: ownerSignal, shouldApply: ownerShouldApply = () => true } = {},
   ) => {
     if (!active || ownerSignal?.aborted || !ownerShouldApply()) return { applied: false };
+    if (filtersOverride === undefined && !canReadFilters()) {
+      return { applied: false, status: 'idle' };
+    }
     const filters = filtersOverride === undefined ? getFilters() : filtersOverride;
     if (!shouldRefresh(filters)) {
       invalidate();
@@ -228,11 +232,13 @@ export function wirePoints(map, deps) {
       settleProgrammaticMove(true);
       return;
     }
+    if (!canReadFilters()) return;
     const filters = getFilters();
     if (!shouldRefresh(filters)) return;
     debouncedMoveEnd(filters);
   };
   const onLoad = () => {
+    if (!canReadFilters()) return;
     const filters = getFilters();
     if (shouldRefresh(filters)) void run(filters);
   };

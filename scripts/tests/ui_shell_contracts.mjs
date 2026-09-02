@@ -10,7 +10,7 @@ const css = await readProductCss();
 test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /<header\b[^>]*class="[^"]*app-bar[^"]*"[^>]*>/i);
   assert.equal((html.match(/<h1\b/gi) || []).length, 1);
-  assert.match(html, /<header\b[\s\S]*?<h1\b[^>]*>[\s\S]*Philadelphia Engagement Explorer[\s\S]*?<\/h1>[\s\S]*?<\/header>/i);
+  assert.match(html, /<header\b[\s\S]*?<h1\b[^>]*>[\s\S]*Philadelphia Urban Evidence Lab[\s\S]*?<\/h1>[\s\S]*?<\/header>/i);
   assert.match(html, /class="app-title__full"/);
   assert.match(html, /class="app-title__compact"[^>]*aria-hidden="true"/);
   assert.match(html, /data-mode-switch-mount/);
@@ -18,8 +18,30 @@ test('the map workspace has one semantic product heading in an app bar', () => {
   assert.match(html, /data-app-help/);
 });
 
+test('AppShell exposes stable query, canvas, detail, and accessible data mounts', () => {
+  assert.equal((html.match(/<main\b/gi) || []).length, 1);
+  assert.match(html, /<a\b[^>]*class="[^"]*skip-navigation[^"]*"[^>]*href="#primary-workspace"/i);
+  assert.match(html, /<main\b[^>]*id="primary-workspace"[^>]*data-app-shell[^>]*aria-label="Evidence workspace"/i);
+  assert.match(html, /<section\b[^>]*data-primary-canvas[^>]*aria-label="Map and visualization workspace"/i);
+  assert.match(html, /<aside\b[^>]*id="sidepanel"[^>]*data-query-rail[^>]*data-mobile-sheet[^>]*aria-label="Query and analysis controls"/i);
+  assert.match(html, /<aside\b[^>]*id="results-drawer"[^>]*data-context-drawer[^>]*aria-label="Analysis details"/i);
+  assert.match(html, /data-crime-canvas-data[^>]*data-i18n-aria-label="workspace\.crimeDataLabel"/i);
+  assert.match(html, /data-crime-canvas-data-mount[^>]*data-i18n-aria-label="workspace\.crimeDataRegion"/i);
+  assert.match(html, /data-diary-visualization-data[^>]*data-i18n-aria-label="workspace\.diaryDataLabel"/i);
+  assert.match(html, /data-diary-visualization-data-mount[^>]*data-i18n-aria-label="workspace\.diaryDataRegion"/i);
+});
+
+test('workspace surfaces have one display and scroll owner at each breakpoint', () => {
+  assert.match(css, /#sidepanel\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(css, /#sidepanel\s*>\s*\.sheet-content\s*\{[^}]*overflow-y:\s*auto/s);
+  assert.match(css, /\.primary-canvas\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(css, /@media\s*\(min-width:\s*1280px\)/s);
+  assert.match(css, /@media\s*\(min-width:\s*901px\)\s*and\s*\(max-width:\s*1279px\)/s);
+  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*?#results-drawer\s*\{[^}]*overflow:\s*visible/s);
+});
+
 test('unselected Crime starts in setup stage with result surfaces hidden and inert', () => {
-  const sidepanelTag = html.match(/<div\b[^>]*id="sidepanel"[^>]*>/i)?.[0] || '';
+  const sidepanelTag = html.match(/<aside\b[^>]*id="sidepanel"[^>]*>/i)?.[0] || '';
   const overviewTag = html.match(/<section\b[^>]*data-crime-results[^>]*>/i)?.[0] || '';
   const drawerTag = html.match(/<aside\b[^>]*id="results-drawer"[^>]*>/i)?.[0] || '';
   const historyTag = html.match(/<details\b[^>]*data-analysis-history-disclosure[^>]*>/i)?.[0] || '';
@@ -61,7 +83,7 @@ test('Crime exposes one hidden analysis-context region with an accessible edit a
   );
 });
 
-test('analysis summary is the default pane while incidents and charts are explicit sibling panes', async () => {
+test('analysis summary is the default pane while incidents and charts use static mounts', async () => {
   const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
   assert.doesNotMatch(controller, /enhanceProgressiveSurface\(/);
@@ -73,37 +95,18 @@ test('analysis summary is the default pane while incidents and charts are explic
   assert.doesNotMatch(html, /id="charts"[^>]*style=/i);
   assert.doesNotMatch(css, /!important/);
   assert.match(panel, /querySelector\(['"]\[data-crime-results\]['"]\)/);
-  assert.doesNotMatch(panel, /crimeShell\.appendChild\(compareCard\)/);
-  assert.match(panel, /resultsDrawer\.contains\(chartsPanel\)/);
-  assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
+  assert.match(html, /id="results-drawer"[\s\S]*?id="charts"/i);
+  assert.doesNotMatch(panel, /createDocumentFragment\(/);
+  assert.doesNotMatch(panel, /resultsDrawer\.appendChild\(/);
+  assert.doesNotMatch(panel, /crimeShell\.appendChild\(/);
+  assert.doesNotMatch(panel, /crimeShell\.insertBefore\(/);
 });
 
-test('current analysis task flow keeps incidents and charts before recent analyses', async () => {
-  const { placeAnalysisHistoryAfterResults } = await import('../../src/ui/panel.js');
-  assert.equal(typeof placeAnalysisHistoryAfterResults, 'function');
-  const shell = {
-    children: [],
-    appendChild(child) {
-      child.parentElement = this;
-      this.children.push(child);
-    },
-    insertBefore(child, reference) {
-      child.parentElement = this;
-      const index = reference ? this.children.indexOf(reference) : -1;
-      if (index < 0) this.children.push(child);
-      else this.children.splice(index, 0, child);
-    },
-  };
-  const summary = { parentElement: null, nextSibling: null };
-  const details = { parentElement: null };
-  const history = { parentElement: null };
-  shell.appendChild(summary);
-  shell.appendChild(details);
-  summary.nextSibling = details;
-
-  placeAnalysisHistoryAfterResults({ crimeShell: shell, resultsDrawer: details, analysisHistoryMount: history });
-
-  assert.deepEqual(shell.children, [summary, details, history]);
+test('current analysis task flow keeps static details and history mounts in source order', () => {
+  const detailsIndex = html.indexOf('id="results-drawer"');
+  const historyIndex = html.indexOf('data-analysis-history-disclosure');
+  assert.ok(detailsIndex >= 0);
+  assert.ok(historyIndex > detailsIndex);
 });
 
 test('Crime exposes one result navigation and one synchronized incident-results surface', () => {
@@ -117,6 +120,18 @@ test('Crime exposes one result navigation and one synchronized incident-results 
   assert.match(html, /<ol\b[^>]*data-incident-results-list/i);
   assert.match(html, /data-incident-results-more[^>]*type="button"/i);
   assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
+});
+
+test('List is an independent result workspace outside the detail drawer', () => {
+  const drawer = html.match(/<aside\b[^>]*id="results-drawer"[\s\S]*?<\/aside>/i)?.[0] || '';
+  assert.doesNotMatch(drawer, /data-crime-list-results/i);
+  assert.match(html, /<section\b[^>]*data-crime-list-workspace[^>]*data-crime-list-results/i);
+  const diaryMountIndex = html.indexOf('panel-view panel-view--diary');
+  const sidepanelCloseIndex = html.indexOf('</aside>', diaryMountIndex);
+  const listWorkspaceIndex = html.indexOf('data-crime-list-workspace');
+  assert.ok(diaryMountIndex >= 0 && sidepanelCloseIndex > diaryMountIndex);
+  assert.ok(listWorkspaceIndex > sidepanelCloseIndex, 'List workspace must be a sibling after the query rail');
+  assert.match(css, /body\[data-crime-view="list"\]\s+\.crime-list-workspace\s*\{[^}]*overflow:\s*auto/s);
 });
 
 test('Crime advanced controls do not nest Data details or a duplicate Help disclosure', () => {
@@ -270,11 +285,11 @@ test('map recovery stays above sheets and map notices but below the global app b
   assert.ok(recoveryZ < appBarZ, 'map recovery must not cover the global app bar');
 });
 
-test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
+test('panel initialization leaves the shared sheet structure in static ownership', async () => {
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(panel, /const sheetHandle\s*=\s*panelRoot\.querySelector\(['"]:scope > \.sheet-handle['"]\)/);
-  assert.match(panel, /sheetHandle\?\.remove\(\)/);
-  assert.match(panel, /panelRoot\.prepend\(sheetHandle\)/);
+  assert.match(html, /id="sidepanel"[\s\S]*?class="sheet-content"[\s\S]*?data-panel-view="crime"[\s\S]*?data-panel-view="diary"/i);
+  assert.doesNotMatch(panel, /sheetHandle\?\.remove\(\)/);
+  assert.doesNotMatch(panel, /panelRoot\.prepend\(/);
 });
 
 test('responsive rules cover portrait, landscape, and low-height screens', () => {
@@ -289,10 +304,11 @@ test('responsive rules cover portrait, landscape, and low-height screens', () =>
   assert.doesNotMatch(landscapeCss, /!important/);
 });
 
-test('small-screen Diary keeps its primary route action inside the sheet scroll owner', async () => {
+test('small-screen Diary keeps its primary route action in flow inside the sheet scroll owner', async () => {
   const livePanel = await readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8');
   assert.match(livePanel, /rateWrap\.className\s*=\s*['"]diary-rate-action['"]/);
-  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
+  assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static[^}]*margin:\s*var\(--space-3\)\s*0\s*0[^}]*padding:\s*0[^}]*background:\s*none/s);
+  assert.doesNotMatch(css, /\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
   assert.match(css, /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static/s);
   assert.match(css, /\[data-panel-view="diary"\]\s*\{[^}]*padding-bottom:\s*0/s);
   assert.match(css, /\.sheet-content\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto[^}]*safe-area-inset-bottom/s);
@@ -303,6 +319,12 @@ test('small-screen Crime keeps the map-pick action in the sheet flow', () => {
   assert.match(html, /class="search-control"[\s\S]*?id="useCenterBtn"/);
   assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?#useCenterBtn\s*\{[^}]*position:\s*static/s);
   assert.doesNotMatch(css, /#useCenterBtn\s*\{[^}]*position:\s*fixed/s);
+});
+
+test('small-screen Crime list reserves space for every sheet state', () => {
+  assert.match(css, /\.crime-list-workspace\s*\{[^}]*bottom:\s*calc\(var\(--sheet-half-height\) \+ var\(--space-3\)\)/s);
+  assert.match(css, /#sidepanel\[data-sheet-state="collapsed"\] ~ \.crime-list-workspace\s*\{[^}]*bottom:\s*calc\(var\(--sheet-collapsed-height\) \+ var\(--space-3\)\)/s);
+  assert.match(css, /#sidepanel\[data-sheet-state="full"\] ~ \.crime-list-workspace\s*\{[^}]*bottom:\s*calc\(var\(--sheet-full-height\) \+ var\(--space-3\)\)/s);
 });
 
 test('the fixed map shell prevents document scrolling and respects reduced motion', () => {

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mainline-m7-qa-receipt/v1",
+  "status": "unavailable",
+  "qaPolicyIdentity": "sha256:5e1fdce161c971a1ad601ba0697ae607abfe43d6e99987c745213afb7882c5ac",
+  "benchmarkReceiptIdentity": "sha256:d037ae09d83a89ac223c90cb6f19b0f4bbdff4496698fd3ad2feb09109494d49",
+  "sampleManifestIdentity": "sha256:93faf7d1e1bfb745204daa31cf13403dc6f2500730094ed3bdaeead4ce4cae43",
+  "adjudicationRecordIdentities": [],
+  "targetSegmentCount": 100,
+  "sampledSegmentCount": 0,
+  "reviewerOneCompletedCount": 0,
+  "reviewerTwoCompletedCount": 0,
+  "twoReviewerCompleted": false,
+  "adjudicatedCount": 0,
+  "reasonCodes": [
+    "route-segments-unavailable",
+    "two-reviewer-qa-not-performed"
+  ],
+  "identity": "sha256:b0e3d04ea8c3bd728c0f087ed580c324d3ed7b76623aca32f4a597edd4c5e7e4"
+}

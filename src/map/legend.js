@@ -8,6 +8,9 @@ import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 let legendContainer = null;
 
 onLanguageChange(() => {
+  for (const label of legendContainer?.querySelectorAll?.('[data-i18n]') || []) {
+    setTranslatedText(label, label.dataset.i18n);
+  }
   for (const label of legendContainer?.querySelectorAll?.('[data-offense-code]') || []) {
     label.textContent = localizeOffenseCode(label.dataset.offenseCode);
   }
@@ -44,9 +47,9 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle, items
   }
 
   const rows = renderHeader(title, subtitle);
+  setTranslatedText(rows[0], title || 'map.legend');
 
   if (categorical) {
-    setTranslatedText(rows[0], title);
     setTranslatedText(rows[1], subtitle);
     rows.push(...items.map(({ color, code }) => renderRow(color, localizeOffenseCode(code), code)));
     renderLegendRows(rows);
@@ -70,7 +73,7 @@ export function updateLegend({ title, unit = '', breaks, colors, subtitle, items
 }
 
 function renderHeader(title, subtitle) {
-  const rows = [renderText('div', 'map-legend__title', title || t('map.legend'))];
+  const rows = [renderText('div', 'map-legend__title', t(title || 'map.legend'))];
   if (!subtitle) return rows;
   rows.push(renderText('div', 'map-legend__subtitle', subtitle));
   return rows;

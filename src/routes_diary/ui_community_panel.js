@@ -1,6 +1,6 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
 import '../i18n/p1.js';
-import { setTranslatedText, t } from '../i18n/index.js';
+import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
 export function createSampleCommunityModel() {
   return Object.freeze({
@@ -28,7 +28,7 @@ export function renderCommunityPanel(container, state = {}) {
   notice.appendChild(communityTitle);
   const noticeText = document.createElement('div');
   noticeText.className = 'diary-muted-text';
-  setTranslatedText(noticeText, 'diary.communityNotice');
+  setTranslatedText(noticeText, 'diary.communitySummary');
   notice.appendChild(noticeText);
   container.appendChild(notice);
 
@@ -53,7 +53,7 @@ export function renderCommunityPanel(container, state = {}) {
     const badge = document.createElement('div');
     badge.className = 'diary-score-pill';
     badge.textContent = seg.score.toFixed(1);
-    badge.setAttribute('aria-label', t('diary.sampleScoreLabel', { score: seg.score.toFixed(1) }));
+    setTranslatedAttribute(badge, 'diary.sampleScoreLabel', 'aria-label', { score: seg.score.toFixed(1) });
     meta.appendChild(tags);
     meta.appendChild(badge);
     btn.appendChild(title);
@@ -77,14 +77,11 @@ export function renderCommunityPanel(container, state = {}) {
     author.className = 'diary-community-observation__author';
     if (observation.labelKey) setTranslatedText(author, observation.labelKey);
     else author.textContent = observation.label;
-    const badge = document.createElement('span');
-    badge.className = 'diary-sample-badge';
-    setTranslatedText(badge, 'diary.sampleBadge');
     const text = document.createElement('div');
     text.className = 'diary-community-observation__text';
     if (observation.textKey) setTranslatedText(text, observation.textKey);
     else text.textContent = observation.text;
-    row.append(author, badge, text);
+    row.append(author, text);
     list.appendChild(row);
   });
   commentsCard.appendChild(list);

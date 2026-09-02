@@ -278,12 +278,12 @@ test('P1 scope, insights, route tradeoff, and sample copy switch to Chinese from
 
   setLanguage('en');
   const sampleScope = describeDiaryDataScope('community');
-  assert.match(sampleScope.shortLabel, /Static, invented, read-only examples/);
+  assert.equal(sampleScope.shortLabel, 'Static samples');
   assert.equal(describeDiaryInsightsContext('live').title, 'Current route insights');
   assert.equal(describeAlternativeTradeoff({ pLow: 2, aLow: 1, deltaMin: 5, overheadPct: 10 }).benefit, 'Avoids 1 low-rated segment');
 
   setLanguage('zh-CN');
-  assert.match(sampleScope.resolve().shortLabel, /静态、虚构、只读示例/);
+  assert.equal(sampleScope.resolve().shortLabel, '静态示例');
   assert.equal(describeDiaryInsightsContext('live').title, '当前路线洞察');
   assert.equal(describeAlternativeTradeoff({ pLow: 2, aLow: 1, deltaMin: 5, overheadPct: 10 }).benefit, '避开 1 个低评分路段');
   const sample = createSampleCommunityModel();

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "mainline-m7-validation-manifest/v1",
+  "manifestId": "m7-public-validation-pack-v1",
+  "corpus": {"identity":"sha256:67bf760afe2fc0faff7809698388d0fe7e75e22f0d42e3ec1c3e44fe38c752ec","pairCount":40},
+  "policy": {"identity":"sha256:fed6a5d43f7f47306c71541cdaf0f7d8a3dc73db17b6c937b17b4f2a9b08b48f"},
+  "executionBoundary": "offline-local-no-network",
+  "identity": "sha256:3a080c12373cbcf369127afbb7a0e13ce9b9e7249d86709b66632f5ac5b65165"
+}

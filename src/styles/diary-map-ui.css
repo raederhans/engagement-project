@@ -1221,7 +1221,7 @@ body.about-is-open {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 72px;
+  min-height: 64px;
   margin-top: 10px;
 }
 
@@ -1368,6 +1368,11 @@ body.about-is-open {
   color: var(--text-main);
 }
 
+.diary-panel-body {
+  display: grid;
+  gap: 10px;
+}
+
 .diary-panel-shell h3 {
   margin: 0;
   font-size: 17px;
@@ -1380,7 +1385,7 @@ body.about-is-open {
   background: var(--surface-white);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  padding: 12px;
+  padding: 11px 12px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
@@ -1692,20 +1697,6 @@ body.about-is-open {
 .diary-map-muted .maplibregl-canvas {
   filter: saturate(0.9) brightness(1.01);
   background: var(--map-bg);
-}
-
-.app-shell {
-  max-width: 960px;
-  margin: 0 auto;
-  background: var(--surface-white);
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-}
-
-.app-shell h1 {
-  margin-top: 0;
-  font-size: 1.75rem;
 }
 
 .maplibregl-popup.diary-hover-card .maplibregl-popup-content,

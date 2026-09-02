@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raederhans.github.io/engagement-project/schemas/uncertainty-footprint-artifact.v1.json",
+  "title": "UncertaintyFootprintArtifact/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "frozen_at", "frozen_before_analysis", "source", "geography", "scenarios",
+    "assignments", "canonical_event_mutation", "privacy", "authority", "artifact_identity"
+  ],
+  "properties": {
+    "schema": { "const": "UncertaintyFootprintArtifact/v1" },
+    "frozen_at": { "type": "string", "format": "date-time" },
+    "frozen_before_analysis": { "const": true },
+    "source": { "type": "object" },
+    "geography": { "type": "object" },
+    "scenarios": { "type": "array", "minItems": 3 },
+    "assignments": { "type": "array", "minItems": 1 },
+    "canonical_event_mutation": { "const": false },
+    "privacy": { "type": "object" },
+    "authority": { "type": "object" },
+    "artifact_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

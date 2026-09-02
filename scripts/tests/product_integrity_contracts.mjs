@@ -215,7 +215,7 @@ test('Diary reader copy and Sample Community visuals stay personal, illustrative
     assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not representative of any population/i : /不代表任何总体/u);
     assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /no official endorsement/i : /没有官方背书/u);
   }
-  assert.match(html, /browser-local route experience diary/i);
+  assert.match(html, /browser-local trip notes/i);
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)|high concern/i);
   assert.doesNotMatch(diaryCss, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
   assert.match(diaryCss, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);
@@ -1404,7 +1404,8 @@ test('Diary insights derive trend, tags, and time cells from local records', asy
   assert.deepEqual(insights.tags[0], { label: 'poor lighting', value: 2 });
   assert.equal(insights.heatmap.flat().reduce((sum, value) => sum + value, 0), 2);
   const hostSource = await readFile(new URL('../../src/routes_diary/ui_insights_panel.js', import.meta.url), 'utf8');
-  assert.match(hostSource, /setEntries\(entries\)[\s\S]*setDiaryInsightEntries\(entries\)/);
+  assert.match(hostSource, /import\('\.\.\/charts\/diary_insights\.js'\)/);
+  assert.match(hostSource, /setDiaryInsightEntries\(entries\)[\s\S]*renderInsightsSections/);
   assert.doesNotMatch(hostSource, /Demo visuals/);
 });
 
@@ -1450,7 +1451,7 @@ test('Community UI is explicitly sample-only and has no fake post action', async
     readProductCss(),
   ]);
   assert.match(communitySource, /diary\.sampleCommunity/);
-  assert.match(communitySource, /diary\.communityNotice/);
+  assert.match(communitySource, /diary\.communitySummary/);
   assert.doesNotMatch(communitySource, /onPostComment/);
   assert.doesNotMatch(communitySource, /type\s*=\s*['"]range['"]|onRadiusChange|onSelectSegment/);
   assert.match(communitySource, /className\s*=\s*['"]diary-community-item['"]/);
@@ -1882,8 +1883,9 @@ test('bundle policy keeps lazy product surfaces and admitted source artifacts ou
   assert.match(source, /\['Evidence Bundle v2', evidenceBundleV2, 24_000, 6_500\]/);
   assert.match(source, /\['ACS multi-tract controller', acsMultitractController, 22_000, 8_000\]/);
   assert.match(source, /vreArtifactBytes <= 200_000/);
-  assert.match(source, /nonVreDistBytes <= 4_100_000/);
-  assert.match(source, /distBytes <= 4_300_000/);
+  assert.match(source, /nonVreDistBytes <= 4_141_000/);
+  assert.match(source, /distBytes <= 4_323_000/);
+  assert.match(source, /routeArtifactSize <= 21_000/);
   assert.match(source, /\['P1 translations', p1Messages, 8_644, 3_300\]/);
 });
 

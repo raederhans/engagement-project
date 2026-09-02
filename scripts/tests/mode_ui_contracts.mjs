@@ -147,7 +147,7 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
   assert.deepEqual(describeDiaryDataScope('community'), {
     mode: 'diary',
     kind: 'sample',
-    shortLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
+    shortLabel: 'Static samples',
     accessibleLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
     details: ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.'],
   });
@@ -500,8 +500,8 @@ test('Help copy is mode-specific and explains Diary local persistence', () => {
   const diary = getAboutContent('diary');
 
   assert.match(crime, /crime incidents/i);
-  assert.doesNotMatch(crime, /saved only in this browser/i);
-  assert.match(diary, /saved only in this browser/i);
+  assert.doesNotMatch(crime, /stay in this browser/i);
+  assert.match(diary, /stay in this browser/i);
   assert.doesNotMatch(diary, /offense groups/i);
 });
 

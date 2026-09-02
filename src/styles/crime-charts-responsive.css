@@ -748,6 +748,23 @@
   }
 }
 
+/* The map now starts below the app bar inside PrimaryCanvas. */
+.primary-canvas .maplibregl-ctrl-top-right {
+  top: 12px;
+}
+
+@media (min-width: 1280px) {
+  .app-shell:has(#results-drawer:not([hidden])) .primary-canvas {
+    right: 424px;
+  }
+}
+
+@media (max-width: 900px) {
+  .primary-canvas .maplibregl-ctrl-top-right {
+    top: 8px;
+  }
+}
+
 .map-reset-control__button {
   color: var(--ink);
   font-size: 20px;
@@ -854,14 +871,6 @@
     white-space: nowrap;
   }
 
-  #sidepanel {
-    right: 0;
-    left: 0;
-    width: 100%;
-    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
-    border-radius: 16px 16px 0 0;
-  }
-
   .task-panel__heading {
     margin-top: 8px;
   }
@@ -937,62 +946,9 @@
 }
 
 @media (max-width: 900px) and (orientation: landscape) {
-  #sidepanel {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    top: auto;
-    width: 100%;
-    height: var(--sheet-half-height);
-    max-height: none;
-    margin: 0;
-    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    overflow: clip;
-    border-radius: 16px 16px 0 0;
-    overscroll-behavior: contain;
-  }
+  #sidepanel { bottom: 0; width: 100%; }
 
-  #sidepanel[data-sheet-state="collapsed"] {
-    height: var(--sheet-collapsed-height);
-  }
-
-  #sidepanel[data-sheet-state="half"] {
-    height: var(--sheet-half-height);
-  }
-
-  #sidepanel[data-sheet-state="full"] {
-    height: var(--sheet-full-height);
-  }
-
-  .sheet-handle {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    width: 100%;
-    min-height: 44px;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    background: rgba(255, 255, 255, 0.96);
-  }
-
-  .sheet-content {
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  }
-
-  .sheet-handle > span {
-    width: 44px;
-    height: 4px;
-    border-radius: 999px;
-    background: #94a3b8;
-  }
+  .sheet-handle { display: grid; }
 
   .diary-insights-root {
     top: auto;

@@ -277,7 +277,7 @@ test('Diary copy and Sample Community presentation are personal, illustrative, a
       /Route Safety Diary|safety score|community safety score|High risk|Moderate risk|Generally safe|safer route|safest route|路线安全日记|安全评分|社区安全评分|高风险|中等风险|总体安全/iu,
     );
   }
-  assert.match(html, /browser-local route experience diary/i);
+  assert.match(html, /browser-local trip notes/i);
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)/);
   assert.doesNotMatch(css, /\.diary-score-pill\.is-(?:good|mid|bad|order-low|order-middle|order-high)/);
   assert.match(css, /\.diary-score-pill\s*\{[^}]*background:\s*#e2e8f0/s);
@@ -346,9 +346,9 @@ test('Community Data Scope and Help expose the complete bilingual truth boundary
   for (const [locale, helpIndex, required] of fixtures) {
     setLanguage(locale);
     const scope = describeDiaryDataScope('community');
-    assert.equal(scope.shortLabel, scope.accessibleLabel);
+    assert.notEqual(scope.shortLabel, scope.accessibleLabel);
     assert.deepEqual(scope.details, [scope.accessibleLabel]);
-    for (const surface of [scope.shortLabel, scope.accessibleLabel, ...scope.details]) {
+    for (const surface of [scope.accessibleLabel, ...scope.details]) {
       for (const pattern of required) assert.match(surface, pattern);
     }
 
@@ -377,7 +377,7 @@ test('Community Data Scope and Help expose the complete bilingual truth boundary
     presenter.showIntent('diary');
     presenter.showDataScope(scope);
     presenter.showStatus({ mode: 'diary', phase: 'ready' });
-    assert.equal(status.textContent, scope.accessibleLabel);
+    assert.equal(status.textContent, scope.shortLabel);
     assert.equal(details.textContent, scope.accessibleLabel);
     assert.equal(attributes.get('aria-label'), scope.accessibleLabel);
     assert.equal(attributes.get('title'), scope.accessibleLabel);

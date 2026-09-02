@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mainline-m7-validation-policy/v1",
+  "policyId": "m7-public-walk-validation-v1",
+  "candidateLimit": 3,
+  "mode": "walk",
+  "percentileMethod": "nearest-rank",
+  "metricDefinitions": {
+    "generationSuccessRate": "successful_pairs/attempted_pairs",
+    "invalidRate": "invalid_pairs/attempted_pairs",
+    "duplicateCandidateRate": "repeated_candidate_identities/generated_candidates",
+    "latency": "attempted_pair_wall_clock_ms",
+    "mapMatchDistance": "candidate_map_match_distance_metres",
+    "segmentEvidenceCoverageRate": "covered_segments/eligible_segments",
+    "detour": "route_distance/straight_line_distance",
+    "weightSensitivityChangeRate": "changed_routes/sensitivity_eligible_routes"
+  },
+  "privacy": {"requiredEgressCount": 0, "privateOdAllowed": false},
+  "identity": "sha256:fed6a5d43f7f47306c71541cdaf0f7d8a3dc73db17b6c937b17b4f2a9b08b48f"
+}

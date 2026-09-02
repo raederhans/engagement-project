@@ -296,6 +296,7 @@ export async function initCrimeMode(map, {
 
   const pointsController = wirePoints(map, {
     getFilters: captureCrimeSnapshot,
+    canReadFilters: () => store.coverageStatus === 'ready',
     shouldRefresh: hasActiveIncidentSelection,
     autoRefresh: false,
   });

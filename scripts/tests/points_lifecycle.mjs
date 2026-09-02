@@ -1271,6 +1271,44 @@ test('moveend stays idle while inactive and resumes through the same listener', 
   controller.destroy();
 });
 
+test('map events wait until coverage makes Crime filters readable', async () => {
+  const map = createMap({ loaded: false });
+  const scheduler = createScheduler();
+  let ready = false;
+  let filterReads = 0;
+  let refreshCount = 0;
+  const controller = wirePoints(map, {
+    getFilters: () => {
+      filterReads += 1;
+      if (!ready) throw new Error('filters are not ready');
+      return { queryMode: 'district' };
+    },
+    canReadFilters: () => ready,
+    refreshPointsImpl: async () => {
+      refreshCount += 1;
+      return { applied: true };
+    },
+    clearCrimePointsImpl: () => {},
+    showToast: () => {},
+    hideToast: () => {},
+    scheduler,
+  });
+
+  map.handlers.get('moveend')();
+  assert.deepEqual(await controller.refresh(), { applied: false, status: 'idle' });
+  assert.equal(filterReads, 0);
+  assert.equal(scheduler.timers.size, 0);
+
+  ready = true;
+  map.handlers.get('moveend')();
+  assert.equal(filterReads, 1);
+  assert.equal(scheduler.timers.size, 1);
+  for (const callback of scheduler.timers.values()) callback();
+  await Promise.resolve();
+  assert.equal(refreshCount, 1);
+  controller.destroy();
+});
+
 test('programmatic movement refreshes once from final bounds and preserves no-move, user-pan, and cancellation semantics', async () => {
   const map = createMap({ loaded: false });
   const scheduler = createScheduler();

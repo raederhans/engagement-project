@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "MLResearchRun/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "research_only",
+    "serving_authority",
+    "promotion_authority",
+    "input_identity",
+    "protocol_identity",
+    "dataset_manifest_identity",
+    "feature_schema_identity",
+    "model_identity",
+    "environment",
+    "hardware",
+    "device",
+    "seed",
+    "determinism",
+    "started_at",
+    "completed_at"
+  ],
+  "properties": {
+    "schema": { "const": "MLResearchRun/v1" },
+    "research_only": { "const": true },
+    "serving_authority": { "const": false },
+    "promotion_authority": { "const": false },
+    "input_identity": { "$ref": "#/$defs/sha256" },
+    "protocol_identity": { "$ref": "#/$defs/sha256" },
+    "dataset_manifest_identity": { "$ref": "#/$defs/sha256" },
+    "feature_schema_identity": { "$ref": "#/$defs/sha256" },
+    "model_identity": { "$ref": "#/$defs/sha256" },
+    "environment": { "type": "object", "minProperties": 1 },
+    "hardware": { "type": "object", "minProperties": 1 },
+    "device": { "enum": ["cpu", "cuda", "mps"] },
+    "seed": { "type": "integer", "minimum": 0 },
+    "determinism": {
+      "type": "object",
+      "required": ["cross_platform_byte_identical"],
+      "properties": { "cross_platform_byte_identical": { "const": false } }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}
