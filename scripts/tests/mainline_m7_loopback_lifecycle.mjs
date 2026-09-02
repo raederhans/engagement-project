@@ -5,6 +5,7 @@ import net from 'node:net';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { requestAuthenticatedRoute } from '../local_route_companion/cli.mjs';
 import { startLocalRouteCompanionService } from '../local_route_companion/service.mjs';
@@ -120,7 +121,7 @@ test('authenticated service child closes its listener when the parent IPC discon
 });
 
 test('CLI route accepts private input only from stdin and uses an authenticated child', async () => {
-  const child = spawn(process.execPath, [cliPath.pathname.slice(1), 'route', '--port', '0'], {
+  const child = spawn(process.execPath, [fileURLToPath(cliPath), 'route', '--port', '0'], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let output = '';
@@ -199,7 +200,7 @@ test('a prebound requested port makes the CLI fail without contacting the occupy
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
-  const child = spawn(process.execPath, [cliPath.pathname.slice(1), 'route', '--port', String(port)], {
+  const child = spawn(process.execPath, [fileURLToPath(cliPath), 'route', '--port', String(port)], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let output = '';
@@ -465,7 +466,7 @@ test('all external adapter module aliases are rejected without dynamic filesyste
       [LOCAL_ROUTE_SESSION_SECRET_ENV]: encodeSessionSecret(sessionSecret),
     }],
   ]) {
-    const child = spawn(process.execPath, [entry.pathname.slice(1), ...args], {
+    const child = spawn(process.execPath, [fileURLToPath(entry), ...args], {
       env: environment,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
