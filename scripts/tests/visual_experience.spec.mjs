@@ -333,15 +333,21 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
   const insights = page.getByRole('button', { name: /Insights/ });
   await insights.click();
   await expect(insights).toHaveAttribute('aria-expanded', 'true');
+  const insightsRoot = page.locator('.diary-insights-root');
   await expect(page.locator('#diary-insights-root-content')).toBeVisible();
   if (testInfo.project.name !== 'desktop') {
     await expect(page.locator('#sidepanel')).toHaveAttribute('data-sheet-state', 'full');
+    await insightsRoot.evaluate((element) => {
+      element.scrollIntoView({ block: 'start', inline: 'nearest' });
+    });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    await expect(insightsRoot).toBeInViewport();
     await expect(page.locator('.diary-insights__heading--primary')).toBeInViewport();
   }
   await expect(page.getByText('No ratings saved for this route in this period.').first()).toBeVisible();
   await expect(page.locator('.diary-insights__heatmap')).toHaveCount(0);
   if (testInfo.project.name === 'desktop') {
-    const insightsBox = await page.locator('.diary-insights-root').boundingBox();
+    const insightsBox = await insightsRoot.boundingBox();
     expect(insightsBox.width).toBeGreaterThanOrEqual(400);
   }
   await assertNoHorizontalOverflow(page);
