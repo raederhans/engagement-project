@@ -9,7 +9,7 @@ import { closeSegmentPopup, mountSegmentsLayer, updateSegmentsData, removeSegmen
 import { addNetworkLayer, ensureNetworkLayer, removeNetworkLayer } from '../map/network_layer.js';
 import { drawRouteOverlay, clearRouteOverlay, clearSimPoint } from '../map/routing_overlay.js';
 import { HAS_DIARY_LIGHT_STYLE } from '../config.js';
-import { openRatingModal, closeRatingModal, submitSegmentFeedback } from './form_submit.js';
+import { openRatingModal, closeRatingModal, submitSegmentFeedback } from './diary_form_port.js';
 import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId } from '../state/store.js';
 import {
@@ -35,10 +35,12 @@ import { refreshMyRoutesDates, renderMyRoutesPanel } from './ui_my_routes_panel.
 import { createSampleCommunityModel, renderCommunityPanel } from './ui_community_panel.js';
 import { describeDiaryDataScope } from '../ui/data_scope.js';
 import {
+  createDiarySessionOwner,
   createDiarySession,
   releaseOwnedReference,
   runCleanupSteps,
 } from './diary_session.js';
+import { renderDiaryPanelFrame } from './diary_panel_renderer.js';
 import { loadOwnedDiaryData } from './demo_data_loader.js';
 import '../i18n/diary_local.js';
 import {
@@ -104,8 +106,7 @@ const CTA_KINDS = ['agree', 'safer'];
 const CTA_VOTE_PREFIX = 'diary:voted';
 const ctaSessionFlags = new Map();
 let networkStyleCleanup = null;
-let currentDiarySession = null;
-let currentDiaryOwnerIsCurrent = () => false;
+const diarySessionOwner = createDiarySessionOwner();
 let currentSimulator = null;
 let currentInsightsPort = null;
 let currentDiaryLocalController = null;
@@ -137,16 +138,14 @@ function syncDiaryInsightsContext(mode = store.diaryViewMode) {
 }
 
 function clearDiaryTimeout(id) {
-  if (id == null) return;
-  if (currentDiarySession) {
-    currentDiarySession.clearTimeout(id);
-  } else {
-    clearTimeout(id);
-  }
+  diarySessionOwner.clearTimeout(id);
 }
 
-function diarySessionIsCurrent(session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
-  return Boolean(session?.isActive() && ownerIsCurrent?.());
+function diarySessionIsCurrent(
+  session = diarySessionOwner.getSession(),
+  ownerIsCurrent = diarySessionOwner.getOwnerIsCurrent(),
+) {
+  return diarySessionOwner.isCurrent(session, ownerIsCurrent);
 }
 
 function createOwnedSimulator(session, ownerIsCurrent, map) {
@@ -173,16 +172,16 @@ function createOwnedSimulator(session, ownerIsCurrent, map) {
   return ownedSimulator;
 }
 
-function guardDiaryCommit(commit, session = currentDiarySession, ownerIsCurrent = currentDiaryOwnerIsCurrent) {
-  return (...args) => {
-    if (!diarySessionIsCurrent(session, ownerIsCurrent)) return undefined;
-    return commit(...args);
-  };
+function guardDiaryCommit(
+  commit,
+  session = diarySessionOwner.getSession(),
+  ownerIsCurrent = diarySessionOwner.getOwnerIsCurrent(),
+) {
+  return diarySessionOwner.guard(commit, session, ownerIsCurrent);
 }
 
 function disposeDiarySession(session) {
-  session?.dispose();
-  if (currentDiarySession === session) currentDiarySession = null;
+  diarySessionOwner.dispose(session);
 }
 
 function ownMountedNetworkResources(session, map, before) {
@@ -214,8 +213,8 @@ const clone = (obj) => (typeof structuredClone === 'function' ? structuredClone(
 
 function ensureNetworkOverlayLifecycle(
   map,
-  session = currentDiarySession,
-  ownerIsCurrent = currentDiaryOwnerIsCurrent,
+  session = diarySessionOwner.getSession(),
+  ownerIsCurrent = diarySessionOwner.getOwnerIsCurrent(),
 ) {
   if (!map || typeof map.on !== 'function' || typeof networkStyleCleanup === 'function') return;
   const canApply = () => diarySessionIsCurrent(session, ownerIsCurrent);
@@ -417,63 +416,28 @@ function ensureDiaryPanel(routes, options = {}) {
     diaryPanelEl = panel;
   }
 
-  diaryPanelEl.innerHTML = '';
-  diaryPanelEl.classList.add('diary-panel-shell');
-
-  const title = document.createElement('div');
-  title.className = 'diary-panel-heading';
-  const titleText = document.createElement('h3');
-  setTranslatedText(titleText, 'diary.demoTitle');
-  const subtitle = document.createElement('div');
-  subtitle.className = 'diary-panel-subtitle';
-  setTranslatedText(subtitle, 'diary.demoSubtitle');
-  title.appendChild(titleText);
-  title.appendChild(subtitle);
-  diaryPanelEl.appendChild(title);
-
-  const viewSwitcher = document.createElement('div');
-  viewSwitcher.className = 'diary-view-switch';
-  const panelSession = currentDiarySession;
-  const panelOwnerIsCurrent = currentDiaryOwnerIsCurrent;
+  const panelSession = diarySessionOwner.getSession();
+  const panelOwnerIsCurrent = diarySessionOwner.getOwnerIsCurrent();
   const isPanelCurrent = () => diarySessionIsCurrent(panelSession, panelOwnerIsCurrent);
   const ownPanelHandler = (handler) => guardDiaryCommit(
     handler,
     panelSession,
     panelOwnerIsCurrent,
   );
-  const makePill = (key, mode) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    setTranslatedText(btn, key);
-    btn.className = 'diary-view-pill';
-    btn.addEventListener('click', ownPanelHandler(() => {
+  const frame = renderDiaryPanelFrame({
+    panel: diaryPanelEl,
+    getMode: () => store.diaryViewMode,
+    ownHandler: ownPanelHandler,
+    onSelectMode: (mode) => {
       setDiaryViewMode(mode);
       renderActivePanel();
-    }));
-    return { btn, mode };
-  };
-  const pills = [
-    makePill('diary.tab.live', 'live'),
-    makePill('diary.tab.history', 'history'),
-    makePill('diary.tab.community', 'community'),
-  ];
-  pills.forEach((p) => viewSwitcher.appendChild(p.btn));
-  diaryPanelEl.appendChild(viewSwitcher);
-
-  const body = document.createElement('div');
-  diaryPanelEl.appendChild(body);
-
-  const syncPills = () => {
-    pills.forEach((p) => {
-      const selected = store.diaryViewMode === p.mode;
-      p.btn.classList.toggle('is-active', selected);
-      p.btn.setAttribute('aria-pressed', String(selected));
-    });
-  };
+    },
+  });
+  const body = frame.body;
 
   const renderActivePanel = () => {
     onScopeChange(describeDiaryDataScope(store.diaryViewMode));
-    syncPills();
+    frame.syncMode();
     if (store.diaryViewMode !== 'live') clearLiveDiaryMapState();
     body.innerHTML = '';
     clearLiveRefs();
@@ -575,6 +539,9 @@ function ensureDiaryPanel(routes, options = {}) {
           }),
           onToggleAlt: ownPanelHandler((checked) => applyAltToggleState(checked)),
           onRate: ownPanelHandler(() => openRouteRating()),
+          onActionError: ownPanelHandler((error) => {
+            showPanelNotice(error?.message || t('rating.submissionFailed'), 'error');
+          }),
           onPlay: ownPanelHandler(() => currentSimulator?.start()),
           onPause: ownPanelHandler(() => currentSimulator?.pause()),
           onFinish: ownPanelHandler(() => currentSimulator?.finish({ openModal: true })),
@@ -783,8 +750,8 @@ async function openRouteRating() {
   if (!currentRoute) return;
   const routeFeature = currentRoute;
   const routeId = String(routeFeature.properties?.route_id || '');
-  const session = currentDiarySession;
-  const ownerIsCurrent = currentDiaryOwnerIsCurrent;
+  const session = diarySessionOwner.getSession();
+  const ownerIsCurrent = diarySessionOwner.getOwnerIsCurrent();
   const localController = currentDiaryLocalController;
   if (!routeId || !localController) return;
 
@@ -800,7 +767,7 @@ async function openRouteRating() {
     return;
   }
 
-  const opened = openRatingModal({
+  const opened = await openRatingModal({
     routeFeature,
     segmentLookup,
     userHash: getUserHash(),
@@ -823,6 +790,7 @@ async function openRouteRating() {
       })
     ), session, ownerIsCurrent),
     signal: session?.signal,
+    isCurrent: () => diarySessionIsCurrent(session, ownerIsCurrent),
   });
   if (opened && storedDraft) showToast(t('diary.draftRestored'));
 }
@@ -904,7 +872,7 @@ function onRouteRatingSuccess(affectedSegmentIds) {
   if (features.length && typeof highlightSegments === 'function') {
     highlightSegments(mapRef, features, {
       durationMs: 1500,
-      addCleanup: currentDiarySession?.addCleanup,
+      addCleanup: diarySessionOwner.getSession()?.addCleanup,
     });
   }
 }
@@ -1127,7 +1095,7 @@ function showToast(message, duration = 2600) {
   wrapper.textContent = message;
   document.body.appendChild(wrapper);
   toastEl = wrapper;
-  const session = currentDiarySession;
+  const session = diarySessionOwner.getSession();
   const dismiss = () => {
     wrapper.remove();
     toastEl = null;
@@ -1147,7 +1115,7 @@ function showPanelNotice(message, tone = 'success', duration = 3000) {
   if (panelNoticeTimer) {
     clearDiaryTimeout(panelNoticeTimer);
   }
-  const session = currentDiarySession;
+  const session = diarySessionOwner.getSession();
   const dismiss = () => hidePanelNotice();
   panelNoticeTimer = session
     ? session.setTimeout(guardDiaryCommit(dismiss), duration)
@@ -1172,7 +1140,7 @@ export async function initDiaryMode(map, options = {}) {
   const mountTarget = options?.mountInto || null;
   const stats = { status: 'cancelled', segmentsCount: 0, routesCount: 0 };
   if (options?.signal?.aborted) return stats;
-  currentDiarySession?.dispose();
+  diarySessionOwner.getSession()?.dispose();
   if (!diaryFeatureEnabled()) {
     diaryFlagOff();
     return { ...stats, status: 'failed' };
@@ -1239,8 +1207,7 @@ export async function initDiaryMode(map, options = {}) {
     stats.segmentsCount = segments.features.length;
     stats.routesCount = routes.features.length;
 
-    currentDiarySession = session;
-    currentDiaryOwnerIsCurrent = ownerIsCurrent;
+    diarySessionOwner.adopt(session, ownerIsCurrent);
     currentInsightsPort = insightsPort;
     mapRef = map;
     const ownedLocalLifecycle = storageModule.createDiaryLocalLifecycle({
@@ -1344,7 +1311,7 @@ export async function initDiaryMode(map, options = {}) {
 function cleanupDiaryMode(
   map,
   ownedInsightsPort = currentInsightsPort,
-  ownedOwnerIsCurrent = currentDiaryOwnerIsCurrent,
+  ownedOwnerIsCurrent = diarySessionOwner.getOwnerIsCurrent(),
   ownedSimulator = currentSimulator,
   ownedMountTarget = null,
   removeNetworkOverlay = true,
@@ -1393,10 +1360,7 @@ function cleanupDiaryMode(
       currentInsightsPort = releaseOwnedReference(currentInsightsPort, ownedInsightsPort);
     },
     () => {
-      currentDiaryOwnerIsCurrent = releaseOwnedReference(
-        currentDiaryOwnerIsCurrent,
-        ownedOwnerIsCurrent,
-      ) || (() => false);
+      diarySessionOwner.release(null, ownedOwnerIsCurrent);
     },
     () => {
       currentSimulator = releaseOwnedReference(currentSimulator, ownedSimulator);
@@ -1413,10 +1377,10 @@ function cleanupDiaryMode(
 }
 
 export function teardownDiaryMode(map) {
-  const session = currentDiarySession;
+  const session = diarySessionOwner.getSession();
   if (session) {
     session.dispose();
-    if (currentDiarySession === session) currentDiarySession = null;
+    diarySessionOwner.release(session, diarySessionOwner.getOwnerIsCurrent());
     return;
   }
   cleanupDiaryMode(map);

@@ -76,7 +76,11 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   rateBtn.disabled = !state.canRate;
   rateBtn.addEventListener('click', () => {
     if (!rateBtn.disabled) {
-      handlers.onRate?.();
+      void Promise.resolve()
+        .then(() => handlers.onRate?.())
+        .catch((error) => {
+          try { handlers.onActionError?.(error); } catch {}
+        });
     }
   });
   refs.rateButtonEl = rateBtn;

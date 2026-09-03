@@ -7,6 +7,15 @@ import {
   CRIME_STATE_ACTIONS,
   createCrimeStatePort,
 } from '../../src/state/crime_state_port.js';
+import { createAppModeState } from '../../src/state/app_mode_state.js';
+import {
+  createDiaryPreferences,
+  createDiaryPreferenceState,
+} from '../../src/state/diary_preferences_state.js';
+import {
+  createPanelSessionState,
+  PANEL_STATE_KEY,
+} from '../../src/state/panel_session_state.js';
 
 function createCrimeState() {
   return {
@@ -316,13 +325,67 @@ test('Crime map selection coordinator dispatches actions before presentation cal
 });
 
 test('map infrastructure has no Diary business submit import and Diary root injects the port', async () => {
-  const [segmentsLayer, diaryRoute] = await Promise.all([
+  const [segmentsLayer, diaryRoute, formPort, formSubmit, validator] = await Promise.all([
     readFile(new URL('../../src/map/segments_layer.js', import.meta.url), 'utf8'),
     readFile(new URL('../../src/routes_diary/index.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_diary/diary_form_port.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_diary/form_submit.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/routes_diary/rating_payload_validator.js', import.meta.url), 'utf8'),
   ]);
 
   assert.doesNotMatch(segmentsLayer, /routes_diary\/form_submit/);
   assert.match(segmentsLayer, /submitFeedback/);
   assert.match(diaryRoute, /submitSegmentFeedback/);
   assert.match(diaryRoute, /submitFeedback:\s*submitSegmentFeedback/);
+  assert.doesNotMatch(diaryRoute, /from ['"]\.\/form_submit\.js['"]/);
+  assert.match(formPort, /import\(['"]\.\/form_submit\.js['"]\)/);
+  assert.doesNotMatch(formSubmit, /from ['"]ajv['"]/);
+  assert.match(formSubmit, /import\(['"]\.\/rating_payload_validator\.js['"]\)/);
+  assert.match(validator, /from ['"]ajv['"]/);
+});
+
+test('state domains share the existing session key without coupling app and Diary listeners', () => {
+  const values = new Map([[PANEL_STATE_KEY, JSON.stringify({
+    viewMode: 'diary',
+    diaryViewMode: 'history',
+    simState: { progress: 0.5, routeId: 'route-a' },
+  })]]);
+  const storage = {
+    getItem(key) { return values.get(key) || null; },
+    setItem(key, value) { values.set(key, value); },
+  };
+  const preferences = createPanelSessionState({ windowRef: { sessionStorage: storage } });
+  const store = {
+    diaryMode: false,
+    ...createDiaryPreferenceState(preferences.getSnapshot()),
+  };
+  const appEvents = [];
+  const diaryEvents = [];
+  const appMode = createAppModeState({ store, preferences, diaryFeatureOn: true });
+  const diary = createDiaryPreferences({ store, preferences });
+  appMode.onViewModeChange((mode) => appEvents.push(mode));
+  diary.onDiaryStateChange((kind, value) => diaryEvents.push([kind, value]));
+
+  assert.equal(store.viewMode, 'diary');
+  assert.equal(store.diaryViewMode, 'history');
+  assert.deepEqual(store.simState, { playing: false, progress: 0.5, routeId: 'route-a' });
+
+  appMode.setViewMode('crime');
+  diary.setDiaryTimeFilter('night');
+  diary.setSimPanelState({ playing: true });
+
+  assert.deepEqual(appEvents, ['crime']);
+  assert.deepEqual(diaryEvents, [['timeFilter', 'night']]);
+  assert.deepEqual(JSON.parse(values.get(PANEL_STATE_KEY)), {
+    viewMode: 'crime',
+    selectedRouteId: null,
+    diaryAltEnabled: false,
+    diaryViewMode: 'history',
+    diarySelectedHistoryRouteId: null,
+    diaryCommunityRadiusMeters: 1500,
+    simState: { playing: true, progress: 0.5, routeId: 'route-a' },
+    simPlaybackSpeed: 1,
+    diaryDemoPeriod: 'day',
+    diaryTimeFilter: 'night',
+  });
 });

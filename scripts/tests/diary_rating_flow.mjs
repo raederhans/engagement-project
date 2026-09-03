@@ -198,3 +198,76 @@ test('rating submission remains single-flight while locale rerenders', async () 
   assert.equal(state.pending, false);
   assert.equal(calls.length, 1);
 });
+
+test('Diary form port loads on first form action and retries a failed module request', async () => {
+  const { createDiaryFormPort } = await import('../../src/routes_diary/diary_form_port.js');
+  let attempts = 0;
+  const port = createDiaryFormPort({
+    loadModule: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary chunk failure');
+      return {
+        openRatingModal: (options) => options.routeId,
+        closeRatingModal: () => 'closed',
+        submitSegmentFeedback: async (payload) => payload.segmentId,
+      };
+    },
+  });
+
+  assert.equal(port.isLoaded(), false);
+  assert.equal(port.closeRatingModal(), undefined);
+  await assert.rejects(port.openRatingModal({ routeId: 'route-a' }), /temporary chunk failure/);
+  assert.equal(port.isLoaded(), false);
+  assert.equal(await port.openRatingModal({ routeId: 'route-b' }), 'route-b');
+  assert.equal(await port.submitSegmentFeedback({ segmentId: 'segment-a' }), 'segment-a');
+  assert.equal(port.closeRatingModal(), 'closed');
+  assert.equal(attempts, 2);
+});
+
+test('Diary form port drops a late chunk after its owner aborts', async () => {
+  const { createDiaryFormPort } = await import('../../src/routes_diary/diary_form_port.js');
+  const gate = deferred();
+  const owner = new AbortController();
+  let staleOpenCalls = 0;
+  const port = createDiaryFormPort({ loadModule: () => gate.promise });
+
+  const opening = port.openRatingModal({ signal: owner.signal, isCurrent: () => true });
+  owner.abort('mode-changed');
+  gate.resolve({
+    openRatingModal() {
+      staleOpenCalls += 1;
+      return true;
+    },
+  });
+
+  assert.equal(await opening, false);
+  assert.equal(staleOpenCalls, 0);
+});
+
+test('rating validator load failure is visible and the next validation can retry', async () => {
+  const {
+    createPayloadValidatorLoader,
+    validateRatingPayloadForSubmit,
+  } = formSubmit;
+  let attempts = 0;
+  const errors = [];
+  const loadValidator = createPayloadValidatorLoader({
+    loadModule: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('validation chunk unavailable');
+      return { validateRatingPayload: () => ({ ok: true, error: '' }) };
+    },
+  });
+
+  const first = await validateRatingPayloadForSubmit({}, {
+    loadValidator,
+    onError: (message) => errors.push(message),
+  });
+  assert.equal(first.applied, false);
+  assert.equal(first.reason, 'validator-unavailable');
+  assert.deepEqual(errors, ['validation chunk unavailable']);
+
+  const second = await validateRatingPayloadForSubmit({}, { loadValidator });
+  assert.deepEqual(second, { applied: true });
+  assert.equal(attempts, 2);
+});

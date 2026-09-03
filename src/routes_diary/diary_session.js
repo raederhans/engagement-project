@@ -116,3 +116,43 @@ export function createDiarySession({
 export function releaseOwnedReference(currentReference, cleanedReference) {
   return currentReference === cleanedReference ? null : currentReference;
 }
+
+export function createDiarySessionOwner() {
+  let currentSession = null;
+  let currentOwnerIsCurrent = () => false;
+
+  return {
+    getSession() {
+      return currentSession;
+    },
+    getOwnerIsCurrent() {
+      return currentOwnerIsCurrent;
+    },
+    adopt(session, ownerIsCurrent = () => true) {
+      currentSession = session;
+      currentOwnerIsCurrent = ownerIsCurrent;
+    },
+    isCurrent(session = currentSession, ownerIsCurrent = currentOwnerIsCurrent) {
+      return Boolean(session?.isActive() && ownerIsCurrent?.());
+    },
+    guard(commit, session = currentSession, ownerIsCurrent = currentOwnerIsCurrent) {
+      return (...args) => {
+        if (!this.isCurrent(session, ownerIsCurrent)) return undefined;
+        return commit(...args);
+      };
+    },
+    clearTimeout(id) {
+      if (id == null) return;
+      if (currentSession) currentSession.clearTimeout(id);
+      else globalThis.clearTimeout(id);
+    },
+    dispose(session = currentSession) {
+      session?.dispose();
+      if (currentSession === session) currentSession = null;
+    },
+    release(session, ownerIsCurrent) {
+      if (currentSession === session) currentSession = null;
+      if (currentOwnerIsCurrent === ownerIsCurrent) currentOwnerIsCurrent = () => false;
+    },
+  };
+}

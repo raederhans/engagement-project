@@ -1,11 +1,10 @@
 import { normalizeHighlightedOffenses } from '../utils/types.js';
+import { CRIME_RADIUS_POLICY, normalizeCrimeRadius } from './crime_radius_policy.js';
 
 const MODES = new Set(['buffer', 'district', 'tract']);
 const CLASS_METHODS = new Set(['quantile', 'equal', 'custom']);
 const CLASS_PALETTES = new Set(['Blues', 'YlGnBu', 'OrRd', 'PuBuGn', 'Greens', 'Purples', 'BuGn', 'BuPu', 'GnBu', 'YlOrRd', 'RdBu']);
 const DURATION_OPTIONS = new Set([3, 6, 12, 24]);
-const RADIUS_MIN = 100;
-const RADIUS_MAX = 10_000;
 const CRIME_REFRESH_SCOPES = Object.freeze(['boundary', 'incidents', 'charts', 'summary']);
 const CRIME_REFRESH_SCOPE_SET = new Set(['all', ...CRIME_REFRESH_SCOPES]);
 export const CRIME_STATE_ACTIONS = Object.freeze({
@@ -38,7 +37,7 @@ export function crimeSelectionKey(state) {
   }
   if (!hasActiveIncidentSelection(state)) return null;
   const centerB = Array.isArray(state.centerBLonLat) ? `|${state.centerBLonLat.join(',')}` : '';
-  return `buffer:${state.centerLonLat.join(',')}${centerB}|${Number(state.radiusM ?? state.radius) || 400}`;
+  return `buffer:${state.centerLonLat.join(',')}${centerB}|${normalizeCrimeRadius(state.radiusM ?? state.radius)}`;
 }
 
 export function normalizeCrimeRefreshScope(scope = 'all') {
@@ -141,7 +140,7 @@ export function encodeCrimeViewState(state) {
   params.set('analysis', MODES.has(state.queryMode) ? state.queryMode : 'buffer');
   if (state.startMonth) params.set('start', state.startMonth);
   params.set('months', String(optionNumber(state.durationMonths, DURATION_OPTIONS, 12)));
-  params.set('radius', String(boundedInteger(state.radius, 400, RADIUS_MIN, RADIUS_MAX)));
+  params.set('radius', String(normalizeCrimeRadius(state.radius)));
   if (state.selectedGroups?.length) params.set('groups', state.selectedGroups.join('|'));
   const highlightedOffenses = normalizeHighlightedOffenses(state.selectedDrilldownCodes);
   if (highlightedOffenses.length) params.set('codes', highlightedOffenses.join('|'));
@@ -169,7 +168,7 @@ export function decodeCrimeViewState(value) {
     queryMode,
     startMonth,
     durationMonths: optionNumber(params.get('months'), DURATION_OPTIONS, 12),
-    radius: boundedInteger(params.get('radius'), 400, RADIUS_MIN, RADIUS_MAX),
+    radius: normalizeCrimeRadius(params.get('radius'), CRIME_RADIUS_POLICY.defaultValue),
     selectedGroups: list(params.get('groups')),
     selectedDrilldownCodes: normalizeHighlightedOffenses(list(params.get('codes'))),
     selectedDistrictCode: queryMode === 'district' && /^\d{2}$/.test(params.get('district') || '') ? params.get('district') : null,
