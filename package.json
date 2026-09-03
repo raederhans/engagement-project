@@ -116,18 +116,18 @@
     "streets:segment": "node scripts/segment_streets_phl.mjs"
   },
   "dependencies": {
-    "@turf/turf": "^7.3.5",
+    "@turf/turf": "^7.4.0",
     "ajv": "^8.20.0",
     "chart.js": "^4.5.1",
-    "dayjs": "^1.11.21",
+    "dayjs": "^1.11.23",
     "idb": "8.0.3",
     "maplibre-gl": "^4.5.0"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.12.1",
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1",
     "eslint": "9.39.5",
     "stylelint": "17.14.1",
-    "vite": "^8.1.5"
+    "vite": "^8.2.2"
   }
 }
