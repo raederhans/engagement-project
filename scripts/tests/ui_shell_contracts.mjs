@@ -4,6 +4,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { readProductCss } from './helpers/css_source.mjs';
 import { setSheetState } from '../../src/ui/sheet_controller.js';
+import { configureRadiusControls } from '../../src/ui/panel_radius_controls.js';
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
 const css = await readProductCss();
@@ -171,11 +172,21 @@ test('Crime task panel leads with location and defers comparison and advanced co
 });
 
 test('Crime buffer radius offers useful presets and an accessible custom value', async () => {
-  const radiusSelect = html.match(/<select\b[^>]*id="radiusSel"[^>]*>([\s\S]*?)<\/select>/i)?.[1] || '';
-  const values = [...radiusSelect.matchAll(/<option\b[^>]*value="([^"]+)"/gi)].map((match) => match[1]);
-  assert.deepEqual(values, ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  const documentRef = {
+    createElement: () => ({ dataset: {}, value: '', textContent: '' }),
+  };
+  const select = {
+    ownerDocument: documentRef,
+    options: [],
+    replaceChildren(...options) { this.options = options; },
+  };
+  const input = {};
+  configureRadiusControls({ select, input });
+
+  assert.deepEqual(select.options.map(({ value }) => value), ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  assert.deepEqual({ min: input.min, max: input.max, step: input.step }, { min: '100', max: '10000', step: '1' });
   assert.match(html, /id="customRadiusRow"[^>]*class="[^"]*custom-radius-row[^"]*"[^>]*hidden/i);
-  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*min="100"[^>]*max="10000"[^>]*step="1"/i);
+  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*inputmode="numeric"/i);
   assert.doesNotMatch(html.match(/<div\b[^>]*id="bufferRadiusRow"[\s\S]*?<\/div>\s*<div\b[^>]*class="field-group"/i)?.[0] || '', /\sstyle=/i);
   assert.match(css, /\.custom-radius-row\s*\{[^}]*display:\s*grid/s);
 
