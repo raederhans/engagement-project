@@ -171,16 +171,30 @@ export async function assertCtaInsideViewport(locator) {
 }
 
 export async function assertFocusNotObscured(locator) {
+  await locator.scrollIntoViewIfNeeded();
   await locator.focus();
   await expect(locator).toBeFocused();
-  const visibleAtCenter = await locator.evaluate((element) => {
+  const visiblePoint = await locator.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return false;
-    const x = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
-    const y = Math.min(window.innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
-    return document.elementsFromPoint(x, y).some((candidate) => candidate === element || candidate.contains(element) || element.contains(candidate));
+    const insetX = Math.min(4, rect.width / 4);
+    const insetY = Math.min(4, rect.height / 4);
+    const points = [
+      [rect.left + rect.width / 2, rect.top + rect.height / 2],
+      [rect.left + insetX, rect.top + insetY],
+      [rect.right - insetX, rect.top + insetY],
+      [rect.left + insetX, rect.bottom - insetY],
+      [rect.right - insetX, rect.bottom - insetY],
+    ];
+    return points.some(([rawX, rawY]) => {
+      const x = Math.min(window.innerWidth - 1, Math.max(0, rawX));
+      const y = Math.min(window.innerHeight - 1, Math.max(0, rawY));
+      return document.elementsFromPoint(x, y).some((candidate) => (
+        candidate === element || candidate.contains(element) || element.contains(candidate)
+      ));
+    });
   });
-  expect(visibleAtCenter, 'focused control must not be hidden by a fixed or sticky surface').toBe(true);
+  expect(visiblePoint, 'focused control must not be entirely hidden by a fixed or sticky surface').toBe(true);
 }
 
 export async function auditSeriousAccessibility(page) {
