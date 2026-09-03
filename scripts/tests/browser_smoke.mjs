@@ -677,6 +677,8 @@ try {
   assert.equal(new URL(page.url()).searchParams.get('analysis'), 'district');
   assert.equal(new URL(page.url()).searchParams.get('district'), '06');
   await ensureCrimeResults(page);
+  await ensureSavedAnalysesOpen(page);
+  await page.locator('.analysis-history').waitFor();
   const cartoRequestsBeforeLanguageChange = requests.filter((url) => url.startsWith('https://phl.carto.com/')).length;
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
