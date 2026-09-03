@@ -142,7 +142,57 @@ test('chart controls and insights are registered in both locales', async () => {
   }
 });
 
-test('lazy chart catalog reapplies translations when chart controls are bound', async () => {
-  const source = await fs.readFile(new URL('src/charts/index.js', projectRoot), 'utf8');
-  assert.match(source, /applyTranslations\(document\)/);
+test('lazy chart renderer translates and binds controls when default sinks are created', async (t) => {
+  const previousDocument = globalThis.document;
+  const translated = {
+    dataset: {},
+    textContent: 'untranslated',
+    matches: () => false,
+    getAttribute: (name) => name === 'data-i18n' ? 'chart.settings' : null,
+    setAttribute() {},
+  };
+  const listeners = new Map();
+  const button = {
+    dataset: { chartSetting: 'palette', chartValue: 'teal' },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    setAttribute(name, value) { this[name] = value; },
+  };
+  const chartsPane = { dataset: {} };
+  globalThis.document = {
+    querySelectorAll(selector) {
+      if (selector === '[data-i18n]') return [translated];
+      if (selector === '[data-chart-setting][data-chart-value]') return [button];
+      return [];
+    },
+    getElementById(id) {
+      return id === 'charts' ? chartsPane : null;
+    },
+  };
+  t.after(() => { globalThis.document = previousDocument; });
+
+  await import('../../src/i18n/crime_charts.js');
+  const { t: translate } = await import('../../src/i18n/index.js');
+  const rendererUrl = new URL('src/charts/renderer.js?chart-controls-behavior', projectRoot);
+  const { createDefaultChartSinks } = await import(rendererUrl);
+  let preferences = {
+    palette: 'blue',
+    temporalView: 'heat',
+  };
+  let refreshes = 0;
+  createDefaultChartSinks({
+    getCopy: () => ({}),
+    readPreferences: () => preferences,
+    updatePreference(key, value) {
+      preferences = { ...preferences, [key]: value };
+      return preferences;
+    },
+    refreshCached: () => { refreshes += 1; },
+  });
+
+  assert.equal(translated.textContent, translate('chart.settings'));
+  assert.equal(button['aria-pressed'], 'false');
+  listeners.get('click')();
+  assert.equal(preferences.palette, 'teal');
+  assert.equal(button['aria-pressed'], 'true');
+  assert.equal(refreshes, 1);
 });

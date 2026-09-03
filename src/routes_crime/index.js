@@ -114,9 +114,14 @@ function mergeCrimeSources(...collections) {
 }
 
 let chartsModulePromise;
+let tractSummaryModulePromise;
 
 function loadChartsModule() {
   return chartsModulePromise ||= import('../charts/index.js');
+}
+
+function loadTractSummaryModule() {
+  return tractSummaryModulePromise ||= import('../charts/tract_summary.js');
 }
 
 async function updateCharts(filters, options) {
@@ -532,7 +537,7 @@ export async function initCrimeMode(map, {
       startResultJob(
         'summary',
         queryMode === 'tract'
-          ? loadChartsModule().then(({ runTractSummary }) => runTractSummary({
+          ? loadTractSummaryModule().then(({ runTractSummary }) => runTractSummary({
               start,
               end,
               types,
