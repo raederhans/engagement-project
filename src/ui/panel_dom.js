@@ -48,3 +48,21 @@ export function collectCrimePanelDom(documentRef = globalThis.document) {
   controls.dataDetails = documentRef?.querySelector?.('.data-details') || null;
   return controls;
 }
+
+export function ensureSharedSheetHandle({ panelRoot, panelContentRoot, documentRef = globalThis.document }) {
+  const sheetHandle = panelRoot.querySelector(':scope > .sheet-handle');
+  sheetHandle?.remove();
+
+  let crimeShell = panelContentRoot.querySelector('[data-panel-view="crime"]');
+  if (!crimeShell) {
+    crimeShell = documentRef.createElement('div');
+    crimeShell.dataset.panelView = 'crime';
+    const fragment = documentRef.createDocumentFragment();
+    while (panelContentRoot.firstChild) fragment.appendChild(panelContentRoot.firstChild);
+    crimeShell.appendChild(fragment);
+    panelContentRoot.appendChild(crimeShell);
+  }
+
+  if (sheetHandle) panelRoot.prepend(sheetHandle);
+  return { crimeShell, sheetHandle };
+}

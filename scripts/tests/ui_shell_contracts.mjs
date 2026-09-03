@@ -298,12 +298,63 @@ test('map recovery stays above sheets and map notices but below the global app b
 });
 
 test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
-  // Temporary structural bridge: initPanel has no injectable document/composition factory.
-  // Keep the assertion limited to preserving the one shared handle across panel wrapping.
-  const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(panel, /panelRoot\.querySelector\(['"]:scope > \.sheet-handle['"]\)/);
-  assert.match(panel, /sheetHandle\?\.remove\(\)/);
-  assert.match(panel, /panelRoot\.prepend\(sheetHandle\)/);
+  const { ensureSharedSheetHandle } = await import('../../src/ui/panel_dom.js');
+  const makeNode = (kind) => ({
+    kind,
+    dataset: {},
+    children: [],
+    parent: null,
+    get firstChild() { return this.children[0] || null; },
+    appendChild(child) {
+      if (child.kind === 'fragment') {
+        for (const nested of [...child.children]) this.appendChild(nested);
+        return child;
+      }
+      child.remove?.();
+      child.parent = this;
+      this.children.push(child);
+      return child;
+    },
+    prepend(child) {
+      child.remove?.();
+      child.parent = this;
+      this.children.unshift(child);
+    },
+    remove() {
+      if (!this.parent) return;
+      this.parent.children = this.parent.children.filter((child) => child !== this);
+      this.parent = null;
+    },
+    querySelector(selector) {
+      if (selector === ':scope > .sheet-handle') {
+        return this.children.find((child) => child.kind === 'handle') || null;
+      }
+      if (selector === '[data-panel-view="crime"]') {
+        return this.children.find((child) => child.dataset.panelView === 'crime') || null;
+      }
+      return null;
+    },
+  });
+  const panelRoot = makeNode('root');
+  const handle = makeNode('handle');
+  const existing = makeNode('control');
+  panelRoot.appendChild(handle);
+  panelRoot.appendChild(existing);
+  const documentRef = {
+    createElement: () => makeNode('shell'),
+    createDocumentFragment: () => makeNode('fragment'),
+  };
+
+  const { crimeShell, sheetHandle } = ensureSharedSheetHandle({
+    panelRoot,
+    panelContentRoot: panelRoot,
+    documentRef,
+  });
+
+  assert.equal(sheetHandle, handle);
+  assert.deepEqual(panelRoot.children, [handle, crimeShell]);
+  assert.deepEqual(crimeShell.children, [existing]);
+  assert.equal(crimeShell.children.includes(handle), false);
 });
 
 test('responsive rules cover portrait, landscape, and low-height screens', () => {

@@ -14,6 +14,7 @@ import { createSourceHealthLoader } from './source_health/source_health_loader.j
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
 import { createCrimeResultMetaPresenter } from './ui/crime_result_meta.js';
+import { createMapOriginSelectionHandler } from './ui/map_origin_selection.js';
 import {
   createCrimeViewModeController,
   readCrimeViewMode,
@@ -362,11 +363,10 @@ window.addEventListener('DOMContentLoaded', async () => {
           onPointChange: () => {
             if (store.viewMode === 'crime') panel.syncFromStore?.();
           },
-          onSelectionChange: (_key, { origin } = {}) => {
-            if (origin !== 'map') return;
-            panel.syncFromStore?.();
-            analysisHistoryController?.setCurrentArtifact(null);
-          },
+          onSelectionChange: createMapOriginSelectionHandler({
+            syncPanel: () => panel.syncFromStore?.(),
+            clearCurrentArtifact: () => analysisHistoryController?.setCurrentArtifact(null),
+          }),
           onDataScopeChange: modeSurfaces.showDataScope,
           resultMeta: crimeResultMeta,
           taskFocus: panel.taskFocus,

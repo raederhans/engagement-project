@@ -67,6 +67,20 @@ export {
   resolveCrimePrimaryLayer,
 } from '../state/crime_view_state.js';
 
+export async function settleCrimeRefreshJobs({
+  jobs,
+  entries,
+  isCurrent,
+  incidentView,
+  snapshot,
+  reconcileLegend,
+}) {
+  await Promise.allSettled(jobs.map(({ promise }) => promise));
+  if (!isCurrent()) return { applied: false };
+  if (incidentView) reconcileLegend(snapshot);
+  return classifyCrimeRefreshJobs(entries);
+}
+
 const CRIME_LAYER_IDS = [
   'districts-fill',
   'districts-line',
@@ -562,10 +576,15 @@ export async function initCrimeMode(map, {
             }, summaryOptions),
       );
     }
-    await Promise.allSettled(jobs.map(({ promise }) => promise));
-    if (!isCurrent()) return { applied: false };
-    if (incidentView) reconcileCrimeLegend(snapshot);
-    const outcome = classifyCrimeRefreshJobs(entries);
+    const outcome = await settleCrimeRefreshJobs({
+      jobs,
+      entries,
+      isCurrent,
+      incidentView,
+      snapshot,
+      reconcileLegend: reconcileCrimeLegend,
+    });
+    if (outcome.applied === false) return outcome;
     if ((outcome.status === 'live' || outcome.status === 'partial') && scope === 'all') {
       const relevantDatasets = new Set(['incidents']);
       if (adminLevel === 'tracts') {

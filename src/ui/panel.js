@@ -39,8 +39,12 @@ import {
 } from '../i18n/crime_offenses.js';
 import { createCrimeWorkbenchController } from './crime_workbench.js';
 import { bindRadiusControls } from './panel_radius_controls.js';
-import { collectCrimePanelDom } from './panel_dom.js';
+import { collectCrimePanelDom, ensureSharedSheetHandle } from './panel_dom.js';
 import { createPanelSubscriptions } from './panel_subscriptions.js';
+import {
+  createOffenseOptionController,
+  createTimeWindowRefresh,
+} from './offense_option_controller.js';
 
 export { describeRadiusControlState } from './panel_radius_controls.js';
 
@@ -120,21 +124,7 @@ export function initPanel(store, handlers) {
 
   const sheetContent = panelRoot.querySelector(':scope > .sheet-content');
   const panelContentRoot = sheetContent || panelRoot;
-  const sheetHandle = panelRoot.querySelector(':scope > .sheet-handle');
-  sheetHandle?.remove();
-
-  let crimeShell = panelContentRoot.querySelector('[data-panel-view="crime"]');
-  if (!crimeShell) {
-    crimeShell = document.createElement('div');
-    crimeShell.dataset.panelView = 'crime';
-    const fragment = document.createDocumentFragment();
-    while (panelContentRoot.firstChild) {
-      fragment.appendChild(panelContentRoot.firstChild);
-    }
-    crimeShell.appendChild(fragment);
-    panelContentRoot.appendChild(crimeShell);
-  }
-  if (sheetHandle) panelRoot.prepend(sheetHandle);
+  const { crimeShell } = ensureSharedSheetHandle({ panelRoot, panelContentRoot });
   const analysisContext = crimeShell.querySelector('[data-analysis-context]');
   const taskFocusMount = crimeShell.querySelector('[data-task-focus]');
   const routeCorridorMount = crimeShell.querySelector('[data-route-corridor-entry]');
@@ -335,8 +325,6 @@ export function initPanel(store, handlers) {
     writeCrimeStateToURL(store);
     handlers.onChange?.();
   }, 300);
-  let drilldownRequestGeneration = 0;
-
   const syncOffenseHighlights = (codes = store.selectedDrilldownCodes) => {
     const normalized = syncOffenseHighlightOptions(fineSel, codes);
     crimeState.mutate(CRIME_STATE_ACTIONS.SET_OFFENSE_HIGHLIGHTS, { codes: normalized });
@@ -447,75 +435,33 @@ export function initPanel(store, handlers) {
     translateCustom: (option) => setTranslatedText(option, 'crime.custom'),
   });
 
-  async function populateDrilldown(values, { preserveSelection = false, notify = true } = {}) {
-    const requestGeneration = ++drilldownRequestGeneration;
-    let requestedCodes = preserveSelection
-      ? normalizeHighlightedOffenses(store.selectedDrilldownCodes)
-      : [];
-    crimeState.mutate(CRIME_STATE_ACTIONS.SET_OFFENSE_GROUPS, {
-      groups: values,
-      resetHighlights: !preserveSelection,
-    });
-
-    // populate drilldown options (filtered by time window availability)
-    if (fineSel) {
-      const renderStatus = (key) => {
-        if (preserveSelection) return;
-        fineSel.innerHTML = `<option data-i18n="${key}" disabled>${t(key)}</option>`;
-        fitMultiSelectRows(fineSel);
-      };
-      if (values.length === 0) {
-        // No parent groups selected
-        fineSel.innerHTML = `<option data-i18n="crime.selectGroupFirst" disabled>${t('crime.selectGroupFirst')}</option>`;
-        fineSel.disabled = true;
-        fitMultiSelectRows(fineSel);
-        if (!preserveSelection) syncOffenseHighlights([]);
-      } else {
-        fineSel.disabled = false;
-        renderStatus('crime.loadingCodes');
-
-        try {
-          const { start, end } = store.getStartEnd();
-          const availableCodes = await fetchAvailableCodesForGroups({ start, end, groups: values });
-          if (requestGeneration !== drilldownRequestGeneration) return;
-          if (preserveSelection) requestedCodes = normalizeHighlightedOffenses(store.selectedDrilldownCodes);
-
-          fineSel.innerHTML = '';
-          const renderedCodes = preserveSelection
-            ? [...new Set([...availableCodes, ...requestedCodes])]
-            : availableCodes;
-          if (renderedCodes.length === 0) {
-            fineSel.innerHTML = `<option data-i18n="crime.noSubcodes" disabled>${t('crime.noSubcodes')}</option>`;
-            syncOffenseHighlights([]);
-          } else {
-            for (const c of renderedCodes) {
-              const opt = document.createElement('option');
-              opt.value = c;
-              opt.textContent = localizeOffenseCode(c);
-              opt.selected = requestedCodes.includes(c);
-              fineSel.appendChild(opt);
-            }
-            syncOffenseHighlights(store.selectedDrilldownCodes);
-          }
-          fitMultiSelectRows(fineSel);
-        } catch (err) {
-          if (requestGeneration !== drilldownRequestGeneration) return;
-          console.warn('Failed to fetch available codes:', err);
-          renderStatus('crime.codeLoadError');
-        }
-      }
-    }
-    if (notify) onChange();
-  }
-
-  const refreshDrilldownForWindow = () => populateDrilldown(
-    store.selectedGroups || [],
-    { preserveSelection: true, notify: false },
-  );
-  const refreshTimeWindow = () => {
-    onChange();
-    void refreshDrilldownForWindow();
-  };
+  const offenseOptions = createOffenseOptionController({
+    select: fineSel,
+    readSelectedCodes: () => store.selectedDrilldownCodes,
+    writeGroups: (groups, { resetHighlights }) => crimeState.mutate(
+      CRIME_STATE_ACTIONS.SET_OFFENSE_GROUPS,
+      { groups, resetHighlights },
+    ),
+    readWindow: () => store.getStartEnd(),
+    fetchAvailableCodes: fetchAvailableCodesForGroups,
+    normalizeCodes: normalizeHighlightedOffenses,
+    createOption: () => document.createElement('option'),
+    localizeCode: localizeOffenseCode,
+    syncHighlights: syncOffenseHighlights,
+    fitRows: fitMultiSelectRows,
+    renderStatus: (key) => {
+      if (!fineSel) return;
+      fineSel.innerHTML = `<option data-i18n="${key}" disabled>${t(key)}</option>`;
+      fitMultiSelectRows(fineSel);
+    },
+    notify: onChange,
+    warn: (error) => console.warn('Failed to fetch available codes:', error),
+  });
+  const populateDrilldown = offenseOptions.populate;
+  const refreshTimeWindow = createTimeWindowRefresh({
+    notify: onChange,
+    hydrate: (options) => populateDrilldown(store.selectedGroups || [], options),
+  });
 
   groupSel?.addEventListener('change', () => {
     const values = Array.from(groupSel.selectedOptions).map((o) => o.value);
