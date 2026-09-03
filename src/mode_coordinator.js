@@ -99,12 +99,19 @@ export function createModeCoordinator({
   const getDiaryModule = () => {
     if (!diaryFeatureEnabled) return null;
     if (!diaryModulePromise) {
-      diaryModulePromise = Promise.resolve()
+      let ownedPromise;
+      ownedPromise = Promise.resolve()
         .then(loadDiaryModule)
         .then((module) => {
           diaryModule = module;
           return module;
+        })
+        .catch((error) => {
+          if (diaryModulePromise === ownedPromise) diaryModulePromise = null;
+          diaryModule = null;
+          throw error;
         });
+      diaryModulePromise = ownedPromise;
     }
     return diaryModulePromise;
   };
