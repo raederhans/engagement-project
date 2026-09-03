@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { sanitizeNpmEnvironment } from './run_npm_audit.mjs';
 
-const RELEASE_STEPS = Object.freeze([
+export const RELEASE_STEPS = Object.freeze([
   ['audit', '--audit-level=high'],
   ['run', 'lint:js'],
   ['run', 'lint:css'],

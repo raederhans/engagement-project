@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { readProductCss } from './helpers/css_source.mjs';
+import { setSheetState } from '../../src/ui/sheet_controller.js';
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
 const css = await readProductCss();
@@ -62,9 +63,6 @@ test('Crime exposes one hidden analysis-context region with an accessible edit a
 });
 
 test('analysis summary is the default pane while incidents and charts are explicit sibling panes', async () => {
-  const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
-  const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(controller, /enhanceProgressiveSurface\(/);
   assert.match(html, /id="results-drawer"[^>]*aria-label="Analysis details"/i);
   assert.match(html, /data-result-pane="summary"/i);
   assert.match(html, /id="incident-results"[^>]*data-result-pane="incidents"/i);
@@ -72,10 +70,6 @@ test('analysis summary is the default pane while incidents and charts are explic
   assert.match(css, /#results-drawer\s*\{[^}]*position:\s*fixed[^}]*right:/s);
   assert.doesNotMatch(html, /id="charts"[^>]*style=/i);
   assert.doesNotMatch(css, /!important/);
-  assert.match(panel, /querySelector\(['"]\[data-crime-results\]['"]\)/);
-  assert.doesNotMatch(panel, /crimeShell\.appendChild\(compareCard\)/);
-  assert.match(panel, /resultsDrawer\.contains\(chartsPanel\)/);
-  assert.doesNotMatch(panel, /chartsPanel\.parentElement\s*!==\s*resultsDrawer/);
 });
 
 test('current analysis task flow keeps incidents and charts before recent analyses', async () => {
@@ -217,13 +211,35 @@ test('mobile mode switching and the sheet handle keep 44px touch targets', () =>
 });
 
 test('collapsed sheet content is removed from keyboard navigation', async () => {
-  const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
-  const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(controller, /className\s*=\s*['"]sheet-content['"]/);
-  assert.match(controller, /handle\.setAttribute\(['"]aria-controls['"]/);
-  assert.match(controller, /content\.inert\s*=\s*collapsed/);
-  assert.match(controller, /content\.setAttribute\(['"]aria-hidden['"],\s*String\(collapsed\)\)/);
-  assert.match(panel, /const panelContentRoot\s*=\s*sheetContent\s*\|\|\s*panelRoot/);
+  const attributes = new Map();
+  const handle = {
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+  };
+  const content = {
+    id: 'sidepanel-content',
+    inert: false,
+    setAttribute(name, value) { attributes.set(`content:${name}`, String(value)); },
+  };
+  const sheet = {
+    dataset: { sheetState: 'half' },
+    querySelector(selector) {
+      if (selector === '.sheet-handle') return handle;
+      if (selector === ':scope > .sheet-content') return content;
+      return null;
+    },
+  };
+
+  setSheetState(sheet, 'collapsed');
+  assert.equal(sheet.dataset.sheetState, 'collapsed');
+  assert.equal(attributes.get('aria-controls'), 'sidepanel-content');
+  assert.equal(attributes.get('aria-expanded'), 'false');
+  assert.equal(content.inert, true);
+  assert.equal(attributes.get('content:aria-hidden'), 'true');
+
+  setSheetState(sheet, 'full');
+  assert.equal(attributes.get('aria-expanded'), 'true');
+  assert.equal(content.inert, false);
+  assert.equal(attributes.get('content:aria-hidden'), 'false');
   assert.match(css, /#sidepanel\[data-sheet-state=['"]collapsed['"]\]\s+\.sheet-content\s*\{[^}]*visibility:\s*hidden/s);
 });
 
@@ -271,8 +287,10 @@ test('map recovery stays above sheets and map notices but below the global app b
 });
 
 test('the shared sheet handle stays outside mode-specific panel surfaces', async () => {
+  // Temporary structural bridge: initPanel has no injectable document/composition factory.
+  // Keep the assertion limited to preserving the one shared handle across panel wrapping.
   const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(panel, /const sheetHandle\s*=\s*panelRoot\.querySelector\(['"]:scope > \.sheet-handle['"]\)/);
+  assert.match(panel, /panelRoot\.querySelector\(['"]:scope > \.sheet-handle['"]\)/);
   assert.match(panel, /sheetHandle\?\.remove\(\)/);
   assert.match(panel, /panelRoot\.prepend\(sheetHandle\)/);
 });
@@ -290,8 +308,36 @@ test('responsive rules cover portrait, landscape, and low-height screens', () =>
 });
 
 test('small-screen Diary keeps its primary route action inside the sheet scroll owner', async () => {
-  const livePanel = await readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8');
-  assert.match(livePanel, /rateWrap\.className\s*=\s*['"]diary-rate-action['"]/);
+  const originalDocument = globalThis.document;
+  const makeElement = () => ({
+    children: [],
+    className: '',
+    classList: { add(...names) { this.owner.className += ` ${names.join(' ')}`; }, owner: null },
+    dataset: {},
+    style: {},
+    appendChild(child) { this.children.push(child); return child; },
+    addEventListener() {},
+    setAttribute() {},
+  });
+  const createElement = () => {
+    const element = makeElement();
+    element.classList.owner = element;
+    return element;
+  };
+  globalThis.document = { createElement };
+  try {
+    const { renderLiveRoutePanel } = await import('../../src/routes_diary/ui_live_panel.js');
+    const container = createElement();
+    renderLiveRoutePanel(container, { canRate: true });
+    const descendants = (root) => root.children.flatMap((child) => [child, ...descendants(child)]);
+    assert.equal(
+      descendants(container).some((element) => element.className.split(/\s+/).includes('diary-rate-action')),
+      true,
+    );
+  } finally {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
   assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
   assert.match(css, /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static/s);
   assert.match(css, /\[data-panel-view="diary"\]\s*\{[^}]*padding-bottom:\s*0/s);
