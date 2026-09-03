@@ -104,12 +104,6 @@ await runBrowserSuite({
 
       await opener.click();
       await dialog.waitFor({ state: 'visible' });
-      const readinessRegion = dialog.locator('[data-home-citywide-readiness]');
-      await readinessRegion.waitFor();
-      await page.waitForFunction(() => (
-        document.querySelector('[data-home-citywide-readiness]')
-          ?.getAttribute('data-readiness-status') === 'partial'
-      ));
       assert.equal(await dialog.evaluate((element) => element.open), true);
       assert.equal(await dialog.evaluate((element) => element.matches(':modal')), true);
       assert.equal(await dialog.getAttribute('aria-labelledby'), 'home-compare-title');
@@ -121,24 +115,8 @@ await runBrowserSuite({
         true,
       );
       assert.equal(new URL(page.url()).searchParams.has('hc'), locale !== 'en');
-
-      const readinessText = await readinessRegion.innerText();
-      assert.match(
-        readinessText,
-        locale === 'en' ? /Citywide source readiness/ : /全市来源就绪度/,
-      );
-      assert.match(readinessText, /not address-level evidence|不是地址级证据/);
-      assert.match(readinessText, /Does not authorize|不授权产品/);
-      const details = readinessRegion.locator('details');
-      await details.first().click();
-      await details.nth(1).click();
-      assert.equal(await details.first().locator('article').count(), 9);
-      assert.equal(await details.nth(1).locator('article').count(), 9);
-      const expandedReadiness = await readinessRegion.innerText();
-      assert.match(expandedReadiness, /source_as_of/);
-      assert.match(expandedReadiness, /Why unavailable|为何不可用/);
-      assert.match(expandedReadiness, /reported_incidents/);
-      assert.match(expandedReadiness, /hin_road_context/);
+      assert.equal(await dialog.locator('[data-home-citywide-readiness]').count(), 0);
+      assert.doesNotMatch(await dialog.innerText(), /source_as_of|reported_incidents|hin_road_context/);
 
       await dialog.locator('[data-home-address="0"]').fill('100 PRIVATE TEST ST');
       await dialog.locator('[data-home-address="1"]').fill('101 PRIVATE TEST ST');
@@ -202,7 +180,6 @@ await runBrowserSuite({
       const layout = await page.evaluate(() => {
         const activeDialog = document.querySelector('[data-home-compare-dialog]');
         const surface = document.querySelector('.home-compare__surface');
-        const readinessSurface = document.querySelector('[data-home-citywide-readiness]');
         const dialogRect = activeDialog.getBoundingClientRect();
         return {
           viewportWidth: window.innerWidth,
@@ -211,7 +188,6 @@ await runBrowserSuite({
           dialogRight: dialogRect.right,
           dialogOverflow: activeDialog.scrollWidth - activeDialog.clientWidth,
           surfaceOverflow: surface.scrollWidth - surface.clientWidth,
-          readinessOverflow: readinessSurface.scrollWidth - readinessSurface.clientWidth,
         };
       });
       assert.ok(layout.documentOverflow <= 1, JSON.stringify(layout));
@@ -219,9 +195,10 @@ await runBrowserSuite({
       assert.ok(layout.dialogRight <= layout.viewportWidth + 1, JSON.stringify(layout));
       assert.ok(layout.dialogOverflow <= 1, JSON.stringify(layout));
       assert.ok(layout.surfaceOverflow <= 1, JSON.stringify(layout));
-      assert.ok(layout.readinessOverflow <= 1, JSON.stringify(layout));
 
-      await dialog.locator('[data-home-close]').click();
+      const closeButtons = dialog.locator('[data-home-close]');
+      assert.equal(await closeButtons.count(), 2);
+      await closeButtons.last().click();
       await dialog.waitFor({ state: 'hidden' });
       assert.equal(await opener.evaluate((element) => document.activeElement === element), true);
       await opener.click();

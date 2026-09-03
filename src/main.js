@@ -29,13 +29,12 @@ import {
   hasCrimeViewState,
   replaceCrimeViewState,
 } from './state/crime_view_state.js';
-import { containsActivePrivateCrimeLocation } from './routes_crime/crime_refresh_owner.js';
 import { runCrimeListRefresh } from './ui/crime_list_results.js';
 
 const query = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search || '')
   : new URLSearchParams('');
-const diaryFeatureEnabled = import.meta?.env?.VITE_FEATURE_DIARY === '1'
+const diaryFeatureEnabled = import.meta.env?.VITE_FEATURE_DIARY === '1'
   || query.get('mode') === 'diary';
 let coordinator = null;
 
@@ -444,6 +443,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             sourceHealthLoader.refresh();
           },
           onDataScopeChange: modeSurfaces.showDataScope,
+          onQuickFilter: (patch) => panel.applyListQuickFilter?.(patch),
         }))
         .then((owner) => {
           listController = owner;
@@ -476,9 +476,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function ensureMapCoordinator() {
     if (coordinator) return coordinator;
-    if (containsActivePrivateCrimeLocation(store)) {
-      throw new Error('Private location map analysis is unavailable.');
-    }
     const map = await mapRuntime.ensureMap();
     coordinator = createModeCoordinator({
       map,
@@ -555,19 +552,23 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     return analysisHistoryPromise;
   };
+  const analysisHistoryDisclosure = analysisHistoryMount?.closest?.('[data-analysis-history-disclosure]');
+  analysisHistoryDisclosure?.addEventListener('toggle', () => {
+    if (!analysisHistoryDisclosure.open || store.viewMode !== 'crime') return;
+    void ensureAnalysisHistory().then((controller) => controller?.sync());
+  });
 
   async function scheduleProductMode(mode, { explicit = false } = {}) {
     if (explicit) analysisHistoryController?.cancelPendingRestore();
     if (mode === 'crime') await ensureTaskFocusController();
     if (mode === 'crime' && presentationController.getMode() === 'list') {
       const result = await requestListRefresh();
-      void ensureAnalysisHistory();
+      if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
       return result;
     }
     const owner = await ensureMapCoordinator();
     const result = await owner.schedule(mode);
     if (store.viewMode === 'crime' && owner.getActiveMode() === 'crime') {
-      void ensureAnalysisHistory();
       if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     }
     return result;
@@ -617,7 +618,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       mapRuntime.getMap()?.resize?.();
       const result = await owner.schedule(store.viewMode);
       if (!ownsPresentation() || store.viewMode !== 'crime' || owner.getActiveMode() !== 'crime') return;
-      void ensureAnalysisHistory();
       if (result?.status === 'live') await analysisHistoryController?.refreshFreshness({ live: true });
     } catch (error) {
       if (!ownsPresentation()) return;

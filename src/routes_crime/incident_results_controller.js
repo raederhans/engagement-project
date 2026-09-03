@@ -1,9 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
-import {
-  pointOutsideCenterViewport,
-  prefersReducedMotion as defaultPrefersReducedMotion,
-} from '../map/camera_fit.js';
+import { prefersReducedMotion as defaultPrefersReducedMotion } from '../map/camera_fit.js';
 
 const PAGE_SIZE = 12;
 const MAX_ROWS = 200;
@@ -72,6 +69,26 @@ export function visibleIncidentFeatures(features, {
   return { all, visible };
 }
 
+export function pagedIncidentFeatures(features, {
+  page = 0,
+  pageSize = PAGE_SIZE,
+  getResultKey = defaultResultKey,
+  selectedKey = null,
+} = {}) {
+  const all = sortNewestFirst(Array.isArray(features) ? features : []).slice(0, MAX_ROWS);
+  const pageCount = Math.max(1, Math.ceil(all.length / pageSize));
+  const selectedIndex = selectedKey ? all.findIndex((feature) => getResultKey(feature) === selectedKey) : -1;
+  const requestedPage = selectedIndex >= 0 ? Math.floor(selectedIndex / pageSize) : Number(page) || 0;
+  const currentPage = Math.max(0, Math.min(pageCount - 1, requestedPage));
+  const start = currentPage * pageSize;
+  return {
+    all,
+    visible: all.slice(start, start + pageSize),
+    currentPage,
+    pageCount,
+  };
+}
+
 function createNoopView() {
   return {
     setActivateHandler: () => () => {},
@@ -102,16 +119,19 @@ export function createIncidentResultsView({
   const selected = root.querySelector('[data-selected-incident]');
   const state = root.querySelector('[data-incident-results-state]');
   const list = root.querySelector('[data-incident-results-list]');
-  const more = root.querySelector('[data-incident-results-more]');
+  const pagination = root.querySelector('[data-incident-pagination]');
+  const previousPage = root.querySelector('[data-incident-page-prev]');
+  const nextPage = root.querySelector('[data-incident-page-next]');
+  const pageStatus = root.querySelector('[data-incident-page-status]');
   const edit = root.querySelector('[data-incident-results-edit]');
   let activate = () => {};
-  let visibleCount = PAGE_SIZE;
+  let currentPage = 0;
   let currentGeneration = null;
   let lastPayload = null;
 
   function renderedFeatures(payload) {
-    return visibleIncidentFeatures(payload?.geo?.features, {
-      visibleCount,
+    return pagedIncidentFeatures(payload?.geo?.features, {
+      page: currentPage,
       selectedKey: payload?.selectedKey,
       getResultKey,
     });
@@ -131,9 +151,11 @@ export function createIncidentResultsView({
     lastPayload = payload;
     if (payload?.generation !== currentGeneration) {
       currentGeneration = payload?.generation;
-      visibleCount = PAGE_SIZE;
+      currentPage = 0;
     }
-    const { all, visible } = renderedFeatures(payload);
+    const paged = renderedFeatures(payload);
+    const { all, visible, pageCount } = paged;
+    currentPage = paged.currentPage;
     list?.replaceChildren?.();
     for (const feature of visible) {
       const model = createDetailModel(feature);
@@ -158,10 +180,14 @@ export function createIncidentResultsView({
       state.hidden = all.length > 0;
     }
     if (edit) edit.hidden = all.length > 0;
-    if (more) {
-      const expandable = visibleCount < Math.min(all.length, MAX_ROWS);
-      more.hidden = !expandable;
-      more.textContent = translate('incidents.showMore');
+    if (pagination) pagination.hidden = pageCount <= 1;
+    if (previousPage) previousPage.disabled = currentPage <= 0;
+    if (nextPage) nextPage.disabled = currentPage >= pageCount - 1;
+    if (pageStatus) {
+      pageStatus.textContent = translate('incidents.pageStatus', {
+        page: currentPage + 1,
+        pages: pageCount,
+      });
     }
     root.setAttribute('aria-busy', 'false');
   }
@@ -172,9 +198,14 @@ export function createIncidentResultsView({
       activate(button.dataset.incidentKey);
       return;
     }
-    if (event.target === more && lastPayload) {
-      visibleCount = Math.min(visibleCount + PAGE_SIZE, MAX_ROWS);
-      render(lastPayload);
+    if (event.target === previousPage && lastPayload) {
+      currentPage = Math.max(0, currentPage - 1);
+      render({ ...lastPayload, selectedKey: null });
+      return;
+    }
+    if (event.target === nextPage && lastPayload) {
+      currentPage += 1;
+      render({ ...lastPayload, selectedKey: null });
       return;
     }
     if (event.target === edit) focusFilters();
@@ -225,7 +256,7 @@ export function createIncidentResultsView({
     },
     clear() {
       currentGeneration = null;
-      visibleCount = PAGE_SIZE;
+      currentPage = 0;
       lastPayload = null;
       list?.replaceChildren?.();
       this.clearSelection();
@@ -235,7 +266,7 @@ export function createIncidentResultsView({
         state.textContent = translate('incidents.idle');
       }
       if (edit) edit.hidden = false;
-      if (more) more.hidden = true;
+      if (pagination) pagination.hidden = true;
       root.setAttribute('aria-busy', 'false');
     },
     destroy() {
@@ -318,9 +349,10 @@ export function createIncidentResultsController(map, {
           .setHTML(html)
           .addTo(map);
       }
-      if (ensureVisible && pointOutsideCenterViewport(map, coordinates)) {
+      if (ensureVisible) {
         map.easeTo?.({
           center: coordinates,
+          zoom: Math.max(Number(map.getZoom?.()) || 0, 16),
           duration: prefersReducedMotion() ? 0 : 300,
         });
       }

@@ -336,11 +336,11 @@ test('segment cards are bilingual static fictitious read-only examples with no c
   assert.doesNotMatch(capabilityUnavailable, /save could not be confirmed|saved locally|本地保存.*确认/iu);
 });
 
-test('Community Data Scope and Help expose the complete bilingual truth boundary without an upload seam', (t) => {
+test('Community Data Scope and Help expose a concise bilingual truth boundary without an upload seam', (t) => {
   t.after(() => setLanguage('en'));
   const fixtures = [
-    ['en', 0, [/static/i, /invented/i, /read-only/i, /not real-time/i, /not user-submitted/i, /not representative/i, /no official endorsement/i, /not a safety or risk rating/i]],
-    ['zh-CN', 1, [/静态/u, /虚构/u, /只读/u, /非实时/u, /非用户提交/u, /不代表任何总体/u, /无官方背书/u, /不是安全或风险评级/u]],
+    ['en', 0, [/static/i, /invented/i, /read-only/i, /not real-time/i, /user-submitted/i, /safety ratings/i]],
+    ['zh-CN', 1, [/静态/u, /虚构/u, /只读/u, /不是实时/u, /用户提交/u, /安全评级/u]],
   ];
 
   for (const [locale, helpIndex, required] of fixtures) {
@@ -385,8 +385,8 @@ test('Community Data Scope and Help expose the complete bilingual truth boundary
     assert.equal(details.dataset.scopeDisclosure, scope.accessibleLabel);
 
     const help = helpMessagePairs['help.diarySourceLocalDetail'][helpIndex];
-    assert.match(help, locale === 'en' ? /current product has no upload or sharing capability/i : /当前产品不存在上传或共享能力/u);
-    assert.match(help, locale === 'en' ? /future upload or sharing feature.*separate capability.*new .*review/i : /未来若引入上传或共享功能.*独立能力.*重新.*审查/u);
+    assert.match(help, locale === 'en' ? /stay in this browser.*not uploaded or shared/i : /只保存在当前浏览器.*不会上传或共享/u);
+    assert.doesNotMatch(help, /IndexedDB|产品、隐私与安全审查|product, privacy, and security review/iu);
     assert.doesNotMatch(help, /separately configured service|configured service|另行配置.*服务/iu);
   }
 });

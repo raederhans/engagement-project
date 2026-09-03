@@ -262,6 +262,7 @@ export function initPanel(store, handlers) {
   const usePointBBtn = document.getElementById('usePointBBtn');
   const useMapHint = document.getElementById('useMapHint');
   const addressStatus = document.getElementById('addressStatus');
+  const addressDraftDirty = { A: false, B: false };
   const geocodeOwner = createLatestGeocodeOwner();
   const queryModeSel = document.getElementById('queryModeSel');
   const queryModeHelp = document.getElementById('queryModeHelp');
@@ -349,18 +350,26 @@ export function initPanel(store, handlers) {
       return;
     }
     crimeState.mutate(CRIME_STATE_ACTIONS.CLEAR_COMPARISON, { target: 'B' });
+    addressDraftDirty.B = false;
     if (addrB) addrB.value = '';
     onChange();
   });
 
-  addrA?.addEventListener('input', () => geocodeOwner.cancel('A'));
-  addrB?.addEventListener('input', () => geocodeOwner.cancel('B'));
+  addrA?.addEventListener('input', () => {
+    addressDraftDirty.A = true;
+    geocodeOwner.cancel('A');
+  });
+  addrB?.addEventListener('input', () => {
+    addressDraftDirty.B = true;
+    geocodeOwner.cancel('B');
+  });
   onViewModeChange((mode) => {
     if (mode !== 'crime') geocodeOwner.cancelAll();
   });
 
   function beginMapSelection(target) {
     if (store.selectMode !== 'point') {
+      addressDraftDirty[target] = false;
       crimeState.mutate(CRIME_STATE_ACTIONS.BEGIN_MAP_SELECTION, { target });
       if (target === 'A' && useCenterBtn) setTranslatedText(useCenterBtn, 'crime.cancel');
       if (target === 'B' && usePointBBtn) setTranslatedText(usePointBBtn, 'crime.cancel');
@@ -394,6 +403,7 @@ export function initPanel(store, handlers) {
       });
       if (!owned.applied) return;
       const { result } = owned;
+      addressDraftDirty[target] = false;
       input.value = result.address;
       crimeState.mutate(CRIME_STATE_ACTIONS.SELECT_POINT, {
         target,
@@ -622,7 +632,7 @@ export function initPanel(store, handlers) {
     if (useCenterBtn) useCenterBtn.disabled = isList;
     if (usePointBBtn) usePointBBtn.disabled = isList;
     for (const option of queryModeSel?.options || []) {
-      if (option.value === 'district' || option.value === 'tract') option.disabled = isList;
+      option.disabled = isList && option.value !== 'buffer' && option.value !== mode;
     }
     if (queryModeHelp) setTranslatedText(
       queryModeHelp,
@@ -643,6 +653,10 @@ export function initPanel(store, handlers) {
   // Clear selection
   clearSelBtn?.addEventListener('click', () => {
     crimeState.mutate(CRIME_STATE_ACTIONS.CLEAR_SELECTION);
+    addressDraftDirty.A = false;
+    addressDraftDirty.B = false;
+    if (addrA) addrA.value = '';
+    if (addrB) addrB.value = '';
     if (addressStatus) addressStatus.textContent = '';
     if (useCenterBtn) setTranslatedText(useCenterBtn, 'crime.pickOnMap');
     if (usePointBBtn) setTranslatedText(usePointBBtn, 'crime.pickOnMap');
@@ -843,8 +857,8 @@ export function initPanel(store, handlers) {
 
   function syncControlsFromStore() {
     if (queryModeSel) queryModeSel.value = store.queryMode || 'buffer';
-    if (addrA) addrA.value = store.addressA || '';
-    if (addrB) addrB.value = store.addressB || '';
+    if (addrA && !addressDraftDirty.A) addrA.value = store.addressA || '';
+    if (addrB && !addressDraftDirty.B) addrB.value = store.addressB || '';
     if (rateSel) rateSel.value = store.per10k ? 'per10k' : 'counts';
     if (startMonth) startMonth.value = store.startMonth || '';
     if (startMonth) {
@@ -852,6 +866,11 @@ export function initPanel(store, handlers) {
       startMonth.max = store.coverageMax ? recentStartMonth(store.durationMonths || 12, store.coverageMax) : '';
     }
     if (durationSel) durationSel.value = String(store.durationMonths || 12);
+    if (groupSel) {
+      for (const option of groupSel.options) {
+        option.selected = (store.selectedGroups || []).includes(option.value);
+      }
+    }
     syncRadiusControls();
     if (dataStatus) {
       const status = describeCoverageStatus(store);
@@ -881,6 +900,33 @@ export function initPanel(store, handlers) {
     analysisHistorySync?.();
   }
 
+  async function applyListQuickFilter(patch = {}) {
+    if (Object.hasOwn(patch, 'startMonth') || Object.hasOwn(patch, 'durationMonths')) {
+      crimeState.mutate(CRIME_STATE_ACTIONS.SET_TIME_WINDOW, {
+        ...(Object.hasOwn(patch, 'startMonth') ? { startMonth: patch.startMonth } : {}),
+        ...(Object.hasOwn(patch, 'durationMonths') ? { durationMonths: patch.durationMonths } : {}),
+      });
+    }
+    if (Object.hasOwn(patch, 'radius')) {
+      const radius = Number(patch.radius);
+      if (Number.isInteger(radius) && radius >= 100 && radius <= 10_000) {
+        crimeState.mutate(CRIME_STATE_ACTIONS.SET_RADIUS, { radius });
+        handlers.onRadiusInput?.(radius);
+      }
+    }
+    if (Object.hasOwn(patch, 'groups')) {
+      await populateDrilldown(Array.isArray(patch.groups) ? patch.groups : [], {
+        preserveSelection: false,
+        notify: false,
+      });
+    } else if (Object.hasOwn(patch, 'startMonth') || Object.hasOwn(patch, 'durationMonths')) {
+      void refreshDrilldownForWindow();
+    }
+    syncControlsFromStore();
+    onChange();
+    return crimeState.readSnapshot();
+  }
+
   syncFromStore();
   onLanguageChange(() => {
     syncFromStore();
@@ -899,6 +945,7 @@ export function initPanel(store, handlers) {
     },
     syncPreset,
     syncFromStore,
+    applyListQuickFilter,
     setCrimePresentationMode(mode) {
       crimePresentationMode = mode === 'list' ? 'list' : 'map';
       applyModeUI();

@@ -492,7 +492,7 @@ try {
   );
 
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
-  await page.getByText('Static examples — not real-time or user-submitted, not representative, no official endorsement, and not safety/risk ratings', { exact: true }).waitFor();
+  await page.getByText('Static demonstration data; not live and not user-submitted.', { exact: true }).waitFor();
   assert.equal(await page.locator('[data-panel-view="diary"] input[type="range"]').count(), 0);
   const sampleItem = page.locator('.diary-community-item').first();
   await sampleItem.waitFor();
@@ -519,20 +519,36 @@ try {
   );
   await ensureAdvancedFiltersOpen(page);
   await page.locator('#addrA').fill('1500 Market St');
+  await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
+  await page.getByRole('button', { name: '切换到英文' }).click();
+  assert.equal(
+    await page.locator('#addrA').inputValue(),
+    '1500 Market St',
+    'A language-driven control sync must preserve an address draft',
+  );
   const geocoderRequestsBeforePrivateAction = requests.filter((url) => url.startsWith('https://citygeo-geocoder-pub.databridge.phila.gov/')).length;
   const pointRefreshRequestsBeforePrivateAction = networkControl.pointRefreshRequests;
   await page.locator('#searchABtn').click();
-  await page.locator('#addressStatus').filter({ hasText: /private address and buffer analysis is unavailable/i }).waitFor();
-  assert.equal(await page.locator('#addrA').inputValue(), '1500 Market St');
+  try {
+    await page.waitForFunction(() => document.querySelector('#addressStatus')?.textContent?.includes('Point A: 1500 MARKET ST'));
+  } catch (error) {
+    const state = await page.locator('#addressStatus').evaluate((element) => ({
+      text: element.textContent,
+      tone: element.dataset.tone,
+      hidden: element.hidden,
+    }));
+    assert.fail(`Crime address resolution did not settle: ${JSON.stringify(state)}; ${error.message}`);
+  }
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  assert.equal(await page.locator('#addrA').inputValue(), '1500 MARKET ST, 19102');
   assert.equal(
     requests.filter((url) => url.startsWith('https://citygeo-geocoder-pub.databridge.phila.gov/')).length,
-    geocoderRequestsBeforePrivateAction,
-    'Private address search must fail before geocoder egress',
+    geocoderRequestsBeforePrivateAction + 1,
+    'Crime address search should use exactly one uncached public geocoder request',
   );
-  assert.equal(
-    networkControl.pointRefreshRequests,
-    pointRefreshRequestsBeforePrivateAction,
-    'Private address search must fail before Crime buffer egress',
+  assert.ok(
+    networkControl.pointRefreshRequests > pointRefreshRequestsBeforePrivateAction,
+    'Crime buffer analysis should use the selected transient point',
   );
   for (const privateKey of ['a', 'b', 'labelA', 'labelB']) {
     assert.equal(new URL(page.url()).searchParams.has(privateKey), false, `Private address action leaked URL key ${privateKey}`);

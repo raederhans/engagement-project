@@ -209,7 +209,7 @@ function ownMountedNetworkResources(session, map, before) {
 
 function diaryFeatureEnabled() {
   if (store?.diaryFeatureOn) return true;
-  if (import.meta?.env?.VITE_FEATURE_DIARY === '1') return true;
+  if (import.meta.env?.VITE_FEATURE_DIARY === '1') return true;
   if (diaryQs.get('mode') === 'diary') return true;
   if (diaryPath.includes('diary-demo')) return true;
   return false;

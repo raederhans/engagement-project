@@ -102,22 +102,25 @@ export function createModeSurfacePresenter({
     }
   };
 
-  const showIntent = (mode) => {
+  const showIntent = (mode, { showSkeleton = true } = {}) => {
     currentMode = mode === 'diary' ? 'diary' : 'crime';
     removeSkeletons(documentRef);
     const surface = documentRef?.querySelector?.(`[data-panel-view="${currentMode}"]`);
     if (surface) {
       surface.dataset.modeState = 'loading';
       surface.setAttribute('aria-busy', 'true');
+    }
+    if (surface && showSkeleton) {
       const skeleton = documentRef.createElement('div');
       skeleton.dataset.modeSkeleton = currentMode;
       skeleton.setAttribute('role', 'status');
       skeleton.setAttribute('aria-live', 'polite');
       skeleton.className = 'mode-skeleton';
       const titleKey = currentMode === 'diary' ? 'mode.preparingDiary' : 'mode.preparingCrime';
+      const detailKey = currentMode === 'diary' ? 'mode.loadingDiaryData' : 'mode.loadingCrimeData';
       skeleton.innerHTML = `
         <strong data-i18n="${titleKey}">${t(titleKey)}</strong>
-        <span data-i18n="mode.loadingControls">${t('mode.loadingControls')}</span>
+        <span data-i18n="${detailKey}">${t(detailKey)}</span>
       `;
       surface.insertBefore(skeleton, surface.firstChild || null);
     }

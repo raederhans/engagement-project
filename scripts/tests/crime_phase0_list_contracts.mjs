@@ -4,7 +4,9 @@ import test from 'node:test';
 
 import {
   describeCrimeListCount,
+  projectCrimeListSummary,
   runCrimeListRefresh,
+  sortCrimeListRows,
 } from '../../src/ui/crime_list_results.js';
 import {
   GEOCODER_ERROR_CODES,
@@ -34,6 +36,39 @@ test('Crime list distinguishes complete 199/200 results from a truncated 201 res
   setLanguage('en');
 });
 
+test('Crime list sorting keeps overview, category, and record ordering deterministic', () => {
+  const categories = [
+    { offenseLabel: 'Theft', themeLabel: 'Property', count: 8 },
+    { offenseLabel: 'Fraud', themeLabel: 'Financial', count: 3 },
+  ];
+  assert.deepEqual(sortCrimeListRows(categories, 'name', 'categories').map((row) => row.offenseLabel), ['Fraud', 'Theft']);
+  assert.deepEqual(sortCrimeListRows(categories, 'theme', 'categories').map((row) => row.offenseLabel), ['Fraud', 'Theft']);
+  const records = [
+    { properties: { cartodb_id: 1, text_general_code: 'Thefts', dispatch_date_time: '2025-01-01T00:00:00Z', dc_dist: '09' } },
+    { properties: { cartodb_id: 2, text_general_code: 'Fraud', dispatch_date_time: '2025-02-01T00:00:00Z', dc_dist: '01' } },
+  ];
+  assert.equal(sortCrimeListRows(records, 'newest', 'records')[0].properties.cartodb_id, 2);
+  assert.equal(sortCrimeListRows(records, 'district', 'records')[0].properties.cartodb_id, 2);
+});
+
+test('Crime list projects source categories into useful overview and category levels', () => {
+  const summary = projectCrimeListSummary([
+    { text_general_code: 'Thefts', n: 12 },
+    { text_general_code: 'Burglary Residential', n: 3 },
+    { text_general_code: 'Fraud', n: 5 },
+  ], 'en');
+  assert.equal(summary.total, 20);
+  assert.deepEqual(summary.themes.map(({ id, count }) => [id, count]), [
+    ['property', 15],
+    ['financial', 5],
+  ]);
+  assert.deepEqual(summary.categories.map(({ offenseCode, count }) => [offenseCode, count]), [
+    ['Thefts', 12],
+    ['Fraud', 5],
+    ['Burglary Residential', 3],
+  ]);
+});
+
 test('Crime list initialization failure clears busy state and the same retry path succeeds', async () => {
   let attempts = 0;
   let busy = false;
@@ -45,7 +80,10 @@ test('Crime list initialization failure clears busy state and the same retry pat
 
   const options = {
     ownsList: () => true,
-    showIntent: () => { busy = true; },
+    showIntent: (_mode, options) => {
+      assert.deepEqual(options, { showSkeleton: false });
+      busy = true;
+    },
     showStatus: ({ phase }) => { visibleStatus = phase; },
     settle: (_mode, phase) => { busy = false; visibleStatus = phase; },
     reportFailure: () => { retryVisible = true; },

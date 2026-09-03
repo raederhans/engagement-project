@@ -1,4 +1,14 @@
-import { t } from '../i18n/index.js';
+import { onLanguageChange, t } from '../i18n/index.js';
+
+let districtAccessibleSnapshot = null;
+
+onLanguageChange(() => {
+  if (!districtAccessibleSnapshot) return;
+  syncCrimeDistrictData(
+    districtAccessibleSnapshot.geojson,
+    districtAccessibleSnapshot.options,
+  );
+});
 
 function flattenLabel(value) {
   return Array.isArray(value) ? value.join(' ') : String(value ?? '');
@@ -42,6 +52,26 @@ export function projectCrimeChartData(kind, model, copy = {}) {
   return {
     headers: [t('chart.data.period'), flattenLabel(dataset?.label || t('chart.data.value'))],
     rows: (model.data.labels || []).map((label, index) => [flattenLabel(label), values[index] ?? 0]),
+  };
+}
+
+export function projectCrimeDistrictData(geojson) {
+  const rows = (geojson?.features || [])
+    .map((feature) => {
+      const rawCode = String(feature?.properties?.DIST_NUMC || '').trim();
+      return {
+        code: /^\d{1,2}$/.test(rawCode) && Number(rawCode) > 0
+          ? rawCode.padStart(2, '0')
+          : '',
+        value: feature?.properties?.value,
+      };
+    })
+    .filter(({ code, value }) => code && Number.isSafeInteger(Number(value)))
+    .sort((left, right) => left.code.localeCompare(right.code))
+    .map(({ code, value }) => [code, Number(value)]);
+  return {
+    headers: [t('map.districtDataCode'), t('map.districtDataCount')],
+    rows,
   };
 }
 
@@ -96,7 +126,34 @@ export function syncCrimeChartData(kind, model, copy = {}, documentRef = globalT
   const scratch = documentRef.createElement('div');
   replaceAccessibleTables(scratch, [{ key: kind, caption: captions[kind] || kind, ...projected }], documentRef);
   sections.set(kind, scratch.children[0]);
-  mount.replaceChildren(...['monthly', 'top', 'heat'].map((key) => sections.get(key)).filter(Boolean));
+  mount.replaceChildren(...['districts', 'monthly', 'top', 'heat'].map((key) => sections.get(key)).filter(Boolean));
+}
+
+export function syncCrimeDistrictData(geojson, {
+  start = '',
+  end = '',
+} = {}, documentRef = globalThis.document) {
+  districtAccessibleSnapshot = { geojson, options: { start, end } };
+  const mount = documentRef?.querySelector?.('[data-crime-canvas-data-mount]');
+  if (!mount) return;
+  const sections = new Map([...mount.querySelectorAll?.('[data-accessible-chart]') || []]
+    .map((section) => [section.dataset.accessibleChart, section]));
+  const projected = projectCrimeDistrictData(geojson);
+  const scratch = documentRef.createElement('div');
+  replaceAccessibleTables(scratch, [{
+    key: 'districts',
+    caption: t('map.districtDataCaption', { start, end }),
+    ...projected,
+  }], documentRef);
+  sections.set('districts', scratch.children[0]);
+  mount.replaceChildren(...['districts', 'monthly', 'top', 'heat']
+    .map((key) => sections.get(key)).filter(Boolean));
+}
+
+export function clearCrimeDistrictData(documentRef = globalThis.document) {
+  districtAccessibleSnapshot = null;
+  const mount = documentRef?.querySelector?.('[data-crime-canvas-data-mount]');
+  mount?.querySelector?.('[data-accessible-chart="districts"]')?.remove?.();
 }
 
 export function clearCrimeChartData(documentRef = globalThis.document) {

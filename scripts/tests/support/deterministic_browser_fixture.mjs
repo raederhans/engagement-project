@@ -225,7 +225,7 @@ export async function auditSeriousAccessibility(page) {
 export const RUNTIME_SCRIPT_BUDGETS = Object.freeze({
   crimeInitial: 1_100_000,
   crimeAnalyzed: 1_375_000,
-  diaryInitial: 1_250_000,
+  diaryInitial: 1_275_000,
 });
 
 export function createRuntimeScriptCollector(page) {

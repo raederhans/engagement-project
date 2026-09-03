@@ -28,6 +28,23 @@ test('Crime exposes one primary analytical layer for each analysis mode', async 
   assert.equal(crime.resolveCrimePrimaryLayer({ queryMode: 'district' }), 'districts');
   assert.equal(crime.resolveCrimePrimaryLayer({ queryMode: 'tract' }), 'tracts');
 
+  const defaultContext = {
+    queryMode: 'buffer',
+    centerLonLat: null,
+    centerBLonLat: null,
+    classOpacity: 0.75,
+    overlayTractsLines: false,
+  };
+  assert.equal(crime.isDefaultCrimeContext(defaultContext), true);
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-fill', defaultContext), 'visible');
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-line', defaultContext), 'visible');
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-label', defaultContext), 'visible');
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-selected-fill', defaultContext), 'none');
+  assert.equal(crime.resolveCrimeDistrictFillOpacity(defaultContext), 0.42);
+  assert.deepEqual(crime.resolveCrimeDistrictLineStyle(defaultContext), {
+    color: '#334155', opacity: 0.42, width: 0.9,
+  });
+
   const bufferState = {
     queryMode: 'buffer',
     centerLonLat: [-75.16, 39.95],
@@ -37,11 +54,17 @@ test('Crime exposes one primary analytical layer for each analysis mode', async 
   assert.equal(crime.resolveCrimeLayerVisibility('clusters', bufferState), 'visible');
   assert.equal(crime.resolveCrimeLayerVisibility('unclustered', bufferState), 'visible');
   assert.equal(crime.resolveCrimeLayerVisibility('districts-fill', bufferState), 'none');
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-line', bufferState), 'visible');
+  assert.equal(crime.resolveCrimeLayerVisibility('districts-label', bufferState), 'none');
+  assert.deepEqual(crime.resolveCrimeDistrictLineStyle(bufferState), {
+    color: '#475569', opacity: 0.2, width: 0.7,
+  });
   assert.equal(crime.resolveCrimeLayerVisibility('tracts-fill', bufferState), 'none');
 
   const districtState = { ...bufferState, queryMode: 'district' };
   assert.equal(crime.resolveCrimeLayerVisibility('clusters', districtState), 'none');
   assert.equal(crime.resolveCrimeLayerVisibility('districts-fill', districtState), 'visible');
+  assert.equal(crime.resolveCrimeDistrictFillOpacity(districtState), 0.75);
   assert.equal(crime.resolveCrimeLayerVisibility('tracts-fill', districtState), 'none');
 
   const tractState = { ...bufferState, queryMode: 'tract' };
@@ -1627,8 +1650,10 @@ test('categorical Crime legend pairs every highlight color with a text label', a
     title: 'crime.districts',
     breaks: [10, 20],
     colors: ['#eff3ff', '#bdd7e7', '#6baed6'],
+    swatchOpacity: 0.42,
   });
   assert.equal(root.children[0].textContent, 'Districts');
+  assert.equal(root.children[1].children[0].style.opacity, '0.42');
   setLanguage('zh-CN');
   assert.equal(root.children[0].textContent, '警察分局');
 });
@@ -1684,7 +1709,12 @@ test('Crime list presentation exposes semantic controls, result table, status, a
   assert.match(html, /<caption[^>]*data-crime-list-caption/);
   for (const scope of ['col', 'row']) assert.match(html, new RegExp(`<th[^>]*scope="${scope}"`));
   assert.match(html, /data-crime-list-status[^>]*role="status"[^>]*aria-live="polite"/);
-  assert.match(html, /data-crime-list-description[^>]*data-i18n="crime\.list\.description"/);
+  assert.doesNotMatch(html, /data-crime-list-description/);
+  assert.doesNotMatch(html, /crime\.list\.(?:overviewDescription|categoriesDescription|chartsDescription|quickFiltersHint)/);
+  for (const level of ['overview', 'categories', 'records']) {
+    assert.match(html, new RegExp(`data-crime-list-level="${level}"`));
+    assert.match(html, new RegExp(`data-crime-list-panel="${level}"`));
+  }
   assert.match(html, /data-crime-list-limitations/);
   assert.match(css, /html\[data-crime-view="list"\],[\s\S]*body\[data-crime-view="list"\][^}]*overflow:\s*clip/s);
   assert.match(css, /body\[data-crime-view="list"\] \.crime-list-workspace[^}]*overflow:\s*auto/s);

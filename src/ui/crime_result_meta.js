@@ -389,6 +389,9 @@ export function createCrimeResultMetaPresenter({
 }
 
 export function normalizeCrimeRefreshResult(result) {
+  if (result?.status === 'idle') {
+    return { status: 'idle', succeeded: [], failed: [] };
+  }
   if (result?.status === 'unavailable') {
     return {
       status: 'unavailable',

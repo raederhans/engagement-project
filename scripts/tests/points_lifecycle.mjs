@@ -12,6 +12,7 @@ import '../../src/i18n/crime_offense_catalog.js';
 import {
   createIncidentResultsController,
   createIncidentResultsView,
+  pagedIncidentFeatures,
   visibleIncidentFeatures,
 } from '../../src/routes_crime/incident_results_controller.js';
 
@@ -440,7 +441,7 @@ test('map and list activation share one escaped incident detail owner', () => {
   controller.destroy();
 });
 
-test('list selection recenters an incident only when it falls outside the central focus area', () => {
+test('list selection always recenters and zooms to the chosen incident', () => {
   const map = createLayerMap();
   const cameraMoves = [];
   let projected = { x: 900, y: 400 };
@@ -466,15 +467,15 @@ test('list selection recenters an incident only when it falls outside the centra
   });
 
   view.activate('carto:43');
-  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, duration: 300 }]);
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 16, duration: 300 }]);
 
   projected = { x: 650, y: 400 };
   view.activate('carto:43');
-  assert.equal(cameraMoves.length, 1);
+  assert.equal(cameraMoves.length, 2);
 
   projected = { x: 900, y: 400 };
   map.handlers.get('click:unclustered')({ features: [feature], lngLat: { lng: -75.16, lat: 39.95 } });
-  assert.equal(cameraMoves.length, 1);
+  assert.equal(cameraMoves.length, 2);
   controller.destroy();
 });
 
@@ -505,7 +506,7 @@ test('list selection honors reduced-motion preference while focusing an off-cent
 
   view.activate('carto:44');
 
-  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, duration: 0 }]);
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 16, duration: 0 }]);
   controller.destroy();
 });
 
@@ -671,6 +672,20 @@ test('incident results begin with a compact twelve-record slice', () => {
   assert.equal(result.all.length, 30);
   assert.equal(result.visible.length, 12);
   assert.equal(result.visible[0].properties.cartodb_id, 30);
+});
+
+test('incident pagination exposes bounded pages and jumps to a selected result page', () => {
+  const features = Array.from({ length: 30 }, (_, index) => incidentFeature({
+    id: index + 1,
+    occurred: `2026-07-${String(index + 1).padStart(2, '0')}T14:35:00Z`,
+  }));
+  const secondPage = pagedIncidentFeatures(features, { page: 1 });
+  assert.equal(secondPage.pageCount, 3);
+  assert.equal(secondPage.currentPage, 1);
+  assert.equal(secondPage.visible.length, 12);
+  const selectedPage = pagedIncidentFeatures(features, { selectedKey: 'carto:2' });
+  assert.equal(selectedPage.currentPage, 2);
+  assert.equal(selectedPage.visible.some((feature) => feature.properties.cartodb_id === 2), true);
 });
 
 test('incident list rows defer district metadata to the selected detail', () => {

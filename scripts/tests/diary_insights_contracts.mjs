@@ -138,7 +138,7 @@ test('Diary insight context titles and empty states state their actual scope', (
   assert.deepEqual(describeDiaryInsightsContext({ mode: 'community' }), {
     title: 'Illustrative sample patterns',
     hint: 'Static examples · no live community feed',
-    intro: 'Static invented examples: not real-time, not user-submitted, not population-representative, not official, and not safety/risk ratings.',
+    intro: 'Static examples: not real-time, not user-submitted, and not safety/risk ratings.',
     emptyTrend: 'No sample ratings are available.',
     emptyTags: 'No sample tags are available.',
   });
@@ -241,8 +241,8 @@ test('Sample Community surfaces remain static, non-representative, and neutral i
       );
       const combined = [communityRoot, trend, tags, heat, hostRoot].map(surfaceText).join('\n');
       const required = locale === 'en'
-        ? [/static/i, /illustrative|invented|example/i, /not real-time/i, /not user-submitted/i, /not representative/i, /no official endorsement|not officially endorsed/i, /not (?:a )?safety(?: or |\/)risk rating/i]
-        : [/静态/u, /说明性|虚构/u, /非实时/u, /非用户投稿/u, /不代表任何总体/u, /没有官方背书/u, /不是安全或风险评级/u];
+        ? [/static/i, /illustrative|example/i, /not real-time/i, /not user-submitted/i, /not (?:a )?safety(?: or |\/)risk rating/i]
+        : [/静态/u, /说明性|示例/u, /非实时/u, /非用户投稿/u, /不是安全或风险评级/u];
       for (const pattern of required) assert.match(combined, pattern);
 
       assert.doesNotMatch(

@@ -1,9 +1,8 @@
 import { registerMessagePairs } from '../i18n/messages.js';
 
 registerMessagePairs({
-  'publicRoutes.eyebrow': ['Public Scenario Mode', '公共场景模式'],
-  'publicRoutes.title': ['Compare admitted route tradeoffs', '比较已准入路线的权衡'],
-  'publicRoutes.summary': ['Static illustrative scenarios.', '静态说明性场景。'],
+  'publicRoutes.title': ['Compare route tradeoffs', '比较路线权衡'],
+  'publicRoutes.summary': ['Static examples—not live directions or route recommendations.', '静态示例，不提供实时导航或路线推荐。'],
   'publicRoutes.notes': ['Scenario notes', '场景说明'],
   'publicRoutes.disclosure': [
     'Fixed, illustrative, precomputed public-landmark scenarios. This is not live directions, an observed route evaluation, or a recommendation. It has no routing or safety authority.',
@@ -14,23 +13,23 @@ registerMessagePairs({
   'publicRoutes.staticFixture': ['Static illustrative fixture', '静态说明性数据'],
   'publicRoutes.close': ['Close public route scenarios', '关闭公共路线场景'],
   'publicRoutes.pareto': ['Pareto set', 'Pareto 集'],
-  'publicRoutes.paretoYes': ['Non-dominated on admitted time and exposure values', '在已准入的时间与暴露值上非支配'],
-  'publicRoutes.paretoNo': ['Outside the admitted Pareto set', '不在已准入的 Pareto 集内'],
+  'publicRoutes.paretoYes': ['Leading tradeoff', '主要权衡方案'],
+  'publicRoutes.paretoNo': ['Additional option', '补充方案'],
   'publicRoutes.sensitivityUnstable': [
-    'Changing the explicit weights changes the ordering. Treat the cards as tradeoffs, not as a recommendation.',
-    '调整明确权重会改变排序。请将卡片视为权衡说明，而非推荐。',
+    'The ordering changes with the selected emphasis. These are comparisons, not recommendations.',
+    '排序会随侧重点变化；这些是比较结果，不是推荐。',
   ],
   'publicRoutes.sensitivityStable': [
-    'The tested explicit weights did not change the ordering; the comparison remains non-authoritative.',
-    '测试的明确权重未改变排序；此比较仍不具备权威性。',
+    'The ordering stayed the same under the tested emphasis. This is still a comparison, not a recommendation.',
+    '在测试的侧重点下排序保持不变；这仍是比较结果，不是推荐。',
   ],
   'publicRoutes.onlyOne': [
-    'Only one route is admitted for this scenario, so only an ordinary route is shown.',
-    '此场景仅准入一条路线，因此只显示普通路线。',
+    'Only one route is available for this example.',
+    '此示例只有一条可用路线。',
   ],
   'publicRoutes.gateClosed': [
-    'Candidate, evidence, map-match, or sensitivity admission is incomplete. Only an ordinary route is shown.',
-    '候选集、证据、地图匹配或敏感性准入不完整，因此只显示普通路线。',
+    'Some comparison data is unavailable, so only the available route is shown.',
+    '部分比较数据不可用，因此只显示当前可用路线。',
   ],
   'publicRoutes.copyBoundary': [
     'Historical reported-incident exposure stays separate from crash, High Injury Network, accessibility, match quality, freshness, and uncertainty.',
@@ -55,8 +54,8 @@ registerMessagePairs({
   'publicRoutes.metric.freshness': ['Freshness', '时效性'],
   'publicRoutes.metric.uncertainty': ['Uncertainty', '不确定性'],
   'publicRoutes.unavailable': ['Unavailable', '不可用'],
-  'publicRoutes.value.meets': ['Admitted evidence meets the fixture criterion', '已准入证据符合该数据条件'],
-  'publicRoutes.value.does-not-meet': ['Does not meet the fixture criterion', '不符合该数据条件'],
+  'publicRoutes.value.meets': ['Meets the example condition', '符合示例条件'],
+  'publicRoutes.value.does-not-meet': ['Does not meet the example condition', '不符合示例条件'],
   'publicRoutes.value.illustrative-only': ['Illustrative only', '仅作说明'],
   'publicRoutes.unit.minutes': ['min', '分钟'],
   'publicRoutes.unit.seconds': ['sec', '秒'],
@@ -69,7 +68,7 @@ registerMessagePairs({
   'publicRoutes.unit.historical-crashes': ['historical records', '历史记录'],
   'publicRoutes.unit.route-share': ['route share', '路线占比'],
   'publicRoutes.unit.matched-edge-share': ['matched-edge share', '匹配边占比'],
-  'publicRoutes.unit.days-at-artifact-build': ['days at fixture build', '数据构建时天数'],
+  'publicRoutes.unit.days-at-artifact-build': ['days', '天'],
   'publicRoutes.unit.reported-incidents-per-kilometer': ['reported incidents/km', '已报告事件/公里'],
   'publicRoutes.sourceAsOf': ['Source as of {date}', '来源截至 {date}'],
 });

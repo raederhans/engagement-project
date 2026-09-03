@@ -30,6 +30,26 @@ export function hasActiveIncidentSelection(state) {
     : state?.queryMode === 'tract' && /^\d{11}$/.test(state.selectedTractGEOID || '');
 }
 
+export function isDefaultCrimeContext(state) {
+  return state?.queryMode === 'buffer' && !hasActiveIncidentSelection(state);
+}
+
+export function resolveCrimeDistrictFillOpacity(state) {
+  const requested = Number(state?.classOpacity);
+  const opacity = Number.isFinite(requested) ? Math.max(0, Math.min(1, requested)) : 0.75;
+  return isDefaultCrimeContext(state) ? Math.min(opacity, 0.42) : opacity;
+}
+
+export function resolveCrimeDistrictLineStyle(state) {
+  if (isDefaultCrimeContext(state)) {
+    return { color: '#334155', opacity: 0.42, width: 0.9 };
+  }
+  if (state?.queryMode === 'buffer') {
+    return { color: '#475569', opacity: 0.2, width: 0.7 };
+  }
+  return { color: '#1f2937', opacity: 0.72, width: 1 };
+}
+
 export function crimeSelectionKey(state) {
   if (state?.queryMode === 'district' && state.selectedDistrictCode) {
     return `district:${String(state.selectedDistrictCode).padStart(2, '0')}`;
@@ -74,7 +94,14 @@ export function resolveCrimeLayerVisibility(layerId, state) {
   if (layerId === 'tracts-fill' || layerId.startsWith('tracts-selected-')) {
     return primaryLayer === 'tracts' ? 'visible' : 'none';
   }
-  if (layerId.startsWith('districts-')) return primaryLayer === 'districts' ? 'visible' : 'none';
+  if (layerId.startsWith('districts-selected-')) {
+    return primaryLayer === 'districts' ? 'visible' : 'none';
+  }
+  if (layerId.startsWith('districts-')) {
+    if (primaryLayer === 'districts' || isDefaultCrimeContext(state)) return 'visible';
+    if (state?.queryMode === 'buffer' && layerId === 'districts-line') return 'visible';
+    return 'none';
+  }
   if (layerId === 'clusters' || layerId === 'cluster-count' || layerId === 'unclustered') {
     return primaryLayer === 'incidents' && hasActiveIncidentSelection(state) ? 'visible' : 'none';
   }

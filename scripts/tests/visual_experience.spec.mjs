@@ -392,6 +392,7 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
       `Crime route chunk must load: ${crimeAssets.join(', ')}`,
     ).toBe(true);
     expect(crimeAssets.some((name) => /routes_diary-|diary_storage-|charts-|incident_results_controller-/.test(name))).toBe(false);
+    expect(crimeAssets.some((name) => /analysis_history_controller-|analysis_artifact-|\/history-/.test(name))).toBe(false);
 
     await beginFreshScriptPhase();
     await gotoMode(page, 'crime', { analysis: 'tract', tract: '42101000403' });
@@ -432,15 +433,11 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
   const globalHelpPanel = page.locator('#about-panel');
   await globalHelp.click();
   await expect(globalHelp).toHaveAttribute('aria-expanded', 'true');
-  const sourceLink = globalHelpPanel.locator('a[href*="github.com/raederhans/engagement-project"]');
   const closeHelp = globalHelpPanel.locator('.about-close');
   await expect(globalHelpPanel).toHaveAttribute('role', 'dialog');
   await expect(closeHelp).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(globalHelpPanel.locator('a[href="#help-overview"]')).toBeFocused();
-  await expect(sourceLink).toBeVisible();
-  await sourceLink.scrollIntoViewIfNeeded();
-  await expect(sourceLink).toBeInViewport();
   await page.keyboard.press('Escape');
   await expect(globalHelp).toHaveAttribute('aria-expanded', 'false');
   await expect(globalHelpPanel).toHaveAttribute('aria-hidden', 'true');
@@ -458,8 +455,8 @@ test('My routes shows a truthful empty state before any local rating', async ({ 
 test('Sample community stays visibly read-only and illustrative', async ({ page }, testInfo) => {
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'Sample community', exact: true }).click();
-  const scopeDisclosure = 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.';
-  await expect(page.getByText('Static examples — not real-time or user-submitted, not representative, no official endorsement, and not safety/risk ratings', { exact: true })).toBeVisible();
+  const scopeDisclosure = 'Static, invented, read-only examples—not real-time, user-submitted, or safety ratings.';
+  await expect(page.getByText('Static demonstration data; not live and not user-submitted.', { exact: true })).toBeVisible();
   const dataStatus = page.locator('[data-app-data-status]');
   await expect(dataStatus).toHaveText('Static samples');
   await expect(dataStatus).toHaveAttribute('aria-label', scopeDisclosure);
@@ -505,7 +502,7 @@ test('English and Simplified Chinese preserve the active Diary state', async ({ 
   await page.getByRole('button', { name: 'Switch to Simplified Chinese' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page.getByRole('button', { name: '社区示例', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  const zhScopeDisclosure = '静态、虚构、只读示例；非实时、非用户提交、不代表任何总体、无官方背书，也不是安全或风险评级。';
+  const zhScopeDisclosure = '静态虚构的只读示例；不是实时信息、用户提交内容或安全评级。';
   await expect(page.locator('[data-app-data-status]')).toHaveText('静态示例');
   await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-disclosure', zhScopeDisclosure);
   await captureExperienceScreenshot(

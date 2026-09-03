@@ -60,7 +60,7 @@ export const p1MessagePairs = Object.freeze({
   'diary.insights.history.heatmapSubtitle': ['When your ratings were saved on this device', '你的评分在此设备上的保存时段'],
   'diary.insights.community.title': ['Illustrative sample patterns', '说明性示例规律'],
   'diary.insights.community.hint': ['Static examples · no live community feed', '静态示例 · 无实时社区信息流'],
-  'diary.insights.community.intro': ['Static invented examples: not real-time, not user-submitted, not population-representative, not official, and not safety/risk ratings.', '静态虚构示例：非实时、非用户投稿、不代表总体、非官方，也不是安全或风险评级。'],
+  'diary.insights.community.intro': ['Static examples: not real-time, not user-submitted, and not safety/risk ratings.', '静态示例：非实时、非用户投稿，也不是安全或风险评级。'],
   'diary.insights.community.emptyTrend': ['No sample ratings are available.', '没有可用的示例评分。'],
   'diary.insights.community.emptyTags': ['No sample tags are available.', '没有可用的示例标签。'],
   'diary.insights.community.tagsSubtitle': ['Invented occurrences; not people, submissions, or consensus', '虚构出现次数；不是人数、投稿数或共识'],

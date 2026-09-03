@@ -131,11 +131,12 @@ export function geometryBounds(value) {
   return [[minX, minY], [maxX, maxY]];
 }
 
-export function bufferBounds(centerLonLat, radiusM) {
+export function bufferBounds(centerLonLat, radiusM, { scale = 1 } = {}) {
   if (!Array.isArray(centerLonLat) || centerLonLat.length < 2) return null;
   const longitude = finite(centerLonLat[0]);
   const latitude = finite(centerLonLat[1]);
-  const radius = finite(radiusM);
+  const requestedRadius = finite(radiusM);
+  const radius = requestedRadius == null ? null : requestedRadius * Math.max(1, finite(scale) ?? 1);
   if (longitude == null || latitude == null || radius == null || radius <= 0) return null;
   const latitudeDelta = radius / 111_320;
   const cosine = Math.max(0.01, Math.cos(latitude * Math.PI / 180));

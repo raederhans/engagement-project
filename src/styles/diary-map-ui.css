@@ -474,8 +474,7 @@ body.about-is-open {
 
 .about-close:focus-visible,
 .about-nav__link:focus-visible,
-.about-source-card a:focus-visible,
-.about-footer a:focus-visible {
+.about-source-card a:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
   box-shadow: 0 0 0 5px var(--brand);
@@ -771,8 +770,7 @@ body.about-is-open {
   overflow-wrap: anywhere;
 }
 
-.about-source-card a,
-.about-footer a {
+.about-source-card a {
   display: inline-flex;
   margin-top: 12px;
   color: #8f441d;
@@ -842,23 +840,6 @@ body.about-is-open {
   background: var(--about-orange);
   content: "";
 }
-
-.about-footer {
-  margin: 34px 8px 0;
-  padding: 24px 26px;
-  border-left: 4px solid var(--about-orange);
-  background: var(--about-navy);
-  color: #fff;
-}
-
-.about-footer p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.about-footer a { color: var(--about-gold); }
 
 @media (max-width: 680px) {
   .about-panel {

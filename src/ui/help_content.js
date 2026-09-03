@@ -141,10 +141,6 @@ export function getAboutContent(mode = 'crime') {
           <ul class="about-limitations">${renderLimitations(content.limitations)}</ul>
         </section>
 
-        <footer class="about-footer">
-          <p data-i18n="help.footerNote">${t('help.footerNote')}</p>
-          <a href="https://github.com/raederhans/engagement-project" target="_blank" rel="noopener noreferrer" data-i18n="help.sourceLink">${t('help.sourceLink')}</a>
-        </footer>
       </main>
     </div>
   `;

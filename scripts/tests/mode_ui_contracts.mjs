@@ -10,7 +10,17 @@ import { readFile } from 'node:fs/promises';
 import { readProductCss } from './helpers/css_source.mjs';
 
 const aboutSource = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
+const mainSource = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
+const storeSource = await readFile(new URL('../../src/state/store.js', import.meta.url), 'utf8');
+const diaryRouteSource = await readFile(new URL('../../src/routes_diary/index.js', import.meta.url), 'utf8');
 const productCss = await readProductCss();
+
+test('Diary feature flag uses Vite-recognized import.meta.env access', () => {
+  for (const source of [mainSource, storeSource, diaryRouteSource]) {
+    assert.match(source, /import\.meta\.env\?\.VITE_FEATURE_DIARY/);
+    assert.doesNotMatch(source, /import\.meta\?\.env\?\.VITE_FEATURE_DIARY/);
+  }
+});
 
 function deferred() {
   let resolve;
@@ -97,7 +107,6 @@ test('expanded Diary insights can refit only the active Diary selection', async 
   assert.equal(coordinator.fitCurrentDiarySelection(), false);
   assert.equal(fits, 1);
 
-  const mainSource = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
   assert.match(mainSource, /\(expanded\)\s*=>\s*\{[\s\S]*?if\s*\(!expanded\)\s*return;[\s\S]*?coordinator\?\.fitCurrentDiarySelection\(\);/);
   assert.match(mainSource, /if\s*\(!compactLayout\)\s*return;[\s\S]*?setSheetState\(sheet, ['"]full['"]\)/);
 });
@@ -148,8 +157,8 @@ test('semantic data scope distinguishes live, fallback, local, and sample conten
     mode: 'diary',
     kind: 'sample',
     shortLabel: 'Static samples',
-    accessibleLabel: 'Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.',
-    details: ['Static, invented, read-only examples; not real-time, not user-submitted, not representative of any population, with no official endorsement, and not a safety or risk rating.'],
+    accessibleLabel: 'Static, invented, read-only examples—not real-time, user-submitted, or safety ratings.',
+    details: ['Static, invented, read-only examples—not real-time, user-submitted, or safety ratings.'],
   });
 });
 
@@ -437,7 +446,7 @@ test('late Crime synchronization cannot append Crime keys while Diary owns the U
   assert.equal(replacedUrl, null);
 });
 
-test('private Crime unavailability remains the top-level outcome and visible unavailable phase', async () => {
+test('Crime upstream unavailability remains the top-level outcome and visible unavailable phase', async () => {
   const settled = [];
   const harness = coordinatorOptions({ initialMode: 'crime', crimeRefreshStatus: 'unavailable' });
   const coordinator = createModeCoordinator({
@@ -453,6 +462,24 @@ test('private Crime unavailability remains the top-level outcome and visible una
     label: 'Crime data unavailable',
   });
   assert.deepEqual(settled, [['crime', 'failed']]);
+});
+
+test('Crime idle buffer settles as ready while waiting for a location', async () => {
+  const settled = [];
+  const harness = coordinatorOptions({ initialMode: 'crime', crimeRefreshStatus: 'idle' });
+  const coordinator = createModeCoordinator({
+    ...harness.options,
+    onModeSettled: (mode, phase) => settled.push([mode, phase]),
+  });
+
+  const result = await coordinator.schedule('crime');
+  assert.deepEqual(result, { status: 'idle' });
+  assert.deepEqual(coordinator.getShortStatus(), {
+    mode: 'crime',
+    phase: 'ready',
+    label: 'Crime data ready',
+  });
+  assert.deepEqual(settled, [['crime', 'ready']]);
 });
 
 test('Crime canonical URL removes hostile private keys while preserving unrelated query and hash', (t) => {
@@ -521,16 +548,19 @@ test('Help Center structures guidance around workflow, sources, methods, and lim
   assert.match(crime, /opendataphilly\.org\/datasets\/crime-incidents/);
 });
 
-test('Crime Help describes the actual buffer point and offense-highlight display contracts', () => {
+test('Crime Help describes transient point transport and map display without implementation-level copy', () => {
   const [bufferEnglish, bufferChinese] = helpMessagePairs['help.crimeMethodBuffer'];
   const [mapEnglish, mapChinese] = helpMessagePairs['help.crimeMethodMap'];
 
-  assert.match(bufferEnglish, /selected radius and the current map viewport/i);
-  assert.match(bufferChinese, /所选半径与当前地图视野/);
-  assert.match(mapEnglish, /one to three specific offense types/i);
-  assert.match(mapEnglish, /individual palette colors/i);
-  assert.match(mapChinese, /一至三种具体犯罪类型/);
-  assert.match(mapChinese, /单个点/);
+  assert.match(bufferEnglish, /public geocoder/i);
+  assert.match(bufferEnglish, /not saved in the URL or request cache/i);
+  assert.match(bufferChinese, /公共地理编码服务/);
+  assert.match(bufferChinese, /不会写入网址或请求缓存/);
+  assert.match(mapEnglish, /grouped until you zoom in/i);
+  assert.match(mapEnglish, /do not indicate severity or a hot-spot score/i);
+  assert.match(mapChinese, /聚合显示/);
+  assert.match(mapChinese, /不表示严重程度或热点分数/);
+  assert.doesNotMatch(`${mapEnglish}${mapChinese}`, /40-pixel|40 像素|palette/iu);
 });
 
 test('Diary Help Center distinguishes local records from illustrative route data', () => {

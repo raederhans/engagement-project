@@ -118,7 +118,9 @@ test('Crime exposes one result navigation and one synchronized incident-results 
   assert.match(html, /<section\b[^>]*id="incident-results"[^>]*data-result-pane="incidents"[^>]*aria-labelledby="incident-results-title"[^>]*>/i);
   assert.match(html, /data-incident-results-status[^>]*role="status"[^>]*aria-live="polite"/i);
   assert.match(html, /<ol\b[^>]*data-incident-results-list/i);
-  assert.match(html, /data-incident-results-more[^>]*type="button"/i);
+  assert.match(html, /data-incident-pagination[^>]*hidden/i);
+  assert.match(html, /data-incident-page-prev[^>]*type="button"/i);
+  assert.match(html, /data-incident-page-next[^>]*type="button"/i);
   assert.match(css, /\.incident-results__item\s*>\s*button\s*\{[^}]*min-height:\s*var\(--control-target\)/s);
 });
 

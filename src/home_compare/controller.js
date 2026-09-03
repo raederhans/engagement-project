@@ -18,10 +18,6 @@ import {
   getHomeCompareCopy,
   homeCompareProductHtml,
 } from './view.js';
-import {
-  homeCompareCitywideReadinessHtml,
-  loadHomeCompareCitywideReadiness,
-} from './citywide_readiness.js';
 import { rejectPrivateLocationEgress } from '../utils/http.js';
 
 const DEFAULT_WEIGHTS = Object.freeze({
@@ -74,7 +70,6 @@ export function createHomeCompareController({
   clipboard = globalThis.navigator?.clipboard,
   locationRef = globalThis.location,
   historyRef = globalThis.history,
-  loadCitywideReadiness = loadHomeCompareCitywideReadiness,
   privateAnalysisGate = rejectPrivateLocationEgress,
 } = {}) {
   if (!dialog?.querySelector) throw new TypeError('Home Compare dialog is required.');
@@ -92,17 +87,14 @@ export function createHomeCompareController({
     labels: [],
     resultHtml: null,
     resultLocale: null,
-    citywideReadiness: null,
   };
   let returnFocus = null;
   let generation = 0;
   let requestController = null;
   let renderResults = null;
   let destroyed = false;
-  let readinessGeneration = 0;
 
   applyShareStateFromUrl();
-  void refreshCitywideReadiness();
 
   function render() {
     const locale = getLanguage();
@@ -112,7 +104,6 @@ export function createHomeCompareController({
       addressCount: state.addresses.length,
       weights: state.weights,
       busy: state.busy,
-      citywideReadinessHtml: homeCompareCitywideReadinessHtml(state.citywideReadiness, { locale }),
     });
     state.addresses.forEach((value, index) => {
       const input = host.querySelector(`[data-home-address="${index}"]`);
@@ -155,10 +146,16 @@ export function createHomeCompareController({
     host.querySelector('[data-home-run]')?.addEventListener('click', () => { void compare(); });
     host.querySelector('[data-home-retry-results]')?.addEventListener('click', () => { void compare(); });
     host.querySelector('[data-home-share]')?.addEventListener('click', () => { void shareSettings(); });
-    host.querySelector('[data-home-close]')?.addEventListener('click', () => {
-      cancelInFlight();
-      closeDialog(dialog);
-    });
+    const closeButtons = [...host.querySelectorAll('[data-home-close]')];
+    if (!closeButtons.length && host.querySelector('[data-home-close]')) {
+      closeButtons.push(host.querySelector('[data-home-close]'));
+    }
+    for (const closeButton of closeButtons) {
+      closeButton.addEventListener('click', () => {
+        cancelInFlight();
+        closeDialog(dialog);
+      });
+    }
     const status = host.querySelector('[data-home-status]');
     if (status) status.textContent = statusText(copy);
     const retryResults = host.querySelector('[data-home-retry-results]');
@@ -183,25 +180,6 @@ export function createHomeCompareController({
       }
     }
     dialog.setAttribute('aria-busy', String(state.busy));
-  }
-
-  async function refreshCitywideReadiness() {
-    const currentGeneration = ++readinessGeneration;
-    try {
-      state.citywideReadiness = await loadCitywideReadiness();
-    } catch {
-      if (destroyed || currentGeneration !== readinessGeneration) return;
-      state.citywideReadiness = null;
-    }
-    if (destroyed || currentGeneration !== readinessGeneration) return;
-    const readinessHost = host.querySelector('[data-home-citywide-readiness]');
-    if (readinessHost) {
-      readinessHost.outerHTML = homeCompareCitywideReadinessHtml(state.citywideReadiness, {
-        locale: getLanguage(),
-      });
-    } else {
-      render();
-    }
   }
 
   function invalidateResult() {
@@ -369,7 +347,6 @@ export function createHomeCompareController({
     }),
     destroy() {
       destroyed = true;
-      readinessGeneration += 1;
       cancelInFlight({ renderAfter: false });
       unsubscribeLanguage();
       dialog.removeEventListener('cancel', onCancel);

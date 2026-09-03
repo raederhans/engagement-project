@@ -16,6 +16,10 @@ export const PROJECT_REGION = Object.freeze({
 });
 
 export const CRIME_DATASET_START = '2006-01-01';
+// Showcase release snapshot: queries may still use the existing read-only API,
+// but no Crime record after this boundary is admitted into the product.
+export const CRIME_DATASET_COVERAGE_MAX = '2026-08-31';
+export const CRIME_DATASET_END_EXCLUSIVE = '2026-09-01';
 export const ACS_SNAPSHOT_YEAR = '2024';
 export const ACS_SNAPSHOT_PERIOD = '2020-2024';
 export const ACS_SUMMARY_FILE_URL =

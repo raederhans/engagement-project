@@ -1,7 +1,7 @@
 import './styles.css';
 
 export function createHomeCompareLoader({ dialog, opener } = {}) {
-  if (!dialog || !opener) throw new TypeError('Home Compare loader requires a dialog and opener.');
+  if (!dialog || !opener) throw new TypeError('Missing Home Compare setup.');
   let controllerPromise;
 
   dialog.addEventListener('close', () => {

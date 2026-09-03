@@ -1,4 +1,11 @@
 import { waitForOwnedPromise } from '../utils/latest_serial_queue.js';
+import {
+  classifyCrimeRuntime,
+  containsPrivateCrimeLocation,
+  CRIME_RUNTIME_KINDS,
+} from '../crime_runtime_policy.js';
+
+export { containsPrivateCrimeLocation } from '../crime_runtime_policy.js';
 
 function isAbortError(error) {
   return error?.name === 'AbortError';
@@ -6,19 +13,8 @@ function isAbortError(error) {
 
 export const PRIVATE_CRIME_UNAVAILABLE_REASON = 'private-location-analysis';
 
-export function containsPrivateCrimeLocation(source) {
-  if (!source || typeof source !== 'object') return false;
-  return Boolean(source.centerLonLat)
-    || Boolean(source.centerBLonLat)
-    || Boolean(source.center3857)
-    || Boolean(source.centerB3857)
-    || Boolean(String(source.addressA || '').trim())
-    || Boolean(String(source.addressB || '').trim());
-}
-
 export function isPrivateCrimeAnalysisSnapshot(source) {
-  if (source?.queryMode === 'district' || source?.queryMode === 'tract') return false;
-  return source?.queryMode === 'buffer' || containsPrivateCrimeLocation(source);
+  return classifyCrimeRuntime(source).kind !== CRIME_RUNTIME_KINDS.PUBLIC_AREA;
 }
 
 export function containsActivePrivateCrimeLocation(source) {

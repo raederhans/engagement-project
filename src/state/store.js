@@ -4,10 +4,11 @@
 import dayjs from 'dayjs';
 import { expandGroupsToCodes, normalizeHighlightedOffenses } from '../utils/types.js';
 import { fetchCoverage } from '../api/meta.js';
+import { CRIME_DATASET_COVERAGE_MAX } from '../config.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
 const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
-const diaryFeatureOn = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_FEATURE_DIARY === '1')
+const diaryFeatureOn = import.meta.env?.VITE_FEATURE_DIARY === '1'
   || (qs.get('mode') === 'diary')
   || path.includes('diary-demo');
 const viewModeListeners = new Set();
@@ -224,7 +225,10 @@ function normalizeCoverageDate(value, label) {
 
 export function applyCoverageToState(state, { min, max }) {
   if (!max) throw new Error('Crime coverage is unavailable: maximum date is missing.');
-  const normalizedMax = normalizeCoverageDate(max, 'maximum');
+  const admittedMax = normalizeCoverageDate(max, 'maximum');
+  const normalizedMax = admittedMax > CRIME_DATASET_COVERAGE_MAX
+    ? CRIME_DATASET_COVERAGE_MAX
+    : admittedMax;
   const normalizedMin = min ? normalizeCoverageDate(min, 'minimum') : null;
   const maxDate = dayjs(normalizedMax);
   const endMonth = maxDate.add(1, 'month').startOf('month');

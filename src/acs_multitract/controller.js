@@ -83,7 +83,13 @@ export function createAcsMultitractController({
     });
     reviewButton.addEventListener('click', () => { void review(); });
     calculateButton.addEventListener('click', calculate);
-    host.querySelector('[data-acs-multitract-close]')?.addEventListener('click', () => closeDialog(dialog));
+    const closeButtons = [...host.querySelectorAll('[data-acs-multitract-close]')];
+    if (!closeButtons.length && host.querySelector('[data-acs-multitract-close]')) {
+      closeButtons.push(host.querySelector('[data-acs-multitract-close]'));
+    }
+    for (const closeButton of closeButtons) {
+      closeButton.addEventListener('click', () => closeDialog(dialog));
+    }
   }
 
   async function review() {
