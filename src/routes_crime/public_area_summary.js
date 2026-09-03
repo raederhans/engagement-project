@@ -3,7 +3,7 @@ import {
   fetchByDistrict,
   fetchTopTypesByDistrict,
 } from '../api/crime.js';
-import { runTractSummary } from '../charts/index.js';
+import { runTractSummary } from '../charts/tract_summary.js';
 import { updateCompare } from '../compare/card.js';
 import { t } from '../i18n/index.js';
 import { districtNames } from '../utils/district_names.js';

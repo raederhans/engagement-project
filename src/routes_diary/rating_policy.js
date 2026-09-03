@@ -1,0 +1,22 @@
+export const DIARY_RATING_POLICY = Object.freeze({
+  allowedTags: Object.freeze([
+    'poor_lighting',
+    'low_foot_traffic',
+    'cars_too_close',
+    'construction_blockage',
+    'strangers_loitering',
+    'no_sidewalk',
+    'bike_conflict',
+    'speeding_cars',
+    'blocked_crosswalk',
+    'potholes',
+    'other',
+    'dogs',
+  ]),
+  maxTags: 3,
+  maxSegmentOverrides: 2,
+  maxNotesLength: 200,
+  minRating: 1,
+  maxRating: 5,
+  minUserHashLength: 3,
+});

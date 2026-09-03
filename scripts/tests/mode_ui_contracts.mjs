@@ -11,12 +11,12 @@ import { readProductCss } from './helpers/css_source.mjs';
 
 const aboutSource = await readFile(new URL('../../src/ui/about.js', import.meta.url), 'utf8');
 const mainSource = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
-const storeSource = await readFile(new URL('../../src/state/store.js', import.meta.url), 'utf8');
+const appModeSource = await readFile(new URL('../../src/state/app_mode_state.js', import.meta.url), 'utf8');
 const diaryRouteSource = await readFile(new URL('../../src/routes_diary/index.js', import.meta.url), 'utf8');
 const productCss = await readProductCss();
 
 test('Diary feature flag uses Vite-recognized import.meta.env access', () => {
-  for (const source of [mainSource, storeSource, diaryRouteSource]) {
+  for (const source of [mainSource, appModeSource, diaryRouteSource]) {
     assert.match(source, /import\.meta\.env\?\.VITE_FEATURE_DIARY/);
     assert.doesNotMatch(source, /import\.meta\?\.env\?\.VITE_FEATURE_DIARY/);
   }
@@ -109,6 +109,36 @@ test('expanded Diary insights can refit only the active Diary selection', async 
 
   assert.match(mainSource, /\(expanded\)\s*=>\s*\{[\s\S]*?if\s*\(!expanded\)\s*return;[\s\S]*?coordinator\?\.fitCurrentDiarySelection\(\);/);
   assert.match(mainSource, /if\s*\(!compactLayout\)\s*return;[\s\S]*?setSheetState\(sheet, ['"]full['"]\)/);
+});
+
+test('Diary module loading retries after a rejected first attempt', async () => {
+  let loadAttempts = 0;
+  const reportedErrors = [];
+  const harness = coordinatorOptions({ initialMode: 'diary' });
+  harness.options.loadDiaryModule = async () => {
+    loadAttempts += 1;
+    if (loadAttempts === 1) throw new Error('temporary Diary chunk failure');
+    return {
+      async initDiaryMode() { return { status: 'ready' }; },
+      teardownDiaryMode() {},
+    };
+  };
+  const coordinator = createModeCoordinator({
+    ...harness.options,
+    reportError: (label, error) => reportedErrors.push([label, error.message]),
+  });
+
+  assert.deepEqual(await coordinator.schedule('diary'), {
+    status: 'failed',
+    error: 'temporary Diary chunk failure',
+  });
+  assert.equal(loadAttempts, 1);
+  assert.equal(coordinator.getShortStatus().phase, 'failed');
+
+  assert.deepEqual(await coordinator.schedule('diary'), { status: 'ready' });
+  assert.equal(loadAttempts, 2);
+  assert.equal(coordinator.getShortStatus().phase, 'ready');
+  assert.deepEqual(reportedErrors, [['Diary init failed', 'temporary Diary chunk failure']]);
 });
 
 test('semantic data scope distinguishes live, fallback, local, and sample content', async () => {

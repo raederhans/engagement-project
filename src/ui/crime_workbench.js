@@ -1,5 +1,6 @@
 import { t, setTranslatedText } from '../i18n/index.js';
 import { crimeSelectionKey, hasActiveIncidentSelection } from '../state/crime_view_state.js';
+import { normalizeCrimeRadius } from '../state/crime_radius_policy.js';
 
 export function deriveCrimeWorkspacePresentation(state, { editing = false } = {}) {
   const hasAnalysis = Boolean(crimeSelectionKey(state));
@@ -36,7 +37,7 @@ export function createCrimeAnalysisContext(state, { translate = t } = {}) {
     title = translate('crime.analysisContext.tract', { geoid });
     area = translate('crime.area.tract');
   } else {
-    const radius = Number(state?.radiusM ?? state?.radius) || 400;
+    const radius = normalizeCrimeRadius(state?.radiusM ?? state?.radius);
     title = state?.addressA || translate('crime.analysisContext.mapPoint');
     area = translate('crime.analysisContext.buffer', {
       radius: radius.toLocaleString('en-US'),

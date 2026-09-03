@@ -1189,6 +1189,44 @@ test('Live route keeps rating primary and places Simulator in a closed disclosur
   assert.deepEqual(primaryActions.map((button) => button.textContent), ['Rate your experience on this route']);
 });
 
+test('Live route sends rejected rating actions to a recoverable error sink and allows retry', async (t) => {
+  const originalDocument = globalThis.document;
+  const fakeDocument = createFakeDocument();
+  globalThis.document = fakeDocument;
+  t.after(() => { globalThis.document = originalDocument; });
+  const { renderLiveRoutePanel } = await import('../../src/routes_diary/ui_live_panel.js');
+  const mount = new FakeElement('div');
+  const status = { textContent: '', visible: false };
+  let attempts = 0;
+
+  const refs = renderLiveRoutePanel(mount, {
+    routes: { type: 'FeatureCollection', features: [] },
+    canRate: true,
+  }, {
+    async onRate() {
+      attempts += 1;
+      if (attempts === 1) throw new Error('rating form unavailable');
+      return true;
+    },
+    onActionError(error) {
+      status.textContent = error.message;
+      status.visible = true;
+    },
+  });
+
+  refs.rateButtonEl.dispatchEvent(new Event('click'));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(status, { textContent: 'rating form unavailable', visible: true });
+  assert.equal(attempts, 1);
+
+  status.textContent = '';
+  status.visible = false;
+  refs.rateButtonEl.dispatchEvent(new Event('click'));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attempts, 2);
+  assert.deepEqual(status, { textContent: '', visible: false });
+});
+
 test('initial Diary route receives one panel-aware camera fit', async (t) => {
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;

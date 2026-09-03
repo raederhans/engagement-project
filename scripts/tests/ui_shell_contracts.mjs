@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { readProductCss } from './helpers/css_source.mjs';
+import { setSheetState } from '../../src/ui/sheet_controller.js';
+import { configureRadiusControls } from '../../src/ui/panel_radius_controls.js';
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
 const css = await readProductCss();
@@ -194,11 +196,21 @@ test('Crime task panel leads with location and defers comparison and advanced co
 });
 
 test('Crime buffer radius offers useful presets and an accessible custom value', async () => {
-  const radiusSelect = html.match(/<select\b[^>]*id="radiusSel"[^>]*>([\s\S]*?)<\/select>/i)?.[1] || '';
-  const values = [...radiusSelect.matchAll(/<option\b[^>]*value="([^"]+)"/gi)].map((match) => match[1]);
-  assert.deepEqual(values, ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  const documentRef = {
+    createElement: () => ({ dataset: {}, value: '', textContent: '' }),
+  };
+  const select = {
+    ownerDocument: documentRef,
+    options: [],
+    replaceChildren(...options) { this.options = options; },
+  };
+  const input = {};
+  configureRadiusControls({ select, input });
+
+  assert.deepEqual(select.options.map(({ value }) => value), ['200', '400', '800', '1200', '1600', '2400', 'custom']);
+  assert.deepEqual({ min: input.min, max: input.max, step: input.step }, { min: '100', max: '10000', step: '1' });
   assert.match(html, /id="customRadiusRow"[^>]*class="[^"]*custom-radius-row[^"]*"[^>]*hidden/i);
-  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*min="100"[^>]*max="10000"[^>]*step="1"/i);
+  assert.match(html, /<input\b[^>]*id="customRadiusInput"[^>]*class="[^"]*field[^"]*"[^>]*type="number"[^>]*inputmode="numeric"/i);
   assert.doesNotMatch(html.match(/<div\b[^>]*id="bufferRadiusRow"[\s\S]*?<\/div>\s*<div\b[^>]*class="field-group"/i)?.[0] || '', /\sstyle=/i);
   assert.match(css, /\.custom-radius-row\s*\{[^}]*display:\s*grid/s);
 
@@ -234,13 +246,35 @@ test('mobile mode switching and the sheet handle keep 44px touch targets', () =>
 });
 
 test('collapsed sheet content is removed from keyboard navigation', async () => {
-  const controller = await readFile(new URL('../../src/ui/sheet_controller.js', import.meta.url), 'utf8');
-  const panel = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(controller, /className\s*=\s*['"]sheet-content['"]/);
-  assert.match(controller, /handle\.setAttribute\(['"]aria-controls['"]/);
-  assert.match(controller, /content\.inert\s*=\s*collapsed/);
-  assert.match(controller, /content\.setAttribute\(['"]aria-hidden['"],\s*String\(collapsed\)\)/);
-  assert.match(panel, /const panelContentRoot\s*=\s*sheetContent\s*\|\|\s*panelRoot/);
+  const attributes = new Map();
+  const handle = {
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+  };
+  const content = {
+    id: 'sidepanel-content',
+    inert: false,
+    setAttribute(name, value) { attributes.set(`content:${name}`, String(value)); },
+  };
+  const sheet = {
+    dataset: { sheetState: 'half' },
+    querySelector(selector) {
+      if (selector === '.sheet-handle') return handle;
+      if (selector === ':scope > .sheet-content') return content;
+      return null;
+    },
+  };
+
+  setSheetState(sheet, 'collapsed');
+  assert.equal(sheet.dataset.sheetState, 'collapsed');
+  assert.equal(attributes.get('aria-controls'), 'sidepanel-content');
+  assert.equal(attributes.get('aria-expanded'), 'false');
+  assert.equal(content.inert, true);
+  assert.equal(attributes.get('content:aria-hidden'), 'true');
+
+  setSheetState(sheet, 'full');
+  assert.equal(attributes.get('aria-expanded'), 'true');
+  assert.equal(content.inert, false);
+  assert.equal(attributes.get('content:aria-hidden'), 'false');
   assert.match(css, /#sidepanel\[data-sheet-state=['"]collapsed['"]\]\s+\.sheet-content\s*\{[^}]*visibility:\s*hidden/s);
 });
 
@@ -307,8 +341,36 @@ test('responsive rules cover portrait, landscape, and low-height screens', () =>
 });
 
 test('small-screen Diary keeps its primary route action in flow inside the sheet scroll owner', async () => {
-  const livePanel = await readFile(new URL('../../src/routes_diary/ui_live_panel.js', import.meta.url), 'utf8');
-  assert.match(livePanel, /rateWrap\.className\s*=\s*['"]diary-rate-action['"]/);
+  const originalDocument = globalThis.document;
+  const makeElement = () => ({
+    children: [],
+    className: '',
+    classList: { add(...names) { this.owner.className += ` ${names.join(' ')}`; }, owner: null },
+    dataset: {},
+    style: {},
+    appendChild(child) { this.children.push(child); return child; },
+    addEventListener() {},
+    setAttribute() {},
+  });
+  const createElement = () => {
+    const element = makeElement();
+    element.classList.owner = element;
+    return element;
+  };
+  globalThis.document = { createElement };
+  try {
+    const { renderLiveRoutePanel } = await import('../../src/routes_diary/ui_live_panel.js');
+    const container = createElement();
+    renderLiveRoutePanel(container, { canRate: true });
+    const descendants = (root) => root.children.flatMap((child) => [child, ...descendants(child)]);
+    assert.equal(
+      descendants(container).some((element) => element.className.split(/\s+/).includes('diary-rate-action')),
+      true,
+    );
+  } finally {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
   assert.match(css, /@media\s*\(max-width:\s*720px\),[^}]+landscape[^\{]*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static[^}]*margin:\s*var\(--space-3\)\s*0\s*0[^}]*padding:\s*0[^}]*background:\s*none/s);
   assert.doesNotMatch(css, /\.diary-rate-action\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/s);
   assert.match(css, /@media\s*\(max-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.diary-rate-action\s*\{[^}]*position:\s*static/s);
