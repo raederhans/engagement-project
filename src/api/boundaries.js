@@ -10,6 +10,9 @@ import { publicUrl } from '../utils/public_url.js';
 
 const POLICE_DISTRICTS_FALLBACK = publicUrl('data/police_districts.geojson');
 const TRACTS_FALLBACK = publicUrl('data/tracts_phl.geojson');
+// Live geometry enriches the view; a validated bundled copy keeps it usable
+// when a cross-origin public endpoint cannot answer within the interaction budget.
+const PREFERRED_BOUNDARY_LIVE_BUDGET_MS = 1500;
 
 /** Retrieve the fixed public Philadelphia municipal boundary. */
 export async function fetchPhiladelphiaCityLimits({ signal, onSourceResolved } = {}) {
@@ -37,7 +40,7 @@ export async function fetchPoliceDistricts({ signal } = {}) {
   const raw = await fetchGeoJson(PD_GEOJSON, {
     cacheTTL: 10 * 60_000,
     retries: 0,
-    timeoutMs: 5000,
+    timeoutMs: PREFERRED_BOUNDARY_LIVE_BUDGET_MS,
     signal,
   });
   if (!isValidPoliceDistricts(raw)) {
@@ -66,15 +69,27 @@ export async function fetchTracts({ signal } = {}) {
  */
 export async function fetchPoliceDistrictsPreferred({ signal, onSourceResolved } = {}) {
   throwIfAborted(signal);
+  if (fetchPoliceDistrictsPreferred._cache) {
+    if (fetchPoliceDistrictsPreferred._cacheMeta) {
+      reportResolvedSource(onSourceResolved, {
+        ...fetchPoliceDistrictsPreferred._cacheMeta,
+        cacheHit: true,
+      });
+    }
+    return fetchPoliceDistrictsPreferred._cache;
+  }
   try {
     const live = await fetchPoliceDistricts({ signal });
-    reportResolvedSource(onSourceResolved, {
+    const sourceMeta = {
       dataset: 'police-districts',
       kind: 'live',
       provider: 'Philadelphia Police GIS',
       url: PD_GEOJSON,
       cacheHit: false,
-    });
+    };
+    fetchPoliceDistrictsPreferred._cache = live;
+    fetchPoliceDistrictsPreferred._cacheMeta = sourceMeta;
+    reportResolvedSource(onSourceResolved, sourceMeta);
     return live;
   } catch (liveError) {
     if (isCancellation(liveError, signal)) throw cancellationReason(liveError, signal);
@@ -89,13 +104,16 @@ export async function fetchPoliceDistrictsPreferred({ signal, onSourceResolved }
         'Neither the live nor bundled police district source is valid.',
       );
     }
-    reportResolvedSource(onSourceResolved, {
+    const sourceMeta = {
       dataset: 'police-districts',
       kind: 'fallback',
       provider: 'Bundled boundary snapshot',
       url: POLICE_DISTRICTS_FALLBACK,
       cacheHit: false,
-    });
+    };
+    fetchPoliceDistrictsPreferred._cache = local;
+    fetchPoliceDistrictsPreferred._cacheMeta = sourceMeta;
+    reportResolvedSource(onSourceResolved, sourceMeta);
     return local;
   }
 }
@@ -122,7 +140,7 @@ export async function fetchTractsPreferred({ signal, onSourceResolved } = {}) {
       const raw = await fetchGeoJson(url, {
         cacheTTL: 10 * 60_000,
         retries: 0,
-        timeoutMs: 5000,
+        timeoutMs: PREFERRED_BOUNDARY_LIVE_BUDGET_MS,
         signal,
       });
       if (!isValidTracts(raw)) {

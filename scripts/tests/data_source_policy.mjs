@@ -10,6 +10,7 @@ import './source_health_contracts.mjs';
 import * as acs from '../../src/api/acs.js';
 import * as boundaries from '../../src/api/boundaries.js';
 import * as config from '../../src/config.js';
+import { admitCoverageResponse } from '../../src/api/meta.js';
 import * as diary from '../../src/api/diary.js';
 import * as formSubmit from '../../src/routes_diary/form_submit.js';
 import {
@@ -19,7 +20,12 @@ import {
   submitSegmentCardFeedback,
 } from '../../src/map/segments_layer.js';
 import { fetchJson } from '../../src/utils/http.js';
-import { dateFloorGuard } from '../../src/utils/sql.js';
+import { buildMonthlyCitySQL, dateFloorGuard } from '../../src/utils/sql.js';
+
+function resetPoliceBoundaryCache() {
+  boundaries.fetchPoliceDistrictsPreferred._cache = null;
+  boundaries.fetchPoliceDistrictsPreferred._cacheMeta = null;
+}
 
 test('project geography and crime coverage are defined once', () => {
   assert.deepEqual(config.PROJECT_REGION, {
@@ -28,10 +34,29 @@ test('project geography and crime coverage are defined once', () => {
     countyFips: '101',
   });
   assert.equal(config.CRIME_DATASET_START, '2006-01-01');
+  assert.equal(config.CRIME_DATASET_COVERAGE_MAX, '2026-08-31');
+  assert.equal(config.CRIME_DATASET_END_EXCLUSIVE, '2026-09-01');
   assert.equal(dateFloorGuard('2007-06-01'), '2007-06-01');
 });
 
+test('Crime snapshot caps coverage and every query at August 31, 2026', () => {
+  assert.deepEqual(admitCoverageResponse({
+    rows: [{ min_dt: '2006-01-01', max_dt: '2027-02-15' }],
+  }), {
+    min: '2006-01-01',
+    max: '2026-08-31',
+  });
+  const sql = buildMonthlyCitySQL({
+    start: '2026-01-01',
+    end: '2027-03-01',
+    types: [],
+  });
+  assert.match(sql, /dispatch_date_time < '2026-09-01'/);
+  assert.doesNotMatch(sql, /2027-03-01/);
+});
+
 test('police boundary cancellation never falls through to the bundled fallback', async (t) => {
+  resetPoliceBoundaryCache();
   const originalFetch = globalThis.fetch;
   const calls = [];
   const resolvedSources = [];
@@ -39,6 +64,7 @@ test('police boundary cancellation never falls through to the bundled fallback',
   const reason = new DOMException('Boundary refresh superseded', 'AbortError');
   t.after(() => {
     globalThis.fetch = originalFetch;
+    resetPoliceBoundaryCache();
   });
 
   globalThis.fetch = async (url, options) => {
@@ -63,11 +89,13 @@ test('police boundary cancellation never falls through to the bundled fallback',
 });
 
 test('police districts still use the bundled fallback for an ordinary live failure', async (t) => {
+  resetPoliceBoundaryCache();
   const originalFetch = globalThis.fetch;
   const calls = [];
   const resolvedSources = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
+    resetPoliceBoundaryCache();
   });
 
   globalThis.fetch = async (url) => {
@@ -103,11 +131,13 @@ test('police districts still use the bundled fallback for an ordinary live failu
 });
 
 test('police districts prefer the live city API before the bundled fallback', async (t) => {
+  resetPoliceBoundaryCache();
   const originalFetch = globalThis.fetch;
   const calls = [];
   const resolvedSources = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
+    resetPoliceBoundaryCache();
   });
 
   globalThis.fetch = async (url) => {
@@ -137,6 +167,47 @@ test('police districts prefer the live city API before the bundled fallback', as
     url: calls[0],
     cacheHit: false,
   }]);
+});
+
+test('police district source and provenance are reused after the first resolved request', async (t) => {
+  resetPoliceBoundaryCache();
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const calls = [];
+  const resolvedSources = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+    resetPoliceBoundaryCache();
+  });
+  Date.now = () => originalNow() + (11 * 60_000);
+
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({
+      type: 'FeatureCollection',
+      features: Array.from({ length: 21 }, (_, index) => ({
+        type: 'Feature',
+        properties: { DIST_NUMC: String(index + 1).padStart(2, '0') },
+        geometry: null,
+      })),
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/geo+json' },
+    });
+  };
+
+  const first = await boundaries.fetchPoliceDistrictsPreferred({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
+  const second = await boundaries.fetchPoliceDistrictsPreferred({
+    onSourceResolved: (meta) => resolvedSources.push(meta),
+  });
+
+  assert.equal(first, second);
+  assert.equal(calls.length, 1);
+  assert.equal(resolvedSources[0].cacheHit, false);
+  assert.equal(resolvedSources[1].cacheHit, true);
 });
 
 test('tract boundary memory cache preserves the resolved live source metadata', async (t) => {

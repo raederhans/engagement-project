@@ -38,14 +38,14 @@ test('backup import is preview-first and destructive replacement requires a seco
   assert.match(panelSource, /state\.replaceConfirm/);
 });
 
-test('private data copy is bilingual and names sensitive backup contents', () => {
+test('private data copy is bilingual and names the user-facing backup contents', () => {
   for (const locale of ['en', 'zh-CN']) {
     assert.ok(messages[locale]['diary.localDataPrivacy']);
     assert.ok(messages[locale]['diary.replaceConfirmWarning']);
     assert.ok(messages[locale]['diary.deleteConfirmPrompt']);
   }
-  assert.match(messages.en['diary.localDataPrivacy'], /ratings, route geometry, notes, and unfinished drafts/i);
-  assert.match(messages['zh-CN']['diary.localDataPrivacy'], /评分、路线几何、备注和未完成草稿/);
+  assert.match(messages.en['diary.localDataPrivacy'], /ratings, route details, notes, and drafts/i);
+  assert.match(messages['zh-CN']['diary.localDataPrivacy'], /评分、路线详情、备注和草稿/);
   assert.match(messages.en['diary.importEntriesSummary'], /\{removed\} removed/i);
   assert.match(messages['zh-CN']['diary.importEntriesSummary'], /删除 \{removed\}/);
 });

@@ -2,8 +2,6 @@ import { initCoverageAndDefaults, store } from '../state/store.js';
 import { crimeSelectionKey } from '../state/crime_view_state.js';
 import {
   createCrimeRefreshOwner,
-  isPrivateCrimeAnalysisSnapshot,
-  privateCrimeUnavailableResult,
   readCrimeSnapshot,
 } from './crime_refresh_owner.js';
 import {
@@ -44,13 +42,55 @@ async function fetchListIncidents(snapshot, { signal } = {}) {
   return { applied: true, status: 'success', geo, count };
 }
 
+async function fetchListOverview(snapshot, { signal } = {}) {
+  const crime = await import('../api/crime.js');
+  const common = {
+    start: snapshot.start,
+    end: snapshot.end,
+    types: snapshot.types,
+    signal,
+  };
+  if (snapshot.queryMode === 'buffer' && snapshot.center3857) {
+    return crime.fetchTopTypesBuffer({
+      ...common,
+      center3857: snapshot.center3857,
+      radiusM: snapshot.radiusM,
+      limit: 1000,
+    });
+  }
+  if (snapshot.queryMode === 'district' && snapshot.selectedDistrictCode) {
+    return crime.fetchTopTypesByDistrict({
+      ...common,
+      dc_dist: snapshot.selectedDistrictCode,
+      limit: 1000,
+    });
+  }
+  if (snapshot.queryMode === 'tract' && snapshot.selectedTractGEOID) {
+    return crime.fetchTopTypesTract({
+      ...common,
+      tractGEOID: snapshot.selectedTractGEOID,
+      limit: 1000,
+    });
+  }
+  return crime.fetchOffenseCountsCity({
+    ...common,
+    drilldownCodes: snapshot.drilldownCodes,
+  });
+}
+
 export function createCrimeListController({
   readSnapshot = () => readCrimeSnapshot(store),
+  readFilterState = () => store,
   initializeCoverage = initCoverageAndDefaults,
+  fetchOverview = fetchListOverview,
   fetchIncidents = fetchListIncidents,
   updateSummary = async (snapshot, options) => {
-    const { runPublicAreaSummary } = await import('./public_area_summary.js');
-    return runPublicAreaSummary(snapshot, options);
+    if (snapshot.queryMode === 'district' || snapshot.queryMode === 'tract') {
+      const { runPublicAreaSummary } = await import('./public_area_summary.js');
+      return runPublicAreaSummary(snapshot, options);
+    }
+    const { updateCompare } = await import('../compare/card.js');
+    return updateCompare(snapshot, options);
   },
   updateCharts = async (snapshot, options) => {
     const { updateAllCharts } = await import('../charts/index.js');
@@ -59,23 +99,28 @@ export function createCrimeListController({
   createProvenance = createCrimeRefreshProvenance,
   view = null,
   resultMeta = {},
+  onQuickFilter = () => {},
   onCoverageChange = () => {},
   onDataScopeChange = () => {},
   now = () => new Date().toISOString(),
 } = {}) {
-  const listView = view || createCrimeListResultsView({ resultMeta });
+  const listView = view || createCrimeListResultsView({
+    resultMeta,
+    readFilterState,
+    onQuickFilter,
+  });
   let active = true;
   let initialized = false;
   const provenanceByScope = new Map();
 
   const runRefresh = async (snapshot, { signal, isCurrent, scope = 'all' }) => {
     if (!active || !isCurrent()) return { status: 'superseded' };
-    const requested = scope === 'all' ? ['incidents', 'summary', 'charts'] : [scope];
-    if (isPrivateCrimeAnalysisSnapshot(snapshot)) {
-      for (const name of requested) listView?.unavailable?.(name);
-      return privateCrimeUnavailableResult();
-    }
-    if (!crimeSelectionKey(snapshot)) {
+    const hasSelection = Boolean(crimeSelectionKey(snapshot));
+    listView?.setSelectionAvailable?.(hasSelection);
+    const requested = scope === 'all'
+      ? (hasSelection ? ['overview', 'incidents', 'summary', 'charts'] : ['overview'])
+      : [scope];
+    if (!hasSelection && scope !== 'all') {
       for (const name of requested) listView?.clear?.(name);
       return { status: 'idle', succeeded: [], failed: [] };
     }
@@ -85,11 +130,13 @@ export function createCrimeListController({
       const token = listView?.loading?.(name);
       try {
         const options = { signal, shouldApply: isCurrent };
-        const rawValue = name === 'incidents'
-          ? await fetchIncidents(snapshot, options)
-          : name === 'summary'
-            ? await updateSummary(snapshot, options)
-            : await updateCharts(snapshot, options);
+        const rawValue = name === 'overview'
+          ? await fetchOverview(snapshot, options)
+          : name === 'incidents'
+            ? await fetchIncidents(snapshot, options)
+            : name === 'summary'
+              ? await updateSummary(snapshot, options)
+              : await updateCharts(snapshot, options);
         const value = name === 'incidents' && rawValue?.type === 'FeatureCollection'
           ? {
               applied: true,
@@ -97,15 +144,18 @@ export function createCrimeListController({
               geo: rawValue,
               count: Array.isArray(rawValue.features) ? rawValue.features.length : 0,
             }
-          : rawValue;
+          : name === 'overview'
+            ? { applied: true, status: 'success', rows: rawValue?.rows || [] }
+            : rawValue;
         if (!isCurrent()) return { name, result: { status: 'fulfilled', value: { applied: false } }, token };
         if (!value || value.applied === false || value.status === 'failed') {
           const error = new Error(`${name} result is unavailable.`);
           listView?.failed?.(name, error);
           return { name, result: { status: 'rejected', reason: error }, token };
         }
+        if (name === 'overview') listView?.overview?.(value);
         if (name === 'incidents') listView?.incidents?.(value);
-        const provenance = createProvenance({
+        const provenance = name === 'overview' ? null : createProvenance({
           name,
           value,
           snapshot,
@@ -113,7 +163,7 @@ export function createCrimeListController({
           coverageMax: snapshot.coverageDate,
           generatedAt: now(),
         });
-        provenanceByScope.set(name, provenance);
+        if (provenance) provenanceByScope.set(name, provenance);
         listView?.ready?.(name, provenance, value.status === 'partial' ? 'partial' : 'current');
         return { name, result: { status: 'fulfilled', value }, token };
       } catch (error) {
@@ -152,20 +202,9 @@ export function createCrimeListController({
       }
     },
     async requestRefresh(options = {}) {
-      let snapshot;
-      if (initialized) {
-        snapshot = readSnapshot();
-      } else {
-        try {
-          snapshot = readSnapshot();
-        } catch {
-          // Coverage initialization owns the public fallback below.
-        }
-        if (!isPrivateCrimeAnalysisSnapshot(snapshot)) {
-          await this.initialize();
-          snapshot = readSnapshot();
-        }
-      }
+      if (!initialized) await this.initialize();
+      const snapshot = readSnapshot();
+      listView?.syncFilters?.(readFilterState());
       return refreshOwner.refresh({ ...options, snapshot });
     },
     setActive(next) {

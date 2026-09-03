@@ -845,7 +845,7 @@ test('Home Compare view renders 2/3/4 address controls, bilingual boundaries, an
   });
   assert.doesNotMatch(rendered, /<img|<script/i);
   assert.match(rendered, /&lt;img src=x onerror=alert\(1\)&gt;/);
-  assert.match(rendered, /预测继续不可用/);
+  assert.match(rendered, /暂无预测/);
   assert.match(rendered, /通勤时间与可达范围暂不可用/);
   assert.match(rendered, /权重只改变信息的展示顺序/);
 });

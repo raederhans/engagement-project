@@ -23,7 +23,6 @@
         </fieldset>
         <p class="map-runtime-status" data-map-runtime-status data-phase="idle" role="status" aria-live="polite"></p>
         <p class="app-bar__status" data-app-data-status data-phase="loading" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</p>
-        <p class="app-bar__source-details" data-app-source-details></p>
         <div class="app-bar__language" data-language-switch-mount></div>
         <div class="app-bar__help" data-app-help></div>
       </div>
@@ -37,9 +36,9 @@
         </div>
         <div id="legend"></div>
         <div id="tooltip"></div>
-        <section class="workspace-data-equivalent" data-crime-canvas-data data-i18n-aria-label="workspace.crimeDataLabel" aria-label="Structured data for Crime charts">
-          <h2 class="sr-only" data-i18n="workspace.crimeDataTitle">Crime chart data</h2>
-          <div data-crime-canvas-data-mount role="region" data-i18n-aria-label="workspace.crimeDataRegion" aria-label="Crime chart data tables"></div>
+        <section class="workspace-data-equivalent" data-crime-canvas-data data-i18n-aria-label="workspace.crimeDataLabel" aria-label="Structured data for Crime maps and charts">
+          <h2 class="sr-only" data-i18n="workspace.crimeDataTitle">Crime map and chart data</h2>
+          <div data-crime-canvas-data-mount role="region" data-i18n-aria-label="workspace.crimeDataRegion" aria-label="Crime map and chart data tables"></div>
         </section>
         <section class="workspace-data-equivalent" data-diary-visualization-data data-i18n-aria-label="workspace.diaryDataLabel" aria-label="Structured data for Route Experience Diary charts" hidden aria-hidden="true" inert>
           <h2 class="sr-only" data-i18n="workspace.diaryDataTitle">Route Experience Diary chart data</h2>
@@ -56,6 +55,13 @@
           <p data-task-focus-description hidden>Start with the overall reported-incident summary.</p>
         </div>
         <button class="button button--secondary task-focus__change" type="button" data-task-focus-open aria-haspopup="dialog" aria-controls="task-focus-dialog" aria-describedby="task-focus-note" data-focus-i18n="focus.change">Change</button>
+        <details class="task-focus__help">
+          <summary data-focus-i18n-aria-label="focus.helpLabel" aria-label="About result focus">?</summary>
+          <div>
+            <strong data-focus-i18n="focus.helpTitle">What changes?</strong>
+            <p data-focus-i18n="focus.helpBody">General overview starts with the summary, long-term context starts with charts, and nearby review starts with the incident log. Filters and data do not change.</p>
+          </div>
+        </details>
         <p id="task-focus-note" class="task-focus__note" data-focus-i18n="focus.dialogDescription" hidden>Changes result order only.</p>
         <details class="query-preset-entry" data-query-preset-mount>
           <summary>
@@ -113,7 +119,11 @@
           </form>
         </dialog>
       </section>
-      <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
+      <section class="analysis-hub" aria-labelledby="analysis-hub-title">
+        <header class="analysis-hub__header">
+          <h2 id="analysis-hub-title" data-i18n="crime.analysisHubTitle">Related analyses</h2>
+        </header>
+        <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
         <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
           <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
           <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
@@ -134,7 +144,8 @@
           <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-home-compare-retry data-i18n="homeCompare.retry" hidden>Retry home comparison</button>
         </section>
-      </nav>
+        </nav>
+      </section>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -356,7 +367,11 @@
           <p class="incident-results__state" data-incident-results-state>Choose an analysis area to review incidents in the current map.</p>
           <button class="button button--secondary incident-results__edit" data-incident-results-edit type="button" data-i18n="incidents.editFilters">Return to filters</button>
           <ol class="incident-results__list" data-incident-results-list></ol>
-          <button class="button button--secondary incident-results__more" data-incident-results-more type="button" data-i18n="incidents.showMore" hidden>Show more incidents</button>
+          <nav class="incident-results__pagination" data-incident-pagination data-i18n-aria-label="incidents.paginationLabel" aria-label="Incident pages" hidden>
+            <button class="button button--secondary" data-incident-page-prev type="button" data-i18n="incidents.previousPage">Previous</button>
+            <span data-incident-page-status aria-live="polite"></span>
+            <button class="button button--secondary" data-incident-page-next type="button" data-i18n="incidents.nextPage">Next</button>
+          </nav>
           <div class="result-meta" data-result-meta="incidents" data-availability="unavailable">
             <div class="result-meta__bar">
               <span data-result-meta-status role="status" aria-live="polite">Incident result unavailable</span>
@@ -500,24 +515,109 @@
       </aside>
       <section class="crime-list-results crime-list-workspace" data-crime-list-workspace data-crime-list-results aria-labelledby="crime-list-results-title" hidden>
         <h2 id="crime-list-results-title" tabindex="-1" data-i18n="crime.list.title">Reported incident records</h2>
-        <p data-crime-list-description data-i18n="crime.list.description">Review admitted historical records for this query in the table below. A map is not required.</p>
-        <p data-crime-list-status role="status" aria-live="polite" data-i18n="crime.list.idle">Enter an address and run the Crime query to review incident records without a map.</p>
-        <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.tableRegion" aria-label="Scrollable incident records table">
-          <table data-crime-list-table>
-            <caption data-crime-list-caption data-i18n="crime.list.caption">Historical reported incident records for the current Crime query</caption>
-            <thead>
-              <tr>
-                <th scope="col" data-i18n="map.incidentOffense">Offense</th>
-                <th scope="col" data-i18n="map.incidentOccurred">Date and time</th>
-                <th scope="col" data-i18n="map.incidentLocation">Reported location</th>
-                <th scope="col" data-i18n="map.incidentDistrict">Police district</th>
-              </tr>
-            </thead>
-            <tbody data-crime-list-body>
-              <tr><th scope="row" data-i18n="crime.list.noRows">No admitted records yet</th><td colspan="3">—</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <section class="crime-list-filterbar" data-crime-list-filterbar aria-labelledby="crime-list-filterbar-title">
+          <div class="crime-list-filterbar__heading">
+            <div>
+              <h3 id="crime-list-filterbar-title" data-i18n="crime.list.quickFilters">Quick filters</h3>
+              <p data-crime-list-filter-context></p>
+            </div>
+          </div>
+          <div class="crime-list-filterbar__controls">
+            <label><span data-i18n="crime.list.filterCategory">Crime category</span>
+              <select class="field" data-crime-list-filter="group">
+                <option value="" data-i18n="crime.list.filterAllCategories">All categories</option>
+                <option value="person" data-i18n="crime.theme.person">Personal safety</option>
+                <option value="property" data-i18n="crime.theme.property">Home &amp; property</option>
+                <option value="vehicle" data-i18n="crime.theme.vehicle">Vehicle</option>
+                <option value="financial" data-i18n="crime.theme.financial">Financial</option>
+                <option value="public_order" data-i18n="crime.theme.publicOrder">Public order</option>
+                <option value="other" data-i18n="crime.theme.other">Other</option>
+              </select>
+            </label>
+            <label><span data-i18n="crime.startMonth">Start month</span><input class="field" type="month" data-crime-list-filter="start"></label>
+            <label><span data-i18n="crime.duration">Duration</span>
+              <select class="field" data-crime-list-filter="duration">
+                <option value="3" data-i18n="crime.months3">3 months</option>
+                <option value="6" data-i18n="crime.months6">6 months</option>
+                <option value="12" data-i18n="crime.months12">12 months</option>
+                <option value="24" data-i18n="crime.months24">24 months</option>
+              </select>
+            </label>
+            <label><span data-i18n="crime.radius">Radius</span>
+              <select class="field" data-crime-list-filter="radius">
+                <option value="200">200 m</option><option value="400">400 m</option><option value="800">800 m</option><option value="1200">1,200 m</option><option value="1600">1,600 m</option><option value="2400">2,400 m</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        <fieldset class="crime-list-levels" data-crime-list-levels>
+          <legend data-i18n="crime.list.levelLegend">Level of detail</legend>
+          <label>
+            <input type="radio" name="crime-list-level" value="overview" data-crime-list-level="overview" checked>
+            <span data-i18n="crime.list.levelOverview">Overview</span>
+          </label>
+          <label>
+            <input type="radio" name="crime-list-level" value="categories" data-crime-list-level="categories">
+            <span data-i18n="crime.list.levelCategories">Categories</span>
+          </label>
+          <label>
+            <input type="radio" name="crime-list-level" value="records" data-crime-list-level="records">
+            <span data-i18n="crime.list.levelRecords">Records</span>
+          </label>
+          <label>
+            <input type="radio" name="crime-list-level" value="charts" data-crime-list-level="charts">
+            <span data-i18n="crime.list.levelCharts">Charts</span>
+          </label>
+        </fieldset>
+        <p data-crime-list-status role="status" aria-live="polite" data-i18n="crime.list.loadingOverview">Loading the frozen snapshot overview…</p>
+
+        <section class="crime-list-panel" data-crime-list-panel="overview" aria-labelledby="crime-list-overview-title">
+          <div class="crime-list-panel__heading"><h3 id="crime-list-overview-title" data-i18n="crime.list.overviewTitle">Broad category overview</h3><label><span data-i18n="crime.list.sortBy">Sort by</span><select class="field" data-crime-list-sort="overview"><option value="count" data-i18n="crime.list.sortCount">Record count</option><option value="name" data-i18n="crime.list.sortName">Name</option></select></label></div>
+          <div class="crime-list-table-scroll crime-list-table-scroll--compact" tabindex="0" role="region" data-i18n-aria-label="crime.list.overviewRegion" aria-label="Broad category overview table">
+            <table>
+              <caption data-i18n="crime.list.overviewCaption">Historical reported records by broad category</caption>
+              <thead><tr><th scope="col" data-i18n="crime.list.broadCategory">Broad category</th><th scope="col" data-i18n="crime.list.recordCount">Records</th><th scope="col" data-i18n="crime.list.share">Share</th></tr></thead>
+              <tbody data-crime-list-overview-body></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="crime-list-panel" data-crime-list-panel="categories" aria-labelledby="crime-list-categories-title" hidden>
+          <div class="crime-list-panel__heading"><h3 id="crime-list-categories-title" data-i18n="crime.list.categoriesTitle">Specific categories</h3><label><span data-i18n="crime.list.sortBy">Sort by</span><select class="field" data-crime-list-sort="categories"><option value="count" data-i18n="crime.list.sortCount">Record count</option><option value="name" data-i18n="crime.list.sortName">Name</option><option value="theme" data-i18n="crime.list.sortBroadCategory">Broad category</option></select></label></div>
+          <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.categoriesRegion" aria-label="Specific offense category table">
+            <table>
+              <caption data-i18n="crime.list.categoriesCaption">Historical reported records by specific category</caption>
+              <thead><tr><th scope="col" data-i18n="map.incidentOffense">Offense</th><th scope="col" data-i18n="crime.list.broadCategory">Broad category</th><th scope="col" data-i18n="crime.list.recordCount">Records</th><th scope="col" data-i18n="crime.list.share">Share</th></tr></thead>
+              <tbody data-crime-list-categories-body></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="crime-list-panel" data-crime-list-panel="records" aria-labelledby="crime-list-records-title" hidden>
+          <div class="crime-list-panel__heading"><h3 id="crime-list-records-title" data-i18n="crime.list.recordsTitle">Individual records</h3><label><span data-i18n="crime.list.sortBy">Sort by</span><select class="field" data-crime-list-sort="records"><option value="newest" data-i18n="crime.list.sortNewest">Newest first</option><option value="oldest" data-i18n="crime.list.sortOldest">Oldest first</option><option value="offense" data-i18n="crime.list.sortOffense">Crime category</option><option value="district" data-i18n="crime.list.sortDistrict">Police district</option></select></label></div>
+          <p data-crime-list-records-hint data-i18n="crime.list.recordsNeedArea">Choose a point buffer, police district, or census tract to view individual records.</p>
+          <div class="crime-list-table-scroll" tabindex="0" role="region" data-i18n-aria-label="crime.list.tableRegion" aria-label="Scrollable incident records table">
+            <table data-crime-list-table>
+              <caption data-crime-list-caption data-i18n="crime.list.caption">Historical reported incident records for the current Crime query</caption>
+              <thead>
+                <tr>
+                  <th scope="col" data-i18n="map.incidentOffense">Offense</th>
+                  <th scope="col" data-i18n="map.incidentOccurred">Date and time</th>
+                  <th scope="col" data-i18n="map.incidentLocation">Reported location</th>
+                  <th scope="col" data-i18n="map.incidentDistrict">Police district</th>
+                </tr>
+              </thead>
+              <tbody data-crime-list-body>
+                <tr><th scope="row" data-i18n="crime.list.noRows">No admitted records yet</th><td colspan="3">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="crime-list-panel" data-crime-list-panel="charts" aria-labelledby="crime-list-charts-title" hidden>
+          <h3 id="crime-list-charts-title" data-i18n="crime.list.chartsTitle">Quick charts</h3>
+          <div class="crime-list-chart" data-crime-list-category-chart role="img" data-i18n-aria-label="crime.list.categoryChartLabel" aria-label="Largest crime categories"></div>
+          <div class="crime-list-chart" data-crime-list-month-chart role="img" data-i18n-aria-label="crime.list.monthChartLabel" aria-label="Reported records by month"></div>
+        </section>
         <details class="crime-list-notes">
           <summary data-i18n="crime.list.notesTitle">Data notes</summary>
           <ul class="crime-list-limitations" data-crime-list-limitations>

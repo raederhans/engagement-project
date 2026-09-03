@@ -1,10 +1,15 @@
-import { CARTO_SQL_BASE } from '../config.js';
+import {
+  CARTO_SQL_BASE,
+  CRIME_DATASET_COVERAGE_MAX,
+  CRIME_DATASET_END_EXCLUSIVE,
+} from '../config.js';
 import { fetchJson, logQuery } from "../utils/http.js";
 
 export const COVERAGE_SQL = [
   "SELECT MIN(dispatch_date_time AT TIME ZONE 'America/New_York')::date AS min_dt,",
   "       MAX(dispatch_date_time AT TIME ZONE 'America/New_York')::date AS max_dt",
   'FROM incidents_part1_part2',
+  `WHERE dispatch_date_time < '${CRIME_DATASET_END_EXCLUSIVE}'`,
 ].join('\n');
 
 function admittedCoverageDate(value) {
@@ -31,7 +36,7 @@ export function admitCoverageResponse(payload) {
   if (!min || !max || min > max) {
     throw new TypeError('Invalid Crime coverage response: coverage dates are invalid');
   }
-  return { min, max };
+  return { min, max: max > CRIME_DATASET_COVERAGE_MAX ? CRIME_DATASET_COVERAGE_MAX : max };
 }
 
 export async function fetchCoverage({ ttlMs = 24 * 60 * 60 * 1000 } = {}) {

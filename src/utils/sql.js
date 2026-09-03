@@ -1,4 +1,7 @@
-import { CRIME_DATASET_START } from '../config.js';
+import {
+  CRIME_DATASET_END_EXCLUSIVE,
+  CRIME_DATASET_START,
+} from '../config.js';
 
 /**
  * Ensure the provided ISO date is not earlier than the historical floor.
@@ -8,6 +11,12 @@ import { CRIME_DATASET_START } from '../config.js';
 export function dateFloorGuard(value) {
   const iso = ensureIso(value, "start");
   return iso < CRIME_DATASET_START ? CRIME_DATASET_START : iso;
+}
+
+/** Keep all Crime reads inside the frozen showcase snapshot. */
+export function dateCeilingGuard(value) {
+  const iso = ensureIso(value, 'end');
+  return iso > CRIME_DATASET_END_EXCLUSIVE ? CRIME_DATASET_END_EXCLUSIVE : iso;
 }
 
 /**
@@ -130,6 +139,19 @@ export function buildMonthlyCitySQL({ start, end, types, dc_dist, drilldownCodes
     ...clauses,
     "GROUP BY 1 ORDER BY 1",
   ].join("\n");
+}
+
+/** Aggregate the frozen citywide snapshot into bounded offense-category rows. */
+export function buildOffenseCountsCitySQL({ start, end, types, drilldownCodes }) {
+  const startIso = dateFloorGuard(start);
+  const endIso = ensureIso(end, 'end');
+  const clauses = baseTemporalClauses(startIso, endIso, types, { drilldownCodes });
+  return [
+    'SELECT text_general_code, COUNT(*) AS n',
+    'FROM incidents_part1_part2',
+    ...clauses,
+    'GROUP BY 1 ORDER BY n DESC, text_general_code',
+  ].join('\n');
 }
 
 /**
@@ -471,10 +493,11 @@ function dWithinClause(center, radius) {
 }
 
 function baseTemporalClauses(startIso, endIso, types, { includeTypes = true, drilldownCodes } = {}) {
+  const boundedEndIso = dateCeilingGuard(endIso);
   const clauses = [
     `WHERE dispatch_date_time >= '${CRIME_DATASET_START}'`,
     `  AND dispatch_date_time >= '${startIso}'`,
-    `  AND dispatch_date_time < '${endIso}'`,
+    `  AND dispatch_date_time < '${boundedEndIso}'`,
   ];
 
   if (includeTypes) {

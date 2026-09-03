@@ -37,8 +37,15 @@ export function createCrimeMapSelectionCoordinator({
     districtSelectionWired = true;
     map.on('click', 'districts-fill', (event) => {
       const feature = event.features?.[0];
-      const code = String(feature?.properties?.DIST_NUMC || '').padStart(2, '0');
-      if (!isActive() || state.queryMode !== 'district' || !code) return;
+      const rawCode = String(feature?.properties?.DIST_NUMC || '').trim();
+      const code = /^\d{1,2}$/.test(rawCode) && Number(rawCode) > 0
+        ? rawCode.padStart(2, '0')
+        : '';
+      const opensFromContext = state.queryMode === 'buffer'
+        && !state.centerLonLat
+        && state.selectMode !== 'point';
+      if (!isActive() || (!opensFromContext && state.queryMode !== 'district') || !code) return;
+      if (opensFromContext) statePort.mutate(CRIME_STATE_ACTIONS.SET_MODE, { mode: 'district' });
       statePort.mutate(CRIME_STATE_ACTIONS.SELECT_DISTRICT, { code });
       onDistrictSelected({ event, feature, code });
     });

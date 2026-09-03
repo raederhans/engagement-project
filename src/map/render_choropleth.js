@@ -1,7 +1,8 @@
-import { updateLegend, hideLegend } from './legend.js';
+import { updateLegend, updateLegendMessage } from './legend.js';
 import { computeBreaks, makePalette, toMapLibreStep } from '../utils/classify.js';
 import { store } from '../state/store.js';
 import { setTranslatedText, t } from '../i18n/index.js';
+import { resolveCrimeDistrictFillOpacity } from '../state/crime_view_state.js';
 
 /**
  * Add or update a districts choropleth from merged GeoJSON.
@@ -9,17 +10,39 @@ import { setTranslatedText, t } from '../i18n/index.js';
  * @param {object} merged - FeatureCollection with properties.value on each feature
  * @returns {{breaks:number[], colors:string[]}}
  */
-export function renderDistrictChoropleth(map, merged) {
+export function renderDistrictChoropleth(map, merged, {
+  status = 'ready',
+  start = '',
+  end = '',
+} = {}) {
   const values = (merged?.features || []).map((f) => Number(f?.properties?.value) || 0);
-  const allZero = values.length === 0 || values.every((v) => v === 0);
+  const available = status === 'ready';
+  const allZero = available && (values.length === 0 || values.every((v) => v === 0));
   const breaks = allZero ? [] : computeBreaks(values, { method: store.classMethod, bins: store.classBins, custom: store.classCustomBreaks });
   const colors = makePalette(store.classPalette, (breaks.length || Math.max(1, store.classBins - 1)) + 1);
 
   // Update legend
-  if (allZero || breaks.length === 0) {
-    hideLegend();
+  if (!available) {
+    updateLegendMessage({
+      title: 'map.districtContextLegend',
+      message: status === 'loading'
+        ? 'map.districtOverviewLoading'
+        : 'map.districtOverviewUnavailable',
+    });
+  } else if (allZero || breaks.length === 0) {
+    updateLegendMessage({
+      title: 'map.districtContextLegend',
+      message: 'crime.noIncidents',
+    });
   } else {
-    updateLegend({ title: 'crime.districts', breaks, colors });
+    updateLegend({
+      title: 'map.districtContextLegend',
+      subtitleKey: 'map.districtLegendSubtitle',
+      subtitleParams: { start, end },
+      breaks,
+      colors,
+      swatchOpacity: resolveCrimeDistrictFillOpacity(store),
+    });
   }
 
   // Build step expression from classifier
@@ -41,7 +64,9 @@ export function renderDistrictChoropleth(map, merged) {
       id: fillId,
       type: 'fill',
       source: sourceId,
-      paint: allZero ? {
+      paint: !available ? {
+        'fill-color': '#cbd5e1', 'fill-opacity': 0.08,
+      } : allZero ? {
         'fill-color': '#e5e7eb', 'fill-opacity': 0.6,
       } : {
         'fill-color': paintProps['fill-color'],
@@ -49,8 +74,12 @@ export function renderDistrictChoropleth(map, merged) {
       },
     });
   } else {
-    map.setPaintProperty(fillId, 'fill-color', allZero ? '#e5e7eb' : paintProps['fill-color']);
-    map.setPaintProperty(fillId, 'fill-opacity', allZero ? 0.6 : paintProps['fill-opacity']);
+    map.setPaintProperty(fillId, 'fill-color', !available
+      ? '#cbd5e1'
+      : allZero ? '#e5e7eb' : paintProps['fill-color']);
+    map.setPaintProperty(fillId, 'fill-opacity', !available
+      ? 0.08
+      : allZero ? 0.6 : paintProps['fill-opacity']);
   }
 
   if (!map.getLayer(lineId)) {
@@ -80,7 +109,7 @@ export function renderDistrictChoropleth(map, merged) {
       type: 'symbol',
       source: sourceId,
       layout: {
-        'text-field': ['coalesce', ['get', 'name'], ['get', 'DIST_NUMC']],
+        'text-field': ['get', 'DIST_NUMC'],
         'text-size': 12,
       },
       paint: { 'text-color': '#1f2937', 'text-halo-color': '#fff', 'text-halo-width': 1 }

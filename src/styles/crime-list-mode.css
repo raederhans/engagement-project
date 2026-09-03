@@ -53,6 +53,139 @@
   scroll-margin-top: calc(var(--app-bar-height) + var(--space-3));
 }
 
+.crime-list-levels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: var(--space-4) 0;
+  padding: 4px;
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-control);
+  background: var(--civic-paper-light);
+}
+
+.crime-list-filterbar {
+  margin-block: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-card);
+  background: var(--civic-paper-light);
+}
+
+.crime-list-filterbar__heading,
+.crime-list-panel__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.crime-list-filterbar__heading :is(h3, p),
+.crime-list-panel__heading h3 {
+  margin: 0;
+}
+
+.crime-list-filterbar__heading :is(p, span),
+.crime-list-panel__heading label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.crime-list-filterbar__controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.crime-list-filterbar__controls label,
+.crime-list-panel__heading label {
+  display: grid;
+  gap: 4px;
+}
+
+.crime-list-chart {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--civic-rule);
+  border-radius: var(--radius-card);
+}
+
+.crime-list-chart__row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.crime-list-chart__track {
+  height: 8px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--civic-paper-light);
+}
+
+.crime-list-chart__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--civic-blue, #2563eb);
+}
+
+.crime-list-levels legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.crime-list-levels label {
+  position: relative;
+  display: grid;
+  min-height: var(--control-target);
+  place-items: center;
+  border-radius: calc(var(--radius-control) - 2px);
+  color: var(--civic-navy);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crime-list-levels label:has(input:checked) {
+  background: var(--civic-navy);
+  color: #fff;
+}
+
+.crime-list-levels label:has(input:disabled) {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.crime-list-levels label:focus-within {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.crime-list-levels input {
+  position: absolute;
+  opacity: 0;
+}
+
+.crime-list-panel > h3 {
+  margin-bottom: var(--space-1);
+}
+
+.crime-list-panel > p {
+  max-width: 72ch;
+  margin-top: 0;
+  color: var(--muted);
+}
+
 .crime-list-table-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -71,6 +204,15 @@
   min-width: 680px;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
+}
+
+.crime-list-table-scroll--compact table {
+  min-width: 460px;
+}
+
+.crime-list-results td[data-numeric] {
+  text-align: right;
+  white-space: nowrap;
 }
 
 .crime-list-results caption {
@@ -119,7 +261,7 @@ body[data-crime-view="list"] [data-result-meta="boundary"] {
 
 body[data-crime-view="list"] .incident-results__list,
 body[data-crime-view="list"] .incident-results__selected,
-body[data-crime-view="list"] .incident-results__more,
+body[data-crime-view="list"] .incident-results__pagination,
 body[data-crime-view="list"] [data-incident-results-status],
 body[data-crime-view="list"] [data-incident-results-state],
 body[data-crime-view="list"] .incident-results__header > [data-i18n="incidents.description"] {
@@ -127,6 +269,17 @@ body[data-crime-view="list"] .incident-results__header > [data-i18n="incidents.d
 }
 
 @media (max-width: 720px) {
+  .crime-list-levels,
+  .crime-list-filterbar__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crime-list-filterbar__heading,
+  .crime-list-panel__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .crime-view-mode label {
     flex: 1;
     justify-content: center;

@@ -11,6 +11,9 @@ registerMessagePairs({
   'focus.change': ['Change', '切换'],
   'focus.dialogTitle': ['Choose result order', '选择结果顺序'],
   'focus.dialogDescription': ['Changes result order only.', '仅调整结果顺序。'],
+  'focus.helpLabel': ['About result focus', '了解查看重点'],
+  'focus.helpTitle': ['What changes?', '它会改变什么？'],
+  'focus.helpBody': ['General overview starts with the summary, long-term context starts with charts, and nearby review starts with the incident log. Filters and data do not change.', '通用概览先显示摘要，长期背景先显示趋势图，周边回顾先显示事件记录；筛选条件和数据本身不会改变。'],
   'focus.general': ['General overview', '通用概览'],
   'focus.generalDescription': ['Summary first.', '概览优先。'],
   'focus.longTerm': ['Long-term context', '长期背景'],
@@ -85,6 +88,9 @@ export function createTaskFocusController({
 } = {}) {
   for (const element of mount?.querySelectorAll?.('[data-focus-i18n]') || []) {
     element.dataset.i18n = element.dataset.focusI18n;
+  }
+  for (const element of mount?.querySelectorAll?.('[data-focus-i18n-aria-label]') || []) {
+    element.dataset.i18nAriaLabel = element.dataset.focusI18nAriaLabel;
   }
   let focusMode = 'general';
   const openButton = mount?.querySelector?.('[data-task-focus-open]');

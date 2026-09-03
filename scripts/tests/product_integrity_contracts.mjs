@@ -210,10 +210,8 @@ test('Diary reader copy and Sample Community visuals stay personal, illustrative
       /Route Safety Diary|safety score|community safety score|High risk|Moderate risk|Generally safe|safer route|safest route|路线安全日记|安全评分|社区安全评分|高风险|中等风险|总体安全/iu,
     );
     assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /static/i : /静态/u);
-    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not real-time/i : /非实时/u);
-    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not user-submitted/i : /非用户投稿/u);
-    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not representative of any population/i : /不代表任何总体/u);
-    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /no official endorsement/i : /没有官方背书/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not live/i : /非实时/u);
+    assert.match(messages[locale]['diary.communityNotice'], locale === 'en' ? /not user-submitted/i : /非用户提交/u);
   }
   assert.match(html, /browser-local trip notes/i);
   assert.doesNotMatch(communitySource, /is-good|is-mid|is-bad|is-order-(?:low|middle|high)|high concern/i);
@@ -478,25 +476,30 @@ test('comparison summary counts each point once and does not synthesize a sparse
   assert.equal(result.b.delta30, null);
 });
 
-test('private address search is unavailable before any geocoder request', async () => {
+test('Crime address search is transient while Home Compare address search stays gated', async () => {
   const {
     findPhiladelphiaPropertyAddressCandidates,
     geocodePhiladelphiaAddress,
   } = await import('../../src/api/geocoder.js');
   let requestCalls = 0;
-  await assert.rejects(
-    geocodePhiladelphiaAddress('1500 Market St', {
-      request: async () => { requestCalls += 1; return { candidates: [] }; },
-    }),
-    /unavailable/i,
-  );
+  let requestOptions = null;
+  const geocoded = await geocodePhiladelphiaAddress('1500 Market St', {
+    request: async (_url, options) => {
+      requestCalls += 1;
+      requestOptions = options;
+      return { candidates: [{ address: '1500 MARKET ST', score: 100, location: { x: -75.16, y: 39.95 } }] };
+    },
+  });
+  assert.deepEqual(geocoded.lngLat, [-75.16, 39.95]);
+  assert.equal(requestOptions.cacheTTL, 0);
+  assert.equal(requestOptions.retries, 0);
   await assert.rejects(
     findPhiladelphiaPropertyAddressCandidates('1500 Market St', {
       request: async () => { requestCalls += 1; return { candidates: [] }; },
     }),
     /unavailable/i,
   );
-  assert.equal(requestCalls, 0);
+  assert.equal(requestCalls, 1);
 });
 
 test('address ownership prevents an older response from replacing a newer result', async () => {

@@ -5,17 +5,15 @@ import { createManualRouteInput, readRouteGeoJsonFile } from './route_input.js';
 registerMessagePairs({
   'route.title': ['Known route history', '已知路线历史记录'],
   'route.description': ['Review records near a route you provide.', '查看所选路线附近的记录。'],
-  'route.file': ['Choose GeoJSON LineString', '选择 GeoJSON LineString'],
+  'route.file': ['Import route file', '导入路线文件'],
   'route.draw': ['Draw on map', '在地图上绘制'],
   'route.finish': ['Finish route', '完成路线'],
   'route.clear': ['Clear route', '清除路线'],
   'route.buffer': ['Route buffer (metres)', '路线缓冲范围（米）'],
   'route.review': ['Review historical records', '查看历史记录'],
   'route.close': ['Close', '关闭'],
-  'route.eyebrow': ['Historical reported records', '历史已记录事件'],
   'route.drawHint': ['Click map points', '点击地图添加路线点'],
   'route.waypoints': ['Enter route waypoints', '输入路线途经点'],
-  'route.waypointsHint': ['At least two waypoints.', '至少两个途经点。'],
   'route.waypoint': ['Waypoint {count}', '途经点 {count}'],
   'route.longitude': ['Longitude', '经度'],
   'route.latitude': ['Latitude', '纬度'],
@@ -46,9 +44,10 @@ registerMessagePairs({
   'route.value.reportedRecord': ['Reported record', '已记录事件'],
   'route.value.dateUnavailable': ['Date unavailable', '日期不可用'],
   'route.value.locationUnavailable': ['Location unavailable', '位置不可用'],
-  'route.disclosure': ['The remote incident source receives a coarse 2 km-snapped area, historic dates, and current offense filters. The exact route stays in browser memory and is not saved.', '远程事件数据源会收到按 2 公里网格向外取整的粗略区域、历史日期和当前 offense filters。精确路线仅保留在浏览器内存中，不会保存。'],
-  'route.truth': ['Historical reported records only; not live, predictive, a risk score, or a safer-route recommendation. A reported point near the route does not mean the event occurred on the route.', '仅为历史已记录事件；不是实时信息、预测、风险分数或更安全路线建议。记录点靠近路线不表示事件发生在路线上。'],
+  'route.disclosure': ['The query sends only a coarse area, dates, and crime categories. The full route is not saved.', '查询只会发送粗略区域、日期和犯罪类别；完整路线不会保存。'],
+  'route.truth': ['These are historical reported records near the route. They do not show that an event happened on the route or provide safety advice.', '这里只显示路线附近的历史上报记录，不代表事件发生在路线上，也不是安全建议。'],
   'route.notes': ['Data & privacy', '数据与隐私'],
+  'route.resultDetails': ['Result details', '结果说明'],
   'route.state.route-required': ['Provide a known route before requesting historical records.', '请先提供已知路线，再请求历史记录。'],
   'route.state.drawing': ['Drawing route: add at least two map points, then finish the route.', '正在绘制路线：请至少添加两个地图点，然后完成路线。'],
   'route.state.route-provided': ['Route provided. Review explicitly when you are ready; no request has been made.', '路线已提供。准备好后请明确点击查看；目前尚未发送请求。'],
@@ -57,9 +56,9 @@ registerMessagePairs({
   'route.state.coverage-unavailable': ['Coverage could not be proven for this route. This is unavailable, not a zero result.', '无法证明这条路线的覆盖范围；这是不可用状态，不是零结果。'],
   'route.state.source-failure': ['The historical reported-record source failed. No result count is available.', '历史已记录事件数据源失败；目前没有可用数量。'],
   'route.state.superseded': ['This request was replaced by a newer route or query.', '此请求已被更新的路线或查询取代。'],
-  'route.state.no-mapped-incidents': ['No mapped reported records matched within the admitted corridor for this historical query.', '在已准入的路线范围与本次历史查询中，没有匹配的可绘制记录。'],
-  'route.state.admitted-zero': ['No mapped reported records matched within the admitted corridor for this historical query.', '在已准入的路线范围与本次历史查询中，没有匹配的可绘制记录。'],
-  'route.state.ready': ['{count} mapped historical reported records matched this admitted corridor.', '有 {count} 条可绘制的历史已记录事件匹配此准入路线范围。'],
+  'route.state.no-mapped-incidents': ['No mapped reported records matched this route area and time window.', '该路线范围和时间段内没有匹配的可绘制记录。'],
+  'route.state.admitted-zero': ['No mapped reported records matched this route area and time window.', '该路线范围和时间段内没有匹配的可绘制记录。'],
+  'route.state.ready': ['{count} mapped historical reported records matched this route area.', '该路线范围内匹配到 {count} 条可绘制的历史上报记录。'],
 });
 
 const STATE_SUMMARIES = Object.freeze({
@@ -69,8 +68,8 @@ const STATE_SUMMARIES = Object.freeze({
   'coverage-unavailable': 'Coverage could not be proven for this route. This is unavailable, not a zero result.',
   'source-failure': 'The historical reported-record source failed. No result count is available.',
   superseded: 'This request was replaced by a newer route or query.',
-  'no-mapped-incidents': 'No mapped reported records matched within the admitted corridor for this historical query.',
-  ready: 'Mapped historical reported records matched this admitted corridor.',
+  'no-mapped-incidents': 'No mapped reported records matched this route area and time window.',
+  ready: 'Mapped historical reported records matched this route area.',
 });
 
 const PRESENTATION_PHASES = Object.freeze({
@@ -535,7 +534,7 @@ export function initRouteCorridorUi({
 
 function surfaceHtml() {
   return `<section class="route-corridor" data-route-corridor-surface tabindex="-1" aria-labelledby="route-corridor-title" aria-busy="false" hidden inert>
-    <header><p class="route-corridor__eyebrow" data-i18n="route.eyebrow">${t('route.eyebrow')}</p><h2 id="route-corridor-title" data-i18n="route.title">${t('route.title')}</h2></header>
+    <header><button class="button button--secondary" data-route-close data-i18n="route.close" type="button">${t('route.close')}</button><h2 id="route-corridor-title" data-i18n="route.title">${t('route.title')}</h2></header>
     <div class="route-corridor-shell__scroll">
     <div class="route-corridor__controls">
       <label class="button button--secondary"><span data-i18n="route.file">${t('route.file')}</span><input data-route-file type="file" accept=".geojson,.json,application/geo+json,application/json"></label>
@@ -544,9 +543,8 @@ function surfaceHtml() {
       <button class="button button--secondary" data-route-clear data-i18n="route.clear" type="button">${t('route.clear')}</button>
       <label><span data-i18n="route.buffer">${t('route.buffer')}</span><input class="field" data-route-buffer type="number" min="10" max="10000" step="1" value="100"></label>
     </div>
-    <fieldset class="route-corridor__waypoint-editor" aria-describedby="route-waypoints-hint">
+    <fieldset class="route-corridor__waypoint-editor">
       <legend data-i18n="route.waypoints">${t('route.waypoints')}</legend>
-      <p id="route-waypoints-hint" class="route-corridor__compact-hint" data-i18n="route.waypointsHint">${t('route.waypointsHint')}</p>
       <ol data-route-waypoint-list></ol>
       <div class="route-corridor__waypoint-actions">
         <button class="button button--secondary" data-route-waypoint-add data-i18n="route.addWaypoint" type="button">${t('route.addWaypoint')}</button>
@@ -562,11 +560,11 @@ function surfaceHtml() {
       <p class="route-corridor__truth" data-i18n="route.truth">${t('route.truth')}</p>
     </details>
     <p data-route-status role="status" aria-live="polite" aria-atomic="true"></p>
-    <dl data-route-evidence></dl><ol class="incident-results__list" data-route-results></ol>
+    <details class="route-corridor__notes"><summary data-i18n="route.resultDetails">${t('route.resultDetails')}</summary><dl data-route-evidence></dl></details><ol class="incident-results__list" data-route-results></ol>
     <section class="route-corridor__hin" data-route-hin-context aria-live="polite"></section>
     <section data-known-route-evidence></section>
     </div>
-    <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button><button class="button button--secondary" data-route-close data-i18n="route.close" type="button">${t('route.close')}</button></footer>
+    <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button></footer>
   </section>`;
 }
 

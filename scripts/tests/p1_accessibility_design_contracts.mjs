@@ -164,7 +164,7 @@ test('civic annotation text and Help controls meet contrast, target, focus, and 
   );
   assert.match(
     css,
-    /\.about-close:focus-visible,[\s\S]*?\.about-footer a:focus-visible\s*\{[^}]*outline:\s*3px solid #fff[^}]*box-shadow:\s*0 0 0 5px var\(--brand\)/s,
+    /\.about-close:focus-visible,[\s\S]*?\.about-source-card a:focus-visible\s*\{[^}]*outline:\s*3px solid #fff[^}]*box-shadow:\s*0 0 0 5px var\(--brand\)/s,
   );
   assert.match(
     css,

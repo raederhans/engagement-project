@@ -100,6 +100,9 @@ assert.deepEqual(
     'src/charts/index.js',
     'src/i18n/crime_offense_catalog.js',
     'src/routes_crime/public_area_summary.js',
+    'src/routes_crime/crime_load_coordinator.js',
+    'src/routes_crime/crime_selection_camera.js',
+    'src/routes_crime/crime_district_context.js',
   ]),
   'Map Crime must keep incident results, task focus, and Charts behind focused lazy boundaries while shared Known Route stays app-owned',
 );
@@ -278,7 +281,8 @@ const budgets = [
   // compressed transfer ceiling remains unchanged.
   ['Home Compare styles', homeCompareStyles, 4_800, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
-  ['Incident Results', incidentResults, 7_000, 2_900],
+  // Pagination and explicit map focus remain isolated behind the point-results lazy boundary.
+  ['Incident Results', incidentResults, 7_800, 3_100],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
   ['Task Focus', taskFocus, 6_800, 3_100],
   // Owns preview, stale-state admission, one-refresh commit, full-snapshot undo,

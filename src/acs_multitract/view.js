@@ -110,6 +110,7 @@ export function acsMultitractProductHtml(locale = 'en') {
   return [
     '<div class="acs-multitract__surface">',
     '<header class="acs-multitract__header">',
+    `<button class="button button--secondary analysis-workspace__close" type="button" data-acs-multitract-close>${escapeHtml(copy.close)}</button>`,
     `<p class="acs-multitract__eyebrow">${escapeHtml(copy.eyebrow)}</p>`,
     `<h2 id="acs-multitract-title">${escapeHtml(copy.title)}</h2>`,
     `<p id="acs-multitract-description">${escapeHtml(copy.intro)}</p>`,

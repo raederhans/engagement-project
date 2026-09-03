@@ -1,5 +1,6 @@
 import { CARTO_SQL_BASE } from "../config.js";
-import { fetchJson, logQuery, rejectPrivateLocationEgress } from "../utils/http.js";
+import { fetchJson, logQuery } from "../utils/http.js";
+import { crimeTransportPolicy } from '../crime_runtime_policy.js';
 import * as Q from "../utils/sql.js";
 import { expandGroupsToCodes } from "../utils/types.js";
 import { fetchTractsCachedFirst } from "./boundaries.js";
@@ -142,16 +143,19 @@ export async function fetchPoints({
   tractGeometry,
   signal,
 }) {
-  if (center3857 != null) rejectPrivateLocationEgress();
+  const transport = crimeTransportPolicy({
+    transientLocation: center3857 != null,
+    publicCacheTTL: 30_000,
+  });
   const sql = Q.buildCrimePointsSQL({
     start, end, types, bbox, center3857, radiusM, dc_dist, drilldownCodes, tractGeometry,
   });
-  await logQuery('fetchPoints', sql);
+  if (transport.logQuery) await logQuery('fetchPoints', sql);
   return admitCrimeResponse('points', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `format=GeoJSON&q=${encodeURIComponent(sql)}`,
-    cacheTTL: 30_000,
+    cacheTTL: transport.cacheTTL,
     signal,
   }));
 }
@@ -168,6 +172,19 @@ export async function fetchMonthlySeriesCity({ start, end, types, dc_dist, signa
   const sql = Q.buildMonthlyCitySQL({ start, end, types, dc_dist });
   await logQuery('fetchMonthlySeriesCity', sql);
   return admitCrimeResponse('monthly', await fetchJson(CARTO_SQL_BASE, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `q=${encodeURIComponent(sql)}`,
+    cacheTTL: 300_000,
+    signal,
+  }));
+}
+
+/** Fetch a small citywide category summary instead of transferring raw citywide rows. */
+export async function fetchOffenseCountsCity({ start, end, types, drilldownCodes, signal }) {
+  const sql = Q.buildOffenseCountsCitySQL({ start, end, types, drilldownCodes });
+  await logQuery('fetchOffenseCountsCity', sql);
+  return admitCrimeResponse('top', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
@@ -194,7 +211,7 @@ export async function fetchMonthlySeriesBuffer({
   radiusM,
   signal,
 }) {
-  rejectPrivateLocationEgress();
+  const transport = crimeTransportPolicy({ transientLocation: true });
   const sql = Q.buildMonthlyBufferSQL({
     start,
     end,
@@ -202,12 +219,12 @@ export async function fetchMonthlySeriesBuffer({
     center3857,
     radiusM,
   });
-  await logQuery('fetchMonthlySeriesBuffer', sql);
+  if (transport.logQuery) await logQuery('fetchMonthlySeriesBuffer', sql);
   return admitCrimeResponse('monthly', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
-    cacheTTL: 60_000,
+    cacheTTL: transport.cacheTTL,
     signal,
   }));
 }
@@ -231,7 +248,7 @@ export async function fetchTopTypesBuffer({
   limit,
   signal,
 }) {
-  rejectPrivateLocationEgress();
+  const transport = crimeTransportPolicy({ transientLocation: true });
   const sql = Q.buildTopTypesSQL({
     start,
     end,
@@ -240,12 +257,12 @@ export async function fetchTopTypesBuffer({
     radiusM,
     limit,
   });
-  await logQuery('fetchTopTypesBuffer', sql);
+  if (transport.logQuery) await logQuery('fetchTopTypesBuffer', sql);
   return admitCrimeResponse('top', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
-    cacheTTL: 60_000,
+    cacheTTL: transport.cacheTTL,
     signal,
   }));
 }
@@ -268,7 +285,7 @@ export async function fetch7x24Buffer({
   radiusM,
   signal,
 }) {
-  rejectPrivateLocationEgress();
+  const transport = crimeTransportPolicy({ transientLocation: true });
   const sql = Q.buildHeatmap7x24SQL({
     start,
     end,
@@ -276,12 +293,12 @@ export async function fetch7x24Buffer({
     center3857,
     radiusM,
   });
-  await logQuery('fetch7x24Buffer', sql);
+  if (transport.logQuery) await logQuery('fetch7x24Buffer', sql);
   return admitCrimeResponse('heat', await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
-    cacheTTL: 60_000,
+    cacheTTL: transport.cacheTTL,
     signal,
   }));
 }
@@ -334,14 +351,14 @@ export async function fetch7x24District({ start, end, types, dc_dist, signal }) 
  * @returns {Promise<number>} total count
  */
 export async function fetchCountBuffer({ start, end, types, center3857, radiusM, signal }) {
-  rejectPrivateLocationEgress();
+  const transport = crimeTransportPolicy({ transientLocation: true });
   const sql = Q.buildCountBufferSQL({ start, end, types, center3857, radiusM });
-  await logQuery('fetchCountBuffer', sql);
+  if (transport.logQuery) await logQuery('fetchCountBuffer', sql);
   const json = await fetchJson(CARTO_SQL_BASE, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: `q=${encodeURIComponent(sql)}`,
-    cacheTTL: 30_000,
+    cacheTTL: transport.cacheTTL,
     signal,
   });
   const admitted = admitCrimeResponse('count', json);
@@ -367,7 +384,7 @@ export async function fetchAvailableCodesForGroups({ start, end, groups, signal 
 
   // Build SQL to get distinct codes with incidents in time window
   const startIso = Q.dateFloorGuard(start);
-  const endIso = end; // FIX: use the computed end (was: start, creating zero-length window)
+  const endIso = Q.dateCeilingGuard(end);
   const sanitized = Q.sanitizeTypes(expandedCodes);
   const codeList = sanitized.map((c) => `'${c}'`).join(', ');
 

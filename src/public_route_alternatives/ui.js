@@ -61,12 +61,6 @@ function appendMetric(documentRef, list, key, metric) {
   });
   const detail = element(documentRef, 'dd');
   detail.append(element(documentRef, 'strong', { text: formattedMetric(metric) }));
-  detail.append(element(documentRef, 'small', { text: metric.note }));
-  if (metric.sourceAsOf) {
-    detail.append(element(documentRef, 'small', {
-      text: t('publicRoutes.sourceAsOf', { date: metric.sourceAsOf }),
-    }));
-  }
   row.append(term, detail);
   list.append(row);
 }
@@ -118,10 +112,6 @@ export function createPublicRouteAlternativesUi({
     });
     const header = element(documentRef, 'header', { className: 'public-route-surface__header' });
     const heading = element(documentRef, 'div');
-    heading.append(element(documentRef, 'p', {
-      className: 'public-route-surface__eyebrow',
-      text: t('publicRoutes.eyebrow'),
-    }));
     heading.append(element(documentRef, 'h2', {
       text: t('publicRoutes.title'),
       attributes: { id: 'public-route-title' },
@@ -167,12 +157,10 @@ export function createPublicRouteAlternativesUi({
     });
     const badges = element(documentRef, 'div', { className: 'public-route-surface__badges' });
     badges.append(element(documentRef, 'span', { text: t('publicRoutes.walkingOnly') }));
-    badges.append(element(documentRef, 'span', { text: t('publicRoutes.staticFixture') }));
     controls.append(label, select, badges);
 
     const context = element(documentRef, 'div', { className: 'public-route-surface__context' });
     context.append(element(documentRef, 'strong', { text: `${view.origin} → ${view.destination}` }));
-    context.append(element(documentRef, 'span', { text: view.label }));
 
     const notice = element(documentRef, 'div', {
       className: 'public-route-surface__notice',

@@ -15,17 +15,86 @@ import { getLastComparisonSnapshot, updateCompare } from '../../src/compare/card
 import { createDistrictSummaryFetchers } from '../../src/routes_crime/public_area_summary.js';
 import * as refreshContract from '../../src/routes_crime/crime_refresh_owner.js';
 import {
+  ensureVisibleTractOverlay,
+  planCrimeBoundaryWarmup,
+  prepareCrimeRefresh,
+} from '../../src/routes_crime/crime_load_coordinator.js';
+import { runPublicCrimeCameraNavigation } from '../../src/routes_crime/crime_selection_camera.js';
+import {
   classifyDistrictBoundaryRefresh,
   loadTractOutlineResult,
   planCrimeRefresh,
   normalizeCrimeRefreshScope,
-  runPublicCrimeCameraNavigation,
 } from '../../src/routes_crime/index.js';
 import { estimatePopInBuffer } from '../../src/utils/pop_buffer.js';
 import { joinDistrictCountsToGeoJSON } from '../../src/utils/join.js';
 
 const { createCrimeRefreshOwner } = refreshContract;
 const { fetchPoints } = crimeApi;
+
+test('Crime load coordinator warms only boundary resources needed by the visible state', () => {
+  assert.deepEqual(planCrimeBoundaryWarmup({
+    adminLevel: 'districts', overlayTractsLines: false,
+  }), ['districts']);
+  assert.deepEqual(planCrimeBoundaryWarmup({
+    adminLevel: 'districts', overlayTractsLines: true,
+  }), ['districts', 'tracts']);
+  assert.deepEqual(planCrimeBoundaryWarmup({
+    adminLevel: 'tracts', overlayTractsLines: false,
+  }), ['tracts']);
+  assert.deepEqual(planCrimeBoundaryWarmup({
+    adminLevel: 'districts', overlayTractsLines: true,
+  }, 'charts'), []);
+});
+
+test('Crime load coordinator overlaps coverage and boundary preparation without promoting warmup failure', async () => {
+  const coverage = deferred();
+  const boundary = deferred();
+  const calls = [];
+  const prepared = prepareCrimeRefresh({
+    loadCoverage: () => { calls.push('coverage'); return coverage.promise; },
+    warmBoundary: () => { calls.push('boundary'); return boundary.promise; },
+  });
+
+  await Promise.resolve();
+  assert.deepEqual(calls.sort(), ['boundary', 'coverage']);
+  boundary.reject(new Error('boundary warmup unavailable'));
+  coverage.resolve({ min: '2006-01-01', max: '2026-08-31' });
+
+  const result = await prepared;
+  assert.equal(result.coverage.max, '2026-08-31');
+  assert.equal(result.boundary.status, 'failed');
+});
+
+test('Crime load coordinator preserves lazy tract overlay behavior', async () => {
+  let layerReady = false;
+  let boundaryLoads = 0;
+  const visibilityCalls = [];
+  const visible = await ensureVisibleTractOverlay({
+    visible: true,
+    trySetVisible(value) {
+      visibilityCalls.push(value);
+      return layerReady;
+    },
+    async loadBoundary() {
+      boundaryLoads += 1;
+      layerReady = true;
+      return { status: 'live' };
+    },
+  });
+
+  assert.equal(visible, true);
+  assert.equal(boundaryLoads, 1);
+  assert.deepEqual(visibilityCalls, [true, true]);
+
+  layerReady = false;
+  const hidden = await ensureVisibleTractOverlay({
+    visible: false,
+    trySetVisible: () => false,
+    loadBoundary: async () => { throw new Error('hidden overlays must not load'); },
+  });
+  assert.equal(hidden, false);
+});
 
 test('Crime external response admission rejects malformed HTTP 200 payloads and preserves admitted zero', () => {
   assert.equal(typeof crimeApi.admitCrimeResponse, 'function');
@@ -578,7 +647,7 @@ test('crime snapshots clone mutable filter and center values', () => {
   assert.deepEqual(snapshot.resolvedOffenseCodes, ['A']);
 });
 
-test('A-only private Crime snapshots are identified before comparison persistence', () => {
+test('A-only Crime buffers are classified as transient runtime data', async () => {
   const filters = {
     start: '2026-01-01',
     end: '2026-02-01',
@@ -601,11 +670,15 @@ test('A-only private Crime snapshots are identified before comparison persistenc
   assert.equal(snapshot.addressA, null);
   assert.equal(snapshot.addressB, null);
   assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(snapshot), true);
-  assert.deepEqual(refreshContract.privateCrimeUnavailableResult(), {
-    status: 'unavailable',
-    reason: 'private-location-analysis',
-    succeeded: [],
-    failed: [],
+  const policy = await import('../../src/crime_runtime_policy.js');
+  assert.deepEqual(policy.classifyCrimeRuntime(snapshot), {
+    kind: 'transient-buffer',
+    hasSelection: true,
+    transientLocation: true,
+  });
+  assert.deepEqual(policy.crimeTransportPolicy({ transientLocation: true, publicCacheTTL: 60_000 }), {
+    cacheTTL: 0,
+    logQuery: false,
   });
 });
 
@@ -1011,25 +1084,33 @@ test('the default fetchPoints chain propagates cancellation to the transport', a
   await assert.rejects(request, { name: 'AbortError' });
 });
 
-test('private buffer points fail before transport while public district points still fetch', async (t) => {
+test('transient buffer queries use live transport while public district points still fetch', async (t) => {
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => {
     fetchCalls += 1;
-    return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+    const payloads = [
+      { type: 'FeatureCollection', features: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [{ n: 0 }] },
+      { type: 'FeatureCollection', features: [] },
+    ];
+    return new Response(JSON.stringify(payloads[fetchCalls - 1]), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
   };
   t.after(() => { globalThis.fetch = originalFetch; });
 
-  await assert.rejects(fetchPoints({
+  await fetchPoints({
     start: '2099-01-01',
     end: '2099-02-01',
     center3857: [-8_365_000, 4_855_000],
     radiusM: 800,
-  }), /unavailable/i);
-  assert.equal(fetchCalls, 0);
+  });
+  assert.equal(fetchCalls, 1);
 
   for (const request of [
     () => crimeApi.fetchMonthlySeriesBuffer({
@@ -1045,16 +1126,16 @@ test('private buffer points fail before transport while public district points s
       start: '2099-01-01', end: '2099-02-01', center3857: [-8_365_000, 4_855_000], radiusM: 800,
     }),
   ]) {
-    await assert.rejects(request(), /unavailable/i);
+    await request();
   }
-  assert.equal(fetchCalls, 0);
+  assert.equal(fetchCalls, 5);
 
   await fetchPoints({
     start: '2099-01-01',
     end: '2099-02-01',
     dc_dist: '05',
   });
-  assert.equal(fetchCalls, 1);
+  assert.equal(fetchCalls, 6);
 });
 
 test('Crime synchronous UI actions require both controller and mode ownership', async () => {
@@ -1131,6 +1212,10 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
   const controller = listModule.createCrimeListController({
     readSnapshot: () => structuredClone(snapshot),
     initializeCoverage: async () => {},
+    fetchOverview: async (value) => {
+      assert.equal(value.selectedDistrictCode, '05');
+      return { rows: [{ text_general_code: 'Thefts', n: 1 }] };
+    },
     fetchIncidents: async (value) => {
       assert.equal(value.selectedDistrictCode, '05');
       return { type: 'FeatureCollection', features: [{ properties: { cartodb_id: 1 } }] };
@@ -1152,45 +1237,121 @@ test('Crime list refresh uses one snapshot for incidents, summary, charts, and p
 
   const result = await controller.requestRefresh();
   assert.equal(result.status, 'live');
-  assert.deepEqual(result.succeeded.sort(), ['charts', 'incidents', 'summary']);
+  assert.deepEqual(result.succeeded.sort(), ['charts', 'incidents', 'overview', 'summary']);
   assert.ok(calls.some(([kind, payload]) => kind === 'incidents' && payload.count === 1));
   assert.deepEqual(
     calls.filter(([kind]) => kind === 'ready').map(([, scope]) => scope).sort(),
-    ['charts', 'incidents', 'summary'],
+    ['charts', 'incidents', 'overview', 'summary'],
   );
   assert.equal(calls.at(-1)[0], 'focus');
 });
 
-test('Crime list private analysis returns unavailable before coverage or any fetch owner', async () => {
+test('Crime list transient buffer initializes coverage and runs every result owner', async () => {
   const { createCrimeListController } = await import('../../src/routes_crime/list_mode_controller.js');
   const calls = [];
   const snapshot = {
+    start: '2026-01-01',
+    end: '2026-07-01',
+    types: [],
+    resolvedOffenseCodes: [],
+    drilldownCodes: [],
     queryMode: 'buffer',
     centerLonLat: [-75.16, 39.95],
     center3857: [-8364000, 4855000],
+    centerB3857: null,
+    centerBLonLat: null,
     addressA: '1500 PRIVATE MARKET STREET',
+    addressB: null,
+    radiusM: 400,
+    adminLevel: 'districts',
+    per10k: false,
+    coverageDate: '2026-06-30',
+    overlayTractsLines: false,
   };
   const owner = async (name) => { calls.push(name); return { applied: true, status: 'success' }; };
   const view = {
-    unavailable(scope) { calls.push(`unavailable:${scope}`); },
+    loading(scope) { calls.push(`loading:${scope}`); return scope; },
+    overview() {},
+    incidents() {},
+    ready(scope) { calls.push(`ready:${scope}`); },
+    failed(scope) { calls.push(`failed:${scope}`); },
+    clear(scope) { calls.push(`clear:${scope}`); },
+    focusResults() { calls.push('focus'); },
   };
   const controller = createCrimeListController({
     readSnapshot: () => structuredClone(snapshot),
     initializeCoverage: () => owner('coverage'),
+    fetchOverview: async () => {
+      calls.push('overview');
+      return { rows: [{ text_general_code: 'Thefts', n: 1 }] };
+    },
     fetchIncidents: () => owner('incidents'),
     updateSummary: () => owner('summary'),
     updateCharts: () => owner('charts'),
+    createProvenance: ({ name }) => ({ name }),
     view,
   });
 
   const result = await controller.requestRefresh();
-  assert.equal(result.status, 'unavailable');
-  assert.deepEqual(calls, [
-    'unavailable:incidents',
-    'unavailable:summary',
-    'unavailable:charts',
+  assert.equal(result.status, 'live');
+  assert.equal(calls[0], 'coverage');
+  assert.deepEqual(calls.filter((entry) => ['overview', 'incidents', 'summary', 'charts'].includes(entry)).sort(), [
+    'charts',
+    'incidents',
+    'overview',
+    'summary',
   ]);
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE|MARKET|75\.16|8364000/);
+});
+
+test('Crime list default state loads a citywide overview without pretending raw records are empty', async () => {
+  const { createCrimeListController } = await import('../../src/routes_crime/list_mode_controller.js');
+  const calls = [];
+  const snapshot = {
+    start: '2025-09-01', end: '2026-09-01', types: [], resolvedOffenseCodes: [],
+    drilldownCodes: [], queryMode: 'buffer', centerLonLat: null, center3857: null,
+    centerB3857: null, centerBLonLat: null, addressA: null, addressB: null,
+    radiusM: 400, adminLevel: 'districts', per10k: false,
+    coverageDate: '2026-08-31', overlayTractsLines: false,
+  };
+  const controller = createCrimeListController({
+    readSnapshot: () => structuredClone(snapshot),
+    initializeCoverage: async () => calls.push('coverage'),
+    fetchOverview: async () => {
+      calls.push('overview');
+      return { rows: [{ text_general_code: 'Thefts', n: 12 }] };
+    },
+    fetchIncidents: async () => { calls.push('incidents'); return { type: 'FeatureCollection', features: [] }; },
+    updateSummary: async () => { calls.push('summary'); return { applied: true, status: 'success' }; },
+    updateCharts: async () => { calls.push('charts'); return { applied: true, status: 'success' }; },
+    view: {
+      loading(scope) { calls.push(`loading:${scope}`); },
+      overview(payload) { calls.push(['render-overview', payload.rows.length]); },
+      setSelectionAvailable(value) { calls.push(['selection', value]); },
+      ready(scope) { calls.push(`ready:${scope}`); },
+      failed(scope) { calls.push(`failed:${scope}`); },
+      clear(scope) { calls.push(`clear:${scope}`); },
+      focusResults() { calls.push('focus'); },
+    },
+  });
+  const result = await controller.requestRefresh();
+  assert.equal(result.status, 'live');
+  assert.deepEqual(result.succeeded, ['overview']);
+  assert.equal(calls.includes('incidents'), false);
+  assert.equal(calls.includes('summary'), false);
+  assert.equal(calls.includes('charts'), false);
+  assert.ok(calls.some((entry) => Array.isArray(entry) && entry[0] === 'render-overview'));
+  assert.ok(calls.some((entry) => Array.isArray(entry) && entry[0] === 'selection' && entry[1] === false));
+});
+
+test('buffer camera bounds can add context without changing the analytical radius', async () => {
+  const { bufferBounds } = await import('../../src/map/camera_fit.js');
+  const tight = bufferBounds([-75.16, 39.95], 400);
+  const context = bufferBounds([-75.16, 39.95], 400, { scale: 1.75 });
+  assert.ok(context[0][0] < tight[0][0]);
+  assert.ok(context[0][1] < tight[0][1]);
+  assert.ok(context[1][0] > tight[1][0]);
+  assert.ok(context[1][1] > tight[1][1]);
 });
 
 test('private buffer residue projects to a public district snapshot and runs district jobs', async () => {
@@ -1230,15 +1391,19 @@ test('private buffer residue projects to a public district snapshot and runs dis
   const controller = createCrimeListController({
     readSnapshot: () => refreshContract.readCrimeSnapshot(source),
     initializeCoverage: async () => calls.push('coverage'),
+    fetchOverview: async (snapshot) => {
+      record('overview')(snapshot);
+      return { rows: [] };
+    },
     fetchIncidents: record('incidents'),
     updateSummary: record('summary'),
     updateCharts: record('charts'),
-    view: { loading() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
+    view: { loading() {}, overview() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
   });
 
   const result = await controller.requestRefresh();
   assert.equal(result.status, 'live');
-  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'summary']);
+  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'overview', 'summary']);
   assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(source), false);
   assert.deepEqual(source.centerLonLat, [-75.16, 39.95]);
   assert.equal(source.addressA, privateToken);
@@ -1277,21 +1442,25 @@ test('private buffer residue projects to a public tract snapshot and runs tract 
   const controller = createCrimeListController({
     readSnapshot: () => refreshContract.readCrimeSnapshot(source),
     initializeCoverage: async () => calls.push('coverage'),
+    fetchOverview: async (snapshot) => {
+      record('overview')(snapshot);
+      return { rows: [] };
+    },
     fetchIncidents: record('incidents'),
     updateSummary: record('summary'),
     updateCharts: record('charts'),
-    view: { loading() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
+    view: { loading() {}, overview() {}, incidents() {}, ready() {}, clear() {}, unavailable() {} },
   });
 
   const result = await controller.requestRefresh();
   assert.equal(result.status, 'live');
-  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'summary']);
+  assert.deepEqual(calls.sort(), ['charts', 'coverage', 'incidents', 'overview', 'summary']);
   assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot(source), false);
   assert.deepEqual(source.centerLonLat, [-75.16, 39.95]);
   assert.equal(source.addressA, '1500 PRIVATE MARKET STREET');
 });
 
-test('private map points cause zero camera navigation while public districts still fit', async () => {
+test('buffer point selection fits expanded context while background refresh does not refit', async () => {
   assert.equal(refreshContract.containsPrivateCrimeLocation({ queryMode: 'buffer' }), false);
   assert.equal(refreshContract.isPrivateCrimeAnalysisSnapshot({ queryMode: 'buffer' }), true);
   assert.equal(refreshContract.containsActivePrivateCrimeLocation({
@@ -1319,14 +1488,14 @@ test('private map points cause zero camera navigation while public districts sti
   };
   const fitBounds = () => cameraCalls.push('fit');
 
-  const privateResult = await runPublicCrimeCameraNavigation({
+  const bufferResult = await runPublicCrimeCameraNavigation({
     map: {},
     snapshot: { queryMode: 'buffer', centerLonLat: [-75.16, 39.95] },
     feature,
     runProgrammaticMapMove,
     fitBounds,
   });
-  assert.equal(privateResult.status, 'unavailable');
+  assert.deepEqual(bufferResult, { status: 'idle', applied: false });
   assert.deepEqual(cameraCalls, []);
 
   const publicResult = await runPublicCrimeCameraNavigation({
@@ -1345,11 +1514,9 @@ test('private map points cause zero camera navigation while public districts sti
   ]);
   const pointEnd = routeSource.match(/onPointSelectionEnded\(\)\s*\{([\s\S]*?)\n\s*\},/u)?.[1] || '';
   assert.match(pointEnd, /requestRefresh\(\)/u);
-  assert.doesNotMatch(pointEnd, /fitCurrentSelection/u);
-  assert.match(
-    mainSource,
-    /if \(containsActivePrivateCrimeLocation\(store\)\)[\s\S]*?throw new Error[\s\S]*?const map = await mapRuntime\.ensureMap\(\)/u,
-  );
+  assert.match(pointEnd, /fitCurrentSelection\(\{ force: true \}\).*requestRefresh\(\)/su);
+  assert.doesNotMatch(mainSource, /containsActivePrivateCrimeLocation|Private location map analysis is unavailable/u);
+  assert.match(mainSource, /const map = await mapRuntime\.ensureMap\(\)/u);
   assert.match(
     mainSource,
     /center: store\.queryMode === 'buffer' \? store\.centerLonLat \|\| undefined : undefined/u,

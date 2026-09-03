@@ -3,8 +3,8 @@ import { registerMessagePairs } from './messages.js';
 export const diaryLocalMessagePairs = Object.freeze({
   'diary.localDataTitle': ['Private Diary data', '私密日记数据'],
   'diary.localDataPrivacy': [
-    'Private: this backup includes your ratings, route geometry, notes, and unfinished drafts. Diary data stays only on this device unless you export this file.',
-    '这是私密数据：备份包含你的评分、路线几何、备注和未完成草稿。除非你导出此文件，否则日记数据只保存在此设备上。',
+    'Ratings, route details, notes, and drafts stay on this device unless you export a backup.',
+    '评分、路线详情、备注和草稿仅保存在此设备；导出备份时才会写入文件。',
   ],
   'diary.exportPrivateBackup': ['Export private backup', '导出私密备份'],
   'diary.chooseBackup': ['Choose backup file', '选择备份文件'],

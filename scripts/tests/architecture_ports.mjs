@@ -260,6 +260,8 @@ test('Crime map selection coordinator dispatches actions before presentation cal
   const statePort = {
     mutate(action, payload) {
       calls.push(['mutate', action, payload]);
+      if (action === CRIME_STATE_ACTIONS.SET_MODE) state.queryMode = payload.mode;
+      if (action === CRIME_STATE_ACTIONS.SELECT_DISTRICT) state.selectedDistrictCode = payload.code;
       if (action === CRIME_STATE_ACTIONS.SELECT_POINT) {
         state.setComparisonPoint(payload.target, payload.lng, payload.lat, payload.label);
       }
@@ -297,6 +299,12 @@ test('Crime map selection coordinator dispatches actions before presentation cal
   state.queryMode = 'district';
   listeners.get('click:districts-fill')({ features: [{ properties: { DIST_NUMC: 9 } }] });
   state.queryMode = 'buffer';
+  state.selectedDistrictCode = null;
+  state.centerLonLat = null;
+  state.selectMode = 'idle';
+  listeners.get('click:districts-fill')({ features: [{ properties: {} }] });
+  listeners.get('click:districts-fill')({ features: [{ properties: { DIST_NUMC: 5 } }] });
+  state.queryMode = 'buffer';
   state.selectMode = 'point';
   state.selectTarget = 'B';
   listeners.get('click:*')({ lngLat: { lng: -75.2, lat: 39.96 } });
@@ -306,6 +314,9 @@ test('Crime map selection coordinator dispatches actions before presentation cal
     ['tract', '42101000100'],
     ['mutate', CRIME_STATE_ACTIONS.SELECT_DISTRICT, { code: '09' }],
     ['district', '09'],
+    ['mutate', CRIME_STATE_ACTIONS.SET_MODE, { mode: 'district' }],
+    ['mutate', CRIME_STATE_ACTIONS.SELECT_DISTRICT, { code: '05' }],
+    ['district', '05'],
     ['mutate', CRIME_STATE_ACTIONS.SELECT_POINT, {
       target: 'B', lng: -75.2, lat: 39.96, label: 'Point B',
     }],

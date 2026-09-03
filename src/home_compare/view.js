@@ -20,31 +20,31 @@ const COPY = Object.freeze({
     shareHint: 'The link contains weights and visible dimensions only—no address, parcel, coordinate, or destination.',
     notes: 'How comparison works',
     idle: 'Enter 2–4 addresses to begin.',
-    loading: 'Loading local citywide readiness metadata…',
+    loading: 'Comparing available records…',
     results: 'Evidence profiles',
     profile: 'Home',
-    sourceDetails: 'Source, coverage, and limitations',
+    sourceDetails: 'Data notes',
     dataAsOf: 'Data as of',
     coverage: 'Coverage',
     precision: 'Precision / uncertainty',
     limitations: 'Limitations',
     source: 'Official source',
     records: 'records',
-    unavailable: 'Unavailable—not zero',
+    unavailable: 'Unavailable',
     partial: 'Partial evidence',
     available: 'Available evidence',
-    noValue: 'No verified value',
-    forecastTitle: 'Forecast remains unavailable',
-    forecastBody: 'The seasonal baseline performed better, so this view shows historical evidence only.',
+    noValue: 'No data available',
+    forecastTitle: 'Forecast unavailable',
+    forecastBody: 'This comparison shows historical records only.',
     commuteTitle: 'Travel-time and isochrone summary unavailable',
     commuteBody: 'No road or public-transit travel-time service is connected.',
-    sensitivity: 'Weight sensitivity',
-    topDimensions: 'Current evidence emphasis',
-    stable: 'Stable under ±20% perturbation',
-    noStable: 'No single leading dimension stays stable under every ±20% perturbation.',
+    sensitivity: 'Effect of priorities',
+    topDimensions: 'Current priorities',
+    stable: 'Stable categories',
+    noStable: 'None; small priority changes alter the leading category.',
     noRanking: 'Weights change the display order only.',
-    statusAvailable: 'Comparison completed with verified evidence.',
-    statusPartial: 'Comparison completed with partial evidence. Open each metric to review gaps.',
+    statusAvailable: 'Comparison complete.',
+    statusPartial: 'Comparison complete; some data is unavailable.',
     property: 'Property record',
     assessments: 'Assessment history',
     transfers: 'Recorded transfers',
@@ -78,31 +78,31 @@ const COPY = Object.freeze({
     shareHint: '链接只包含显示设置，不包含地址、地块编号、坐标或目的地。',
     notes: '比较说明',
     idle: '输入 2–4 个地址后开始。',
-    loading: '正在读取本地的全市数据准备情况……',
+    loading: '正在比较可用记录……',
     results: '证据档案',
     profile: '住宅',
-    sourceDetails: '来源、覆盖与限制',
+    sourceDetails: '数据说明',
     dataAsOf: '数据截至',
     coverage: '覆盖范围',
     precision: '精度 / 不确定性',
     limitations: '限制',
     source: '官方来源',
     records: '条记录',
-    unavailable: '不可用——不是零',
+    unavailable: '不可用',
     partial: '部分证据',
     available: '可用证据',
-    noValue: '没有已验证数值',
-    forecastTitle: '预测继续不可用',
-    forecastBody: '季节性基线表现更好，因此这里只展示历史证据。',
+    noValue: '暂无数据',
+    forecastTitle: '暂无预测',
+    forecastBody: '当前比较仅展示历史记录。',
     commuteTitle: '通勤时间与可达范围暂不可用',
     commuteBody: '当前没有接入道路或公共交通通勤时间服务。',
-    sensitivity: '权重敏感性',
-    topDimensions: '当前证据侧重',
-    stable: '在 ±20% 扰动下稳定',
-    noStable: '没有任何单一领先维度能在全部 ±20% 扰动下保持稳定。',
+    sensitivity: '侧重点影响',
+    topDimensions: '当前侧重点',
+    stable: '保持稳定的类别',
+    noStable: '无；小幅调整侧重点会改变主要类别。',
     noRanking: '权重只改变信息的展示顺序。',
-    statusAvailable: '比较已完成，相关证据已通过验证。',
-    statusPartial: '比较已完成，但存在部分证据；请展开每个指标查看缺口。',
+    statusAvailable: '比较完成。',
+    statusPartial: '比较完成；部分数据不可用。',
     property: '房产记录',
     assessments: '评估历史',
     transfers: '登记交易',
@@ -123,7 +123,7 @@ export function getHomeCompareCopy(locale) {
   return COPY[locale] || COPY.en;
 }
 
-export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false, citywideReadinessHtml = '' } = {}) {
+export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false } = {}) {
   scrubInvalidShareStateFromUrl();
   const copy = getHomeCompareCopy(locale);
   const addresses = Array.from({ length: addressCount }, (_, index) => `
@@ -142,6 +142,7 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
   return `
     <div class="home-compare__surface">
       <header class="home-compare__header">
+        <button class="button button--secondary analysis-workspace__close" type="button" data-home-close>${escapeHtml(copy.close)}</button>
         <p class="home-compare__eyebrow">${escapeHtml(copy.eyebrow)}</p>
         <h2 id="home-compare-title">${escapeHtml(copy.title)}</h2>
         <p id="home-compare-description">${escapeHtml(copy.intro)}</p>
@@ -172,7 +173,6 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
         <p class="home-compare__status" data-home-status role="status" aria-live="polite">${escapeHtml(busy ? copy.loading : copy.idle)}</p>
         <button class="button button--secondary" type="button" data-home-retry-results hidden>${escapeHtml(copy.retryResults)}</button>
       </section>
-      ${citywideReadinessHtml}
       <section class="home-compare__results" data-home-results aria-label="${escapeHtml(copy.results)}" tabindex="-1"></section>
     </div>`;
 }

@@ -4,11 +4,27 @@ import test from 'node:test';
 
 import {
   projectCrimeChartData,
+  projectCrimeDistrictData,
   replaceAccessibleTables,
 } from '../../src/charts/accessible_data.js';
 import { buildMonthlyChartModel } from '../../src/charts/line_monthly.js';
 import { buildTemporalChartModel } from '../../src/charts/heat_7x24.js';
 import { setLanguage } from '../../src/i18n/index.js';
+
+test('default district context has a sorted structured-data equivalent', () => {
+  setLanguage('en');
+  const table = projectCrimeDistrictData({
+    type: 'FeatureCollection',
+    features: [
+      { properties: { DIST_NUMC: '09', value: 21 } },
+      { properties: { DIST_NUMC: '01', value: 0 } },
+      { properties: { value: 99 } },
+      { properties: { DIST_NUMC: '0', value: 99 } },
+    ],
+  });
+  assert.deepEqual(table.headers, ['Police district', 'Historical reported records']);
+  assert.deepEqual(table.rows, [['01', 0], ['09', 21]]);
+});
 
 class FakeElement {
   constructor(tagName) {

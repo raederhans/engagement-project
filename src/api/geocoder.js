@@ -66,7 +66,6 @@ export async function geocodePhiladelphiaAddress(address, {
       'crime.geocoder.addressTooShort',
     );
   }
-  rejectPrivateLocationEgress();
   const params = new URLSearchParams({
     SingleLine: query,
     f: 'json',
@@ -74,8 +73,8 @@ export async function geocodePhiladelphiaAddress(address, {
     maxLocations: '5',
   });
   const response = await request(`${PHILADELPHIA_GEOCODER}?${params}`, {
-    cacheTTL: 10 * 60_000,
-    retries: 1,
+    cacheTTL: 0,
+    retries: 0,
     timeoutMs: 8000,
     signal,
   });
