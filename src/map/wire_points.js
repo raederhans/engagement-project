@@ -225,6 +225,10 @@ export function wirePoints(map, deps) {
   };
 
   const debouncedMoveEnd = createDebounced((filters) => void run(filters), 300, scheduler);
+  // Retire the previous viewport immediately, not after the next move settles.
+  const onMoveStart = () => {
+    if (active && !programmaticMoveOwner) invalidate();
+  };
   const onMoveEnd = () => {
     if (!active) return;
     if (programmaticMoveOwner) {
@@ -269,6 +273,7 @@ export function wirePoints(map, deps) {
     if (map.loaded?.() || map.isStyleLoaded?.()) onLoad();
     else map.once('load', onLoad);
   }
+  map.on('movestart', onMoveStart);
   map.on('moveend', onMoveEnd);
 
   return {
@@ -294,6 +299,7 @@ export function wirePoints(map, deps) {
       settleProgrammaticMove(false);
       invalidate();
       map.off('load', onLoad);
+      map.off('movestart', onMoveStart);
       map.off('moveend', onMoveEnd);
       clusterCleanup?.();
       clusterCleanup = null;

@@ -96,3 +96,10 @@
     border: 1px solid CanvasText;
   }
 }
+
+.source-health__source > summary { min-height: 44px; margin: 0; cursor: pointer; font-size: 13px; font-weight: 550; }
+.source-health__source[open] > summary { margin-bottom: 12px; }
+.source-health__title { font-size: 13px; }
+.source-health__facts, .source-health__clocks { grid-template-columns: 1fr; font-size: 12px; }
+.source-health__facts dd { margin-bottom: 8px; }
+.source-health__status { border: 0; padding-inline: 0; font-size: 11px; font-weight: 500; }

@@ -309,7 +309,8 @@ const budgets = [
   ['Home Compare styles', homeCompareStyles, 4_800, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   // Pagination and explicit map focus remain isolated behind the point-results lazy boundary.
-  ['Incident Results', incidentResults, 7_800, 3_100],
+  // Three-line rows, shared popup formatting and synchronized map selection; still lazy.
+  ['Incident Results', incidentResults, 8_200, 3_250],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
   ['Task Focus', taskFocus, 6_800, 3_100],
   // Owns preview, stale-state admission, one-refresh commit, full-snapshot undo,

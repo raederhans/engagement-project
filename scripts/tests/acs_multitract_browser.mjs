@@ -41,6 +41,7 @@ try {
     await page.locator('.language-switch').click();
     await page.waitForFunction(() => document.documentElement.lang === 'en');
   }
+  await page.locator('.analysis-hub > summary').click();
   const opener = page.locator('[data-acs-multitract-open]');
   const dialog = page.locator('[data-acs-multitract-dialog]');
   await opener.waitFor({ state: 'visible' });

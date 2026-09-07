@@ -2,9 +2,10 @@ export function resolveDiaryFeatureOn({
   search = globalThis.window?.location?.search || '',
   pathname = globalThis.window?.location?.pathname || '',
   envEnabled = import.meta.env?.VITE_FEATURE_DIARY === '1',
+  developmentEnabled = import.meta.env?.DEV === true && import.meta.env?.VITE_FEATURE_DIARY !== '0',
 } = {}) {
   const params = new URLSearchParams(search);
-  return Boolean(envEnabled || params.get('mode') === 'diary' || pathname.includes('diary-demo'));
+  return Boolean(envEnabled || developmentEnabled || params.get('mode') === 'diary' || pathname.includes('diary-demo'));
 }
 
 export function createAppModeState({ store, preferences, diaryFeatureOn }) {

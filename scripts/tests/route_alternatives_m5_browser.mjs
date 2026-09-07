@@ -246,7 +246,7 @@ async function seedPrivateDiaryMemory(page) {
   const diaryUrl = new URL(baseUrl.href);
   diaryUrl.searchParams.set('mode', 'diary');
   await page.goto(diaryUrl.href, { waitUntil: 'networkidle' });
-  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Trip diary' }).waitFor();
   await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByRole('radio', { name: '4 stars' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();

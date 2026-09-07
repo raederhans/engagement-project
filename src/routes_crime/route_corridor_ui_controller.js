@@ -543,7 +543,7 @@ function surfaceHtml() {
       <button class="button button--secondary" data-route-clear data-i18n="route.clear" type="button">${t('route.clear')}</button>
       <label><span data-i18n="route.buffer">${t('route.buffer')}</span><input class="field" data-route-buffer type="number" min="10" max="10000" step="1" value="100"></label>
     </div>
-    <fieldset class="route-corridor__waypoint-editor">
+    <details class="workspace-disclosure route-waypoint-disclosure"><summary data-i18n="route.waypoints">${t('route.waypoints')}</summary><fieldset class="route-corridor__waypoint-editor">
       <legend data-i18n="route.waypoints">${t('route.waypoints')}</legend>
       <ol data-route-waypoint-list></ol>
       <div class="route-corridor__waypoint-actions">
@@ -551,7 +551,7 @@ function surfaceHtml() {
         <button class="button button--secondary" data-route-waypoint-undo data-i18n="route.undoWaypoint" type="button" disabled>${t('route.undoWaypoint')}</button>
         <button class="button button--secondary" data-route-waypoint-clear data-i18n="route.clearWaypoints" type="button">${t('route.clearWaypoints')}</button>
       </div>
-    </fieldset>
+    </fieldset></details>
     <p class="route-corridor__instruction" data-route-instruction data-i18n="route.drawHint" hidden>${t('route.drawHint')}</p>
     <p data-route-query-context></p>
     <details class="route-corridor__notes">

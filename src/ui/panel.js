@@ -472,9 +472,13 @@ export function initPanel(store, handlers) {
     warn: (error) => console.warn('Failed to fetch available codes:', error),
   });
   const populateDrilldown = offenseOptions.populate;
+  const refreshDrilldownForWindow = () => populateDrilldown(store.selectedGroups || [], {
+    preserveSelection: true,
+    notify: false,
+  });
   const refreshTimeWindow = createTimeWindowRefresh({
     notify: onChange,
-    hydrate: (options) => populateDrilldown(store.selectedGroups || [], options),
+    hydrate: refreshDrilldownForWindow,
   });
 
   groupSel?.addEventListener('change', () => {
@@ -907,7 +911,7 @@ export function describeCoverageStatus(state) {
       text: t('crime.coverageReady', {
         min: state.coverageMin || t('crime.unknown'),
         max: state.coverageMax,
-        notice: state.coverageNotice ? ` · ${state.coverageNotice}` : '',
+        notice: state.coverageNotice ? ` · ${t('crime.coverageAdjusted')}` : '',
       }),
     };
   }

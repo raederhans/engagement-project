@@ -138,10 +138,12 @@ test('List is an independent result workspace outside the detail drawer', () => 
   assert.match(css, /body\[data-crime-view="list"\]\s+\.crime-list-workspace\s*\{[^}]*overflow:\s*auto/s);
 });
 
-test('Crime advanced controls do not nest Data details or a duplicate Help disclosure', () => {
-  assert.doesNotMatch(html, /<details\b[^>]*class="data-details"/i);
-  assert.match(html, /<section\b[^>]*class="data-details"[^>]*aria-labelledby="crime-data-details-title"/i);
-  assert.match(html, /id="crime-data-details-title"[^>]*data-i18n="crime\.dataDetails"/i);
+test('Crime filters, sources, and exports occupy separate disclosures', () => {
+  const filters = html.slice(html.indexOf('<details id="advancedFilters"'), html.indexOf('<details id="choropleth-controls"'));
+  assert.doesNotMatch(filters, /data-source-health-entry|id="exportCsvBtn"|id="startMonth"/);
+  assert.match(html, /<details\b[^>]*class="data-details workspace-disclosure"/i);
+  assert.match(html, /<summary[^>]* id="crime-data-details-title"[^>]*data-i18n="crime\.dataDetails"/i);
+  assert.ok(html.indexOf('id="startMonth"') < html.indexOf('id="advancedFilters"'));
   assert.doesNotMatch(html, /id="help-card"/i);
 });
 

@@ -1,0 +1,295 @@
+/* Final shared workspace layer: owns neutral navigation, query/results layout,
+   information density and typography across Crime and Diary. Domain layers above
+   retain chart, list and route behavior; shared visual overrides live here. */
+html body [hidden], #sidepanel [hidden] { display: none; }
+
+.app-bar {
+  gap: 24px;
+  padding-inline: 24px;
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.app-bar h1 { color: var(--ink); font-size: 17px; font-weight: 650; }
+.app-bar__identity p { color: var(--ink-muted); font-size: 11px; }
+.app-bar__tools { gap: 14px; }
+.mode-switch__group { border: 0; background: transparent; padding: 0; }
+.mode-switch__button { min-width: 72px; padding-inline: 12px; font-size: 13px; }
+.mode-switch__button.is-active { background: var(--surface-muted); color: var(--ink); box-shadow: none; }
+.mode-switch__button:hover:not(:disabled) { background: var(--surface-muted); color: var(--brand); }
+.crime-view-mode { background: var(--surface-muted); border-color: var(--border); }
+.crime-view-mode label { padding-inline: 12px; font-size: 13px; }
+.crime-view-mode label:has(input:checked) { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px #00000014; }
+.app-bar .about-toggle { background: transparent; border: 1px solid var(--border); color: var(--ink); box-shadow: none; }
+.language-switch { border-color: transparent; min-width: 60px; }
+.app-bar__status { font-size: 11px; font-weight: 500; }
+.app-bar__status::before { width: 6px; height: 6px; }
+body:has(.panel-view--diary:not([hidden])) .crime-view-mode { display: none; }
+
+.button { font-weight: 550; }
+.button--secondary:hover:not(:disabled), .button--dashed:hover:not(:disabled) { background: var(--surface-muted); }
+.button--dashed { border-style: solid; border-color: transparent; color: var(--ink-muted); }
+:is(button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+#sidepanel label { color: var(--ink-muted); font-weight: 550; font-size: 12px; }
+#sidepanel .field { border-color: var(--border); background-color: var(--surface); color: var(--ink); box-shadow: none; font-size: 14px; }
+#sidepanel .field-label { margin-block: 14px 6px; }
+.task-panel__heading h2 { margin: 0 0 18px; color: var(--ink); font-size: 18px; font-weight: 650; }
+.crime-query-controls { padding-bottom: 12px; }
+.query-location-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#bufferSelectRow > .search-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.query-location-actions .button { padding-inline: 8px; font-size: 12px; }
+#compareAreaBtn { margin: 0; }
+.query-time-window { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 12px; margin-bottom: 20px; }
+.query-time-window label { grid-row: 1; }
+.query-time-window :is(input, select) { grid-row: 2; width: 100%; min-width: 0; margin: 0; }
+.field-help { font-size: 12px; color: var(--ink-muted); }
+.advanced-filters__body { padding-block: 0 16px; }
+
+.workspace-disclosure,
+#sidepanel .workspace-disclosure {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.workspace-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 4px 0;
+  box-sizing: border-box;
+  color: var(--ink);
+  font: 550 13px/1.5 var(--font-product);
+  list-style: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+.workspace-disclosure > summary::-webkit-details-marker { display: none; }
+.workspace-disclosure > summary::after,
+#advancedFilters > summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border: solid var(--ink-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  transition: transform var(--motion-fast);
+}
+.workspace-disclosure[open] > summary::after,
+#advancedFilters[open] > summary::after { transform: rotate(225deg); }
+.workspace-disclosure > summary:hover { color: var(--brand); }
+.workspace-disclosure > :last-child:not(summary) { margin-bottom: 16px; }
+.analysis-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0 0 12px; overflow: visible; }
+.analysis-shortcuts > section { min-width: 0; }
+.analysis-shortcuts .button { min-height: 48px; text-align: left; padding: 10px 12px; background: var(--surface-muted); border-color: transparent; font-size: 12px; font-weight: 550; }
+.data-details > :is(div, p) { color: var(--ink); font-size: 12px; line-height: 1.65; }
+.query-export .button-grid { margin: 0 0 16px; }
+.task-focus { border: 0; background: var(--surface-muted); box-shadow: none; }
+.analysis-context { background: transparent; box-shadow: none; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0 0 20px; }
+.analysis-context__copy h2 { font-size: 20px; }
+.analysis-context__copy p { font-size: 12px; }
+.crime-result-nav { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0; gap: 0; }
+.crime-result-nav button { border-radius: 0; background: transparent; color: var(--ink-muted); box-shadow: none; }
+.crime-result-nav button[aria-pressed="true"] { background: transparent; color: var(--brand); box-shadow: inset 0 -2px var(--brand); }
+.crime-summary__eyebrow { color: var(--ink-muted); font-size: 11px; letter-spacing: 0; font-weight: 500; }
+#compare-card { padding: 20px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.crime-summary__metrics { gap: 16px; }
+.result-meta { border: 0; background: transparent; box-shadow: none; font-size: 11px; }
+.result-meta__details summary { color: var(--ink-muted); font-weight: 500; }
+.crime-query-controls > .result-meta { order: 0; }
+.incident-results__selected, .incident-results__item > button[aria-current="true"] { background: #eef3ef; box-shadow: inset 2px 0 var(--brand); }
+.incident-results__item > button { padding-block: 14px; }
+.incident-results__header .crime-summary__eyebrow { display: none; }
+.incident-results__header h2 { font-size: 18px; }
+.chart-card { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: var(--surface); box-shadow: none; padding-block: 20px; }
+.chart-card__heading p { font-size: 12px; color: var(--ink-muted); }
+.chart-options button { font-size: 12px; }
+
+/* Dialogs share a quiet surface; the content, not the frame, carries hierarchy. */
+dialog { color: var(--ink); border-color: var(--border); border-radius: 12px; box-shadow: var(--shadow-overlay); }
+dialog::backdrop { background: #24272559; backdrop-filter: blur(2px); }
+.public-route-surface { background: var(--surface); }
+.public-route-card { box-shadow: none; border-radius: 8px; }
+.public-route-card__header { background: var(--surface-muted); }
+.public-route-card__details { padding-inline: 16px; }
+.public-route-card__details .public-route-card__metrics { margin-inline: -16px; }
+.public-route-card__metric { padding-block: 10px; font-size: 13px; }
+.public-route-card__pareto.is-pareto { background: #eef3ef; color: var(--brand-strong); border-color: #d0ddd3; }
+.home-compare__options { padding-block: 8px; }
+.home-compare__options > label { display: block; margin-bottom: 8px; }
+.home-compare__options textarea { width: 100%; box-sizing: border-box; }
+.home-compare__eyebrow, .acs-multitract__eyebrow { display: none; }
+.route-waypoint-disclosure .route-corridor__waypoint-editor { margin: 0; padding: 0; border: 0; }
+.route-waypoint-disclosure legend { display: none; }
+.route-corridor [data-route-query-context] { color: var(--ink-muted); font-size: 12px; }
+
+/* Help is a readable reference, with no promotional hero or decorative numbering. */
+.about-panel { max-width: 820px; background: var(--surface); }
+.about-content { background: var(--surface); }
+.about-hero { padding: 64px 32px 24px; background: var(--surface); color: var(--ink); }
+.about-hero::after, .about-hero__eyebrow, .about-hero__status-mark { display: none; }
+.about-hero__title { margin: 0 0 12px; font: 650 26px/1.3 var(--font-product); letter-spacing: 0; }
+.about-hero__intro { color: var(--ink-muted); font-size: 14px; }
+.about-hero__status { grid-template-columns: 1fr; margin-top: 20px; padding-top: 16px; border-color: var(--border); color: var(--ink-muted); }
+.about-hero__status p { color: var(--ink-muted); }
+.about-nav { background: var(--surface-muted); border-color: var(--border); }
+.about-nav__link { min-height: 48px; color: var(--ink); }
+.about-nav__link > span:first-child { display: none; }
+.about-section { padding-block: 24px; }
+.about-section__heading { display: block; }
+.about-section__heading > span, .about-section__heading p { display: none; }
+.about-section__heading h3 { font: 650 18px/1.4 var(--font-product); }
+.about-source-grid { grid-template-columns: 1fr; }
+.about-source-card, .about-section--caution { background: var(--surface-muted); box-shadow: none; }
+.diary-panel-heading { font-size: 18px; }
+.diary-panel-subtitle { color: var(--ink-muted); }
+.diary-view-switch { background: var(--surface-muted); box-shadow: none; }
+.diary-view-pill { font-size: 12px; }
+.diary-insights-card { background: var(--surface); border: 0; border-top: 1px solid var(--border); box-shadow: none; border-radius: 0; }
+
+@media (min-width: 901px) {
+  #sidepanel { top: var(--app-bar-height); bottom: 0; left: 0; width: var(--panel-width); max-height: none; margin: 0; padding: 24px 20px; border: 0; border-right: 1px solid var(--border); border-radius: 0; box-shadow: none; background: var(--surface); }
+  #sidepanel > .sheet-content { max-height: 100%; height: 100%; scrollbar-gutter: auto; padding-right: 2px; }
+  .primary-canvas { left: var(--panel-width); }
+  #results-drawer { top: calc(var(--app-bar-height) + 16px); right: 16px; bottom: 16px; max-height: calc(100% - 32px); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-surface); }
+  .crime-list-workspace { left: var(--panel-width); }
+}
+@media (max-width: 1100px) {
+  .app-bar { gap: 12px; padding-inline: 16px; }
+  .app-bar__tools { gap: 6px; }
+  .app-bar__identity p { display: none; }
+}
+@media (max-width: 900px) {
+  #sidepanel { background: var(--surface); box-shadow: 0 -2px 16px #24272512; }
+  .query-time-window { margin-bottom: 12px; }
+  .task-panel__heading h2 { margin-bottom: 12px; }
+  .about-hero { padding: 64px 24px 20px; }
+  .public-route-cards { grid-template-columns: 1fr; }
+}
+
+
+#results-drawer { background: var(--surface); }
+#charts > h2 { padding: 16px 18px 0; font-size: 18px; }
+#charts > .result-meta { margin-inline: 18px; }
+#residential-stability { margin: 12px 16px; padding: 16px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface); box-shadow: none; }
+#residential-stability .residential-stability__heading > p { display: none; }
+#charts .chart-evidence-notes { margin: 16px; }
+#area-intelligence { border: 0; background: var(--surface); box-shadow: none; padding: 0; }
+.area-intelligence__heading > p, .area-intelligence__kicker { display: none; }
+.area-intelligence__unavailable { background: var(--surface-muted); box-shadow: none; }
+.analysis-history-disclosure { border: 0; border-top: 1px solid var(--border); background: transparent; border-radius: 0; }
+.analysis-history { border: 0; background: transparent; padding-inline: 0; }
+
+@media (max-width: 600px) {
+  :root { --app-bar-height: 108px; }
+  .app-bar { height: var(--app-bar-height); min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: 44px 44px; gap: 4px 6px; padding: 8px 12px; }
+  .app-bar__tools { display: contents; }
+  .app-bar__identity { display: block; grid-column: 1; grid-row: 1; }
+  .app-bar__language { grid-column: 2; grid-row: 1; justify-self: end; }
+  .app-bar__help { grid-column: 3; grid-row: 1; justify-self: end; }
+  .app-bar__modes { grid-column: 1; grid-row: 2; }
+  .crime-view-mode { grid-column: 2; grid-row: 2; }
+  .app-bar__status { grid-column: 3; grid-row: 2; width: auto; max-width: 82px; font-size: 10px; white-space: normal; }
+  .app-title__compact { display: none; }
+  .app-title__full { display: inline; }
+  .app-bar h1 { font-size: 14px; white-space: normal; }
+  .mode-switch__button { min-width: 60px; padding-inline: 6px; font-size: 12px; }
+  .crime-view-mode label { padding-inline: 8px; }
+  .map-runtime-status { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  :root { --sheet-collapsed-height: 72px; }
+  #sidepanel[data-sheet-state="collapsed"] .sheet-handle::after { content: attr(aria-label); font-size: 12px; color: var(--ink-muted); font-weight: 500; }
+}
+
+/* Incident symbols and details share the same quiet visual vocabulary. */
+.crime-points-key { position: absolute; left: 16px; bottom: 32px; z-index: 3; display: flex; flex-wrap: wrap; gap: 12px; max-width: calc(100% - 32px); padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-surface); font-size: 11px; color: var(--ink-muted); pointer-events: none; }
+.crime-points-key > span { display: inline-flex; align-items: center; gap: 7px; }
+.crime-points-key i { display: inline-grid; place-items: center; flex-shrink: 0; font-style: normal; }
+.crime-points-key__point { width: 9px; height: 9px; border-radius: 50%; background: #526d73; outline: 1px solid #fff; }
+.crime-points-key__cluster { width: 24px; height: 24px; border-radius: 50%; background: #d9e7e9; color: #172f35; font-size: 10px; }
+.crime-incident-popup .maplibregl-popup-content { padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-overlay); }
+.crime-incident-popup .maplibregl-popup-close-button { top: 5px; right: 5px; width: 32px; height: 32px; color: var(--ink-muted); border-radius: 6px; font-size: 20px; }
+.incident-detail { font: 13px/1.5 var(--font-product); color: var(--ink); }
+.incident-detail__eyebrow { margin: 0 24px 6px 0; font-size: 11px; color: var(--ink-muted); }
+.incident-detail h3 { margin: 0 18px 16px 0; font-size: 17px; line-height: 1.4; }
+.incident-detail dl { margin: 0; display: grid; gap: 12px; }
+.incident-detail dl > div { display: grid; gap: 3px; }
+.incident-detail dt { font-size: 11px; color: var(--ink-muted); font-weight: 400; }
+.incident-detail dd { margin: 0; overflow-wrap: anywhere; }
+.incident-results__item > button { gap: 4px; }
+.incident-results__item .incident-results__location { color: var(--ink); font-size: 12px; }
+.incident-results__item .incident-results__date { font-size: 11px; color: var(--ink-muted); }
+#legend { max-width: 240px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-surface); background: var(--surface); }
+#legend .map-legend__row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; }
+#legend .map-legend__swatch { width: 20px; height: 9px; border-radius: 2px; }
+@media (max-width: 900px) {
+  .crime-points-key { left: 12px; top: 12px; bottom: auto; padding: 6px 8px; gap: 8px; font-size: 10px; }
+  .crime-incident-popup { max-width: min(300px, calc(100vw - 40px)); }
+}
+
+/* Keep data surfaces stable while their underlying canvas is being resized. */
+.analysis-context:not([hidden]), .crime-result-pane:not([hidden]) { animation: none; }
+:is(#advancedFilters, #choropleth-controls, .analysis-hub, .data-details, .query-export, .chart-evidence-notes) > summary::before { content: ''; flex: 0 0 16px; width: 16px; height: 16px; margin-right: 9px; background: currentColor; opacity: 0.7; mask: var(--disclosure-icon) center / contain no-repeat; }
+.workspace-disclosure > summary { justify-content: flex-start; }
+.workspace-disclosure > summary::after { margin-left: auto; }
+#advancedFilters { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%205h18M6%2012h12M10%2019h4%22/%3E%3C/svg%3E"); }
+#choropleth-controls { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m3%208%209-5%209%205-9%205-9-5Zm0%205%209%205%209-5M3%2018l9%205%209-5%22/%3E%3C/svg%3E"); }
+.analysis-hub { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22/%3E%3Crect%20x%3D%2215%22%20y%3D%223%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22/%3E%3Crect%20x%3D%223%22%20y%3D%2215%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22/%3E%3Crect%20x%3D%2215%22%20y%3D%2215%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22/%3E%3C/svg%3E"); }
+.data-details { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cellipse%20cx%3D%2212%22%20cy%3D%225%22%20rx%3D%228%22%20ry%3D%223%22/%3E%3Cpath%20d%3D%22M4%205v14c0%204%2016%204%2016%200V5M4%2012c0%204%2016%204%2016%200%22/%3E%3C/svg%3E"); }
+.query-export { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2016V3m-5%205%205-5%205%205M4%2015v6h16v-6%22/%3E%3C/svg%3E"); }
+.chart-evidence-notes { --disclosure-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22/%3E%3Cpath%20d%3D%22M12%2011v6m0-11v2%22/%3E%3C/svg%3E"); }
+
+/* The global preference affects supporting copy, never status, results or inputs. */
+html[data-information="compact"] [data-info-secondary] { display: none; }
+html[data-information="compact"] :is(.chart-card__heading > p, .home-compare__eyebrow, .acs-multitract__eyebrow, [data-i18n="diary.alternativeHint"], [data-i18n="diary.roadGridHint"]) { display: none; }
+.information-toggle { flex-shrink: 0; min-height: 36px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink-muted); font: 500 12px/1.3 var(--font-product); cursor: pointer; }
+.information-toggle[aria-pressed="true"] { background: var(--surface-muted); color: var(--brand); }
+@media (max-width: 600px) {
+  .app-bar { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+  .information-toggle { grid-column: 2; grid-row: 1; padding-inline: 6px; font-size: 11px; }
+  .app-bar__language { grid-column: 3; }
+  .app-bar__help { grid-column: 4; }
+  .app-bar__status { grid-column: 3 / 5; max-width: none; }
+}
+
+/* Explicit CJK fallback and a readable title / body / supporting-copy hierarchy. */
+html:lang(zh) { --font-product: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; line-height: 1.6; }
+html:lang(zh) :is(h1, h2, h3, h4) { line-height: 1.5; font-weight: 700; overflow-wrap: anywhere; }
+html:lang(zh) .workspace-disclosure > summary { font-size: 14px; font-weight: 600; line-height: 1.6; padding-block: 12px; }
+html:lang(zh) .chart-card h3 { font-size: 16px; margin-bottom: 8px; }
+html:lang(zh) .chart-insight { font-size: 13px; line-height: 1.7; padding: 12px 14px; }
+html:lang(zh) :is(.field-help, .chart-card__heading p, .incident-results__header p, .data-details > p) { font-size: 13px; line-height: 1.65; }
+html:lang(zh) :is(.incident-results__date, .incident-detail dt, .incident-detail__eyebrow, .result-meta, .crime-summary__eyebrow) { font-size: 12px; line-height: 1.6; }
+html:lang(zh) #sidepanel label { font-size: 13px; line-height: 1.6; }
+html:lang(zh) .incident-results__item strong { font-size: 14px; line-height: 1.6; font-weight: 700; }
+html:lang(zh) :is(.incident-detail, .public-route-surface__disclosure, .diary-panel-subtitle) { font-size: 13px; line-height: 1.65; }
+html:lang(zh) :is(.button, .mode-switch__button, .chart-options button, .diary-view-pill) { line-height: 1.5; padding-block: 9px; height: auto; }
+#compare-card { padding: 20px 16px; }
+#compare-card .crime-summary h2 { line-height: 1.5; margin-block: 6px 16px; }
+.chart-card { padding-inline: 18px; }
+.incident-results__item > button { padding: 14px 28px 14px 14px; }
+.incident-detail dd { line-height: 1.65; }
+html:lang(zh) dialog :is(p, dd, label) { line-height: 1.65; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  html:lang(zh) .app-bar h1 { font-size: 14px; line-height: 1.35; }
+  html:lang(zh) .app-bar .mode-switch__button { padding-block: 6px; }
+  html:lang(zh) #sidepanel label { font-size: 12px; }
+  .chart-card { padding-inline: 14px; }
+}
+
+/* Source status and disclosure links remain readable at small text sizes. */
+.data-details #dataStatus, .data-details .result-meta__details > summary { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .about-panel, .about-panel.about--open { animation: none; transition: none; }
+  .about-content-host { scroll-behavior: auto; }
+}

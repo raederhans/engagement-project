@@ -16,7 +16,8 @@ const diaryRouteSource = await readFile(new URL('../../src/routes_diary/index.js
 const productCss = await readProductCss();
 
 test('Diary feature flag uses Vite-recognized import.meta.env access', () => {
-  for (const source of [mainSource, appModeSource, diaryRouteSource]) {
+  assert.match(mainSource, /const diaryFeatureEnabled = store\.diaryFeatureOn/);
+  for (const source of [appModeSource, diaryRouteSource]) {
     assert.match(source, /import\.meta\.env\?\.VITE_FEATURE_DIARY/);
     assert.doesNotMatch(source, /import\.meta\?\.env\?\.VITE_FEATURE_DIARY/);
   }
@@ -703,4 +704,14 @@ test('browser history restores Crime presentation mode without changing query tr
   assert.deepEqual(changes.at(-1), ['list', 'history']);
   controller.destroy();
   assert.equal(listeners.has('popstate'), false);
+});
+
+
+test('local development enables Diary without a special URL while production retains the feature gate', async () => {
+  const { resolveDiaryFeatureOn } = await import('../../src/state/app_mode_state.js');
+  const base = { search: '', pathname: '/', envEnabled: false, developmentEnabled: false };
+  assert.equal(resolveDiaryFeatureOn(base), false);
+  assert.equal(resolveDiaryFeatureOn({ ...base, developmentEnabled: true }), true);
+  assert.equal(resolveDiaryFeatureOn({ ...base, envEnabled: true }), true);
+  assert.equal(resolveDiaryFeatureOn({ ...base, search: '?mode=diary' }), true);
 });

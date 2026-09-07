@@ -1,9 +1,13 @@
+import { Chart } from 'chart.js/auto';
 import { clearMonthlyChart, renderMonthly } from './line_monthly.js';
 import { clearTopNChart, renderTopN } from './bar_topn.js';
 import { clearTemporalChart, render7x24 } from './heat_7x24.js';
 import { clearCrimeChartData, syncCrimeChartData } from './accessible_data.js';
 import { applyTranslations, t } from '../i18n/index.js';
 import { renderResidentialStability } from '../ui/residential_stability.js';
+
+// Canvas labels do not inherit the CSS font stack. Keep CJK glyphs explicit here too.
+Chart.defaults.font.family = 'Microsoft YaHei,PingFang SC,Noto Sans CJK SC,sans-serif';
 
 function renderAreaIntelligenceLoadFailure(error) {
   console.error(error);

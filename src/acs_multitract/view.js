@@ -131,9 +131,6 @@ export function acsMultitractProductHtml(locale = 'en') {
     `<summary>${escapeHtml(copy.limitationsTitle)}</summary>`,
     `<ul>${copy.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`,
     '</details>',
-    '<footer class="acs-multitract__footer">',
-    `<button class="button button--secondary" type="button" data-acs-multitract-close>${escapeHtml(copy.close)}</button>`,
-    '</footer>',
     '</div>',
   ].join('');
 }

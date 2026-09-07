@@ -198,6 +198,13 @@ export async function assertFocusNotObscured(locator) {
 }
 
 export async function auditSeriousAccessibility(page) {
+  // Audit settled surfaces rather than the translucent frame of an opening panel.
+  // Ignore infinite loading animations; those must not block accessibility checks.
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations()
+      .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+      .map((animation) => animation.finished.catch(() => {})));
+  });
   const domIssues = await page.evaluate(() => {
     const issues = [];
     const ids = new Map();
@@ -229,6 +236,7 @@ export async function auditSeriousAccessibility(page) {
       help,
       helpUrl,
       targets: nodes.map((node) => node.target),
+      details: nodes.map((node) => node.failureSummary),
     }));
   return [
     ...domIssues.map((issue) => ({ source: 'dom-contract', issue })),

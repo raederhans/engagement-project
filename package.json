@@ -72,7 +72,7 @@
     "test:diary-palette": "node --test scripts/tests/diary_palette_contracts.mjs",
     "test:p1-ui": "node --test scripts/tests/p1_accessibility_design_contracts.mjs && node scripts/tests/visual_baseline_policy.mjs",
     "test:diary-insights": "node --test scripts/tests/diary_insights_contracts.mjs",
-    "test:ui-p0": "node --test scripts/tests/ui_shell_contracts.mjs scripts/tests/crime_ui_contracts.mjs scripts/tests/crime_radius_policy.mjs scripts/tests/mode_ui_contracts.mjs scripts/tests/diary_rating_flow.mjs scripts/tests/map_context_recovery.mjs",
+    "test:ui-p0": "node --test scripts/tests/ui_shell_contracts.mjs scripts/tests/crime_ui_contracts.mjs scripts/tests/crime_radius_policy.mjs scripts/tests/mode_ui_contracts.mjs scripts/tests/diary_rating_flow.mjs scripts/tests/map_context_recovery.mjs scripts/tests/information_level.mjs",
     "test:browser-smoke": "node scripts/tests/browser_smoke.mjs",
     "test:area-intelligence-browser": "node scripts/tests/area_intelligence_browser.mjs",
     "test:home-compare": "node --test scripts/tests/home_compare_m3.mjs scripts/tests/home_compare_citywide_source_lifecycle.mjs scripts/tests/home_compare_citywide_join_dq.mjs scripts/tests/home_compare_p5_integration.mjs scripts/tests/home_compare_source_privacy.mjs",

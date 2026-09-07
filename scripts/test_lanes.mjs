@@ -40,6 +40,7 @@ export const TEST_LANES = Object.freeze({
     'home_compare_p5_integration.mjs',
     'home_compare_source_privacy.mjs',
     'i18n_contracts.mjs',
+    'information_level.mjs',
     'known_route_crash_accessibility_evidence.mjs',
     'known_route_evidence_m4.mjs',
     'known_route_evidence_p6_projection.mjs',
