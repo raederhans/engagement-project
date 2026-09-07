@@ -128,6 +128,7 @@ export function createIncidentResultsView({
   let currentPage = 0;
   let currentGeneration = null;
   let lastPayload = null;
+  let renderedRows = null;
 
   function renderedFeatures(payload) {
     return pagedIncidentFeatures(payload?.geo?.features, {
@@ -156,26 +157,31 @@ export function createIncidentResultsView({
     const paged = renderedFeatures(payload);
     const { all, visible, pageCount } = paged;
     currentPage = paged.currentPage;
-    list?.replaceChildren?.();
-    for (const feature of visible) {
-      const model = createDetailModel(feature);
-      const item = documentRef.createElement('li');
-      item.className = 'incident-results__item';
-      const button = documentRef.createElement('button');
-      button.type = 'button';
-      button.dataset.incidentKey = model.key;
-      if (model.key === payload?.selectedKey) button.setAttribute('aria-current', 'true');
-      const offense = documentRef.createElement('strong');
-      offense.textContent = model.offense;
-      const meta = documentRef.createElement('span');
-      meta.className = 'incident-results__location';
-      meta.textContent = model.location;
-      const date = documentRef.createElement('span');
-      date.className = 'incident-results__date';
-      date.textContent = model.occurred;
-      button.append(offense, meta, date);
-      item.appendChild(button);
-      list?.appendChild?.(item);
+    const models = visible.map(createDetailModel);
+    const rows = JSON.stringify(models);
+    // Keep keyboard focus and scroll anchors when a viewport refresh returns the same rows.
+    if (rows !== renderedRows) {
+      renderedRows = rows;
+      list?.replaceChildren?.();
+      for (const model of models) {
+        const item = documentRef.createElement('li');
+        item.className = 'incident-results__item';
+        const button = documentRef.createElement('button');
+        button.type = 'button';
+        button.dataset.incidentKey = model.key;
+        if (model.key === payload?.selectedKey) button.setAttribute('aria-current', 'true');
+        const offense = documentRef.createElement('strong');
+        offense.textContent = model.offense;
+        const meta = documentRef.createElement('span');
+        meta.className = 'incident-results__location';
+        meta.textContent = model.location;
+        const date = documentRef.createElement('span');
+        date.className = 'incident-results__date';
+        date.textContent = model.occurred;
+        button.append(offense, meta, date);
+        item.appendChild(button);
+        list?.appendChild?.(item);
+      }
     }
     const shown = visible.length;
     if (status) status.textContent = statusText(payload, shown);
@@ -262,6 +268,7 @@ export function createIncidentResultsView({
       currentGeneration = null;
       currentPage = 0;
       lastPayload = null;
+      renderedRows = null;
       list?.replaceChildren?.();
       this.clearSelection();
       if (status) status.textContent = translate('incidents.idle');

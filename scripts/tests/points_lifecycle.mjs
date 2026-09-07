@@ -716,6 +716,26 @@ test('incident list rows defer district metadata to the selected detail', () => 
   assert.equal(button.children[2].textContent, '2026-07-15 14:35');
 });
 
+test('equivalent viewport results retain row nodes while changed text and clear rebuild them', () => {
+  const { root, nodes, documentRef } = createIncidentResultsDom();
+  const view = createIncidentResultsView({ root, documentRef });
+  const payload = {
+    geo: { type: 'FeatureCollection', features: [incidentFeature({ id: 7 })] },
+    generation: 1, status: 'ready', count: 1,
+  };
+  view.replaceResults(payload);
+  const row = nodes.list.children[0];
+  view.replaceResults({ ...structuredClone(payload), generation: 2 });
+  assert.equal(nodes.list.children[0], row);
+  const changed = structuredClone(payload);
+  changed.geo.features[0].properties.text_general_code = 'Other Assaults';
+  view.replaceResults(changed);
+  assert.notEqual(nodes.list.children[0], row);
+  view.clear();
+  view.replaceResults(changed);
+  assert.equal(nodes.list.children.length, 1);
+});
+
 test('incident list and selected detail localize official offense codes after a language switch', async (t) => {
   const { setLanguage, t: translate } = await import('../../src/i18n/index.js');
   t.after(() => setLanguage('en'));
