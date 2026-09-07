@@ -1,6 +1,7 @@
 import { registerMessagePairs } from '../i18n/messages.js';
 
 registerMessagePairs({
+  'publicRoutes.moreMetrics': ['More metrics & quality', '更多指标与质量'],
   'publicRoutes.title': ['Compare route tradeoffs', '比较路线权衡'],
   'publicRoutes.summary': ['Static examples—not live directions or route recommendations.', '静态示例，不提供实时导航或路线推荐。'],
   'publicRoutes.notes': ['Scenario notes', '场景说明'],

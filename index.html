@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-information="compact">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,7 +12,7 @@
     <header class="app-bar" data-i18n-aria-label="app.label" aria-label="Application">
       <div class="app-bar__identity">
         <h1><span class="app-title__full" data-i18n="app.title">Philadelphia Urban Evidence Lab</span><span class="app-title__compact" data-i18n="app.compactTitle" aria-hidden="true">PHL Evidence</span></h1>
-        <p data-i18n="app.tagline">3,586,620 reported records · historical and aggregate.</p>
+        <p data-info-secondary data-i18n="app.tagline">3,586,620 reported records · historical and aggregate.</p>
       </div>
       <div class="app-bar__tools">
         <nav class="app-bar__modes" data-mode-switch-mount data-i18n-aria-label="app.modeLabel" aria-label="Explorer mode"></nav>
@@ -23,6 +23,7 @@
         </fieldset>
         <p class="map-runtime-status" data-map-runtime-status data-phase="idle" role="status" aria-live="polite"></p>
         <p class="app-bar__status" data-app-data-status data-phase="loading" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</p>
+        <button type="button" class="information-toggle" data-information-toggle aria-pressed="false" data-i18n="information.compact">Info: concise</button>
         <div class="app-bar__language" data-language-switch-mount></div>
         <div class="app-bar__help" data-app-help></div>
       </div>
@@ -35,6 +36,10 @@
           <button class="button button--secondary" type="button" data-map-recovery-reload hidden></button>
         </div>
         <div id="legend"></div>
+        <aside id="crime-points-key" class="crime-points-key" hidden data-i18n-aria-label="map.pointsKey" aria-label="Event symbols">
+          <span><i class="crime-points-key__point" aria-hidden="true"></i><span data-i18n="map.singleRecord">One record</span></span>
+          <span data-cluster-key><i class="crime-points-key__cluster" aria-hidden="true">12</i><span data-i18n="map.clusterHint">Click a count to expand</span></span>
+        </aside>
         <div id="tooltip"></div>
         <section class="workspace-data-equivalent" data-crime-canvas-data data-i18n-aria-label="workspace.crimeDataLabel" aria-label="Structured data for Crime maps and charts">
           <h2 class="sr-only" data-i18n="workspace.crimeDataTitle">Crime map and chart data</h2>
@@ -119,33 +124,6 @@
           </form>
         </dialog>
       </section>
-      <section class="analysis-hub" aria-labelledby="analysis-hub-title">
-        <header class="analysis-hub__header">
-          <h2 id="analysis-hub-title" data-i18n="crime.analysisHubTitle">Related analyses</h2>
-        </header>
-        <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
-        <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
-          <button class="button button--secondary" type="button" data-route-corridor-open data-focus-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
-          <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
-          <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
-        </section>
-        <section class="public-route-entry" data-public-route-entry>
-          <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entry">Public route scenarios</button>
-          <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
-          <button class="button button--secondary" type="button" data-public-route-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
-        </section>
-        <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
-          <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
-          <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
-          <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
-        </section>
-        <section class="home-compare-entry" data-home-compare-entry data-i18n-aria-label="homeCompare.ariaLabel" aria-label="Home and neighborhood comparison">
-          <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog" data-i18n="homeCompare.entry">Home &amp; neighborhood compare</button>
-          <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
-          <button class="button button--secondary" type="button" data-home-compare-retry data-i18n="homeCompare.retry" hidden>Retry home comparison</button>
-        </section>
-        </nav>
-      </section>
       <section class="analysis-context" data-analysis-context hidden aria-hidden="true" aria-labelledby="analysis-context-title" tabindex="-1">
         <div class="analysis-context__copy">
           <p class="analysis-context__eyebrow" data-i18n="crime.analysisContext">Current analysis</p>
@@ -172,9 +150,11 @@
         <div class="search-control">
           <input id="addrA" class="field search-control__input" type="search" name="address-a" autocomplete="street-address" enterkeyhint="search" aria-describedby="addressStatus" data-i18n-placeholder="crime.address.primaryPlaceholder" placeholder="1500 Market St" />
           <button id="searchABtn" class="button button--secondary" type="button" data-i18n="crime.find">Find</button>
+          </div>
+        <div class="query-location-actions">
           <button id="useCenterBtn" class="button button--primary" type="button" data-map-only-control data-i18n="crime.pickOnMap">Pick on map</button>
-        </div>
         <button id="compareAreaBtn" class="button button--dashed" type="button" data-i18n="crime.compareAdd" aria-expanded="false" aria-controls="comparisonFields">Compare another area</button>
+        </div>
         <div id="comparisonFields" hidden>
           <label class="field-label" for="addrB" data-i18n="crime.comparisonArea">Comparison area</label>
           <div class="search-control">
@@ -187,55 +167,52 @@
         <div id="useMapHint" class="field-help is-hidden" data-i18n="crime.mapHint">Click the map to set the selected point. Press Esc to cancel.</div>
       </div>
 
-      <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
-        <div class="result-meta__bar">
-          <span data-result-meta-status role="status" aria-live="polite">Map result unavailable</span>
-          <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry map result</button>
-        </div>
-        <details class="result-meta__details">
-          <summary data-result-meta-details>Result details</summary>
-          <p class="result-meta__result" data-result-meta-result></p>
-          <p data-result-meta-generated></p>
-          <p data-result-meta-sources></p>
-          <p data-result-meta-coverage></p>
-          <p data-result-meta-scope></p>
-          <p data-result-meta-limitations></p>
-        </details>
-      </div>
-
       <div class="field-row">
         <div id="bufferRadiusRow" class="field-group">
           <label class="field-label" for="radiusSel" data-i18n="crime.radius">Radius</label>
-          <select id="radiusSel" class="field">
-            <option value="200">200 m</option>
-            <option value="400">400 m</option>
-            <option value="800">800 m</option>
-            <option value="1200">1,200 m</option>
-            <option value="1600">1,600 m</option>
-            <option value="2400">2,400 m</option>
-            <option value="custom" data-i18n="crime.custom">Custom</option>
-          </select>
+          <select id="radiusSel" class="field"></select>
           <div id="customRadiusRow" class="custom-radius-row" hidden>
             <label class="field-label" for="customRadiusInput" data-i18n="crime.custom">Custom</label>
-            <input id="customRadiusInput" class="field" type="number" min="100" max="10000" step="1" inputmode="numeric">
+            <input id="customRadiusInput" class="field" type="number" inputmode="numeric">
           </div>
         </div>
       </div>
 
-      <details id="advancedFilters">
+      <div class="query-time-window">
+      <label class="field-label" for="startMonth" data-i18n="crime.startMonth">Start month</label>
+      <input id="startMonth" class="field field--spaced" type="month" />
+      <label class="field-label" for="durationSel" data-i18n="crime.duration">Duration</label>
+      <select id="durationSel" class="field field--spaced">
+        <option value="3" data-i18n="crime.months" data-i18n-params='{"count":3}'>3 months</option>
+        <option value="6" data-i18n="crime.months" data-i18n-params='{"count":6}' selected>6 months</option>
+        <option value="12" data-i18n="crime.months" data-i18n-params='{"count":12}'>12 months</option>
+        <option value="24" data-i18n="crime.months" data-i18n-params='{"count":24}'>24 months</option>
+      </select>
+      </div>
+      <details id="advancedFilters" class="workspace-disclosure">
         <summary data-i18n="crime.moreFilters">More filters</summary>
         <div class="advanced-filters__body">
-          <section class="data-details" aria-labelledby="crime-data-details-title">
-            <h3 id="crime-data-details-title" data-i18n="crime.dataDetails">Data details</h3>
-            <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
-            <details class="source-health-entry" data-source-health-entry data-source-health-loader="idle">
-              <summary aria-controls="source-health-surface" data-i18n="sourceHealth.entry">Data sources and update status</summary>
-              <p data-source-health-loader-status role="status" aria-live="polite" hidden></p>
-              <button class="button button--secondary" type="button" data-source-health-retry hidden>Retry source evidence／重试来源证据</button>
-              <section id="source-health-surface" data-source-health-host aria-busy="false" hidden></section>
-            </details>
-          </section>
 
+      <label class="field-label" for="groupSel" data-i18n="crime.offenseGroups">Offense Groups</label>
+      <select id="groupSel" class="field field--list" multiple size="6">
+        <option value="person" data-i18n="crime.theme.person">Personal safety</option>
+        <option value="property" data-i18n="crime.theme.property">Home &amp; property</option>
+        <option value="vehicle" data-i18n="crime.theme.vehicle">Vehicle</option>
+        <option value="financial" data-i18n="crime.theme.financial">Financial</option>
+        <option value="public_order" data-i18n="crime.theme.publicOrder">Public order</option>
+        <option value="other" data-i18n="crime.theme.other">Other</option>
+      </select>
+
+      <label class="field-label" for="fineSel" data-i18n="crime.drilldown">Specific offense types (up to 3)</label>
+      <select id="fineSel" class="field field--list" multiple size="1" aria-describedby="fineSelHint"></select>
+      <div id="fineSelHint" class="field-help" role="status" aria-live="polite" data-i18n="crime.drilldownHint" data-i18n-params='{"count":0}'>0/3. Shift selects a range; Ctrl/Cmd-click toggles one. Map colors use the palette; at 3, deselect first.</div>
+
+
+
+        </div>
+      </details>
+      <details id="choropleth-controls" class="workspace-disclosure">
+        <summary data-i18n="crime.choropleth">Map appearance</summary>
       <div id="rateRow" class="field-row">
         <div class="field-group">
           <label class="field-label" for="rateSel" data-i18n="crime.rate">Rate</label>
@@ -253,37 +230,7 @@
         </label>
       </div>
 
-      <label class="field-label" for="groupSel" data-i18n="crime.offenseGroups">Offense Groups</label>
-      <select id="groupSel" class="field field--list" multiple size="6">
-        <option value="person" data-i18n="crime.theme.person">Personal safety</option>
-        <option value="property" data-i18n="crime.theme.property">Home &amp; property</option>
-        <option value="vehicle" data-i18n="crime.theme.vehicle">Vehicle</option>
-        <option value="financial" data-i18n="crime.theme.financial">Financial</option>
-        <option value="public_order" data-i18n="crime.theme.publicOrder">Public order</option>
-        <option value="other" data-i18n="crime.theme.other">Other</option>
-      </select>
 
-      <label class="field-label" for="fineSel" data-i18n="crime.drilldown">Specific offense types (up to 3)</label>
-      <select id="fineSel" class="field field--list" multiple size="1" aria-describedby="fineSelHint"></select>
-      <div id="fineSelHint" class="field-help" role="status" aria-live="polite" data-i18n="crime.drilldownHint" data-i18n-params='{"count":0}'>0/3. Shift selects a range; Ctrl/Cmd-click toggles one. Map colors use the palette; at 3, deselect first.</div>
-
-      <label class="field-label" for="startMonth" data-i18n="crime.startMonth">Start month</label>
-      <input id="startMonth" class="field field--spaced" type="month" />
-      <label class="field-label" for="durationSel" data-i18n="crime.duration">Duration</label>
-      <select id="durationSel" class="field field--spaced">
-        <option value="3" data-i18n="crime.months" data-i18n-params='{"count":3}'>3 months</option>
-        <option value="6" data-i18n="crime.months" data-i18n-params='{"count":6}' selected>6 months</option>
-        <option value="12" data-i18n="crime.months" data-i18n-params='{"count":12}'>12 months</option>
-        <option value="24" data-i18n="crime.months" data-i18n-params='{"count":24}'>24 months</option>
-      </select>
-      <div class="button-grid button-grid--three">
-        <button id="shareViewBtn" class="button button--secondary" type="button" data-i18n="crime.copyView">Copy view</button>
-        <button id="exportJsonBtn" class="button button--secondary" type="button">JSON</button>
-        <button id="exportCsvBtn" class="button button--secondary" type="button">CSV</button>
-      </div>
-
-      <section id="choropleth-controls" class="section-block">
-        <h3 class="section-heading" data-i18n="crime.choropleth">Choropleth</h3>
         <div class="field-row field-row--dense">
           <div class="field-group">
             <label class="field-label" for="classMethodSel" data-i18n="crime.method">Method</label>
@@ -324,8 +271,6 @@
           <label class="field-label" for="classCustomInput" data-i18n="crime.customBreaks">Custom breaks (comma-separated)</label>
           <input id="classCustomInput" class="field" type="text" placeholder="10,25,50,100" />
         </div>
-      </section>
-        </div>
       </details>
       </section>
       <section class="crime-results-overview" data-crime-results hidden aria-hidden="true" inert>
@@ -360,7 +305,7 @@
           <header class="incident-results__header">
             <p class="crime-summary__eyebrow" data-i18n="incidents.eyebrow">Incident log</p>
             <h2 id="incident-results-title" data-i18n="incidents.title">Recent incidents</h2>
-            <p data-i18n="incidents.description">Select a record to locate it on the map and view details.</p>
+            <p data-info-secondary data-i18n="incidents.description">Select a record to locate it on the map and view details.</p>
             <p data-incident-results-status role="status" aria-live="polite">Choose an analysis area to review incidents in the current map.</p>
           </header>
           <article class="incident-results__selected" data-selected-incident aria-live="polite" hidden></article>
@@ -405,21 +350,11 @@
               <p data-result-meta-limitations></p>
             </details>
           </div>
-          <section id="area-intelligence" class="area-intelligence residential-stability" aria-labelledby="area-intelligence-title" data-model-status="loading">
-            <div class="area-intelligence__heading residential-stability__heading">
-              <p class="crime-summary__eyebrow" data-i18n="areaIntelligence.eyebrow">Area Intelligence</p>
-              <h3 id="area-intelligence-title" data-i18n="areaIntelligence.title">Historical patterns and forecast status</h3>
-              <p data-i18n="areaIntelligence.subtitle">Review the historical summary and why no forecast is available.</p>
-            </div>
-            <div data-area-intelligence-content aria-live="polite">
-              <p data-i18n="areaIntelligence.loading">Checking the latest evidence summary…</p>
-            </div>
-          </section>
           <section id="residential-stability" class="residential-stability" aria-labelledby="residential-stability-title">
             <div class="residential-stability__heading">
               <p class="crime-summary__eyebrow" data-i18n="residential.eyebrow">Long-term context</p>
               <h3 id="residential-stability-title" data-i18n="residential.title">Long-term crime stability</h3>
-              <p data-i18n="residential.subtitle">A compact reading of direction, month-to-month variation, and evidence strength.</p>
+              <p data-info-secondary data-i18n="residential.subtitle">A compact reading of direction, month-to-month variation, and evidence strength.</p>
             </div>
             <div data-residential-stability-content aria-live="polite">
               <p data-i18n="residential.empty">Choose an area and at least six months to review stability.</p>
@@ -446,7 +381,7 @@
             <div class="chart-card__heading">
               <div>
                 <h3 id="chart-monthly-title" data-i18n="crime.chartMonthly">Crime over time</h3>
-                <p data-i18n="chart.monthlySubtitle">Compare direction first, then inspect raw volume.</p>
+                <p data-info-secondary data-i18n="chart.monthlySubtitle">Compare direction first, then inspect raw volume.</p>
               </div>
             </div>
             <div id="chart-monthly-controls" class="chart-options" role="group" data-i18n-aria-label="chart.monthlyViewLabel" aria-label="Time trend view">
@@ -461,7 +396,7 @@
             <div class="chart-card__heading chart-card__heading--split">
               <div>
                 <h3 id="chart-topn-title" data-i18n="crime.topOffenses">Top offenses</h3>
-                <p data-i18n="chart.topSubtitle">Rank types and inspect their share of the selected result.</p>
+                <p data-info-secondary data-i18n="chart.topSubtitle">Rank types and inspect their share of the selected result.</p>
               </div>
               <label class="chart-card__compact-select" for="chartCategoryLimitSel">
                 <span data-i18n="chart.categoryCount">Categories</span>
@@ -484,7 +419,7 @@
             <div class="chart-card__heading chart-card__heading--split">
               <div>
                 <h3 id="chart-7x24-title" data-i18n="crime.dayHour">Day and hour</h3>
-                <p data-i18n="chart.temporalSubtitle">Find the peak cell or summarize by weekday or hour.</p>
+                <p data-info-secondary data-i18n="chart.temporalSubtitle">Find the peak cell or summarize by weekday or hour.</p>
               </div>
               <label class="chart-card__compact-select" for="chartClassificationSel">
                 <span data-i18n="chart.classification">Classification</span>
@@ -503,8 +438,75 @@
             <div class="chart-canvas chart-canvas--temporal"><canvas id="chart-7x24"></canvas></div>
             <p id="chart-7x24-insight" class="chart-insight" aria-live="polite"></p>
           </section>
+          <details class="workspace-disclosure chart-evidence-notes"><summary data-i18n="crime.evidenceNotes">Data coverage &amp; model notes</summary>
+          <section id="area-intelligence" class="area-intelligence residential-stability" aria-labelledby="area-intelligence-title" data-model-status="loading">
+            <div class="area-intelligence__heading residential-stability__heading">
+              <p class="crime-summary__eyebrow" data-i18n="areaIntelligence.eyebrow">Area Intelligence</p>
+              <h3 id="area-intelligence-title" data-i18n="areaIntelligence.title">Historical patterns and forecast status</h3>
+              <p data-info-secondary data-i18n="areaIntelligence.subtitle">Review the historical summary and why no forecast is available.</p>
+            </div>
+            <div data-area-intelligence-content aria-live="polite">
+              <p data-i18n="areaIntelligence.loading">Checking the latest evidence summary…</p>
+            </div>
+          </section>
+          </details>
         </div>
       </aside>
+      <details class="analysis-hub workspace-disclosure">
+        <summary id="analysis-hub-title" data-i18n="crime.analysisHubTitle">Analysis tools</summary>
+        <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
+        <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
+          <button class="button button--secondary" type="button" data-route-corridor-open data-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
+          <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
+        </section>
+        <section class="public-route-entry" data-public-route-entry>
+          <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entry">Public route scenarios</button>
+          <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-public-route-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
+        </section>
+        <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
+          <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
+          <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
+        </section>
+        <section class="home-compare-entry" data-home-compare-entry data-i18n-aria-label="homeCompare.ariaLabel" aria-label="Home and neighborhood comparison">
+          <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog" data-i18n="homeCompare.entry">Home &amp; neighborhood compare</button>
+          <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
+          <button class="button button--secondary" type="button" data-home-compare-retry data-i18n="homeCompare.retry" hidden>Retry home comparison</button>
+        </section>
+        </nav>
+      </details>
+          <details class="data-details workspace-disclosure" data-source-health-entry data-source-health-loader="idle">
+            <summary aria-controls="source-health-surface" id="crime-data-details-title" data-i18n="crime.dataDetails">Data &amp; sources</summary>
+      <div class="result-meta" data-result-meta="boundary" data-availability="unavailable">
+        <div class="result-meta__bar">
+          <span data-result-meta-status role="status" aria-live="polite">Map result unavailable</span>
+          <button class="button button--secondary result-meta__retry" type="button" data-result-meta-retry hidden>Retry map result</button>
+        </div>
+        <details class="result-meta__details">
+          <summary data-result-meta-details>Result details</summary>
+          <p class="result-meta__result" data-result-meta-result></p>
+          <p data-result-meta-generated></p>
+          <p data-result-meta-sources></p>
+          <p data-result-meta-coverage></p>
+          <p data-result-meta-scope></p>
+          <p data-result-meta-limitations></p>
+        </details>
+      </div>
+
+
+            <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
+              <p data-source-health-loader-status role="status" aria-live="polite" hidden></p>
+              <button class="button button--secondary" type="button" data-source-health-retry hidden>Retry source evidence／重试来源证据</button>
+              <section id="source-health-surface" data-source-health-host aria-busy="false" hidden></section>
+          </details>
+<details class="workspace-disclosure query-export"><summary data-i18n="crime.exportTools">Share &amp; export</summary>      <div class="button-grid button-grid--three">
+        <button id="shareViewBtn" class="button button--secondary" type="button" data-i18n="crime.copyView">Copy view</button>
+        <button id="exportJsonBtn" class="button button--secondary" type="button">JSON</button>
+        <button id="exportCsvBtn" class="button button--secondary" type="button">CSV</button>
+      </div>
+</details>
       <details class="analysis-history-disclosure" data-analysis-history-disclosure name="crime-results" hidden aria-hidden="true" inert>
         <summary data-i18n="history.savedAnalyses">Saved analyses</summary>
         <section data-analysis-history-mount></section>

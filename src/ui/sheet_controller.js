@@ -76,7 +76,19 @@ function addSheetHandle(sheet) {
 
 export function initShell() {
   const sheet = document.getElementById('sidepanel');
-  if (sheet) addSheetHandle(sheet);
+  if (!sheet) return;
+  addSheetHandle(sheet);
+  if (!sheet.dataset.viewportBound && globalThis.matchMedia) {
+    sheet.dataset.viewportBound = 'true';
+    const compactViewport = globalThis.matchMedia('(max-width: 900px)');
+    const restoreDesktop = () => {
+      if (!compactViewport.matches && sheet.dataset.sheetState === 'collapsed') {
+        setSheetState(sheet, 'half');
+      }
+    };
+    compactViewport.addEventListener('change', restoreDesktop);
+    restoreDesktop();
+  }
 }
 
 if (typeof document !== 'undefined') {

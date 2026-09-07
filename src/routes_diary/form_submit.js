@@ -1,4 +1,3 @@
-import Ajv from 'ajv';
 import { submitDiary } from '../api/diary.js';
 import { getSegmentDisplayLabel } from './labels.js';
 import {
@@ -7,22 +6,9 @@ import {
   setSegmentOverride,
   validateRatingStep,
 } from './rating_flow.js';
+import { DIARY_RATING_POLICY } from './rating_policy.js';
 import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
-const ALL_TAGS = [
-  'poor_lighting',
-  'low_foot_traffic',
-  'cars_too_close',
-  'construction_blockage',
-  'strangers_loitering',
-  'no_sidewalk',
-  'bike_conflict',
-  'speeding_cars',
-  'blocked_crosswalk',
-  'potholes',
-  'other',
-  'dogs',
-];
 const DEFAULT_TAG_CHIPS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'construction_blockage', 'dogs', 'other'];
 const STEP_ORDER = ['overall', 'details', 'segments'];
 const STEP_TITLE_KEYS = {
@@ -48,40 +34,44 @@ function localizeRatingError(message) {
   return keys[message] ? t(keys[message]) : message;
 }
 
-const ajv = new Ajv({ allErrors: true });
-const ratingSchema = {
-  type: 'object',
-  required: ['route_id', 'segment_ids', 'overall_rating', 'tags', 'mode', 'user_hash'],
-  properties: {
-    route_id: { type: 'string', minLength: 1 },
-    segment_ids: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
-    overall_rating: { type: 'integer', minimum: 1, maximum: 5 },
-    tags: {
-      type: 'array',
-      items: { type: 'string', enum: ALL_TAGS },
-      minItems: 1,
-      maxItems: 3,
-    },
-    segment_overrides: {
-      type: 'array',
-      maxItems: 2,
-      items: {
-        type: 'object',
-        required: ['segment_id', 'rating'],
-        properties: {
-          segment_id: { type: 'string', minLength: 1 },
-          rating: { type: 'integer', minimum: 1, maximum: 5 },
-        },
-      },
-      default: [],
-    },
-    mode: { type: 'string', enum: ['walk', 'bike'] },
-    user_hash: { type: 'string', minLength: 3 },
-    notes: { type: 'string', maxLength: 200 },
-    timestamp: { type: 'string' },
-  },
-};
-const validatePayload = ajv.compile(ratingSchema);
+export function createPayloadValidatorLoader({
+  loadModule = () => import('./rating_payload_validator.js'),
+} = {}) {
+  let pendingModule = null;
+  return () => {
+    if (!pendingModule) {
+      pendingModule = Promise.resolve()
+        .then(() => loadModule())
+        .catch((error) => {
+          pendingModule = null;
+          throw error;
+        });
+    }
+    return pendingModule;
+  };
+}
+
+const loadPayloadValidator = createPayloadValidatorLoader();
+
+export async function validateRatingPayloadForSubmit(payload, {
+  loadValidator = loadPayloadValidator,
+  isCurrent = () => true,
+  onError = () => {},
+} = {}) {
+  try {
+    const { validateRatingPayload } = await loadValidator();
+    if (!isCurrent()) return { applied: false, reason: 'stale' };
+    const validation = validateRatingPayload(payload);
+    if (!validation.ok) onError(validation.error);
+    return validation.ok
+      ? { applied: true }
+      : { applied: false, reason: 'invalid', error: validation.error };
+  } catch (error) {
+    if (!isCurrent()) return { applied: false, reason: 'stale' };
+    onError(error?.message || String(error));
+    return { applied: false, reason: 'validator-unavailable', error };
+  }
+}
 
 let activeBackdrop = null;
 let activeModal = null;
@@ -444,7 +434,7 @@ function createTagSelector(state) {
   placeholder.selected = true;
   placeholder.disabled = true;
   select.appendChild(placeholder);
-  ALL_TAGS.filter((tag) => !state.tags.has(tag)).forEach((tag) => {
+  DIARY_RATING_POLICY.allowedTags.filter((tag) => !state.tags.has(tag)).forEach((tag) => {
     const option = document.createElement('option');
     option.value = tag;
     option.textContent = translatedTagLabel(tag);
@@ -636,10 +626,11 @@ async function handleSubmit(event) {
     return;
   }
   const payload = buildPayload(state);
-  if (!validatePayload(payload)) {
-    setError(ajv.errorsText(validatePayload.errors, { separator: '\n' }));
-    return;
-  }
+  const validation = await validateRatingPayloadForSubmit(payload, {
+    isCurrent: () => currentState === state && !state.signal?.aborted,
+    onError: (message) => setError(message, { focus: true }),
+  });
+  if (!validation.applied) return;
 
   setError('');
   try {

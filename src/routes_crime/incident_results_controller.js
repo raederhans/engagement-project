@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl';
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from '../map/camera_fit.js';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 8;
 const MAX_ROWS = 200;
 
 function defaultResultKey(feature, { generation = 0, index = 0 } = {}) {
@@ -41,7 +41,7 @@ function createDefaultDetailModel(feature, {
 
 function createDefaultDetailHtml(model, { translate, escape }) {
   const row = (labelKey, value) => `<div><dt>${escape(translate(labelKey))}</dt><dd>${escape(value)}</dd></div>`;
-  return `<article><h3>${escape(translate('map.incidentDetails'))}</h3><dl>${row('map.incidentOffense', model.offense)}${row('map.incidentOccurred', model.occurred)}${row('map.incidentLocation', model.location)}${row('map.incidentDistrict', model.district)}</dl></article>`;
+  return `<article class="incident-detail"><p class="incident-detail__eyebrow">${escape(translate('map.incidentDetails'))}</p><h3>${escape(model.offense)}</h3><dl>${row('map.incidentOccurred', model.occurred)}${row('map.incidentLocation', model.location)}${row('map.incidentDistrict', model.district)}</dl></article>`;
 }
 
 function sortNewestFirst(features) {
@@ -128,6 +128,7 @@ export function createIncidentResultsView({
   let currentPage = 0;
   let currentGeneration = null;
   let lastPayload = null;
+  let renderedRows = null;
 
   function renderedFeatures(payload) {
     return pagedIncidentFeatures(payload?.geo?.features, {
@@ -156,22 +157,31 @@ export function createIncidentResultsView({
     const paged = renderedFeatures(payload);
     const { all, visible, pageCount } = paged;
     currentPage = paged.currentPage;
-    list?.replaceChildren?.();
-    for (const feature of visible) {
-      const model = createDetailModel(feature);
-      const item = documentRef.createElement('li');
-      item.className = 'incident-results__item';
-      const button = documentRef.createElement('button');
-      button.type = 'button';
-      button.dataset.incidentKey = model.key;
-      if (model.key === payload?.selectedKey) button.setAttribute('aria-current', 'true');
-      const offense = documentRef.createElement('strong');
-      offense.textContent = model.offense;
-      const meta = documentRef.createElement('span');
-      meta.textContent = `${model.occurred} · ${model.location}`;
-      button.append(offense, meta);
-      item.appendChild(button);
-      list?.appendChild?.(item);
+    const models = visible.map(createDetailModel);
+    const rows = JSON.stringify(models);
+    // Keep keyboard focus and scroll anchors when a viewport refresh returns the same rows.
+    if (rows !== renderedRows) {
+      renderedRows = rows;
+      list?.replaceChildren?.();
+      for (const model of models) {
+        const item = documentRef.createElement('li');
+        item.className = 'incident-results__item';
+        const button = documentRef.createElement('button');
+        button.type = 'button';
+        button.dataset.incidentKey = model.key;
+        if (model.key === payload?.selectedKey) button.setAttribute('aria-current', 'true');
+        const offense = documentRef.createElement('strong');
+        offense.textContent = model.offense;
+        const meta = documentRef.createElement('span');
+        meta.className = 'incident-results__location';
+        meta.textContent = model.location;
+        const date = documentRef.createElement('span');
+        date.className = 'incident-results__date';
+        date.textContent = model.occurred;
+        button.append(offense, meta, date);
+        item.appendChild(button);
+        list?.appendChild?.(item);
+      }
     }
     const shown = visible.length;
     if (status) status.textContent = statusText(payload, shown);
@@ -258,6 +268,7 @@ export function createIncidentResultsView({
       currentGeneration = null;
       currentPage = 0;
       lastPayload = null;
+      renderedRows = null;
       list?.replaceChildren?.();
       this.clearSelection();
       if (status) status.textContent = translate('incidents.idle');
@@ -279,7 +290,7 @@ export function createIncidentResultsView({
 export function createIncidentResultsController(map, {
   view = null,
   layerId = 'unclustered',
-  createPopup = () => new maplibregl.Popup({ closeButton: true, focusAfterOpen: false }),
+  createPopup = () => new maplibregl.Popup({ closeButton: true, focusAfterOpen: false, maxWidth: '300px', className: 'crime-incident-popup', offset: 14 }),
   prefersReducedMotion = defaultPrefersReducedMotion,
   languageChange = () => () => {},
   translate = defaultTranslate,
@@ -308,11 +319,19 @@ export function createIncidentResultsController(map, {
   let destroyed = false;
 
   const closePopup = () => {
-    popup?.remove?.();
+    const previous = popup;
     popup = null;
+    previous?.remove?.();
+  };
+
+  const markSelected = (key, selected) => {
+    if (key != null && map.getSource?.('crime-points')) {
+      map.setFeatureState?.({ source: 'crime-points', id: key }, { selected });
+    }
   };
 
   const clearSelection = () => {
+    markSelected(selectedKey, false);
     selectedKey = null;
     closePopup();
     resultsView.clearSelection?.();
@@ -329,7 +348,9 @@ export function createIncidentResultsController(map, {
     if (destroyed || !feature) return false;
     const key = getResultKey(feature);
     if (!featuresByKey.has(key)) return false;
+    markSelected(selectedKey, false);
     selectedKey = key;
+    markSelected(key, true);
     const html = renderDetailHtml(feature);
     const model = createDetailModel(feature);
     syncSelectedView({ key, feature, model, html, ensureVisible });
@@ -348,11 +369,14 @@ export function createIncidentResultsController(map, {
           .setLngLat(coordinates)
           .setHTML(html)
           .addTo(map);
+        nextPopup.on?.('close', () => {
+          if (popup === nextPopup) clearSelection();
+        });
       }
       if (ensureVisible) {
         map.easeTo?.({
           center: coordinates,
-          zoom: Math.max(Number(map.getZoom?.()) || 0, 16),
+          zoom: Math.max(Number(map.getZoom?.()) || 0, 17),
           duration: prefersReducedMotion() ? 0 : 300,
         });
       }

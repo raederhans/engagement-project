@@ -4,7 +4,7 @@ const COPY = Object.freeze({
   en: Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
-    intro: 'Addresses stay on this device.',
+    intro: 'Address lookup is unavailable in this public version. Addresses stay on this device.',
     address: 'Home address',
     addressHint: 'Address lookup is disabled. What you type is not sent to address, parcel, or map services.',
     add: 'Add another home',
@@ -62,7 +62,7 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
-    intro: '地址仅留在此设备。',
+    intro: '当前公开版本暂不提供地址查询。地址仅留在此设备。',
     address: '住宅地址',
     addressHint: '地址查询未启用。输入内容不会发送给地址、地块或地图服务。',
     add: '添加住宅',
@@ -150,16 +150,15 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
       <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}">
         <div class="home-compare__addresses">${addresses}</div>
         <button class="button button--secondary" type="button" data-home-add ${busy || addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
-        <label for="home-compare-destinations">${escapeHtml(copy.commute)}</label>
-        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}></textarea>
-        <fieldset class="home-compare__weights">
-          <legend>${escapeHtml(copy.weights)}</legend>
+        <details class="workspace-disclosure home-compare__options"><summary>${escapeHtml(copy.commute)}</summary><label class="sr-only" for="home-compare-destinations">${escapeHtml(copy.commute)}</label>
+        <textarea id="home-compare-destinations" data-home-destinations rows="3" aria-describedby="home-compare-description" ${busy ? 'disabled' : ''}></textarea><p class="field-help">${escapeHtml(copy.commuteHint)}</p></details>
+        <details class="workspace-disclosure home-compare__options"><summary>${escapeHtml(copy.weights)}</summary><fieldset class="home-compare__weights">
+          <legend class="sr-only">${escapeHtml(copy.weights)}</legend>
           <div>${weightControls}</div>
-        </fieldset>
+        </fieldset><p class="field-help">${escapeHtml(copy.weightsHint)}</p></details>
         <div class="home-compare__actions">
           <button class="button button--primary" type="button" data-home-run ${busy ? 'disabled' : ''}>${escapeHtml(copy.compare)}</button>
           <button class="button button--secondary" type="button" data-home-share ${busy ? 'disabled' : ''}>${escapeHtml(copy.share)}</button>
-          <button class="button button--secondary" type="button" data-home-close>${escapeHtml(copy.close)}</button>
         </div>
         <details class="progressive-surface">
           <summary>${escapeHtml(copy.notes)}</summary>

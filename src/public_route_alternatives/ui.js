@@ -86,8 +86,13 @@ function routeCard(documentRef, card) {
   });
   header.append(copy, pareto);
   const metrics = element(documentRef, 'dl', { className: 'public-route-card__metrics' });
-  for (const key of METRIC_KEYS) appendMetric(documentRef, metrics, key, card.metrics[key]);
-  article.append(header, metrics);
+  for (const key of METRIC_KEYS.slice(0, 4)) appendMetric(documentRef, metrics, key, card.metrics[key]);
+  const details = element(documentRef, 'details', { className: 'public-route-card__details workspace-disclosure' });
+  details.append(element(documentRef, 'summary', { text: t('publicRoutes.moreMetrics') }));
+  const secondary = element(documentRef, 'dl', { className: 'public-route-card__metrics' });
+  for (const key of METRIC_KEYS.slice(4)) appendMetric(documentRef, secondary, key, card.metrics[key]);
+  details.append(secondary);
+  article.append(header, metrics, details);
   return article;
 }
 

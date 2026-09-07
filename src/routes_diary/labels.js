@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { STREET_NAME_PROP, SEGMENT_ID_PROP } from './data_normalization.js';
 
 export function getSegmentDisplayLabel(segmentFeature, fallbackIndex = 1) {
@@ -7,7 +8,7 @@ export function getSegmentDisplayLabel(segmentFeature, fallbackIndex = 1) {
   if (normalizedStreet && !isPlaceholderStreetName(normalizedStreet)) {
     return normalizedStreet;
   }
-  return `Segment ${fallbackIndex}`;
+  return t('diary.segmentLabel', { count: fallbackIndex });
 }
 
 function isPlaceholderStreetName(value) {

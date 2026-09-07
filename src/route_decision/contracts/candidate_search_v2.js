@@ -1,12 +1,18 @@
 import { admitRouteCandidateFacts } from './index.js';
+import {
+  boundedId,
+  deepFreeze,
+  exactEnum,
+  exactObject,
+  exactSequence,
+  fail,
+  safeInteger,
+  strictArray,
+} from './internal/candidate_search_validator_v1.js';
 
-const MAX_ID_LENGTH = 120;
 const MAX_REQUESTED_CANDIDATES = 16;
 const MAX_EXPANDED_STATES = 1_000_000;
 const MAX_ROUTE_EDGE_COUNT = 100_000;
-
-const ID_PATTERN = /^[a-z0-9](?:[a-z0-9._:-]{0,119})$/;
-const BLOCKED_PROPERTY_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
 
 export const ROUTE_CANDIDATE_SEARCH_SCHEMA_VERSIONS = Object.freeze({
   searchRequest: 'engagement-route-candidate-search-request/v1',
@@ -77,106 +83,11 @@ const CONSTRAINT_OUTCOME_SET = new Set([
 const BUDGET_OUTCOME_SET = new Set(['within-budget', 'exhausted']);
 const CAPACITY_OUTCOME_SET = new Set(['within-capacity', 'exhausted']);
 
-function fail(message) {
-  throw new TypeError(`route candidate search contract: ${message}`);
-}
-
-function inspectPlainObject(value, label) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.getPrototypeOf(value) !== Object.prototype) {
-    fail(`${label} must be a plain object`);
-  }
-  const ownKeys = Reflect.ownKeys(value);
-  if (ownKeys.some((key) => typeof key === 'symbol')) {
-    fail(`${label} must not contain symbol properties`);
-  }
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  for (const key of ownKeys) {
-    if (!Object.hasOwn(descriptors[key], 'value')) {
-      fail(`${label} must contain data properties only`);
-    }
-  }
-  return { ownKeys, descriptors };
-}
-
-function exactObject(value, label, requiredKeys) {
-  const { ownKeys, descriptors } = inspectPlainObject(value, label);
-  const allowed = new Set(requiredKeys);
-  const missing = requiredKeys.filter((key) => !Object.hasOwn(descriptors, key));
-  const unknown = ownKeys.filter((key) => !allowed.has(key));
-  if (missing.length || unknown.length) {
-    fail(`${label} schema mismatch (missing: ${missing.join(',') || 'none'}; unknown: ${unknown.join(',') || 'none'})`);
-  }
-  return Object.fromEntries(
-    requiredKeys.map((key) => [key, descriptors[key].value]),
-  );
-}
-
-function strictArray(value, label, { min = 0, max } = {}) {
-  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
-    fail(`${label} must be an array`);
-  }
-  const ownKeys = Reflect.ownKeys(value);
-  if (ownKeys.some((key) => typeof key === 'symbol')) {
-    fail(`${label} must not contain symbol properties`);
-  }
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const length = descriptors.length?.value;
-  if (!Number.isSafeInteger(length) || length < min || (max !== undefined && length > max)) {
-    fail(`${label} length is outside the supported range`);
-  }
-  for (let index = 0; index < length; index += 1) {
-    const descriptor = descriptors[String(index)];
-    if (!descriptor) fail(`${label} must not contain sparse entries`);
-    if (!Object.hasOwn(descriptor, 'value')) {
-      fail(`${label} must contain data properties only`);
-    }
-  }
-  const extra = ownKeys.filter((key) => key !== 'length'
-    && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= length));
-  if (extra.length) fail(`${label} contains unsupported properties`);
-  return Array.from({ length }, (_, index) => descriptors[String(index)].value);
-}
-
-function boundedId(value, label) {
-  if (typeof value !== 'string' || value.length > MAX_ID_LENGTH
-    || !ID_PATTERN.test(value) || BLOCKED_PROPERTY_NAMES.has(value)) {
-    fail(`${label} must be a bounded canonical id`);
-  }
-  return value;
-}
-
-function exactEnum(value, allowed, label) {
-  if (typeof value !== 'string' || !allowed.has(value)) fail(`${label} is unsupported`);
-  return value;
-}
-
-function safeInteger(value, label, { min, max }) {
-  if (!Number.isSafeInteger(value) || Object.is(value, -0) || value < min || value > max) {
-    fail(`${label} must be an integer between ${min} and ${max}`);
-  }
-  return value;
-}
-
-function exactSequence(value, expected, label) {
-  const sequence = strictArray(value, label, { min: expected.length, max: expected.length });
-  if (sequence.some((item, index) => item !== expected[index])) {
-    fail(`${label} must exactly preserve ${expected.join(',')}`);
-  }
-  return [...sequence];
-}
-
 function uniqueIds(value, label, { max }) {
   const items = strictArray(value, label, { max });
   const admitted = items.map((item, index) => boundedId(item, `${label}[${index}]`));
   if (new Set(admitted).size !== admitted.length) fail(`${label} must be unique`);
   return admitted;
-}
-
-function deepFreeze(value) {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }
 
 export const ROUTE_CANDIDATE_SEARCH_DECISIONS = deepFreeze({

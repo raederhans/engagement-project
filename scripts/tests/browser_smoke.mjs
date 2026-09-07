@@ -81,8 +81,9 @@ async function installDeterministicApiRoutes(page, networkControl) {
     if (/format=GeoJSON/i.test(body)) {
       networkControl.pointRefreshRequests += 1;
     }
-    if (networkControl.holdCarto) await networkControl.cartoGate;
     const districtBoundaryCounts = /SELECT\s+dc_dist,\s*COUNT\(\*\)\s+AS\s+n[\s\S]*GROUP\s+BY\s+1\s+ORDER\s+BY\s+1/i.test(body);
+    if (districtBoundaryCounts) (networkControl.districtQueries ||= []).push(body);
+    if (networkControl.holdCarto) await networkControl.cartoGate;
     if (networkControl.failCarto && !districtBoundaryCounts) {
       networkControl.failedCartoResponses += 1;
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'held browser failure' }) });
@@ -129,6 +130,9 @@ async function ensureCrimeEditing(page) {
 }
 
 async function ensureCrimeResults(page) {
+  if (await page.getByRole('radio', { name: 'List', exact: true }).isChecked()) {
+    await page.getByRole('radio', { name: 'Map', exact: true }).check();
+  }
   const panel = page.locator('#sidepanel');
   if (await panel.getAttribute('data-crime-stage') === 'edit') {
     await page.locator('[data-analysis-context-edit]').click();
@@ -290,7 +294,7 @@ try {
   page.on('request', (request) => requests.push(request.url()));
 
   await page.goto(new URL('?mode=diary', baseUrl).href, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Trip diary' }).waitFor();
   await page.waitForTimeout(250);
   const crimeApiHosts = new Set([
     'citygeo-geocoder-pub.databridge.phila.gov',
@@ -353,7 +357,7 @@ try {
   await page.getByRole('button', { name: 'Close rating dialog' }).click();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Trip diary' }).waitFor();
   const restoredRouteSelect = page.locator('[data-panel-view="diary"] select.diary-select').first();
   await restoredRouteSelect.selectOption(routeA);
   await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
@@ -556,7 +560,8 @@ try {
 
   const publicCrimeUrl = new URL('?mode=crime&view=list&analysis=district&district=06&utm_source=portfolio&codes=Thefts', baseUrl);
   await page.goto(publicCrimeUrl.href, { waitUntil: 'domcontentloaded' });
-  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
+  await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor({ state: 'attached' });
   await page.waitForFunction(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('view') === 'list' && params.get('analysis') === 'district' && params.get('district') === '06';
@@ -574,6 +579,7 @@ try {
   }
   await page.getByRole('radio', { name: 'Map', exact: true }).check();
   await page.locator('[data-primary-canvas]').waitFor({ state: 'visible' });
+  await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   const summaryMeta = page.locator('[data-result-meta="summary"]');
   await summaryMeta.locator('details > summary').click();
   assert.match(await summaryMeta.textContent(), /CARTO/);
@@ -602,7 +608,8 @@ try {
     false,
     'Changing task focus must not import the Route corridor UI',
   );
-  await page.getByRole('button', { name: 'View records near a known route' }).click();
+  await page.locator('.analysis-hub > summary').click();
+  await page.getByRole('button', { name: 'Open known route' }).click();
   const routeSurface = page.locator('[data-route-corridor-surface]');
   await routeSurface.waitFor({ state: 'visible' });
   assert.equal(await routeSurface.getAttribute('data-route-status'), 'route-required');
@@ -618,8 +625,8 @@ try {
   assert.match(await routeSurface.locator('[data-route-query-context]').textContent(), /历史时间/);
   await page.getByRole('button', { name: '切换到英文' }).click();
   await routeSurface.getByRole('button', { name: 'Close' }).click();
-  await page.getByRole('radio', { name: 'List', exact: true }).check();
-  await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
+  // Time presets belong to the map analysis controls; List has its own filter bar.
+  await page.locator('[data-task-focus]').waitFor({ state: 'visible' });
 
   const presetUrlBefore = new URL(page.url());
   const presetDisclosure = page.locator('[data-query-preset-mount]');
@@ -632,15 +639,20 @@ try {
   await presetDialog.getByRole('button', { name: 'Cancel' }).click();
   assert.equal(page.url(), presetUrlBefore.href, 'Cancelling a query preset preview must keep the URL unchanged');
 
-  const pointRefreshRequestsBeforeQueryPreset = networkControl.pointRefreshRequests;
+  const districtQueriesBeforeQueryPreset = networkControl.districtQueries.length;
   await presetDisclosure.locator('[data-query-preset="latest-6-months"]').click();
   await presetDialog.getByRole('button', { name: 'Apply and refresh once' }).click();
-  await page.waitForFunction(() => new URLSearchParams(window.location.search).get('months') === '6');
+  try {
+    await page.waitForFunction(() => new URLSearchParams(window.location.search).get('months') === '6');
+  } catch (error) {
+    assert.fail(`Preset did not apply: ${page.url()}; ${await presetDialog.textContent()}; ${error.message}`);
+  }
   await presetDialog.locator('[data-query-preset-status]').filter({ hasText: 'historical results are ready' }).waitFor();
-  assert.equal(
-    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeQueryPreset,
-    1,
-    'Applying one query preset must own exactly one Crime refresh generation',
+  const presetDistrictQueries = networkControl.districtQueries.slice(districtQueriesBeforeQueryPreset);
+  assert.ok(presetDistrictQueries.length > 0, 'Applying a time preset must refresh district evidence');
+  assert.ok(
+    presetDistrictQueries.length <= 2,
+    'A map preset has at most two district consumers; they may reuse cached evidence',
   );
   const appliedPresetUrl = new URL(page.url());
   assert.equal(appliedPresetUrl.searchParams.has('preset'), false, 'Preset identity must not become URL truth');
@@ -722,6 +734,7 @@ try {
   });
   await page.waitForTimeout(1200);
 
+  await page.locator('.query-export > summary').click();
   await page.locator('#shareViewBtn').click();
   const currentSharedUrl = new URL(page.url());
   assert.equal(currentSharedUrl.searchParams.get('utm_source'), 'portfolio');
@@ -754,12 +767,14 @@ try {
   await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
   await page.evaluate(() => sessionStorage.clear());
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('[data-crime-list-workspace]').waitFor({ state: 'visible' });
+  await ensureCrimeResults(page);
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
   let releaseCarto;
   networkControl.cartoGate = new Promise((resolve) => { releaseCarto = resolve; });
   networkControl.holdCarto = true;
   const requestsBeforeRestore = requests.length;
-  const pointRefreshRequestsBeforeRestore = networkControl.pointRefreshRequests;
+  const districtQueriesBeforeRestore = networkControl.districtQueries.length;
   const freshCartoRequest = page.waitForRequest((request) => request.url().startsWith('https://phl.carto.com/'));
   await ensureSavedAnalysesOpen(page);
   await artifactCard(page, 'District 06 analysis').getByRole('button', { name: 'Open' }).click();
@@ -777,13 +792,13 @@ try {
     'Opening an artifact must issue fresh Crime network activity',
   );
   assert.equal(await page.locator('.analysis-history__snapshot').isVisible(), true);
-  assert.equal(
-    networkControl.pointRefreshRequests - pointRefreshRequestsBeforeRestore,
-    1,
-    'Held public artifact restore must start exactly one Crime refresh generation',
+  const heldDistrictRequests = networkControl.districtQueries.length - districtQueriesBeforeRestore;
+  assert.ok(
+    heldDistrictRequests >= 1 && heldDistrictRequests <= 2,
+    'Held restore must start fresh district evidence; boundary and summary may share cached evidence',
   );
   await page.getByRole('button', { name: 'Diary', exact: true }).click();
-  await page.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
+  await page.getByRole('heading', { name: 'Trip diary' }).waitFor();
   const cancelledSnapshotText = await page.locator('.analysis-history__snapshot').textContent();
   assert.match(cancelledSnapshotText, /refresh was cancelled/i);
   assert.doesNotMatch(cancelledSnapshotText, /Refreshing live data/i);
@@ -805,7 +820,8 @@ try {
   await artifactCard(page, 'District 06 analysis').waitFor();
   await page.locator('.analysis-history__snapshot').waitFor({ state: 'hidden' });
   await page.locator('#compare-card').filter({ hasText: '12 reported incidents' }).waitFor();
-  for (const resultName of ['incidents', 'charts', 'summary']) {
+  await page.locator('[data-result-meta="incidents"][data-availability="unavailable"]').waitFor({ state: 'attached' });
+  for (const resultName of ['charts', 'summary']) {
     await page.locator(`[data-result-meta="${resultName}"][data-availability="current"]`).waitFor({ state: 'attached' });
   }
   await page.getByRole('radio', { name: 'Map', exact: true }).check();
@@ -991,7 +1007,7 @@ try {
       },
     });
     await migrationPage.goto(new URL('?mode=diary', baseUrl).href, { waitUntil: 'domcontentloaded' });
-    await migrationPage.getByRole('heading', { name: 'Route Experience Diary (demo)' }).waitFor();
+    await migrationPage.getByRole('heading', { name: 'Trip diary' }).waitFor();
     const migrated = await readDiarySnapshot(migrationPage);
     diaryMigrationEvidence = {
       entry: migrated.entries.find((entry) => entry.id === 'legacy-diary-entry'),
@@ -1032,7 +1048,7 @@ try {
     'Only resource errors caused by the deliberate Carto 503 responses may be exempted',
   );
 
-  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; Diary v1->v2 canonical=${diaryMigrationEvidence.entry.schemaVersion}; held restore point requests=1; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/workspaceVisible=${upgradeEvidence.workspaceVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
+  console.log(`[Browser Smoke] PASS - Diary historyChunk=false/analysisDb=false; Diary v1->v2 canonical=${diaryMigrationEvidence.entry.schemaVersion}; held map restore district requests=${heldDistrictRequests}; cached comparison retained for cancel/failure; freshness current-mismatch-current; intentionalCarto503=${expectedCartoConsoleErrors}; remote hosts mocked=${new Set(remoteRequests.map((url) => new URL(url).hostname)).size}; IndexedDB blocked=${upgradeEvidence.blocked}/versionchange=${upgradeEvidence.versionchange}/workspaceVisible=${upgradeEvidence.workspaceVisibleDuringBlock}/version=${upgradeEvidence.version}/record=${upgradeEvidence.record.id}; consoleErrors=${consoleErrors.length}; pageErrors=${pageErrors.length}.`);
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => {

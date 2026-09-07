@@ -400,8 +400,8 @@ export function buildCrimeSummaryHtml({ a, b } = {}, {
     </section>`;
 }
 
-function createDefaultCompareView(context = {}) {
-  const element = document.getElementById('compare-card');
+export function createDefaultCompareView(context = {}, documentRef = globalThis.document) {
+  const element = documentRef?.getElementById?.('compare-card');
   if (!element) return null;
   const comparisonDisclosureState = { open: false };
   const render = (commit) => {

@@ -37,7 +37,11 @@ const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
 const diary = manifest['src/routes_diary/index.js'];
 const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
+const diaryForm = manifest['src/routes_diary/form_submit.js'];
+const diaryValidator = manifest['src/routes_diary/rating_payload_validator.js'];
 const charts = manifest['src/charts/index.js'];
+const chartRenderer = manifest['src/charts/renderer.js'];
+const tractSummary = manifest['src/charts/tract_summary.js'];
 const insights = manifest['src/routes_diary/ui_insights_panel.js'];
 const analysisHistory = manifest['src/analysis/analysis_history_controller.js'];
 const evidenceBundleProduct = manifest['src/analysis/evidence_bundle_product.js'];
@@ -98,13 +102,14 @@ assert.deepEqual(
     'src/routes_crime/incident_results_controller.js',
     'src/routes_crime/task_focus_controller.js',
     'src/charts/index.js',
+    'src/charts/tract_summary.js',
     'src/i18n/crime_offense_catalog.js',
     'src/routes_crime/public_area_summary.js',
     'src/routes_crime/crime_load_coordinator.js',
     'src/routes_crime/crime_selection_camera.js',
     'src/routes_crime/crime_district_context.js',
   ]),
-  'Map Crime must keep incident results, task focus, and Charts behind focused lazy boundaries while shared Known Route stays app-owned',
+  'Map Crime must keep incident results, task focus, tract summaries, and Charts behind focused lazy boundaries while shared Known Route stays app-owned',
 );
 assert.ok(incidentResults?.isDynamicEntry, 'Vite manifest must contain Incident Results as a lazy chunk');
 assert.ok(taskFocus?.isDynamicEntry, 'Vite manifest must contain Task Focus as a lazy chunk');
@@ -204,13 +209,33 @@ assert.doesNotMatch(
 assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy entry');
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
-  new Set(['src/routes_diary/diary_storage.js']),
-  'Diary must keep private local storage and backup code behind its own lazy boundary',
+  new Set([
+    'src/routes_diary/diary_storage.js',
+    'src/routes_diary/form_submit.js',
+  ]),
+  'Diary must keep private local storage and rating submission behind focused lazy boundaries',
 );
 assert.ok(diaryStorage?.isDynamicEntry, 'Vite manifest must contain Diary local storage as a lazy chunk');
+assert.ok(diaryForm?.isDynamicEntry, 'Vite manifest must contain Diary rating submission as a lazy chunk');
+assert.deepEqual(
+  new Set(diaryForm.dynamicImports || []),
+  new Set(['src/routes_diary/rating_payload_validator.js']),
+  'Diary rating submission must keep schema validation behind user submit intent',
+);
+assert.ok(diaryValidator?.isDynamicEntry, 'Vite manifest must contain Diary schema validation as a nested lazy chunk');
 assert.equal(entry.css?.length, 1, 'Split product styles must compile into one initial stylesheet');
 assert.equal(diary.css, undefined, 'Diary must not introduce delayed mode-only CSS or a flash of unstyled content');
 assert.ok(charts, 'Vite manifest must contain the Charts lazy chunk');
+assert.deepEqual(
+  new Set(charts.dynamicImports || []),
+  new Set([
+    'src/charts/renderer.js',
+    'src/area_intelligence/view.js',
+  ]),
+  'Charts must keep the Chart.js renderer behind explicit chart intent while preserving the independent Area Intelligence boundary',
+);
+assert.ok(chartRenderer?.isDynamicEntry, 'Vite manifest must contain the Chart.js renderer as a nested lazy chunk');
+assert.ok(tractSummary?.isDynamicEntry, 'Vite manifest must keep tract summaries independent from chart rendering');
 assert.ok(insights, 'Vite manifest must contain the Diary Insights lazy chunk');
 assert.ok(analysisHistory?.isDynamicEntry, 'Vite manifest must contain Analysis History as a lazy chunk');
 assert.deepEqual(
@@ -273,7 +298,9 @@ const budgets = [
   // Opened only by explicit Home Compare intent. The nested controller owns
   // official aggregate queries, strict serving/share contracts, bilingual UI,
   // and fail-closed address/parcel admission without changing the Entry ceiling.
-  ['Home Compare loader', homeCompareLoader, 1_100, 650],
+  // The loader's controller preload map includes the shared Crime radius policy;
+  // Home Compare source and controller behavior remain unchanged.
+  ['Home Compare loader', homeCompareLoader, 1_150, 660],
   ['Home Compare controller', homeCompareController, 54_000, 18_000],
   ['Home Compare source registry', homeCompareSourceRegistry, 6_000, 2_000],
   ['Home Compare results', homeCompareResultsView, 12_000, 4_000],
@@ -282,19 +309,26 @@ const budgets = [
   ['Home Compare styles', homeCompareStyles, 4_800, 1_200],
   // Loaded only after an authorized point query; owns synchronized map/list selection.
   // Pagination and explicit map focus remain isolated behind the point-results lazy boundary.
-  ['Incident Results', incidentResults, 7_800, 3_100],
+  // Three-line rows, shared popup formatting and synchronized map selection; still lazy.
+  ['Incident Results', incidentResults, 8_200, 3_250],
   // Session-only presentation preferences load with active Crime; query mutation stays nested-lazy.
   ['Task Focus', taskFocus, 6_800, 3_100],
   // Owns preview, stale-state admission, one-refresh commit, full-snapshot undo,
   // and explicit failed-port settlement so interrupted transactions do not stay pending.
   ['Query Preset', queryPreset, 5_200, 2_050],
-  ['Diary', diary, 210_100, 65_573],
+  ['Diary controller', diary, 80_000, 26_000],
   // Owns the versioned private schema, v1 migration, exact snapshot token,
   // serialized two-store transactions, and the extracted local-data controller.
   // It stays lazy and within a narrow regression budget after that controller
   // moved out of the larger Diary route chunk.
   ['Diary local storage', diaryStorage, 27_500, 8_000],
-  ['Charts', charts, 233_791, 79_747],
+  ['Diary rating submission', diaryForm, 18_000, 6_100],
+  // The fixed Diary rating contract is validated without a general-purpose
+  // browser schema runtime.
+  ['Diary schema validator', diaryValidator, 2_500, 1_000],
+  ['Charts controller', charts, 15_000, 6_000],
+  ['Charts renderer', chartRenderer, 220_000, 75_000],
+  ['Tract summary', tractSummary, 1_600, 800],
   // Includes local-history trend/tag/heatmap rendering and the device-only data bridge.
   ['Diary Insights', insights, 11_200, 3_600],
   // Includes cached comparison rendering, truthful refresh cancellation/freshness
@@ -328,6 +362,22 @@ for (const [label, record, rawLimit, gzipLimit] of budgets) {
   const contents = await readFile(builtFile);
   const rawBytes = contents.byteLength;
   const gzipBytes = gzipSync(contents).byteLength;
+  assert.ok(rawBytes <= rawLimit, `${label} raw size must stay <= ${rawLimit}; received ${rawBytes}`);
+  assert.ok(gzipBytes <= gzipLimit, `${label} gzip size must stay <= ${gzipLimit}; received ${gzipBytes}`);
+  measurements.push(`${label} ${rawBytes}/${gzipBytes}`);
+}
+
+for (const [label, records, rawLimit, gzipLimit] of [
+  ['Diary family', [diary, diaryForm, diaryValidator], 210_100, 65_573],
+  ['Charts family', [charts, chartRenderer, tractSummary], 233_791, 79_747],
+]) {
+  let rawBytes = 0;
+  let gzipBytes = 0;
+  for (const record of records) {
+    const contents = await readFile(path.join(distDir, record.file));
+    rawBytes += contents.byteLength;
+    gzipBytes += gzipSync(contents).byteLength;
+  }
   assert.ok(rawBytes <= rawLimit, `${label} raw size must stay <= ${rawLimit}; received ${rawBytes}`);
   assert.ok(gzipBytes <= gzipLimit, `${label} gzip size must stay <= ${gzipLimit}; received ${gzipBytes}`);
   measurements.push(`${label} ${rawBytes}/${gzipBytes}`);

@@ -66,7 +66,7 @@ export function createAcsMultitractController({
     else if (reviewed?.status === 'available') status.textContent = copy.ready;
     else if (reviewed) status.textContent = acsMultitractReason(reviewed.reason, locale);
     else status.textContent = copy.idle;
-    if (reviewed) reviewHost.innerHTML = acsSelectionReviewHtml(reviewed, { locale });
+    if (reviewed?.status === 'available') reviewHost.innerHTML = acsSelectionReviewHtml(reviewed, { locale });
     if (outcome) resultHost.innerHTML = acsAggregationTableHtml(outcome, { locale });
 
     input.addEventListener('input', () => {

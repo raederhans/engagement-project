@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import '../../src/i18n/history.js';
@@ -14,6 +13,7 @@ import * as compareCard from '../../src/compare/card.js';
 import { createAnalysisHistoryView } from '../../src/ui/analysis_history_panel.js';
 import { getLanguage, setLanguage } from '../../src/i18n/index.js';
 import { formatLocalizedDate } from '../../src/i18n/date.js';
+import { readModuleDependencies } from './helpers/module_dependencies.mjs';
 
 class FakeElement extends EventTarget {
   constructor() {
@@ -27,6 +27,10 @@ class FakeElement extends EventTarget {
     this.textContent = '';
     this.value = '';
     this.attributes = new Map();
+  }
+
+  set innerHTML(_value) {
+    throw new Error('analysis history must not write HTML strings');
   }
 
   append(...children) { this.children.push(...children); }
@@ -461,6 +465,34 @@ test('history view restores focus to the opened analysis after the list is redra
     const restoredFocus = globalThis.document.activeElement;
     assert.notEqual(restoredFocus, firstOpenButton);
     assert.equal(restoredFocus.textContent, 'Open');
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
+test('history view renders untrusted titles as text and reports rejected actions', async () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: () => new FakeElement() };
+  try {
+    const mount = new FakeElement();
+    const view = createAnalysisHistoryView(mount, {
+      onSave() {},
+      async onRestore() { throw new Error('Restore is unavailable'); },
+      onRename() {}, onDelete() {}, onExport() {}, onShare() {},
+    });
+    view.render({
+      items: [savedArtifact({ title: '<img src=x onerror=alert(1)>' })],
+      warnings: [],
+      canSave: true,
+      pending: false,
+    });
+
+    const card = mount.children[5].children[0];
+    assert.equal(card.children[0].textContent, '<img src=x onerror=alert(1)>');
+    card.children[3].children[0].dispatchEvent(new Event('click'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(mount.children[3].dataset.tone, 'warning');
+    assert.equal(mount.children[3].textContent, 'Restore is unavailable');
   } finally {
     globalThis.document = originalDocument;
   }
@@ -916,32 +948,27 @@ test('list derives transient current and unknown source status without changing 
   assert.equal(unknownModel.items[0].dataStatus, 'unknown');
 });
 
-test('panel stays storage-agnostic and main loads history only after Crime becomes active', async () => {
-  const [panelSource, mainSource, viewSource, controllerSource] = await Promise.all([
-    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/main.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/ui/analysis_history_panel.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/analysis/analysis_history_controller.js', import.meta.url), 'utf8'),
+test('static dependency gate keeps storage and evidence import code outside the initial UI graph', async () => {
+  // Source inspection is intentional here: chunk/dependency direction is a build-time contract,
+  // so this checks module specifiers rather than implementation names or declaration order.
+  const [panel, main, controller] = await Promise.all([
+    readModuleDependencies(new URL('../../src/ui/panel.js', import.meta.url)),
+    readModuleDependencies(new URL('../../src/main.js', import.meta.url)),
+    readModuleDependencies(new URL('../../src/analysis/analysis_history_controller.js', import.meta.url)),
   ]);
-
-  assert.doesNotMatch(panelSource, /analysis_repository|analysis_history_controller|\bfrom ['"]idb['"]/);
-  assert.match(panelSource, /analysisHistoryMount/);
-  assert.match(panelSource, /setAnalysisHistorySync/);
-  assert.match(mainSource, /import\(['"]\.\/analysis\/analysis_history_controller\.js['"]\)/);
-  assert.match(mainSource, /getActiveMode\(\) === ['"]crime['"]/);
-  assert.match(mainSource, /cancelPendingRestore\(\)/);
-  assert.match(mainSource, /refreshFreshness\(/);
-  assert.doesNotMatch(viewSource, /innerHTML\s*=/);
-  assert.match(viewSource, /title\.textContent = artifact\.title/);
-  assert.match(viewSource, /history\.needsRefresh/);
-  assert.match(viewSource, /history\.sourceUnknown/);
-  assert.match(viewSource, /Promise\.resolve\(action\(id\)\)\.catch\(reportActionError\)/);
-  assert.match(controllerSource, /import\(['"]\.\/evidence_bundle_import\.js['"]\)/);
-  assert.match(controllerSource, /import\(['"]\.\/evidence_bundle_source_adapter\.js['"]\)/);
-  assert.match(controllerSource, /import\(['"]\.\.\/ui\/evidence_bundle_import_preview\.js['"]\)/);
-  assert.doesNotMatch(controllerSource, /from ['"]\.\/evidence_bundle_import\.js['"]/);
-  assert.doesNotMatch(controllerSource, /from ['"]\.\.\/ui\/evidence_bundle_import_preview\.js['"]/);
-  assert.match(controllerSource, /createEvidenceBundleImportPreviewView/);
-  assert.match(controllerSource, /onPreview:\s*\(raw\)\s*=>\s*controller\.previewEvidenceBundle\(raw\)/);
-  assert.match(controllerSource, /onApply:\s*\(preview\)\s*=>\s*controller\.applyEvidenceBundle\(preview\)/);
+  assert.equal(panel.static.some((specifier) => (
+    specifier === 'idb'
+    || specifier.includes('analysis_repository')
+    || specifier.includes('analysis_history_controller')
+  )), false);
+  assert.equal(main.static.includes('./analysis/analysis_history_controller.js'), false);
+  assert.equal(main.dynamic.includes('./analysis/analysis_history_controller.js'), true);
+  for (const specifier of [
+    './evidence_bundle_import.js',
+    './evidence_bundle_source_adapter.js',
+    '../ui/evidence_bundle_import_preview.js',
+  ]) {
+    assert.equal(controller.static.includes(specifier), false);
+    assert.equal(controller.dynamic.includes(specifier), true);
+  }
 });

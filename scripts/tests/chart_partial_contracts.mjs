@@ -58,6 +58,38 @@ test('selected zero-event buffer keeps zero residential history instead of subst
   assert.equal(refreshedSinks.calls.find(([name]) => name === 'residential')?.[1].totalRecords, 0);
 });
 
+test('cached chart replay isolates one renderer failure and continues remaining surfaces', () => {
+  const cache = createChartLocaleCache();
+  cache.store({
+    kind: 'charts',
+    cityRows: [{ m: '2026-01', n: 8 }],
+    areaRows: [{ m: '2026-01', n: 2 }],
+    start: '2026-01-01',
+    end: '2026-02-01',
+    coverageDate: '2026-02-01',
+    residentialUsesAreaRows: true,
+    topRows: [{ text_general_code: 'Robbery', n: 3 }],
+    heatMatrix: Array.from({ length: 7 }, () => Array(24).fill(0)),
+    failed: [],
+  });
+  const calls = [];
+  const monthlyError = new Error('monthly renderer failed');
+  const sinks = {
+    status: () => calls.push('status'),
+    monthly: () => { calls.push('monthly'); throw monthlyError; },
+    residential: () => calls.push('residential'),
+    top: () => calls.push('top'),
+    heat: () => calls.push('heat'),
+    error: (error, options) => calls.push(['error', error, options]),
+  };
+
+  assert.equal(cache.refresh(sinks), true);
+  assert.deepEqual(calls.slice(0, 5), ['status', 'monthly', 'residential', 'top', 'heat']);
+  assert.equal(calls[5][0], 'error');
+  assert.equal(calls[5][1], monthlyError);
+  assert.equal(calls[5][2].chart, 'monthly');
+});
+
 test('one failed chart does not prevent successful charts from rendering', async () => {
   const sinks = createSinks();
   const monthlyError = new Error('monthly offline');
@@ -166,12 +198,18 @@ test('default sinks expose local accessible failures without clearing chart canv
   for (const id of ['chart-monthly', 'chart-topn', 'chart-7x24', 'chart-monthly-insight', 'chart-topn-insight', 'chart-7x24-insight']) {
     elements.set(id, makeElement(id));
   }
+  const chartsPane = makeElement('charts');
+  chartsPane.hidden = false;
+  chartsPane.inert = false;
+  chartsPane.appendChild = (element) => { elements.set(element.id, element); };
+  elements.set('charts', chartsPane);
   for (const id of ['chart-monthly', 'chart-topn', 'chart-7x24']) elements.get(id).textContent = 'existing-canvas';
   const body = { appendChild(element) { elements.set(element.id, element); } };
   globalThis.document = {
     body,
     createElement: () => makeElement(),
     getElementById: (id) => elements.get(id) ?? null,
+    querySelector: (selector) => selector === '[data-result-pane="charts"]' ? chartsPane : null,
     querySelectorAll: () => [],
   };
   t.after(() => {

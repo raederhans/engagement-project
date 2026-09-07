@@ -1,9 +1,5 @@
 // Placeholder for chart modules (time series, top-N, and heatmap views).
 import dayjs from 'dayjs';
-import { clearMonthlyChart, renderMonthly } from './line_monthly.js';
-import { clearTopNChart, renderTopN } from './bar_topn.js';
-import { clearTemporalChart, render7x24 } from './heat_7x24.js';
-import { clearCrimeChartData, syncCrimeChartData } from './accessible_data.js';
 import {
   admitCrimeResponse,
   fetchMonthlySeriesCity,
@@ -17,14 +13,11 @@ import {
   fetchTopTypesTract,
   fetch7x24Tract,
 } from '../api/crime.js';
-import { fetchTractStatsCachedFirst } from '../api/acs.js';
-import { fetchTractsCachedFirst } from '../api/boundaries.js';
-import { getTractPolygonAndBboxByGEOID } from '../utils/tract_geom.js';
 import '../i18n/crime_charts.js';
-import { applyTranslations, getLanguage, onLanguageChange, t } from '../i18n/index.js';
+import { getLanguage, onLanguageChange, t } from '../i18n/index.js';
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 import { buildResidentialStability } from '../analysis/residential_stability.js';
-import { renderResidentialStability } from '../ui/residential_stability.js';
+import '../i18n/crime_safety.js';
 
 function renderAreaIntelligenceLoadFailure(error) {
   console.error(error);
@@ -35,6 +28,12 @@ function renderAreaIntelligenceLoadFailure(error) {
   content.textContent = t('chart.unavailable', { message: error?.message || error });
   return true;
 }
+
+export {
+  createTractSummaryFetchers,
+  resolveSelectedTractGeometry,
+  runTractSummary,
+} from './tract_summary.js';
 
 const DEFAULT_CHART_PREFERENCES = Object.freeze({
   palette: 'blue',
@@ -59,63 +58,6 @@ export function createChartPreferenceStore(initial = {}) {
 }
 
 const defaultChartPreferences = createChartPreferenceStore();
-
-export async function resolveSelectedTractGeometry({
-  selectedTractGEOID,
-  signal,
-  fetchTracts = fetchTractsCachedFirst,
-}) {
-  const tracts = await fetchTracts({ signal });
-  const polygon = getTractPolygonAndBboxByGEOID(tracts, selectedTractGEOID, { decimals: 6 });
-  if (!polygon) throw new Error(`Tract ${selectedTractGEOID} not found`);
-  return polygon.geojsonPolygon4326;
-}
-
-export function createTractSummaryFetchers({
-  tractGEOID,
-  fetchMonthly = fetchMonthlySeriesTract,
-  fetchTop = fetchTopTypesTract,
-  fetchStats = fetchTractStatsCachedFirst,
-}) {
-  return {
-    async fetchCountBuffer({ start, end, types, signal }) {
-      const response = await fetchMonthly({ start, end, types, tractGEOID, signal });
-      return admitCrimeResponse('monthly', response).rows.reduce(
-        (sum, row) => sum + Number(row.n),
-        0,
-      );
-    },
-    fetchTopTypesBuffer({ start, end, types, limit, signal }) {
-      return fetchTop({ start, end, types, tractGEOID, limit, signal });
-    },
-    async estimatePopInBuffer({ signal, onSourceResolved }) {
-      const stats = await fetchStats({ signal, onSourceResolved });
-      const row = stats.find((candidate) => candidate.geoid === tractGEOID);
-      if (!row) throw new Error(`Population for tract ${tractGEOID} not found`);
-      return { pop: Number(row.pop) || 0, tractsChecked: 1 };
-    },
-  };
-}
-
-export function runTractSummary({ selectedTractGEOID, ...filters }, options, updateCompareImpl) {
-  if (!/^\d{11}$/.test(selectedTractGEOID || '')) {
-    throw new Error('A valid 11-digit census tract GEOID is required.');
-  }
-  return updateCompareImpl({
-    ...filters,
-    center3857: [0, 0],
-    centerB3857: null,
-    addressA: `${t('crime.area.tract')} ${selectedTractGEOID}`,
-    addressB: null,
-    radiusM: 1,
-    queryMode: 'tract',
-    selectedTractGEOID,
-    adminLevel: 'tracts',
-  }, {
-    ...options,
-    fetchers: createTractSummaryFetchers({ tractGEOID: selectedTractGEOID }),
-  });
-}
 
 export function getCrimeChartCopy() {
   const whole = new Intl.NumberFormat(getLanguage(), { maximumFractionDigits: 0 });
@@ -194,22 +136,34 @@ function renderCachedCharts(payload, sinks) {
   }
   const copy = getCrimeChartCopy();
   const preferences = defaultChartPreferences.read();
+  const replayFailures = [...(payload.failed || [])];
+  const renderSurface = (chart, render) => {
+    try {
+      render();
+    } catch (error) {
+      replayFailures.push({ chart, error });
+    }
+  };
   sinks.status(payload.statusKey ? t(payload.statusKey) : '', payload.statusKey ? { key: payload.statusKey } : undefined);
-  if (payload.cityRows) sinks.monthly(payload.cityRows, payload.areaRows || [], copy, preferences);
+  if (payload.cityRows) {
+    renderSurface('monthly', () => sinks.monthly(payload.cityRows, payload.areaRows || [], copy, preferences));
+  }
   if (payload.cityRows) {
     const selectedRows = payload.residentialUsesAreaRows
       ? (payload.areaRows || [])
       : payload.cityRows;
-    sinks.residential?.(buildResidentialStability({
-      rows: selectedRows,
-      start: payload.start,
-      end: payload.end,
-      coverageDate: payload.coverageDate,
-    }));
+    renderSurface('monthly', () => {
+      sinks.residential?.(buildResidentialStability({
+        rows: selectedRows,
+        start: payload.start,
+        end: payload.end,
+        coverageDate: payload.coverageDate,
+      }));
+    });
   }
-  if (payload.topRows) sinks.top(payload.topRows, copy, preferences);
-  if (payload.heatMatrix) sinks.heat(payload.heatMatrix, copy, preferences);
-  for (const failure of payload.failed || []) {
+  if (payload.topRows) renderSurface('top', () => sinks.top(payload.topRows, copy, preferences));
+  if (payload.heatMatrix) renderSurface('heat', () => sinks.heat(payload.heatMatrix, copy, preferences));
+  for (const failure of replayFailures) {
     sinks.error(failure.error, {
       chart: failure.chart,
       report: false,
@@ -229,10 +183,6 @@ export function createChartLocaleCache() {
 }
 
 const defaultChartLocaleCache = createChartLocaleCache();
-
-onLanguageChange(() => {
-  if (typeof document !== 'undefined') defaultChartLocaleCache.refresh(createDefaultChartSinks());
-});
 
 function byMonthRows(rows) {
   return rows.map((r) => ({ m: dayjs(r.m).format('YYYY-MM'), n: Number(r.n) }));
@@ -261,127 +211,98 @@ const DEFAULT_FETCHERS = {
   fetch7x24Tract,
 };
 
-function getStatusElement() {
-  const pane = document.getElementById('charts') || document.body;
-  let status = document.getElementById('charts-status');
-  if (!status) {
-    status = document.createElement('div');
+let chartRendererModulePromise;
+let defaultChartSinks = null;
+let chartIntentBound = false;
+
+function isChartsPaneOpen(documentRef = globalThis.document) {
+  const pane = documentRef?.querySelector?.('[data-result-pane="charts"]')
+    || documentRef?.getElementById?.('charts');
+  if (!pane || pane.hidden || pane.inert) return false;
+  if (pane.getAttribute?.('aria-hidden') === 'true') return false;
+  return pane.style?.display !== 'none';
+}
+
+function createDormantChartSinks() {
+  return {
+    status() {},
+    monthly() {},
+    residential() {},
+    top() {},
+    heat() {},
+    error() {},
+  };
+}
+
+async function getDefaultChartSinks() {
+  if (defaultChartSinks) return defaultChartSinks;
+  if (!chartRendererModulePromise) {
+    let ownedPromise;
+    ownedPromise = import('./renderer.js')
+      .then(({ createDefaultChartSinks }) => {
+        defaultChartSinks = createDefaultChartSinks({
+          getCopy: getCrimeChartCopy,
+          readPreferences: () => defaultChartPreferences.read(),
+          updatePreference: (key, value) => defaultChartPreferences.update(key, value),
+          refreshCached: () => defaultChartLocaleCache.refresh(defaultChartSinks),
+        });
+        return defaultChartSinks;
+      })
+      .catch((error) => {
+        if (chartRendererModulePromise === ownedPromise) chartRendererModulePromise = null;
+        throw error;
+      });
+    chartRendererModulePromise = ownedPromise;
+  }
+  return chartRendererModulePromise;
+}
+
+async function refreshDefaultCharts({ requireVisible = true } = {}) {
+  if (requireVisible && !isChartsPaneOpen()) return false;
+  const sinks = await getDefaultChartSinks();
+  if (requireVisible && !isChartsPaneOpen()) return false;
+  return defaultChartLocaleCache.refresh(sinks);
+}
+
+function showChartRendererLoadError(error, documentRef = globalThis.document) {
+  const pane = documentRef?.querySelector?.('[data-result-pane="charts"]')
+    || documentRef?.getElementById?.('charts');
+  let status = documentRef?.getElementById?.('charts-status');
+  if (!status && pane?.appendChild && documentRef?.createElement) {
+    status = documentRef.createElement('div');
     status.id = 'charts-status';
     status.className = 'chart-status';
     pane.appendChild(status);
   }
-  return status;
+  if (!status) return false;
+  status.setAttribute?.('role', 'status');
+  status.setAttribute?.('aria-live', 'polite');
+  status.textContent = t('chart.unavailable', { message: error?.message || error });
+  return true;
 }
 
-function writeInsight(id, text) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = text;
+function refreshDefaultChartsFromIntent() {
+  return refreshDefaultCharts().catch((error) => {
+    showChartRendererLoadError(error);
+    return false;
+  });
 }
 
-let controlsBound = false;
+function bindChartIntent() {
+  if (chartIntentBound || typeof document === 'undefined') return;
+  chartIntentBound = true;
+  document.addEventListener?.('click', (event) => {
+    if (!event.target?.closest?.('[data-result-pane-target="charts"]')) return;
+    queueMicrotask(() => { void refreshDefaultChartsFromIntent(); });
+  });
+}
 
-function syncChartControls(preferences) {
-  const charts = document.getElementById('charts');
-  if (charts) charts.dataset.temporalView = preferences.temporalView;
-  for (const button of document.querySelectorAll('[data-chart-setting][data-chart-value]')) {
-    button.setAttribute('aria-pressed', String(preferences[button.dataset.chartSetting] === button.dataset.chartValue));
+bindChartIntent();
+onLanguageChange(() => {
+  if (typeof document !== 'undefined' && isChartsPaneOpen()) {
+    void refreshDefaultChartsFromIntent();
   }
-  const classification = document.getElementById('chartClassificationSel');
-  if (classification) classification.disabled = preferences.temporalView !== 'heat';
-}
-
-function bindChartControls() {
-  if (typeof document === 'undefined') return;
-  applyTranslations(document);
-  if (controlsBound) return;
-  controlsBound = true;
-  const rerender = () => defaultChartLocaleCache.refresh(createDefaultChartSinks());
-  for (const button of document.querySelectorAll('[data-chart-setting][data-chart-value]')) {
-    button.addEventListener('click', () => {
-      const next = defaultChartPreferences.update(button.dataset.chartSetting, button.dataset.chartValue);
-      syncChartControls(next);
-      rerender();
-    });
-  }
-  for (const control of document.querySelectorAll('select[data-chart-setting], input[data-chart-setting]')) {
-    control.addEventListener('change', () => {
-      const value = control.type === 'checkbox' ? control.checked : control.value;
-      const next = defaultChartPreferences.update(control.dataset.chartSetting, value);
-      syncChartControls(next);
-      rerender();
-    });
-  }
-  syncChartControls(defaultChartPreferences.read());
-}
-
-function createDefaultChartSinks() {
-  bindChartControls();
-  return {
-    status(message) {
-      getStatusElement().textContent = message;
-    },
-    clear() {
-      clearMonthlyChart();
-      clearTopNChart();
-      clearTemporalChart();
-      clearCrimeChartData();
-      for (const id of ['chart-monthly-insight', 'chart-topn-insight', 'chart-7x24-insight']) {
-        writeInsight(id, '');
-      }
-      renderResidentialStability(null);
-      void import('../area_intelligence/view.js')
-        .then(({ clearAreaIntelligence }) => clearAreaIntelligence())
-        .catch(renderAreaIntelligenceLoadFailure);
-    },
-    monthly(cityRows, areaRows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
-      const canvas = document.getElementById('chart-monthly');
-      const context = canvas?.getContext?.('2d');
-      if (!context) throw new Error('chart canvas missing: #chart-monthly');
-      const model = renderMonthly(context, cityRows, areaRows, copy, { valueMode: preferences.monthlyView, palette: preferences.palette, showLabels: preferences.showLabels });
-      syncCrimeChartData('monthly', model, copy);
-      writeInsight('chart-monthly-insight', copy.monthlyInsight(model.insight));
-    },
-    residential(model) {
-      renderResidentialStability(model);
-    },
-    top(rows, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
-      const canvas = document.getElementById('chart-topn');
-      const context = canvas?.getContext?.('2d');
-      if (!context) throw new Error('chart canvas missing: #chart-topn');
-      const model = renderTopN(context, rows, copy, { valueMode: preferences.topView, categoryLimit: preferences.categoryLimit, palette: preferences.palette, showLabels: preferences.showLabels });
-      syncCrimeChartData('top', model, copy);
-      writeInsight('chart-topn-insight', copy.topInsight(model.insight));
-    },
-    heat(matrix, copy = getCrimeChartCopy(), preferences = defaultChartPreferences.read()) {
-      const canvas = document.getElementById('chart-7x24');
-      const context = canvas?.getContext?.('2d');
-      if (!context) throw new Error('chart canvas missing: #chart-7x24');
-      const model = render7x24(context, matrix, copy, { view: preferences.temporalView, classification: preferences.classification, palette: preferences.palette, showLabels: preferences.showLabels });
-      syncCrimeChartData('heat', model, copy);
-      writeInsight('chart-7x24-insight', copy.temporalInsight(model.insight));
-    },
-    error(error, {
-      chart,
-      report = true,
-      message = t('chart.unavailable', { message: error?.message || error }),
-    } = {}) {
-      if (report) console.error(error);
-      const insightIds = {
-        monthly: 'chart-monthly-insight',
-        top: 'chart-topn-insight',
-        heat: 'chart-7x24-insight',
-      };
-      const insight = chart ? document.getElementById(insightIds[chart]) : null;
-      if (insight) {
-        insight.setAttribute('role', 'status');
-        insight.setAttribute('aria-live', 'polite');
-        insight.textContent = message;
-        return;
-      }
-      getStatusElement().innerText = message;
-    },
-  };
-}
+});
 
 /**
  * Fetch and render all charts using the provided filters.
@@ -398,11 +319,15 @@ export async function updateAllCharts(
   } = {},
 ) {
   const chartFetchers = { ...DEFAULT_FETCHERS, ...fetchers };
-  const chartSinks = sinks ?? createDefaultChartSinks();
+  bindChartIntent();
+  const isFresh = () => !signal?.aborted && shouldApply();
+  const chartSinks = sinks ?? (isChartsPaneOpen()
+    ? await getDefaultChartSinks()
+    : createDormantChartSinks());
   const localeCache = chartCache === undefined
     ? (sinks ? null : defaultChartLocaleCache)
     : chartCache;
-  const isFresh = () => !signal?.aborted && shouldApply();
+  if (!isFresh()) return { applied: false };
   if (!sinks) {
     void import('../area_intelligence/view.js')
       .then(({ updateAreaIntelligence }) => updateAreaIntelligence({
@@ -569,11 +494,11 @@ export async function updateAllCharts(
 }
 
 export function clearCrimeCharts({
-  sinks = createDefaultChartSinks(),
+  sinks = defaultChartSinks,
   localeCache = defaultChartLocaleCache,
 } = {}) {
   localeCache.clear();
-  sinks.clear?.();
-  sinks.status(t('chart.pickCenterTip'), { key: 'chart.pickCenterTip' });
+  sinks?.clear?.();
+  sinks?.status?.(t('chart.pickCenterTip'), { key: 'chart.pickCenterTip' });
   return true;
 }

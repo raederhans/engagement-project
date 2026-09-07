@@ -93,6 +93,8 @@ const DEFAULT_OSM_RASTER_STYLE = {
       type: 'raster',
       source: 'osm',
       paint: {
+        // Avoid cross-fading labels from adjacent tile zoom levels while navigating.
+        'raster-fade-duration': 0,
         'raster-saturation': -0.55,
         'raster-contrast': -0.08,
         'raster-brightness-min': 0.08,

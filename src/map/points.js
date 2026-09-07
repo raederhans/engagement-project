@@ -9,6 +9,7 @@ import { prefersReducedMotion as defaultPrefersReducedMotion } from './camera_fi
 
 const noticeActionHandlers = new WeakMap();
 const pointSourceClusterModes = new WeakMap();
+const pointPaintKeys = new WeakMap();
 
 function project3857(lon, lat) {
   const R = 6378137;
@@ -171,8 +172,15 @@ export async function refreshPoints(map, {
   const highlights = buildOffenseHighlights(drilldownCodes, makePalette(classPalette, 5));
   const tooMany = count > MAX_UNCLUSTERED;
   const shouldCluster = highlights.length === 0 || tooMany;
-  const pointColorExpression = buildOffenseColorExpression(highlights);
+  const pointColorExpression = highlights.length ? buildOffenseColorExpression(highlights) : '#526d73';
   const pointStrokeColor = highlights.length ? '#172033' : '#fff';
+  const paintKey = JSON.stringify([pointColorExpression, pointStrokeColor]);
+  const key = globalThis.document?.getElementById?.('crime-points-key');
+  if (key) {
+    key.hidden = count === 0;
+    const clusterKey = key.querySelector('[data-cluster-key]');
+    if (clusterKey) clusterKey.hidden = !shouldCluster;
+  }
 
   // Add or update source
   const existingSource = map.getSource(srcId);
@@ -187,8 +195,8 @@ export async function refreshPoints(map, {
       type: 'geojson',
       data: geo,
       cluster: shouldCluster,
-      clusterMaxZoom: 14,
-      clusterRadius: 40,
+      clusterMaxZoom: 16,
+      clusterRadius: 48,
     });
     pointSourceClusterModes.set(map.getSource(srcId), shouldCluster);
   }
@@ -204,20 +212,20 @@ export async function refreshPoints(map, {
         'circle-color': [
           'step',
           ['get', 'point_count'],
-          '#9cdcf6',
-          10, '#52b5e9',
-          50, '#2f83c9',
-          100, '#1f497b'
+          '#d9e7e9',
+          10, '#b4cdd1',
+          50, '#87abb1',
+          100, '#385e66'
         ],
+        // Count remains legible, but clusters recede as the user approaches street level.
         'circle-radius': [
-          'step',
-          ['get', 'point_count'],
-          14,
-          10, 18,
-          50, 24,
-          100, 30
+          'interpolate', ['linear'], ['zoom'],
+          11, ['step', ['get', 'point_count'], 14, 10, 18, 50, 22, 100, 26],
+          16, ['step', ['get', 'point_count'], 10, 10, 13, 50, 16, 100, 18],
         ],
-        'circle-opacity': 0.85
+        'circle-opacity': 0.95,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2
       }
     });
   }
@@ -232,7 +240,7 @@ export async function refreshPoints(map, {
       layout: {
         'text-field': ['to-string', ['get', 'point_count']],
         'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-        'text-size': 12
+        'text-size': ['interpolate', ['linear'], ['zoom'], 11, 12, 16, 10]
       },
       paint: {
         'text-color': clusterTextColorExpression()
@@ -266,16 +274,18 @@ export async function refreshPoints(map, {
         source: srcId,
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-radius': 5,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, ['case', ['boolean', ['feature-state', 'selected'], false], 8, 3], 17, ['case', ['boolean', ['feature-state', 'selected'], false], 8, 5]],
           'circle-color': pointColorExpression,
-          'circle-stroke-color': pointStrokeColor,
-          'circle-stroke-width': 0.8,
+          'circle-stroke-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#172f35', pointStrokeColor],
+          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3, 1],
           'circle-opacity': 0.85,
         },
       });
-    } else {
+      pointPaintKeys.set(map, paintKey);
+    } else if (pointPaintKeys.get(map) !== paintKey) {
       map.setPaintProperty(unclusteredId, 'circle-color', pointColorExpression);
-      map.setPaintProperty(unclusteredId, 'circle-stroke-color', pointStrokeColor);
+      map.setPaintProperty(unclusteredId, 'circle-stroke-color', ['case', ['boolean', ['feature-state', 'selected'], false], '#172f35', pointStrokeColor]);
+      pointPaintKeys.set(map, paintKey);
     }
   }
   return {
@@ -289,6 +299,9 @@ export async function refreshPoints(map, {
 }
 
 export function clearCrimePoints(map) {
+  pointPaintKeys.delete(map);
+  const key = globalThis.document?.getElementById?.('crime-points-key');
+  if (key) key.hidden = true;
   const srcId = 'crime-points';
   for (const id of ['unclustered','cluster-count','clusters']) {
     if (map.getLayer(id)) {

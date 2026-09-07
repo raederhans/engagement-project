@@ -41,6 +41,7 @@ await runBrowserSuite({
     await page.waitForFunction(() => document.documentElement.lang === 'en');
   }
   const urlBefore = page.url();
+  await page.locator('.analysis-hub > summary').click();
   const opener = page.locator('[data-route-corridor-open]');
   await opener.waitFor({ state: 'visible' });
   await opener.click();
@@ -209,6 +210,10 @@ await runBrowserSuite({
 });
 
 async function enterSyntheticRoute(surface, latitude) {
+  const waypointDisclosure = surface.locator('.route-waypoint-disclosure');
+  if (await waypointDisclosure.getAttribute('open') === null) {
+    await waypointDisclosure.locator(':scope > summary').click();
+  }
   const rows = surface.locator('[data-route-waypoint-list] > li');
   if (await rows.count() === 2) await surface.getByRole('button', { name: 'Add waypoint' }).click();
   const longitudes = [-75.17, -75.16, -75.15];

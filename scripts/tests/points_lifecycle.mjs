@@ -272,7 +272,7 @@ test('specific offense selections use stable palette colors and disable clusteri
 
   await refresh('OrRd');
   assert.equal(map.sources.get('crime-points').definition.cluster, false);
-  assert.equal(map.layers.get('unclustered').paint['circle-stroke-color'], '#172033');
+  assert.deepEqual(map.layers.get('unclustered').paint['circle-stroke-color'], ['case', ['boolean', ['feature-state', 'selected'], false], '#172f35', '#172033']);
   assert.deepEqual(
     map.layers.get('unclustered').paint['circle-color'],
     buildOffenseColorExpression(highlights),
@@ -305,9 +305,9 @@ test('specific offense selections use stable palette colors and disable clusteri
   );
   assert.deepEqual(
     map.layers.get('unclustered').paint['circle-color'],
-    buildOffenseColorExpression([]),
+    '#526d73',
   );
-  assert.equal(map.layers.get('unclustered').paint['circle-stroke-color'], '#fff');
+  assert.deepEqual(map.layers.get('unclustered').paint['circle-stroke-color'], ['case', ['boolean', ['feature-state', 'selected'], false], '#172f35', '#fff']);
 });
 
 test('buffer point requests combine the current viewport with the selected radius', async () => {
@@ -467,7 +467,7 @@ test('list selection always recenters and zooms to the chosen incident', () => {
   });
 
   view.activate('carto:43');
-  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 16, duration: 300 }]);
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 17, duration: 300 }]);
 
   projected = { x: 650, y: 400 };
   view.activate('carto:43');
@@ -506,7 +506,7 @@ test('list selection honors reduced-motion preference while focusing an off-cent
 
   view.activate('carto:44');
 
-  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 16, duration: 0 }]);
+  assert.deepEqual(cameraMoves, [{ center: feature.geometry.coordinates, zoom: 17, duration: 0 }]);
   controller.destroy();
 });
 
@@ -661,7 +661,7 @@ test('high-density incident results never render more than 200 rows and keep the
   assert.equal(result.visible.some((feature) => feature.properties.cartodb_id === 19_999), true);
 });
 
-test('incident results begin with a compact twelve-record slice', () => {
+test('incident results begin with a compact eight-record slice', () => {
   const features = Array.from({ length: 30 }, (_, index) => incidentFeature({
     id: index + 1,
     occurred: `2026-07-${String(index + 1).padStart(2, '0')}T14:35:00Z`,
@@ -670,7 +670,7 @@ test('incident results begin with a compact twelve-record slice', () => {
   const result = visibleIncidentFeatures(features);
 
   assert.equal(result.all.length, 30);
-  assert.equal(result.visible.length, 12);
+  assert.equal(result.visible.length, 8);
   assert.equal(result.visible[0].properties.cartodb_id, 30);
 });
 
@@ -680,11 +680,11 @@ test('incident pagination exposes bounded pages and jumps to a selected result p
     occurred: `2026-07-${String(index + 1).padStart(2, '0')}T14:35:00Z`,
   }));
   const secondPage = pagedIncidentFeatures(features, { page: 1 });
-  assert.equal(secondPage.pageCount, 3);
+  assert.equal(secondPage.pageCount, 4);
   assert.equal(secondPage.currentPage, 1);
-  assert.equal(secondPage.visible.length, 12);
+  assert.equal(secondPage.visible.length, 8);
   const selectedPage = pagedIncidentFeatures(features, { selectedKey: 'carto:2' });
-  assert.equal(selectedPage.currentPage, 2);
+  assert.equal(selectedPage.currentPage, 3);
   assert.equal(selectedPage.visible.some((feature) => feature.properties.cartodb_id === 2), true);
 });
 
@@ -711,8 +711,29 @@ test('incident list rows defer district metadata to the selected detail', () => 
   });
 
   const button = nodes.list.children[0].children[0];
-  assert.deepEqual(button.children.map(({ tagName }) => tagName), ['strong', 'span']);
-  assert.equal(button.children[1].textContent, '2026-07-15 14:35 · 1500 MARKET ST');
+  assert.deepEqual(button.children.map(({ tagName }) => tagName), ['strong', 'span', 'span']);
+  assert.equal(button.children[1].textContent, '1500 MARKET ST');
+  assert.equal(button.children[2].textContent, '2026-07-15 14:35');
+});
+
+test('equivalent viewport results retain row nodes while changed text and clear rebuild them', () => {
+  const { root, nodes, documentRef } = createIncidentResultsDom();
+  const view = createIncidentResultsView({ root, documentRef });
+  const payload = {
+    geo: { type: 'FeatureCollection', features: [incidentFeature({ id: 7 })] },
+    generation: 1, status: 'ready', count: 1,
+  };
+  view.replaceResults(payload);
+  const row = nodes.list.children[0];
+  view.replaceResults({ ...structuredClone(payload), generation: 2 });
+  assert.equal(nodes.list.children[0], row);
+  const changed = structuredClone(payload);
+  changed.geo.features[0].properties.text_general_code = 'Other Assaults';
+  view.replaceResults(changed);
+  assert.notEqual(nodes.list.children[0], row);
+  view.clear();
+  view.replaceResults(changed);
+  assert.equal(nodes.list.children.length, 1);
 });
 
 test('incident list and selected detail localize official offense codes after a language switch', async (t) => {
@@ -1432,4 +1453,81 @@ test('a replacement programmatic move ignores the synchronous moveend emitted wh
   assert.equal(await secondMove, true);
   assert.equal(scheduler.timers.size, 0);
   controller.destroy();
+});
+
+
+test('selected map symbol follows list activation and clears when the popup closes', () => {
+  const map = createLayerMap();
+  const states = [];
+  map.getSource = () => ({});
+  map.setFeatureState = (target, state) => states.push({ target, state });
+  const view = createIncidentView();
+  let close;
+  const controller = createIncidentResultsController(map, {
+    view,
+    createPopup: () => ({
+      setLngLat() { return this; }, setHTML() { return this; }, addTo() { return this; },
+      on(event, handler) { if (event === 'close') close = handler; },
+      remove() {},
+    }),
+  });
+  controller.replaceResults({ geo: { type: 'FeatureCollection', features: [incidentFeature({ id: 42 })] }, count: 1 });
+  view.activate('carto:42');
+  assert.deepEqual(states.at(-1), { target: { source: 'crime-points', id: 'carto:42' }, state: { selected: true } });
+  close();
+  assert.equal(controller.getSelectedKey(), null);
+  assert.equal(states.at(-1).state.selected, false);
+  controller.destroy();
+});
+
+
+test('repeated viewport refreshes reuse incident paint until its palette changes', async () => {
+  const map = createLayerMap();
+  const options = { start: '2026-01-01', end: '2026-02-01', fetchPointsImpl: async () => ({ type: 'FeatureCollection', features: [incidentFeature()] }) };
+  await refreshPoints(map, options);
+  map.mutations.length = 0;
+  for (let index = 0; index < 10; index += 1) await refreshPoints(map, options);
+  assert.equal(map.mutations.filter(([kind]) => kind === 'paint').length, 0);
+  await refreshPoints(map, { ...options, drilldownCodes: ['Thefts'] });
+  assert.equal(map.mutations.filter(([kind]) => kind === 'paint').length, 2);
+});
+
+test('starting a new manual map move retires an in-flight viewport before it can paint', async () => {
+  const map = createMap();
+  const pending = deferred();
+  const view = createIncidentView();
+  let signal;
+  const controller = wirePoints(map, {
+    autoRefresh: false, getFilters: () => ({}), incidentResultsController: view,
+    showToast() {}, hideToast() {},
+    refreshPointsImpl: async (_map, options) => {
+      signal = options.signal;
+      await pending.promise;
+      return { applied: true, geo: { type: 'FeatureCollection', features: [incidentFeature()] } };
+    },
+  });
+  const refreshing = controller.refresh();
+  map.handlers.get('movestart')();
+  assert.equal(signal.aborted, true);
+  pending.resolve();
+  assert.deepEqual(await refreshing, { applied: false });
+  assert.equal(view.renders.length, 0);
+  controller.destroy();
+  assert.equal(map.handlers.has('movestart'), false);
+});
+
+
+test('street-level cluster radii stay compact across sparse and dense counts', async () => {
+  const { createPropertyExpression, latest } = await import('@maplibre/maplibre-gl-style-spec');
+  const map = createLayerMap();
+  await refreshPoints(map, { fetchPointsImpl: async () => ({ type: 'FeatureCollection', features: [incidentFeature()] }) });
+  const compiled = createPropertyExpression(map.layers.get('clusters').paint['circle-radius'], latest.paint_circle['circle-radius']);
+  assert.equal(compiled.result, 'success');
+  for (const count of [2, 10, 50, 100, 1000, 20000]) {
+    const feature = { type: 1, properties: { point_count: count } };
+    const radius = zoom => compiled.value.evaluate({ zoom }, feature);
+    assert.ok(radius(16) <= 18, `street-level radius for ${count} records`);
+    assert.ok(radius(16) < radius(13));
+    assert.equal(radius(17), radius(16), 'overzoom must not enlarge the circle');
+  }
 });

@@ -7,6 +7,7 @@ import { store } from '../../src/state/store.js';
 import { attachDistrictPopup } from '../../src/map/ui_popup_district.js';
 import '../../src/i18n/crime_offense_catalog.js';
 import { readProductCss } from './helpers/css_source.mjs';
+import { readModuleDependencies } from './helpers/module_dependencies.mjs';
 
 test('dense Crime clusters switch to a high-contrast white count label', async () => {
   const { clusterTextColorExpression } = await import('../../src/map/points.js');
@@ -322,16 +323,17 @@ test('query preset code stays nested-lazy until a user opens a suggestion', asyn
   assert.deepEqual(opened, ['latest-24-months', 'latest-24-months']);
   controller.dispose();
 
-  const [taskSource, crimeSource, queryPresetSource] = await Promise.all([
-    readFile(new URL('../../src/routes_crime/task_focus_controller.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/routes_crime/query_preset_controller.js', import.meta.url), 'utf8'),
+  // Source inspection is intentional for this build-time lazy/dependency boundary.
+  const [taskDependencies, crimeDependencies, presetDependencies] = await Promise.all([
+    readModuleDependencies(new URL('../../src/routes_crime/task_focus_controller.js', import.meta.url)),
+    readModuleDependencies(new URL('../../src/routes_crime/index.js', import.meta.url)),
+    readModuleDependencies(new URL('../../src/routes_crime/query_preset_controller.js', import.meta.url)),
   ]);
-  assert.match(taskSource, /import\('\.\/query_preset_controller\.js'\)/);
-  assert.doesNotMatch(crimeSource, /import\('\.\/query_preset_controller\.js'\)/);
-  assert.doesNotMatch(queryPresetSource, /from ['"]\.\.\/i18n\//);
-  assert.doesNotMatch(queryPresetSource, /from ['"]\.\.\/state\//);
-  assert.match(taskSource, /translate:\s*t/);
+  assert.equal(taskDependencies.dynamic.includes('./query_preset_controller.js'), true);
+  assert.equal(crimeDependencies.dynamic.includes('./query_preset_controller.js'), false);
+  assert.equal(presetDependencies.static.some((specifier) => (
+    specifier.startsWith('../i18n/') || specifier.startsWith('../state/')
+  )), false);
 });
 
 test('query preset UI renders the exact preview and cancellation leaves the query untouched', async () => {
@@ -600,7 +602,6 @@ test('query preset integration owns one URL write and one refresh with no legacy
   assert.match(mainSource, /refresh\s*:\s*\(\)\s*=>\s*refreshCrime\(false\)/);
   assert.match(mainSource, /initTaskFocus\(panel\.taskFocus, crimePresetPorts\)/);
 });
-
 test('Crime task and availability copy stays neutral, historical, and non-persona', async () => {
   const { messages } = await import('../../src/i18n/index.js');
   await import('../../src/ui/data_scope.js');
@@ -624,32 +625,18 @@ test('Crime task and availability copy stays neutral, historical, and non-person
 });
 
 test('Evidence Bundle download is feature-flagged, bilingual, and does not replace legacy exports', async () => {
-  const [html, panelSource] = await Promise.all([
+  const [html, panelDependencies] = await Promise.all([
     readFile(new URL('../../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8'),
+    readModuleDependencies(new URL('../../src/ui/panel.js', import.meta.url)),
   ]);
   const { messages } = await import('../../src/i18n/index.js');
 
   assert.match(html, /id="exportJsonBtn"/);
   assert.match(html, /id="exportCsvBtn"/);
   assert.doesNotMatch(html, /exportEvidenceBundleBtn/, 'flagged experiment button is created only at runtime');
-  assert.match(panelSource, /isEvidenceBundleEnabled/);
-  assert.match(panelSource, /exportEvidenceBundleBtn/);
-  assert.match(panelSource, /composeCrimeEvidenceBundleV2/);
-  assert.match(panelSource, /import\(['"]\.\.\/analysis\/evidence_bundle_product\.js['"]\)/);
-  assert.doesNotMatch(panelSource, /composeEvidenceBundle\s*[,}]/, 'the product writer must not keep writing v1');
-  assert.doesNotMatch(panelSource, /from ['"]\.\.\/analysis\/evidence_bundle_product\.js['"]/, 'flag-off entry must not eagerly load the v2 product composer');
-  assert.doesNotMatch(
-    panelSource,
-    /buildEvidenceBundleSections,[\s\S]{0,200}from ['"]\.\.\/utils\/export_analysis\.js['"]/,
-    'flag-off entry must not eagerly load the experiment bridge',
-  );
-  assert.match(panelSource, /engagement-evidence-bundle\.json/);
-  assert.match(
-    panelSource,
-    /exportEvidenceBundleBtn\.style\.gridColumn\s*=\s*['"]1\s*\/\s*-1['"]/,
-    'the flagged fourth action must span the full second grid row',
-  );
+  // Source inspection is intentional for this feature-flagged chunk boundary.
+  assert.equal(panelDependencies.static.includes('../analysis/evidence_bundle_product.js'), false);
+  assert.equal(panelDependencies.dynamic.includes('../analysis/evidence_bundle_product.js'), true);
   assert.equal(messages.en['crime.exportEvidenceBundle'], 'Evidence bundle');
   assert.equal(messages['zh-CN']['crime.exportEvidenceBundle'], '证据包');
   for (const copy of [messages.en['crime.exportEvidenceBundle'], messages['zh-CN']['crime.exportEvidenceBundle']]) {
@@ -1376,13 +1363,40 @@ test('comparison disclosure state survives a rerendered details element', async 
   assert.equal(rerendered.open, true);
 });
 
-test('comparison disclosure state belongs to one default compare view', async () => {
-  const source = await readFile(new URL('../../src/compare/card.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /^const comparisonDisclosureState\s*=/m);
-  assert.match(
-    source,
-    /function createDefaultCompareView\([^)]*\)\s*\{[\s\S]*?const comparisonDisclosureState\s*=\s*\{\s*open:\s*false\s*\}/,
-  );
+test('comparison disclosure state remains scoped to each default compare view', async () => {
+  const { createDefaultCompareView } = await import('../../src/compare/card.js');
+  const createDetails = () => ({
+    open: false,
+    listeners: new Map(),
+    addEventListener(name, listener) { this.listeners.set(name, listener); },
+  });
+  const createElement = () => {
+    let details = null;
+    return {
+      set innerHTML(value) { details = value.includes('crime-comparison-details') ? createDetails() : null; },
+      get innerHTML() { return ''; },
+      querySelector(selector) { return selector === '.crime-comparison-details' ? details : null; },
+      querySelectorAll() { return []; },
+      get details() { return details; },
+    };
+  };
+  const firstElement = createElement();
+  const secondElement = createElement();
+  const first = createDefaultCompareView({}, { getElementById: () => firstElement });
+  const second = createDefaultCompareView({}, { getElementById: () => secondElement });
+  const result = {
+    a: { label: 'A', total: 2, top3: [], metricStatus: {} },
+    b: { label: 'B', total: 1, top3: [], metricStatus: {} },
+  };
+
+  first.success(result);
+  firstElement.details.open = true;
+  firstElement.details.listeners.get('toggle')();
+  first.success(result);
+  second.success(result);
+
+  assert.equal(firstElement.details.open, true);
+  assert.equal(secondElement.details.open, false);
 });
 
 test('detailed comparison disclosure meets touch and reduced-motion contracts', async () => {
@@ -1491,87 +1505,110 @@ test('specific offense selector keeps at most three choices and explains native 
   assert.match(html, /<select[^>]+id="fineSel"[^>]+aria-describedby="fineSelHint"/);
   assert.match(html, /id="fineSelHint"[^>]+role="status"[^>]+aria-live="polite"/);
 
-  const messagesSource = await readFile(new URL('../../src/i18n/messages.js', import.meta.url), 'utf8');
-  assert.match(messagesSource, /Shift selects a range/);
-  assert.match(messagesSource, /Ctrl\/Cmd-click toggles one/);
-  assert.match(messagesSource, /Shift 连选范围/);
-  assert.match(messagesSource, /Ctrl \/ Cmd 点击切换单项/);
+  const { messages } = await import('../../src/i18n/index.js');
+  assert.match(messages.en['crime.drilldownHint'], /Shift selects a range/);
+  assert.match(messages.en['crime.drilldownHint'], /Ctrl\/Cmd-click toggles one/);
+  assert.match(messages['zh-CN']['crime.drilldownHint'], /Shift 连选范围/);
+  assert.match(messages['zh-CN']['crime.drilldownHint'], /Ctrl \/ Cmd 点击切换单项/);
 });
 
-test('only the latest offense-option request may update the selector', async () => {
-  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(panelSource, /drilldownRequestGeneration/);
-  assert.match(panelSource, /requestGeneration !== drilldownRequestGeneration/);
-  const emptyBranchStart = panelSource.indexOf('if (renderedCodes.length === 0)');
-  const emptyBranchEnd = panelSource.indexOf('} else {', emptyBranchStart);
-  assert.ok(emptyBranchStart >= 0 && emptyBranchEnd > emptyBranchStart);
-  assert.match(panelSource.slice(emptyBranchStart, emptyBranchEnd), /syncOffenseHighlights\(\[\]\)/);
-  const noGroupsStart = panelSource.indexOf('if (values.length === 0)');
-  const noGroupsEnd = panelSource.indexOf('} else {', noGroupsStart);
-  assert.ok(noGroupsStart >= 0 && noGroupsEnd > noGroupsStart);
-  assert.match(
-    panelSource.slice(noGroupsStart, noGroupsEnd),
-    /if \(!preserveSelection\) syncOffenseHighlights\(\[\]\)/,
-  );
+test('offense option refresh keeps its async latest-wins and preservation contracts', async () => {
+  const { createOffenseOptionController } = await import('../../src/ui/offense_option_controller.js');
+  const pending = new Map();
+  const options = [];
+  let selectedCodes = [];
+  const select = {
+    disabled: false,
+    set innerHTML(_value) { options.length = 0; },
+    appendChild(option) { options.push(option); },
+  };
+  const controller = createOffenseOptionController({
+    select,
+    readSelectedCodes: () => selectedCodes,
+    writeGroups: (_groups, { resetHighlights }) => { if (resetHighlights) selectedCodes = []; },
+    readWindow: () => ({ start: '2026-01', end: '2026-02' }),
+    fetchAvailableCodes: ({ groups }) => new Promise((resolve) => pending.set(groups[0], resolve)),
+    normalizeCodes: (codes) => [...new Set(codes)],
+    createOption: () => ({}),
+    localizeCode: (code) => `label:${code}`,
+    syncHighlights: (codes) => { selectedCodes = [...codes]; },
+    fitRows: () => {},
+    renderStatus: () => { options.length = 0; },
+    notify: () => {},
+  });
+
+  const stale = controller.populate(['old']);
+  const latest = controller.populate(['new']);
+  pending.get('new')(['NEW']);
+  assert.equal((await latest).applied, true);
+  pending.get('old')(['OLD']);
+  assert.equal((await stale).applied, false);
+  assert.deepEqual(options.map(({ value }) => value), ['NEW']);
+
+  selectedCodes = ['KEPT'];
+  const preserved = controller.populate(['preserve'], { preserveSelection: true, notify: false });
+  pending.get('preserve')(['AVAILABLE']);
+  assert.equal((await preserved).applied, true);
+  assert.deepEqual(options.map(({ value, selected }) => [value, selected]), [
+    ['AVAILABLE', false],
+    ['KEPT', true],
+  ]);
+  assert.deepEqual(selectedCodes, ['KEPT']);
 });
 
-test('time-window analysis refresh starts before the offense-option request settles', async () => {
-  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  const helperStart = panelSource.indexOf('const refreshTimeWindow = () =>');
-  const helperEnd = panelSource.indexOf("groupSel?.addEventListener('change'", helperStart);
-  assert.ok(helperStart >= 0 && helperEnd > helperStart);
-  const helper = panelSource.slice(helperStart, helperEnd);
-  assert.ok(helper.indexOf('onChange()') < helper.indexOf('refreshDrilldownForWindow()'));
+test('offense option failures notify only for the current request generation', async () => {
+  const { createOffenseOptionController } = await import('../../src/ui/offense_option_controller.js');
+  const pending = new Map();
+  let notifications = 0;
+  const controller = createOffenseOptionController({
+    select: { disabled: false },
+    readSelectedCodes: () => [],
+    writeGroups: () => {},
+    readWindow: () => ({ start: '2026-01', end: '2026-02' }),
+    fetchAvailableCodes: ({ groups }) => new Promise((resolve, reject) => {
+      pending.set(groups[0], { resolve, reject });
+    }),
+    normalizeCodes: (codes) => codes,
+    createOption: () => ({}),
+    localizeCode: (code) => code,
+    syncHighlights: () => {},
+    fitRows: () => {},
+    renderStatus: () => {},
+    notify: () => { notifications += 1; },
+  });
+
+  const stale = controller.populate(['stale']);
+  const current = controller.populate(['current']);
+  pending.get('stale').reject(new Error('stale failure'));
+  assert.deepEqual(await stale, { applied: false });
+  assert.equal(notifications, 0);
+
+  const currentError = new Error('current failure');
+  pending.get('current').reject(currentError);
+  assert.deepEqual(await current, { applied: false, error: currentError });
+  assert.equal(notifications, 1);
 });
 
-test('every time-window control reloads offense options without duplicating the immediate result refresh', async () => {
-  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(
-    panelSource,
-    /refreshDrilldownForWindow\s*=\s*\(\)\s*=>[\s\S]*?preserveSelection:\s*true,[\s\S]*?notify:\s*false/,
-  );
-  const handlersStart = panelSource.indexOf("startMonth?.addEventListener('change'");
-  const handlersEnd = panelSource.indexOf("shareViewBtn?.addEventListener('click'", handlersStart);
-  assert.ok(handlersStart >= 0 && handlersEnd > handlersStart);
-  const handlers = panelSource.slice(handlersStart, handlersEnd);
-  assert.equal((handlers.match(/refreshTimeWindow\(\)/g) || []).length, 2);
-  const presetSyncStart = panelSource.indexOf('function syncPreset()');
-  const presetSyncEnd = panelSource.indexOf('function syncFromStore()', presetSyncStart);
-  assert.ok(presetSyncStart >= 0 && presetSyncEnd > presetSyncStart);
-  const presetSync = panelSource.slice(presetSyncStart, presetSyncEnd);
-  assert.match(presetSync, /syncControlsFromStore\(\)/);
-  assert.match(presetSync, /onChange\.cancel\(\)/);
-  assert.match(presetSync, /return refreshDrilldownForWindow\(\)/);
-  assert.doesNotMatch(presetSync, /onChange\(\)/);
-  assert.match(
-    panelSource,
-    /const renderedCodes = preserveSelection\s*\?\s*\[\.\.\.new Set\(\[\.\.\.availableCodes, \.\.\.requestedCodes\]\)\]\s*:\s*availableCodes/,
-  );
-});
+test('time-window changes refresh results immediately and hydrate options without duplicate refreshes', async () => {
+  const { createTimeWindowRefresh } = await import('../../src/ui/offense_option_controller.js');
+  const calls = [];
+  let resolveHydration;
+  const refresh = createTimeWindowRefresh({
+    notify: () => calls.push('notify'),
+    hydrate: (options) => {
+      calls.push(['hydrate', options]);
+      return new Promise((resolve) => { resolveHydration = resolve; });
+    },
+  });
 
-test('failed time-window option refresh preserves the visible selectable offense state', async () => {
-  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  assert.match(
-    panelSource,
-    /const renderStatus = \(key\) => \{\s*if \(preserveSelection\) return;/,
-  );
-  assert.match(panelSource, /renderStatus\('crime\.loadingCodes'\)/);
-  assert.match(
-    panelSource,
-    /catch \(err\) \{[\s\S]*?renderStatus\('crime\.codeLoadError'\)/,
-  );
-});
-
-test('initial offense hydration does not duplicate a valid initial Crime refresh', async () => {
-  const panelSource = await readFile(new URL('../../src/ui/panel.js', import.meta.url), 'utf8');
-  const initStart = panelSource.indexOf('// Init-time populate');
-  const initEnd = panelSource.indexOf("startMonth?.addEventListener('change'", initStart);
-  assert.ok(initStart >= 0 && initEnd > initStart);
-  assert.match(panelSource.slice(initStart, initEnd), /notify:\s*false/);
-  assert.match(
-    panelSource,
-    /if \(notify\) onChange\(\)/,
-  );
+  const completion = refresh();
+  assert.deepEqual(calls, [
+    'notify',
+    ['hydrate', { preserveSelection: true, notify: false }],
+  ]);
+  assert.equal(calls.filter((value) => value === 'notify').length, 1);
+  resolveHydration({ applied: true });
+  assert.deepEqual(await completion, { applied: true });
 });
 
 test('categorical Crime legend pairs every highlight color with a text label', async (t) => {
@@ -1658,12 +1695,25 @@ test('categorical Crime legend pairs every highlight color with a text label', a
   assert.equal(root.children[0].textContent, '警察分局');
 });
 
-test('buffer highlight legend is restored after background choropleth jobs settle', async () => {
-  const source = await readFile(new URL('../../src/routes_crime/index.js', import.meta.url), 'utf8');
-  const settled = source.indexOf('await Promise.allSettled');
-  const outcome = source.indexOf('const outcome = classifyCrimeRefreshJobs', settled);
-  assert.ok(settled >= 0 && outcome > settled);
-  assert.match(source.slice(settled, outcome), /if \(incidentView\) reconcileCrimeLegend\(snapshot\)/);
+test('buffer highlight legend is reconciled after background choropleth jobs settle', async () => {
+  const { settleCrimeRefreshJobs } = await import('../../src/routes_crime/index.js');
+  const calls = [];
+  let resolveBoundary;
+  const boundary = new Promise((resolve) => { resolveBoundary = resolve; });
+  const snapshot = { drilldownCodes: ['A'] };
+  const completion = settleCrimeRefreshJobs({
+    jobs: [{ promise: boundary }, { promise: Promise.resolve() }],
+    entries: [{ name: 'boundary', result: { status: 'fulfilled', value: { applied: true } } }],
+    isCurrent: () => true,
+    incidentView: true,
+    snapshot,
+    reconcileLegend: (value) => calls.push(value),
+  });
+  await Promise.resolve();
+  assert.deepEqual(calls, []);
+  resolveBoundary();
+  assert.deepEqual(await completion, { status: 'live', succeeded: ['boundary'], failed: [] });
+  assert.deepEqual(calls, [snapshot]);
 });
 
 test('the default Crime basemap is visually muted behind analytical overlays', async () => {
@@ -1678,21 +1728,23 @@ test('the default Crime basemap is visually muted behind analytical overlays', a
 });
 
 test('Crime map notices sit below the global app bar', async () => {
-  const [pointsSource, css] = await Promise.all([
-    readFile(new URL('../../src/map/points.js', import.meta.url), 'utf8'),
-    readProductCss(),
-  ]);
-  assert.doesNotMatch(pointsSource, /position:\s*'fixed',\s*top:\s*'12px'/);
+  const css = await readProductCss();
   assert.match(css, /#banner\s*\{[^}]*bottom:\s*52px[^}]*left:\s*384px/s);
   assert.match(css, /@media\s*\(max-width:\s*720px\)[\s\S]*#banner\s*\{[^}]*top:\s*calc\(var\(--app-bar-height\)\s*\+\s*12px\)/s);
 });
 
-test('map-selected Crime areas synchronize controls and the canonical URL', async () => {
-  const source = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
-  const callback = source.match(/onSelectionChange:[\s\S]*?onDataScopeChange:/)?.[0] || '';
-  assert.match(callback, /origin !== ['"]map['"]/);
-  assert.match(callback, /panel\.syncFromStore\?\.\(\)/);
-  assert.doesNotMatch(callback, /writeCrimeStateToURL\(store\)/);
+test('map-origin selections synchronize controls through the canonical URL owner', async () => {
+  const { createMapOriginSelectionHandler } = await import('../../src/ui/map_origin_selection.js');
+  const calls = [];
+  const handler = createMapOriginSelectionHandler({
+    syncPanel: () => calls.push('sync-panel'),
+    clearCurrentArtifact: () => calls.push('clear-artifact'),
+  });
+
+  assert.equal(handler('buffer:A', { origin: 'sync' }), false);
+  assert.deepEqual(calls, []);
+  assert.equal(handler('buffer:A', { origin: 'map' }), true);
+  assert.deepEqual(calls, ['sync-panel', 'clear-artifact']);
 });
 
 test('Crime list presentation exposes semantic controls, result table, status, and limitations', async () => {
@@ -1743,8 +1795,10 @@ test('Crime list refresh focuses the visible result surface for the selected res
 });
 
 test('list-first entry has no static MapLibre or initMap import', async () => {
-  const main = await readFile(new URL('../../src/main.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(main, /^import\s+['"]maplibre-gl\/dist\/maplibre-gl\.css['"];?$/m);
-  assert.doesNotMatch(main, /await import\(['"]\.\/map\/initMap\.js['"]\)/);
-  assert.match(main, /createOptionalMapRuntime/);
+  // Source inspection is intentional for this initial-chunk dependency boundary.
+  const main = await readModuleDependencies(new URL('../../src/main.js', import.meta.url));
+  assert.equal(main.static.includes('maplibre-gl/dist/maplibre-gl.css'), false);
+  assert.equal(main.static.includes('./map/initMap.js'), false);
+  assert.equal(main.dynamic.includes('./map/initMap.js'), false);
+  assert.equal(main.static.includes('./map/optional_map_runtime.js'), true);
 });

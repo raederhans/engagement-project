@@ -14,15 +14,28 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     title: '数据来源与更新时间',
     intro: '查看各数据源的状态、覆盖范围和更新时间。',
-    rejected: '一个或多个来源观测未通过 schema 接纳；在提供有效证据前，受影响来源保持不可用。',
+    rejected: '部分来源未通过数据核验，暂时不可用。',
     dataset: '数据集', provider: '提供方', status: '状态', canonical: '规范来源',
-    license: '许可 / 复用条款', coverage: '覆盖范围', clocks: '证据时钟',
+    license: '许可 / 复用条款', coverage: '覆盖范围', clocks: '更新时间',
     sourceAsOf: '来源事实截至', retrievedAt: '获取时间', builtAt: '构建时间', observedAt: '观测时间',
     snapshot: '快照 / 版本', boundary: '边界版本', revision: '修订政策',
-    limitations: '局限', handoff: '官方交接页', transport: '传输证据',
+    limitations: '局限', handoff: '官方说明', transport: '传输证据',
     recordCount: '已接纳记录数', unavailableValue: '不可用', notApplicable: '未提供 / 不适用',
     current: '当前', partial: '部分可用', stale: '陈旧', unavailable: '不可用', unknown: '未知',
   }),
+});
+
+const SOURCE_TITLES = Object.freeze({
+  'philadelphia-reported-crime': ['Reported incidents', '历史事件'],
+  'philadelphia-police-districts': ['Police districts', '警察分局边界'],
+  'census-tract-boundaries': ['Census boundaries', '人口普查区边界'],
+  'acs-tract-population': ['Population estimates', '人口估计'],
+  'acs-tract-population-vre': ['Population uncertainty', '人口估计误差'],
+  'tract-crime-snapshot': ['Tract incident totals', '普查区事件汇总'],
+  'philadelphia-city-limits': ['City boundary', '费城市界'],
+  'hin-2025': ['High Injury Network', '高伤亡道路网络'],
+  'openstreetmap-basemap': ['Map tiles', '参考底图'],
+  'diary-demo-routes': ['Demo routes', '演示路线'],
 });
 
 function copyFor(language) {
@@ -86,10 +99,11 @@ export function renderSourceHealthSurface({ host, model, language = 'en' } = {})
 
   const list = el(documentRef, 'div', null, 'source-health__sources');
   for (const source of model.sources) {
-    const article = el(documentRef, 'article', null, 'source-health__source');
+    const article = el(documentRef, 'details', null, 'source-health__source');
     article.dataset.sourceHealthId = source.id;
     article.dataset.sourceHealthStatus = source.status;
-    const sourceTitle = el(documentRef, 'h5', source.dataset, 'source-health__source-title');
+    const title = SOURCE_TITLES[source.id]?.[language === 'zh-CN' ? 1 : 0] || source.dataset;
+    const sourceTitle = el(documentRef, 'summary', title, 'source-health__source-title');
     const status = el(documentRef, 'span', copy[source.status], 'source-health__status');
     status.dataset.status = source.status;
     sourceTitle.append(status);

@@ -87,6 +87,7 @@ await runBrowserSuite({
   run: async ({ page }) => {
     await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
 
+    await page.locator('.analysis-hub > summary').click();
     const opener = page.locator('[data-home-compare-open]');
     const dialog = page.locator('[data-home-compare-dialog]');
     for (const [locale, viewport] of [
@@ -120,12 +121,14 @@ await runBrowserSuite({
 
       await dialog.locator('[data-home-address="0"]').fill('100 PRIVATE TEST ST');
       await dialog.locator('[data-home-address="1"]').fill('101 PRIVATE TEST ST');
+      const commuteDetails = dialog.locator('details').filter({ has: page.locator('[data-home-destinations]') });
+      if (await commuteDetails.getAttribute('open') === null) await commuteDetails.locator(':scope > summary').click();
       await dialog.locator('[data-home-destinations]').fill('PRIVATE DESTINATION');
       const requestCheckpoint = requests.length;
       await dialog.locator('[data-home-run]').click();
       await page.waitForFunction((targetLocale) => {
         const text = document.querySelector('[data-home-status]')?.textContent || '';
-        return targetLocale === 'en' ? text.includes('disabled') : text.includes('未启用');
+        return targetLocale === 'en' ? text.includes('disabled') : text.includes('暂不支持地址比较');
       }, locale);
       assert.equal(await dialog.locator('[data-home-profile]').count(), 0);
       assert.deepEqual(
@@ -197,7 +200,7 @@ await runBrowserSuite({
       assert.ok(layout.surfaceOverflow <= 1, JSON.stringify(layout));
 
       const closeButtons = dialog.locator('[data-home-close]');
-      assert.equal(await closeButtons.count(), 2);
+      assert.equal(await closeButtons.count(), 1);
       await closeButtons.last().click();
       await dialog.waitFor({ state: 'hidden' });
       assert.equal(await opener.evaluate((element) => document.activeElement === element), true);

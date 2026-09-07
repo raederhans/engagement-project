@@ -201,11 +201,17 @@ test('Crime List reserves the active mobile Sheet height in every state', async 
     ).toBeLessThanOrEqual(1);
   };
 
+  await expectReservedSpace('collapsed');
+  await handle.click();
   await expectReservedSpace('half');
   await handle.click();
   await expectReservedSpace('full');
   await handle.click();
   await expectReservedSpace('collapsed');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(panel).toHaveAttribute('data-sheet-state', 'half');
+  await expect(panel.locator(':scope > .sheet-content')).toHaveAttribute('aria-hidden', 'false');
+  expect(await panel.locator(':scope > .sheet-content').evaluate((el) => el.inert)).toBe(false);
 });
 
 test('Crime editing preserves the query and result navigation exposes one pane at a time', async ({ page }, testInfo) => {
@@ -312,7 +318,7 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
   await gotoMode(page, 'diary');
-  await expect(page.getByRole('heading', { name: 'Route Experience Diary (demo)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Trip diary' })).toBeVisible();
   await expect(page.locator('[data-crime-canvas-data]')).toHaveAttribute('hidden', '');
   await expect(page.locator('[data-diary-visualization-data]')).not.toHaveAttribute('hidden', '');
   expect(crimeRequests(experience.requests)).toEqual([]);
@@ -324,7 +330,11 @@ test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', asy
     await expect(rateAction).toHaveCSS('position', 'static');
     await expect(page.locator('#sidepanel > .sheet-content')).toHaveCSS('overflow-y', 'auto');
     await expectInsideContainer(rateAction, page.locator('#sidepanel'));
+    await expect(page.locator('.diary-alt-summary')).toBeHidden();
+    await page.locator('[data-information-toggle]').click();
+    await expect(page.locator('.diary-alt-summary')).toBeVisible();
     await expectNoOverlap(rateAction, page.locator('.diary-alt-summary'));
+    await page.locator('[data-information-toggle]').click();
   }
   await expect(page.locator('.diary-road-grid-hint')).toHaveCount(0);
   await assertCtaInsideViewport(rateButton);
@@ -402,7 +412,7 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
     const analyzedAssets = await assertScriptBudget(RUNTIME_SCRIPT_BUDGETS.crimeAnalyzed, 'Crime analyzed');
     expect(analyzedAssets.some((name) => /charts-[^/]+\.js$/.test(name))).toBe(true);
     expect(analyzedAssets.some((name) => /incident_results_controller-[^/]+\.js$/.test(name))).toBe(true);
-    expect(analyzedAssets.some((name) => /public_area_summary-[^/]+\.js$/.test(name))).toBe(true);
+    expect(analyzedAssets.some((name) => /tract_summary-[^/]+\.js$/.test(name))).toBe(true);
   } finally {
     collector.dispose();
   }
@@ -412,16 +422,15 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
   await gotoMode(page, 'crime', { analysis: 'district', district: '06' });
   await page.locator('[data-analysis-context-edit]').click();
   await expect(page.locator('[data-crime-setup]')).toBeVisible();
-  const moreFilters = page.locator('#advancedFilters');
-  await moreFilters.locator(':scope > summary').click();
-  const dataDetails = moreFilters.locator('section.data-details');
+  const dataDetails = page.locator('details.data-details');
+  await dataDetails.locator(':scope > summary').click();
   await expect(dataDetails).toBeVisible();
   await expect(page.locator('#dataStatus')).not.toHaveText('Connecting to live data…');
   await expect(page.locator('[data-app-data-status]')).toHaveAttribute('data-scope-kind', 'fallback');
   await captureExperienceScreenshot(page, testInfo, 'crime-help-data-details', { locator: page.locator('#sidepanel') });
   if (testInfo.project.name !== 'desktop') {
     const areaSelector = page.locator('#queryModeSel');
-    const lastHelpItem = dataDetails.locator('[data-app-source-details]');
+    const lastHelpItem = dataDetails.locator('#dataStatus');
     await expect(areaSelector).toBeVisible();
     await expect(areaSelector).toHaveCSS('position', 'static');
     await lastHelpItem.scrollIntoViewIfNeeded();
@@ -569,9 +578,9 @@ test('automated accessibility scan reports no critical or serious issues', async
     'crime accessibility issues',
   ).toEqual([]);
 
-  const moreFilters = page.locator('#advancedFilters');
-  await moreFilters.locator(':scope > summary').click();
-  await expect(moreFilters.locator('section.data-details')).toBeVisible();
+  const dataDetails = page.locator('details.data-details');
+  await dataDetails.locator(':scope > summary').click();
+  await expect(dataDetails).toBeVisible();
   expect(
     await auditSeriousAccessibility(page),
     'crime Data accessibility issues',

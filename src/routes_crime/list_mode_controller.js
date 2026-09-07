@@ -39,7 +39,7 @@ async function fetchListIncidents(snapshot, { signal } = {}) {
     signal,
   });
   const count = Array.isArray(geo?.features) ? geo.features.length : 0;
-  return { applied: true, status: 'success', geo, count };
+  return { applied: true, geo, count };
 }
 
 async function fetchListOverview(snapshot, { signal } = {}) {
@@ -97,7 +97,7 @@ export function createCrimeListController({
     return updateAllCharts(snapshot, options);
   },
   createProvenance = createCrimeRefreshProvenance,
-  view = null,
+  view,
   resultMeta = {},
   onQuickFilter = () => {},
   onCoverageChange = () => {},

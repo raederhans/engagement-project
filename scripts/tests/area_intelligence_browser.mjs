@@ -185,7 +185,7 @@ async function assertMatrixState({ card, page, scenario }) {
     : /当前分局和普查区选择不会改变这些数值/);
   assert.match(text, scenario.language === 'en'
     ? /no forecast or model count is shown/
-    : /不展示预测或模型计数/);
+    : /预测暂不可用[\s\S]*当前仅展示历史统计/);
   if (scenario.language === 'en') {
     assert.match(text, /Source as of[\s\S]*2026-08-27T03:59:00\.000Z/);
     assert.match(text, /Coverage[\s\S]*2006-01-01 through 2026-08-28 \(exclusive end\)/);
@@ -201,7 +201,7 @@ async function assertMatrixState({ card, page, scenario }) {
     assert.match(text, /完整周截至[\s\S]*2026-08-24 之前/);
     assert.match(text, /分析几何[\s\S]*人口普查区与固定网格/);
     assert.match(text, /周定义：UTC Monday 00:00 inclusive to next Monday exclusive/);
-    assert.match(text, /人口普查区与固定网格保持为独立的 spatial-unit-week 分母/);
+    assert.match(text, /人口普查区和固定网格分别按周统计，不合并计算/);
     assert.match(text, /排除项：不完整周，以及空间归属模糊、未映射或不可用的记录均不计入/);
     assert.match(text, /它不能确定个人层面的概率或比较性的安全结论/);
   }
@@ -209,6 +209,11 @@ async function assertMatrixState({ card, page, scenario }) {
   assert.doesNotMatch(text, /评分|排名|优胜|最安全|当前风险/);
   assert.doesNotMatch(text, /source_record_id|raw event|canonical event|street address|event coordinates/i);
   await assertNoHorizontalOverflow(card);
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations()
+      .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+      .map((animation) => animation.finished.catch(() => {})));
+  });
   const accessibility = await new AxeBuilder({ page })
     .include('#area-intelligence')
     .withTags(['wcag2a', 'wcag2aa'])

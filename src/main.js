@@ -8,12 +8,14 @@ import {
 } from './ui/panel.js';
 import { initAboutPanel } from './ui/about.js';
 import { initLanguageSwitch } from './ui/language_switch.js';
+import { initInformationLevel } from './ui/information_level.js';
 import { createModeSurfacePresenter, createModeUrlWriter } from './ui/mode_surfaces.js';
 import { setSheetState } from './ui/sheet_controller.js';
 import { createSourceHealthLoader } from './source_health/source_health_loader.js';
 import { createDiaryInsightsLoader } from './routes_diary/diary_insights_port.js';
 import { createModeCoordinator } from './mode_coordinator.js';
 import { createCrimeResultMetaPresenter } from './ui/crime_result_meta.js';
+import { createMapOriginSelectionHandler } from './ui/map_origin_selection.js';
 import {
   createCrimeViewModeController,
   readCrimeViewMode,
@@ -31,11 +33,7 @@ import {
 } from './state/crime_view_state.js';
 import { runCrimeListRefresh } from './ui/crime_list_results.js';
 
-const query = typeof window !== 'undefined'
-  ? new URLSearchParams(window.location.search || '')
-  : new URLSearchParams('');
-const diaryFeatureEnabled = import.meta.env?.VITE_FEATURE_DIARY === '1'
-  || query.get('mode') === 'diary';
+const diaryFeatureEnabled = store.diaryFeatureOn;
 let coordinator = null;
 
 const diaryInsightsLoader = createDiaryInsightsLoader({
@@ -76,6 +74,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     navigatorRef: window.navigator,
   });
   initLanguageSwitch({ documentRef: document });
+  initInformationLevel({ documentRef: document });
   const sharedParams = new URLSearchParams(window.location.search || '');
   if (hasCrimeViewState(sharedParams)) {
     applyCrimeViewState(store, decodeCrimeViewState(sharedParams), { setMode: setAnalysisMode });
@@ -499,11 +498,10 @@ window.addEventListener('DOMContentLoaded', async () => {
           onPointChange: () => {
             if (store.viewMode === 'crime') panel.syncFromStore?.();
           },
-          onSelectionChange: (_key, { origin } = {}) => {
-            if (origin !== 'map') return;
-            panel.syncFromStore?.();
-            analysisHistoryController?.setCurrentArtifact(null);
-          },
+          onSelectionChange: createMapOriginSelectionHandler({
+            syncPanel: () => panel.syncFromStore?.(),
+            clearCurrentArtifact: () => analysisHistoryController?.setCurrentArtifact(null),
+          }),
           onDataScopeChange: modeSurfaces.showDataScope,
           resultMeta: crimeResultMeta,
         })).then((controller) => {
@@ -590,6 +588,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       input.checked = input.value === normalized;
     }
     if (viewModeRoot) viewModeRoot.hidden = store.viewMode !== 'crime';
+
+    // On small screens the list already has quick filters. Give its results
+    // the viewport; the sheet handle keeps the full query tools reachable.
+    const querySheet = document.getElementById('sidepanel');
+    if (querySheet && window.matchMedia('(max-width: 900px)').matches) {
+      if (normalized === 'list') setSheetState(querySheet, 'collapsed');
+      else if (querySheet.dataset.sheetState === 'collapsed') setSheetState(querySheet, 'half');
+    }
 
     if (normalized === 'list') {
       coordinator?.cancelCurrentTransition?.('Crime list view selected');
