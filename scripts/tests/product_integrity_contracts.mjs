@@ -1889,7 +1889,7 @@ test('bundle policy keeps lazy product surfaces and admitted source artifacts ou
   assert.match(source, /nonVreDistBytes <= 4_141_000/);
   assert.match(source, /distBytes <= 4_323_000/);
   assert.match(source, /routeArtifactSize <= 21_000/);
-  assert.match(source, /\['P1 translations', p1Messages, 8_644, 3_300\]/);
+  assert.match(source, /\['P1 translations and Diary filters', p1Messages, 8_644, 3_450\]/);
 });
 
 test('tract snapshot requires the exact current tract identity set', () => {

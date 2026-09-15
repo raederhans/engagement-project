@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import dayjs from 'dayjs';
 import { store } from '../state/store.js';
 import { fetchByDistrict, fetchTopTypesByDistrict } from '../api/crime.js';

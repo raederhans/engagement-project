@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { escapeHtml } from '../utils/html.js';
 import { t } from '../i18n/index.js';
 import {
@@ -283,6 +283,7 @@ function registerClickHandlers(map, layerId, {
   signal,
   isCurrent = () => true,
   canInteract = () => true,
+  createPopup = (options) => new maplibregl.Popup(options),
 } = {}) {
   cleanupClickHandlers(map, layerId);
   if (!map || !layerId) return;
@@ -303,7 +304,7 @@ function registerClickHandlers(map, layerId, {
     closePinnedPopup();
     focusSegment(map, feature);
 
-    const popup = new maplibregl.Popup({
+    const popup = createPopup({
       closeButton: true,
       closeOnClick: false,
       className: 'diary-hover-card diary-segment-card-pinned',
