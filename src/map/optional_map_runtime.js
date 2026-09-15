@@ -72,6 +72,7 @@ function loadMapStylesheet(documentRef = globalThis.document) {
 
 export async function loadOptionalMapRuntime(options, { documentRef = globalThis.document } = {}) {
   await loadMapStylesheet(documentRef);
+  await import('./worker_runtime.js');
   const module = await import('./initMap.js');
   return module.initMap(options);
 }

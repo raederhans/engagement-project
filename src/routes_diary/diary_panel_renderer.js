@@ -17,15 +17,15 @@ export function renderDiaryPanelFrame({
   setTranslatedText(title, 'diary.demoTitle');
   const subtitle = documentRef.createElement('div');
   subtitle.className = 'diary-panel-subtitle';
-  setTranslatedText(subtitle, 'diary.demoSubtitle');
+  setTranslatedText(subtitle, 'diary.workspaceSubtitle');
   heading.append(title, subtitle);
   panel.appendChild(heading);
 
   const switcher = documentRef.createElement('div');
   switcher.className = 'diary-view-switch';
   const pills = [
-    ['diary.tab.live', 'live'],
     ['diary.tab.history', 'history'],
+    ['diary.tab.live', 'live'],
     ['diary.tab.community', 'community'],
   ].map(([key, mode]) => {
     const button = documentRef.createElement('button');

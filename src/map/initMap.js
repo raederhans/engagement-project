@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { MAP_STYLES, resolveMapStyle } from '../config.js';
 import { setTranslatedAttribute, setTranslatedText } from '../i18n/index.js';
 import { prefersReducedMotion } from './camera_fit.js';

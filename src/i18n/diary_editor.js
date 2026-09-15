@@ -1,0 +1,38 @@
+import { registerMessagePairs } from './messages.js';
+
+export const diaryEditorMessagePairs = Object.freeze({
+  'diary.editor.new': ['Record a trip', '记录一次出行'],
+  'diary.editor.edit': ['Edit trip', '编辑出行记录'],
+  'diary.editor.privacy': ['Saved only on this device. Route files are read locally without uploading.', '仅保存在此设备。路线文件在本地读取，不会上传。'],
+  'diary.editor.label': ['Trip name', '出行名称'],
+  'diary.editor.time': ['Travel date and time (device time zone)', '出行日期与时间（设备时区）'],
+  'diary.editor.mode': ['Travel mode', '出行方式'],
+  'diary.editor.walk': ['Walking', '步行'],
+  'diary.editor.bike': ['Cycling', '骑行'],
+  'diary.editor.score': ['Overall experience', '整体体验'],
+  'diary.editor.scoreHint': ['1 = very poor · 5 = very good', '1 = 很差 · 5 = 很好'],
+  'diary.editor.choose': ['Choose a rating', '请选择评分'],
+  'diary.editor.tags': ['Experience tags (optional)', '体验标签（可选）'],
+  'diary.editor.comfortable': ['Comfortable', '舒适'],
+  'diary.editor.quiet': ['Quiet', '安静'],
+  'diary.editor.scenic': ['Scenic', '沿途风景好'],
+  'diary.editor.ordinary': ['As expected', '符合预期'],
+  'diary.editor.crowded': ['Crowded', '拥挤'],
+  'diary.editor.noisy': ['Noisy', '嘈杂'],
+  'diary.editor.notes': ['Notes (optional)', '备注（可选）'],
+  'diary.editor.route': ['Route geometry', '路线形状'],
+  'diary.editor.noRoute': ['No route attached. You can save a trip without a map.', '尚未附加路线。不带地图也可以保存出行。'],
+  'diary.editor.attached': ['Route attached · source: {source}', '已附加路线 · 来源：{source}'],
+  'diary.editor.distance': ['Polyline length: {km} km (not a measured journey)', '折线长度：{km} km（非实测行程）'],
+  'diary.editor.import': ['Attach a GeoJSON route (optional)', '附加 GeoJSON 路线（可选）'],
+  'diary.editor.importHint': ['One LineString, up to 256 KB. Replaces the attached route after validation.', '仅包含一条 LineString，最大 256 KB；校验通过后替换已附加路线。'],
+  'diary.editor.importing': ['Checking route…', '正在校验路线…'],
+  'diary.editor.importError': ['Cannot read this route. Choose valid GeoJSON with one LineString, up to 256 KB.', '无法读取路线。请选择含一条 LineString 的有效 GeoJSON，最大 256 KB。'],
+  'diary.editor.save': ['Save on this device', '保存到此设备'],
+  'diary.editor.saving': ['Saving…', '正在保存…'],
+  'diary.editor.cancel': ['Cancel', '取消'],
+  'diary.editor.saveError': ['The trip could not be saved. Your changes are still here; try again.', '出行未能保存。修改仍保留在此窗口，可以重试。'],
+  'diary.editor.invalidTime': ['Enter a valid travel date and time.', '请输入有效的出行日期与时间。'],
+});
+
+registerMessagePairs(diaryEditorMessagePairs);

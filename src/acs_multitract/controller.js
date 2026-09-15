@@ -2,15 +2,12 @@ import './styles.css';
 
 import {
   acsAggregationTableHtml,
+  fetchAcsPopulationVreSnapshot,
+  toAcsAggregationEvidenceRecord,
 } from '../acs_aggregation.js';
 import { getLanguage, onLanguageChange } from '../i18n/index.js';
 import { createAcsMultitractWorkflow } from './workflow.js';
-import {
-  acsMultitractProductHtml,
-  acsMultitractReason,
-  acsSelectionReviewHtml,
-  getAcsMultitractCopy,
-} from './view.js';
+import { parseAcsTractSelectionText } from './selection.js';
 
 function openDialog(dialog) {
   if (typeof dialog.showModal === 'function') dialog.showModal();
@@ -22,7 +19,7 @@ function closeDialog(dialog) {
   else dialog.removeAttribute('open');
 }
 
-export function createAcsMultitractController({
+export async function createAcsMultitractController({
   dialog,
   loadSnapshot,
   onSourceHealthObservation = () => {},
@@ -31,11 +28,21 @@ export function createAcsMultitractController({
   if (!dialog?.querySelector) throw new TypeError('ACS multi-tract dialog is required');
   const host = dialog.querySelector('[data-acs-multitract-host]');
   if (!host) throw new TypeError('ACS multi-tract host is required');
+  const {
+    acsMultitractProductHtml,
+    acsMultitractReason,
+    acsSelectionReviewHtml,
+    getAcsMultitractCopy,
+  } = await import('./view.js');
 
   let returnFocus = null;
   let generation = 0;
   let selectionText = '';
   let busy = false;
+  let catalog = null;
+  let catalogLoading = false;
+  let catalogFailed = false;
+  let destroyed = false;
   const workflow = createAcsMultitractWorkflow({
     loadSnapshot,
     onSourceHealthObservation,
@@ -49,14 +56,70 @@ export function createAcsMultitractController({
   function render() {
     const locale = currentLocale();
     const copy = getAcsMultitractCopy(locale);
+    const manualOpen = host.querySelector('[data-acs-manual]')?.open || false;
     host.innerHTML = acsMultitractProductHtml(locale);
+    const manual = host.querySelector('[data-acs-manual]');
+    if (manual) manual.open = manualOpen;
     const input = host.querySelector('[data-acs-multitract-input]');
     const reviewButton = host.querySelector('[data-acs-multitract-review]');
     const calculateButton = host.querySelector('[data-acs-multitract-calculate]');
     const status = host.querySelector('[data-acs-multitract-status]');
     const reviewHost = host.querySelector('[data-acs-multitract-review-host]');
     const resultHost = host.querySelector('[data-acs-multitract-result]');
+    const quick = host.querySelector('[data-acs-quick]');
+    if (quick) {
+      quick.disabled = busy || parseAcsTractSelectionText(selectionText).status !== 'available';
+      quick.addEventListener('click', async () => {
+        const result = await review();
+        if (result.status === 'available' && !destroyed) calculate();
+      });
+    }
+    const browse = host.querySelector('[data-acs-browse]');
+    const choice = host.querySelector('[data-acs-choice]');
+    if (browse && choice) {
+      browse.hidden = Boolean(catalog);
+      browse.disabled = catalogLoading;
+      host.querySelector('[data-acs-picker]').hidden = !catalog;
+      const catalogStatus = host.querySelector('[data-acs-catalog-status]');
+      catalogStatus.hidden = !catalogLoading && !catalogFailed;
+      catalogStatus.textContent = catalogLoading ? copy.catalogLoading : copy.catalogFailed;
+      for (const row of catalog || []) {
+        const option = dialog.ownerDocument.createElement('option');
+        option.value = row.geoid;
+        option.textContent = `${row.geoid} · ${Number(row.estimate).toLocaleString(locale)}`;
+        choice.append(option);
+      }
+      host.querySelector('[data-acs-search]').addEventListener('input', (event) => {
+        const term = event.target.value.trim();
+        for (const option of choice.options) option.hidden = !option.value.includes(term);
+        const match = [...choice.options].find((option) => !option.hidden);
+        choice.value = match?.value || '';
+        host.querySelector('[data-acs-add]').disabled = !match;
+      });
+      browse.addEventListener('click', () => { void browseTracts(); });
+      host.querySelector('[data-acs-add]').addEventListener('click', () => {
+        const values = new Set(selectionText.split(/[\s,;]+/).filter(Boolean));
+        if (choice.value) values.add(choice.value);
+        input.value = [...values].join('\n');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+      });
+    }
     const { reviewed, outcome } = workflow.getState();
+    const exportButton = host.querySelector('[data-acs-export]');
+    if (exportButton) {
+      exportButton.hidden = outcome?.status !== 'available';
+      exportButton.addEventListener('click', async () => {
+        const record = toAcsAggregationEvidenceRecord(workflow.getState().outcome);
+        if (!record) return;
+        try {
+          const { downloadTextFile } = await import('../utils/export_analysis.js');
+          downloadTextFile('tract-population-analysis.json', JSON.stringify(record, null, 2), 'application/json');
+        } catch {
+          status.textContent = copy.exportFailed;
+        }
+      });
+    }
 
     input.value = selectionText;
     reviewButton.disabled = busy;
@@ -80,6 +143,8 @@ export function createAcsMultitractController({
       status.textContent = copy.idle;
       reviewHost.replaceChildren();
       resultHost.replaceChildren();
+      if (exportButton) exportButton.hidden = true;
+      if (quick) quick.disabled = parseAcsTractSelectionText(selectionText).status !== 'available';
     });
     reviewButton.addEventListener('click', () => { void review(); });
     calculateButton.addEventListener('click', calculate);
@@ -101,7 +166,31 @@ export function createAcsMultitractController({
     if (requestGeneration !== generation) return { status: 'superseded' };
     busy = false;
     render();
+    const successTarget = host.querySelector('[data-acs-manual]')?.open
+      ? '[data-acs-multitract-calculate]' : '[data-acs-quick]';
+    host.querySelector(reviewed.status === 'available' ? successTarget : '[data-acs-multitract-input]')?.focus?.();
     return reviewed;
+  }
+
+  async function browseTracts() {
+    if (catalogLoading) return;
+    catalogLoading = true;
+    catalogFailed = false;
+    render();
+    try {
+      const source = await (loadSnapshot || fetchAcsPopulationVreSnapshot)();
+      if (destroyed) return;
+      if (source?.status !== 'available' || !source.snapshot?.rows?.length) throw new Error('No tracts');
+      catalog = [...source.snapshot.rows].sort((a, b) => a.geoid.localeCompare(b.geoid));
+    } catch {
+      catalogFailed = true;
+    } finally {
+      catalogLoading = false;
+      if (!destroyed) {
+        render();
+        host.querySelector(catalog ? '[data-acs-choice]' : '[data-acs-browse]')?.focus?.();
+      }
+    }
   }
 
   function calculate() {
@@ -136,6 +225,7 @@ export function createAcsMultitractController({
     review,
     calculate,
     destroy() {
+      destroyed = true;
       generation += 1;
       workflow.invalidate();
       unsubscribeLanguage();

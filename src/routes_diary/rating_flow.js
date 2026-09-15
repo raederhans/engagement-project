@@ -59,7 +59,6 @@ export function validateRatingStep({ step, overallRating, tags }) {
   }
   if (step === 'details') {
     const count = tags?.size ?? tags?.length ?? 0;
-    if (count < 1) return { ok: false, error: 'Pick at least one tag.' };
     if (count > 3) return { ok: false, error: 'Select at most three tags.' };
   }
   return { ok: true };

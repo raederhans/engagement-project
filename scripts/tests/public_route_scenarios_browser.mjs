@@ -89,6 +89,11 @@ async function verifyViewport(page, variant) {
   target.searchParams.set('view', 'list');
   await page.goto(target.href, { waitUntil: 'domcontentloaded' });
   await ensureEnglish(page);
+  await page.waitForFunction(() => document.body.dataset.crimeView === 'list');
+  if (await page.locator('#sidepanel').getAttribute('data-sheet-state') === 'collapsed') {
+    await page.locator('.sheet-handle').click();
+  }
+  await page.locator('.analysis-hub > summary').click();
 
   const opener = page.locator('[data-public-route-open]');
   const dialog = page.locator('[data-public-route-dialog]');
@@ -116,7 +121,7 @@ async function verifyViewport(page, variant) {
   await opener.click();
   await dialog.waitFor({ state: 'visible' });
   await dialog.locator('[data-public-route-surface]').getByRole('heading', {
-    name: '比较时间、距离与历史背景',
+    name: '比较路线权衡',
   }).waitFor();
   await verifyCompleteScenario({
     page,
@@ -131,7 +136,7 @@ async function verifyViewport(page, variant) {
     page,
     dialog,
     scenarioId: SINGLE_SCENARIO,
-    expectedNotice: /只有一条路线通过必要检查/,
+    expectedNotice: /只有一条可用路线/,
     unavailableLabel: '不可用',
     variant,
   });
@@ -139,7 +144,7 @@ async function verifyViewport(page, variant) {
     page,
     dialog,
     scenarioId: DEGRADED_SCENARIO,
-    expectedNotice: /未通过全部必要检查|只显示一条普通路线/,
+    expectedNotice: /部分比较数据不可用，因此只显示当前可用路线/,
     unavailableLabel: '不可用',
     variant,
   });
@@ -168,7 +173,11 @@ async function verifyViewport(page, variant) {
 async function verifyCompleteScenario({ page, dialog, surface, locale, variant }) {
   const select = dialog.locator('[data-public-route-scenario]');
   await select.selectOption(COMPLETE_SCENARIO);
-  await dialog.locator(`[data-public-route-card][data-public-route-role="fastest"]`).waitFor();
+  await dialog.locator(`[data-public-route-card][data-public-route-role="fastest"]`).waitFor({ state: 'attached' });
+  await dialog.locator('#public-route-sort').selectOption('travelTime');
+  assert.deepEqual(await dialog.locator('.public-route-comparison tbody tr:first-child td').evaluateAll(
+    (cells) => cells.map((cell) => parseFloat(cell.textContent)),
+  ), [24, 29, 33, 37]);
   const currentSurface = dialog.locator('[data-public-route-surface]');
   assert.equal(await currentSurface.getAttribute('data-public-route-status'), 'available');
   const cards = currentSurface.locator('[data-public-route-card]');

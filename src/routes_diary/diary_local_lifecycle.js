@@ -100,6 +100,19 @@ export function createDiaryLocalLifecycle({
         ? { applied: true }
         : { applied: false, reason: 'stale' };
     },
+    async saveEntry(entry) {
+      if (!ownsSession()) return { applied: false, reason: 'stale' };
+      if (importing) return { applied: false, reason: 'pending' };
+      const saved = await repository.save(structuredClone(entry));
+      return ownsSession() ? { applied: true, entry: saved } : { applied: false, reason: 'stale' };
+    },
+    async discardDraft(routeId) {
+      const key = requireRouteId(routeId);
+      if (!ownsSession()) return { applied: false, reason: 'stale' };
+      if (importing || committingRoutes.has(key)) return { applied: false, reason: 'pending' };
+      await repository.deleteDraft(key);
+      return ownsSession() ? { applied: true } : { applied: false, reason: 'stale' };
+    },
 
     async snapshot() {
       if (!repository.snapshot) throw new Error('Diary repository cannot snapshot local data.');

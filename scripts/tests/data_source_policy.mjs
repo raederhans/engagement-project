@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
-import maplibregl from 'maplibre-gl';
 
 import './source_health_contracts.mjs';
 
@@ -889,8 +888,7 @@ test('stale segment popup submission aborts transport and commits no popup state
   assert.equal(popupAdds, 0);
 });
 
-test('a mounted segment popup has no Community CTA event seam', (t) => {
-  const OriginalPopup = maplibregl.Popup;
+test('a mounted segment popup has no Community CTA event seam', () => {
   const popups = [];
   class FakePopup {
     constructor() {
@@ -916,10 +914,6 @@ test('a mounted segment popup has no Community CTA event seam', (t) => {
     on() { return this; }
     remove() { this.removed = true; return this; }
   }
-  maplibregl.Popup = FakePopup;
-  t.after(() => {
-    maplibregl.Popup = OriginalPopup;
-  });
 
   const sources = new Map();
   const layers = new Map();
@@ -967,6 +961,7 @@ test('a mounted segment popup has no Community CTA event seam', (t) => {
   const aCommits = [];
   mountSegmentsLayer(map, 'diary-segments', segments, {
     signal: ownerA.signal,
+    createPopup: () => new FakePopup(),
     isCurrent: () => true,
     onAction: (payload) => aCommits.push(payload),
   });

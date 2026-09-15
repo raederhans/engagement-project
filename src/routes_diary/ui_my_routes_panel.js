@@ -1,10 +1,11 @@
 import { createDiaryCard, createSectionTitle } from './ui_common.js';
 import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 import { formatCalendarDate } from '../i18n/date.js';
+import '../i18n/diary_workspace.js';
 
 export function refreshMyRoutesDates(root) {
   for (const element of root?.querySelectorAll?.('[data-diary-date]') || []) {
-    element.textContent = formatCalendarDate(element.dataset.diaryDate, { includeYear: false }) || '';
+    element.textContent = formatCalendarDate(element.dataset.diaryDate, { includeYear: true }) || '';
   }
 }
 
@@ -22,9 +23,52 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
     dataStatus = '',
     busy = false,
     focusTarget = '',
+    drafts = [],
+    favorites = [],
+    totalEntries = routes.length,
+    storageStatus = 'available',
+    query = '',
+    timeOfDay = 'all',
   } = state;
 
-  container.appendChild(createFilters({ period, mode }, handlers, busy));
+  const create = createActionButton('diary.newEntry', 'diary-btn-primary diary-full-width-action');
+  create.disabled = busy || storageStatus === 'unavailable';
+  create.addEventListener('click', () => handlers.onCreate?.());
+  container.appendChild(create);
+  if (favorites.length) {
+    const section = document.createElement('details');
+    section.className = 'diary-favorites';
+    const title = document.createElement('summary');
+    setTranslatedText(title, 'diary.favorites', { count: favorites.length });
+    section.appendChild(title);
+    for (const item of favorites) {
+      const repeat = document.createElement('button');
+      repeat.type = 'button';
+      repeat.className = 'diary-chip secondary';
+      repeat.textContent = item.label;
+      repeat.disabled = busy;
+      setTranslatedAttribute(repeat, 'diary.favoriteRepeat', 'aria-label', { label: item.label });
+      repeat.addEventListener('click', () => handlers.onRepeat?.(item));
+      section.appendChild(repeat);
+    }
+    container.appendChild(section);
+  }
+  if (drafts.length) container.appendChild(createDraftList(drafts, handlers, busy));
+  container.appendChild(createFilters({ period, mode, query, timeOfDay }, handlers, busy));
+  const summary = document.createElement('p');
+  summary.className = 'diary-journal-summary';
+  summary.setAttribute('role', 'status');
+  setTranslatedText(summary, storageStatus === 'unavailable' ? 'diary.localStorageUnavailable' : 'diary.filteredCount', { count: routes.length, total: totalEntries });
+  container.appendChild(summary);
+  if (routes.length && storageStatus !== 'unavailable') {
+    const stats = document.createElement('p');
+    setTranslatedText(stats, 'diary.tripSummary', { count: routes.length, score: (routes.reduce((sum, row) => sum + Number(row.score), 0) / routes.length).toFixed(1) });
+    container.appendChild(stats);
+  }
+  const scope = document.createElement('p');
+  scope.className = 'diary-muted-text';
+  setTranslatedText(scope, 'diary.summaryScope');
+  container.appendChild(scope);
 
   const historyCard = createDiaryCard('diary-history-card');
   const historyTitle = createSectionTitle(t('diary.routeHistory'));
@@ -41,8 +85,11 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   if (!routes.length) {
     const empty = document.createElement('p');
     empty.className = 'diary-muted-text';
-    setTranslatedText(empty, 'diary.noLocalRatings');
+    setTranslatedText(empty, storageStatus === 'unavailable' ? 'diary.localStorageUnavailable' : totalEntries ? 'diary.filteredEmpty' : 'diary.recordFirst');
     list.appendChild(empty);
+    const next = createActionButton(totalEntries ? 'diary.resetFilters' : 'diary.exploreDemo', 'diary-chip secondary');
+    next.addEventListener('click', () => totalEntries ? handlers.onResetFilters?.() : handlers.onExploreDemo?.());
+    list.appendChild(next);
   } else {
     list.setAttribute('role', 'list');
     list.setAttribute('aria-labelledby', historyTitle.id);
@@ -77,7 +124,7 @@ export function renderMyRoutesPanel(container, state = {}, handlers = {}) {
   }
 }
 
-function createFilters({ period, mode }, handlers, busy) {
+function createFilters({ period, mode, query, timeOfDay }, handlers, busy) {
   const filters = document.createElement('div');
   filters.className = 'diary-route-filters';
 
@@ -86,10 +133,10 @@ function createFilters({ period, mode }, handlers, busy) {
   periodSelect.dataset.diaryFocusTarget = 'period-filter';
   periodSelect.disabled = busy;
   setTranslatedAttribute(periodSelect, 'diary.periodFilter', 'aria-label');
-  ['30d', '7d', 'all'].forEach((value) => {
+  ['30d', '7d', '90d', 'all'].forEach((value) => {
     const option = document.createElement('option');
     option.value = value;
-    setTranslatedText(option, value === '30d' ? 'diary.last30Days' : value === '7d' ? 'diary.last7Days' : 'diary.allTime');
+    setTranslatedText(option, value === '30d' ? 'diary.last30Days' : value === '7d' ? 'diary.last7Days' : value === '90d' ? 'diary.last90d' : 'diary.allTime');
     periodSelect.appendChild(option);
   });
   periodSelect.value = period;
@@ -114,7 +161,74 @@ function createFilters({ period, mode }, handlers, busy) {
   modeSelect.value = mode;
   modeSelect.addEventListener('change', () => handlers.onModeChange?.(modeSelect.value));
   filters.appendChild(modeSelect);
+  const time = document.createElement('select');
+  time.className = 'diary-select';
+  time.disabled = busy;
+  time.dataset.diaryFocusTarget = 'time-filter';
+  setTranslatedAttribute(time, 'diary.timeOfDay', 'aria-label');
+  for (const [value, key] of [['all', 'diary.allHours'], ['day', 'diary.daytime'], ['evening', 'diary.evening'], ['night', 'diary.night']]) {
+    const option = document.createElement('option');
+    option.value = value;
+    setTranslatedText(option, key);
+    time.appendChild(option);
+  }
+  time.value = timeOfDay;
+  time.addEventListener('change', () => handlers.onTimeChange?.(time.value));
+  filters.appendChild(time);
+  const search = document.createElement('input');
+  search.type = 'search';
+  search.className = 'diary-select';
+  search.value = query || '';
+  search.disabled = busy;
+  search.dataset.diaryFocusTarget = 'search';
+  setTranslatedAttribute(search, 'diary.searchHistory', 'aria-label');
+  setTranslatedAttribute(search, 'diary.searchHistory', 'placeholder');
+  search.addEventListener('change', () => handlers.onSearch?.(search.value));
+  search.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); handlers.onSearch?.(search.value); }
+  });
+  filters.appendChild(search);
+  const reset = createActionButton('diary.resetFilters', 'diary-chip secondary');
+  reset.disabled = busy;
+  reset.addEventListener('click', () => handlers.onResetFilters?.());
+  filters.appendChild(reset);
   return filters;
+}
+
+function createDraftList(drafts, handlers, busy) {
+  const section = document.createElement('section');
+  section.className = 'diary-drafts';
+  section.appendChild(createSectionTitle(t('diary.draftsTitle')));
+  for (const draft of drafts) {
+    const row = document.createElement('div');
+    row.className = 'diary-draft-row';
+    const label = document.createElement('strong');
+    label.textContent = draft.label || draft.routeId;
+    const resume = createActionButton('diary.resumeDraft', 'diary-chip secondary');
+    resume.disabled = busy || draft.available === false;
+    resume.addEventListener('click', () => handlers.onResumeDraft?.(draft));
+    const discard = createActionButton('diary.discardDraft', 'diary-chip secondary');
+    discard.disabled = busy;
+    discard.addEventListener('click', () => {
+      const confirm = createActionButton('diary.confirmDiscardDraft', 'diary-chip diary-danger-action');
+      const cancel = createActionButton('diary.cancel', 'diary-chip secondary');
+      const actions = document.createElement('div');
+      actions.append(confirm, cancel);
+      discard.hidden = true;
+      row.appendChild(actions);
+      confirm.addEventListener('click', () => handlers.onDiscardDraft?.(draft));
+      cancel.addEventListener('click', () => { actions.remove(); discard.hidden = false; discard.focus(); });
+      confirm.focus();
+    });
+    row.append(label, resume, discard);
+    if (draft.available === false) {
+      const hint = document.createElement('p');
+      setTranslatedText(hint, 'diary.draftUnavailable');
+      row.appendChild(hint);
+    }
+    section.appendChild(row);
+  }
+  return section;
 }
 
 function createPrivateDataCard(state, handlers) {
@@ -128,6 +242,10 @@ function createPrivateDataCard(state, handlers) {
   privacy.className = 'diary-private-data-note';
   setTranslatedText(privacy, 'diary.localDataPrivacy');
   card.appendChild(privacy);
+  const location = document.createElement('p');
+  location.className = 'diary-private-data-note';
+  setTranslatedText(location, 'diary.browserStorage');
+  card.appendChild(location);
 
   const actions = document.createElement('div');
   actions.className = 'diary-data-actions';
@@ -289,8 +407,8 @@ function createHistoryItem(item, { confirming, busy }, handlers) {
   details.className = 'diary-history-item__details';
   const date = document.createElement('div');
   date.className = 'diary-history-item__date';
-  date.dataset.diaryDate = item.createdAt;
-  date.textContent = formatCalendarDate(item.createdAt, { includeYear: false }) || item.date || '';
+  date.dataset.diaryDate = item.occurredAt || item.createdAt;
+  date.textContent = formatCalendarDate(item.occurredAt || item.createdAt, { includeYear: true }) || item.date || '';
   const label = document.createElement('div');
   label.className = 'diary-history-item__label';
   label.textContent = item.label;
@@ -327,6 +445,7 @@ function createHistoryItem(item, { confirming, busy }, handlers) {
     open.dataset.diaryFocusTarget = `open-route:${item.id}`;
     setTranslatedAttribute(open, 'diary.openRouteLabel', 'aria-label', { label: item.label || t('diary.untitledRoute') });
     open.disabled = busy;
+    open.disabled ||= !item.routeGeometry;
     open.addEventListener('click', () => handlers.onOpen?.(item));
     const remove = createActionButton('diary.deleteRoute', 'diary-chip diary-danger-action--quiet');
     remove.dataset.diaryFocusTarget = `delete-action:${item.id}`;
@@ -337,6 +456,28 @@ function createHistoryItem(item, { confirming, busy }, handlers) {
   }
 
   row.append(details, summary, actions);
+  const detail = document.createElement('details');
+  detail.className = 'diary-entry-detail';
+  const heading = document.createElement('summary');
+  setTranslatedText(heading, 'diary.entryDetails');
+  const notes = document.createElement('p');
+  notes.textContent = item.notes || t('diary.noNotes');
+  const tags = document.createElement('p');
+  tags.textContent = (item.tags || []).map((tag) => {
+    const key = `tag.${tag}`;
+    return t(key) === key ? tag : t(key);
+  }).join(' · ');
+  const edit = createActionButton('diary.editEntry', 'diary-chip secondary');
+  edit.addEventListener('click', () => handlers.onEdit?.(item));
+  const repeat = createActionButton('diary.repeatEntry', 'diary-chip secondary');
+  repeat.addEventListener('click', () => handlers.onRepeat?.(item));
+  edit.disabled = repeat.disabled = Boolean(confirming || busy);
+  const favorite = createActionButton(item.favorite ? 'diary.unfavorite' : 'diary.favorite', 'diary-chip secondary');
+  favorite.setAttribute('aria-pressed', String(Boolean(item.favorite)));
+  favorite.disabled = Boolean(confirming || busy);
+  favorite.addEventListener('click', () => handlers.onFavorite?.(item));
+  detail.append(heading, notes, tags, edit, repeat, favorite);
+  row.appendChild(detail);
   return row;
 }
 

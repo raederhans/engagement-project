@@ -152,18 +152,26 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
 
   // Filters
   const filterCard = createDiaryCard();
-  const filtersTitle = createSectionTitle(t('diary.filters'));
-  setTranslatedText(filtersTitle, 'diary.filters');
+  const filtersTitle = createSectionTitle(t('diary.localFilterTitle'));
+  setTranslatedText(filtersTitle, 'diary.localFilterTitle');
   filterCard.appendChild(filtersTitle);
+  const hint = document.createElement('p');
+  hint.className = 'diary-muted-text';
+  setTranslatedText(hint, 'diary.localFilterHint');
+  const count = document.createElement('p');
+  count.setAttribute('role', 'status');
+  setTranslatedText(count, 'diary.localRatingCount', { count: state.localRatingCount || 0 });
+  filterCard.appendChild(hint);
+  filterCard.appendChild(count);
 
   const periodLabel = document.createElement('div');
   periodLabel.className = 'diary-label diary-label--period';
-  setTranslatedText(periodLabel, 'diary.demoPeriod');
+  setTranslatedText(periodLabel, 'diary.periodFilter');
   filterCard.appendChild(periodLabel);
 
   const periodSelect = document.createElement('select');
   periodSelect.className = 'diary-select';
-  setTranslatedAttribute(periodSelect, 'diary.demoPeriod', 'aria-label');
+  setTranslatedAttribute(periodSelect, 'diary.periodFilter', 'aria-label');
   [
     { value: 'day', key: 'diary.singleDay' },
     { value: 'week', key: 'diary.last7Days' },

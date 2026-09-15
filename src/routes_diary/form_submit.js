@@ -9,7 +9,7 @@ import {
 import { DIARY_RATING_POLICY } from './rating_policy.js';
 import { onLanguageChange, setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 
-const DEFAULT_TAG_CHIPS = ['poor_lighting', 'low_foot_traffic', 'cars_too_close', 'construction_blockage', 'dogs', 'other'];
+const DEFAULT_TAG_CHIPS = ['well_lit', 'comfortable', 'routine_trip', 'poor_lighting', 'cars_too_close', 'other'];
 const STEP_ORDER = ['overall', 'details', 'segments'];
 const STEP_TITLE_KEYS = {
   overall: 'rating.step.overall',
@@ -101,6 +101,10 @@ function persistDraft(state = currentState) {
   });
   Promise.resolve(write)
     .then((result) => {
+      if (result?.applied && currentState === state && !state.signal?.aborted) {
+        const status = activeModal?.querySelector?.('[data-diary-draft-status]');
+        if (status) setTranslatedText(status, 'rating.draftSaved');
+      }
       if (
         result?.applied === false
         && result.reason === 'superseded'
@@ -187,6 +191,11 @@ export function openRatingModal({
   activeStepLabel = document.createElement('div');
   activeStepLabel.className = 'diary-step-label';
   header.appendChild(activeStepLabel);
+  const draftStatus = document.createElement('div');
+  draftStatus.dataset.diaryDraftStatus = '';
+  draftStatus.className = 'diary-muted-text';
+  draftStatus.setAttribute('role', 'status');
+  header.appendChild(draftStatus);
   const subtitle = document.createElement('p');
   subtitle.className = 'diary-modal-subtitle';
   subtitle.textContent = `${routeFeature.properties?.from || t('rating.origin')} → ${routeFeature.properties?.to || t('rating.destination')}`;

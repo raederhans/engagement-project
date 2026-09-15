@@ -107,10 +107,18 @@ export function createPublicRouteAlternativesUi({
     throw new TypeError('public route alternatives UI requires dialog, host, opener and artifact');
   }
   let selectedScenarioId = artifact.scenarios[0].scenarioId;
+  let sortMetric = '';
 
   const render = () => {
     const locale = getLanguage();
     const view = buildPublicRouteScenarioViewModel(artifact, selectedScenarioId, locale);
+    const orderedCards = [...view.cards];
+    if (sortMetric) orderedCards.sort((a, b) => {
+      const first = a.metrics[sortMetric];
+      const second = b.metrics[sortMetric];
+      return (first.status === 'available' ? first.value : Infinity)
+        - (second.status === 'available' ? second.value : Infinity);
+    });
     const surface = element(documentRef, 'section', {
       className: 'public-route-surface',
       attributes: { 'data-public-route-surface': '', 'data-public-route-status': view.status },
@@ -163,6 +171,20 @@ export function createPublicRouteAlternativesUi({
     const badges = element(documentRef, 'div', { className: 'public-route-surface__badges' });
     badges.append(element(documentRef, 'span', { text: t('publicRoutes.walkingOnly') }));
     controls.append(label, select, badges);
+    const sortLabel = element(documentRef, 'label', { text: t('publicRoutes.sort'), attributes: { for: 'public-route-sort' } });
+    const sort = element(documentRef, 'select', { className: 'field', attributes: { id: 'public-route-sort' } });
+    for (const key of ['', 'travelTime', 'distance', 'historicalReportedIncidentExposure']) {
+      const option = element(documentRef, 'option', { text: t(key ? `publicRoutes.metric.${key}` : 'publicRoutes.originalOrder') });
+      option.value = key;
+      option.selected = key === sortMetric;
+      sort.append(option);
+    }
+    sort.addEventListener('change', () => {
+      sortMetric = sort.value;
+      render();
+      host.querySelector('#public-route-sort')?.focus();
+    });
+    controls.append(sortLabel, sort);
 
     const context = element(documentRef, 'div', { className: 'public-route-surface__context' });
     context.append(element(documentRef, 'strong', { text: `${view.origin} → ${view.destination}` }));
@@ -191,8 +213,32 @@ export function createPublicRouteAlternativesUi({
       className: 'public-route-cards',
       attributes: { 'data-public-route-cards': '' },
     });
-    for (const candidate of view.cards) cards.append(routeCard(documentRef, candidate));
-    surface.append(header, disclosure, controls, context, notice, notes, cards);
+    for (const candidate of orderedCards) cards.append(routeCard(documentRef, candidate));
+    const comparison = element(documentRef, 'div', {
+      className: 'public-route-comparison',
+      attributes: { tabindex: '0', role: 'region', 'aria-label': t('publicRoutes.comparison') },
+    });
+    const table = element(documentRef, 'table');
+    table.append(element(documentRef, 'caption', { text: t('publicRoutes.comparison') }));
+    const tableHead = element(documentRef, 'thead');
+    const headings = element(documentRef, 'tr');
+    headings.append(element(documentRef, 'th', { text: t('publicRoutes.measure'), attributes: { scope: 'col' } }));
+    for (const candidate of orderedCards) {
+      headings.append(element(documentRef, 'th', { text: candidate.label, attributes: { scope: 'col' } }));
+    }
+    tableHead.append(headings);
+    const tableBody = element(documentRef, 'tbody');
+    for (const key of METRIC_KEYS.slice(0, 4)) {
+      const row = element(documentRef, 'tr');
+      row.append(element(documentRef, 'th', { text: t(`publicRoutes.metric.${key}`), attributes: { scope: 'row' } }));
+      for (const candidate of orderedCards) row.append(element(documentRef, 'td', { text: formattedMetric(candidate.metrics[key]) }));
+      tableBody.append(row);
+    }
+    table.append(tableHead, tableBody);
+    comparison.append(table);
+    const routeDetails = element(documentRef, 'details', { className: 'workspace-disclosure public-route-details' });
+    routeDetails.append(element(documentRef, 'summary', { text: t('publicRoutes.routeDetails') }), cards);
+    surface.append(header, disclosure, controls, context, notice, comparison, routeDetails, notes);
     host.replaceChildren(surface);
     dialog.setAttribute('aria-labelledby', 'public-route-title');
     dialog.setAttribute('aria-describedby', 'public-route-description');

@@ -1,4 +1,10 @@
 const APPROVED_NEGATED_COPY = Object.freeze([
+  'Static examples—not live directions or route recommendations.',
+  '静态示例，不提供实时导航或路线推荐。',
+  'The ordering changes with the selected emphasis. These are comparisons, not recommendations.',
+  '排序会随侧重点变化；这些是比较结果，不是推荐。',
+  'The ordering stayed the same under the tested emphasis. This is still a comparison, not a recommendation.',
+  '在测试的侧重点下排序保持不变；这仍是比较结果，不是推荐。',
   'This is not live directions, an observed route evaluation, or a recommendation.',
   'They are not live directions, observed journeys, or route recommendations.',
   'Treat the cards as tradeoffs, not as a recommendation.',

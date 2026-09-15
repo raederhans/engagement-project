@@ -1521,7 +1521,7 @@ test('street-level cluster radii stay compact across sparse and dense counts', a
   const { createPropertyExpression, latest } = await import('@maplibre/maplibre-gl-style-spec');
   const map = createLayerMap();
   await refreshPoints(map, { fetchPointsImpl: async () => ({ type: 'FeatureCollection', features: [incidentFeature()] }) });
-  const compiled = createPropertyExpression(map.layers.get('clusters').paint['circle-radius'], latest.paint_circle['circle-radius']);
+  const compiled = createPropertyExpression(map.layers.get('clusters').paint['circle-radius'], 'circle-radius', latest.paint_circle['circle-radius']);
   assert.equal(compiled.result, 'success');
   for (const count of [2, 10, 50, 100, 1000, 20000]) {
     const feature = { type: 1, properties: { point_count: count } };

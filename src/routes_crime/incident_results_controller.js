@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { localizeOffenseCode } from '../i18n/crime_offenses.js';
 import { prefersReducedMotion as defaultPrefersReducedMotion } from '../map/camera_fit.js';
 

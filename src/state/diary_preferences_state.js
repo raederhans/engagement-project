@@ -1,7 +1,7 @@
 export function createDiaryPreferenceState(snapshot) {
   return {
     viewMode: snapshot.viewMode,
-    diaryViewMode: snapshot.diaryViewMode || 'live',
+    diaryViewMode: snapshot.diaryViewMode || 'history',
     diarySelectedHistoryRouteId: snapshot.diarySelectedHistoryRouteId || null,
     diaryCommunityRadiusMeters: snapshot.diaryCommunityRadiusMeters || 1500,
     selectedRouteId: snapshot.selectedRouteId,

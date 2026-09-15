@@ -167,10 +167,10 @@ test('segment overrides are optional and capped at two', () => {
   assert.equal(overrides.size, 2);
 });
 
-test('step validation allows saving from Details but still enforces one to three tags', () => {
+test('step validation allows optional tags but still enforces the three-tag limit', () => {
   assert.equal(ratingFlow.validateRatingStep({ step: 'overall', overallRating: null }).error, 'Select an overall rating.');
   assert.equal(ratingFlow.validateRatingStep({ step: 'overall', overallRating: 5 }).ok, true);
-  assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set() }).error, 'Pick at least one tag.');
+  assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set() }).ok, true);
   assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set(['a', 'b', 'c']) }).ok, true);
   assert.equal(ratingFlow.validateRatingStep({ step: 'details', tags: new Set(['a', 'b', 'c', 'd']) }).error, 'Select at most three tags.');
 });

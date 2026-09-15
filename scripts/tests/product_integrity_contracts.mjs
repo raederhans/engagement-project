@@ -1886,10 +1886,10 @@ test('bundle policy keeps lazy product surfaces and admitted source artifacts ou
   assert.match(source, /\['Evidence Bundle v2', evidenceBundleV2, 24_000, 6_500\]/);
   assert.match(source, /\['ACS multi-tract controller', acsMultitractController, 22_000, 8_000\]/);
   assert.match(source, /vreArtifactBytes <= 200_000/);
-  assert.match(source, /nonVreDistBytes <= 4_141_000/);
-  assert.match(source, /distBytes <= 4_323_000/);
+  assert.match(source, /nonVreDistBytes <= 4_721_000/);
+  assert.match(source, /distBytes <= 4_903_000/);
   assert.match(source, /routeArtifactSize <= 21_000/);
-  assert.match(source, /\['P1 translations', p1Messages, 8_644, 3_300\]/);
+  assert.match(source, /\['P1 translations and Diary filters', p1Messages, 8_644, 3_450\]/);
 });
 
 test('tract snapshot requires the exact current tract identity set', () => {

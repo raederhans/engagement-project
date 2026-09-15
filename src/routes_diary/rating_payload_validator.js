@@ -28,10 +28,9 @@ export function validateRatingPayload(payload) {
   }
   if (!isRating(payload.overall_rating)) return invalid('Overall rating must be from 1 to 5.');
   if (!Array.isArray(payload.tags)
-    || payload.tags.length < 1
     || payload.tags.length > DIARY_RATING_POLICY.maxTags
     || payload.tags.some((tag) => typeof tag !== 'string' || !ALLOWED_TAGS.has(tag))) {
-    return invalid('Select one to three supported tags.');
+    return invalid('Select up to three supported tags.');
   }
 
   const overrides = payload.segment_overrides ?? [];

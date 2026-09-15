@@ -2,6 +2,11 @@ import { registerMessagePairs } from '../i18n/messages.js';
 
 registerMessagePairs({
   'publicRoutes.moreMetrics': ['More metrics & quality', '更多指标与质量'],
+  'publicRoutes.comparison': ['Compare the same measures across routes', '按相同指标比较路线'],
+  'publicRoutes.routeDetails': ['Individual route details', '各路线详细指标'],
+  'publicRoutes.sort': ['Order columns by', '列排序依据'],
+  'publicRoutes.originalOrder': ['Scenario order', '场景默认顺序'],
+  'publicRoutes.measure': ['Measure', '指标'],
   'publicRoutes.title': ['Compare route tradeoffs', '比较路线权衡'],
   'publicRoutes.summary': ['Static examples—not live directions or route recommendations.', '静态示例，不提供实时导航或路线推荐。'],
   'publicRoutes.notes': ['Scenario notes', '场景说明'],

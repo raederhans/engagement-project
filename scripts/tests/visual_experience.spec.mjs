@@ -318,6 +318,7 @@ test('Crime incident results stay synchronized, escaped, and keyboard reachable'
 
 test('Diary direct route avoids Crime APIs and keeps its rating CTA usable', async ({ page, experience }, testInfo) => {
   await gotoMode(page, 'diary');
+  await page.getByRole('button', { name: 'Live route', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Trip diary' })).toBeVisible();
   await expect(page.locator('[data-crime-canvas-data]')).toHaveAttribute('hidden', '');
   await expect(page.locator('[data-diary-visualization-data]')).not.toHaveAttribute('hidden', '');
@@ -372,6 +373,7 @@ test('runtime mode boundaries keep initial and analyzed script work deterministi
       `${label} script responses: ${resources.map(({ name, status }) => `${status} ${name}`).join(', ')}`,
     ).toBe(true);
     const bytes = resources.reduce((total, entry) => total + entry.bytes, 0);
+    expect(resources.some(({ name, bytes: size }) => /maplibre-gl-worker-[^/]+\.js$/.test(name) && size > 0), `${label} must load its map worker`).toBe(true);
     expect(bytes, `${label} script bytes: ${resources.map(({ name }) => name).join(', ')}`).toBeLessThanOrEqual(budget);
     return resources.map(({ name }) => name);
   };
@@ -456,7 +458,7 @@ test('Crime Help and Data details disclose guidance and fallback provenance', as
 test('My routes shows a truthful empty state before any local rating', async ({ page }, testInfo) => {
   await gotoMode(page, 'diary');
   await page.getByRole('button', { name: 'My routes', exact: true }).click();
-  await expect(page.getByText('No local route ratings yet. Rate a demo route to add it here.')).toBeVisible();
+  await expect(page.getByText('Record your first trip, or explore a demo route.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export private backup' })).toBeDisabled();
   await captureExperienceScreenshot(page, testInfo, 'diary-my-routes-empty');
 });
@@ -479,6 +481,7 @@ test('Sample community stays visibly read-only and illustrative', async ({ page 
 
 test('Rating flow exposes both steps and records the result in My routes', async ({ page }, testInfo) => {
   await gotoMode(page, 'diary');
+  await page.getByRole('button', { name: 'Live route', exact: true }).click();
   await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await expect(page.locator('.diary-step-label')).toContainText('Step 1');
   const continueButton = page.getByRole('button', { name: 'Continue' });
@@ -543,6 +546,7 @@ test('Crime public results and Diary rating complete their primary keyboard flow
   await expect(page.locator('[data-result-pane="incidents"]')).toBeVisible();
 
   await gotoMode(page, 'diary');
+  await page.getByRole('button', { name: 'Live route', exact: true }).click();
   const rate = page.getByRole('button', { name: 'Rate your experience on this route' });
   await tabTo(page, rate);
   await page.keyboard.press('Enter');
@@ -626,6 +630,7 @@ test('two-hundred-percent layout scaling keeps controls reflowed and focus visib
   await assertNoHorizontalOverflow(page);
   await assertFocusNotObscured(page.locator('#addrA'));
   await gotoMode(page, 'diary');
+  await page.getByRole('button', { name: 'Live route', exact: true }).click();
   await assertNoHorizontalOverflow(page);
   await page.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await page.getByRole('radio', { name: '5 stars' }).click();
