@@ -182,6 +182,9 @@ try {
   assert.deepEqual(errors, []);
   assert.ok(requests.every((request) => !request.includes(privateMarker)), 'private content must not enter requests');
   console.log(JSON.stringify({ status: 'pass', checks: ['default-entry', 'manual-tagless-trip', 'occurredAt', 'edit-no-duplicate', 'repeat-trip', 'shared-filters', 'reload-persistence', 'draft-resume-discard', 'draft-only-backup-enabled', 'mobile-editor-and-history', 'geojson-valid-invalid', 'analysis-route-handoff', 'bilingual-editor', 'network-privacy'] }));
+} catch (error) {
+  console.error('Diary browser page errors:', errors);
+  throw error;
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

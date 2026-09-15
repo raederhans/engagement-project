@@ -15,16 +15,22 @@ async function waitForTransition(promise, signal) {
 
 function waitForStyleReady(map, signal) {
   if (signal?.aborted) return Promise.resolve(false);
-  if (map.isStyleLoaded?.()) return Promise.resolve(true);
+  // isStyleLoaded also waits for every source. A pending Crime source must not
+  // block switching to local Diary once the style document can accept layers.
+  const styleReady = () => map.isStyleLoaded?.() || map.getStyle?.()?.version === 8;
+  if (styleReady()) return Promise.resolve(true);
   return new Promise((resolve) => {
     const finish = (ready) => {
       map.off?.('idle', handleIdle);
+      map.off?.('styledata', handleStyle);
       signal?.removeEventListener('abort', handleAbort);
       resolve(ready);
     };
     const handleIdle = () => finish(true);
+    const handleStyle = () => { if (styleReady()) finish(true); };
     const handleAbort = () => finish(false);
     map.once('idle', handleIdle);
+    map.on?.('styledata', handleStyle);
     signal?.addEventListener('abort', handleAbort, { once: true });
   });
 }

@@ -161,7 +161,8 @@ export function renderLiveRoutePanel(container, state = {}, handlers = {}) {
   const count = document.createElement('p');
   count.setAttribute('role', 'status');
   setTranslatedText(count, 'diary.localRatingCount', { count: state.localRatingCount || 0 });
-  filterCard.append(hint, count);
+  filterCard.appendChild(hint);
+  filterCard.appendChild(count);
 
   const periodLabel = document.createElement('div');
   periodLabel.className = 'diary-label diary-label--period';
