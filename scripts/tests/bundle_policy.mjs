@@ -11,6 +11,7 @@ const manifestPath = path.join(distDir, '.vite', 'manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
 const entry = manifest['index.html'];
+// MapLibre 6 uses a separately bundled worker; include its bytes in the total.
 const mapRuntime = manifest['src/map/initMap.js'];
 const crime = manifest['src/routes_crime/index.js'];
 const crimeList = manifest['src/routes_crime/list_mode_controller.js'];
@@ -76,6 +77,7 @@ assert.deepEqual(
     'src/analysis/evidence_bundle_product.js',
     'src/ui/help_content.js',
     'src/map/initMap.js',
+    'src/map/worker_runtime.js',
     'src/routes_crime/list_mode_controller.js',
     'src/routes_crime/task_focus_controller.js',
     'src/routes_crime/route_corridor_app_loader.js',
@@ -434,8 +436,8 @@ assert.ok(vreArtifactBytes <= 200_000, `ACS VRE source artifact must stay <= 200
 // M7 adds one 20.5 kB static public-scenario artifact plus lazy admission/UI
 // chunks; MapLibre 6.4.1 security remediation adds its updated renderer.
 // Keep the entry ceiling unchanged and bound the measured runtime increase.
-assert.ok(nonVreDistBytes <= 4_250_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4250000; received ${nonVreDistBytes}`);
-assert.ok(distBytes <= 4_432_000, `Transparent total dist size must stay <= 4432000; received ${distBytes}`);
+assert.ok(nonVreDistBytes <= 4_721_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4721000; received ${nonVreDistBytes}`);
+assert.ok(distBytes <= 4_903_000, `Transparent total dist size must stay <= 4903000; received ${distBytes}`);
 for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;

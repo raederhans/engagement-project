@@ -317,6 +317,7 @@ try {
     false,
     'Diary direct load must not create the engagement-analysis database',
   );
+  await page.getByRole('button', { name: 'Live route', exact: true }).click();
   const insightsToggle = page.locator('.diary-insights-toggle');
   await insightsToggle.click();
   assert.equal(await insightsToggle.getAttribute('aria-expanded'), 'true');

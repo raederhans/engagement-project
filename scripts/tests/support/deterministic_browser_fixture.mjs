@@ -245,9 +245,10 @@ export async function auditSeriousAccessibility(page) {
 }
 
 export const RUNTIME_SCRIPT_BUDGETS = Object.freeze({
-  crimeInitial: 1_100_000,
-  crimeAnalyzed: 1_375_000,
-  diaryInitial: 1_275_000,
+  // Includes MapLibre 6.4.1's separate worker and the Analysis/Data Sources workspace UI.
+  crimeInitial: 1_775_000,
+  crimeAnalyzed: 2_050_000,
+  diaryInitial: 1_855_000,
 });
 
 export function createRuntimeScriptCollector(page) {
@@ -258,6 +259,10 @@ export function createRuntimeScriptCollector(page) {
   const handleResponse = (response) => {
     if (response.request().resourceType() !== 'script') return;
     const task = (async () => {
+      const contentType = response.headers()['content-type'] || '';
+      if (!/javascript|ecmascript/.test(contentType)) {
+        throw new Error(`Script response has invalid content type: ${response.url()} (${contentType})`);
+      }
       const body = await response.body();
       resources.set(response.url(), {
         name: new URL(response.url()).pathname,

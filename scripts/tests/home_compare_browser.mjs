@@ -5,6 +5,7 @@ import { access, readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 
+import { installDeterministicRoutes } from './support/deterministic_browser_fixture.mjs';
 import { runBrowserSuite } from '../lib/browser_suite_lifecycle.mjs';
 import { validateHomeCompareCitywideReadiness } from '../../src/home_compare/citywide_readiness.js';
 
@@ -52,6 +53,7 @@ await runBrowserSuite({
     );
   },
   configurePage: async (page) => {
+    await installDeterministicRoutes(page);
     page.on('request', (request) => requests.push({
       url: request.url(),
       body: request.postData() || '',
@@ -85,7 +87,7 @@ await runBrowserSuite({
     });
   },
   run: async ({ page }) => {
-    await page.goto(baseUrl.href, { waitUntil: 'networkidle' });
+    await page.goto(baseUrl.href, { waitUntil: 'domcontentloaded' });
 
     await page.locator('.analysis-hub > summary').click();
     const opener = page.locator('[data-home-compare-open]');
