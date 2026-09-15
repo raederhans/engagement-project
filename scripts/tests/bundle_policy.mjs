@@ -432,9 +432,10 @@ const nonVreDistBytes = distBytes - vreArtifactBytes;
 assert.ok(vreArtifactBytes <= 200_000, `ACS VRE source artifact must stay <= 200000; received ${vreArtifactBytes}`);
 // P4-P6 add bounded privacy, lifecycle-readiness, and Known Route evidence.
 // M7 adds one 20.5 kB static public-scenario artifact plus lazy admission/UI
-// chunks; keep the resulting whole-dist allowance narrowly bounded.
-assert.ok(nonVreDistBytes <= 4_141_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4141000; received ${nonVreDistBytes}`);
-assert.ok(distBytes <= 4_323_000, `Transparent total dist size must stay <= 4323000; received ${distBytes}`);
+// chunks; MapLibre 6.4.1 security remediation adds its updated renderer.
+// Keep the entry ceiling unchanged and bound the measured runtime increase.
+assert.ok(nonVreDistBytes <= 4_250_000, `Dist excluding the separately admitted ACS VRE source artifact must stay <= 4250000; received ${nonVreDistBytes}`);
+assert.ok(distBytes <= 4_432_000, `Transparent total dist size must stay <= 4432000; received ${distBytes}`);
 for (const rootDir of [distDir, publicDir]) {
   const hinArtifact = path.join(rootDir, 'data', 'hin_2025.snapshot.json');
   const size = (await stat(hinArtifact)).size;
