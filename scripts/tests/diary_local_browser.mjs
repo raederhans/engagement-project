@@ -198,6 +198,7 @@ async function waitForDiary(browserPage) {
 }
 
 async function createPrivateRating(browserPage) {
+  await browserPage.getByRole('button', { name: 'Live route', exact: true }).click();
   await browserPage.getByRole('button', { name: 'Rate your experience on this route' }).click();
   await browserPage.getByRole('radio', { name: '5 stars' }).click();
   await browserPage.getByRole('button', { name: 'Continue' }).click();

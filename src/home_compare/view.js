@@ -5,6 +5,9 @@ const COPY = Object.freeze({
     eyebrow: 'Home & neighborhood compare',
     title: 'Compare 2–4 Philadelphia homes',
     intro: 'Address lookup is unavailable in this public version. Addresses stay on this device.',
+    unavailableTitle: 'Address comparison is not connected',
+    unavailableBody: 'Property, assessment and commute services cannot currently return a home comparison. You can still compare population across complete tracts or review historical records near a known route.',
+    tractAlternative: 'Compare tract populations', routeAlternative: 'Review a known route',
     address: 'Home address',
     addressHint: 'Address lookup is disabled. What you type is not sent to address, parcel, or map services.',
     add: 'Add another home',
@@ -63,6 +66,9 @@ const COPY = Object.freeze({
     eyebrow: '住宅与社区比较',
     title: '并排比较 2–4 个费城住宅',
     intro: '当前公开版本暂不提供地址查询。地址仅留在此设备。',
+    unavailableTitle: '地址比较尚未接通',
+    unavailableBody: '当前房产、评估和通勤服务无法返回住宅比较结果。你仍可比较完整普查区的人口，或查看已知路线附近的历史记录。',
+    tractAlternative: '比较普查区人口', routeAlternative: '查看已知路线',
     address: '住宅地址',
     addressHint: '地址查询未启用。输入内容不会发送给地址、地块或地图服务。',
     add: '添加住宅',
@@ -123,7 +129,7 @@ export function getHomeCompareCopy(locale) {
   return COPY[locale] || COPY.en;
 }
 
-export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false } = {}) {
+export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weights, busy = false, lookupAvailable = true } = {}) {
   scrubInvalidShareStateFromUrl();
   const copy = getHomeCompareCopy(locale);
   const addresses = Array.from({ length: addressCount }, (_, index) => `
@@ -147,7 +153,8 @@ export function homeCompareProductHtml({ locale = 'en', addressCount = 2, weight
         <h2 id="home-compare-title">${escapeHtml(copy.title)}</h2>
         <p id="home-compare-description">${escapeHtml(copy.intro)}</p>
       </header>
-      <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}">
+      ${lookupAvailable ? '' : `<section class="home-compare__availability" role="status"><h3>${escapeHtml(copy.unavailableTitle)}</h3><p>${escapeHtml(copy.unavailableBody)}</p><div class="home-compare__actions"><button type="button" class="button button--primary" data-home-alternative="tract">${escapeHtml(copy.tractAlternative)}</button><button type="button" class="button button--secondary" data-home-alternative="route">${escapeHtml(copy.routeAlternative)}</button></div></section>`}
+      <section class="home-compare__workflow" aria-label="${escapeHtml(copy.title)}" ${lookupAvailable ? '' : 'hidden inert'}>
         <div class="home-compare__addresses">${addresses}</div>
         <button class="button button--secondary" type="button" data-home-add ${busy || addressCount >= 4 ? 'disabled' : ''}>${escapeHtml(copy.add)}</button>
         <details class="workspace-disclosure home-compare__options"><summary>${escapeHtml(copy.commute)}</summary><label class="sr-only" for="home-compare-destinations">${escapeHtml(copy.commute)}</label>

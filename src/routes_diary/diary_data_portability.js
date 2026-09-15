@@ -23,6 +23,8 @@ const ENTRY_V2_FIELDS = new Set([
   'id',
   'createdAt',
   'updatedAt',
+  'occurredAt',
+  'favorite',
   'routeId',
   'label',
   'mode',
@@ -73,6 +75,7 @@ export function normalizeDiaryEntry(value, { allowLegacy = true } = {}) {
   const routeGeometry = entry.routeGeometry == null
     ? null
     : normalizeRouteGeometry(entry.routeGeometry);
+  if (entry.favorite != null && typeof entry.favorite !== 'boolean') throw new Error('Invalid Diary favorite.');
 
   return {
     kind: DIARY_ENTRY_KIND,
@@ -80,6 +83,8 @@ export function normalizeDiaryEntry(value, { allowLegacy = true } = {}) {
     id,
     createdAt,
     updatedAt,
+    ...(entry.occurredAt == null ? {} : { occurredAt: validTime(entry.occurredAt, 'Diary entry occurredAt') }),
+    ...(entry.favorite == null ? {} : { favorite: entry.favorite }),
     routeId: optionalText(entry.routeId ?? payload.route_id, 200),
     label: optionalText(entry.label, 500) || optionalText(entry.routeId ?? payload.route_id, 200) || 'Saved route',
     mode: entry.mode === 'bike' ? 'bike' : 'walk',

@@ -1,0 +1,50 @@
+.diary-editor {
+  box-sizing: border-box;
+  width: min(620px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  overflow: auto;
+  color: #1e293b;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px #0f172a38;
+}
+
+.diary-editor::backdrop { background: #0f172a70; }
+.diary-editor h2 { margin: 0 0 8px; font-size: 1.35rem; }
+.diary-editor p { margin: 6px 0; line-height: 1.5; }
+.diary-editor__form { display: grid; gap: 16px; }
+.diary-editor__field { display: grid; gap: 6px; min-width: 0; font-weight: 600; }
+.diary-editor__field input,
+.diary-editor__field select,
+.diary-editor__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.diary-editor__field textarea { min-height: 110px; resize: vertical; }
+.diary-editor__hint { color: #475569; font-size: .875rem; font-weight: 400; }
+.diary-editor__tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.diary-editor__tag { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 8px; border-radius: 6px; background: #f1f5f9; }
+.diary-editor__route { padding: 12px; overflow-wrap: anywhere; background: #f8fafc; border-radius: 8px; }
+.diary-editor__error { color: #991b1b; }
+.diary-editor__actions { position: sticky; bottom: -24px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding-block: 12px; background: #fff; border-top: 1px solid #e2e8f0; }
+.diary-editor__actions button { min-height: 44px; padding: 10px 16px; border: 1px solid #94a3b8; border-radius: 8px; font: inherit; cursor: pointer; }
+.diary-editor__actions button[type="submit"] { color: #fff; background: #1e40af; border-color: #1e40af; }
+.diary-editor button:disabled { opacity: .6; cursor: wait; }
+.diary-editor :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+
+@media (max-width: 480px) {
+  .diary-editor { padding: 16px; }
+  .diary-editor__actions button { flex: 1; }
+}

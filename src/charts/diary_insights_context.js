@@ -34,7 +34,7 @@ export function normalizeDiaryInsightsContext(value) {
   const routeId = mode === 'live' && candidate.routeId != null && String(candidate.routeId).trim()
     ? String(candidate.routeId)
     : null;
-  return { mode, routeId };
+  return { mode, routeId, ...(candidate.filters ? { filters: { ...candidate.filters } } : {}) };
 }
 
 export function describeDiaryInsightsContext(value) {

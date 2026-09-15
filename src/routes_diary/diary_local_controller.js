@@ -151,9 +151,32 @@ export function createDiaryLocalController({
       return lifecycle.loadDraft(routeId);
     },
 
-    persistDraft(routeId, draft, options) {
+    async persistDraft(routeId, draft, options) {
       clearImportState({}, { silent: true });
-      return lifecycle.persistDraft(routeId, draft, options);
+      const result = await lifecycle.persistDraft(routeId, draft, options);
+      if (result?.applied && ownsSession()) await refresh();
+      return result;
+    },
+    async saveEntry(entry) {
+      if (!ownsSession() || viewState.busy) return { applied: false, reason: 'pending' };
+      clearImportState({ busy: true });
+      try {
+        const result = await lifecycle.saveEntry(entry);
+        if (result.applied && ownsSession()) {
+          await refresh();
+          publish({ dataStatus: { key: 'diary.entrySaved' } });
+        }
+        return result;
+      } finally { publish({ busy: false }); }
+    },
+    async discardDraft(routeId) {
+      if (!ownsSession() || viewState.busy) return { applied: false, reason: 'pending' };
+      clearImportState({ busy: true });
+      try {
+        const result = await lifecycle.discardDraft(routeId);
+        if (result.applied && ownsSession()) await refresh();
+        return result;
+      } finally { publish({ busy: false }); }
     },
 
     async commitEntry(entry, routeId) {

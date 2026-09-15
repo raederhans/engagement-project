@@ -1,5 +1,9 @@
 export const DIARY_RATING_POLICY = Object.freeze({
   allowedTags: Object.freeze([
+    'well_lit',
+    'comfortable',
+    'smooth_surface',
+    'routine_trip',
     'poor_lighting',
     'low_foot_traffic',
     'cars_too_close',

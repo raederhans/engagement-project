@@ -1228,6 +1228,9 @@ test('Live route sends rejected rating actions to a recoverable error sink and a
 });
 
 test('initial Diary route receives one panel-aware camera fit', async (t) => {
+  const originalViewMode = store.diaryViewMode;
+  store.diaryViewMode = 'live';
+  t.after(() => { store.diaryViewMode = originalViewMode; });
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;
   const originalDiaryFeatureOn = store.diaryFeatureOn;
@@ -1475,7 +1478,7 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
   const oldHistorySelects = findElements(firstMount, (element) => element.tagName === 'SELECT');
   const oldHistoryRow = findElement(firstMount, (element) => element.getAttribute?.('data-id'));
   const oldHistoryOpen = button(oldHistoryRow, 'Open');
-  assert.equal(oldHistorySelects.length, 2);
+  assert.equal(oldHistorySelects.length, 3);
   assert.ok(oldHistoryRow);
   assert.ok(oldHistoryOpen);
 
@@ -1563,8 +1566,8 @@ test('detached non-Live Diary controls cannot mutate a newer session', async (t)
     'Sample Community must not open an interactive segment popup or move the map',
   );
   assert.deepEqual(secondInsights.filter(([kind]) => kind === 'view'), [
-    ['view', { mode: 'live', routeId: 'route-1' }],
-    ['view', { mode: 'history', routeId: null }],
+    ['view', { mode: 'live', routeId: 'route-1', filters: { period: '1d', timeOfDay: 'all' } }],
+    ['view', { mode: 'history', routeId: null, filters: { period: '30d', mode: 'all', timeOfDay: 'all', query: '' } }],
     ['view', { mode: 'community', routeId: null }],
   ]);
 });

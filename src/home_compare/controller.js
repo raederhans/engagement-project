@@ -76,6 +76,7 @@ export function createHomeCompareController({
   const host = dialog.querySelector('[data-home-compare-host]');
   if (!host) throw new TypeError('Home Compare host is required.');
   const loadResultsView = suppliedResultsViewLoader || createDefaultResultsViewLoader();
+  const lookupAvailable = privateAnalysisGate !== rejectPrivateLocationEgress;
 
   const state = {
     addresses: ['', ''],
@@ -104,7 +105,15 @@ export function createHomeCompareController({
       addressCount: state.addresses.length,
       weights: state.weights,
       busy: state.busy,
+      lookupAvailable,
     });
+    for (const alternative of host.querySelectorAll('[data-home-alternative]')) {
+      alternative.addEventListener('click', () => {
+        closeDialog(dialog);
+        const selector = alternative.dataset.homeAlternative === 'tract' ? '[data-acs-multitract-open]' : '[data-route-corridor-open]';
+        dialog.ownerDocument?.querySelector(selector)?.click();
+      });
+    }
     state.addresses.forEach((value, index) => {
       const input = host.querySelector(`[data-home-address="${index}"]`);
       if (!input) return;
@@ -335,7 +344,7 @@ export function createHomeCompareController({
       returnFocus = opener;
       render();
       openDialog(dialog);
-      host.querySelector('[data-home-address="0"]')?.focus();
+      host.querySelector(lookupAvailable ? '[data-home-address="0"]' : '[data-home-close]')?.focus();
     },
     compare,
     getState: () => ({

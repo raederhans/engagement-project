@@ -14,6 +14,9 @@ import { escapeHtml } from '../utils/html.js';
 import { store, setSelectedRouteId, setDiaryAltEnabled, setSimPanelState, setSimPlaybackSpeed, setDiaryDemoPeriod, setDiaryTimeFilter, setDiaryViewMode, setDiarySelectedHistoryRouteId } from '../state/store.js';
 import {
   DIARY_SEGMENTS_SOURCE_ID,
+  DIARY_SEGMENTS_LAYER_ID,
+  DIARY_SEGMENTS_HIT_LAYER_ID,
+  DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID,
   DIARY_ROUTE_PRIMARY_SOURCE_ID,
   DIARY_ROUTE_ALT_SOURCE_ID,
   DIARY_SIM_POINT_SOURCE_ID,
@@ -43,6 +46,7 @@ import {
 import { renderDiaryPanelFrame } from './diary_panel_renderer.js';
 import { loadOwnedDiaryData } from './demo_data_loader.js';
 import '../i18n/diary_local.js';
+import '../i18n/diary_workspace.js';
 import {
   createDiaryInsightsPort,
 } from './diary_insights_port.js';
@@ -129,12 +133,17 @@ const ROUTE_EXPERIENCE_RATING_EXPRESSION = [
 ];
 let historyPeriodFilter = '30d';
 let historyModeFilter = 'all';
+let historyTimeFilter = 'all';
+let historyQuery = '';
 let historyFocusTarget = null;
 
 function diaryInsightsContext(mode = store.diaryViewMode, route = currentRoute) {
   return {
     mode,
     routeId: mode === 'live' ? route?.properties?.route_id ?? null : null,
+    ...(mode === 'community' ? {} : { filters: mode === 'history'
+      ? { period: historyPeriodFilter, mode: historyModeFilter, timeOfDay: historyTimeFilter, query: historyQuery }
+      : { period: { day: '1d', week: '7d', month: '30d' }[store.diaryDemoPeriod], timeOfDay: store.diaryTimeFilter } }),
   };
 }
 
@@ -443,6 +452,9 @@ function ensureDiaryPanel(routes, options = {}) {
   const renderActivePanel = () => {
     onScopeChange(describeDiaryDataScope(store.diaryViewMode));
     frame.syncMode();
+    for (const id of [DIARY_SEGMENTS_LAYER_ID, DIARY_SEGMENTS_HIT_LAYER_ID, DIARY_SEGMENTS_HIGHLIGHT_LAYER_ID, DIARY_NETWORK_LAYER_ID]) {
+      if (mapRef?.getLayer?.(id)) mapRef.setLayoutProperty?.(id, 'visibility', store.diaryViewMode === 'live' ? 'visible' : 'none');
+    }
     if (store.diaryViewMode !== 'live') clearLiveDiaryMapState();
     body.innerHTML = '';
     body.dataset.diaryView = store.diaryViewMode;
@@ -474,7 +486,18 @@ function ensureDiaryPanel(routes, options = {}) {
           routes: filterLocalDiaryEntries(localState.snapshot.entries, {
             period: historyPeriodFilter,
             mode: historyModeFilter,
+            timeOfDay: historyTimeFilter,
+            query: historyQuery,
           }),
+          totalEntries: localState.snapshot.entries.length,
+          favorites: localState.snapshot.entries.filter((entry) => entry.favorite),
+          storageStatus: localState.snapshot.storageStatus,
+          query: historyQuery,
+          timeOfDay: historyTimeFilter,
+          drafts: localState.snapshot.drafts.map((draft) => ({ ...draft,
+            label: routeById.get(draft.routeId)?.properties?.name || draft.routeId,
+            available: routeById.has(draft.routeId),
+          })),
           hasPrivateData: localState.snapshot.entries.length > 0 || localState.snapshot.drafts.length > 0,
           storageWarnings: localState.snapshot.warnings,
           importPreview: localState.importPreview,
@@ -485,6 +508,31 @@ function ensureDiaryPanel(routes, options = {}) {
           focusTarget,
         },
         {
+          onCreate: ownPanelHandler(() => editJournalEntry()),
+          onEdit: ownPanelHandler((item) => editJournalEntry(item)),
+          onRepeat: ownPanelHandler((item) => editJournalEntry(null, item)),
+          onFavorite: ownPanelHandler(async (item) => {
+            try {
+              const value = Object.fromEntries(Object.entries(item).filter(([key]) => key !== 'date'));
+              await currentDiaryLocalController?.saveEntry({ ...value, favorite: !item.favorite, updatedAt: new Date().toISOString() });
+            } catch (error) { if (isPanelCurrent()) showToast(error.message); }
+          }),
+          onExploreDemo: ownPanelHandler(() => { setDiaryViewMode('live'); renderActivePanel(); }),
+          onResumeDraft: ownPanelHandler((draft) => {
+            setDiaryViewMode('live');
+            selectRoute(draft.routeId, { fitBounds: true });
+            renderActivePanel();
+            void openRouteRating();
+          }),
+          onDiscardDraft: ownPanelHandler((draft) => {
+            void currentDiaryLocalController?.discardDraft(draft.routeId).catch((error) => showToast(error.message));
+          }),
+          onSearch: ownPanelHandler((value) => { historyQuery = value; historyFocusTarget = 'search'; renderActivePanel(); }),
+          onTimeChange: ownPanelHandler((value) => { historyTimeFilter = value; historyFocusTarget = 'time-filter'; renderActivePanel(); }),
+          onResetFilters: ownPanelHandler(() => {
+            historyQuery = ''; historyTimeFilter = 'all'; historyModeFilter = 'all'; historyPeriodFilter = 'all';
+            renderActivePanel();
+          }),
           onPeriodChange: ownPanelHandler((val) => {
             historyPeriodFilter = val;
             historyFocusTarget = 'period-filter';
@@ -545,6 +593,8 @@ function ensureDiaryPanel(routes, options = {}) {
           timeFilter: store.diaryTimeFilter,
           playbackSpeed: store.simPlaybackSpeed,
           canRate: !!currentRoute,
+          localRatingCount: filterLocalDiaryEntries(currentDiaryLocalController?.getViewState()?.snapshot?.entries || [], diaryInsightsContext('live').filters)
+            .filter((entry) => entry.routeId === currentRoute?.properties?.route_id).length,
         },
         {
           onRouteSelect: ownPanelHandler((routeId) => {
@@ -568,8 +618,8 @@ function ensureDiaryPanel(routes, options = {}) {
             }
             updateSimButtons();
           }),
-          onDemoPeriodChange: ownPanelHandler((val) => setDiaryDemoPeriod(val)),
-          onTimeFilterChange: ownPanelHandler((val) => setDiaryTimeFilter(val)),
+          onDemoPeriodChange: ownPanelHandler((val) => { setDiaryDemoPeriod(val); renderActivePanel(); }),
+          onTimeFilterChange: ownPanelHandler((val) => { setDiaryTimeFilter(val); renderActivePanel(); }),
           onOpenHistory: ownPanelHandler(() => {
             setDiaryViewMode('history');
             renderActivePanel();
@@ -617,6 +667,7 @@ function ensureDiaryPanel(routes, options = {}) {
     currentDiaryLocalController?.getViewState().snapshot.entries || [],
   );
   refreshDiaryCopy = () => {
+    if (store.diaryViewMode === 'history') { renderActivePanel(); return; }
     onScopeChange(describeDiaryDataScope(store.diaryViewMode));
     applyTranslations(diaryPanelEl);
     refreshMyRoutesDates(diaryPanelEl);
@@ -757,6 +808,36 @@ export function fitCurrentDiarySelection() {
     ? resolveAlternativeForRoute(currentRoute, { getSegment: (id) => segmentLookup.get(id) })
     : null;
   return fitMapToRoutes(currentRoute, alt?.feature);
+}
+
+async function editJournalEntry(item = null, template = null) {
+  const session = diarySessionOwner.getSession();
+  const owner = diarySessionOwner.getOwnerIsCurrent();
+  const controller = currentDiaryLocalController;
+  try {
+    const { openDiaryEntryEditor } = await import('./diary_entry_editor.js');
+    if (!controller || !diarySessionIsCurrent(session, owner)) return;
+    // View-only date labels are deliberately excluded from stored records.
+    const entry = item ? Object.fromEntries(Object.entries(item).filter(([key]) => key !== 'date')) : null;
+    const routeFeature = template ? { type: 'Feature', geometry: template.routeGeometry, properties: {
+      route_id: template.routeId, name: template.label, mode: template.mode,
+      source_version: template.routeSourceVersion,
+    } } : null;
+    await openDiaryEntryEditor({ entry, routeFeature, signal: session?.signal,
+      onSave: async (value) => {
+        const result = await controller.saveEntry(value);
+        if (result.applied && diarySessionIsCurrent(session, owner)) {
+          if (!filterLocalDiaryEntries([value], diaryInsightsContext('history').filters).length) {
+            historyPeriodFilter = 'all'; historyModeFilter = 'all'; historyTimeFilter = 'all'; historyQuery = '';
+          }
+          refreshDiaryPanel?.();
+        }
+        return result;
+      },
+    });
+  } catch (error) {
+    if (diarySessionIsCurrent(session, owner)) showToast(controller?.localizeError(error, 'diary.localStorageUnavailable') || error.message);
+  }
 }
 
 async function openRouteRating() {

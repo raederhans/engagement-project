@@ -2,6 +2,8 @@ const COPY = Object.freeze({
   en: Object.freeze({
     title: 'Data sources and update status',
     intro: 'Review source status, coverage, and update times.',
+    search: 'Find a source', all: 'All statuses', empty: 'No sources match these filters.',
+    attention: 'Needs attention',
     rejected: 'One or more source observations failed schema admission. Affected sources are unavailable until valid evidence is supplied.',
     dataset: 'Dataset', provider: 'Provider', status: 'Status', canonical: 'Canonical source',
     license: 'License / reuse', coverage: 'Coverage', clocks: 'Evidence clocks',
@@ -14,6 +16,8 @@ const COPY = Object.freeze({
   'zh-CN': Object.freeze({
     title: '数据来源与更新时间',
     intro: '查看各数据源的状态、覆盖范围和更新时间。',
+    search: '查找数据来源', all: '全部状态', empty: '没有符合筛选条件的数据来源。',
+    attention: '需要关注',
     rejected: '部分来源未通过数据核验，暂时不可用。',
     dataset: '数据集', provider: '提供方', status: '状态', canonical: '规范来源',
     license: '许可 / 复用条款', coverage: '覆盖范围', clocks: '更新时间',
@@ -86,11 +90,41 @@ export function renderSourceHealthSurface({ host, model, language = 'en' } = {})
   const documentRef = host?.ownerDocument || globalThis.document;
   if (!host || !documentRef?.createElement) throw new TypeError('source health host requires a document');
   const copy = copyFor(language);
+  const previousSearch = host.querySelector?.('[data-source-search]');
+  const query = previousSearch?.value || '';
+  const selectedStatus = host.querySelector?.('[data-source-status-filter]')?.value || '';
+  const focused = documentRef.activeElement;
+  const focusedFilter = focused === previousSearch ? 'search'
+    : focused?.hasAttribute?.('data-source-status-filter') ? 'status' : null;
+  const openIds = new Set([...(host.querySelectorAll?.('[data-source-health-id][open]') || [])]
+    .map((node) => node.dataset.sourceHealthId));
   const fragment = documentRef.createDocumentFragment?.() || el(documentRef, 'div');
   const heading = el(documentRef, 'h4', copy.title, 'source-health__title');
   heading.id = 'source-health-title';
   fragment.append(heading);
   fragment.append(el(documentRef, 'p', copy.intro, 'source-health__intro'));
+  const filters = el(documentRef, 'div', null, 'source-health__filters');
+  const searchLabel = el(documentRef, 'label', copy.search);
+  const search = el(documentRef, 'input', null, 'field');
+  search.type = 'search';
+  search.setAttribute('data-source-search', '');
+  search.value = query;
+  searchLabel.append(search);
+  const statusLabel = el(documentRef, 'label', copy.status);
+  const statusFilter = el(documentRef, 'select', null, 'field');
+  statusFilter.setAttribute('data-source-status-filter', '');
+  for (const value of ['', 'attention', 'current', 'partial', 'stale', 'unavailable', 'unknown']) {
+    const option = el(documentRef, 'option', value ? copy[value] : copy.all);
+    option.value = value;
+    statusFilter.append(option);
+  }
+  statusFilter.value = selectedStatus;
+  statusLabel.append(statusFilter);
+  filters.append(searchLabel, statusLabel);
+  fragment.append(filters);
+  const count = el(documentRef, 'p', null, 'source-health__count');
+  count.setAttribute('role', 'status');
+  fragment.append(count);
   if (model.rejectedObservationCount > 0) {
     const alert = el(documentRef, 'p', copy.rejected, 'source-health__admission-warning');
     alert.setAttribute('role', 'alert');
@@ -98,10 +132,12 @@ export function renderSourceHealthSurface({ host, model, language = 'en' } = {})
   }
 
   const list = el(documentRef, 'div', null, 'source-health__sources');
+  const entries = [];
   for (const source of model.sources) {
     const article = el(documentRef, 'details', null, 'source-health__source');
     article.dataset.sourceHealthId = source.id;
     article.dataset.sourceHealthStatus = source.status;
+    if (openIds.has(source.id)) article.setAttribute('open', '');
     const title = SOURCE_TITLES[source.id]?.[language === 'zh-CN' ? 1 : 0] || source.dataset;
     const sourceTitle = el(documentRef, 'summary', title, 'source-health__source-title');
     const status = el(documentRef, 'span', copy[source.status], 'source-health__status');
@@ -126,7 +162,7 @@ export function renderSourceHealthSurface({ host, model, language = 'en' } = {})
     const clocksTerm = el(documentRef, 'dt', copy.clocks);
     clocksTerm.className = 'source-health__subheading';
     facts.append(clocksTerm);
-    const clocks = el(documentRef, 'dd');
+    const clocks = el(documentRef, 'dd', null, 'source-health__clock-values');
     const clockList = el(documentRef, 'dl', null, 'source-health__clocks');
     addDefinition(documentRef, clockList, copy.sourceAsOf, source.clocks.sourceAsOf, copy.notApplicable);
     addDefinition(documentRef, clockList, copy.retrievedAt, source.clocks.retrievedAt, copy.notApplicable);
@@ -150,10 +186,26 @@ export function renderSourceHealthSurface({ host, model, language = 'en' } = {})
     handoff.append(`${copy.handoff}: `, link(documentRef, source.officialHandoff.label, source.officialHandoff.url));
     article.append(handoff);
     list.append(article);
+    entries.push({ article, status: source.status, text: `${title} ${source.dataset} ${source.provider}`.toLocaleLowerCase() });
   }
+  const applyFilter = () => {
+    const term = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const entry of entries) {
+      const statusMatch = !statusFilter.value || (statusFilter.value === 'attention'
+        ? entry.status !== 'current' : entry.status === statusFilter.value);
+      entry.article.hidden = !entry.text.includes(term) || !statusMatch;
+      if (!entry.article.hidden) visible += 1;
+    }
+    count.textContent = visible ? `${visible} / ${entries.length} · ${copy.dataset}` : copy.empty;
+  };
+  search.addEventListener?.('input', applyFilter);
+  statusFilter.addEventListener?.('change', applyFilter);
+  applyFilter();
   fragment.append(list);
   host.replaceChildren(fragment);
   host.hidden = false;
   host.setAttribute('aria-labelledby', heading.id);
+  if (focusedFilter) (focusedFilter === 'search' ? search : statusFilter).focus?.({ preventScroll: true });
   return host;
 }

@@ -270,7 +270,10 @@ class TestNode {
     this.hidden = false;
     this.className = '';
     this._text = '';
+    this.listeners = new Map();
   }
+  addEventListener(type, callback) { this.listeners.set(type, callback); }
+  dispatch(type) { this.listeners.get(type)?.(); }
 
   set textContent(value) { this._text = String(value); this.children = []; }
   get textContent() { return `${this._text}${this.children.map((child) => typeof child === 'string' ? child : child.textContent).join('')}`; }
@@ -292,6 +295,29 @@ class TestDocument {
   createElement(tagName) { return new TestNode(tagName, this); }
   createDocumentFragment() { return new TestNode('fragment', this); }
 }
+
+test('source search and status filters combine without reclassifying unavailable evidence', () => {
+  const documentRef = new TestDocument();
+  const host = new TestNode('section', documentRef);
+  const model = buildSourceHealthReadModel({ catalog: SOURCE_HEALTH_CATALOG, observations: [] });
+  renderSourceHealthSurface({ host, model, language: 'en' });
+  const search = host.queryAll('input')[0];
+  const filter = host.queryAll('select')[0];
+  const entries = host.queryAll('details');
+  const expected = model.sources.filter((source) => source.status !== 'current').length;
+  filter.value = 'attention';
+  filter.dispatch('change');
+  assert.equal(entries.filter((entry) => !entry.hidden).length, expected);
+  search.value = 'not-a-source';
+  search.dispatch('input');
+  assert.equal(entries.filter((entry) => !entry.hidden).length, 0);
+  assert.match(host.textContent, /No sources match/);
+  search.value = '';
+  filter.value = '';
+  filter.dispatch('change');
+  assert.equal(entries.filter((entry) => !entry.hidden).length, model.sources.length);
+  assert.deepEqual(entries.map((entry) => entry.dataset.sourceHealthStatus), model.sources.map((source) => source.status));
+});
 
 test('text-first surface renders semantic no-map DOM with four clocks and accessible links', () => {
   const documentRef = new TestDocument();

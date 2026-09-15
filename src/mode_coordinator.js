@@ -76,6 +76,23 @@ export function createModeCoordinator({
     publishStatus(mode, phase);
     onModeSettled(mode, phase);
   };
+  const showDiaryFailure = () => {
+    diaryMount?.replaceChildren?.();
+    if (!diaryMount) return;
+    const documentRef = diaryMount.ownerDocument;
+    if (!documentRef?.createElement || !diaryMount.appendChild) {
+      setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
+      return;
+    }
+    const message = documentRef.createElement('p');
+    setTranslatedText(message, 'mode.diaryLoadFailed');
+    diaryMount.appendChild(message);
+    const retry = documentRef.createElement('button');
+    retry.type = 'button';
+    setTranslatedText(retry, 'mode.diaryRetry');
+    retry.addEventListener('click', () => { retry.disabled = true; void schedule('diary'); });
+    diaryMount.appendChild(retry);
+  };
 
   const getCrimeController = () => {
     if (!crimeControllerPromise) {
@@ -179,8 +196,7 @@ export function createModeCoordinator({
           return;
         }
         if (initResult.value?.status !== 'ready') {
-          diaryMount?.replaceChildren?.();
-          if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
+          showDiaryFailure();
           activeMode = null;
           settleMode(mode, 'failed', ownsMode);
           return { status: 'failed' };
@@ -191,8 +207,7 @@ export function createModeCoordinator({
       } catch (error) {
         if (!signal.aborted) {
           reportError('Diary init failed', error);
-          diaryMount?.replaceChildren?.();
-          if (diaryMount) setTranslatedText(diaryMount, 'mode.diaryLoadFailed');
+          showDiaryFailure();
           activeMode = null;
           settleMode(mode, 'failed', ownsMode);
           return { status: 'failed', error: String(error?.message || error) };

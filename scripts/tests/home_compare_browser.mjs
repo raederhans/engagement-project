@@ -110,7 +110,7 @@ await runBrowserSuite({
       assert.equal(await dialog.getAttribute('aria-labelledby'), 'home-compare-title');
       assert.equal(await dialog.getAttribute('aria-describedby'), 'home-compare-description');
       assert.equal(
-        await dialog.locator('[data-home-address="0"]').evaluate(
+        await dialog.locator('[data-home-close]').evaluate(
           (element) => document.activeElement === element,
         ),
         true,
@@ -119,13 +119,23 @@ await runBrowserSuite({
       assert.equal(await dialog.locator('[data-home-citywide-readiness]').count(), 0);
       assert.doesNotMatch(await dialog.innerText(), /source_as_of|reported_incidents|hin_road_context/);
 
-      await dialog.locator('[data-home-address="0"]').fill('100 PRIVATE TEST ST');
-      await dialog.locator('[data-home-address="1"]').fill('101 PRIVATE TEST ST');
-      const commuteDetails = dialog.locator('details').filter({ has: page.locator('[data-home-destinations]') });
-      if (await commuteDetails.getAttribute('open') === null) await commuteDetails.locator(':scope > summary').click();
-      await dialog.locator('[data-home-destinations]').fill('PRIVATE DESTINATION');
+      assert.equal(await dialog.locator('.home-compare__workflow').isVisible(), false);
+      assert.equal(await dialog.locator('[data-home-alternative="tract"]').isVisible(), true);
+      assert.equal(await dialog.locator('[data-home-alternative="route"]').isVisible(), true);
+      // Even a caller bypassing the unavailable UI must still hit the privacy gate.
+      await dialog.evaluate((root) => {
+        for (const [selector, value] of [
+          ['[data-home-address="0"]', '100 PRIVATE TEST ST'],
+          ['[data-home-address="1"]', '101 PRIVATE TEST ST'],
+          ['[data-home-destinations]', 'PRIVATE DESTINATION'],
+        ]) {
+          const input = root.querySelector(selector);
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
       const requestCheckpoint = requests.length;
-      await dialog.locator('[data-home-run]').click();
+      await dialog.locator('[data-home-run]').evaluate((button) => button.click());
       await page.waitForFunction((targetLocale) => {
         const text = document.querySelector('[data-home-status]')?.textContent || '';
         return targetLocale === 'en' ? text.includes('disabled') : text.includes('暂不支持地址比较');
@@ -146,7 +156,7 @@ await runBrowserSuite({
         url.hash = 'PRIVATE LEGACY VALUE';
         history.pushState({ private: 'PRIVATE LEGACY VALUE' }, '', url);
       });
-      await dialog.locator('[data-home-share]').click();
+      await dialog.locator('[data-home-share]').evaluate((button) => button.click());
       await page.waitForFunction((targetLocale) => {
         const text = document.querySelector('[data-home-status]')?.textContent || '';
         return targetLocale === 'en' ? text.includes('copied') : text.includes('已复制');
@@ -206,7 +216,7 @@ await runBrowserSuite({
       assert.equal(await opener.evaluate((element) => document.activeElement === element), true);
       await opener.click();
       await dialog.waitFor({ state: 'visible' });
-      await dialog.locator('[data-home-address="1"]').waitFor();
+      await dialog.locator('[data-home-address="1"]').waitFor({ state: 'attached' });
       assert.deepEqual(
         await dialog.locator('[data-home-address]').evaluateAll(
           (elements) => elements.map((element) => element.value),

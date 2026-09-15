@@ -1,4 +1,5 @@
 import '../i18n/p1.js';
+import { filterLocalDiaryEntries } from '../routes_diary/diary_view_models.js';
 import { setTranslatedAttribute, setTranslatedText, t } from '../i18n/index.js';
 import {
   diaryInsightsContextCopy,
@@ -90,13 +91,13 @@ export function deriveLocalDiaryInsights(value = []) {
   const sourceEntries = snapshot.entries;
   const normalized = sourceEntries
     .filter((entry) => Number.isFinite(Number(entry?.score))
-      && Number.isFinite(new Date(entry?.createdAt).getTime()))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      && Number.isFinite(new Date(entry?.occurredAt || entry?.createdAt).getTime()))
+    .sort((a, b) => Date.parse(a.occurredAt || a.createdAt) - Date.parse(b.occurredAt || b.createdAt));
   const tagCounts = new Map();
   const heatmap = Array.from({ length: 7 }, () => Array(5).fill(0));
   for (const entry of normalized) {
     for (const tag of entry.tags || []) tagCounts.set(String(tag), (tagCounts.get(String(tag)) || 0) + 1);
-    const date = new Date(entry.createdAt);
+    const date = new Date(entry.occurredAt || entry.createdAt);
     if (!Number.isNaN(date.getTime())) {
       const parts = Object.fromEntries(diaryTimeParts.formatToParts(date)
         .map(({ type, value: partValue }) => [type, partValue]));
@@ -149,11 +150,12 @@ function entriesForWindow(windowName) {
   const snapshot = normalizeDiaryInsightSnapshot(localInsightSnapshot);
   if (snapshot.storageStatus === 'unavailable') return snapshot;
   const scopedEntries = selectDiaryInsightEntries(snapshot.entries, insightsContext);
+  if (insightsContext.filters) return { ...snapshot, entries: filterLocalDiaryEntries(scopedEntries, insightsContext.filters) };
   if (windowName === 'all') return { ...snapshot, entries: scopedEntries };
   const days = windowName === '7d' ? 7 : windowName === '90d' ? 90 : 30;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   return { ...snapshot, entries: scopedEntries.filter((entry) => {
-    const timestamp = new Date(entry?.createdAt).getTime();
+    const timestamp = new Date(entry?.occurredAt || entry?.createdAt).getTime();
     return !Number.isFinite(timestamp) || timestamp >= cutoff;
   }) };
 }
@@ -312,7 +314,7 @@ function renderTags(container) {
     sync();
   });
 
-  if (insightsContext.mode !== 'community') {
+  if (insightsContext.mode !== 'community' && !insightsContext.filters) {
     const windowSelect = document.createElement('select');
     windowSelect.className = 'diary-select';
     setTranslatedAttribute(windowSelect, 'diary.insightsWindow', 'aria-label');

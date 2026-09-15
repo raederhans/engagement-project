@@ -24,6 +24,7 @@ const knownRouteEvidenceUi = manifest['src/routes_crime/known_route_evidence_ui.
 const knownRouteEvidenceP6Presenter = manifest['src/routes_crime/known_route_evidence_p6_presenter.js'];
 const acsMultitractLoader = manifest['src/acs_multitract/loader.js'];
 const acsMultitractController = manifest['src/acs_multitract/controller.js'];
+const acsMultitractView = manifest['src/acs_multitract/view.js'];
 const acsMultitractStyles = { file: acsMultitractController?.css?.[0] };
 const homeCompareLoader = manifest['src/home_compare/loader.js'];
 const homeCompareController = manifest['src/home_compare/controller.js'];
@@ -37,6 +38,8 @@ const taskFocus = manifest['src/routes_crime/task_focus_controller.js'];
 const queryPreset = manifest['src/routes_crime/query_preset_controller.js'];
 const diary = manifest['src/routes_diary/index.js'];
 const diaryStorage = manifest['src/routes_diary/diary_storage.js'];
+const diaryEditor = manifest['src/routes_diary/diary_entry_editor.js'];
+const diaryEditorStyles = { file: diaryEditor?.css?.[0] };
 const diaryForm = manifest['src/routes_diary/form_submit.js'];
 const diaryValidator = manifest['src/routes_diary/rating_payload_validator.js'];
 const charts = manifest['src/charts/index.js'];
@@ -56,7 +59,10 @@ const sourceHealthCatalog = Object.values(manifest).find((record) => record.name
 const analysisHistoryMessages = manifest['src/i18n/history.js'];
 const helpContent = manifest['src/ui/help_content.js'];
 const crimeOffenseCatalog = manifest['src/i18n/crime_offense_catalog.js'];
-const p1Messages = Object.values(manifest).find((record) => record.name === 'p1');
+// P1 and the shared Diary filters have the same two lazy consumers. The bundler
+// may coalesce them under the view-model name; validate content and graph below.
+const p1Messages = Object.values(manifest).find((record) => record.name === 'p1')
+  || Object.values(manifest).find((record) => record.name === 'diary_view_models');
 
 assert.ok(entry?.isEntry, 'Vite manifest must contain index.html as the application entry');
 assert.deepEqual(
@@ -145,8 +151,8 @@ assert.ok(routeCorridor?.isDynamicEntry, 'Vite manifest must contain route-corri
 assert.ok(routeCorridorUi?.isDynamicEntry, 'Vite manifest must contain route-corridor UI as a second-level lazy chunk');
 assert.deepEqual(
   new Set(routeCorridorUi.dynamicImports || []),
-  new Set(),
-  'Route corridor UI must not own additional data or health adapters',
+  new Set(['src/routes_diary/diary_entry_editor.js', 'src/routes_diary/diary_storage.js']),
+  'Route corridor UI may load only the private Diary editor and storage on explicit recording',
 );
 assert.ok(hin2025Ui?.isDynamicEntry, 'Vite manifest must contain HIN 2025 UI/context as a nested lazy chunk');
 assert.ok(knownRouteEvidenceUi?.isDynamicEntry, 'Vite manifest must contain M4 Known Route evidence as its own nested lazy chunk');
@@ -210,6 +216,7 @@ assert.ok(diary?.isDynamicEntry, 'Vite manifest must contain Diary as a lazy ent
 assert.deepEqual(
   new Set(diary.dynamicImports || []),
   new Set([
+    'src/routes_diary/diary_entry_editor.js',
     'src/routes_diary/diary_storage.js',
     'src/routes_diary/form_submit.js',
   ]),
@@ -260,6 +267,30 @@ assert.ok(analysisHistoryMessages?.isDynamicEntry, 'Vite manifest must contain A
 assert.ok(helpContent?.isDynamicEntry, 'Vite manifest must contain Help Center content as a lazy chunk');
 assert.ok(crimeOffenseCatalog?.isDynamicEntry, 'Vite manifest must keep the bilingual Crime offense catalog lazy');
 assert.ok(p1Messages, 'Vite manifest must keep P1 translations in a shared lazy chunk');
+assert.match(
+  await readFile(path.join(distDir, p1Messages.file), 'utf8'),
+  /diary\.sampleObservation1/,
+  'The shared P1 budget must measure the chunk that actually contains P1 translations',
+);
+const eagerKeys = new Set();
+function visitEager(key) {
+  if (eagerKeys.has(key)) return;
+  eagerKeys.add(key);
+  for (const dependency of manifest[key]?.imports || []) visitEager(dependency);
+}
+visitEager('index.html');
+const p1Key = Object.keys(manifest).find((key) => manifest[key] === p1Messages);
+assert.ok(!eagerKeys.has(p1Key), 'P1 translations and Diary filters must stay outside the entry static dependency closure');
+for (const key of ['src/routes_diary/index.js', 'src/charts/diary_insights.js']) {
+  assert.ok(manifest[key]?.imports?.includes(p1Key), `${key} must share the P1 translation chunk`);
+}
+assert.ok(diaryEditor?.isDynamicEntry, 'Diary editing must remain behind an explicit recording or editing action');
+assert.ok(!eagerKeys.has('src/routes_diary/diary_entry_editor.js'), 'Entry must not eagerly load the private Diary editor');
+assert.deepEqual(
+  new Set(diaryEditor.dynamicImports || []),
+  new Set(['src/routes_crime/route_input.js']),
+  'Diary editor may load route parsing only after an explicit local file selection',
+);
 assert.ok(
   !Object.keys(manifest).some((key) => key.includes('__vite-browser-external')),
   'Browser bundles must not contain the Node filesystem compatibility shim',
@@ -281,8 +312,8 @@ const budgets = [
   // Loaded only after an explicit route-corridor request. Exact route geometry
   // stays local while this chunk owns coarse admission and local association.
   ['Route corridor data', routeCorridor, 23_500, 7_800],
-  // Includes the shell-owned drawer and shared map/manual waypoint editor.
-  ['Route corridor UI', routeCorridorUi, 24_000, 8_300],
+  // Includes explicit local trip recording, deferred editor loading and owned cancellation.
+  ['Route corridor UI', routeCorridorUi, 25_600, 9_000],
   // Text-first HIN context plus dependency-free local segment association and
   // the admitted lifecycle receipt/source-health adapter.
   ['HIN 2025 context', hin2025Ui, 20_000, 7_200],
@@ -294,6 +325,7 @@ const budgets = [
   ['Known Route evidence P6 presenter', knownRouteEvidenceP6Presenter, 8_750, 2_800],
   ['ACS multi-tract loader', acsMultitractLoader, 1_000, 600],
   ['ACS multi-tract controller', acsMultitractController, 22_000, 8_000],
+  ['ACS multi-tract view', acsMultitractView, 10_000, 4_000],
   ['ACS multi-tract styles', acsMultitractStyles, 4_000, 1_200],
   // Opened only by explicit Home Compare intent. The nested controller owns
   // official aggregate queries, strict serving/share contracts, bilingual UI,
@@ -316,12 +348,18 @@ const budgets = [
   // Owns preview, stale-state admission, one-refresh commit, full-snapshot undo,
   // and explicit failed-port settlement so interrupted transactions do not stay pending.
   ['Query Preset', queryPreset, 5_200, 2_050],
-  ['Diary controller', diary, 80_000, 26_000],
+  // Includes local history editing, favorites, draft recovery, and shared filters.
+  ['Diary controller', diary, 80_000, 27_000],
+  // Device-local create/edit form with route import; absent from the initial entry.
+  // Includes local attachment validation and derived polyline length.
+  ['Diary entry editor', diaryEditor, 9_000, 4_000],
+  ['Diary entry editor styles', diaryEditorStyles, 1_900, 750],
   // Owns the versioned private schema, v1 migration, exact snapshot token,
   // serialized two-store transactions, and the extracted local-data controller.
   // It stays lazy and within a narrow regression budget after that controller
   // moved out of the larger Diary route chunk.
-  ['Diary local storage', diaryStorage, 27_500, 8_000],
+  // Travel timestamps now round-trip through normalized entries and private backups.
+  ['Diary local storage', diaryStorage, 28_000, 8_200],
   ['Diary rating submission', diaryForm, 18_000, 6_100],
   // The fixed Diary rating contract is validated without a general-purpose
   // browser schema runtime.
@@ -352,8 +390,8 @@ const budgets = [
   ['Help Center', helpContent, 23_300, 9_700],
   // Loaded with Crime initialization so the versioned taxonomy never inflates the app entry.
   ['Crime offense catalog', crimeOffenseCatalog, 9_000, 2_800],
-  // Shared by lazy Crime/Diary surfaces without increasing the initial entry catalog.
-  ['P1 translations', p1Messages, 8_644, 3_300],
+  // Shared by Diary and its lazy insights, now coalesced with the common filters.
+  ['P1 translations and Diary filters', p1Messages, 8_644, 3_450],
 ];
 const measurements = [];
 
@@ -368,7 +406,7 @@ for (const [label, record, rawLimit, gzipLimit] of budgets) {
 }
 
 for (const [label, records, rawLimit, gzipLimit] of [
-  ['Diary family', [diary, diaryForm, diaryValidator], 210_100, 65_573],
+  ['Diary family', [diary, diaryForm, diaryValidator, diaryEditor, diaryEditorStyles, p1Messages], 210_100, 65_573],
   ['Charts family', [charts, chartRenderer, tractSummary], 233_791, 79_747],
 ]) {
   let rawBytes = 0;

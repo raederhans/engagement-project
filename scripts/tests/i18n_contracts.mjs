@@ -172,6 +172,8 @@ test('all declared translation keys exist in both catalogs', async () => {
   await import(new URL('src/i18n/area_intelligence.js', projectRoot));
   await import(new URL('src/i18n/history.js', projectRoot));
   await import(new URL('src/i18n/p1.js', projectRoot));
+  await import(new URL('src/i18n/diary_workspace.js', projectRoot));
+  await import(new URL('src/i18n/diary_editor.js', projectRoot));
   await import(new URL('src/ui/data_scope.js', projectRoot));
   await import(new URL('src/i18n/help.js', projectRoot));
   await import(new URL('src/routes_crime/task_focus_controller.js', projectRoot));

@@ -62,12 +62,13 @@ try {
   assert.equal(await calculate.isDisabled(), true, 'Calculate stays disabled before Review');
   assert.equal(await page.locator('[data-acs-multitract-result]').textContent(), '');
   await page.keyboard.press('Tab');
-  assert.equal(await page.locator('[data-acs-multitract-review]').evaluate(
+  assert.equal(await page.locator('[data-acs-quick]').evaluate(
     (element) => document.activeElement === element,
   ), true);
   await page.keyboard.press('Shift+Tab');
   assert.equal(await input.evaluate((element) => document.activeElement === element), true);
 
+  await page.locator('[data-acs-manual] > summary').click();
   await page.locator('[data-acs-multitract-review]').click();
   await page.waitForFunction(() => (
     document.querySelectorAll('[data-acs-multitract-review-host] tbody tr').length === 2
@@ -93,6 +94,15 @@ try {
   assert.match(resultText, /2020–2024|2020-2024/);
   assert.match(resultText, /Census SDR VRE/);
   assert.equal(await result.evaluate((element) => document.activeElement === element), true);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('[data-acs-export]').click();
+  const download = await downloadPromise;
+  assert.equal(download.suggestedFilename(), 'tract-population-analysis.json');
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  assert.equal(exported.estimate, 5135);
+  assert.equal(exported.moe90, 463);
+  assert.deepEqual(exported.geoids, ['42101000101', '42101000102']);
+  assert.ok(exported.source.sourceUrl.startsWith('https://www2.census.gov/'));
   await page.screenshot({ path: `${OUTPUT_DIR}/desktop-en.png`, fullPage: true });
 
   await page.keyboard.press('Escape');
@@ -102,6 +112,20 @@ try {
   await dialog.waitFor({ state: 'visible' });
   assert.equal(vreRequestCount, 1, 'reopening must preserve reviewed local state without a request');
   assert.equal(await input.evaluate((element) => document.activeElement === element), true);
+  await page.locator('[data-acs-browse]').click();
+  await page.locator('[data-acs-choice] option').first().waitFor({ state: 'attached' });
+  await input.fill('');
+  await page.locator('[data-acs-search]').fill('42101000101');
+  await page.locator('[data-acs-add]').click();
+  await page.locator('[data-acs-add]').click();
+  assert.equal(await input.inputValue(), '42101000101');
+  assert.equal(await page.locator('[data-acs-quick]').isDisabled(), true);
+  await page.locator('[data-acs-search]').fill('42101000102');
+  await page.locator('[data-acs-add]').click();
+  await page.locator('[data-acs-quick]').click();
+  await page.locator('[data-acs-export]').waitFor({ state: 'visible' });
+  assert.match(await result.innerText(), /5,135/);
+  assert.equal(vreRequestCount, 3, 'browse and quick calculation each read the bundled snapshot');
   await page.keyboard.press('Escape');
 
   const languageSwitch = page.locator('.language-switch');
@@ -113,7 +137,7 @@ try {
   assert.match(zhText, /人口估计值/);
   assert.match(zhText, /标准误（SE）/);
   assert.match(zhText, /90% 误差范围/);
-  assert.equal(vreRequestCount, 1);
+  assert.equal(vreRequestCount, 3);
   await page.keyboard.press('Escape');
   await languageSwitch.click();
   await page.waitForFunction(() => document.documentElement.lang === 'en');

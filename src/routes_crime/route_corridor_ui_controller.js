@@ -11,6 +11,12 @@ registerMessagePairs({
   'route.clear': ['Clear route', '清除路线'],
   'route.buffer': ['Route buffer (metres)', '路线缓冲范围（米）'],
   'route.review': ['Review historical records', '查看历史记录'],
+  'route.recordTrip': ['Record this trip', '记录这次出行'],
+  'route.diaryName': ['My provided route', '我提供的路线'],
+  'route.diaryLoading': ['Opening your local trip diary…', '正在打开本地出行日记…'],
+  'route.diarySaved': ['Trip saved on this device. Open Travel Diary to view or edit it.', '出行已保存在此设备。打开出行日记可查看或编辑。'],
+  'route.diaryFailed': ['The trip editor could not open. Try again.', '出行编辑器无法打开，请重试。'],
+  'route.diaryPrivacy': ['Record this trip saves a copy locally only after you confirm in the editor.', '点击“记录这次出行”后，只有在编辑器确认保存才会在本地保留副本。'],
   'route.close': ['Close', '关闭'],
   'route.drawHint': ['Click map points', '点击地图添加路线点'],
   'route.waypoints': ['Enter route waypoints', '输入路线途经点'],
@@ -44,7 +50,7 @@ registerMessagePairs({
   'route.value.reportedRecord': ['Reported record', '已记录事件'],
   'route.value.dateUnavailable': ['Date unavailable', '日期不可用'],
   'route.value.locationUnavailable': ['Location unavailable', '位置不可用'],
-  'route.disclosure': ['The query sends only a coarse area, dates, and crime categories. The full route is not saved.', '查询只会发送粗略区域、日期和犯罪类别；完整路线不会保存。'],
+  'route.disclosure': ['The query sends only a coarse area, dates, and crime categories. Reviewing records does not save the full route.', '查询只会发送粗略区域、日期和犯罪类别；查看历史记录不会保存完整路线。'],
   'route.truth': ['These are historical reported records near the route. They do not show that an event happened on the route or provide safety advice.', '这里只显示路线附近的历史上报记录，不代表事件发生在路线上，也不是安全建议。'],
   'route.notes': ['Data & privacy', '数据与隐私'],
   'route.resultDetails': ['Result details', '结果说明'],
@@ -221,6 +227,8 @@ export function initRouteCorridorUi({
   const finish = host.querySelector('[data-route-finish]');
   const clear = host.querySelector('[data-route-clear]');
   const submit = host.querySelector('[data-route-submit]');
+  const recordTrip = host.querySelector('[data-route-record-trip]');
+  const diaryStatus = host.querySelector('[data-route-diary-status]');
   const close = host.querySelector('[data-route-close]');
   const buffer = host.querySelector('[data-route-buffer]');
   const status = host.querySelector('[data-route-status]');
@@ -242,6 +250,23 @@ export function initRouteCorridorUi({
   let active = false;
   let canonicalKey = createRouteQueryKey(readCanonicalSnapshot());
   let lastResult = { status: 'route-required' };
+  let diaryEditor = null;
+  let diaryEditorOpen = false;
+  let diaryGeneration = 0;
+  let diaryMessage = null;
+
+  const syncDiaryAction = () => {
+    recordTrip.disabled = !routeInput?.geometry || drawing || diaryEditorOpen;
+    diaryStatus.textContent = diaryMessage ? t(diaryMessage) : '';
+  };
+  const closeDiaryEditor = () => {
+    diaryGeneration += 1;
+    diaryEditor?.close();
+    diaryEditor = null;
+    diaryEditorOpen = false;
+    if (diaryMessage === 'route.diaryLoading') diaryMessage = null;
+    syncDiaryAction();
+  };
 
   const setStatus = (result) => {
     lastResult = result;
@@ -249,6 +274,9 @@ export function initRouteCorridorUi({
     surface.dataset.routeStatus = presentation.status;
     surface.dataset.routePhase = presentation.phase;
     surface.setAttribute('aria-busy', String(presentation.status === 'pending'));
+    submit.disabled = !routeInput || drawing || presentation.status === 'pending';
+    syncDiaryAction();
+    finish.disabled = drawingCoordinates.length < 2;
     status.textContent = t(`route.state.${presentation.messageState}`, { count: presentation.mappedCount ?? 0 });
     renderEvidence(documentRef, evidence, presentation, result, readCanonicalSnapshot(), Number(buffer.value));
     renderResults(documentRef, list, result?.matches || []);
@@ -356,6 +384,7 @@ export function initRouteCorridorUi({
   const onMapClick = (event) => {
     if (!active || !drawing) return;
     drawingCoordinates.push([event.lngLat.lng, event.lngLat.lat]);
+    finish.disabled = drawingCoordinates.length < 2;
     if (drawingCoordinates.length >= 2) {
       routeInput = createManualRouteInput(drawingCoordinates);
       syncQueryContext(context, readCanonicalSnapshot(), Number(buffer.value), routeInput);
@@ -387,6 +416,55 @@ export function initRouteCorridorUi({
     controller = null;
     setStatus(result);
     prepareKnownRouteEvidence({ routeInput, incidentResult: result });
+  };
+  const onRecordTrip = async () => {
+    if (!active || !routeInput?.geometry || drawing || diaryEditorOpen) return;
+    const routeFeature = {
+      type: 'Feature',
+      properties: {
+        route_id: `user-route-${crypto.randomUUID()}`,
+        name: t('route.diaryName'),
+        source_version: 'user-provided',
+        mode: 'walk',
+      },
+      geometry: structuredClone(routeInput.geometry),
+    };
+    const intent = ++diaryGeneration;
+    diaryEditorOpen = true;
+    diaryMessage = 'route.diaryLoading';
+    syncDiaryAction();
+    try {
+      const { openDiaryEntryEditor } = await import('../routes_diary/diary_entry_editor.js');
+      if (!active || intent !== diaryGeneration) return;
+      diaryMessage = null;
+      diaryEditor = openDiaryEntryEditor({
+        routeFeature,
+        onSave: async (entry) => {
+          if (!active || intent !== diaryGeneration) throw new Error('Trip editor closed.');
+          const { diaryLocalRepository } = await import('../routes_diary/diary_storage.js');
+          if (!active || intent !== diaryGeneration) throw new Error('Trip editor closed.');
+          await diaryLocalRepository.save(entry);
+          if (active && intent === diaryGeneration) {
+            diaryMessage = 'route.diarySaved';
+            syncDiaryAction();
+          }
+          return { applied: true };
+        },
+        onClose: () => {
+          if (intent !== diaryGeneration) return;
+          diaryEditor = null;
+          diaryEditorOpen = false;
+          syncDiaryAction();
+          if (active) recordTrip.focus?.();
+        },
+      });
+      syncDiaryAction();
+    } catch {
+      if (intent !== diaryGeneration) return;
+      diaryEditorOpen = false;
+      diaryMessage = 'route.diaryFailed';
+      syncDiaryAction();
+    }
   };
   const onBuffer = () => {
     generation += 1;
@@ -439,6 +517,7 @@ export function initRouteCorridorUi({
   };
   const hideSurface = ({ restoreFocus = false } = {}) => {
     active = false;
+    closeDiaryEditor();
     const closeResult = createRouteCloseResult(lastResult, routeInput);
     if (controller) generation += 1;
     controller?.abort();
@@ -455,7 +534,7 @@ export function initRouteCorridorUi({
   };
   const onClose = () => hideSurface({ restoreFocus: true });
   const onKeyDown = (event) => {
-    if (event.key !== 'Escape' || surface.hidden) return;
+    if (event.key !== 'Escape' || surface.hidden || diaryEditorOpen) return;
     event.preventDefault?.();
     onClose();
   };
@@ -465,6 +544,7 @@ export function initRouteCorridorUi({
   finish.addEventListener('click', onFinish);
   clear.addEventListener('click', clearRouteInputs);
   submit.addEventListener('click', onSubmit);
+  recordTrip.addEventListener('click', onRecordTrip);
   buffer.addEventListener('change', onBuffer);
   waypointList.addEventListener('change', onWaypointChange);
   waypointList.addEventListener('click', onWaypointRemove);
@@ -521,6 +601,8 @@ export function initRouteCorridorUi({
       }
     },
     dispose() {
+      active = false;
+      closeDiaryEditor();
       releaseLanguage();
       documentRef.removeEventListener?.('keydown', onKeyDown);
       controller?.abort();
@@ -536,12 +618,13 @@ function surfaceHtml() {
   return `<section class="route-corridor" data-route-corridor-surface tabindex="-1" aria-labelledby="route-corridor-title" aria-busy="false" hidden inert>
     <header><button class="button button--secondary" data-route-close data-i18n="route.close" type="button">${t('route.close')}</button><h2 id="route-corridor-title" data-i18n="route.title">${t('route.title')}</h2></header>
     <div class="route-corridor-shell__scroll">
+    <h3 data-i18n="route.inputStep">${t('route.inputStep')}</h3>
+    <p class="field-help" data-i18n="route.inputHelp">${t('route.inputHelp')}</p>
     <div class="route-corridor__controls">
       <label class="button button--secondary"><span data-i18n="route.file">${t('route.file')}</span><input data-route-file type="file" accept=".geojson,.json,application/geo+json,application/json"></label>
       <button class="button button--secondary" data-route-draw data-i18n="route.draw" type="button">${t('route.draw')}</button>
       <button class="button button--secondary" data-route-finish data-i18n="route.finish" type="button" hidden>${t('route.finish')}</button>
       <button class="button button--secondary" data-route-clear data-i18n="route.clear" type="button">${t('route.clear')}</button>
-      <label><span data-i18n="route.buffer">${t('route.buffer')}</span><input class="field" data-route-buffer type="number" min="10" max="10000" step="1" value="100"></label>
     </div>
     <details class="workspace-disclosure route-waypoint-disclosure"><summary data-i18n="route.waypoints">${t('route.waypoints')}</summary><fieldset class="route-corridor__waypoint-editor">
       <legend data-i18n="route.waypoints">${t('route.waypoints')}</legend>
@@ -553,18 +636,22 @@ function surfaceHtml() {
       </div>
     </fieldset></details>
     <p class="route-corridor__instruction" data-route-instruction data-i18n="route.drawHint" hidden>${t('route.drawHint')}</p>
+    <h3 data-i18n="route.settingsStep">${t('route.settingsStep')}</h3>
+    <label class="route-corridor__buffer"><span data-i18n="route.buffer">${t('route.buffer')}</span><input class="field" data-route-buffer type="number" min="10" max="10000" step="1" value="100"></label>
     <p data-route-query-context></p>
     <details class="route-corridor__notes">
       <summary data-i18n="route.notes">${t('route.notes')}</summary>
       <p class="route-corridor__disclosure" data-i18n="route.disclosure">${t('route.disclosure')}</p>
+      <p data-i18n="route.diaryPrivacy">${t('route.diaryPrivacy')}</p>
       <p class="route-corridor__truth" data-i18n="route.truth">${t('route.truth')}</p>
     </details>
     <p data-route-status role="status" aria-live="polite" aria-atomic="true"></p>
     <details class="route-corridor__notes"><summary data-i18n="route.resultDetails">${t('route.resultDetails')}</summary><dl data-route-evidence></dl></details><ol class="incident-results__list" data-route-results></ol>
     <section class="route-corridor__hin" data-route-hin-context aria-live="polite"></section>
     <section data-known-route-evidence></section>
+    <p data-route-diary-status role="status" aria-live="polite" aria-atomic="true"></p>
     </div>
-    <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button></footer>
+    <footer class="route-corridor__actions"><button class="button button--primary" data-route-submit data-i18n="route.review" type="button">${t('route.review')}</button><button class="button button--secondary" data-route-record-trip data-i18n="route.recordTrip" type="button" disabled>${t('route.recordTrip')}</button></footer>
   </section>`;
 }
 

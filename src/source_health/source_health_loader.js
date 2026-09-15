@@ -1,4 +1,6 @@
 /** Owns the explicit lazy boundary for the text-first Data Status surface. */
+import { t } from '../i18n/index.js';
+
 export function createSourceHealthLoader({
   mount,
   loadUi,
@@ -8,6 +10,10 @@ export function createSourceHealthLoader({
   const host = mount?.querySelector?.('[data-source-health-host]');
   const status = mount?.querySelector?.('[data-source-health-loader-status]');
   const retry = mount?.querySelector?.('[data-source-health-retry]');
+  const expand = mount?.querySelector?.('[data-source-workspace-open]');
+  const dialog = mount?.querySelector?.('#source-workspace-dialog');
+  const close = mount?.querySelector?.('[data-source-workspace-close]');
+  const content = mount?.querySelector?.('[data-source-workspace-content]');
   let promise = null;
   let controller = null;
 
@@ -27,7 +33,7 @@ export function createSourceHealthLoader({
       return Promise.resolve(controller);
     }
     if (!promise) {
-      setState('loading', 'Loading source evidence…／正在加载来源证据……');
+      setState('loading', t('sourceHealth.loading'));
       promise = loadUi()
         .then((module) => {
           controller = module.initSourceHealthSurface({
@@ -39,7 +45,7 @@ export function createSourceHealthLoader({
         })
         .catch((error) => {
           promise = null;
-          setState('unavailable', 'Source evidence could not load. Retry when ready.／来源证据加载失败，请重试。');
+          setState('unavailable', t('sourceHealth.failed'));
           warn('Data Status surface is unavailable:', error);
           return null;
         });
@@ -51,6 +57,21 @@ export function createSourceHealthLoader({
     if (mount?.open) void load();
   };
   const onRetry = () => { void load(); };
+  const onExpand = async () => {
+    if (!dialog || !content || !host) return;
+    const ready = await load();
+    if (!ready || dialog.open) return;
+    content.append(host);
+    dialog.showModal();
+  };
+  const onClose = () => {
+    if (host && dialog) dialog.before(host);
+    expand?.focus();
+  };
+  const closeWorkspace = () => dialog?.close();
+  expand?.addEventListener?.('click', onExpand);
+  close?.addEventListener?.('click', closeWorkspace);
+  dialog?.addEventListener?.('close', onClose);
   mount?.addEventListener?.('toggle', onToggle);
   retry?.addEventListener?.('click', onRetry);
   setState('idle');
@@ -66,6 +87,9 @@ export function createSourceHealthLoader({
       controller?.dispose?.();
       mount?.removeEventListener?.('toggle', onToggle);
       retry?.removeEventListener?.('click', onRetry);
+      expand?.removeEventListener?.('click', onExpand);
+      close?.removeEventListener?.('click', closeWorkspace);
+      dialog?.removeEventListener?.('close', onClose);
     },
   });
 }

@@ -1,0 +1,66 @@
+.diary-panel-shell .diary-route-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-block: 16px;
+}
+
+.diary-panel-shell .diary-route-filters input[type="search"] {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.diary-panel-shell .diary-history-item {
+  flex-wrap: wrap;
+  gap: 10px;
+  box-shadow: none;
+}
+
+.diary-panel-shell .diary-entry-detail {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.diary-entry-detail summary {
+  cursor: pointer;
+  padding-block: 10px;
+}
+
+.diary-entry-detail p {
+  white-space: pre-wrap;
+}
+
+.diary-entry-detail button {
+  margin: 4px;
+}
+
+.diary-drafts {
+  margin-block: 18px;
+  padding-block: 12px;
+  border-block: 1px solid #dfe4ea;
+}
+
+.diary-draft-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-block: 10px;
+}
+
+.diary-draft-row strong {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+
+.diary-panel-shell button {
+  min-height: 40px;
+}
+
+.diary-journal-summary {
+  font-weight: 600;
+}
+
+.diary-favorites { margin-block: 12px; }
+.diary-favorites summary { cursor: pointer; padding-block: 10px; }
+.diary-favorites button { margin: 4px; max-width: 100%; white-space: normal; }

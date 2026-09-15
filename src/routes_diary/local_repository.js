@@ -113,6 +113,11 @@ export function createDiaryLocalRepository({ adapter = createIndexedDbAdapter() 
     async delete(id) {
       await enqueue(() => requireAdapter(adapter.deleteEntry?.bind(adapter), 'delete entries')(String(id)));
     },
+    async deleteDraft(routeId) {
+      const key = String(routeId);
+      draftIntentRevisions.set(key, (draftIntentRevisions.get(key) || 0) + 1);
+      await enqueue(() => requireAdapter(adapter.deleteDraft?.bind(adapter), 'delete drafts')(key));
+    },
     async saveDraft(draft) {
       const normalized = normalizeDiaryDraft(draft);
       const routeId = normalized.routeId;
@@ -282,6 +287,7 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
       putEntry: unavailable,
       getAllEntries: unavailable,
       deleteEntry: unavailable,
+      deleteDraft: unavailable,
       putDraft: unavailable,
       getDraft: unavailable,
       getAllDrafts: unavailable,
@@ -453,6 +459,7 @@ export function createIndexedDbAdapter(indexedDb = globalThis.indexedDB) {
       return outcome;
     }),
     getDraft: (routeId) => transact(DRAFT_STORE, 'readonly', (tx) => tx.objectStore(DRAFT_STORE).get(routeId)),
+    deleteDraft: (routeId) => transact(DRAFT_STORE, 'readwrite', (tx) => tx.objectStore(DRAFT_STORE).delete(routeId)),
     getAllDrafts: () => transact(DRAFT_STORE, 'readonly', (tx) => tx.objectStore(DRAFT_STORE).getAll()),
     commitEntry: (entry, routeId) => transact([ENTRY_STORE, DRAFT_STORE], 'readwrite', (tx) => {
       tx.objectStore(ENTRY_STORE).put(entry);

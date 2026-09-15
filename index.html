@@ -457,21 +457,25 @@
         <nav class="analysis-shortcuts" data-i18n-aria-label="crime.analysisShortcutsLabel" aria-label="Additional analyses">
         <section class="route-corridor-entry" data-route-corridor-entry aria-label="Known route historical context">
           <button class="button button--secondary" type="button" data-route-corridor-open data-i18n="route.entryShort" data-i18n-aria-label="route.entryOpen" aria-expanded="false" aria-controls="route-corridor-shell">Known route</button>
+          <p class="analysis-tool-description" data-i18n="tools.routeHint">Import or draw a route to review nearby historical records.</p>
           <p data-route-corridor-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-route-corridor-retry data-focus-i18n="route.entryRetry" hidden>Retry route review</button>
         </section>
         <section class="public-route-entry" data-public-route-entry>
           <button class="button button--secondary" type="button" data-public-route-open aria-haspopup="dialog" aria-controls="public-route-dialog" data-i18n="publicRoutes.entry" data-i18n-aria-label="publicRoutes.entry">Public route scenarios</button>
+          <p class="analysis-tool-description" data-i18n="tools.publicHint">Illustrative walking scenarios. No live navigation.</p>
           <p data-public-route-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-public-route-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
         </section>
         <section class="acs-multitract-entry" data-acs-multitract-entry data-i18n-aria-label="acs.multitract.ariaLabel" aria-label="ACS complete-tract population aggregate">
           <button class="button button--secondary" type="button" data-acs-multitract-open aria-haspopup="dialog" aria-controls="acs-multitract-dialog" data-i18n="acs.multitract.entry">Compare complete tracts</button>
+          <p class="analysis-tool-description" data-i18n="tools.tractHint">Select complete tracts and calculate population with uncertainty.</p>
           <p data-acs-multitract-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-acs-multitract-retry data-i18n="acs.multitract.retry" hidden>Retry</button>
         </section>
         <section class="home-compare-entry" data-home-compare-entry data-i18n-aria-label="homeCompare.ariaLabel" aria-label="Home and neighborhood comparison">
           <button class="button button--secondary" type="button" data-home-compare-open aria-haspopup="dialog" aria-controls="home-compare-dialog" data-i18n="homeCompare.entry">Home &amp; neighborhood compare</button>
+          <p class="analysis-tool-description" data-i18n="tools.homeHint">Address comparison is not connected. View available alternatives.</p>
           <p data-home-compare-loader-status role="status" aria-live="polite" hidden></p>
           <button class="button button--secondary" type="button" data-home-compare-retry data-i18n="homeCompare.retry" hidden>Retry home comparison</button>
         </section>
@@ -498,8 +502,13 @@
 
             <div id="dataStatus" data-i18n="app.connecting" role="status" aria-live="polite">Checking data sources…</div>
               <p data-source-health-loader-status role="status" aria-live="polite" hidden></p>
-              <button class="button button--secondary" type="button" data-source-health-retry hidden>Retry source evidence／重试来源证据</button>
+              <button class="button button--secondary" type="button" data-source-health-retry data-i18n="sourceHealth.retry" hidden>Retry source details</button>
+              <button class="button button--secondary" type="button" data-source-workspace-open aria-haspopup="dialog" aria-controls="source-workspace-dialog" data-i18n="tools.sourcesExpand">Browse sources in full view</button>
               <section id="source-health-surface" data-source-health-host aria-busy="false" hidden></section>
+              <dialog id="source-workspace-dialog" class="source-workspace-dialog" aria-labelledby="source-health-title">
+                <button class="button button--secondary" type="button" data-source-workspace-close data-i18n="tools.sourcesClose">Back to explorer</button>
+                <div data-source-workspace-content></div>
+              </dialog>
           </details>
 <details class="workspace-disclosure query-export"><summary data-i18n="crime.exportTools">Share &amp; export</summary>      <div class="button-grid button-grid--three">
         <button id="shareViewBtn" class="button button--secondary" type="button" data-i18n="crime.copyView">Copy view</button>

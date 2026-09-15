@@ -4,7 +4,7 @@ export const DEFAULT_PANEL_SESSION_STATE = Object.freeze({
   viewMode: 'crime',
   selectedRouteId: null,
   diaryAltEnabled: false,
-  diaryViewMode: 'live',
+  diaryViewMode: 'history',
   diarySelectedHistoryRouteId: null,
   diaryCommunityRadiusMeters: 1500,
   simState: Object.freeze({ playing: false, progress: 0, routeId: null }),

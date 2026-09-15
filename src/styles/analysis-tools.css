@@ -1,0 +1,104 @@
+/* Secondary workspaces share the existing product typography and surfaces. */
+.analysis-hub .analysis-shortcuts {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.analysis-hub .analysis-shortcuts > section {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.analysis-hub .analysis-shortcuts > section:last-child { border-bottom: 0; }
+.analysis-hub .analysis-shortcuts .button { height: auto; min-height: 44px; font-size: 14px; }
+.analysis-tool-description { margin: 0; padding: 0 12px; color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+
+.source-workspace-dialog {
+  box-sizing: border-box;
+  width: min(1000px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.source-workspace-dialog::backdrop { background: rgb(16 32 51 / 45%); }
+.source-workspace-dialog > button { position: sticky; top: 0; z-index: 1; display: block; margin-left: auto; }
+.source-workspace-dialog .source-health__title { font-size: 22px; margin: 8px 0; }
+.source-workspace-dialog .source-health__facts { grid-template-columns: 160px minmax(0, 1fr); font-size: 14px; gap: 10px 24px; }
+.source-workspace-dialog .source-health__sources { gap: 8px; }
+.source-workspace-dialog .source-health__source > summary { font-size: 15px; }
+.source-workspace-dialog .source-health__source { padding: 12px 16px; border-radius: 6px; }
+.source-workspace-dialog .source-health__clocks { grid-template-columns: 120px minmax(0, 1fr); }
+.source-health__clock-values { grid-column: 1 / -1; }
+.source-health__filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-block: 16px; }
+.source-health__filters label { display: grid; gap: 6px; font-size: 13px; }
+.source-workspace-dialog .source-health__filters { grid-template-columns: minmax(0, 1fr) 200px; }
+.source-health__count { color: var(--ink-muted); font-size: 12px; }
+.source-health__source[hidden] { display: none; }
+.data-details > [data-source-workspace-open] { width: 100%; margin-block: 12px; }
+
+.acs-multitract-dialog .acs-multitract__header,
+.home-compare-dialog .home-compare__header {
+  position: relative;
+  display: block;
+  padding-right: 92px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.acs-multitract__header .analysis-workspace__close,
+.home-compare__header .analysis-workspace__close { position: absolute; top: 0; right: 0; margin: 0; float: none; }
+.acs-multitract__header h2, .home-compare__header h2 { font-size: 24px; margin: 0 0 8px; }
+.acs-multitract__header p, .home-compare__header p { font-size: 14px; color: var(--ink-muted); }
+.acs-multitract__picker:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; padding: 16px; background: var(--surface-muted); border-radius: 8px; }
+.acs-multitract__picker label, .acs-multitract__picker [data-acs-search] { grid-column: 1 / -1; }
+.acs-multitract__actions { padding-block: 8px; }
+.acs-multitract__actions [data-acs-multitract-calculate] { background: var(--surface-muted); color: var(--ink); border-color: var(--border); }
+.home-compare-dialog .home-compare__workflow[hidden] { display: none; }
+.home-compare__availability { max-width: 65ch; margin: 28px 0; line-height: 1.7; }
+.home-compare__availability h3 { font-size: 20px; }
+.home-compare__availability p { color: var(--ink-muted); }
+.home-compare-dialog:has(.home-compare__availability) { width: min(720px, calc(100vw - 32px)); }
+
+.route-corridor__controls { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
+.route-corridor__controls > label { grid-column: 1 / -1; padding: 12px; text-align: left; }
+.route-corridor__controls input[type="file"] { display: block; width: 100%; margin-top: 8px; }
+.route-corridor__buffer { display: grid; grid-template-columns: minmax(0, 1fr) 100px; align-items: center; gap: 12px; font-size: 13px; }
+.route-corridor-shell__scroll > h3 { margin: 20px 0 8px; font-size: 15px; }
+.route-corridor-shell__scroll > h3:first-child { margin-top: 0; }
+.route-corridor-shell__scroll > .field-help { margin-top: 0; }
+.route-corridor__actions .button { width: 100%; }
+.route-corridor [data-route-status] { padding: 12px; background: var(--surface-muted); border-radius: 6px; font-size: 13px; }
+
+.public-route-surface .public-route-surface__controls { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.public-route-surface__controls > :is(label, select, .public-route-surface__badges) { grid-column: 1; grid-row: auto; }
+.public-route-surface__controls > label:not(:first-child) { margin-top: 8px; }
+.public-route-comparison { overflow-x: auto; margin-block: 20px; border: 1px solid var(--border); border-radius: 8px; }
+.public-route-comparison table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
+.public-route-comparison caption { padding: 16px; text-align: left; font-weight: 650; }
+.public-route-comparison :is(th, td) { padding: 14px 16px; border-top: 1px solid var(--border); min-width: 100px; vertical-align: top; }
+.public-route-comparison th { background: var(--surface-muted); font-weight: 600; }
+.public-route-comparison tbody th { min-width: 140px; }
+.public-route-details > summary { padding-block: 16px; }
+.public-route-details .public-route-cards { margin-top: 12px; }
+.public-route-comparison:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .source-workspace-dialog { width: calc(100vw - 16px); padding: 16px; max-height: calc(100dvh - 16px); }
+  .source-workspace-dialog :is(.source-health__filters, .source-health__facts, .source-health__clocks) { grid-template-columns: minmax(0, 1fr); }
+  .acs-multitract__header h2, .home-compare__header h2 { font-size: 20px; }
+  .acs-multitract__picker:not([hidden]) { grid-template-columns: minmax(0, 1fr); }
+  .public-route-comparison :is(th, td) { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .analysis-hub .button { transition: background-color 120ms ease, border-color 120ms ease; }
+  .source-health__source > summary { transition: color 120ms ease; }
+}
